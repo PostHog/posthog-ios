@@ -1,17 +1,5 @@
-# PostHog
+# PostHog iOS
 
-## Installation
+Please see the main [PostHog docs](https://docs.posthog.com).
 
-PostHog is available through [CocoaPods](http://cocoapods.org) and [Carthage](https://github.com/Carthage/Carthage).
-
-### CocoaPods
-
-```ruby
-pod "PostHog", "1.0.0"
-```
-
-### Carthage
-
-```
-github "posthog/posthog-ios"
-```
+Specifically, the [iOS integration](https://docs.posthog.com/#/integrations/go-integration) details.

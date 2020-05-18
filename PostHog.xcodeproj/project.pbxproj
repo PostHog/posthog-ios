@@ -27,6 +27,7 @@
 		A31958EF2385AC3A00A47EFA /* SerializationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A31958EE2385AC3A00A47EFA /* SerializationTests.m */; };
 		A352176023AD5825005B07F6 /* PHGMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = A352175F23AD5825005B07F6 /* PHGMacros.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C826724E6F30D02E53EA6 /* ObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C88E533159E768C65C355 /* ObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BF8C8C32C210AC2B093F1042 /* CHANGELOG.md in Sources */ = {isa = PBXBuildFile; fileRef = BF8C89860ED4391E417B39E9 /* CHANGELOG.md */; };
 		BF8C8C9C0FD46725EA63890A /* ObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8388F05135177F79C286 /* ObjC.m */; };
 		BF8C8F2782C85B046B01C044 /* PHGIntegration.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8DC90BD0C5D0AF19498F /* PHGIntegration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		E4ACAD51DB827114D8626C74 /* Pods_PostHogTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5238C0454BF56A36A536C5C1 /* Pods_PostHogTests.framework */; };
@@ -121,6 +122,7 @@
 		B0D1E9E4405FD8386DCCD150 /* Pods-PostHogTestsTVOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogTestsTVOS.release.xcconfig"; path = "Target Support Files/Pods-PostHogTestsTVOS/Pods-PostHogTestsTVOS.release.xcconfig"; sourceTree = "<group>"; };
 		BF8C8388F05135177F79C286 /* ObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ObjC.m; sourceTree = "<group>"; };
 		BF8C88E533159E768C65C355 /* ObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ObjC.h; sourceTree = "<group>"; };
+		BF8C89860ED4391E417B39E9 /* CHANGELOG.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		BF8C8DC90BD0C5D0AF19498F /* PHGIntegration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGIntegration.h; sourceTree = "<group>"; };
 		EA88A5971DED7608009FB66A /* PHGSerializableValue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGSerializableValue.h; sourceTree = "<group>"; };
 		EA8F09731E24C5C600B8B93F /* MiddlewareTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MiddlewareTests.swift; sourceTree = "<group>"; };
@@ -264,6 +266,7 @@
 				EADEB8FE1DED36ED005322DA /* Supporting Files */,
 				14BF89C893339D4171174443 /* Pods */,
 				E7F5B7E85686966D7A4D0284 /* Frameworks */,
+				BF8C89860ED4391E417B39E9 /* CHANGELOG.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -732,6 +735,7 @@
 				EADEB8D71DECD12B005322DA /* UIViewController+PHGScreen.m in Sources */,
 				EADEB8D11DECD12B005322DA /* PHGStoreKitCapturer.m in Sources */,
 				BF8C8C9C0FD46725EA63890A /* ObjC.m in Sources */,
+				BF8C8C32C210AC2B093F1042 /* CHANGELOG.md in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -76,18 +76,10 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
     static dispatch_once_t selectorMappingOnce;
     dispatch_once(&selectorMappingOnce, ^{
         selectorMapping = @{
-            UIApplicationDidFinishLaunchingNotification :
-                NSStringFromSelector(@selector(applicationDidFinishLaunching:)),
             UIApplicationDidEnterBackgroundNotification :
                 NSStringFromSelector(@selector(applicationDidEnterBackground)),
-            UIApplicationWillEnterForegroundNotification :
-                NSStringFromSelector(@selector(applicationWillEnterForeground)),
             UIApplicationWillTerminateNotification :
                 NSStringFromSelector(@selector(applicationWillTerminate)),
-            UIApplicationWillResignActiveNotification :
-                NSStringFromSelector(@selector(applicationWillResignActive)),
-            UIApplicationDidBecomeActiveNotification :
-                NSStringFromSelector(@selector(applicationDidBecomeActive))
         };
     });
     SEL selector = NSSelectorFromString(selectorMapping[notificationName]);

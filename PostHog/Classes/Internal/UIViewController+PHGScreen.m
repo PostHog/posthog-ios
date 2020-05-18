@@ -38,7 +38,8 @@
 
 + (UIViewController *)phg_topViewController
 {
-    UIViewController *root = [[PHGPostHog sharedPostHog] configuration].application.delegate.window.rootViewController;
+    UIWindow *mainWindow = [[[UIApplication sharedApplication] windows] firstObject];
+    UIViewController *root = mainWindow.rootViewController;
     return [self phg_topViewController:root];
 }
 

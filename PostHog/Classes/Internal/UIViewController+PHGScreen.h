@@ -3,6 +3,8 @@
 
 @interface UIViewController (PHGScreen)
 
++ (BOOL)isAppExtension;
+
 + (void)phg_swizzleViewDidAppear;
 + (UIViewController *)phg_topViewController;
 

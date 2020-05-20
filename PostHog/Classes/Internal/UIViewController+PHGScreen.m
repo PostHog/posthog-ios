@@ -1,10 +1,20 @@
 #import "UIViewController+PHGScreen.h"
 #import <objc/runtime.h>
 #import "PHGPostHog.h"
-#import "PHGPostHogUtils.h"
+#import "PHGUtils.h"
 
 
 @implementation UIViewController (PHGScreen)
+
++ (BOOL)isAppExtension {
+#if TARGET_OS_IOS || TARGET_OS_TV
+    // Documented by <a href="https://goo.gl/RRB2Up">Apple</a>
+  BOOL appExtension = [[[NSBundle mainBundle] bundlePath] hasSuffix:@".appex"];
+  return appExtension;
+#elif TARGET_OS_OSX
+    return NO;
+#endif
+}
 
 + (void)phg_swizzleViewDidAppear
 {
@@ -38,7 +48,16 @@
 
 + (UIViewController *)phg_topViewController
 {
-    UIWindow *mainWindow = [[[UIApplication sharedApplication] windows] firstObject];
+    // iOS App extensions should not call [UIApplication sharedApplication], even if UIApplication responds to it.
+    static Class applicationClass = nil;
+    if (![UIViewController isAppExtension]) {
+        Class cls = NSClassFromString(@"UIApplication");
+        if (cls && [cls respondsToSelector:NSSelectorFromString(@"sharedApplication")]) {
+            applicationClass = cls;
+        }
+    }
+
+    UIWindow *mainWindow = [[[applicationClass sharedApplication] windows] firstObject];
     UIViewController *root = mainWindow.rootViewController;
     return [self phg_topViewController:root];
 }

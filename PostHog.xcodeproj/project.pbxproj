@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		067E6A3191007B3442DB29F0 /* Pods_PostHogTestsTVOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 66058A0DB75544E7C2766C31 /* Pods_PostHogTestsTVOS.framework */; };
+		2909CFFA247568CF00977728 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29BC6B32244DA78E00D7C963 /* CoreTelephony.framework */; };
 		6EEC1C712017EA370089C478 /* EndToEndTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EEC1C702017EA370089C478 /* EndToEndTests.swift */; };
 		9D8CE59023EE014E00197D0C /* CryptoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E91DECD335005322DA /* CryptoTest.swift */; };
 		9D8CE59123EE014E00197D0C /* UserDefaultsStorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E61DECD335005322DA /* UserDefaultsStorageTest.swift */; };
@@ -209,6 +210,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2909CFFA247568CF00977728 /* CoreTelephony.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,5 +1,6 @@
 #import "PHGPostHogConfiguration.h"
 #import "PHGCrypto.h"
+#import "PHGPostHog.h"
 
 
 @implementation UIApplication (PHGApplicationProtocol)
@@ -55,6 +56,8 @@
         self.flushAt = 20;
         self.flushInterval = 30;
         self.maxQueueSize = 1000;
+        self.libraryName = @"posthog-ios";
+        self.libraryVersion = [PHGPostHog version];
         self.payloadFilters = @{
             @"(fb\\d+://authorize#access_token=)([^ ]+)": @"$1((redacted/fb-auth-token))"
         };

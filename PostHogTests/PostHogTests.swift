@@ -35,12 +35,17 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.shouldUseLocationServices) == false
       expect(posthog.configuration.enableAdvertisingCapturing) == true
       expect(posthog.configuration.shouldUseBluetooth) == false
+      expect(posthog.configuration.libraryName) == "posthog-ios"
+      expect(posthog.configuration.libraryVersion) == PHGPostHog.version()
       expect(posthog.configuration.httpSessionDelegate).to(beNil())
       expect(posthog.getAnonymousId()).toNot(beNil())
     }
 
     it("initialized correctly with api host") {
       let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE", host: "https://testapp.posthog.test")
+      config.libraryName = "posthog-ios-test"
+      config.libraryVersion = "posthog-ios-version"
+      
       posthog = PHGPostHog(configuration: config)
       expect(posthog.configuration.flushAt) == 20
       expect(posthog.configuration.flushInterval) == 30
@@ -50,8 +55,14 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.shouldUseLocationServices) == false
       expect(posthog.configuration.enableAdvertisingCapturing) == true
       expect(posthog.configuration.shouldUseBluetooth) == false
+      expect(posthog.configuration.libraryVersion) == "posthog-ios-version"
+      expect(posthog.configuration.libraryName) == "posthog-ios-test"
       expect(posthog.configuration.httpSessionDelegate).to(beNil())
       expect(posthog.getAnonymousId()).toNot(beNil())
+
+      let integration = posthog.test_payloadManager()?.test_postHogIntegration()
+      expect(integration!.liveContext()["$lib"] as? String) == "posthog-ios-test"
+      expect(integration!.liveContext()["$lib_version"] as? String) == "posthog-ios-version"
     }
 
     it("clears PHGQueue from UserDefaults after initialized") {

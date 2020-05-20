@@ -135,9 +135,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 {
     NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
 
-    dict[@"$lib"] = @"posthog-ios";
-    dict[@"$lib_version"] = [PHGPostHog version];
-
     NSMutableDictionary *infoDictionary = [[[NSBundle mainBundle] infoDictionary] mutableCopy];
     [infoDictionary addEntriesFromDictionary:[[NSBundle mainBundle] localizedInfoDictionary]];
     if (infoDictionary.count) {
@@ -161,7 +158,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
         NSString *idfa = PHGIDFA();
         if (idfa.length) dict[@"$device_advertisingId"] = idfa;
     }
-
 
     dict[@"$os_name"] = device.systemName;
     dict[@"$os_version"] = device.systemVersion;
@@ -219,10 +215,18 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 - (NSDictionary *)liveContext
 {
     NSMutableDictionary *context = [[NSMutableDictionary alloc] init];
-    context[@"$locale"] = [NSString stringWithFormat:
-                                       @"%@-%@",
-                                       [NSLocale.currentLocale objectForKey:NSLocaleLanguageCode],
-                                       [NSLocale.currentLocale objectForKey:NSLocaleCountryCode]];
+
+    context[@"$lib"] = [self configuration].libraryName;
+    context[@"$lib_version"] = [self configuration].libraryVersion;
+
+    if ([NSLocale.currentLocale objectForKey:NSLocaleCountryCode]) {
+        context[@"$locale"] = [NSString stringWithFormat:
+                @"%@-%@",
+                [NSLocale.currentLocale objectForKey:NSLocaleLanguageCode],
+                [NSLocale.currentLocale objectForKey:NSLocaleCountryCode]];
+    } else {
+        context[@"$locale"] = [NSLocale.currentLocale objectForKey:NSLocaleLanguageCode];
+    }
 
     context[@"$timezone"] = [[NSTimeZone localTimeZone] name];
 

@@ -51,6 +51,16 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
 @property (nonatomic, copy, readonly, nonnull) NSURL *host;
 
 /**
+ * Override the $lib property, used by the React Native client
+ */
+@property (nonatomic, copy, nonnull) NSString *libraryName;
+
+/**
+ * Override the $lib_version property, used by the React Native client
+ */
+@property (nonatomic, copy, nonnull) NSString *libraryVersion;
+
+/**
  * Whether the posthog client should use location services.
  * If `YES` and the host app hasn't asked for permission to use location services then the user will be presented with an alert view asking to do so. `NO` by default.
  * If `YES`, please make sure to add a description for `NSLocationAlwaysUsageDescription` in your `Info.plist` explaining why your app is accessing Location APIs.

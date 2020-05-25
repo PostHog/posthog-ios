@@ -47,8 +47,8 @@ static BOOL GetAdCapturingEnabled()
     Class advertisingManager = NSClassFromString(PHGAdvertisingClassIdentifier);
     SEL sharedManagerSelector = NSSelectorFromString(@"sharedManager");
     id sharedManager = ((id (*)(id, SEL))[advertisingManager methodForSelector:sharedManagerSelector])(advertisingManager, sharedManagerSelector);
-    SEL adCapturingEnabledSEL = NSSelectorFromString(@"isAdvertisingCapturingEnabled");
-    result = ((BOOL (*)(id, SEL))[sharedManager methodForSelector:adCapturingEnabledSEL])(sharedManager, adCapturingEnabledSEL);
+    SEL adTrackingEnabledSEL = NSSelectorFromString(@"isAdvertisingTrackingEnabled");
+    result = ((BOOL (*)(id, SEL))[sharedManager methodForSelector:adTrackingEnabledSEL])(sharedManager, adTrackingEnabledSEL);
     return result;
 }
 

@@ -1,5 +1,5 @@
 # PostHog iOS
 
-Please see the main [PostHog docs](https://docs.posthog.com).
+Please see the main [PostHog docs](https://posthog.com/docs).
 
-Specifically, the [iOS integration](https://docs.posthog.com/#/integrations/ios-integration) details.
+Specifically, the [iOS integration](https://posthog.com/docs/integrations/ios-integration) details.

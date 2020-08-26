@@ -1,3 +1,6 @@
+## 1.0.5 - 2020-08-25
+Add Swift Package Manager support
+
 ## 1.0.4 - 2020-05-25
 Fix selector typo with ad capturing, which resulted in a crash when moving your app to the foreground.
 

@@ -1,6 +1,4 @@
-AppCode   
-// swift-tools-version:4.0
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version:5.2
 
 import PackageDescription
 
@@ -15,8 +13,10 @@ let package = Package(
             dependencies: [],
 			path: "PostHog"
 			),
-        .testTarget(
-            name: "PostHogTests",
-            dependencies: ["PostHog"]),
+//        .testTarget(
+//            name: "PostHogTests",
+//            dependencies: ["PostHog"],
+//            path: "PostHogTests"
+//        ),
     ]
 )

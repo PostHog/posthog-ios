@@ -1,5 +1,4 @@
 #import "PHGPostHogUtils.h"
-#import <AdSupport/ASIdentifierManager.h>
 
 static BOOL kPostHogLoggerShowLogs = NO;
 
@@ -162,27 +161,6 @@ NSDictionary *PHGCoerceDictionary(NSDictionary *dict)
     dict = [dict serializableDeepCopy];
     // coerce urls, and dates to the proper format
     return PHGCoerceJSONObject(dict);
-}
-
-NSString *PHGIDFA()
-{
-    NSString *idForAdvertiser = nil;
-    Class identifierManager = NSClassFromString(@"ASIdentifierManager");
-    if (identifierManager) {
-        SEL sharedManagerSelector = NSSelectorFromString(@"sharedManager");
-        id sharedManager =
-            ((id (*)(id, SEL))
-                 [identifierManager methodForSelector:sharedManagerSelector])(
-                identifierManager, sharedManagerSelector);
-        SEL advertisingIdentifierSelector =
-            NSSelectorFromString(@"advertisingIdentifier");
-        NSUUID *uuid =
-            ((NSUUID * (*)(id, SEL))
-                 [sharedManager methodForSelector:advertisingIdentifierSelector])(
-                sharedManager, advertisingIdentifierSelector);
-        idForAdvertiser = [uuid UUIDString];
-    }
-    return idForAdvertiser;
 }
 
 NSString *PHGEventNameForScreenTitle(NSString *title)

@@ -32,8 +32,6 @@ void PHGLog(NSString *format, ...);
 
 JSON_DICT PHGCoerceDictionary(NSDictionary *_Nullable dict);
 
-NSString *_Nullable PHGIDFA(void);
-
 NSString *PHGEventNameForScreenTitle(NSString *title);
 
 // Deep copy and check NSCoding conformance

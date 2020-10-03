@@ -52,6 +52,7 @@
     if (self = [super init]) {
         self.shouldUseLocationServices = NO;
         self.enableAdvertisingCapturing = YES;
+        self.adSupportBlock = nil;
         self.shouldUseBluetooth = NO;
         self.flushAt = 20;
         self.flushInterval = 30;

@@ -154,8 +154,8 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     if (NSClassFromString(PHGAdvertisingClassIdentifier)) {
         dict[@"$device_adCapturingEnabled"] = @(GetAdCapturingEnabled());
     }
-    if (self.configuration.enableAdvertisingCapturing) {
-        NSString *idfa = PHGIDFA();
+    if (self.configuration.enableAdvertisingCapturing && self.configuration.adSupportBlock != nil) {
+        NSString *idfa = self.configuration.adSupportBlock();
         if (idfa.length) dict[@"$device_advertisingId"] = idfa;
     }
 

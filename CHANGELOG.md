@@ -1,3 +1,8 @@
+## 1.1.0 - 2020-10-03
+Shift responsibility of IDFA collection to clients ([#5](https://github.com/PostHog/posthog-ios/pull/5))
+by removing any references to Apple's AdSupport framework from the library. In case you need to
+use the $device_advertisingId field, [see here](https://posthog.com/docs/integrations/ios-integration) for how to enable it.
+
 ## 1.0.5 - 2020-08-25
 Add Swift Package Manager support
 

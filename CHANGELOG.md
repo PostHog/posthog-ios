@@ -1,3 +1,6 @@
+## 1.2.1 - 2020-12-18
+Also remove the `enableAdvertisingCapturing` and `adSupportBlock` config options
+
 ## 1.2.0 - 2020-12-18
 Completely remove reference to the AdSupport framework
 

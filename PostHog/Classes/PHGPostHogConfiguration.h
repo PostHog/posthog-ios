@@ -68,23 +68,6 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
 @property (nonatomic, assign) BOOL shouldUseLocationServices;
 
 /**
- * Whether the posthog client should capture advertisting info. `YES` by default.
- */
-@property (nonatomic, assign) BOOL enableAdvertisingCapturing;
-
-/**
- * Sets a block to be called when IDFA / AdSupport identifier is created.
- * This is to allow for apps that do not want ad tracking to pass App Store guidelines in certain categories while
- * still allowing apps that do ad tracking to continue to function.
- *
- * Example:
- *      configuration.adSupportBlock = ^{
- *          return [[ASIdentifierManager sharedManager] advertisingIdentifier];
- *      }
- */
-@property (nonatomic, copy, nullable) NSString * _Nonnull (^adSupportBlock)(void);
-
-/**
  * The number of queued events that the posthog client should flush at. Setting this to `1` will not queue any events and will use more battery. `20` by default.
  */
 @property (nonatomic, assign) NSUInteger flushAt;

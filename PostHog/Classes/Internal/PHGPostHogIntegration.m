@@ -22,7 +22,6 @@ NSString *const PHGPostHogDidSendRequestNotification = @"PostHogDidSendRequest";
 NSString *const PHGPostHogRequestDidSucceedNotification = @"PostHogRequestDidSucceed";
 NSString *const PHGPostHogRequestDidFailNotification = @"PostHogRequestDidFail";
 
-NSString *const PHGAdvertisingClassIdentifier = @"ASIdentifierManager";
 NSString *const PHGADClientClass = @"ADClient";
 
 NSString *const PHGDistinctIdKey = @"PHGDistinctId";
@@ -40,18 +39,6 @@ static NSString *GetDeviceModel()
     NSString *results = [NSString stringWithCString:result encoding:NSUTF8StringEncoding];
     return results;
 }
-
-static BOOL GetAdCapturingEnabled()
-{
-    BOOL result = NO;
-    Class advertisingManager = NSClassFromString(PHGAdvertisingClassIdentifier);
-    SEL sharedManagerSelector = NSSelectorFromString(@"sharedManager");
-    id sharedManager = ((id (*)(id, SEL))[advertisingManager methodForSelector:sharedManagerSelector])(advertisingManager, sharedManagerSelector);
-    SEL adTrackingEnabledSEL = NSSelectorFromString(@"isAdvertisingTrackingEnabled");
-    result = ((BOOL (*)(id, SEL))[sharedManager methodForSelector:adTrackingEnabledSEL])(sharedManager, adTrackingEnabledSEL);
-    return result;
-}
-
 
 @interface PHGPostHogIntegration ()
 
@@ -151,9 +138,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     dict[@"$device_model"] = GetDeviceModel();
     dict[@"$device_id"] = [[device identifierForVendor] UUIDString];
     dict[@"$device_name"] = [device model];
-    if (NSClassFromString(PHGAdvertisingClassIdentifier)) {
-        dict[@"$device_adCapturingEnabled"] = @(GetAdCapturingEnabled());
-    }
     if (self.configuration.enableAdvertisingCapturing && self.configuration.adSupportBlock != nil) {
         NSString *idfa = self.configuration.adSupportBlock();
         if (idfa.length) dict[@"$device_advertisingId"] = idfa;

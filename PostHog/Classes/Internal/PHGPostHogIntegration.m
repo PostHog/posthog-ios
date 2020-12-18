@@ -138,10 +138,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     dict[@"$device_model"] = GetDeviceModel();
     dict[@"$device_id"] = [[device identifierForVendor] UUIDString];
     dict[@"$device_name"] = [device model];
-    if (self.configuration.enableAdvertisingCapturing && self.configuration.adSupportBlock != nil) {
-        NSString *idfa = self.configuration.adSupportBlock();
-        if (idfa.length) dict[@"$device_advertisingId"] = idfa;
-    }
 
     dict[@"$os_name"] = device.systemName;
     dict[@"$os_version"] = device.systemVersion;

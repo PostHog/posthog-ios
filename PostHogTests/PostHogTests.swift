@@ -33,8 +33,6 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.apiKey) == "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE"
       expect(posthog.configuration.host) == URL(string: "https://app.posthog.com")
       expect(posthog.configuration.shouldUseLocationServices) == false
-      expect(posthog.configuration.enableAdvertisingCapturing) == true
-      expect(posthog.configuration.adSupportBlock).to(beNil())
       expect(posthog.configuration.shouldUseBluetooth) == false
       expect(posthog.configuration.libraryName) == "posthog-ios"
       expect(posthog.configuration.libraryVersion) == PHGPostHog.version()
@@ -54,8 +52,6 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.apiKey) == "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE"
       expect(posthog.configuration.host) == URL(string: "https://testapp.posthog.test")
       expect(posthog.configuration.shouldUseLocationServices) == false
-      expect(posthog.configuration.enableAdvertisingCapturing) == true
-      expect(posthog.configuration.adSupportBlock).to(beNil())
       expect(posthog.configuration.shouldUseBluetooth) == false
       expect(posthog.configuration.libraryVersion) == "posthog-ios-version"
       expect(posthog.configuration.libraryName) == "posthog-ios-test"

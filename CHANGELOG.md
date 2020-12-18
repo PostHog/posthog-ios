@@ -1,3 +1,6 @@
+## 1.2.0 - 2020-12-18
+Completely remove reference to the AdSupport framework
+
 ## 1.1.0 - 2020-10-03
 Shift responsibility of IDFA collection to clients ([#5](https://github.com/PostHog/posthog-ios/pull/5))
 by removing any references to Apple's AdSupport framework from the library. In case you need to

@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "PHGMiddleware.h"
+#import "../Middlewares/PHGMiddleware.h"
 
 /**
  * NSNotification name, that is posted after integrations are loaded.

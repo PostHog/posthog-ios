@@ -7,7 +7,7 @@ class PostHogUtilTests: QuickSpec {
 
     it("format NSDate objects to RFC 3339 complaint string") {
       let date = Date(timeIntervalSince1970: 0)
-      let formattedString = iso8601FormattedString(date)
+      let formattedString = createISO8601FormattedString(date)
       expect(formattedString) == "1970-01-01T00:00:00.000Z"
 
       var components = DateComponents()
@@ -21,17 +21,17 @@ class PostHogUtilTests: QuickSpec {
       let calendar = NSCalendar(calendarIdentifier: .gregorian)!
       calendar.timeZone = TimeZone(secondsFromGMT: -4 * 60 * 60)!
       let date2 = calendar.date(from: components)!
-      let formattedString2 = iso8601FormattedString(date2)
+      let formattedString2 = createISO8601FormattedString(date2)
       expect(formattedString2) == "1992-08-06T11:32:04.335Z"
     }
 
-    describe("trimQueue", {
+    describe("trimQueueItems", {
       it("does nothing when count < max") {
         let queue = NSMutableArray(array: [])
         for i in 1...4 {
           queue.add(i)
         }
-        trimQueue(queue, 5)
+        trimQueueItems(queue, 5)
         expect(queue) == [1, 2, 3, 4]
       }
 
@@ -40,7 +40,7 @@ class PostHogUtilTests: QuickSpec {
         for i in 1...10 {
           queue.add(i)
         }
-        trimQueue(queue, 5)
+        trimQueueItems(queue, 5)
         expect(queue) == [6, 7, 8, 9, 10]
       }
 
@@ -49,7 +49,7 @@ class PostHogUtilTests: QuickSpec {
         for i in 1...5 {
           queue.add(i)
         }
-        trimQueue(queue, 5)
+        trimQueueItems(queue, 5)
         expect(queue) == [1, 2, 3, 4, 5]
       }
     })

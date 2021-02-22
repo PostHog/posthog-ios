@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "PHGPostHog.h"
+#import "../PHGPostHog.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

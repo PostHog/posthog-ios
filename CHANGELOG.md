@@ -1,3 +1,6 @@
+## 1.2.2 - 2020-12-24
+Swift Package Manager
+
 ## 1.2.1 - 2020-12-18
 Also remove the `enableAdvertisingCapturing` and `adSupportBlock` config options
 

@@ -3,15 +3,15 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-NSString *GenerateUUIDString(void);
+NSString *createUUIDString(void);
 
 // Validation Utils
 BOOL serializableDictionaryTypes(NSDictionary *dict);
 
 // Date Utils
-NSString *iso8601FormattedString(NSDate *date);
+NSString *createISO8601FormattedString(NSDate *date);
 
-void trimQueue(NSMutableArray *array, NSUInteger size);
+void trimQueueItems(NSMutableArray *array, NSUInteger size);
 
 // Async Utils
 dispatch_queue_t phg_dispatch_queue_create_specific(const char *label,

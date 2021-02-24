@@ -1,4 +1,7 @@
-## 1.2.2 - 2020-12-24
+## 1.2.3 - 2021-02-24
+Renamed functions which were causing conflicts with Segment iOS library
+
+## 1.2.2 - 2020-02-22
 Swift Package Manager
 
 ## 1.2.1 - 2020-12-18

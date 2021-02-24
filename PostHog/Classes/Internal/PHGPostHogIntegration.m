@@ -391,8 +391,8 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 {
     // attach these parts of the payload outside since they are all synchronous
     // and the timestamp will be more accurate.
-    payload[@"timestamp"] = iso8601FormattedString([NSDate date]);
-    payload[@"message_id"] = GenerateUUIDString();
+    payload[@"timestamp"] = createISO8601FormattedString([NSDate date]);
+    payload[@"message_id"] = createUUIDString();
 
     [self dispatchBackground:^{
         // attach distinctId and anonymousId inside the dispatch_async in case
@@ -415,7 +415,7 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 {
     @try {
         // Trim the queue to maxQueueSize - 1 before we add a new element.
-        trimQueue(self.queue, self.posthog.configuration.maxQueueSize - 1);
+        trimQueueItems(self.queue, self.posthog.configuration.maxQueueSize - 1);
         [self.queue addObject:payload];
         [self persistQueue];
         [self flushQueueByLength];
@@ -488,7 +488,7 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 - (void)sendData:(NSArray *)batch
 {
     NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
-    [payload setObject:iso8601FormattedString([NSDate date]) forKey:@"sent_at"];
+    [payload setObject:createISO8601FormattedString([NSDate date]) forKey:@"sent_at"];
     [payload setObject:batch forKey:@"batch"];
     [payload setObject:self.configuration.apiKey forKey:@"api_key"];
 

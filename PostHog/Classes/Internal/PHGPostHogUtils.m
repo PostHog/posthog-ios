@@ -2,7 +2,7 @@
 
 static BOOL kPostHogLoggerShowLogs = NO;
 
-NSString *GenerateUUIDString()
+NSString *createUUIDString()
 {
     CFUUIDRef theUUID = CFUUIDCreate(NULL);
     NSString *UUIDString = (__bridge_transfer NSString *)CFUUIDCreateString(NULL, theUUID);
@@ -11,7 +11,7 @@ NSString *GenerateUUIDString()
 }
 
 // Date Utils
-NSString *iso8601FormattedString(NSDate *date)
+NSString *createISO8601FormattedString(NSDate *date)
 {
     static NSDateFormatter *dateFormatter;
     static dispatch_once_t onceToken;
@@ -25,7 +25,7 @@ NSString *iso8601FormattedString(NSDate *date)
 }
 
 /** trim the queue so that it contains only upto `max` number of elements. */
-void trimQueue(NSMutableArray *queue, NSUInteger max)
+void trimQueueItems(NSMutableArray *queue, NSUInteger max)
 {
     if (queue.count < max) {
         return;
@@ -141,7 +141,7 @@ static id PHGCoerceJSONObject(id obj)
     }
 
     if ([obj isKindOfClass:[NSDate class]])
-        return iso8601FormattedString(obj);
+        return createISO8601FormattedString(obj);
 
     if ([obj isKindOfClass:[NSURL class]])
         return [obj absoluteString];

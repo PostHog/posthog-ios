@@ -383,7 +383,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     // this has to match the actual version, NOT what's in info.plist
     // because Apple only accepts X.X.X as versions in the review process.
-    return @"1.0.5";
+    return @"1.3.0";
 }
 
 #pragma mark - Helpers

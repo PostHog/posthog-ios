@@ -100,7 +100,7 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
 - (void)identify:(NSString *)distinctId properties:(NSDictionary *)properties options:(NSDictionary *)options
 {
-    NSCAssert2(distinctId.length > 0 || properties.count > 0, @"either distinctId (%@) or properties (%@) must be provided.", distinctId, properties);
+    NSCAssert1(distinctId.length > 0, @"distinctId (%@) must not be empty.", distinctId);
 
     NSString *anonymousId = [options objectForKey:@"$anon_distinct_id"];
     if (anonymousId) {

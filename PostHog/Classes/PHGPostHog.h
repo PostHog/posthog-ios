@@ -63,9 +63,9 @@ NS_ASSUME_NONNULL_BEGIN
  When you learn more about who your user is, you can record that information with identify.
 
  */
-- (void)identify:(NSString *_Nullable)distinctId properties:(SERIALIZABLE_DICT _Nullable)properties options:(SERIALIZABLE_DICT _Nullable)options;
-- (void)identify:(NSString *_Nullable)distinctId properties:(SERIALIZABLE_DICT _Nullable)properties;
-- (void)identify:(NSString *_Nullable)distinctId;
+- (void)identify:(NSString *)distinctId properties:(SERIALIZABLE_DICT _Nullable)properties options:(SERIALIZABLE_DICT _Nullable)options;
+- (void)identify:(NSString *)distinctId properties:(SERIALIZABLE_DICT _Nullable)properties;
+- (void)identify:(NSString *)distinctId;
 
 
 /*!

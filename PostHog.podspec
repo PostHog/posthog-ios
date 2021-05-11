@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "PostHog"
-  s.version          = "1.2.3"
+  s.version          = "1.3.0"
   s.summary          = "The hassle-free way to add posthog to your iOS app."
 
   s.description      = <<-DESC
@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.source           = { :git => "https://github.com/PostHog/posthog-ios.git", :tag => s.version.to_s }
   s.social_media_url = 'https://twitter.com/PostHogHQ'
 
-  s.ios.deployment_target = '7.0'
+  s.ios.deployment_target = '9.0'
   s.tvos.deployment_target = '9.0'
 
   s.ios.frameworks = 'CoreTelephony'

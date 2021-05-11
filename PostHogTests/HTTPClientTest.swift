@@ -7,7 +7,7 @@ class HTTPClientTest: QuickSpec {
   override func spec() {
 
     var client: PHGHTTPClient!
-    var host = URL(string: "https://app.posthog.test")!
+    let host = URL(string: "https://app.posthog.test")!
 
     beforeEach {
       LSNocilla.sharedInstance().start()

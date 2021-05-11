@@ -233,7 +233,6 @@
 				B528F2D35F9450C911ACC916 /* Pods-PostHogTestsTVOS.debug.xcconfig */,
 				C0DFDC0F98264AAE20A21BEC /* Pods-PostHogTestsTVOS.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -951,6 +950,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos appletvos appletvsimulator";
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 				TVOS_DEPLOYMENT_TARGET = 9.0;
 			};
@@ -976,6 +976,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos appletvos appletvsimulator";
+				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 				TVOS_DEPLOYMENT_TARGET = 9.0;
 			};

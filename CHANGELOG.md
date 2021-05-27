@@ -1,4 +1,7 @@
-## 1.3.0 - 2021-05.11
+## 1.4.0 - 2021-05-27
+Fix support for Swift Package Manager
+
+## 1.3.0 - 2021-05-11
 In the `identify` call the `distinct_id` field can no longer be `nil`.
 
 ## 1.2.3 - 2021-02-24

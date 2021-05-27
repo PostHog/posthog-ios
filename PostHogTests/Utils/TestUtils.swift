@@ -141,6 +141,7 @@ class TestApplication: NSObject, PHGApplicationProtocol {
   
   // MARK: - PHGApplicationProtocol
   var delegate: UIApplicationDelegate? = nil
+
   func phg_beginBackgroundTask(withName taskName: String?, expirationHandler handler: (() -> Void)? = nil) -> UInt {
     let backgroundTask = BackgroundTask(identifier: (backgroundTasks.map({ $0.identifier }).max() ?? 0) + 1)
     backgroundTasks.append(backgroundTask)

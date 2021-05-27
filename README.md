@@ -1,3 +1,7 @@
+[![Version](https://img.shields.io/cocoapods/v/PostHog.svg?style=flat)](https://cocoapods.org//pods/PostHog)
+[![License](https://img.shields.io/cocoapods/l/PostHog.svg?style=flat)](http://cocoapods.org/pods/PostHog)
+[![SwiftPM Compatible](https://img.shields.io/badge/SwiftPM-Compatible-F05138.svg)](https://swift.org/package-manager/)
+
 # PostHog iOS
 
 Please see the main [PostHog docs](https://posthog.com/docs).

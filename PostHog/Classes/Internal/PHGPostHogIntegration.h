@@ -1,6 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "PHGHTTPClient.h"
-#import "PHGIntegration.h"
+#import "../PHGIntegration.h"
 #import "PHGStorage.h"
 
 @class PHGIdentifyPayload;

@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "PHGCrypto.h"
+#import "../Crypto/PHGCrypto.h"
 
 @protocol PHGStorage <NSObject>
 

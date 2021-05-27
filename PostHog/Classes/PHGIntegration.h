@@ -1,10 +1,10 @@
 #import <Foundation/Foundation.h>
-#import "PHGIdentifyPayload.h"
-#import "PHGCapturePayload.h"
-#import "PHGScreenPayload.h"
-#import "PHGAliasPayload.h"
-#import "PHGIdentifyPayload.h"
-#import "PHGContext.h"
+#import "Payloads/PHGIdentifyPayload.h"
+#import "Payloads/PHGCapturePayload.h"
+#import "Payloads/PHGScreenPayload.h"
+#import "Payloads/PHGAliasPayload.h"
+#import "Payloads/PHGIdentifyPayload.h"
+#import "Middlewares/PHGContext.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

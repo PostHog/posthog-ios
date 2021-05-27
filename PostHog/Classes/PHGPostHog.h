@@ -1,7 +1,7 @@
 #import <Foundation/Foundation.h>
 #import "PHGPostHogConfiguration.h"
 #import "PHGSerializableValue.h"
-#import "PHGCrypto.h"
+#import "Crypto/PHGCrypto.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

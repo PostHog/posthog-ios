@@ -21,20 +21,14 @@ let package = Package(
             dependencies: [],
             path: "PostHog/",
             exclude: ["SwiftSources"],
-            sources: ["Classes/",
-                      "Classes/Crypto/",
-                      "Classes/Internal/",
-                      "Classes/Middlewares/",
-                      "Classes/Payloads/",
-                      "Vendor/"],
+            sources: ["Classes",
+                      "Internal",
+                      "Vendor"],
             publicHeadersPath: "Classes",
             cSettings: [
-                .headerSearchPath("Classes/"),
-                .headerSearchPath("Classes/Crypto/"),
-                .headerSearchPath("Classes/Internal/"),
-                .headerSearchPath("Classes/Middlewares/"),
-                .headerSearchPath("Classes/Payloads/"),
-                .headerSearchPath("Vendor/")
+                .headerSearchPath("Vendor")
+                .headerSearchPath("Internal")
+                .headerSearchPath("Classes")
             ]
         )
     ]

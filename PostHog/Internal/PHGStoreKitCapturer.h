@@ -1,6 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <StoreKit/StoreKit.h>
-#import "../PHGPostHog.h"
+#import "PHGPostHog.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

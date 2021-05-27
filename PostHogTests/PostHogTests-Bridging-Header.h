@@ -6,10 +6,10 @@
 #import "PHGAES256Crypto.h"
 #import "PHGFileStorage.h"
 #import "PHGUserDefaultsStorage.h"
-#import <PostHog/NSData+PHGGZIP.h>
+#import "NSData+PHGGZIP.h"
 #import "PHGStoreKitCapturer.h"
-#import <PostHog/UIViewController+PHGScreen.h>
-#import <PostHog/PHGPostHogUtils.h>
+#import "UIViewController+PHGScreen.h"
+#import "PHGPostHogUtils.h"
 #import "PHGPayloadManager.h"
 #import "PHGUtils.h"
 

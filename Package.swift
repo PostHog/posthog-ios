@@ -26,8 +26,8 @@ let package = Package(
                       "Vendor"],
             publicHeadersPath: "Classes",
             cSettings: [
-                .headerSearchPath("Vendor")
-                .headerSearchPath("Internal")
+                .headerSearchPath("Vendor"),
+                .headerSearchPath("Internal"),
                 .headerSearchPath("Classes")
             ]
         )

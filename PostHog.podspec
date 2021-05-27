@@ -22,6 +22,7 @@ Pod::Spec.new do |s|
 
   s.source_files = [
     'PostHog/Classes/**/*',
+    'PostHog/Internal/**/*',
     'PostHog/Vendor/**/*'
   ]
 end

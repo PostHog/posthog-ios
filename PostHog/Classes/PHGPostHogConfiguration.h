@@ -3,8 +3,8 @@
 
 @protocol PHGApplicationProtocol <NSObject>
 @property (nullable, nonatomic, assign) id<UIApplicationDelegate> delegate;
-- (UIBackgroundTaskIdentifier)phg_beginBackgroundTaskWithName:(nullable NSString *)taskName expirationHandler:(void (^__nullable)(void))handler;
-- (void)phg_endBackgroundTask:(UIBackgroundTaskIdentifier)identifier;
+- (NSUInteger)phg_beginBackgroundTaskWithName:(nullable NSString *)taskName expirationHandler:(void (^__nullable)(void))handler;
+- (void)phg_endBackgroundTask:(NSUInteger)identifier;
 @end
 
 

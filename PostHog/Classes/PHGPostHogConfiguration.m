@@ -1,6 +1,5 @@
 #import "PHGPostHogConfiguration.h"
 #import "PHGPostHog.h"
-#import "PHGCrypto.h"
 
 
 @implementation UIApplication (PHGApplicationProtocol)

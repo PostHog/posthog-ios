@@ -2,7 +2,7 @@
 
 #import <zlib.h>
 #import <dlfcn.h>
-#import <PostHog/NSData+PHGGZIP.h>
+#import "NSData+PHGGZIP.h"
 #import "NSData+PHGGUNZIPP.h"
 
 

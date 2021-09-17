@@ -1,3 +1,6 @@
+## 1.4.1 - 2021-09-17
+Fix warning with for Swift Package Manager
+
 ## 1.4.0 - 2021-05-27
 Fix support for Swift Package Manager
 

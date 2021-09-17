@@ -20,7 +20,6 @@ let package = Package(
             name: "PostHog",
             dependencies: [],
             path: "PostHog/",
-            exclude: ["SwiftSources"],
             sources: ["Classes",
                       "Internal",
                       "Vendor"],

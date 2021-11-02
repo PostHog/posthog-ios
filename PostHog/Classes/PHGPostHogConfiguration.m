@@ -51,6 +51,7 @@
     if (self = [super init]) {
         self.shouldUseLocationServices = NO;
         self.shouldUseBluetooth = NO;
+        self.shouldSendDeviceID = YES;
         self.flushAt = 20;
         self.flushInterval = 30;
         self.maxQueueSize = 1000;

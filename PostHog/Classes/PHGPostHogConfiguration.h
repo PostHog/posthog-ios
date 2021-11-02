@@ -117,6 +117,13 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
 @property (nonatomic, assign) BOOL captureDeepLinks;
 
 /**
+ * Whether the posthog client should include the `$device_id` property when sending events. When enabled, `UIDevice`'s `identifierForVendor` property is used.
+ * Changing the value of this property after initializing the client will have no effect.
+ * The default value is `YES`.
+ */
+@property (nonatomic, assign) BOOL shouldSendDeviceID;
+
+/**
  * Dictionary indicating the options the app was launched with.
  */
 @property (nonatomic, strong, nullable) NSDictionary *launchOptions;

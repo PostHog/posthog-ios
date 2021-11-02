@@ -1,6 +1,14 @@
-## 1.4.1 - 2021-11-02
+## 1.4.3 - 2021-11-02
 
 Add `shouldSendDeviceID` config option.
+
+## 1.4.2 - 2021-09-17
+
+Fix Info.plist warning for Swift Package Manager
+
+## 1.4.1 - 2021-09-17
+
+Fix warning with Swift Package Manager
 
 ## 1.4.0 - 2021-05-27
 

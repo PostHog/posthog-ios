@@ -1,3 +1,7 @@
+## 1.4.4 - 2021-11-19
+
+Make enabled property public.
+
 ## 1.4.3 - 2021-11-02
 
 Add `shouldSendDeviceID` config option.

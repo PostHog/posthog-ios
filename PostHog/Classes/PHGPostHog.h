@@ -14,6 +14,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface PHGPostHog : NSObject
 
 /**
+ * Whether or not the posthog client is currently enabled.
+ */
+@property (nonatomic, assign, readonly) BOOL enabled;
+
+/**
  * Used by the posthog client to configure various options.
  */
 @property (nonatomic, strong, readonly) PHGPostHogConfiguration *configuration;

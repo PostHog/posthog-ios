@@ -22,8 +22,9 @@ jobs:
     name: test iOS (${{ matrix.ios }})
     steps:
     - uses: actions/checkout@v1
+    - run: ls /Applications
     - name: Select Xcode
-      run: sudo xcode-select -switch /Applications/Xcode_$.app && /usr/bin/xcodebuild -version
+      run: sudo xcode-select -switch /Applications/Xcode_${{ matrix.xcode }}.app && /usr/bin/xcodebuild -version
     - name: Install pods
       run: pod install --repo-update
     - name: Run unit tests

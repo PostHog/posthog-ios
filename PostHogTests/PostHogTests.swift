@@ -83,7 +83,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened for UIApplicationDidFinishLaunching") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidFinishLaunching, object: [
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidFinishLaunching, object: testApplication, userInfo: [
         UIApplication.LaunchOptionsKey.sourceApplication: "testApp",
         UIApplication.LaunchOptionsKey.url: "test://test",
       ])

@@ -1,0 +1,36 @@
+name: tests
+
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  run_tests:
+    runs-on: macos-12
+    strategy:
+      matrix:
+        include:
+          # Latest xcode
+          - xcode: "13.4.1"
+            ios: "15.5"
+          # Older version
+          - xcode: "13.1"
+            ios: "15.0"
+    name: test iOS (${{ matrix.ios }})
+    steps:
+    - uses: actions/checkout@v1
+    - run: ls /Applications
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode_${{ matrix.xcode }}.app && /usr/bin/xcodebuild -version
+    - name: Install pods
+      run: pod install --repo-update
+    - name: Run unit tests
+      run: xcodebuild test -scheme PostHogTests -workspace PostHog.xcworkspace -destination 'platform=iOS Simulator,name=iPhone 12,OS=${{ matrix.ios }}' | xcpretty && exit ${PIPESTATUS[0]}

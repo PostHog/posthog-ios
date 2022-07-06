@@ -1,0 +1,28 @@
+name: tests
+
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  run_tests:
+    runs-on: macos-12
+    strategy:
+      matrix:
+        include:
+          # Latest xcode
+          - xcode: "13.4.1"
+            ios: "15.2"
+          # Older version
+          - xcode: "13.1"
+            ios: "15.0"
+    name: test iOS (${{ matrix.ios }})
+    steps:
+    - uses: actions/checkout@v1
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode_$.app && /usr/bin/xcodebuild -version
+    - name: Run unit tests
+      run: xcodebuild test -scheme PostHogTests -workspace PostHog.xcworkspace -destination 'platform=iOS Simulator,name=iPhone 12,OS=$' | xcpretty && exit ${PIPESTATUS[0]}

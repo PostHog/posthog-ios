@@ -20,7 +20,7 @@ jobs:
         include:
           # Latest xcode
           - xcode: "13.4.1"
-            ios: "15.2"
+            ios: "15.5"
           # Older version
           - xcode: "13.1"
             ios: "15.0"
@@ -33,4 +33,4 @@ jobs:
     - name: Install pods
       run: pod install --repo-update
     - name: Run unit tests
-      run: xcodebuild test -scheme PostHogTests -workspace PostHog.xcworkspace -destination 'platform=iOS Simulator,name=iPhone 12,OS=$' | xcpretty && exit ${PIPESTATUS[0]}
+      run: xcodebuild test -scheme PostHogTests -workspace PostHog.xcworkspace -destination 'platform=iOS Simulator,name=iPhone 12,OS=${{ matrix.ios }}' | xcpretty && exit ${PIPESTATUS[0]}

@@ -133,7 +133,7 @@
     NSURLSession *session = [NSURLSession sharedSession];
     NSURLSessionDataTask *task = [session dataTaskWithRequest:request
                                              completionHandler:
-         ^(NSData *data, NSURLResponse *response, NSError *error) {g
+         ^(NSData *data, NSURLResponse *response, NSError *error) {
             if (error) {
                 // Network error. Retry.
                 PHGLog(@"Error uploading request %@.", error);

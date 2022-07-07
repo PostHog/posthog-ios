@@ -4,8 +4,10 @@ import PostHog
 
 class PHGPassthroughMiddleware: PHGMiddleware {
   var lastContext: PHGContext?
+  var allContexts = [PHGContext]()
   
   func context(_ context: PHGContext, next: @escaping PHGMiddlewareNext) {
+    allContexts.append(context)
     lastContext = context;
     next(context)
   }

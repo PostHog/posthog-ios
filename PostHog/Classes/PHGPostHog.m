@@ -260,7 +260,17 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (void)group:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey properties:(NSDictionary *)properties
 {
+    NSDictionary *currentGroups = [self.payloadManager getGroups];
+    NSLog(@"%@", currentGroups);
+    [self.payloadManager saveGroup:groupType groupKey:groupKey];
+    
     [self run:PHGEventTypeGroup payload: [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey properties:PHGCoerceDictionary(properties)]];
+    
+    NSString *possibleGroupKey = [currentGroups objectForKey:groupType];
+
+    if (![possibleGroupKey isEqualToString:groupKey]){
+        [self reloadFeatureFlags];
+    }
 }
 
 - (bool)isFeatureEnabled:(NSString *)flagKey

@@ -75,10 +75,21 @@ class CapturingTests: QuickSpec {
       posthog.group("some-type", groupKey: "some-key", properties: [
         "name": "some-company-name"
         ])
-      expect(passthrough.lastContext?.eventType) == PHGEventType.group
-      let payload = passthrough.lastContext?.payload as? PHGGroupPayload
+      let firstContext = passthrough.allContexts[0]
+      
+      expect(firstContext.eventType) == PHGEventType.group
+      let payload = firstContext.payload as? PHGGroupPayload
       expect(payload?.groupType) == "some-type"
       expect(payload?.properties?["name"] as? String) == "some-company-name"
+      
+      let secondContext = passthrough.allContexts[1]
+      expect(secondContext.eventType) == PHGEventType.reloadFeatureFlags
+      
+      posthog.group("some-type", groupKey: "some-key", properties: [
+        "name": "some-company-name"
+        ])
+      expect(passthrough.allContexts.count) == 3
+    
     }
 
     it("handles null values") {

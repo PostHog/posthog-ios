@@ -19,6 +19,9 @@ static NSString *const kPHGActiveFeatureFlags = @"posthog.activeFeatureFlags";
 static NSString *const PHGEnabledFeatureFlags = @"PHGEnabledFeatureFlags";
 static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
 
+static NSString *const PHGGroups = @"PHGGroups";
+static NSString *const kPHGGroups = @"posthog.groups";
+
 
 
 @interface PHGPayloadManager ()
@@ -305,6 +308,34 @@ static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
 #else
     [self.fileStorage setString:anonymousId forKey:kPHGAnonymousIdFilename];
 #endif
+}
+
+- (void)saveGroup:(NSString *)groupType groupKey:(NSString *)groupKey
+{
+    NSDictionary *currentGroups = [self getGroups];
+    NSMutableDictionary *newGroups = [currentGroups mutableCopy];
+    [newGroups setObject:groupKey forKey:groupType];
+    
+#if TARGET_OS_TV
+    [self.userDefaultsStorage setDictionary:newGroups forKey:PHGGroups];
+#else
+    [self.fileStorage setDictionary:newGroups forKey:kPHGGroups];
+#endif
+}
+
+- (NSDictionary *)getGroups
+{
+#if TARGET_OS_TV
+    NSDictionary *groups = [self.userDefaultsStorage dictionaryForKey:PHGGroups];
+#else
+    NSDictionary *groups = [self.fileStorage dictionaryForKey:kPHGGroups];
+#endif
+    
+//  if groups doesn't exist, return a new empty dict
+    if (!groups){
+        return [[NSDictionary alloc] init];
+    }
+    return groups;
 }
 
 - (void)flush

@@ -186,11 +186,12 @@ static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
 - (void)reloadFeatureFlags
 {
     NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
-    [payload setObject:[self.posthog getAnonymousId] forKey:@"$anon_distinct_id"];
-    [payload setObject:self.integration.distinctId forKey:@"distinct_id"];
+//    [payload setObject:[self.posthog getAnonymousId] forKey:@"$anon_distinct_id"];
+//    TODO: add groups and determine how distinct_id can be populated
+//    [payload setObject:self.integration.distinctId forKey:@"distinct_id"];
     [payload setObject:self.posthog.configuration.apiKey forKey:@"api_key"];
     
-    NSURL *url = [self.posthog.configuration.host URLByAppendingPathComponent:@"decide/?v=2"];
+    NSURL *url = [self.posthog.configuration.host URLByAppendingPathComponent:@"decide/\?v=2"];
     
     [self.httpClient sharedSessionUpload:payload host:url success:^(NSDictionary * _Nonnull responseDict) {
         [self receivedFeatureFlags:responseDict];

@@ -90,6 +90,8 @@
 		EADEB8F31DECD335005322DA /* PostHogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E71DECD335005322DA /* PostHogTests.swift */; };
 		EADEB8F41DECD335005322DA /* ContextTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E81DECD335005322DA /* ContextTest.swift */; };
 		EADEB8F51DECD335005322DA /* CryptoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E91DECD335005322DA /* CryptoTest.swift */; };
+		F2A54FB028772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
+		F2A54FB128772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F61EB4AF1F996DEF0038C8C0 /* PostHogUtilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61EB4AE1F996DEF0038C8C0 /* PostHogUtilTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -193,6 +195,7 @@
 		EADEB8FF1DED3711005322DA /* circle.yml */ = {isa = PBXFileReference; lastKnownFileType = text; path = circle.yml; sourceTree = "<group>"; };
 		EADEB9001DED3711005322DA /* PostHog.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; path = PostHog.podspec; sourceTree = "<group>"; };
 		EADEB9011DED3711005322DA /* Podfile.lock */ = {isa = PBXFileReference; lastKnownFileType = text; path = Podfile.lock; sourceTree = "<group>"; };
+		F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagTests.swift; sourceTree = "<group>"; };
 		F61EB4AE1F996DEF0038C8C0 /* PostHogUtilTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogUtilTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -333,6 +336,7 @@
 				EADEB8EC1DECD335005322DA /* PostHogTests-Bridging-Header.h */,
 				6EEC1C702017EA370089C478 /* EndToEndTests.swift */,
 				A31958EE2385AC3A00A47EFA /* SerializationTests.m */,
+				F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */,
 			);
 			indentWidth = 2;
 			path = PostHogTests;
@@ -667,6 +671,7 @@
 				9D8CE59223EE014E00197D0C /* CapturingTests.swift in Sources */,
 				9D8CE59323EE014E00197D0C /* ContextTest.swift in Sources */,
 				9D8CE59423EE014E00197D0C /* SerializationTests.m in Sources */,
+				F2A54FB128772F97006C53FF /* FeatureFlagTests.swift in Sources */,
 				9D8CE59523EE014E00197D0C /* HTTPClientTest.swift in Sources */,
 				9D8CE59623EE014E00197D0C /* PostHogTests.swift in Sources */,
 				9D8CE59723EE014E00197D0C /* FileStorageTest.swift in Sources */,
@@ -718,6 +723,7 @@
 				EAA542771EB4035400945DA7 /* CapturingTests.swift in Sources */,
 				EADEB8F41DECD335005322DA /* ContextTest.swift in Sources */,
 				A31958EF2385AC3A00A47EFA /* SerializationTests.m in Sources */,
+				F2A54FB028772F97006C53FF /* FeatureFlagTests.swift in Sources */,
 				EADEB8EE1DECD335005322DA /* HTTPClientTest.swift in Sources */,
 				EADEB8F31DECD335005322DA /* PostHogTests.swift in Sources */,
 				EADEB8F11DECD335005322DA /* FileStorageTest.swift in Sources */,

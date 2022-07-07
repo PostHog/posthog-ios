@@ -20,11 +20,8 @@ class FeatureFlagTests: QuickSpec {
     }
 
     it("checks flag is enabled") {
-      _ = stubRequest("POST", "https://app.posthog.test/decide/%3Fv=2" as LSMatcheable)
-        .withHeaders([ "Content-Length": "46", "Content-Type": "application/json" ])?
-        .withBody("{\"api_key\":\"QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE\"}" as LSMatcheable)?
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=2" as LSMatcheable)
         .andReturn(200)?
-        .withHeaders(["Content-Type": "application/json"])?
         .withBody("{\"some-flag\":\"true\"}" as LSHTTPBody);
       posthog.reloadFeatureFlags()
       // Hacky: Need to buffer for async request to happen without stub being cleaned up

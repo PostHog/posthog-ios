@@ -81,14 +81,6 @@ class CapturingTests: QuickSpec {
       let payload = firstContext.payload as? PHGGroupPayload
       expect(payload?.groupType) == "some-type"
       expect(payload?.properties?["name"] as? String) == "some-company-name"
-      
-      let secondContext = passthrough.allContexts[1]
-      expect(secondContext.eventType) == PHGEventType.reloadFeatureFlags
-      
-      posthog.group("some-type", groupKey: "some-key", properties: [
-        "name": "some-company-name"
-        ])
-      expect(passthrough.allContexts.count) == 3
     
     }
 

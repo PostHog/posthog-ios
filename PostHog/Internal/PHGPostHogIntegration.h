@@ -23,6 +23,7 @@ extern NSString *const PHGPostHogRequestDidFailNotification;
 - (id)initWithPostHog:(PHGPostHog *)posthog httpClient:(PHGHTTPClient *)httpClient fileStorage:(id<PHGStorage>)fileStorage userDefaultsStorage:(id<PHGStorage>)userDefaultsStorage;
 - (NSDictionary *)staticContext;
 - (NSDictionary *)liveContext;
+- (void)saveDistinctId:(NSString *)distinctId;
 
 @end
 

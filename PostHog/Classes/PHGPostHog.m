@@ -84,6 +84,8 @@ static PHGPostHog *__sharedInstance = nil;
             }
         }
 #endif
+        
+        [self reloadFeatureFlags];
     }
     return self;
 }
@@ -252,6 +254,18 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     [self run:PHGEventTypeAlias payload:
                                     [[PHGAliasPayload alloc] initWithAlias:alias]];
+}
+
+- (bool)isFeatureEnabled:(NSString *)flagKey
+{
+    NSArray *keys = [self.payloadManager getFeatureFlags];
+    BOOL isFlagEnabled = [keys containsObject: flagKey];
+    return isFlagEnabled;
+}
+
+- (void)reloadFeatureFlags
+{
+    [self run:PHGReloadFeatureFlags payload:nil];
 }
 
 - (void)capturePushNotification:(NSDictionary *)properties fromLaunch:(BOOL)launch

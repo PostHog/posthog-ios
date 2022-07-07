@@ -13,6 +13,13 @@ NSString *PHGPostHogIntegrationDidStart = @"com.posthog.integration.did.start";
 static NSString *const PHGAnonymousIdKey = @"PHGAnonymousId";
 static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
+static NSString *const PHGActiveFeatureFlags = @"PHGActiveFeatureFlags";
+static NSString *const kPHGActiveFeatureFlags = @"posthog.activeFeatureFlags";
+
+static NSString *const PHGEnabledFeatureFlags = @"PHGEnabledFeatureFlags";
+static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
+
+
 
 @interface PHGPayloadManager ()
 
@@ -155,6 +162,51 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
     [self callWithSelector:NSSelectorFromString(@"alias:")
                              arguments:@[ payload ]
                                options:options];
+}
+
+#pragma mark - Feature Flags
+
+- (void)receivedFeatureFlags:(NSDictionary *)flags
+{
+    NSArray* keys = [flags allKeys];
+    
+#if TARGET_OS_TV
+        [self.userDefaultsStorage setArray:keys forKey:PHGActiveFeatureFlags];
+#else
+        [self.fileStorage setArray:keys forKey:kPHGActiveFeatureFlags];
+#endif
+    
+#if TARGET_OS_TV
+        [self.userDefaultsStorage setString:anonymousId forKey:PHGEnabledFeatureFlags];
+#else
+        [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
+#endif
+}
+
+- (void)reloadFeatureFlags
+{
+    NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
+    [payload setObject:[self.posthog getAnonymousId] forKey:@"$anon_distinct_id"];
+    [payload setObject:self.integration.distinctId forKey:@"distinct_id"];
+    [payload setObject:self.posthog.configuration.apiKey forKey:@"api_key"];
+    
+    NSURL *url = [self.posthog.configuration.host URLByAppendingPathComponent:@"decide/?v=2"];
+    
+    [self.httpClient sharedSessionUpload:payload host:url success:^(NSDictionary * _Nonnull responseDict) {
+        [self receivedFeatureFlags:responseDict];
+    } failure:^(NSError * _Nonnull error) {
+        
+    }];
+}
+
+- (NSArray *)getFeatureFlags
+{
+#if TARGET_OS_TV
+    NSArray *keys = [self.userDefaultsStorage arrayForKey:PHGActiveFeatureFlags];
+#else
+    NSArray *keys = [self.fileStorage arrayForKey:kPHGActiveFeatureFlags];
+#endif
+    return keys;
 }
 
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo
@@ -387,6 +439,9 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
             [self openURL:payload.url options:payload.options];
             break;
         }
+        case PHGReloadFeatureFlags:
+            [self reloadFeatureFlags];
+            break;
         case PHGEventTypeUndefined:
             NSAssert(NO, @"Received context with undefined event type %@", context);
             NSLog(@"[ERROR]: Received context with undefined event type %@", context);

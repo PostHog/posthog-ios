@@ -13,6 +13,8 @@ extern NSString *_Nonnull PHGPostHogIntegrationDidStart;
 
 - (instancetype _Nonnull)initWithPostHog:(PHGPostHog *_Nonnull)posthog;
 
+- (NSArray *_Nonnull)getFeatureFlags;
+
 // @Deprecated - Exposing for backward API compat reasons only
 - (NSString *_Nonnull)getAnonymousId;
 

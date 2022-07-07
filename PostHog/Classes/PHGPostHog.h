@@ -127,6 +127,9 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)alias:(NSString *)alias;
 
+- (bool)isFeatureEnabled:(NSString *)flagKey;
+- (void)reloadFeatureFlags;
+
 // todo: docs
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo;
 - (void)failedToRegisterForRemoteNotificationsWithError:(NSError *)error;

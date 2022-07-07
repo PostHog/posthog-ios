@@ -53,7 +53,6 @@ static NSString *GetDeviceModel()
 @property (nonatomic, assign) PHGPostHog *posthog;
 @property (nonatomic, assign) PHGPostHogConfiguration *configuration;
 @property (nonatomic, copy) NSString *referrer;
-@property (nonatomic, copy) NSString *distinctId;
 @property (nonatomic, strong) PHGHTTPClient *httpClient;
 @property (nonatomic, strong) id<PHGStorage> fileStorage;
 @property (nonatomic, strong) id<PHGStorage> userDefaultsStorage;

@@ -439,7 +439,7 @@ static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
             [self openURL:payload.url options:payload.options];
             break;
         }
-        case PHGReloadFeatureFlags:
+        case PHGEventTypeReloadFeatureFlags:
             [self reloadFeatureFlags];
             break;
         case PHGEventTypeUndefined:

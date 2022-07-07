@@ -84,8 +84,7 @@ static PHGPostHog *__sharedInstance = nil;
             }
         }
 #endif
-        
-        [self reloadFeatureFlags];
+
     }
     return self;
 }
@@ -265,7 +264,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (void)reloadFeatureFlags
 {
-    [self run:PHGReloadFeatureFlags payload:nil];
+    [self run:PHGEventTypeReloadFeatureFlags payload:nil];
 }
 
 - (void)capturePushNotification:(NSDictionary *)properties fromLaunch:(BOOL)launch

@@ -14,7 +14,7 @@ typedef NS_ENUM(NSInteger, PHGEventType) {
     PHGEventTypeFlush,
     
     // FeatureFlags Methods
-    PHGReloadFeatureFlags,
+    PHGEventTypeReloadFeatureFlags,
 
     // Remote Notification
     PHGEventTypeReceivedRemoteNotification,

@@ -105,6 +105,7 @@
     return task;
 }
 
+// Use shared session handler for basic network requests 
 - (NSURLSessionDataTask *)sharedSessionUpload:(NSDictionary *)payload host:(NSURL *)host success:(void (^)(NSDictionary *responseDict))success failure:(void(^)(NSError* error))failure
 {
     NSMutableURLRequest *request = self.requestFactory(host);

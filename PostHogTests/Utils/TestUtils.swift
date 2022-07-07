@@ -4,6 +4,7 @@ import PostHog
 
 class PHGPassthroughMiddleware: PHGMiddleware {
   var lastContext: PHGContext?
+//  Catch more than just the latest context
   var allContexts = [PHGContext]()
   
   func context(_ context: PHGContext, next: @escaping PHGMiddlewareNext) {

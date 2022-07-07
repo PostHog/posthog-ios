@@ -3,7 +3,7 @@
 @class PHGPostHog;
 
 
-@interface PHGPayloadManager : NSObject
+@interface PHGFeatureFlags : NSObject
 
 - (instancetype _Nonnull)initWithPostHog:(PHGPostHog *_Nonnull)posthog;
 

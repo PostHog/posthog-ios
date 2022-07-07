@@ -47,11 +47,11 @@ class HTTPClientTest: QuickSpec {
           expect(responseDict).toNot(beNil())
           done = true
         } failure: { error in
-          NSLog("FAILURE")
+
           expect(error).to(beNil())
           done = true
         }
-        NSLog("nEW")
+
         expect(task).toNot(beNil())
         expect(done).toEventually(beTrue())
       }

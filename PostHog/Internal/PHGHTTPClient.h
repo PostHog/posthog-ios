@@ -23,6 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (NSURLSessionUploadTask *)upload:(JSON_DICT)batch host:(NSURL *_Nonnull)host completionHandler:(void (^)(BOOL retry))completionHandler;
 
+- (NSURLSessionDataTask *)sharedSessionUpload:(NSDictionary *)payload host:(NSURL *)host success:(void (^)(NSDictionary *responseDict))success failure:(void(^)(NSError* error))failure;
 @end
 
 NS_ASSUME_NONNULL_END

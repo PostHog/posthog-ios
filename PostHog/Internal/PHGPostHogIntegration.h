@@ -7,6 +7,7 @@
 @class PHGCapturePayload;
 @class PHGScreenPayload;
 @class PHGAliasPayload;
+@class PHGGroupPayload;
 
 NS_ASSUME_NONNULL_BEGIN
 

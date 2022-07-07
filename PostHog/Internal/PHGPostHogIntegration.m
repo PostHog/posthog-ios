@@ -12,6 +12,7 @@
 #import "PHGCapturePayload.h"
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
+#import "PHGGroupPayload.h"
 
 #if TARGET_OS_IOS
 #import <CoreTelephony/CTCarrier.h>
@@ -353,6 +354,19 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     [properties setValue:self.distinctId ?: [self.posthog getAnonymousId] forKey:@"distinct_id"];
     [properties setValue:payload.alias forKey:@"alias"];
     [dictionary setValue:properties forKey:@"properties"];
+
+    [self enqueueAction:dictionary];
+}
+
+- (void)group:(PHGGroupPayload *)payload
+{
+    NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
+    [dictionary setValue:@"$groupidentify" forKey:@"event"];
+
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+    [properties setValue:payload.groupType forKey:@"$group_type"];
+    [properties setValue:payload.groupKey forKey:@"group_key"];
+    [dictionary setValue:properties forKey:@"group_set"];
 
     [self enqueueAction:dictionary];
 }

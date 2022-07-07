@@ -70,6 +70,16 @@ class CapturingTests: QuickSpec {
       expect(screen?.name) == "Home"
       expect(screen?.properties?["referrer"] as? String) == "Google"
     }
+    
+    it("handles group:") {
+      posthog.group("some-type", groupKey: "some-key", properties: [
+        "name": "some-company-name"
+        ])
+      expect(passthrough.lastContext?.eventType) == PHGEventType.group
+      let payload = passthrough.lastContext?.payload as? PHGGroupPayload
+      expect(payload?.groupType) == "some-type"
+      expect(payload?.properties?["name"] as? String) == "some-company-name"
+    }
 
     it("handles null values") {
       posthog.capture("null test", properties: [

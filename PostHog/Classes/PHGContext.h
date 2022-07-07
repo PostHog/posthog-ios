@@ -8,6 +8,7 @@ typedef NS_ENUM(NSInteger, PHGEventType) {
     PHGEventTypeCapture,
     PHGEventTypeScreen,
     PHGEventTypeAlias,
+    PHGEventTypeGroup,
 
     // General utility
     PHGEventTypeReset,

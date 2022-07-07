@@ -164,6 +164,18 @@ static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
                                options:options];
 }
 
+#pragma mark - Group
+
+- (void)group:(NSString *)groupType groupKey:(NSString *)groupKey groupProperties:(NSDictionary *)properties options:(NSDictionary *)options
+{
+    PHGGroupPayload *payload = [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey
+                                                               properties:PHGCoerceDictionary(properties)];
+
+    [self callWithSelector:NSSelectorFromString(@"group:")
+                             arguments:@[ payload ]
+                               options:options];
+}
+
 #pragma mark - Feature Flags
 
 - (void)receivedFeatureFlags:(NSDictionary *)flags
@@ -405,6 +417,11 @@ static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
         case PHGEventTypeAlias: {
             PHGAliasPayload *p = (PHGAliasPayload *)context.payload;
             [self alias:p.alias options:p.options];
+            break;
+        }
+        case PHGEventTypeGroup: {
+            PHGGroupPayload *p = (PHGGroupPayload *)context.payload;
+            [self group:p.groupType groupKey:p.groupKey groupProperties:p.properties options:p.options];
             break;
         }
         case PHGEventTypeReset:

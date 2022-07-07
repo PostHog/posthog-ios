@@ -13,6 +13,7 @@
 #import "PHGCapturePayload.h"
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
+#import "PHGGroupPayload.h"
 
 static PHGPostHog *__sharedInstance = nil;
 
@@ -253,6 +254,13 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     [self run:PHGEventTypeAlias payload:
                                     [[PHGAliasPayload alloc] initWithAlias:alias]];
+}
+
+#pragma mark - Group
+
+- (void)group:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey properties:(NSDictionary *)properties
+{
+    [self run:PHGEventTypeGroup payload: [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey properties:PHGCoerceDictionary(properties)]];
 }
 
 - (bool)isFeatureEnabled:(NSString *)flagKey

@@ -192,7 +192,7 @@ static NSString *const kPHGGroups = @"posthog.groups";
 #endif
     
 #if TARGET_OS_TV
-        [self.userDefaultsStorage setString:anonymousId forKey:PHGEnabledFeatureFlags];
+        [self.userDefaultsStorage setDictinoary:flags forKey:PHGEnabledFeatureFlags];
 #else
         [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
 #endif
@@ -214,7 +214,9 @@ static NSString *const kPHGGroups = @"posthog.groups";
     
     
     [self.httpClient sharedSessionUpload:payload host:url success:^(NSDictionary * _Nonnull responseDict) {
-        [self receivedFeatureFlags:responseDict];
+        NSDictionary *flags = [responseDict objectForKey:@"featureFlags"];
+        [self receivedFeatureFlags:flags];
+        NSArray *keys = [self getFeatureFlags];
     } failure:^(NSError * _Nonnull error) {
 //        TODO: handle error
     }];

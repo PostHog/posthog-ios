@@ -365,9 +365,10 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
     NSMutableDictionary *properties = [NSMutableDictionary dictionary];
     [properties setValue:payload.groupType forKey:@"$group_type"];
-    [properties setValue:payload.groupKey forKey:@"group_key"];
-    [dictionary setValue:properties forKey:@"group_set"];
-
+    [properties setValue:payload.groupKey forKey:@"$group_key"];
+    [properties setValue:payload.properties forKey:@"$group_set"];
+    
+    [dictionary setValue:properties forKey:@"properties"];
     [self enqueueAction:dictionary];
 }
 

@@ -192,7 +192,7 @@ static NSString *const kPHGGroups = @"posthog.groups";
 #endif
     
 #if TARGET_OS_TV
-        [self.userDefaultsStorage setDictinoary:flags forKey:PHGEnabledFeatureFlags];
+        [self.userDefaultsStorage setDictionary:flags forKey:PHGEnabledFeatureFlags];
 #else
         [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
 #endif

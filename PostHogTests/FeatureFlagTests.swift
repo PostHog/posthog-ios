@@ -29,6 +29,28 @@ class FeatureFlagTests: QuickSpec {
       let isEnabled = posthog.isFeatureEnabled("some-flag")
       expect(isEnabled).to(beTrue())
     }
+      
+    it("checks multivariate flag is enabled - integer") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=2" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":1}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagValue = posthog.getFeatureFlag("some-flag")
+      expect(flagValue).to(be(1))
+    }
+    
+    it("checks multivariate flag is enabled - string") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=2" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagValue = posthog.getFeatureFlag("some-flag")
+      expect(flagValue).to(be("variant-1"))
+    }
 
   }
 

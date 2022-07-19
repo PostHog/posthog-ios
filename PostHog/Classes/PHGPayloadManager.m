@@ -231,6 +231,16 @@ static NSString *const kPHGGroups = @"posthog.groups";
     return keys;
 }
 
+- (NSDictionary *)getFlagVariants
+{
+#if TARGET_OS_TV
+    NSDictionary *variants = [self.userDefaultsStorage dictionaryForKey:PHGEnabledFeatureFlags];
+#else
+    NSDictionary *variants = [self.fileStorage dictionaryForKey:kPHGEnabledFeatureFlags];
+#endif
+    return variants;
+}
+
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo
 {
     [self callWithSelector:_cmd arguments:@[ userInfo ] options:nil];

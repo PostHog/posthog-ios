@@ -280,6 +280,13 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     }
 }
 
+- (id)getFeatureFlag:(NSString *)flagKey
+{
+    NSDictionary *variants = [self.payloadManager getFlagVariants];
+    id variantValue = [variants valueForKey:flagKey];
+    return variantValue;
+}
+
 - (bool)isFeatureEnabled:(NSString *)flagKey
 {
     NSArray *keys = [self.payloadManager getFeatureFlags];

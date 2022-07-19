@@ -75,7 +75,7 @@ class CapturingTests: QuickSpec {
       posthog.group("some-type", groupKey: "some-key", properties: [
         "name": "some-company-name"
         ])
-      let firstContext = passthrough.allContexts[0]
+      let firstContext = passthrough.allContexts[1]
       
       expect(firstContext.eventType) == PHGEventType.group
       let payload = firstContext.payload as? PHGGroupPayload

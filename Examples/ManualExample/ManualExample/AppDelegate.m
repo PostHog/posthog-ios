@@ -15,6 +15,8 @@
     [PHGPostHog setupWithConfiguration:[PHGPostHogConfiguration configurationWithApiKey:@"St5WbSrxW5bzxn2NGwPDVzS9PBPYctOl" host:@"https://app.posthog.com"]];
     [[PHGPostHog sharedPostHog] capture:@"Manual Example Launched"];
     [[PHGPostHog sharedPostHog] flush];
+
+    [[PHGPostHog sharedPostHog] group:@"some-group" groupKey:@"id:4" properties: @{@"company_name":@"Awesome Inc"}];
     return YES;
 }
 

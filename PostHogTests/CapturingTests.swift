@@ -72,7 +72,7 @@ class CapturingTests: QuickSpec {
     }
     
     it("handles group:") {
-      posthog.group("some-type", groupKey: "some-key", properties: [
+      posthog.group( "some-type", groupKey: "some-key", properties: [
         "name": "some-company-name"
         ])
       let firstContext = passthrough.allContexts[1]

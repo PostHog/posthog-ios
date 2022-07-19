@@ -6,6 +6,9 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         PostHog.capture("Carthage Main View Did Load")
+        PostHog.group("some-group", groupKey: "id:4", properties: [
+            "company_name": "Awesome Inc"
+        ]);
         PostHog.flush()
     }
 

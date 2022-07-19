@@ -293,7 +293,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 #else
     [self.fileStorage setString:distinctId forKey:kPHGDistinctIdFilename];
 #endif
-    
 }
 
 #pragma mark - PostHog API

@@ -259,10 +259,16 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 #pragma mark - Group
 
+- (void)group:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey
+{
+    [self group:groupType groupKey:groupKey properties:nil];
+}
+
 - (void)group:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey properties:(NSDictionary *)properties
 {
     NSDictionary *currentGroups = [self.payloadManager getGroups];
-    NSLog(@"%@", currentGroups);
+    
+//    TODO: set groups as super property
     [self.payloadManager saveGroup:groupType groupKey:groupKey];
     
     [self run:PHGEventTypeGroup payload: [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey properties:PHGCoerceDictionary(properties)]];

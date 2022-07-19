@@ -369,6 +369,7 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     [properties setValue:payload.properties forKey:@"$group_set"];
     
     [dictionary setValue:properties forKey:@"properties"];
+    [dictionary setValue:self.distinctId ?: [self.posthog getAnonymousId] forKey:@"distinct_id"];
     [self enqueueAction:dictionary];
 }
 

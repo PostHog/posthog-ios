@@ -203,7 +203,7 @@ static NSString *const kPHGGroups = @"posthog.groups";
     NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
 //    TODO: handle IDs
     [payload setObject:[self getAnonymousId] forKey:@"$anon_distinct_id"];
-    [payload setObject:self.integration.distinctId forKey:@"distinct_id"];
+    [payload setObject:self.integration.distinctId ? self.integration.distinctId : [self getAnonymousId] forKey:@"distinct_id"];
     [payload setObject:[self getGroups] forKey:@"$groups"];
     [payload setObject:self.posthog.configuration.apiKey forKey:@"api_key"];
     
@@ -216,7 +216,6 @@ static NSString *const kPHGGroups = @"posthog.groups";
     [self.httpClient sharedSessionUpload:payload host:url success:^(NSDictionary * _Nonnull responseDict) {
         NSDictionary *flags = [responseDict objectForKey:@"featureFlags"];
         [self receivedFeatureFlags:flags];
-        NSArray *keys = [self getFeatureFlags];
     } failure:^(NSError * _Nonnull error) {
 //        TODO: handle error
     }];

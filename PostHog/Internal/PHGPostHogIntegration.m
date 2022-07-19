@@ -286,15 +286,14 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
 - (void)saveDistinctId:(NSString *)distinctId
 {
-    [self dispatchBackground:^{
-        self.distinctId = distinctId;
+    self.distinctId = distinctId;
 
 #if TARGET_OS_TV
-        [self.userDefaultsStorage setString:distinctId forKey:PHGDistinctIdKey];
+    [self.userDefaultsStorage setString:distinctId forKey:PHGDistinctIdKey];
 #else
-        [self.fileStorage setString:distinctId forKey:kPHGDistinctIdFilename];
+    [self.fileStorage setString:distinctId forKey:kPHGDistinctIdFilename];
 #endif
-    }];
+    
 }
 
 #pragma mark - PostHog API

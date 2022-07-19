@@ -22,7 +22,7 @@ class FeatureFlagTests: QuickSpec {
     it("checks flag is enabled") {
       _ = stubRequest("POST", "https://app.posthog.test/decide/?v=2" as LSMatcheable)
         .andReturn(200)?
-        .withBody("{\"some-flag\":\"true\"}" as LSHTTPBody);
+        .withBody("{\"featureFlags\":{\"some-flag\":\"true\"}}" as LSHTTPBody);
       posthog.reloadFeatureFlags()
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)

@@ -31,9 +31,6 @@ NSString *const PHGQueueKey = @"PHGQueue";
 NSString *const kPHGDistinctIdFilename = @"posthog.distinctId";
 NSString *const kPHGQueueFilename = @"posthog.queue.plist";
 
-static NSString *const PHGActiveFeatureFlags = @"PHGActiveFeatureFlags";
-static NSString *const kPHGActiveFeatureFlags = @"posthog.activeFeatureFlags";
-
 static NSString *const PHGEnabledFeatureFlags = @"PHGEnabledFeatureFlags";
 static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
 
@@ -622,14 +619,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
 - (void)receivedFeatureFlags:(NSDictionary *)flags
 {
-    NSArray* keys = [flags allKeys];
-    
-#if TARGET_OS_TV
-        [self.userDefaultsStorage setArray:keys forKey:PHGActiveFeatureFlags];
-#else
-        [self.fileStorage setArray:keys forKey:kPHGActiveFeatureFlags];
-#endif
-    
 #if TARGET_OS_TV
         [self.userDefaultsStorage setDictionary:flags forKey:PHGEnabledFeatureFlags];
 #else
@@ -639,11 +628,8 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
 - (NSArray *)getFeatureFlags
 {
-#if TARGET_OS_TV
-    NSArray *keys = [self.userDefaultsStorage arrayForKey:PHGActiveFeatureFlags];
-#else
-    NSArray *keys = [self.fileStorage arrayForKey:kPHGActiveFeatureFlags];
-#endif
+    NSDictionary *dict = [self getFeatureFlagsAndValues];
+    NSArray *keys = [dict allKeys];
     return keys;
 }
 

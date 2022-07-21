@@ -13,16 +13,6 @@ NSString *PHGPostHogIntegrationDidStart = @"com.posthog.integration.did.start";
 static NSString *const PHGAnonymousIdKey = @"PHGAnonymousId";
 static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
-static NSString *const PHGActiveFeatureFlags = @"PHGActiveFeatureFlags";
-static NSString *const kPHGActiveFeatureFlags = @"posthog.activeFeatureFlags";
-
-static NSString *const PHGEnabledFeatureFlags = @"PHGEnabledFeatureFlags";
-static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
-
-static NSString *const PHGGroups = @"PHGGroups";
-static NSString *const kPHGGroups = @"posthog.groups";
-
-
 
 @interface PHGPayloadManager ()
 
@@ -183,19 +173,7 @@ static NSString *const kPHGGroups = @"posthog.groups";
 
 - (void)receivedFeatureFlags:(NSDictionary *)flags
 {
-    NSArray* keys = [flags allKeys];
-    
-#if TARGET_OS_TV
-        [self.userDefaultsStorage setArray:keys forKey:PHGActiveFeatureFlags];
-#else
-        [self.fileStorage setArray:keys forKey:kPHGActiveFeatureFlags];
-#endif
-    
-#if TARGET_OS_TV
-        [self.userDefaultsStorage setDictionary:flags forKey:PHGEnabledFeatureFlags];
-#else
-        [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
-#endif
+    [self.integration receivedFeatureFlags:flags];
 }
 
 - (void)reloadFeatureFlags
@@ -223,12 +201,12 @@ static NSString *const kPHGGroups = @"posthog.groups";
 
 - (NSArray *)getFeatureFlags
 {
-#if TARGET_OS_TV
-    NSArray *keys = [self.userDefaultsStorage arrayForKey:PHGActiveFeatureFlags];
-#else
-    NSArray *keys = [self.fileStorage arrayForKey:kPHGActiveFeatureFlags];
-#endif
-    return keys;
+    return [self.integration getFeatureFlags];
+}
+
+- (NSDictionary *)getFlagVariants
+{
+    return [self.integration getFeatureFlagsAndValues];
 }
 
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo
@@ -315,30 +293,12 @@ static NSString *const kPHGGroups = @"posthog.groups";
 
 - (void)saveGroup:(NSString *)groupType groupKey:(NSString *)groupKey
 {
-    NSDictionary *currentGroups = [self getGroups];
-    NSMutableDictionary *newGroups = [currentGroups mutableCopy];
-    [newGroups setObject:groupKey forKey:groupType];
-    
-#if TARGET_OS_TV
-    [self.userDefaultsStorage setDictionary:newGroups forKey:PHGGroups];
-#else
-    [self.fileStorage setDictionary:newGroups forKey:kPHGGroups];
-#endif
+    [self.integration saveGroup:groupType groupKey:groupKey];
 }
 
 - (NSDictionary *)getGroups
 {
-#if TARGET_OS_TV
-    NSDictionary *groups = [self.userDefaultsStorage dictionaryForKey:PHGGroups];
-#else
-    NSDictionary *groups = [self.fileStorage dictionaryForKey:kPHGGroups];
-#endif
-    
-//  if groups doesn't exist, return a new empty dict
-    if (!groups){
-        return [[NSDictionary alloc] init];
-    }
-    return groups;
+    return [self.integration getGroups];
 }
 
 - (void)flush

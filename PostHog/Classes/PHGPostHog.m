@@ -280,10 +280,35 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     }
 }
 
+- (id)getFeatureFlag:(NSString *)flagKey
+{
+    NSDictionary *variants = [self.payloadManager getFlagVariants];
+    id variantValue = [variants valueForKey:flagKey];
+    
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+    [properties setValue:flagKey forKey:@"$feature_flag"];
+    [properties setValue:variantValue forKey:@"$feature_flag_response"];
+    
+    [self run:PHGEventTypeCapture payload:
+                                    [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                  properties:PHGCoerceDictionary(properties)]];
+    return variantValue;
+}
+
 - (bool)isFeatureEnabled:(NSString *)flagKey
 {
     NSArray *keys = [self.payloadManager getFeatureFlags];
     BOOL isFlagEnabled = [keys containsObject: flagKey];
+    
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+
+    [properties setValue:flagKey forKey:@"$feature_flag"];
+    [properties setValue:@(isFlagEnabled) forKey:@"$feature_flag_response"];
+    
+    [self run:PHGEventTypeCapture payload:
+                                    [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                  properties:PHGCoerceDictionary(properties)]];
+    
     return isFlagEnabled;
 }
 

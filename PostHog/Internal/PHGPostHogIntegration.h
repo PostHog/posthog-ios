@@ -25,6 +25,13 @@ extern NSString *const PHGPostHogRequestDidFailNotification;
 - (NSDictionary *)liveContext;
 - (void)saveDistinctId:(NSString *)distinctId;
 
+- (NSDictionary *_Nonnull)getGroups;
+- (void)saveGroup:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey;
+
+- (NSArray *_Nonnull)getFeatureFlags;
+- (NSDictionary *)getFeatureFlagsAndValues;
+- (void)receivedFeatureFlags:(NSDictionary *)flags;
+
 @end
 
 NS_ASSUME_NONNULL_END

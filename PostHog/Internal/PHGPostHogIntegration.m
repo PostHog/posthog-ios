@@ -31,6 +31,12 @@ NSString *const PHGQueueKey = @"PHGQueue";
 NSString *const kPHGDistinctIdFilename = @"posthog.distinctId";
 NSString *const kPHGQueueFilename = @"posthog.queue.plist";
 
+static NSString *const PHGEnabledFeatureFlags = @"PHGEnabledFeatureFlags";
+static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
+
+static NSString *const PHGGroups = @"PHGGroups";
+static NSString *const kPHGGroups = @"posthog.groups";
+
 static NSString *GetDeviceModel()
 {
     size_t size;
@@ -216,6 +222,20 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     } else {
         context[@"$network_wifi"] = @NO;
         context[@"$network_cellular"] = @NO;
+    }
+    
+    context[@"$groups"] = [self getGroups];
+    context[@"$active_feature_flags"] = [self getFeatureFlags];
+    
+    NSDictionary *flagsAndValues = [self getFeatureFlagsAndValues];
+    
+    int n = 0;
+    for(id flag in flagsAndValues){
+        NSString *key = [NSString stringWithFormat:@"$feature/%@", flag];
+        NSString *enumeratedKey = [NSString stringWithFormat:@"$active_feature_flags__%d", n];
+        context[key] = [flagsAndValues objectForKey:flag];
+        context[enumeratedKey] = flag;
+        n++;
     }
 
 #if TARGET_OS_IOS
@@ -567,6 +587,60 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 #else
     return [self.fileStorage stringForKey:kPHGDistinctIdFilename];
 #endif
+}
+
+- (void)saveGroup:(NSString *)groupType groupKey:(NSString *)groupKey
+{
+    NSDictionary *currentGroups = [self getGroups];
+    NSMutableDictionary *newGroups = [currentGroups mutableCopy];
+    [newGroups setObject:groupKey forKey:groupType];
+    
+#if TARGET_OS_TV
+    [self.userDefaultsStorage setDictionary:newGroups forKey:PHGGroups];
+#else
+    [self.fileStorage setDictionary:newGroups forKey:kPHGGroups];
+#endif
+}
+
+- (NSDictionary *)getGroups
+{
+#if TARGET_OS_TV
+    NSDictionary *groups = [self.userDefaultsStorage dictionaryForKey:PHGGroups];
+#else
+    NSDictionary *groups = [self.fileStorage dictionaryForKey:kPHGGroups];
+#endif
+    
+//  if groups doesn't exist, return a new empty dict
+    if (!groups){
+        return [[NSDictionary alloc] init];
+    }
+    return groups;
+}
+
+- (void)receivedFeatureFlags:(NSDictionary *)flags
+{
+#if TARGET_OS_TV
+        [self.userDefaultsStorage setDictionary:flags forKey:PHGEnabledFeatureFlags];
+#else
+        [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
+#endif
+}
+
+- (NSArray *)getFeatureFlags
+{
+    NSDictionary *dict = [self getFeatureFlagsAndValues];
+    NSArray *keys = [dict allKeys];
+    return keys;
+}
+
+- (NSDictionary *)getFeatureFlagsAndValues
+{
+#if TARGET_OS_TV
+    NSDictionary *dict = [self.userDefaultsStorage dictionaryForKey:PHGEnabledFeatureFlags];
+#else
+    NSDictionary *dict = [self.fileStorage dictionaryForKey:kPHGEnabledFeatureFlags];
+#endif
+    return dict;
 }
 
 - (void)persistQueue

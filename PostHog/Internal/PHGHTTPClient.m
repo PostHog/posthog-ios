@@ -104,4 +104,49 @@
     [task resume];
     return task;
 }
+
+// Use shared session handler for basic network requests 
+- (NSURLSessionDataTask *)sharedSessionUpload:(NSDictionary *)payload host:(NSURL *)host success:(void (^)(NSDictionary *responseDict))success failure:(void(^)(NSError* error))failure
+{
+    NSMutableURLRequest *request = self.requestFactory(host);
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setHTTPMethod:@"POST"];
+    
+    NSError *error = nil;
+    NSException *exception = nil;
+    NSData *body = nil;
+    @try {
+        body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:&error];
+    }
+    @catch (NSException *exc) {
+        exception = exc;
+    }
+    if (error || exception) {
+        PHGLog(@"Error serializing JSON for batch upload %@", error);
+        failure(error); // Don't retry this batch.
+        return nil;
+    }
+    
+    [request setHTTPBody:body];
+    
+    
+     
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request
+                                             completionHandler:
+         ^(NSData *data, NSURLResponse *response, NSError *error) {
+            if (error) {
+                // Network error. Retry.
+                PHGLog(@"Error uploading request %@.", error);
+                failure(error);
+            } else {
+                NSDictionary *json  = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+                NSLog(@"%@",json);
+                success(json);
+            }
+         }];
+         
+    [task resume];
+    return task;
+}
 @end

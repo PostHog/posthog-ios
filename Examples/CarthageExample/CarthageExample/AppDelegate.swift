@@ -17,6 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         PostHog.capture("Carthage Example Launched")
         PostHog.flush()
         
+        PostHog.isFeatureEnabled("test-flag")
         return true
     }
 

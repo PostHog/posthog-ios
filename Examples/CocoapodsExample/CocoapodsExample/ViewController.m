@@ -20,6 +20,8 @@
     [[PHGPostHog sharedPostHog] continueUserActivity:userActivity];
     [[PHGPostHog sharedPostHog] capture:@"test"];
     [[PHGPostHog sharedPostHog] flush];
+
+    [[PHGPostHog sharedPostHog] isFeatureEnabled:@"test-flag"];
 }
 
 - (IBAction)fireEvent:(id)sender

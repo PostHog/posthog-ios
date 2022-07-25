@@ -26,6 +26,36 @@ class HTTPClientTest: QuickSpec {
         expect(request.url) == url
       }
     }
+    
+    describe("sharedSessionUpload") {
+      it("works") {
+        let payload: [String: Any] = [
+          "token": "some-token"
+        ]
+
+        _ = stubRequest("POST", "https://app.posthog.test/decide" as LSMatcheable)
+          .withHeaders(
+          [
+              "Content-Length": "22",
+              "Content-Type": "application/json"
+          ])!
+          .withBody(
+            "{\"token\":\"some-token\"}" as LSMatcheable)
+        
+        var done = false;
+        let task = client.sharedSessionUpload(payload, host: URL(string:"https://app.posthog.test/decide")!){ responseDict in
+          expect(responseDict).toNot(beNil())
+          done = true
+        } failure: { error in
+
+          expect(error).to(beNil())
+          done = true
+        }
+
+        expect(task).toNot(beNil())
+        expect(done).toEventually(beTrue())
+      }
+    }
 
     describe("upload") {
       it("does not ask to retry for json error") {

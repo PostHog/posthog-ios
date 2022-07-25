@@ -3,6 +3,8 @@
 #import "PHGCapturePayload.h"
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
+#import "PHGGroupPayload.h"
+
 #import "PHGIdentifyPayload.h"
 #import "PHGContext.h"
 
@@ -33,6 +35,8 @@ NS_ASSUME_NONNULL_BEGIN
 // 1. [[PHGPostHog sharedInstance] alias:someNewAlias];
 // 2. [[PHGPostHog sharedInstance] alias:someNewAlias options:someOptions];
 - (void)alias:(PHGAliasPayload *)payload;
+
+- (void)group:(PHGGroupPayload *)payload;
 
 // Reset is invoked when the user logs out, and any data saved about the user should be cleared.
 - (void)reset;

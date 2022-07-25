@@ -23,6 +23,8 @@ NSString *const POSTHOG_API_KEY = @"BrpS4SctoaCCsyjlnlun3OzyNJAafdlv__jUWaaJWXg"
     [[PHGPostHog sharedPostHog] identify:@"Prateek" properties:nil options: @{@"$anon_distinct_id":@"test_anonymousId"}];
     [[PHGPostHog sharedPostHog] capture:@"Cocoapods Example Launched"];
 
+    [[PHGPostHog sharedPostHog] group:@"some-group" groupKey:@"id:4" properties: @{@"company_name":@"Awesome Inc"}];
+
     [[PHGPostHog sharedPostHog] flush];
     NSLog(@"application:didFinishLaunchingWithOptions: %@", launchOptions);
     return YES;

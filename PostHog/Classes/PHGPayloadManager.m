@@ -52,8 +52,12 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
         #endif
 
         self.cachedAnonymousId = [self loadOrGenerateAnonymousID:NO];
-
+    
         self.integration = [[PHGPostHogIntegration alloc] initWithPostHog:self.posthog httpClient:self.self.httpClient fileStorage:self.fileStorage userDefaultsStorage:self.userDefaultsStorage];
+        
+        if (self.integration.distinctId.length == 0) {
+            [self.integration saveDistinctId:self.cachedAnonymousId];
+        }
 
         [[NSNotificationCenter defaultCenter] postNotificationName:PHGPostHogIntegrationDidStart object:@"PostHog" userInfo:nil];
         [self flushMessageQueue];
@@ -102,15 +106,11 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 {
     NSCAssert1(distinctId.length > 0, @"distinctId (%@) must not be empty.", distinctId);
 
-    NSString *anonymousId = [options objectForKey:@"$anon_distinct_id"];
-    if (anonymousId) {
-        [self saveAnonymousId:anonymousId];
-    } else {
-        anonymousId = self.cachedAnonymousId;
-    }
+    [self saveAnonymousId:self.integration.distinctId];
+    [self.integration saveDistinctId:distinctId];
 
     PHGIdentifyPayload *payload = [[PHGIdentifyPayload alloc] initWithDistinctId:distinctId
-                                                                     anonymousId:anonymousId
+                                                                     anonymousId:self.cachedAnonymousId
                                                                       properties:PHGCoerceDictionary(properties)];
 
     [self callWithSelector:NSSelectorFromString(@"identify:")
@@ -157,6 +157,58 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
                                options:options];
 }
 
+#pragma mark - Group
+
+- (void)group:(NSString *)groupType groupKey:(NSString *)groupKey groupProperties:(NSDictionary *)properties options:(NSDictionary *)options
+{
+    PHGGroupPayload *payload = [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey
+                                                               properties:PHGCoerceDictionary(properties)];
+
+    [self callWithSelector:NSSelectorFromString(@"group:")
+                             arguments:@[ payload ]
+                               options:options];
+}
+
+#pragma mark - Feature Flags
+
+- (void)receivedFeatureFlags:(NSDictionary *)flags
+{
+    [self.integration receivedFeatureFlags:flags];
+}
+
+- (void)reloadFeatureFlags
+{
+    NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
+//    TODO: handle IDs
+    [payload setObject:[self getAnonymousId] forKey:@"$anon_distinct_id"];
+    [payload setObject:self.integration.distinctId ? self.integration.distinctId : [self getAnonymousId] forKey:@"distinct_id"];
+    [payload setObject:[self getGroups] forKey:@"$groups"];
+    [payload setObject:self.posthog.configuration.apiKey forKey:@"api_key"];
+    
+    NSURL *url = [self.posthog.configuration.host URLByAppendingPathComponent:@"decide"];
+    NSString *absoluteUrl = [url absoluteString];
+    absoluteUrl = [absoluteUrl stringByAppendingString:@"/?v=2"];
+    url = [NSURL URLWithString:absoluteUrl];
+    
+    
+    [self.httpClient sharedSessionUpload:payload host:url success:^(NSDictionary * _Nonnull responseDict) {
+        NSDictionary *flags = [responseDict objectForKey:@"featureFlags"];
+        [self receivedFeatureFlags:flags];
+    } failure:^(NSError * _Nonnull error) {
+//        TODO: handle error
+    }];
+}
+
+- (NSArray *)getFeatureFlags
+{
+    return [self.integration getFeatureFlags];
+}
+
+- (NSDictionary *)getFlagVariants
+{
+    return [self.integration getFeatureFlagsAndValues];
+}
+
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo
 {
     [self callWithSelector:_cmd arguments:@[ userInfo ] options:nil];
@@ -193,6 +245,7 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 {
     [self resetAnonymousId];
     [self callWithSelector:_cmd arguments:nil options:nil];
+    [self.fileStorage resetAll];
 }
 
 - (void)resetAnonymousId
@@ -236,6 +289,16 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 #else
     [self.fileStorage setString:anonymousId forKey:kPHGAnonymousIdFilename];
 #endif
+}
+
+- (void)saveGroup:(NSString *)groupType groupKey:(NSString *)groupKey
+{
+    [self.integration saveGroup:groupType groupKey:groupKey];
+}
+
+- (NSDictionary *)getGroups
+{
+    return [self.integration getGroups];
 }
 
 - (void)flush
@@ -350,6 +413,11 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
             [self alias:p.alias options:p.options];
             break;
         }
+        case PHGEventTypeGroup: {
+            PHGGroupPayload *p = (PHGGroupPayload *)context.payload;
+            [self group:p.groupType groupKey:p.groupKey groupProperties:p.properties options:p.options];
+            break;
+        }
         case PHGEventTypeReset:
             [self reset];
             break;
@@ -387,6 +455,9 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
             [self openURL:payload.url options:payload.options];
             break;
         }
+        case PHGEventTypeReloadFeatureFlags:
+            [self reloadFeatureFlags];
+            break;
         case PHGEventTypeUndefined:
             NSAssert(NO, @"Received context with undefined event type %@", context);
             NSLog(@"[ERROR]: Received context with undefined event type %@", context);

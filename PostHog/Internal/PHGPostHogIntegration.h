@@ -7,6 +7,7 @@
 @class PHGCapturePayload;
 @class PHGScreenPayload;
 @class PHGAliasPayload;
+@class PHGGroupPayload;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -17,9 +18,19 @@ extern NSString *const PHGPostHogRequestDidFailNotification;
 
 @interface PHGPostHogIntegration : NSObject <PHGIntegration>
 
+@property (nonatomic, copy) NSString *distinctId;
+
 - (id)initWithPostHog:(PHGPostHog *)posthog httpClient:(PHGHTTPClient *)httpClient fileStorage:(id<PHGStorage>)fileStorage userDefaultsStorage:(id<PHGStorage>)userDefaultsStorage;
 - (NSDictionary *)staticContext;
 - (NSDictionary *)liveContext;
+- (void)saveDistinctId:(NSString *)distinctId;
+
+- (NSDictionary *_Nonnull)getGroups;
+- (void)saveGroup:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey;
+
+- (NSArray *_Nonnull)getFeatureFlags;
+- (NSDictionary *)getFeatureFlagsAndValues;
+- (void)receivedFeatureFlags:(NSDictionary *)flags;
 
 @end
 

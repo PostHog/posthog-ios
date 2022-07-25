@@ -14,6 +14,8 @@
     [super viewDidLoad];
     [[PHGPostHog sharedPostHog] capture:@"Manual Example Main View Loaded"];
     [[PHGPostHog sharedPostHog] flush];
+
+    [[PHGPostHog sharedPostHog] isFeatureEnabled:@"test-flag"];
 }
 
 - (void)didReceiveMemoryWarning

@@ -13,6 +13,7 @@
 #import "PHGCapturePayload.h"
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
+#import "PHGGroupPayload.h"
 
 static PHGPostHog *__sharedInstance = nil;
 
@@ -84,6 +85,8 @@ static PHGPostHog *__sharedInstance = nil;
             }
         }
 #endif
+        
+        [self reloadFeatureFlags];
     }
     return self;
 }
@@ -252,6 +255,66 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     [self run:PHGEventTypeAlias payload:
                                     [[PHGAliasPayload alloc] initWithAlias:alias]];
+}
+
+#pragma mark - Group
+
+- (void)group:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey
+{
+    [self group:groupType groupKey:groupKey properties:nil];
+}
+
+- (void)group:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey properties:(NSDictionary *)properties
+{
+    NSDictionary *currentGroups = [self.payloadManager getGroups];
+    
+//    TODO: set groups as super property
+    [self.payloadManager saveGroup:groupType groupKey:groupKey];
+    
+    [self run:PHGEventTypeGroup payload: [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey properties:PHGCoerceDictionary(properties)]];
+    
+    NSString *possibleGroupKey = [currentGroups objectForKey:groupType];
+
+    if (![possibleGroupKey isEqualToString:groupKey]){
+        [self reloadFeatureFlags];
+    }
+}
+
+- (id)getFeatureFlag:(NSString *)flagKey
+{
+    NSDictionary *variants = [self.payloadManager getFlagVariants];
+    id variantValue = [variants valueForKey:flagKey];
+    
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+    [properties setValue:flagKey forKey:@"$feature_flag"];
+    [properties setValue:variantValue forKey:@"$feature_flag_response"];
+    
+    [self run:PHGEventTypeCapture payload:
+                                    [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                  properties:PHGCoerceDictionary(properties)]];
+    return variantValue;
+}
+
+- (bool)isFeatureEnabled:(NSString *)flagKey
+{
+    NSArray *keys = [self.payloadManager getFeatureFlags];
+    BOOL isFlagEnabled = [keys containsObject: flagKey];
+    
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+
+    [properties setValue:flagKey forKey:@"$feature_flag"];
+    [properties setValue:@(isFlagEnabled) forKey:@"$feature_flag_response"];
+    
+    [self run:PHGEventTypeCapture payload:
+                                    [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                  properties:PHGCoerceDictionary(properties)]];
+    
+    return isFlagEnabled;
+}
+
+- (void)reloadFeatureFlags
+{
+    [self run:PHGEventTypeReloadFeatureFlags payload:nil];
 }
 
 - (void)capturePushNotification:(NSDictionary *)properties fromLaunch:(BOOL)launch

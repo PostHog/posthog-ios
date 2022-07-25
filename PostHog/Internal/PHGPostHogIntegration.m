@@ -13,6 +13,7 @@
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
 #import "PHGGroupPayload.h"
+#import "PHGSession.h"
 
 #if TARGET_OS_IOS
 #import <CoreTelephony/CTCarrier.h>
@@ -54,6 +55,7 @@ static NSString *GetDeviceModel()
 @property (nonatomic, strong) NSURLSessionUploadTask *batchRequest;
 @property (nonatomic, assign) UIBackgroundTaskIdentifier flushTaskID;
 @property (nonatomic, strong) PHGReachability *reachability;
+@property (nonatomic, strong) PHGSession *sessionManager;
 @property (nonatomic, strong) NSTimer *flushTimer;
 @property (nonatomic, strong) dispatch_queue_t serialQueue;
 @property (nonatomic, strong) dispatch_queue_t backgroundTaskQueue;
@@ -79,6 +81,7 @@ static NSString *GetDeviceModel()
         self.fileStorage = fileStorage;
         self.userDefaultsStorage = userDefaultsStorage;
         self.distinctId = [self getDistinctId];
+        self.sessionManager = [PHGSession init];
         self.reachability = [PHGReachability reachabilityWithHostname:@"google.com"];
         [self.reachability startNotifier];
         self.cachedStaticContext = [self staticContext];
@@ -226,6 +229,7 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     
     context[@"$groups"] = [self getGroups];
     context[@"$active_feature_flags"] = [self getFeatureFlags];
+    context[@"$session_id"] = [self.sessionManager getId];
     
     NSDictionary *flagsAndValues = [self getFeatureFlagsAndValues];
     

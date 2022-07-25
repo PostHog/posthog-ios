@@ -90,6 +90,9 @@
 		EADEB8F31DECD335005322DA /* PostHogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E71DECD335005322DA /* PostHogTests.swift */; };
 		EADEB8F41DECD335005322DA /* ContextTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E81DECD335005322DA /* ContextTest.swift */; };
 		EADEB8F51DECD335005322DA /* CryptoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E91DECD335005322DA /* CryptoTest.swift */; };
+		F250ADE0288B401B0045FA7E /* PHGSession.m in Sources */ = {isa = PBXBuildFile; fileRef = F250ADDF288B401B0045FA7E /* PHGSession.m */; };
+		F250ADE2288ED2E20045FA7E /* SessionTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F250ADE1288ED2E20045FA7E /* SessionTest.swift */; };
+		F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */ = {isa = PBXBuildFile; fileRef = F250ADDE288B3ED80045FA7E /* PHGSession.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		F2A54FB028772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F2A54FB128772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F2A54FB32877582E006C53FF /* PHGGroupPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FB22877582E006C53FF /* PHGGroupPayload.m */; };
@@ -197,6 +200,9 @@
 		EADEB8FF1DED3711005322DA /* circle.yml */ = {isa = PBXFileReference; lastKnownFileType = text; path = circle.yml; sourceTree = "<group>"; };
 		EADEB9001DED3711005322DA /* PostHog.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; path = PostHog.podspec; sourceTree = "<group>"; };
 		EADEB9011DED3711005322DA /* Podfile.lock */ = {isa = PBXFileReference; lastKnownFileType = text; path = Podfile.lock; sourceTree = "<group>"; };
+		F250ADDE288B3ED80045FA7E /* PHGSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHGSession.h; sourceTree = "<group>"; };
+		F250ADDF288B401B0045FA7E /* PHGSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHGSession.m; sourceTree = "<group>"; };
+		F250ADE1288ED2E20045FA7E /* SessionTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTest.swift; sourceTree = "<group>"; };
 		F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagTests.swift; sourceTree = "<group>"; };
 		F2A54FB22877582E006C53FF /* PHGGroupPayload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHGGroupPayload.m; sourceTree = "<group>"; };
 		F2A54FB42877583C006C53FF /* PHGGroupPayload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHGGroupPayload.h; sourceTree = "<group>"; };
@@ -341,6 +347,7 @@
 				6EEC1C702017EA370089C478 /* EndToEndTests.swift */,
 				A31958EE2385AC3A00A47EFA /* SerializationTests.m */,
 				F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */,
+				F250ADE1288ED2E20045FA7E /* SessionTest.swift */,
 			);
 			indentWidth = 2;
 			path = PostHogTests;
@@ -376,6 +383,8 @@
 				BF8C89BCDF12D1B64E9475F1 /* PHGCrypto.h */,
 				F2A54FB22877582E006C53FF /* PHGGroupPayload.m */,
 				F2A54FB42877583C006C53FF /* PHGGroupPayload.h */,
+				F250ADDE288B3ED80045FA7E /* PHGSession.h */,
+				F250ADDF288B401B0045FA7E /* PHGSession.m */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -423,6 +432,7 @@
 				BF8C8AD1FBFBB6941DE29D3B /* PHGFileStorage.h in Headers */,
 				BF8C845A65AB5AD06E1EE26B /* PHGStorage.h in Headers */,
 				BF8C890FADEC88022E7A3588 /* NSData+PHGGZIP.h in Headers */,
+				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
 				BF8C8181F96E1C8CB86D783D /* PHGPostHogUtils.h in Headers */,
 				BF8C8FCEC80B47BF2236236E /* PHGUtils.h in Headers */,
 				BF8C8DCC18E3AA39CCB330BC /* PHGStoreKitCapturer.h in Headers */,
@@ -713,6 +723,7 @@
 				BF8C8A634BCECED539A18D57 /* PHGPostHogIntegration.m in Sources */,
 				BF8C8735F5CF80C193F5AEDF /* PHGAliasPayload.m in Sources */,
 				BF8C8374E0D8F97469715282 /* PHGPayload.m in Sources */,
+				F250ADE0288B401B0045FA7E /* PHGSession.m in Sources */,
 				BF8C86ED787477703D8BCD6C /* PHGScreenPayload.m in Sources */,
 				BF8C8334DB2564A7CFA7A87A /* PHGPayloadManager.m in Sources */,
 				BF8C87E4B70CA478721EB11D /* PHGCapturePayload.m in Sources */,
@@ -726,6 +737,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F250ADE2288ED2E20045FA7E /* SessionTest.swift in Sources */,
 				EADEB8F51DECD335005322DA /* CryptoTest.swift in Sources */,
 				EADEB8F21DECD335005322DA /* UserDefaultsStorageTest.swift in Sources */,
 				EAA542771EB4035400945DA7 /* CapturingTests.swift in Sources */,

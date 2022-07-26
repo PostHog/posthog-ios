@@ -114,6 +114,21 @@
     [self setJSON:string forKey:key];
 }
 
+- (nullable NSNumber *)numberForKey:(NSString *)key
+{
+    NSDictionary *data = [self jsonForKey:key];
+    if (data) {
+        return data[key];
+    }
+    return nil;
+}
+
+
+- (void)setNumber:(nullable NSNumber *)number forKey:(NSString *)key
+{
+    [self setJSON:number forKey:key];
+}
+
 + (NSURL *)applicationSupportDirectoryURL
 {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);

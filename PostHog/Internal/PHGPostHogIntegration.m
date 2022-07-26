@@ -81,7 +81,7 @@ static NSString *GetDeviceModel()
         self.fileStorage = fileStorage;
         self.userDefaultsStorage = userDefaultsStorage;
         self.distinctId = [self getDistinctId];
-        self.sessionManager = [PHGSession init];
+        self.sessionManager = [PHGSession initWithStorage:fileStorage userDefaultsStorage:userDefaultsStorage];
         self.reachability = [PHGReachability reachabilityWithHostname:@"google.com"];
         [self.reachability startNotifier];
         self.cachedStaticContext = [self staticContext];

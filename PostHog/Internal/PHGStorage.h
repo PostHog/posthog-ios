@@ -20,6 +20,9 @@
 - (void)setString:(NSString *_Nullable)string forKey:(NSString *_Nonnull)key;
 - (NSString *_Nullable)stringForKey:(NSString *_Nonnull)key;
 
-// Number and Booleans are intentionally omitted at the moment because they are not needed
+- (void)setNumber:(NSNumber *_Nullable)number forKey:(NSString *_Nonnull)key;
+- (nullable NSNumber *)numberForKey:(NSString *_Nonnull)key;
+
+// Booleans are intentionally omitted at the moment because they are not needed
 
 @end

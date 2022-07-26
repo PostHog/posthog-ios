@@ -130,6 +130,27 @@
     [self setPlist:string forKey:key];
 }
 
+- (NSNumber *)numberForKey:(NSString *)key
+{
+    if (!self.crypto) {
+        key = [self namespacedKey:key];
+        
+        double value = [self.defaults doubleForKey:key];
+        return [NSNumber numberWithDouble:value];
+    }
+    return [self plistForKey:key];
+}
+
+- (void)setNumber:(NSNumber *)number forKey:(NSString *)key
+{
+    if (!self.crypto) {
+        key = [self namespacedKey:key];
+        [self setObject:number forKey:key];
+        return;
+    }
+    [self setPlist:number forKey:key];
+}
+
 #pragma mark - Helpers
 
 - (id _Nullable)plistForKey:(NSString *)key

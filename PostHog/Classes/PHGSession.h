@@ -6,7 +6,7 @@
 
 @interface PHGSession : NSObject
 
-- (instancetype _Nonnull)initWithStorage:(id<PHGStorage>)fileStorage userDefaultsStorage:(id<PHGStorage>)userDefaultsStorage;
+- (instancetype _Nonnull)initWithStorage:(id<PHGStorage> _Nonnull)fileStorage userDefaultsStorage:(id<PHGStorage> _Nonnull)userDefaultsStorage;
 - (NSString *_Nullable)getId;
 
 - (void)checkAndSetSessionId:(NSTimeInterval)timestamp;

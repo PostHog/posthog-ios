@@ -97,4 +97,15 @@ static NSString *const kPHGSessionLastTimestamp = @"posthog.sessionlastTimestamp
     return [self getSessionId];
 }
 
+- (void)resetSession
+{
+#if TARGET_OS_TV
+        [self.userDefaultsStorage removeKey:PHGSessionId];
+        [self.userDefaultsStorage removeKey:PHGSessionLastTimestamp];
+#else
+        [self.fileStorage removeKey:kPHGSessionId];
+        [self.fileStorage removeKey:kPHGSessionLastTimestamp];
+#endif
+}
+
 @end

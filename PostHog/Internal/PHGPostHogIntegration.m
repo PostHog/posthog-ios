@@ -510,6 +510,7 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 #else
         [self.fileStorage removeKey:kPHGDistinctIdFilename];
 #endif
+        [self.sessionManager resetSession];
         self.distinctId = nil;
     }];
 }

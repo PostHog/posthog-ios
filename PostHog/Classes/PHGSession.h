@@ -11,5 +11,6 @@
 
 - (void)checkAndSetSessionId:(NSTimeInterval)timestamp;
 - (void)checkAndSetSessionId;
+- (void)resetSession;
 
 @end

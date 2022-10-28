@@ -8,11 +8,10 @@
 #import "PHGUserDefaultsStorage.h"
 #import "PHGPayloadManager.h"
 #import "PHGPostHogIntegration.h"
+#import "PHGNotificationNames.h"
 
-NSString *PHGPostHogIntegrationDidStart = @"com.posthog.integration.did.start";
 static NSString *const PHGAnonymousIdKey = @"PHGAnonymousId";
 static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
-
 
 @interface PHGPayloadManager ()
 

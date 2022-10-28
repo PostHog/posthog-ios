@@ -13,6 +13,7 @@
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
 #import "PHGGroupPayload.h"
+#import "PHGNotificationNames.h"
 
 #if TARGET_OS_IOS
 #import <CoreTelephony/CTCarrier.h>
@@ -623,6 +624,7 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
         [self.userDefaultsStorage setDictionary:flags forKey:PHGEnabledFeatureFlags];
 #else
         [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
+        [[NSNotificationCenter defaultCenter] postNotificationName: PHGPostHogFeatureFlagsDidLoadNotification object:nil];
 #endif
 }
 

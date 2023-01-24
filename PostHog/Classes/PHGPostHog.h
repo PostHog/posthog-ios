@@ -116,10 +116,8 @@ NS_ASSUME_NONNULL_BEGIN
 
  @abstract
  Merge two user identities, effectively connecting two sets of user data as one.
- This may not be supported by all integrations.
 
- @param alias         The new ID you want to alias the existing ID to. The existing ID will be either the
- previousId if you have called identify, or the anonymous ID.
+ @param alias         The alias ID that you want to attach to the user
 
  @discussion
  When you learn more about who the group is, you can record that information with group.

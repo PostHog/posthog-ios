@@ -1,0 +1,11 @@
+framework module PostHogRecorder {
+  umbrella header "PostHogRecorder.h"
+
+  export *
+  module * { export * }
+}
+
+module PostHogRecorder.Swift {
+  header "PostHogRecorder-Swift.h"
+  requires objc
+}

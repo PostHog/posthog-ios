@@ -14,6 +14,7 @@
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
 #import "PHGGroupPayload.h"
+#import <PostHogRecorder/PostHogRecorder.h>
 
 static PHGPostHog *__sharedInstance = nil;
 
@@ -76,6 +77,25 @@ static PHGPostHog *__sharedInstance = nil;
         if (configuration.captureInAppPurchases) {
             _storeKitCapturer = [PHGStoreKitCapturer captureTransactionsForPostHog:self];
         }
+        
+        
+        PostHogRecorderConfig *recorderConfiguration = [PostHogRecorderConfig alloc];
+        recorderConfiguration.screenRecordingEnabled = true;
+        recorderConfiguration.logRecordingEnabled = true;
+        recorderConfiguration.networkRecordingEnabled = true;
+        recorderConfiguration.redactionMode = ScreenRecorderMaskingModeAutomatic;
+        recorderConfiguration.redactionTags = PostHogRecorderConfig.DefaultRedactionTags;
+        recorderConfiguration.redactionViews = PostHogRecorderConfig.DefaultRedactionViews;
+        
+        // Configuration options listed below can be assigned to the configuration object.
+        [[PostHogRecorder shared] startWithConfig:recorderConfiguration eventHandler:^(NSDictionary<NSString *,id> * _Nonnull snapshot) {
+            [self capture:@"$snapshot" properties:@{
+                @"$snapshot_data" : snapshot,
+                @"$session_id": @"1234"
+            }];
+        }];
+
+        
 
 #if !TARGET_OS_TV
         if (configuration.capturePushNotifications && configuration.launchOptions) {

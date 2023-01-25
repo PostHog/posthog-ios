@@ -19,7 +19,8 @@ Pod::Spec.new do |s|
 
   s.ios.frameworks = 'CoreTelephony'
   s.frameworks = 'Security', 'StoreKit', 'SystemConfiguration', 'UIKit'
-
+  s.vendored_frameworks = "PostHogRecorder.xcframework"
+  
   s.source_files = [
     'PostHog/Classes/**/*',
     'PostHog/Internal/**/*',

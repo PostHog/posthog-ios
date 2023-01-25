@@ -1,0 +1,50 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 5.7.2 (swiftlang-5.7.2.135.5 clang-1400.0.29.51)
+// swift-module-flags: -target arm64-apple-ios15.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -module-name PostHogRecorder
+// swift-module-flags-ignorable: -enable-bare-slash-regex
+import Foundation
+@_exported import PostHogRecorder
+import Swift
+import SwiftUI
+import UIKit
+import Vision
+import _Concurrency
+import _StringProcessing
+import os
+public struct RRWebSnapshotEvent : Swift.Encodable {
+  public func encode(to encoder: Swift.Encoder) throws
+}
+@_hasMissingDesignatedInitializers public class RRWebCoder {
+  @objc deinit
+}
+@objc(ScreenRecorderMaskingMode) public enum ScreenRecorderMaskingMode : Swift.Int {
+  case none
+  case automatic
+  case wireframe
+  public init?(rawValue: Swift.Int)
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@objc(PostHogRecorderConfig) public class PostHogRecorderConfig : ObjectiveC.NSObject {
+  @objc public var screenRecordingEnabled: Swift.Bool
+  @objc public var logRecordingEnabled: Swift.Bool
+  @objc public var networkRecordingEnabled: Swift.Bool
+  @objc public var redactionMode: PostHogRecorder.ScreenRecorderMaskingMode
+  @objc public var redactionTags: Swift.Set<Swift.String>
+  @objc public var redactionViews: Swift.Set<Swift.String>
+  @objc public static let DefaultRedactionTags: Swift.Set<Swift.String>
+  @objc public static let DefaultRedactionViews: Swift.Set<Swift.String>
+  public init(screenRecordingEnabled: Swift.Bool? = nil, logRecordingEnabled: Swift.Bool? = nil, networkRecordingEnabled: Swift.Bool? = nil, redactionMode: PostHogRecorder.ScreenRecorderMaskingMode? = nil, redactionTags: Swift.Set<Swift.String>? = nil, redactionViews: Swift.Set<Swift.String>? = nil)
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers @objc public class PostHogRecorder : ObjectiveC.NSObject {
+  @objc public static let shared: PostHogRecorder.PostHogRecorder
+  public func updateConfig(config: PostHogRecorder.PostHogRecorderConfig)
+  @objc public func start(config: PostHogRecorder.PostHogRecorderConfig?, eventHandler: @escaping (Swift.Dictionary<Swift.String, Any>) -> Swift.Void)
+  @objc deinit
+}
+extension PostHogRecorder.ScreenRecorderMaskingMode : Swift.Equatable {}
+extension PostHogRecorder.ScreenRecorderMaskingMode : Swift.Hashable {}
+extension PostHogRecorder.ScreenRecorderMaskingMode : Swift.RawRepresentable {}

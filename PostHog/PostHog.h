@@ -10,3 +10,4 @@ FOUNDATION_EXPORT const unsigned char PostHogVersionString[];
 #import "PHGPostHogIntegration.h"
 #import "PHGContext.h"
 #import "PHGMiddleware.h"
+#import "PHGSession.h"

@@ -71,7 +71,7 @@ static PHGPostHog *__sharedInstance = nil;
             }
         }
 
-        if (configuration.recordScreenViews) {
+        if (configuration.captureScreenViews || configuration.recordScreenViews) {
             [UIViewController phg_swizzleViewDidAppear];
         }
         if (configuration.captureInAppPurchases) {
@@ -79,19 +79,10 @@ static PHGPostHog *__sharedInstance = nil;
         }
         
         
-        PostHogRecorderConfig *recorderConfiguration = [PostHogRecorderConfig alloc];
-        recorderConfiguration.screenRecordingEnabled = true;
-        recorderConfiguration.logRecordingEnabled = true;
-        recorderConfiguration.networkRecordingEnabled = true;
-        recorderConfiguration.redactionMode = ScreenRecorderMaskingModeAutomatic;
-        recorderConfiguration.redactionTags = PostHogRecorderConfig.DefaultRedactionTags;
-        recorderConfiguration.redactionViews = PostHogRecorderConfig.DefaultRedactionViews;
-        
         // Configuration options listed below can be assigned to the configuration object.
-        [[PostHogRecorder shared] startWithConfig:recorderConfiguration eventHandler:^(NSDictionary<NSString *,id> * _Nonnull snapshot) {
+        [[PostHogRecorder shared] startWithConfig: configuration.recording eventHandler:^(NSDictionary<NSString *,id> * _Nonnull snapshot) {
             [self capture:@"$snapshot" properties:@{
-                @"$snapshot_data" : snapshot,
-                @"$session_id": @"1234"
+                @"$snapshot_data" : snapshot
             }];
         }];
 

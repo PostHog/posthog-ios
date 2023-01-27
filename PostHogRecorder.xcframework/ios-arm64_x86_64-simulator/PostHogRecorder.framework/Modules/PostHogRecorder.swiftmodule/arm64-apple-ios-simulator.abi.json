@@ -1629,14 +1629,14 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recorders\/ScreenRecorder.swift",
       "kind": "FloatLiteral",
-      "offset": 6907,
+      "offset": 7089,
       "length": 3,
       "value": "1.0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recorders\/ScreenRecorder.swift",
       "kind": "FloatLiteral",
-      "offset": 6913,
+      "offset": 7095,
       "length": 3,
       "value": "1.0"
     },
@@ -1650,77 +1650,77 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "IntegerLiteral",
-      "offset": 6914,
+      "offset": 4993,
       "length": 9,
       "value": "1"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "IntegerLiteral",
-      "offset": 6933,
+      "offset": 5012,
       "length": 9,
       "value": "2"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "IntegerLiteral",
-      "offset": 6914,
+      "offset": 4993,
       "length": 9,
       "value": "1"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "IntegerLiteral",
-      "offset": 6933,
+      "offset": 5012,
       "length": 9,
       "value": "2"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "BooleanLiteral",
-      "offset": 7075,
+      "offset": 5154,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "BooleanLiteral",
-      "offset": 7129,
+      "offset": 5208,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "BooleanLiteral",
-      "offset": 7187,
+      "offset": 5266,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "Array",
-      "offset": 7520,
+      "offset": 5599,
       "length": 17,
       "value": "[\"ph-no-capture\"]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "Array",
-      "offset": 7603,
-      "length": 32,
-      "value": "[\"CGDrawingView\", \"RCTTextView\"]"
+      "offset": 5682,
+      "length": 239,
+      "value": "[\"CGDrawingView\", \"RCTTextView\", \"UILabel\", \"UITextField\"]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "StringLiteral",
-      "offset": 6988,
+      "offset": 5067,
       "length": 21,
       "value": "\"PostHogRecorder.PostHogRecorderConfig\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "StringLiteral",
-      "offset": 8462,
+      "offset": 6752,
       "length": 15,
       "value": "\"PostHogRecorder.PostHogRecorder\""
     },

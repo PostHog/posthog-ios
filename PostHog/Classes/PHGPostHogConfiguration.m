@@ -1,5 +1,6 @@
 #import "PHGPostHogConfiguration.h"
 #import "PHGPostHog.h"
+#import <PostHogRecorder/PostHogRecorder.h>
 
 
 @implementation UIApplication (PHGApplicationProtocol)
@@ -21,6 +22,7 @@
 
 @property (nonatomic, copy, readwrite) NSString *apiKey;
 @property (nonatomic, copy, readwrite) NSURL *host;
+@property (nonatomic, copy, readwrite) PostHogRecorderConfig *recording;
 
 @end
 
@@ -36,6 +38,7 @@
 {
     return [[PHGPostHogConfiguration alloc] initWithApiKey:apiKey host:host];
 }
+
 
 - (instancetype)initWithApiKey:(NSString *)apiKey host:(NSString *)host
 {
@@ -60,6 +63,15 @@
         self.payloadFilters = @{
             @"(fb\\d+://authorize#access_token=)([^ ]+)": @"$1((redacted/fb-auth-token))"
         };
+        
+        self.recording = [PostHogRecorderConfig alloc];
+        self.recording.screenRecordingEnabled = false;
+        self.recording.logRecordingEnabled = false;
+        self.recording.networkRecordingEnabled = false;
+        self.recording.redactionMode = ScreenRecorderMaskingModeAutomatic;
+        self.recording.redactionTags = PostHogRecorderConfig.DefaultRedactionTags;
+        self.recording.redactionViews = PostHogRecorderConfig.DefaultRedactionViews;
+        
         Class applicationClass = NSClassFromString(@"UIApplication");
         if (applicationClass) {
 #pragma clang diagnostic push

@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <PostHogRecorder/PostHogRecorder.h>
 
 @protocol PHGApplicationProtocol <NSObject>
 @property (nullable, nonatomic, assign) id<UIApplicationDelegate> delegate;
@@ -96,10 +97,17 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
  */
 @property (nonatomic, assign) BOOL shouldUseBluetooth;
 
+
 /**
  * Whether the posthog client should automatically make a screen call when a view controller is added to a view hierarchy. Because the underlying implementation uses method swizzling, we recommend initializing the posthog client as early as possible (before any screens are displayed), ideally during the Application delegate's applicationDidFinishLaunching method.
  */
-@property (nonatomic, assign) BOOL recordScreenViews;
+@property (nonatomic, assign) BOOL captureScreenViews;
+
+/**
+ * DEPRECATED - Replaced by `captureScreenViews`
+ */
+@property (nonatomic, assign) BOOL recordScreenViews DEPRECATED_ATTRIBUTE;
+
 
 /**
  * Whether the posthog client should automatically capture in-app purchases from the App Store.
@@ -178,5 +186,14 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
  * An optional delegate that handles NSURLSessionDelegate callbacks
  */
 @property (nonatomic, strong, nullable) id<NSURLSessionDelegate> httpSessionDelegate;
+
+
+/**
+ * Configuration for Session Recording
+ *
+ * By default recording is disabled. Set  `recording.screenRecordingEnabled = YES` to enable it. Check the other settings for more granular control over the recording.
+ */
+@property (nonatomic, copy, readonly, nonnull) PostHogRecorderConfig *recording;
+
 
 @end

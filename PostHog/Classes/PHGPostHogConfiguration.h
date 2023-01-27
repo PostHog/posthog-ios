@@ -193,7 +193,7 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
  *
  * By default recording is disabled. Set  `recording.screenRecordingEnabled = YES` to enable it. Check the other settings for more granular control over the recording.
  */
-@property (nonatomic, copy, readonly, nonnull) PostHogRecorderConfig *recording;
+@property (nonatomic, strong, readonly, nonnull) PostHogRecorderConfig *recording;
 
 
 @end

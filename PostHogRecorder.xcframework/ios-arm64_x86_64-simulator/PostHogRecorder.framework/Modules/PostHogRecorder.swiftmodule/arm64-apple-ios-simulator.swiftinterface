@@ -39,8 +39,8 @@ public struct RRWebSnapshotEvent : Swift.Encodable {
   public init(screenRecordingEnabled: Swift.Bool? = nil, logRecordingEnabled: Swift.Bool? = nil, networkRecordingEnabled: Swift.Bool? = nil, redactionMode: PostHogRecorder.ScreenRecorderMaskingMode? = nil, redactionTags: Swift.Set<Swift.String>? = nil, redactionViews: Swift.Set<Swift.String>? = nil)
   @objc deinit
 }
-@_hasMissingDesignatedInitializers @objc public class PostHogRecorder : ObjectiveC.NSObject {
-  @objc public static let shared: PostHogRecorder.PostHogRecorder
+@_hasMissingDesignatedInitializers @objc public class Recorder : ObjectiveC.NSObject {
+  @objc public static let shared: PostHogRecorder.Recorder
   public func updateConfig(config: PostHogRecorder.PostHogRecorderConfig)
   @objc public func start(config: PostHogRecorder.PostHogRecorderConfig?, eventHandler: @escaping (Swift.Dictionary<Swift.String, Any>) -> Swift.Void)
   @objc deinit

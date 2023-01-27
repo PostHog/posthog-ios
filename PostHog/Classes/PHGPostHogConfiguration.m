@@ -22,7 +22,7 @@
 
 @property (nonatomic, copy, readwrite) NSString *apiKey;
 @property (nonatomic, copy, readwrite) NSURL *host;
-@property (nonatomic, copy, readwrite) PostHogRecorderConfig *recording;
+@property (nonatomic, strong, readwrite) PostHogRecorderConfig *recording;
 
 @end
 

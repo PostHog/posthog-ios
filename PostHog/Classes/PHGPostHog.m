@@ -80,7 +80,7 @@ static PHGPostHog *__sharedInstance = nil;
         
         
         // Configuration options listed below can be assigned to the configuration object.
-        [[PostHogRecorder shared] startWithConfig: configuration.recording eventHandler:^(NSDictionary<NSString *,id> * _Nonnull snapshot) {
+        [[Recorder shared] startWithConfig: configuration.recording eventHandler:^(NSDictionary<NSString *,id> * _Nonnull snapshot) {
             [self capture:@"$snapshot" properties:@{
                 @"$snapshot_data" : snapshot
             }];

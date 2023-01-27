@@ -1357,8 +1357,8 @@
       },
       {
         "kind": "TypeDecl",
-        "name": "PostHogRecorder",
-        "printedName": "PostHogRecorder",
+        "name": "Recorder",
+        "printedName": "Recorder",
         "children": [
           {
             "kind": "Var",
@@ -1367,14 +1367,14 @@
             "children": [
               {
                 "kind": "TypeNominal",
-                "name": "PostHogRecorder",
-                "printedName": "PostHogRecorder.PostHogRecorder",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder"
+                "name": "Recorder",
+                "printedName": "PostHogRecorder.Recorder",
+                "usr": "c:@M@PostHogRecorder@objc(cs)Recorder"
               }
             ],
             "declKind": "Var",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder(cpy)shared",
-            "mangledName": "$s15PostHogRecorderAAC6sharedABvpZ",
+            "usr": "c:@M@PostHogRecorder@objc(cs)Recorder(cpy)shared",
+            "mangledName": "$s15PostHogRecorder0C0C6sharedACvpZ",
             "moduleName": "PostHogRecorder",
             "static": true,
             "declAttributes": [
@@ -1394,14 +1394,14 @@
                 "children": [
                   {
                     "kind": "TypeNominal",
-                    "name": "PostHogRecorder",
-                    "printedName": "PostHogRecorder.PostHogRecorder",
-                    "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder"
+                    "name": "Recorder",
+                    "printedName": "PostHogRecorder.Recorder",
+                    "usr": "c:@M@PostHogRecorder@objc(cs)Recorder"
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder(cm)shared",
-                "mangledName": "$s15PostHogRecorderAAC6sharedABvgZ",
+                "usr": "c:@M@PostHogRecorder@objc(cs)Recorder(cm)shared",
+                "mangledName": "$s15PostHogRecorder0C0C6sharedACvgZ",
                 "moduleName": "PostHogRecorder",
                 "static": true,
                 "implicit": true,
@@ -1431,8 +1431,8 @@
               }
             ],
             "declKind": "Func",
-            "usr": "s:15PostHogRecorderAAC12updateConfig6configyAA0abcE0C_tF",
-            "mangledName": "$s15PostHogRecorderAAC12updateConfig6configyAA0abcE0C_tF",
+            "usr": "s:15PostHogRecorder0C0C12updateConfig6configyAA0abcE0C_tF",
+            "mangledName": "$s15PostHogRecorder0C0C12updateConfig6configyAA0abcE0C_tF",
             "moduleName": "PostHogRecorder",
             "declAttributes": [
               "AccessControl"
@@ -1496,8 +1496,8 @@
               }
             ],
             "declKind": "Func",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder(im)startWithConfig:eventHandler:",
-            "mangledName": "$s15PostHogRecorderAAC5start6config12eventHandleryAA0abC6ConfigCSg_ySDySSypGctF",
+            "usr": "c:@M@PostHogRecorder@objc(cs)Recorder(im)startWithConfig:eventHandler:",
+            "mangledName": "$s15PostHogRecorder0C0C5start6config12eventHandleryAA0abC6ConfigCSg_ySDySSypGctF",
             "moduleName": "PostHogRecorder",
             "objc_name": "startWithConfig:eventHandler:",
             "declAttributes": [
@@ -1513,14 +1513,14 @@
             "children": [
               {
                 "kind": "TypeNominal",
-                "name": "PostHogRecorder",
-                "printedName": "PostHogRecorder.PostHogRecorder",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder"
+                "name": "Recorder",
+                "printedName": "PostHogRecorder.Recorder",
+                "usr": "c:@M@PostHogRecorder@objc(cs)Recorder"
               }
             ],
             "declKind": "Constructor",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder(im)init",
-            "mangledName": "$s15PostHogRecorderAACABycfc",
+            "usr": "c:@M@PostHogRecorder@objc(cs)Recorder(im)init",
+            "mangledName": "$s15PostHogRecorder0C0CACycfc",
             "moduleName": "PostHogRecorder",
             "overriding": true,
             "implicit": true,
@@ -1534,8 +1534,8 @@
           }
         ],
         "declKind": "Class",
-        "usr": "c:@M@PostHogRecorder@objc(cs)PostHogRecorder",
-        "mangledName": "$s15PostHogRecorderAAC",
+        "usr": "c:@M@PostHogRecorder@objc(cs)Recorder",
+        "mangledName": "$s15PostHogRecorder0C0C",
         "moduleName": "PostHogRecorder",
         "declAttributes": [
           "AccessControl",
@@ -1721,8 +1721,8 @@
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogRecorder.swift",
       "kind": "StringLiteral",
       "offset": 6752,
-      "length": 15,
-      "value": "\"PostHogRecorder.PostHogRecorder\""
+      "length": 8,
+      "value": "\"PostHogRecorder.Recorder\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recorders\/LogRecorder.swift",

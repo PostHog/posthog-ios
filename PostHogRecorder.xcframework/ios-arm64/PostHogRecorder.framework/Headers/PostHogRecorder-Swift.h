@@ -252,19 +252,8 @@ using UInt = size_t;
 #endif
 
 #if defined(__OBJC__)
-@class PostHogRecorderConfig;
-@class NSString;
-
-SWIFT_CLASS("_TtC15PostHogRecorder15PostHogRecorder")
-@interface PostHogRecorder : NSObject
-SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHogRecorder * _Nonnull shared;)
-+ (PostHogRecorder * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
-- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(NSDictionary<NSString *, id> * _Nonnull))eventHandler;
-- (nonnull instancetype)init SWIFT_UNAVAILABLE;
-+ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
-@end
-
 enum ScreenRecorderMaskingMode : NSInteger;
+@class NSString;
 
 SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @interface PostHogRecorderConfig : NSObject
@@ -278,6 +267,16 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString
 + (NSSet<NSString *> * _Nonnull)DefaultRedactionTags SWIFT_WARN_UNUSED_RESULT;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionViews;)
 + (NSSet<NSString *> * _Nonnull)DefaultRedactionViews SWIFT_WARN_UNUSED_RESULT;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+
+SWIFT_CLASS("_TtC15PostHogRecorder8Recorder")
+@interface Recorder : NSObject
+SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) Recorder * _Nonnull shared;)
++ (Recorder * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
+- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(NSDictionary<NSString *, id> * _Nonnull))eventHandler;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end

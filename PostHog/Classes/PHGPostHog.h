@@ -133,6 +133,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (id)getFeatureFlag:(NSString *)flagKey;
 - (bool)isFeatureEnabled:(NSString *)flagKey;
 - (void)reloadFeatureFlags;
+- (NSData *)getFeatureFlagPayload:(NSString *)flagKey;
 
 // todo: docs
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo;

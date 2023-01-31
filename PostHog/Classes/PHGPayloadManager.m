@@ -210,6 +210,10 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
     return [self.integration getFeatureFlagsAndValues];
 }
 
+- (NSDictionary *)getFeatureFlagPayloads
+{
+    return [self.integration getFeatureFlagPayloads];
+}
 
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo
 {

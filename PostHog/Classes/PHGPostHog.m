@@ -312,6 +312,13 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     return isFlagEnabled;
 }
 
+- (id)getFeatureFlagPayload:(NSString *)flagKey
+{
+    NSDictionary *payloads = [self.payloadManager getFlagVariants];
+    id payload = [payloads valueForKey:flagKey];
+    return payload
+}
+
 - (void)reloadFeatureFlags
 {
     [self run:PHGEventTypeReloadFeatureFlags payload:nil];

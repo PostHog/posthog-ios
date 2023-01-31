@@ -648,6 +648,16 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     return dict;
 }
 
+- (NSDictionary *)getFeatureFlagPayloads
+{
+#if TARGET_OS_TV
+    NSDictionary *dict = [self.userDefaultsStorage dictionaryForKey:PHGEnabledFeatureFlagPayloads];
+#else
+    NSDictionary *dict = [self.fileStorage dictionaryForKey:kPHGEnabledFeatureFlagPayloads];
+#endif
+    return dict;
+}
+
 - (void)persistQueue
 {
     [self.fileStorage setArray:[self.queue copy] forKey:kPHGQueueFilename];

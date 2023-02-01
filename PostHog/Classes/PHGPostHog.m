@@ -316,7 +316,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     NSDictionary *payloads = [self.payloadManager getFlagVariants];
     id payload = [payloads valueForKey:flagKey];
-    return payload
+    return payload;
 }
 
 - (void)reloadFeatureFlags

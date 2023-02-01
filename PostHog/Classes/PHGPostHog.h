@@ -136,7 +136,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey;
 - (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey;
 - (double)getFeatureFlagDoublePayload:(NSString *)flagKey;
-- (NSObject *)getFeatureFlagJSONPayload:(NSString *)flagKey;g
+- (NSObject *)getFeatureFlagJSONPayload:(NSString *)flagKey;
 
 
 // todo: docs

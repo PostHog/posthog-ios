@@ -284,7 +284,6 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     NSDictionary *variants = [self.payloadManager getFlagVariants];
     id variantValue = [variants valueForKey:flagKey];
-    
     NSMutableDictionary *properties = [NSMutableDictionary dictionary];
     [properties setValue:flagKey forKey:@"$feature_flag"];
     [properties setValue:variantValue forKey:@"$feature_flag_response"];
@@ -312,11 +311,35 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     return isFlagEnabled;
 }
 
-- (id)getFeatureFlagPayload:(NSString *)flagKey
+- (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey
 {
-    NSDictionary *payloads = [self.payloadManager getFlagVariants];
-    id payload = [payloads valueForKey:flagKey];
+    NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
+    NSString *payload = [payloads valueForKey:flagKey];
+    
     return payload;
+}
+
+- (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey
+{
+    NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
+    NSInteger payload = [[payloads valueForKey:flagKey] integerValue];
+    
+    return payload;
+}
+
+- (double)getFeatureFlagDoublePayload:(NSString *)flagKey
+{
+    NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
+    double payload = [[payloads valueForKey:flagKey] doubleValue];
+    
+    return payload;
+}
+
+- (NSObject *)getFeatureFlagJSONPayload:(NSString *)flagKey
+{
+    NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
+    NSObject *obj = [payloads valueForKey:flagKey];
+    return obj;
 }
 
 - (void)reloadFeatureFlags

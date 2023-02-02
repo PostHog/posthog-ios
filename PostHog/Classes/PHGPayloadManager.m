@@ -180,10 +180,10 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 {
     NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
 //    TODO: handle IDs
-    [payload setObject:[self getAnonymousId] forKey:@"$anon_distinct_id"];
-    [payload setObject:self.integration.distinctId ? self.integration.distinctId : [self getAnonymousId] forKey:@"distinct_id"];
-    [payload setObject:[self getGroups] forKey:@"$groups"];
-    [payload setObject:self.posthog.configuration.apiKey forKey:@"api_key"];
+    [payload setValue:[self getAnonymousId] forKey:@"$anon_distinct_id"];
+    [payload setValue:self.integration.distinctId ? self.integration.distinctId : [self getAnonymousId] forKey:@"distinct_id"];
+    [payload setValue:[self getGroups] forKey:@"$groups"];
+    [payload setValue:self.posthog.configuration.apiKey forKey:@"api_key"];
     
     NSURL *url = [self.posthog.configuration.host URLByAppendingPathComponent:@"decide"];
     NSString *absoluteUrl = [url absoluteString];
@@ -255,6 +255,9 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
 - (NSString *)getAnonymousId;
 {
+    if (self.cachedAnonymousId == nil) {
+        [self resetAnonymousId];
+    }
     return self.cachedAnonymousId;
 }
 

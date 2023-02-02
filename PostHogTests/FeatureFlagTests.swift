@@ -146,27 +146,27 @@ class FeatureFlagTests: QuickSpec {
       expect((flagPayload as! [String]) == (["some-flag", "default-payload"])).to(be(true))
     }
     
-//    it("retrieves feature flag payload - number") {
-//      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
-//        .andReturn(200)?
-//        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}}" as LSHTTPBody);
-//      posthog.reloadFeatureFlags()
-//      // Hacky: Need to buffer for async request to happen without stub being cleaned up
-//      sleep(1)
-//      let flagValue = posthog.getFeatureFlag("some-flag")
-//      expect(flagValue).to(be("variant-1"))
-//    }
-//
-//    it("retrieves feature flag payload - object") {
-//      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
-//        .andReturn(200)?
-//        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}}" as LSHTTPBody);
-//      posthog.reloadFeatureFlags()
-//      // Hacky: Need to buffer for async request to happen without stub being cleaned up
-//      sleep(1)
-//      let flagValue = posthog.getFeatureFlag("some-flag")
-//      expect(flagValue).to(be("variant-1"))
-//    }
+    it("retrieves feature flag payload - number") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagValue = posthog.getFeatureFlag("some-flag")
+      expect(flagValue).to(be("variant-1"))
+    }
+
+    it("retrieves feature flag payload - object") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagValue = posthog.getFeatureFlag("some-flag")
+      expect(flagValue).to(be("variant-1"))
+    }
 
   }
 

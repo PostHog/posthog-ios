@@ -311,7 +311,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     return isFlagEnabled;
 }
 
-- (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey
+- (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey defaultValue:(NSString *)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     NSString *payload = [payloads valueForKey:flagKey];
@@ -319,7 +319,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     return payload;
 }
 
-- (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey
+- (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey defaultValue:(NSInteger)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     NSInteger payload = [[payloads valueForKey:flagKey] integerValue];
@@ -327,19 +327,43 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     return payload;
 }
 
-- (double)getFeatureFlagDoublePayload:(NSString *)flagKey
+- (double)getFeatureFlagDoublePayload:(NSString *)flagKey defaultValue:(double)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    double payload = [[payloads valueForKey:flagKey] doubleValue];
+    double payload;
+    @try{
+        payload = [[payloads valueForKey:flagKey] doubleValue];
+    } @catch (NSException* exception) {
+        NSLog(@"Got exception: %@    Reason: %@", exception.name, exception.reason);
+        payload = defaultValue;
+    }
+
     
     return payload;
 }
 
-- (NSObject *)getFeatureFlagJSONPayload:(NSString *)flagKey
+- (NSDictionary *)getFeatureFlagDictionaryPayload:(NSString *)flagKey defaultValue:(NSDictionary *)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    NSObject *obj = [payloads valueForKey:flagKey];
-    return obj;
+    id obj = [payloads objectForKey:flagKey];
+    if ([obj isKindOfClass:[NSDictionary class]]) {
+        NSDictionary* newDict = (NSDictionary*)obj;
+        return newDict;
+    } else {
+        return defaultValue;
+    }
+}
+
+- (NSArray *)getFeatureFlagArrayPayload:(NSString *)flagKey defaultValue:(NSArray *)defaultValue
+{
+    NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
+    id obj = [payloads objectForKey:flagKey];
+    if ([obj isKindOfClass:[NSArray class]]) {
+        NSArray* newDict = (NSArray*)obj;
+        return newDict;
+    } else {
+        return defaultValue;
+    }
 }
 
 - (void)reloadFeatureFlags

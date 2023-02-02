@@ -133,10 +133,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (id)getFeatureFlag:(NSString *)flagKey;
 - (bool)isFeatureEnabled:(NSString *)flagKey;
 - (void)reloadFeatureFlags;
-- (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey;
-- (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey;
-- (double)getFeatureFlagDoublePayload:(NSString *)flagKey;
-- (NSObject *)getFeatureFlagJSONPayload:(NSString *)flagKey;
+- (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey defaultValue:(NSString *)defaultValue;
+- (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey defaultValue:(NSInteger)defaultValue;
+- (double)getFeatureFlagDoublePayload:(NSString *)flagKey defaultValue:(double)defaultValue;
+- (NSDictionary *)getFeatureFlagDictionaryPayload:(NSString *)flagKey defaultValue:(NSDictionary *)defaultValue;
+- (NSArray *)getFeatureFlagArrayPayload:(NSString *)flagKey defaultValue:(NSArray *)defaultValue;
 
 
 // todo: docs

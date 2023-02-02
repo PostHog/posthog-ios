@@ -316,30 +316,38 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     NSString *payload = [payloads valueForKey:flagKey];
     
-    return payload;
+    if ([payload isKindOfClass:[NSString class]]) {
+        return payload;
+    } else {
+        NSLog(@"Could not retrieve value of type: NSString");
+        return defaultValue;
+    }
 }
 
 - (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey defaultValue:(NSInteger)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    NSInteger payload = [[payloads valueForKey:flagKey] integerValue];
-    
-    return payload;
+    id payload = [payloads objectForKey:flagKey];
+    if ([payload isKindOfClass:[NSNumber class]]) {
+        return [payload integerValue];
+    } else {
+        NSLog(@"Could not retrieve value of type: NSInteger");
+        return defaultValue;
+    }
 }
 
 - (double)getFeatureFlagDoublePayload:(NSString *)flagKey defaultValue:(double)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    double payload;
-    @try{
-        payload = [[payloads valueForKey:flagKey] doubleValue];
-    } @catch (NSException* exception) {
-        NSLog(@"Got exception: %@    Reason: %@", exception.name, exception.reason);
-        payload = defaultValue;
+    id payload = [payloads objectForKey:flagKey];
+    
+    if ([payload isKindOfClass:[NSNumber class]]) {
+        return [payload doubleValue];
+    } else {
+        NSLog(@"Could not retrieve value of type: double");
+        return defaultValue;
     }
 
-    
-    return payload;
 }
 
 - (NSDictionary *)getFeatureFlagDictionaryPayload:(NSString *)flagKey defaultValue:(NSDictionary *)defaultValue
@@ -350,6 +358,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         NSDictionary* newDict = (NSDictionary*)obj;
         return newDict;
     } else {
+        NSLog(@"Could not retrieve value of type: NSDictionary");
         return defaultValue;
     }
 }
@@ -362,6 +371,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         NSArray* newDict = (NSArray*)obj;
         return newDict;
     } else {
+        NSLog(@"Could not retrieve value of type: NSArray");
         return defaultValue;
     }
 }

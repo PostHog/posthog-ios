@@ -65,6 +65,18 @@ class FeatureFlagTests: QuickSpec {
       expect(flagPayload).to(equal("variant-payload"))
     }
     
+    it("retrieves feature flag payload error - string") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}, \"featureFlagPayloads\":{\"some-flag\": 2.0}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagPayload = posthog.getFeatureFlagStringPayload("some-flag", defaultValue: "default-payload")
+
+      expect(flagPayload).to(equal("default-payload"))
+    }
+    
     it("retrieves feature flag payload - integer") {
       _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
         .andReturn(200)?
@@ -73,8 +85,20 @@ class FeatureFlagTests: QuickSpec {
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
       let flagPayload = posthog.getFeatureFlagIntegerPayload("some-flag", defaultValue: 3)
-
+      print(flagPayload)
       expect(flagPayload).to(be(2000))
+    }
+    
+    it("retrieves feature flag payload error - integer") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}, \"featureFlagPayloads\":{\"some-flag\": \"string-value\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagPayload = posthog.getFeatureFlagIntegerPayload("some-flag", defaultValue: 3)
+
+      expect(flagPayload).to(be(3))
     }
     
     it("retrieves feature flag payload - double") {

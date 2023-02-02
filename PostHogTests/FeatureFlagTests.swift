@@ -61,7 +61,7 @@ class FeatureFlagTests: QuickSpec {
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
       let flagValue = posthog.getFeatureFlag("some-flag")
-      print(type(of: flagValue))
+
       let flagPayload = posthog.getFeatureFlagStringPayload("some-flag")
 
       expect(flagPayload).to(equal("variant-payload"))
@@ -75,7 +75,6 @@ class FeatureFlagTests: QuickSpec {
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
       let flagValue = posthog.getFeatureFlag("some-flag")
-      print(type(of: flagValue))
       let flagPayload = posthog.getFeatureFlagIntegerPayload("some-flag")
 
       expect(flagPayload).to(be(2000))
@@ -89,7 +88,6 @@ class FeatureFlagTests: QuickSpec {
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
       let flagValue = posthog.getFeatureFlag("some-flag")
-      print(type(of: flagValue))
       let flagPayload = posthog.getFeatureFlagDoublePayload("some-flag")
 
       expect(flagPayload).to(be(2.000))

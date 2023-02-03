@@ -64,14 +64,12 @@
             @"(fb\\d+://authorize#access_token=)([^ ]+)": @"$1((redacted/fb-auth-token))"
         };
         
-        self.recording = [PostHogRecorderConfig alloc];
+        self.recording = [PostHogRecorderConfig newInstance];
         self.recording.screenRecordingEnabled = false;
         self.recording.logRecordingEnabled = false;
         self.recording.networkRecordingEnabled = false;
         self.recording.redactionMode = ScreenRecorderMaskingModeAutomatic;
-        self.recording.redactionTags = PostHogRecorderConfig.DefaultRedactionTags;
-        self.recording.redactionViews = PostHogRecorderConfig.DefaultRedactionViews;
-        
+
         Class applicationClass = NSClassFromString(@"UIApplication");
         if (applicationClass) {
 #pragma clang diagnostic push

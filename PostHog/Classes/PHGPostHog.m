@@ -78,14 +78,12 @@ static PHGPostHog *__sharedInstance = nil;
             _storeKitCapturer = [PHGStoreKitCapturer captureTransactionsForPostHog:self];
         }
         
-        
         // Configuration options listed below can be assigned to the configuration object.
         [[Recorder shared] startWithConfig: configuration.recording eventHandler:^(NSDictionary<NSString *,id> * _Nonnull snapshot) {
             [self capture:@"$snapshot" properties:@{
                 @"$snapshot_data" : snapshot
             }];
         }];
-
         
 
 #if !TARGET_OS_TV

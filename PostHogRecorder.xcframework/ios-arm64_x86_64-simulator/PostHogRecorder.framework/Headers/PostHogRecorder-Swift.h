@@ -263,10 +263,12 @@ SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @property (nonatomic) enum ScreenRecorderMaskingMode redactionMode;
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionTags;
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionViews;
-SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionTags;)
-+ (NSSet<NSString *> * _Nonnull)DefaultRedactionTags SWIFT_WARN_UNUSED_RESULT;
+@property (nonatomic, copy) NSArray<Class> * _Nonnull redactionClasses;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionViews;)
 + (NSSet<NSString *> * _Nonnull)DefaultRedactionViews SWIFT_WARN_UNUSED_RESULT;
+SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSArray<Class> * _Nonnull DefaultRedactionClasses;)
++ (NSArray<Class> * _Nonnull)DefaultRedactionClasses SWIFT_WARN_UNUSED_RESULT;
++ (PostHogRecorderConfig * _Nonnull)newInstance SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end
@@ -560,10 +562,12 @@ SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @property (nonatomic) enum ScreenRecorderMaskingMode redactionMode;
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionTags;
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionViews;
-SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionTags;)
-+ (NSSet<NSString *> * _Nonnull)DefaultRedactionTags SWIFT_WARN_UNUSED_RESULT;
+@property (nonatomic, copy) NSArray<Class> * _Nonnull redactionClasses;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionViews;)
 + (NSSet<NSString *> * _Nonnull)DefaultRedactionViews SWIFT_WARN_UNUSED_RESULT;
+SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSArray<Class> * _Nonnull DefaultRedactionClasses;)
++ (NSArray<Class> * _Nonnull)DefaultRedactionClasses SWIFT_WARN_UNUSED_RESULT;
++ (PostHogRecorderConfig * _Nonnull)newInstance SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end

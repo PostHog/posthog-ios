@@ -314,7 +314,11 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 - (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey defaultValue:(NSString *)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    NSString *payload = [payloads valueForKey:flagKey];
+    id payload = [payloads valueForKey:flagKey];
+    
+    if( payload == NULL ){
+        return defaultValue;
+    }
     
     if ([payload isKindOfClass:[NSString class]]) {
         return payload;
@@ -328,6 +332,11 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     id payload = [payloads objectForKey:flagKey];
+    
+    if( payload == NULL ){
+        return defaultValue;
+    }
+    
     if ([payload isKindOfClass:[NSNumber class]]) {
         return [payload integerValue];
     } else {
@@ -340,6 +349,10 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     id payload = [payloads objectForKey:flagKey];
+    
+    if( payload == NULL ){
+        return defaultValue;
+    }
     
     if ([payload isKindOfClass:[NSNumber class]]) {
         return [payload doubleValue];
@@ -354,6 +367,11 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     id obj = [payloads objectForKey:flagKey];
+    
+    if( payload == NULL ){
+        return defaultValue;
+    }
+    
     if ([obj isKindOfClass:[NSDictionary class]]) {
         NSDictionary* newDict = (NSDictionary*)obj;
         return newDict;
@@ -367,6 +385,11 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
     id obj = [payloads objectForKey:flagKey];
+    
+    if( payload == NULL ){
+        return defaultValue;
+    }
+    
     if ([obj isKindOfClass:[NSArray class]]) {
         NSArray* newDict = (NSArray*)obj;
         return newDict;

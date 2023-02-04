@@ -53,6 +53,18 @@ class FeatureFlagTests: QuickSpec {
       expect(flagValue).to(be("variant-1"))
     }
     
+    it("retrieves feature flag payload - nil") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"variant-1\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let flagPayload = posthog.getFeatureFlagStringPayload("some-flag", defaultValue: "default-payload")
+
+      expect(flagPayload).to(equal("default-payload"))
+    }
+    
     it("retrieves feature flag payload - string") {
       _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
         .andReturn(200)?

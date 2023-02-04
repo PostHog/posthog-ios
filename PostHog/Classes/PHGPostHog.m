@@ -366,14 +366,14 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 - (NSDictionary *)getFeatureFlagDictionaryPayload:(NSString *)flagKey defaultValue:(NSDictionary *)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    id obj = [payloads objectForKey:flagKey];
+    id payload = [payloads objectForKey:flagKey];
     
     if( payload == NULL ){
         return defaultValue;
     }
     
-    if ([obj isKindOfClass:[NSDictionary class]]) {
-        NSDictionary* newDict = (NSDictionary*)obj;
+    if ([payload isKindOfClass:[NSDictionary class]]) {
+        NSDictionary* newDict = (NSDictionary*)payload;
         return newDict;
     } else {
         NSLog(@"Could not retrieve value of type: NSDictionary");
@@ -384,14 +384,14 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 - (NSArray *)getFeatureFlagArrayPayload:(NSString *)flagKey defaultValue:(NSArray *)defaultValue
 {
     NSDictionary *payloads = [self.payloadManager getFeatureFlagPayloads];
-    id obj = [payloads objectForKey:flagKey];
+    id payload = [payloads objectForKey:flagKey];
     
     if( payload == NULL ){
         return defaultValue;
     }
     
-    if ([obj isKindOfClass:[NSArray class]]) {
-        NSArray* newDict = (NSArray*)obj;
+    if ([payload isKindOfClass:[NSArray class]]) {
+        NSArray* newDict = (NSArray*)payload;
         return newDict;
     } else {
         NSLog(@"Could not retrieve value of type: NSArray");

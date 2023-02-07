@@ -30,7 +30,8 @@ extern NSString *const PHGPostHogRequestDidFailNotification;
 
 - (NSArray *_Nonnull)getFeatureFlags;
 - (NSDictionary *)getFeatureFlagsAndValues;
-- (void)receivedFeatureFlags:(NSDictionary *)flags;
+- (NSDictionary *)getFeatureFlagPayloads;
+- (void)receivedFeatureFlags:(NSDictionary *)flags payloads:(NSDictionary *)payloads;
 
 @end
 

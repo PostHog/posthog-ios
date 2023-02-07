@@ -323,7 +323,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     if ([payload isKindOfClass:[NSString class]]) {
         return payload;
     } else {
-        NSLog(@"Could not retrieve value of type: NSString");
+        NSLog(@"[Posthog]: Could not retrieve value of type: NSString");
         return defaultValue;
     }
 }
@@ -340,7 +340,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     if ([payload isKindOfClass:[NSNumber class]]) {
         return [payload integerValue];
     } else {
-        NSLog(@"Could not retrieve value of type: NSInteger");
+        NSLog(@"[Posthog]: Could not retrieve value of type: NSInteger");
         return defaultValue;
     }
 }
@@ -357,7 +357,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     if ([payload isKindOfClass:[NSNumber class]]) {
         return [payload doubleValue];
     } else {
-        NSLog(@"Could not retrieve value of type: double");
+        NSLog(@"[Posthog]: Could not retrieve value of type: double");
         return defaultValue;
     }
 
@@ -376,7 +376,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         NSDictionary* newDict = (NSDictionary*)payload;
         return newDict;
     } else {
-        NSLog(@"Could not retrieve value of type: NSDictionary");
+        NSLog(@"[Posthog]: Could not retrieve value of type: NSDictionary");
         return defaultValue;
     }
 }
@@ -394,7 +394,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         NSArray* newDict = (NSArray*)payload;
         return newDict;
     } else {
-        NSLog(@"Could not retrieve value of type: NSArray");
+        NSLog(@"[Posthog]: Could not retrieve value of type: NSArray");
         return defaultValue;
     }
 }

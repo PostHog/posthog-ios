@@ -7,6 +7,7 @@ class FileStorageTest : QuickSpec {
     var storage : PHGFileStorage!
     beforeEach {
       let url = PHGFileStorage.applicationSupportDirectoryURL()
+      print(url)
       expect(url).toNot(beNil())
       expect(url?.pathComponents[url!.pathComponents.count - 2]) == "Application Support"
       expect(url?.lastPathComponent) == Bundle.main.bundleIdentifier

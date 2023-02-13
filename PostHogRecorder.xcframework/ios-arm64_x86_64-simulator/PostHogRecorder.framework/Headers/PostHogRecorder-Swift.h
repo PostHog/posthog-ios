@@ -234,6 +234,8 @@ using UInt = size_t;
 @import ObjectiveC;
 #endif
 
+#import <PostHogRecorder/PostHogRecorder.h>
+
 #endif
 #pragma clang diagnostic ignored "-Wproperty-attribute-mismatch"
 #pragma clang diagnostic ignored "-Wduplicate-method-arg"
@@ -252,8 +254,82 @@ using UInt = size_t;
 #endif
 
 #if defined(__OBJC__)
-enum ScreenRecorderMaskingMode : NSInteger;
+@class NSURLSessionTask;
+
+SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
+@interface NetworkRecorder : NSObject <NetworkRecordingIntegrationResponder>
+- (void)urlSessionTaskResume:(NSURLSessionTask * _Nonnull)sessionTask;
+- (void)urlSessionTask:(NSURLSessionTask * _Nonnull)sessionTask setState:(NSURLSessionTaskState)newState;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+@class Recorder;
+@class PostHogConfig;
 @class NSString;
+
+SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
+@interface PostHog : NSObject
+SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
++ (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
+@property (nonatomic, readonly, strong) Recorder * _Nonnull recorder;
+- (void)debugWithEnabled:(BOOL)enabled;
+- (void)setupWithConfig:(PostHogConfig * _Nonnull)config;
+- (NSString * _Nonnull)getDistinctId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nonnull)getAnonymousId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nonnull)getSessionId SWIFT_WARN_UNUSED_RESULT;
+- (NSDictionary<NSString *, id> * _Nonnull)register:(NSDictionary<NSString *, id> * _Nonnull)properties SWIFT_WARN_UNUSED_RESULT;
+- (void)unregister:(NSString * _Nonnull)key;
+- (void)identify:(NSString * _Nonnull)distinctId properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (void)capture:(NSString * _Nonnull)event properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (void)screen:(NSString * _Nonnull)screenTitle properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (void)alias:(NSString * _Nonnull)alias properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (NSDictionary<NSString *, NSString *> * _Nonnull)groups:(NSDictionary<NSString *, NSString *> * _Nonnull)newGroups SWIFT_WARN_UNUSED_RESULT;
+- (void)groupIdentifyWithType:(NSString * _Nonnull)type key:(NSString * _Nonnull)key groupProperties:(NSDictionary<NSString *, id> * _Nullable)groupProperties;
+- (void)groupWithType:(NSString * _Nonnull)type key:(NSString * _Nonnull)key groupProperties:(NSDictionary<NSString *, id> * _Nullable)groupProperties;
+- (nonnull instancetype)init OBJC_DESIGNATED_INITIALIZER;
+@end
+
+
+@class NSURL;
+enum PostHogDataMode : NSInteger;
+@class PostHogRecorderConfig;
+
+SWIFT_CLASS_NAMED("PostHogConfig")
+@interface PostHogConfig : NSObject
+@property (nonatomic, copy) NSURL * _Nonnull host;
+@property (nonatomic, copy) NSString * _Nonnull apiKey;
+@property (nonatomic) NSInteger flushAt;
+@property (nonatomic) NSInteger maxQueueSize;
+@property (nonatomic) NSInteger maxBatchSize;
+@property (nonatomic) NSTimeInterval flushInterval;
+@property (nonatomic) enum PostHogDataMode dataMode;
+@property (nonatomic, strong) PostHogRecorderConfig * _Nonnull recording;
++ (PostHogConfig * _Nonnull)newInstanceWithApiKey:(NSString * _Nonnull)apiKey SWIFT_WARN_UNUSED_RESULT;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+typedef SWIFT_ENUM_NAMED(NSInteger, PostHogDataMode, "PostHogDataMode", open) {
+  PostHogDataModeWifi = 0,
+  PostHogDataModeAny = 1,
+};
+
+@class NSDate;
+@class NSCoder;
+
+SWIFT_CLASS("_TtC15PostHogRecorder12PostHogEvent")
+@interface PostHogEvent : NSObject <NSCoding>
+@property (nonatomic, copy) NSDate * _Nonnull timestamp;
+@property (nonatomic, copy) NSString * _Nonnull event;
+@property (nonatomic, copy) NSDictionary<NSString *, id> * _Nonnull properties;
+- (void)encodeWithCoder:(NSCoder * _Nonnull)aCoder;
+- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)aDecoder;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+enum ScreenRecorderMaskingMode : NSInteger;
 
 SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @interface PostHogRecorderConfig : NSObject
@@ -264,6 +340,7 @@ SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionTags;
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionViews;
 @property (nonatomic, copy) NSArray<Class> * _Nonnull redactionClasses;
+@property (nonatomic, copy) NSSet<NSString *> * _Nonnull ignoreNetworkHosts;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionViews;)
 + (NSSet<NSString *> * _Nonnull)DefaultRedactionViews SWIFT_WARN_UNUSED_RESULT;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSArray<Class> * _Nonnull DefaultRedactionClasses;)
@@ -278,7 +355,7 @@ SWIFT_CLASS("_TtC15PostHogRecorder8Recorder")
 @interface Recorder : NSObject
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) Recorder * _Nonnull shared;)
 + (Recorder * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
-- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(NSDictionary<NSString *, id> * _Nonnull))eventHandler;
+- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(PostHogEvent * _Nonnull))eventHandler;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end
@@ -533,6 +610,8 @@ using UInt = size_t;
 @import ObjectiveC;
 #endif
 
+#import <PostHogRecorder/PostHogRecorder.h>
+
 #endif
 #pragma clang diagnostic ignored "-Wproperty-attribute-mismatch"
 #pragma clang diagnostic ignored "-Wduplicate-method-arg"
@@ -551,8 +630,82 @@ using UInt = size_t;
 #endif
 
 #if defined(__OBJC__)
-enum ScreenRecorderMaskingMode : NSInteger;
+@class NSURLSessionTask;
+
+SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
+@interface NetworkRecorder : NSObject <NetworkRecordingIntegrationResponder>
+- (void)urlSessionTaskResume:(NSURLSessionTask * _Nonnull)sessionTask;
+- (void)urlSessionTask:(NSURLSessionTask * _Nonnull)sessionTask setState:(NSURLSessionTaskState)newState;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+@class Recorder;
+@class PostHogConfig;
 @class NSString;
+
+SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
+@interface PostHog : NSObject
+SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
++ (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
+@property (nonatomic, readonly, strong) Recorder * _Nonnull recorder;
+- (void)debugWithEnabled:(BOOL)enabled;
+- (void)setupWithConfig:(PostHogConfig * _Nonnull)config;
+- (NSString * _Nonnull)getDistinctId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nonnull)getAnonymousId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nonnull)getSessionId SWIFT_WARN_UNUSED_RESULT;
+- (NSDictionary<NSString *, id> * _Nonnull)register:(NSDictionary<NSString *, id> * _Nonnull)properties SWIFT_WARN_UNUSED_RESULT;
+- (void)unregister:(NSString * _Nonnull)key;
+- (void)identify:(NSString * _Nonnull)distinctId properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (void)capture:(NSString * _Nonnull)event properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (void)screen:(NSString * _Nonnull)screenTitle properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (void)alias:(NSString * _Nonnull)alias properties:(NSDictionary<NSString *, id> * _Nullable)properties;
+- (NSDictionary<NSString *, NSString *> * _Nonnull)groups:(NSDictionary<NSString *, NSString *> * _Nonnull)newGroups SWIFT_WARN_UNUSED_RESULT;
+- (void)groupIdentifyWithType:(NSString * _Nonnull)type key:(NSString * _Nonnull)key groupProperties:(NSDictionary<NSString *, id> * _Nullable)groupProperties;
+- (void)groupWithType:(NSString * _Nonnull)type key:(NSString * _Nonnull)key groupProperties:(NSDictionary<NSString *, id> * _Nullable)groupProperties;
+- (nonnull instancetype)init OBJC_DESIGNATED_INITIALIZER;
+@end
+
+
+@class NSURL;
+enum PostHogDataMode : NSInteger;
+@class PostHogRecorderConfig;
+
+SWIFT_CLASS_NAMED("PostHogConfig")
+@interface PostHogConfig : NSObject
+@property (nonatomic, copy) NSURL * _Nonnull host;
+@property (nonatomic, copy) NSString * _Nonnull apiKey;
+@property (nonatomic) NSInteger flushAt;
+@property (nonatomic) NSInteger maxQueueSize;
+@property (nonatomic) NSInteger maxBatchSize;
+@property (nonatomic) NSTimeInterval flushInterval;
+@property (nonatomic) enum PostHogDataMode dataMode;
+@property (nonatomic, strong) PostHogRecorderConfig * _Nonnull recording;
++ (PostHogConfig * _Nonnull)newInstanceWithApiKey:(NSString * _Nonnull)apiKey SWIFT_WARN_UNUSED_RESULT;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+typedef SWIFT_ENUM_NAMED(NSInteger, PostHogDataMode, "PostHogDataMode", open) {
+  PostHogDataModeWifi = 0,
+  PostHogDataModeAny = 1,
+};
+
+@class NSDate;
+@class NSCoder;
+
+SWIFT_CLASS("_TtC15PostHogRecorder12PostHogEvent")
+@interface PostHogEvent : NSObject <NSCoding>
+@property (nonatomic, copy) NSDate * _Nonnull timestamp;
+@property (nonatomic, copy) NSString * _Nonnull event;
+@property (nonatomic, copy) NSDictionary<NSString *, id> * _Nonnull properties;
+- (void)encodeWithCoder:(NSCoder * _Nonnull)aCoder;
+- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)aDecoder;
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+enum ScreenRecorderMaskingMode : NSInteger;
 
 SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @interface PostHogRecorderConfig : NSObject
@@ -563,6 +716,7 @@ SWIFT_CLASS_NAMED("PostHogRecorderConfig")
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionTags;
 @property (nonatomic, copy) NSSet<NSString *> * _Nonnull redactionViews;
 @property (nonatomic, copy) NSArray<Class> * _Nonnull redactionClasses;
+@property (nonatomic, copy) NSSet<NSString *> * _Nonnull ignoreNetworkHosts;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSSet<NSString *> * _Nonnull DefaultRedactionViews;)
 + (NSSet<NSString *> * _Nonnull)DefaultRedactionViews SWIFT_WARN_UNUSED_RESULT;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, copy) NSArray<Class> * _Nonnull DefaultRedactionClasses;)
@@ -577,7 +731,7 @@ SWIFT_CLASS("_TtC15PostHogRecorder8Recorder")
 @interface Recorder : NSObject
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) Recorder * _Nonnull shared;)
 + (Recorder * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
-- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(NSDictionary<NSString *, id> * _Nonnull))eventHandler;
+- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(PostHogEvent * _Nonnull))eventHandler;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end

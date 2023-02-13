@@ -4,147 +4,272 @@
 <dict>
 	<key>files</key>
 	<dict>
+		<key>Headers/CASError.h</key>
+		<data>
+		JoQMtwa/Ugbi/6Dh9u8+MgvztEQ=
+		</data>
+		<key>Headers/CASFileObjectQueue.h</key>
+		<data>
+		ufURdFHPX0QbtY3m7sC4mfUna8M=
+		</data>
+		<key>Headers/CASInMemoryObjectQueue.h</key>
+		<data>
+		Cle/blR08+8xvyCv5bCB0IjToX4=
+		</data>
+		<key>Headers/CASObjectQueue.h</key>
+		<data>
+		aeTTFPxQUdYT2op+XS0RxKIdmCI=
+		</data>
+		<key>Headers/CASPrivateConstants.h</key>
+		<data>
+		zAsutlslINkXLHJgKLT2yZBUS4w=
+		</data>
+		<key>Headers/CASQueueFile.h</key>
+		<data>
+		dzAB1OnLD9R2D7UzBVdA2O2eLKQ=
+		</data>
+		<key>Headers/CASQueueFileElement.h</key>
+		<data>
+		FHxd7vlma+gXjld6dUP82NAvEdk=
+		</data>
+		<key>Headers/Cassette.h</key>
+		<data>
+		p/s0pJyLLlYCIQr7lnsKdnlU1yU=
+		</data>
+		<key>Headers/NSData+PHGGZIP.h</key>
+		<data>
+		5aQLScjKzd7/wpusycNPJ5Y7O44=
+		</data>
+		<key>Headers/NetworkRecordingIntegration.h</key>
+		<data>
+		pX1J5uDxETLEUper7hQ/t9CmIes=
+		</data>
 		<key>Headers/PostHogRecorder-Swift.h</key>
 		<data>
-		Fgh7gR1YkxDqjJxQibvPH1u4K5A=
+		6J+eLBnCsnoVQi+7FGMz3T5Ifqs=
 		</data>
 		<key>Headers/PostHogRecorder.h</key>
 		<data>
-		oDcyT+9bFWdAQ4Min0wCMEyddos=
+		znGuariU1aZbh3jpBcQC0vYFvvA=
 		</data>
 		<key>Info.plist</key>
 		<data>
-		n9bbVFUnbfGYepsj+iQYzqAYK68=
+		VDqPUln7FfnhAiyUHLhvYGj8cec=
+		</data>
+		<key>LICENSE</key>
+		<data>
+		dWMQcNTJd22WqfNmOAxUWhNvj9w=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
-		myLl+3lwNB6v4jRCASDghvfIERo=
+		JCAjoB6lde450c3ZHqS+02TChtA=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		/nzeqcvJLvIjPpqHrGZqa62Ss2g=
+		p6JH0nrE7RjGDvvnwt9T3rSCogw=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		jEPvTD7hgOrlaXOg5ovxP53Zlog=
+		WI2ddOnpOcl33Wisdk1vhXijmJQ=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		/nzeqcvJLvIjPpqHrGZqa62Ss2g=
+		p6JH0nrE7RjGDvvnwt9T3rSCogw=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		cbmztK7RIfbaMwfas6jrhqbo9+s=
+		80kC3RtVZCim82vQsUpxpNkzack=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
-		myLl+3lwNB6v4jRCASDghvfIERo=
+		JCAjoB6lde450c3ZHqS+02TChtA=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		xw+XZUOm0ZJm6dH0LdnIihnhlIM=
+		Z0u4TMSbLwRbklI3496u4bF9uYU=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
-		SFAF0F0UZ2sdkNEH5+qvFw5ects=
+		1fLDHq8iWiZluv+GoeFYunhZYts=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		xw+XZUOm0ZJm6dH0LdnIihnhlIM=
+		Z0u4TMSbLwRbklI3496u4bF9uYU=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		HSCKZFAAd2EVA8e9i+4VDcSB26Y=
+		41y1ONXC4HBZbh8aWP/ql1v90f4=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
 		A0sQZRjjwgmPwx+1sq9s1CBZN60=
 		</data>
+		<key>README.md</key>
+		<data>
+		e93HdXuRYd7V9otaTcQ1PfIazbs=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Headers/CASError.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			J+1VXcpn2y5W65TMy1JX9nh7WUvlUVvOC2H6C8e+sd0=
+			</data>
+		</dict>
+		<key>Headers/CASFileObjectQueue.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			16mHW1WWYqWo+idgjyvY3nlOsrv6oMiL5BUGbvqP/O4=
+			</data>
+		</dict>
+		<key>Headers/CASInMemoryObjectQueue.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			wTVidwQs84anjOBeo6dCu67q+X4U8A4Siy3cYWyG8yA=
+			</data>
+		</dict>
+		<key>Headers/CASObjectQueue.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			URnv1epkITPYdG+L+3iMuLHkbvLy2HVyASCNJAAyNUM=
+			</data>
+		</dict>
+		<key>Headers/CASPrivateConstants.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			TeZ8zLIC2CA/7CyblJPBxY3JgY0wBb66rosSfdU/4CQ=
+			</data>
+		</dict>
+		<key>Headers/CASQueueFile.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			30DXwwQQ40J62nF9iWGo46rvEyX3zPwvsNx7T0qLsTE=
+			</data>
+		</dict>
+		<key>Headers/CASQueueFileElement.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			nhSRBDUGGP1C8cgMFDwVGsn/uTAVGRUBS+O0RGdt1GQ=
+			</data>
+		</dict>
+		<key>Headers/Cassette.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			wcKbU/k0eybA5LjDewG+qRUU28uKrf2RklhblIx+a/Y=
+			</data>
+		</dict>
+		<key>Headers/NSData+PHGGZIP.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			N18RlEb5aEpoKCzYRyneUPNvqtZYPLoqGH/0k5j4bTI=
+			</data>
+		</dict>
+		<key>Headers/NetworkRecordingIntegration.h</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			DO1q9iSQUrEutHJKtX/t5MDNnhv7Me13yq9jp8zSMPs=
+			</data>
+		</dict>
 		<key>Headers/PostHogRecorder-Swift.h</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			SuvdiACFUW+YWaWChwkDD138bLIHq4S6i1Kbn0hTYpc=
+			r0ZZKZeiIR6H/1GSjxRr06anGvxykn31jr7dIN4pjfg=
 			</data>
 		</dict>
 		<key>Headers/PostHogRecorder.h</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			cSHJ6v4Jz9PVDH4oklDc+5T1Jl1xfkCUlFfE2CPO3FU=
+			b+5nbVELk/V/ZzFyf8xO18U+rdiWsd2gRZ5SLtEvF2w=
+			</data>
+		</dict>
+		<key>LICENSE</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			WDZo4H79CtgrI6dcvnbrVzON+l2l774cjs+qlY9sGXY=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			6vyv+YBOT3MrUndjd2SIqkH8IlWYsr7EbQXCQx4w9rQ=
+			6Kx9H41qANHprUMJ/6Sm9eJgsTq49cWOGw7bpFWwaQM=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			jBz0w7my9o2otJBNz7H3s/sDB/mPWbacfgqsYhbHGcE=
+			W0yfj9vouoqbRE9ed0zm1u7eUJMwenD4vz5dXt6KGDw=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			4zJWfZK6Qkyi9iF/ELhm1ycThx1Ge/NP+qFfTdqZ284=
+			8NBxqhZWXrGu9wDNKKNt4LIxFO2WI2Y5IP48AUxiqX4=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			jBz0w7my9o2otJBNz7H3s/sDB/mPWbacfgqsYhbHGcE=
+			W0yfj9vouoqbRE9ed0zm1u7eUJMwenD4vz5dXt6KGDw=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			runugxI5iWHIS1n5B4/fb5Fc02yMgn+2UVTCWdQVFv0=
+			7/LIq5FHJzk9MBoUB9lUmLg708upznQb2nbtUaNWbVM=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			6vyv+YBOT3MrUndjd2SIqkH8IlWYsr7EbQXCQx4w9rQ=
+			6Kx9H41qANHprUMJ/6Sm9eJgsTq49cWOGw7bpFWwaQM=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			2Vjdi2xFZaMIYz2srkG+Ofy8lC0F4aF7ZE57wZhPJpg=
+			R5D2MZRjNCI682g0NmpvCxIczZs5CDyezFg5/19bnsg=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			7bRUlt5UOGWMOzVvusuzxRlwAANjY386mpaZOXTIWVo=
+			i8axeszftHfjejJwDYiWvkpkrY+WVozp8uUgo9hvwW4=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			2Vjdi2xFZaMIYz2srkG+Ofy8lC0F4aF7ZE57wZhPJpg=
+			R5D2MZRjNCI682g0NmpvCxIczZs5CDyezFg5/19bnsg=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			O7+jz2t23n1K6X0phHBU78f8g+TXPMNFKs32CjlFYao=
+			s31BZ3JNZgsTdTJX5veDGs4ZjQSB4N+qbB1OYSxeVQk=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>
@@ -152,6 +277,13 @@
 			<key>hash2</key>
 			<data>
 			cx2jFS2sZcM19DKPliTErnFzSSVguIaBs24oXMmqCVg=
+			</data>
+		</dict>
+		<key>README.md</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			pfV51ezLAT+mLDsCxmWfmCKGObfl3isLzsvhJpilXeo=
 			</data>
 		</dict>
 	</dict>

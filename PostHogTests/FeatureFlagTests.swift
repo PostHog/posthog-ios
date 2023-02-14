@@ -203,6 +203,25 @@ class FeatureFlagTests: QuickSpec {
       let flagValue = posthog.getFeatureFlag("some-flag")
       expect(flagValue).to(be("variant-1"))
     }
+    
+    it("bad request does not override current flags") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"true\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let isEnabled = posthog.isFeatureEnabled("some-flag")
+      expect(isEnabled).to(beTrue())
+      
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(400);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let secondIsEnabled = posthog.isFeatureEnabled("some-flag")
+      expect(secondIsEnabled).to(beTrue())
+    }
 
   }
 

@@ -145,7 +145,6 @@
                 NSInteger code = ((NSHTTPURLResponse *)response).statusCode;
                 if (code < 300) {
                     NSDictionary *json  = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-                    NSLog(@"%@",json);
                     success(json);
                 }
                 NSError *error = [NSError errorWithDomain:NSURLErrorDomain

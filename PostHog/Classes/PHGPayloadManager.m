@@ -196,7 +196,7 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
         NSDictionary *flagPayloads = [responseDict objectForKey:@"featureFlagPayloads"];
         [self receivedFeatureFlags:flags payloads:flagPayloads];
     } failure:^(NSError * _Nonnull error) {
-//        TODO: handle error
+        return;
     }];
 }
 

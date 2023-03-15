@@ -1,6 +1,7 @@
 ## 2.0.0 - 2022-08-29
 
 - Add support for groups, simplefeature flags, and  multivariate feature flags
+
 ## 1.4.4 - 2021-11-19
 
 Make enabled property public.

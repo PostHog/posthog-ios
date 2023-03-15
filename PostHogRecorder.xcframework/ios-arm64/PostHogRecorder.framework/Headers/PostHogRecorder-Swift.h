@@ -315,20 +315,6 @@ typedef SWIFT_ENUM_NAMED(NSInteger, PostHogDataMode, "PostHogDataMode", open) {
   PostHogDataModeAny = 1,
 };
 
-@class NSDate;
-@class NSCoder;
-
-SWIFT_CLASS("_TtC15PostHogRecorder12PostHogEvent")
-@interface PostHogEvent : NSObject <NSCoding>
-@property (nonatomic, copy) NSDate * _Nonnull timestamp;
-@property (nonatomic, copy) NSString * _Nonnull event;
-@property (nonatomic, copy) NSDictionary<NSString *, id> * _Nonnull properties;
-- (void)encodeWithCoder:(NSCoder * _Nonnull)aCoder;
-- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)aDecoder;
-- (nonnull instancetype)init SWIFT_UNAVAILABLE;
-+ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
-@end
-
 enum ScreenRecorderMaskingMode : NSInteger;
 
 SWIFT_CLASS_NAMED("PostHogRecorderConfig")
@@ -355,7 +341,6 @@ SWIFT_CLASS("_TtC15PostHogRecorder8Recorder")
 @interface Recorder : NSObject
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) Recorder * _Nonnull shared;)
 + (Recorder * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
-- (void)startWithConfig:(PostHogRecorderConfig * _Nullable)config eventHandler:(void (^ _Nonnull)(PostHogEvent * _Nonnull))eventHandler;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end
@@ -365,6 +350,7 @@ typedef SWIFT_ENUM_NAMED(NSInteger, ScreenRecorderMaskingMode, "ScreenRecorderMa
   ScreenRecorderMaskingModeAutomatic = 1,
   ScreenRecorderMaskingModeWireframe = 2,
 };
+
 
 #endif
 #if defined(__cplusplus)

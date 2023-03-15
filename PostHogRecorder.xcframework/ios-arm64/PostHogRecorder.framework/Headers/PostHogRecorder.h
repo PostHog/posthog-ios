@@ -9,7 +9,6 @@
 #import <Foundation/Foundation.h>
 #import "NetworkRecordingIntegration.h"
 #import "NSData+PHGGZIP.h"
-#import "Cassette.h"
 
 //! Project version number for PostHogRecorder.
 FOUNDATION_EXPORT double PostHogRecorderVersionNumber;

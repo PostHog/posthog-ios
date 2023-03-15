@@ -9,6 +9,271 @@
         "name": "Foundation",
         "printedName": "Foundation",
         "declKind": "Import",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "CodableIgnored",
+        "printedName": "CodableIgnored",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "wrappedValue",
+            "printedName": "wrappedValue",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "τ_0_0?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvp",
+            "mangledName": "$s15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvp",
+            "moduleName": "PostHogRecorder",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "τ_0_0?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "GenericTypeParam",
+                        "printedName": "τ_0_0"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvg",
+                "mangledName": "$s15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvg",
+                "moduleName": "PostHogRecorder",
+                "genericSig": "<τ_0_0>",
+                "sugared_genericSig": "<T>",
+                "implicit": true,
+                "accessorKind": "get"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Set",
+                "printedName": "Set()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "τ_0_0?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "GenericTypeParam",
+                        "printedName": "τ_0_0"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvs",
+                "mangledName": "$s15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvs",
+                "moduleName": "PostHogRecorder",
+                "genericSig": "<τ_0_0>",
+                "sugared_genericSig": "<T>",
+                "implicit": true,
+                "accessorKind": "set"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Modify",
+                "printedName": "Modify()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvM",
+                "mangledName": "$s15PostHogRecorder14CodableIgnoredV12wrappedValuexSgvM",
+                "moduleName": "PostHogRecorder",
+                "genericSig": "<τ_0_0>",
+                "sugared_genericSig": "<T>",
+                "implicit": true,
+                "accessorKind": "_modify"
+              }
+            ]
+          },
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(wrappedValue:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "CodableIgnored",
+                "printedName": "PostHogRecorder.CodableIgnored<τ_0_0>",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "usr": "s:15PostHogRecorder14CodableIgnoredV"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "τ_0_0?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:15PostHogRecorder14CodableIgnoredV12wrappedValueACyxGxSg_tcfc",
+            "mangledName": "$s15PostHogRecorder14CodableIgnoredV12wrappedValueACyxGxSg_tcfc",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0>",
+            "sugared_genericSig": "<T>",
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "init_kind": "Designated"
+          },
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(from:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "CodableIgnored",
+                "printedName": "PostHogRecorder.CodableIgnored<τ_0_0>",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "usr": "s:15PostHogRecorder14CodableIgnoredV"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Decoder",
+                "printedName": "Swift.Decoder",
+                "usr": "s:s7DecoderP"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:15PostHogRecorder14CodableIgnoredV4fromACyxGs7Decoder_p_tKcfc",
+            "mangledName": "$s15PostHogRecorder14CodableIgnoredV4fromACyxGs7Decoder_p_tKcfc",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0>",
+            "sugared_genericSig": "<T>",
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "throwing": true,
+            "init_kind": "Designated"
+          },
+          {
+            "kind": "Function",
+            "name": "encode",
+            "printedName": "encode(to:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Encoder",
+                "printedName": "Swift.Encoder",
+                "usr": "s:s7EncoderP"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder14CodableIgnoredV6encode2toys7Encoder_p_tKF",
+            "mangledName": "$s15PostHogRecorder14CodableIgnoredV6encode2toys7Encoder_p_tKF",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0>",
+            "sugared_genericSig": "<T>",
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "throwing": true,
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Struct",
+        "usr": "s:15PostHogRecorder14CodableIgnoredV",
+        "mangledName": "$s15PostHogRecorder14CodableIgnoredV",
+        "moduleName": "PostHogRecorder",
+        "genericSig": "<τ_0_0>",
+        "sugared_genericSig": "<T>",
+        "declAttributes": [
+          "AccessControl",
+          "PropertyWrapper"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Decodable",
+            "printedName": "Decodable",
+            "usr": "s:Se",
+            "mangledName": "$sSe"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Encodable",
+            "printedName": "Encodable",
+            "usr": "s:SE",
+            "mangledName": "$sSE"
+          }
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
         "moduleName": "PostHogRecorder"
       },
       {
@@ -32,6 +297,27 @@
         "declAttributes": [
           "RawDocComment"
         ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "Import",
+        "name": "UIKit",
+        "printedName": "UIKit",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "Import",
+        "name": "Vision",
+        "printedName": "Vision",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
       },
       {
         "kind": "Import",
@@ -1142,6 +1428,20 @@
             "mangledName": "$ss28CustomDebugStringConvertibleP"
           }
         ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "Import",
+        "name": "UIKit",
+        "printedName": "UIKit",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
       },
       {
         "kind": "Import",
@@ -2438,19 +2738,17 @@
                     "kind": "TypeNominal",
                     "name": "PostHogEvent",
                     "printedName": "PostHogRecorder.PostHogEvent",
-                    "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent"
+                    "usr": "s:15PostHogRecorder0aB5EventC"
                   }
                 ]
               }
             ],
             "declKind": "Func",
-            "usr": "c:@M@PostHogRecorder@objc(cs)Recorder(im)startWithConfig:eventHandler:",
+            "usr": "s:15PostHogRecorder0C0C5start6config12eventHandleryAA0abC6ConfigCSg_yAA0aB5EventCctF",
             "mangledName": "$s15PostHogRecorder0C0C5start6config12eventHandleryAA0abC6ConfigCSg_yAA0aB5EventCctF",
             "moduleName": "PostHogRecorder",
-            "objc_name": "startWithConfig:eventHandler:",
             "declAttributes": [
-              "AccessControl",
-              "ObjC"
+              "AccessControl"
             ],
             "funcSelfKind": "NonMutating"
           },
@@ -2544,6 +2842,16 @@
             "usr": "s:s28CustomDebugStringConvertibleP",
             "mangledName": "$ss28CustomDebugStringConvertibleP"
           }
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "RawDocComment"
         ]
       },
       {
@@ -2774,13 +3082,12 @@
               }
             ],
             "declKind": "Var",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(py)timestamp",
+            "usr": "s:15PostHogRecorder0aB5EventC9timestamp10Foundation4DateVvp",
             "mangledName": "$s15PostHogRecorder0aB5EventC9timestamp10Foundation4DateVvp",
             "moduleName": "PostHogRecorder",
             "declAttributes": [
               "HasStorage",
-              "AccessControl",
-              "ObjC"
+              "AccessControl"
             ],
             "hasStorage": true,
             "accessors": [
@@ -2797,13 +3104,10 @@
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)timestamp",
+                "usr": "s:15PostHogRecorder0aB5EventC9timestamp10Foundation4DateVvg",
                 "mangledName": "$s15PostHogRecorder0aB5EventC9timestamp10Foundation4DateVvg",
                 "moduleName": "PostHogRecorder",
                 "implicit": true,
-                "declAttributes": [
-                  "ObjC"
-                ],
                 "accessorKind": "get"
               },
               {
@@ -2824,13 +3128,10 @@
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)setTimestamp:",
+                "usr": "s:15PostHogRecorder0aB5EventC9timestamp10Foundation4DateVvs",
                 "mangledName": "$s15PostHogRecorder0aB5EventC9timestamp10Foundation4DateVvs",
                 "moduleName": "PostHogRecorder",
                 "implicit": true,
-                "declAttributes": [
-                  "ObjC"
-                ],
                 "accessorKind": "set"
               },
               {
@@ -2866,13 +3167,12 @@
               }
             ],
             "declKind": "Var",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(py)event",
+            "usr": "s:15PostHogRecorder0aB5EventC5eventSSvp",
             "mangledName": "$s15PostHogRecorder0aB5EventC5eventSSvp",
             "moduleName": "PostHogRecorder",
             "declAttributes": [
               "HasStorage",
-              "AccessControl",
-              "ObjC"
+              "AccessControl"
             ],
             "hasStorage": true,
             "accessors": [
@@ -2889,13 +3189,10 @@
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)event",
+                "usr": "s:15PostHogRecorder0aB5EventC5eventSSvg",
                 "mangledName": "$s15PostHogRecorder0aB5EventC5eventSSvg",
                 "moduleName": "PostHogRecorder",
                 "implicit": true,
-                "declAttributes": [
-                  "ObjC"
-                ],
                 "accessorKind": "get"
               },
               {
@@ -2916,13 +3213,10 @@
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)setEvent:",
+                "usr": "s:15PostHogRecorder0aB5EventC5eventSSvs",
                 "mangledName": "$s15PostHogRecorder0aB5EventC5eventSSvs",
                 "moduleName": "PostHogRecorder",
                 "implicit": true,
-                "declAttributes": [
-                  "ObjC"
-                ],
                 "accessorKind": "set"
               },
               {
@@ -2971,13 +3265,12 @@
               }
             ],
             "declKind": "Var",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(py)properties",
+            "usr": "s:15PostHogRecorder0aB5EventC10propertiesSDySSypGvp",
             "mangledName": "$s15PostHogRecorder0aB5EventC10propertiesSDySSypGvp",
             "moduleName": "PostHogRecorder",
             "declAttributes": [
               "HasStorage",
-              "AccessControl",
-              "ObjC"
+              "AccessControl"
             ],
             "hasStorage": true,
             "accessors": [
@@ -3007,13 +3300,10 @@
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)properties",
+                "usr": "s:15PostHogRecorder0aB5EventC10propertiesSDySSypGvg",
                 "mangledName": "$s15PostHogRecorder0aB5EventC10propertiesSDySSypGvg",
                 "moduleName": "PostHogRecorder",
                 "implicit": true,
-                "declAttributes": [
-                  "ObjC"
-                ],
                 "accessorKind": "get"
               },
               {
@@ -3047,13 +3337,10 @@
                   }
                 ],
                 "declKind": "Accessor",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)setProperties:",
+                "usr": "s:15PostHogRecorder0aB5EventC10propertiesSDySSypGvs",
                 "mangledName": "$s15PostHogRecorder0aB5EventC10propertiesSDySSypGvs",
                 "moduleName": "PostHogRecorder",
                 "implicit": true,
-                "declAttributes": [
-                  "ObjC"
-                ],
                 "accessorKind": "set"
               },
               {
@@ -3075,114 +3362,302 @@
                 "accessorKind": "_modify"
               }
             ]
-          },
+          }
+        ],
+        "declKind": "Class",
+        "usr": "s:15PostHogRecorder0aB5EventC",
+        "mangledName": "$s15PostHogRecorder0aB5EventC",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "AccessControl"
+        ],
+        "hasMissingDesignatedInitializers": true
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "Import",
+        "name": "OSLog",
+        "printedName": "OSLog",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "LogLevel",
+        "printedName": "LogLevel",
+        "children": [
           {
-            "kind": "Function",
-            "name": "encode",
-            "printedName": "encode(with:)",
+            "kind": "Var",
+            "name": "debug",
+            "printedName": "debug",
             "children": [
               {
-                "kind": "TypeNominal",
-                "name": "Void",
-                "printedName": "()"
-              },
-              {
-                "kind": "TypeNominal",
-                "name": "NSCoder",
-                "printedName": "Foundation.NSCoder",
-                "usr": "c:objc(cs)NSCoder"
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(PostHogRecorder.LogLevel.Type) -> PostHogRecorder.LogLevel",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "LogLevel",
+                    "printedName": "PostHogRecorder.LogLevel",
+                    "usr": "s:15PostHogRecorder8LogLevelO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "PostHogRecorder.LogLevel.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "LogLevel",
+                        "printedName": "PostHogRecorder.LogLevel",
+                        "usr": "s:15PostHogRecorder8LogLevelO"
+                      }
+                    ]
+                  }
+                ]
               }
             ],
-            "declKind": "Func",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)encodeWithCoder:",
-            "mangledName": "$s15PostHogRecorder0aB5EventC6encode4withySo7NSCoderC_tF",
-            "moduleName": "PostHogRecorder",
-            "objc_name": "encodeWithCoder:",
-            "declAttributes": [
-              "ObjC",
-              "AccessControl"
+            "declKind": "EnumElement",
+            "usr": "s:15PostHogRecorder8LogLevelO5debugyA2CmF",
+            "mangledName": "$s15PostHogRecorder8LogLevelO5debugyA2CmF",
+            "moduleName": "PostHogRecorder"
+          },
+          {
+            "kind": "Var",
+            "name": "log",
+            "printedName": "log",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(PostHogRecorder.LogLevel.Type) -> PostHogRecorder.LogLevel",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "LogLevel",
+                    "printedName": "PostHogRecorder.LogLevel",
+                    "usr": "s:15PostHogRecorder8LogLevelO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "PostHogRecorder.LogLevel.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "LogLevel",
+                        "printedName": "PostHogRecorder.LogLevel",
+                        "usr": "s:15PostHogRecorder8LogLevelO"
+                      }
+                    ]
+                  }
+                ]
+              }
             ],
-            "funcSelfKind": "NonMutating"
+            "declKind": "EnumElement",
+            "usr": "s:15PostHogRecorder8LogLevelO3logyA2CmF",
+            "mangledName": "$s15PostHogRecorder8LogLevelO3logyA2CmF",
+            "moduleName": "PostHogRecorder"
+          },
+          {
+            "kind": "Var",
+            "name": "info",
+            "printedName": "info",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(PostHogRecorder.LogLevel.Type) -> PostHogRecorder.LogLevel",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "LogLevel",
+                    "printedName": "PostHogRecorder.LogLevel",
+                    "usr": "s:15PostHogRecorder8LogLevelO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "PostHogRecorder.LogLevel.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "LogLevel",
+                        "printedName": "PostHogRecorder.LogLevel",
+                        "usr": "s:15PostHogRecorder8LogLevelO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15PostHogRecorder8LogLevelO4infoyA2CmF",
+            "mangledName": "$s15PostHogRecorder8LogLevelO4infoyA2CmF",
+            "moduleName": "PostHogRecorder"
+          },
+          {
+            "kind": "Var",
+            "name": "warn",
+            "printedName": "warn",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(PostHogRecorder.LogLevel.Type) -> PostHogRecorder.LogLevel",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "LogLevel",
+                    "printedName": "PostHogRecorder.LogLevel",
+                    "usr": "s:15PostHogRecorder8LogLevelO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "PostHogRecorder.LogLevel.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "LogLevel",
+                        "printedName": "PostHogRecorder.LogLevel",
+                        "usr": "s:15PostHogRecorder8LogLevelO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15PostHogRecorder8LogLevelO4warnyA2CmF",
+            "mangledName": "$s15PostHogRecorder8LogLevelO4warnyA2CmF",
+            "moduleName": "PostHogRecorder"
+          },
+          {
+            "kind": "Var",
+            "name": "error",
+            "printedName": "error",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(PostHogRecorder.LogLevel.Type) -> PostHogRecorder.LogLevel",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "LogLevel",
+                    "printedName": "PostHogRecorder.LogLevel",
+                    "usr": "s:15PostHogRecorder8LogLevelO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "PostHogRecorder.LogLevel.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "LogLevel",
+                        "printedName": "PostHogRecorder.LogLevel",
+                        "usr": "s:15PostHogRecorder8LogLevelO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:15PostHogRecorder8LogLevelO5erroryA2CmF",
+            "mangledName": "$s15PostHogRecorder8LogLevelO5erroryA2CmF",
+            "moduleName": "PostHogRecorder"
           },
           {
             "kind": "Constructor",
             "name": "init",
-            "printedName": "init(coder:)",
+            "printedName": "init(rawValue:)",
             "children": [
               {
                 "kind": "TypeNominal",
                 "name": "Optional",
-                "printedName": "PostHogRecorder.PostHogEvent?",
+                "printedName": "PostHogRecorder.LogLevel?",
                 "children": [
                   {
                     "kind": "TypeNominal",
-                    "name": "PostHogEvent",
-                    "printedName": "PostHogRecorder.PostHogEvent",
-                    "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent"
+                    "name": "LogLevel",
+                    "printedName": "PostHogRecorder.LogLevel",
+                    "usr": "s:15PostHogRecorder8LogLevelO"
                   }
                 ],
                 "usr": "s:Sq"
               },
               {
                 "kind": "TypeNominal",
-                "name": "NSCoder",
-                "printedName": "Foundation.NSCoder",
-                "usr": "c:objc(cs)NSCoder"
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
               }
             ],
             "declKind": "Constructor",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)initWithCoder:",
-            "mangledName": "$s15PostHogRecorder0aB5EventC5coderACSgSo7NSCoderC_tcfc",
+            "usr": "s:15PostHogRecorder8LogLevelO8rawValueACSgSS_tcfc",
+            "mangledName": "$s15PostHogRecorder8LogLevelO8rawValueACSgSS_tcfc",
             "moduleName": "PostHogRecorder",
-            "objc_name": "initWithCoder:",
-            "declAttributes": [
-              "ObjC",
-              "Convenience",
-              "Required",
-              "AccessControl"
-            ],
-            "init_kind": "Convenience"
+            "implicit": true,
+            "init_kind": "Designated"
           },
           {
-            "kind": "Constructor",
-            "name": "init",
-            "printedName": "init()",
+            "kind": "Var",
+            "name": "rawValue",
+            "printedName": "rawValue",
             "children": [
               {
                 "kind": "TypeNominal",
-                "name": "PostHogEvent",
-                "printedName": "PostHogRecorder.PostHogEvent",
-                "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent"
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
               }
             ],
-            "declKind": "Constructor",
-            "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent(im)init",
-            "mangledName": "$s15PostHogRecorder0aB5EventCACycfc",
+            "declKind": "Var",
+            "usr": "s:15PostHogRecorder8LogLevelO8rawValueSSvp",
+            "mangledName": "$s15PostHogRecorder8LogLevelO8rawValueSSvp",
             "moduleName": "PostHogRecorder",
-            "overriding": true,
             "implicit": true,
-            "objc_name": "init",
-            "declAttributes": [
-              "Dynamic",
-              "ObjC",
-              "Override"
-            ],
-            "init_kind": "Designated"
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder8LogLevelO8rawValueSSvg",
+                "mangledName": "$s15PostHogRecorder8LogLevelO8rawValueSSvg",
+                "moduleName": "PostHogRecorder",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
           }
         ],
-        "declKind": "Class",
-        "usr": "c:@M@PostHogRecorder@objc(cs)PostHogEvent",
-        "mangledName": "$s15PostHogRecorder0aB5EventC",
+        "declKind": "Enum",
+        "usr": "s:15PostHogRecorder8LogLevelO",
+        "mangledName": "$s15PostHogRecorder8LogLevelO",
         "moduleName": "PostHogRecorder",
         "declAttributes": [
-          "AccessControl",
-          "ObjC"
+          "AccessControl"
         ],
-        "superclassUsr": "c:objc(cs)NSObject",
-        "hasMissingDesignatedInitializers": true,
-        "superclassNames": [
-          "ObjectiveC.NSObject"
-        ],
+        "enumRawTypeName": "String",
         "conformances": [
           {
             "kind": "Conformance",
@@ -3200,47 +3675,183 @@
           },
           {
             "kind": "Conformance",
-            "name": "CVarArg",
-            "printedName": "CVarArg",
-            "usr": "s:s7CVarArgP",
-            "mangledName": "$ss7CVarArgP"
-          },
-          {
-            "kind": "Conformance",
-            "name": "_KeyValueCodingAndObservingPublishing",
-            "printedName": "_KeyValueCodingAndObservingPublishing",
-            "usr": "s:10Foundation37_KeyValueCodingAndObservingPublishingP",
-            "mangledName": "$s10Foundation37_KeyValueCodingAndObservingPublishingP"
-          },
-          {
-            "kind": "Conformance",
-            "name": "_KeyValueCodingAndObserving",
-            "printedName": "_KeyValueCodingAndObserving",
-            "usr": "s:10Foundation27_KeyValueCodingAndObservingP",
-            "mangledName": "$s10Foundation27_KeyValueCodingAndObservingP"
-          },
-          {
-            "kind": "Conformance",
-            "name": "CustomStringConvertible",
-            "printedName": "CustomStringConvertible",
-            "usr": "s:s23CustomStringConvertibleP",
-            "mangledName": "$ss23CustomStringConvertibleP"
-          },
-          {
-            "kind": "Conformance",
-            "name": "CustomDebugStringConvertible",
-            "printedName": "CustomDebugStringConvertible",
-            "usr": "s:s28CustomDebugStringConvertibleP",
-            "mangledName": "$ss28CustomDebugStringConvertibleP"
+            "name": "RawRepresentable",
+            "printedName": "RawRepresentable",
+            "children": [
+              {
+                "kind": "TypeWitness",
+                "name": "RawValue",
+                "printedName": "RawValue",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ]
+              }
+            ],
+            "usr": "s:SY",
+            "mangledName": "$sSY"
           }
         ]
       },
       {
-        "kind": "Import",
-        "name": "Foundation",
-        "printedName": "Foundation",
-        "declKind": "Import",
-        "moduleName": "PostHogRecorder"
+        "kind": "TypeDecl",
+        "name": "PostHogLogger",
+        "printedName": "PostHogLogger",
+        "children": [
+          {
+            "kind": "Function",
+            "name": "log",
+            "printedName": "log(_:level:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "LogLevel",
+                "printedName": "PostHogRecorder.LogLevel",
+                "hasDefaultArg": true,
+                "usr": "s:15PostHogRecorder8LogLevelO"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder0aB6LoggerO3log_5levelySS_AA8LogLevelOtFZ",
+            "mangledName": "$s15PostHogRecorder0aB6LoggerO3log_5levelySS_AA8LogLevelOtFZ",
+            "moduleName": "PostHogRecorder",
+            "static": true,
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "debug",
+            "printedName": "debug(_:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder0aB6LoggerO5debugyySSFZ",
+            "mangledName": "$s15PostHogRecorder0aB6LoggerO5debugyySSFZ",
+            "moduleName": "PostHogRecorder",
+            "static": true,
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "info",
+            "printedName": "info(_:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder0aB6LoggerO4infoyySSFZ",
+            "mangledName": "$s15PostHogRecorder0aB6LoggerO4infoyySSFZ",
+            "moduleName": "PostHogRecorder",
+            "static": true,
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "warn",
+            "printedName": "warn(_:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder0aB6LoggerO4warnyySSFZ",
+            "mangledName": "$s15PostHogRecorder0aB6LoggerO4warnyySSFZ",
+            "moduleName": "PostHogRecorder",
+            "static": true,
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "error",
+            "printedName": "error(_:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder0aB6LoggerO5erroryySSFZ",
+            "mangledName": "$s15PostHogRecorder0aB6LoggerO5erroryySSFZ",
+            "moduleName": "PostHogRecorder",
+            "static": true,
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Enum",
+        "usr": "s:15PostHogRecorder0aB6LoggerO",
+        "mangledName": "$s15PostHogRecorder0aB6LoggerO",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "AccessControl"
+        ]
       },
       {
         "kind": "Import",
@@ -4800,6 +5411,20 @@
         "declAttributes": [
           "RawDocComment"
         ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "Import",
+        "name": "UIKit",
+        "printedName": "UIKit",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
       },
       {
         "kind": "Import",
@@ -6471,6 +7096,176 @@
       },
       {
         "kind": "TypeDecl",
+        "name": "KeyedDecodingContainer",
+        "printedName": "KeyedDecodingContainer",
+        "children": [
+          {
+            "kind": "Function",
+            "name": "decode",
+            "printedName": "decode(_:forKey:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "CodableIgnored",
+                "printedName": "PostHogRecorder.CodableIgnored<τ_1_0>",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_1_0"
+                  }
+                ],
+                "usr": "s:15PostHogRecorder14CodableIgnoredV"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Metatype",
+                "printedName": "PostHogRecorder.CodableIgnored<τ_1_0>.Type",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "CodableIgnored",
+                    "printedName": "PostHogRecorder.CodableIgnored<τ_1_0>",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "GenericTypeParam",
+                        "printedName": "τ_1_0"
+                      }
+                    ],
+                    "usr": "s:15PostHogRecorder14CodableIgnoredV"
+                  }
+                ]
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "GenericTypeParam",
+                "printedName": "τ_0_0"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:s22KeyedDecodingContainerV15PostHogRecorderE6decode_6forKeyAC14CodableIgnoredVyqd__GAHm_xtKlF",
+            "mangledName": "$ss22KeyedDecodingContainerV15PostHogRecorderE6decode_6forKeyAC14CodableIgnoredVyqd__GAHm_xtKlF",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0, τ_1_0 where τ_0_0 : Swift.CodingKey>",
+            "sugared_genericSig": "<K, T where K : Swift.CodingKey>",
+            "isFromExtension": true,
+            "throwing": true,
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Struct",
+        "usr": "s:s22KeyedDecodingContainerV",
+        "mangledName": "$ss22KeyedDecodingContainerV",
+        "moduleName": "Swift",
+        "genericSig": "<τ_0_0 where τ_0_0 : Swift.CodingKey>",
+        "sugared_genericSig": "<K where K : Swift.CodingKey>",
+        "isExternal": true,
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "KeyedDecodingContainerProtocol",
+            "printedName": "KeyedDecodingContainerProtocol",
+            "children": [
+              {
+                "kind": "TypeWitness",
+                "name": "Key",
+                "printedName": "Key",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ]
+              }
+            ],
+            "usr": "s:s30KeyedDecodingContainerProtocolP",
+            "mangledName": "$ss30KeyedDecodingContainerProtocolP"
+          }
+        ]
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "KeyedEncodingContainer",
+        "printedName": "KeyedEncodingContainer",
+        "children": [
+          {
+            "kind": "Function",
+            "name": "encode",
+            "printedName": "encode(_:forKey:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "CodableIgnored",
+                "printedName": "PostHogRecorder.CodableIgnored<τ_1_0>",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_1_0"
+                  }
+                ],
+                "usr": "s:15PostHogRecorder14CodableIgnoredV"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "GenericTypeParam",
+                "printedName": "τ_0_0"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:s22KeyedEncodingContainerV15PostHogRecorderE6encode_6forKeyyAC14CodableIgnoredVyqd__G_xtKlF",
+            "mangledName": "$ss22KeyedEncodingContainerV15PostHogRecorderE6encode_6forKeyyAC14CodableIgnoredVyqd__G_xtKlF",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0, τ_1_0 where τ_0_0 : Swift.CodingKey>",
+            "sugared_genericSig": "<K, T where K : Swift.CodingKey>",
+            "declAttributes": [
+              "Mutating"
+            ],
+            "isFromExtension": true,
+            "throwing": true,
+            "funcSelfKind": "Mutating"
+          }
+        ],
+        "declKind": "Struct",
+        "usr": "s:s22KeyedEncodingContainerV",
+        "mangledName": "$ss22KeyedEncodingContainerV",
+        "moduleName": "Swift",
+        "genericSig": "<τ_0_0 where τ_0_0 : Swift.CodingKey>",
+        "sugared_genericSig": "<K where K : Swift.CodingKey>",
+        "isExternal": true,
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "KeyedEncodingContainerProtocol",
+            "printedName": "KeyedEncodingContainerProtocol",
+            "children": [
+              {
+                "kind": "TypeWitness",
+                "name": "Key",
+                "printedName": "Key",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ]
+              }
+            ],
+            "usr": "s:s30KeyedEncodingContainerProtocolP",
+            "mangledName": "$ss30KeyedEncodingContainerProtocolP"
+          }
+        ]
+      },
+      {
+        "kind": "TypeDecl",
         "name": "Name",
         "printedName": "Name",
         "children": [
@@ -6648,41 +7443,41 @@
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
       "offset": 470,
-      "length": 15,
-      "value": "\"posthog.queue\""
+      "length": 21,
+      "value": "\"posthog.queueFolder\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 601,
+      "offset": 607,
       "length": 29,
       "value": "\"posthog.enabledFeatureFlags\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 649,
+      "offset": 655,
       "length": 16,
       "value": "\"posthog.groups\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 687,
+      "offset": 693,
       "length": 19,
       "value": "\"posthog.sessionId\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 739,
+      "offset": 745,
       "length": 30,
       "value": "\"posthog.sessionlastTimestamp\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 798,
+      "offset": 804,
       "length": 26,
       "value": "\"posthog.personProperties\""
     },
@@ -6704,41 +7499,41 @@
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
       "offset": 470,
-      "length": 15,
-      "value": "\"posthog.queue\""
+      "length": 21,
+      "value": "\"posthog.queueFolder\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 601,
+      "offset": 607,
       "length": 29,
       "value": "\"posthog.enabledFeatureFlags\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 649,
+      "offset": 655,
       "length": 16,
       "value": "\"posthog.groups\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 687,
+      "offset": 693,
       "length": 19,
       "value": "\"posthog.sessionId\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 739,
+      "offset": 745,
       "length": 30,
       "value": "\"posthog.sessionlastTimestamp\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Storage.swift",
       "kind": "StringLiteral",
-      "offset": 798,
+      "offset": 804,
       "length": 26,
       "value": "\"posthog.personProperties\""
     },
@@ -7332,17 +8127,45 @@
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
+      "kind": "BooleanLiteral",
+      "offset": 214,
+      "length": 5,
+      "value": "false"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
       "kind": "IntegerLiteral",
-      "offset": 555,
+      "offset": 575,
       "length": 1,
       "value": "0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
       "kind": "BooleanLiteral",
-      "offset": 1018,
+      "offset": 682,
       "length": 4,
       "value": "true"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
+      "kind": "BooleanLiteral",
+      "offset": 1067,
+      "length": 4,
+      "value": "true"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Screens\/ViewLayoutTracker.swift",
+      "kind": "BooleanLiteral",
+      "offset": 220,
+      "length": 5,
+      "value": "false"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Screens\/ViewLayoutTracker.swift",
+      "kind": "BooleanLiteral",
+      "offset": 259,
+      "length": 5,
+      "value": "false"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHogConfig.swift",
@@ -7403,21 +8226,21 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/ScreenRecorder.swift",
       "kind": "FloatLiteral",
-      "offset": 8048,
+      "offset": 666,
       "length": 3,
       "value": "1.0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/ScreenRecorder.swift",
       "kind": "FloatLiteral",
-      "offset": 8054,
+      "offset": 672,
       "length": 3,
       "value": "1.0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Queue.swift",
       "kind": "BooleanLiteral",
-      "offset": 748,
+      "offset": 2785,
       "length": 5,
       "value": "false"
     },
@@ -7478,11 +8301,25 @@
       "value": "\"PostHogRecorder.NetworkRecorder\""
     },
     {
-      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Models.swift",
-      "kind": "StringLiteral",
-      "offset": 123,
-      "length": 12,
-      "value": "\"PostHogRecorder.PostHogEvent\""
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/LogRecorder.swift",
+      "kind": "FloatLiteral",
+      "offset": 1131,
+      "length": 3,
+      "value": "1.0"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/LogRecorder.swift",
+      "kind": "FloatLiteral",
+      "offset": 1137,
+      "length": 3,
+      "value": "1.0"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/LogRecorder.swift",
+      "kind": "IntegerLiteral",
+      "offset": 1231,
+      "length": 3,
+      "value": "60"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
@@ -7515,49 +8352,49 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "BooleanLiteral",
-      "offset": 447,
+      "offset": 539,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "BooleanLiteral",
-      "offset": 505,
+      "offset": 597,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "BooleanLiteral",
-      "offset": 567,
+      "offset": 659,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "Array",
-      "offset": 701,
+      "offset": 793,
       "length": 17,
       "value": "[\"ph-no-capture\"]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "Array",
-      "offset": 935,
+      "offset": 1027,
       "length": 2,
       "value": "[]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "Array",
-      "offset": 1008,
+      "offset": 1100,
       "length": 282,
       "value": "[\"CGDrawingView\", \"RCTTextView\", \"RCTMultilineTextInputView\", \"RCTSinglelineTextInputView\"]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "StringLiteral",
-      "offset": 357,
+      "offset": 449,
       "length": 21,
       "value": "\"PostHogRecorder.PostHogRecorderConfig\""
     },

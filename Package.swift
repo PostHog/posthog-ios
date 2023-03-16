@@ -36,7 +36,7 @@ let package = Package(
             ],
             linkerSettings: [
                     .linkedFramework("PostHogRecorder")
-            ],
+            ]
         )
     ]
 )

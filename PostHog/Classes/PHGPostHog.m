@@ -282,31 +282,52 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (id)getFeatureFlag:(NSString *)flagKey
 {
+    return [self getFeatureFlag:flagKey options:nil];
+}
+
+- (id)getFeatureFlag:(NSString *)flagKey options:(NSDictionary *)options
+{
     NSDictionary *variants = [self.payloadManager getFlagVariants];
     id variantValue = [variants valueForKey:flagKey];
-    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
-    [properties setValue:flagKey forKey:@"$feature_flag"];
-    [properties setValue:variantValue forKey:@"$feature_flag_response"];
-    
-    [self run:PHGEventTypeCapture payload:
-                                    [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
-                                                                  properties:PHGCoerceDictionary(properties)]];
+
+    id send_event = [options valueForKey:@"send_event"];
+
+    if (send_event == nil || [send_event boolValue] != false) {
+        NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+        [properties setValue:flagKey forKey:@"$feature_flag"];
+        [properties setValue:variantValue forKey:@"$feature_flag_response"];
+        
+        
+        [self run:PHGEventTypeCapture payload:
+                                        [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                    properties:PHGCoerceDictionary(properties)]];
+    }
+
     return variantValue;
 }
 
 - (bool)isFeatureEnabled:(NSString *)flagKey
 {
+    return [self isFeatureEnabled:flagKey options:nil];
+}
+
+- (bool)isFeatureEnabled:(NSString *)flagKey options:(NSDictionary *)options
+{
     NSArray *keys = [self.payloadManager getFeatureFlags];
     BOOL isFlagEnabled = [keys containsObject: flagKey];
     
-    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
-
-    [properties setValue:flagKey forKey:@"$feature_flag"];
-    [properties setValue:@(isFlagEnabled) forKey:@"$feature_flag_response"];
+    id send_event = [options valueForKey:@"send_event"];
     
-    [self run:PHGEventTypeCapture payload:
-                                    [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
-                                                                  properties:PHGCoerceDictionary(properties)]];
+    if (send_event == nil || [send_event boolValue] != false) {
+        NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+
+        [properties setValue:flagKey forKey:@"$feature_flag"];
+        [properties setValue:@(isFlagEnabled) forKey:@"$feature_flag_response"];
+        
+        [self run:PHGEventTypeCapture payload:
+                                        [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                    properties:PHGCoerceDictionary(properties)]];
+    }
     
     return isFlagEnabled;
 }

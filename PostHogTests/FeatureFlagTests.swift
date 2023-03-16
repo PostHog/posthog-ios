@@ -5,11 +5,16 @@ import PostHog
 
 class FeatureFlagTests: QuickSpec {
   override func spec() {
+    var passthrough: PHGPassthroughMiddleware!
     var posthog: PHGPostHog!
 
     beforeEach {
       LSNocilla.sharedInstance().start()
       let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE", host: "https://app.posthog.test")
+      passthrough = PHGPassthroughMiddleware()
+      config.middlewares = [
+        passthrough,
+      ]
       posthog = PHGPostHog(configuration: config)
     }
 
@@ -221,6 +226,26 @@ class FeatureFlagTests: QuickSpec {
       sleep(1)
       let secondIsEnabled = posthog.isFeatureEnabled("some-flag")
       expect(secondIsEnabled).to(beTrue())
+    }
+
+    it("Won't send $feature_flag_called if option is set to false") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\":\"true\"}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let isEnabled = posthog.isFeatureEnabled("some-flag", options: [
+        "send_event": false
+      ])
+      var allContextTypes = passthrough.allContexts.map { $0.eventType }
+      expect(allContextTypes).notTo(contain(PHGEventType.capture))
+      
+      posthog.isFeatureEnabled("some-flag", options: [
+        "send_event": true
+      ])
+      allContextTypes = passthrough.allContexts.map { $0.eventType }
+      expect(allContextTypes).to(contain(PHGEventType.capture))
     }
 
   }

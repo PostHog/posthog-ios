@@ -94,7 +94,7 @@
 		EADEB8F51DECD335005322DA /* CryptoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E91DECD335005322DA /* CryptoTest.swift */; };
 		F250ADE0288B401B0045FA7E /* PHGSession.m in Sources */ = {isa = PBXBuildFile; fileRef = F250ADDF288B401B0045FA7E /* PHGSession.m */; };
 		F250ADE2288ED2E20045FA7E /* SessionTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F250ADE1288ED2E20045FA7E /* SessionTest.swift */; };
-		F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */ = {isa = PBXBuildFile; fileRef = F250ADDE288B3ED80045FA7E /* PHGSession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */ = {isa = PBXBuildFile; fileRef = F250ADDE288B3ED80045FA7E /* PHGSession.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F2A54FB028772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F2A54FB128772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F2A54FB32877582E006C53FF /* PHGGroupPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FB22877582E006C53FF /* PHGGroupPayload.m */; };
@@ -451,8 +451,8 @@
 				BF8C8AD1FBFBB6941DE29D3B /* PHGFileStorage.h in Headers */,
 				BF8C845A65AB5AD06E1EE26B /* PHGStorage.h in Headers */,
 				BF8C890FADEC88022E7A3588 /* NSData+PHGGZIP.h in Headers */,
-				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
 				BF8C8181F96E1C8CB86D783D /* PHGPostHogUtils.h in Headers */,
+				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
 				BF8C8FCEC80B47BF2236236E /* PHGUtils.h in Headers */,
 				BF8C8DCC18E3AA39CCB330BC /* PHGStoreKitCapturer.h in Headers */,
 				BF8C84DEF5634524F1F9110A /* PHGUserDefaultsStorage.h in Headers */,

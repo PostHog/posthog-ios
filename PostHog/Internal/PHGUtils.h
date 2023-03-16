@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "PHGPostHogUtils.h"
+#import <PHGPostHogUtils.h>
 
 
 @interface PHGUtils : NSObject

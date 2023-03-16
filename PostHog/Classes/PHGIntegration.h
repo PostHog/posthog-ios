@@ -1,12 +1,12 @@
 #import <Foundation/Foundation.h>
-#import "PHGIdentifyPayload.h"
-#import "PHGCapturePayload.h"
-#import "PHGScreenPayload.h"
-#import "PHGAliasPayload.h"
-#import "PHGGroupPayload.h"
+#import <PHGIdentifyPayload.h>
+#import <PHGCapturePayload.h>
+#import <PHGScreenPayload.h>
+#import <PHGAliasPayload.h>
+#import <PHGGroupPayload.h>
 
-#import "PHGIdentifyPayload.h"
-#import "PHGContext.h"
+#import <PHGIdentifyPayload.h>
+#import <PHGContext.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

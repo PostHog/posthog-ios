@@ -158,6 +158,7 @@
 		3A16FD5B29C30F50001F9070 /* PHGFileStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGFileStorage.h; sourceTree = "<group>"; };
 		3A16FD5C29C30F50001F9070 /* PHGStoreKitCapturer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGStoreKitCapturer.h; sourceTree = "<group>"; };
 		3A16FD5D29C30F50001F9070 /* PHGUserDefaultsStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGUserDefaultsStorage.h; sourceTree = "<group>"; };
+		3A16FDA129C316D6001F9070 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = SOURCE_ROOT; };
 		3A94C838298166AA00C4E564 /* PostHogRecorder.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = PostHogRecorder.xcframework; sourceTree = "<group>"; };
 		5BC44201DE0BCC6DBCEAF485 /* Pods_PostHogTestsTVOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PostHogTestsTVOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E38359A29234FB7AA01F92C /* Pods-PostHogTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogTests.release.xcconfig"; path = "Target Support Files/Pods-PostHogTests/Pods-PostHogTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -343,6 +344,7 @@
 		EADEB85D1DECD080005322DA /* PostHog */ = {
 			isa = PBXGroup;
 			children = (
+				3A16FDA129C316D6001F9070 /* Package.swift */,
 				3A16FD4729C30F50001F9070 /* Internal */,
 				EADEB8751DECD12B005322DA /* Classes */,
 				EADEB85F1DECD080005322DA /* Info.plist */,

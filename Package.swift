@@ -22,7 +22,7 @@ let package = Package(
         ),
         .target(
             name: "PostHog",
-            dependencies: [],
+            dependencies: ["PostHogRecorder"],
             path: "PostHog/",
             exclude: ["Info.plist"],
             sources: ["Classes",

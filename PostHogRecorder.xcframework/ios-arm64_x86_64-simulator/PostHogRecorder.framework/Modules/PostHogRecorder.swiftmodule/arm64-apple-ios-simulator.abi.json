@@ -8333,7 +8333,7 @@
       "kind": "FloatLiteral",
       "offset": 672,
       "length": 3,
-      "value": "1.0"
+      "value": "2.0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Queue.swift",

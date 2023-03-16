@@ -30,6 +30,9 @@ public enum RRWebEncoder {
 public enum PostHogEncoder {
 }
 @_inheritsConvenienceInitializers @objc public class PostHog : ObjectiveC.NSObject {
+  @objc public var config: PostHogRecorder.PostHogConfig? {
+    get
+  }
   @objc public static let shared: PostHogRecorder.PostHog
   @objc deinit
   @objc public var recorder: PostHogRecorder.Recorder {
@@ -118,7 +121,7 @@ public enum PostHogLogger {
   public static func error(_ message: Swift.String)
 }
 @objc(ScreenRecorderMaskingMode) public enum ScreenRecorderMaskingMode : Swift.Int {
-  case none
+  case selective
   case automatic
   case wireframe
   public init?(rawValue: Swift.Int)

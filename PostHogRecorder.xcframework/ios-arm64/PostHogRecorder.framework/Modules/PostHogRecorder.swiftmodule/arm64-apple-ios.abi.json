@@ -410,6 +410,71 @@
         "children": [
           {
             "kind": "Var",
+            "name": "config",
+            "printedName": "config",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "PostHogRecorder.PostHogConfig?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "PostHogConfig",
+                    "printedName": "PostHogRecorder.PostHogConfig",
+                    "usr": "c:@M@PostHogRecorder@objc(cs)PostHogConfig"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "c:@M@PostHogRecorder@objc(cs)PostHog(py)config",
+            "mangledName": "$s15PostHogRecorder0aB0C6configAA0aB6ConfigCSgvp",
+            "moduleName": "PostHogRecorder",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "SetterAccess",
+              "AccessControl",
+              "ObjC"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "PostHogRecorder.PostHogConfig?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "PostHogConfig",
+                        "printedName": "PostHogRecorder.PostHogConfig",
+                        "usr": "c:@M@PostHogRecorder@objc(cs)PostHogConfig"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@PostHogRecorder@objc(cs)PostHog(im)config",
+                "mangledName": "$s15PostHogRecorder0aB0C6configAA0aB6ConfigCSgvg",
+                "moduleName": "PostHogRecorder",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
             "name": "shared",
             "printedName": "shared",
             "children": [
@@ -3907,8 +3972,8 @@
         "children": [
           {
             "kind": "Var",
-            "name": "none",
-            "printedName": "none",
+            "name": "selective",
+            "printedName": "selective",
             "children": [
               {
                 "kind": "TypeFunc",
@@ -3938,8 +4003,8 @@
               }
             ],
             "declKind": "EnumElement",
-            "usr": "c:@M@PostHogRecorder@E@ScreenRecorderMaskingMode@ScreenRecorderMaskingModeNone",
-            "mangledName": "$s15PostHogRecorder06ScreenC11MaskingModeO4noneyA2CmF",
+            "usr": "c:@M@PostHogRecorder@E@ScreenRecorderMaskingMode@ScreenRecorderMaskingModeSelective",
+            "mangledName": "$s15PostHogRecorder06ScreenC11MaskingModeO9selectiveyA2CmF",
             "moduleName": "PostHogRecorder",
             "declAttributes": [
               "ObjC"
@@ -8168,21 +8233,21 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
       "kind": "IntegerLiteral",
-      "offset": 575,
+      "offset": 582,
       "length": 1,
       "value": "0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
       "kind": "BooleanLiteral",
-      "offset": 682,
+      "offset": 689,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
       "kind": "BooleanLiteral",
-      "offset": 1067,
+      "offset": 1074,
       "length": 4,
       "value": "true"
     },
@@ -8350,77 +8415,77 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "IntegerLiteral",
-      "offset": 271,
+      "offset": 276,
       "length": 9,
       "value": "1"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "IntegerLiteral",
-      "offset": 294,
+      "offset": 299,
       "length": 9,
       "value": "2"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "IntegerLiteral",
-      "offset": 271,
+      "offset": 276,
       "length": 9,
       "value": "1"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "IntegerLiteral",
-      "offset": 294,
+      "offset": 299,
       "length": 9,
       "value": "2"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "BooleanLiteral",
-      "offset": 539,
+      "offset": 544,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "BooleanLiteral",
-      "offset": 597,
+      "offset": 602,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "BooleanLiteral",
-      "offset": 659,
+      "offset": 664,
       "length": 4,
       "value": "true"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "Array",
-      "offset": 793,
+      "offset": 803,
       "length": 17,
       "value": "[\"ph-no-capture\"]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "Array",
-      "offset": 1027,
+      "offset": 1037,
       "length": 2,
       "value": "[]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "Array",
-      "offset": 1100,
+      "offset": 1110,
       "length": 282,
       "value": "[\"CGDrawingView\", \"RCTTextView\", \"RCTMultilineTextInputView\", \"RCTSinglelineTextInputView\"]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
       "kind": "StringLiteral",
-      "offset": 449,
+      "offset": 454,
       "length": 21,
       "value": "\"PostHogRecorder.PostHogRecorderConfig\""
     },

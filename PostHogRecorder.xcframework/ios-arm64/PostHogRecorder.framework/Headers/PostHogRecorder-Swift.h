@@ -264,12 +264,13 @@ SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end
 
-@class Recorder;
 @class PostHogConfig;
+@class Recorder;
 @class NSString;
 
 SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
 @interface PostHog : NSObject
+@property (nonatomic, readonly, strong) PostHogConfig * _Nullable config;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
 + (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
 @property (nonatomic, readonly, strong) Recorder * _Nonnull recorder;
@@ -346,7 +347,7 @@ SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) Recorder * _
 @end
 
 typedef SWIFT_ENUM_NAMED(NSInteger, ScreenRecorderMaskingMode, "ScreenRecorderMaskingMode", open) {
-  ScreenRecorderMaskingModeNone = 0,
+  ScreenRecorderMaskingModeSelective = 0,
   ScreenRecorderMaskingModeAutomatic = 1,
   ScreenRecorderMaskingModeWireframe = 2,
 };

@@ -14,7 +14,8 @@
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
 #import "PHGGroupPayload.h"
-#import <PostHogRecorder/PostHogRecorder.h>
+
+@import PostHogRecorder;
 
 static PHGPostHog *__sharedInstance = nil;
 

@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#import <PostHogRecorder/PostHogRecorder.h>
+
+@import PostHogRecorder;
 
 @protocol PHGApplicationProtocol <NSObject>
 @property (nullable, nonatomic, assign) id<UIApplicationDelegate> delegate;

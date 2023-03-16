@@ -22,7 +22,7 @@ let package = Package(
         ),
         .target(
             name: "PostHog",
-            dependencies: ["PostHogRecorder"],
+            dependencies: [],
             path: "PostHog/",
             exclude: ["Info.plist"],
             sources: ["Classes",
@@ -33,7 +33,10 @@ let package = Package(
                 .headerSearchPath("Vendor"),
                 .headerSearchPath("Internal"),
                 .headerSearchPath("Classes"),
-            ]
+            ],
+            linkerSettings: [
+                    .linkedFramework("PostHogRecorder")
+            ],
         )
     ]
 )

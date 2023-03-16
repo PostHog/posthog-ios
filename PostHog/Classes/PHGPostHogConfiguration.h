@@ -1,7 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-#import <PostHogRecorder/PostHogRecorder.h>
+//#import <PostHogRecorder/PostHogRecorder.h>
 
 @protocol PHGApplicationProtocol <NSObject>
 @property (nullable, nonatomic, assign) id<UIApplicationDelegate> delegate;
@@ -194,7 +194,7 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
  *
  * By default recording is disabled. Set  `recording.screenRecordingEnabled = YES` to enable it. Check the other settings for more granular control over the recording.
  */
-@property (nonatomic, strong, readonly, nonnull) PostHogRecorderConfig *recording;
+//@property (nonatomic, strong, readonly, nonnull) PostHogRecorderConfig *recording;
 
 
 @end

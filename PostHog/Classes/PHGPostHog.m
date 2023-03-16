@@ -14,7 +14,7 @@
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
 #import "PHGGroupPayload.h"
-#import <PostHogRecorder/PostHogRecorder.h>
+// #import <PostHogRecorder/PostHogRecorder.h>
 
 static PHGPostHog *__sharedInstance = nil;
 
@@ -79,14 +79,14 @@ static PHGPostHog *__sharedInstance = nil;
         }
         
         
-        // Currently we keep the two version of PostHog in sync via the config
-        PostHogConfig *nestedConfig = [PostHogConfig newInstanceWithApiKey:configuration.apiKey];
-        nestedConfig.host = configuration.host;
-        nestedConfig.flushAt = configuration.flushAt;
-        nestedConfig.flushInterval = configuration.flushInterval;
-        nestedConfig.recording = configuration.recording;
-
-        [[PostHog shared] setupWithConfig:nestedConfig];
+//        // Currently we keep the two version of PostHog in sync via the config
+//        PostHogConfig *nestedConfig = [PostHogConfig newInstanceWithApiKey:configuration.apiKey];
+//        nestedConfig.host = configuration.host;
+//        nestedConfig.flushAt = configuration.flushAt;
+//        nestedConfig.flushInterval = configuration.flushInterval;
+//        nestedConfig.recording = configuration.recording;
+//
+//        [[PostHog shared] setupWithConfig:nestedConfig];
 
 #if !TARGET_OS_TV
         if (configuration.capturePushNotifications && configuration.launchOptions) {

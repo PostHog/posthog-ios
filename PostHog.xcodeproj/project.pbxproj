@@ -51,7 +51,7 @@
 		9D8CE5A023EE014E00197D0C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EADEB85B1DECD080005322DA /* PostHog.framework */; };
 		A31958EF2385AC3A00A47EFA /* SerializationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A31958EE2385AC3A00A47EFA /* SerializationTests.m */; };
 		B67146EC810B9F83E27632CB /* Pods_PostHogTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3188CAE150B617611E6AC6D4 /* Pods_PostHogTests.framework */; };
-		BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E6F09398C169F35E675 /* PHGPayloadManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E6F09398C169F35E675 /* PHGPayloadManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C814E5A3BA7A84540D733 /* PHGContext.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8BD43F67239FA1902206 /* PHGContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C826724E6F30D02E53EA6 /* ObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C88E533159E768C65C355 /* ObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C8331F9BAC4B30CAAC061 /* PHGIdentifyPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C811B41CBE38598366297 /* PHGIdentifyPayload.m */; };
@@ -457,9 +457,9 @@
 				3A16FD7329C30F50001F9070 /* PHGUserDefaultsStorage.h in Headers */,
 				3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */,
 				3A16FD6129C30F50001F9070 /* PHGUtils.h in Headers */,
-				BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */,
 				3A16FD6D29C30F50001F9070 /* UIViewController+PHGScreen.h in Headers */,
 				3A16FD5F29C30F50001F9070 /* NSData+PHGGZIP.h in Headers */,
+				BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */,
 				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
 				3A16FD7229C30F50001F9070 /* PHGStoreKitCapturer.h in Headers */,
 				BF8C86649922EFA5F66C5BE7 /* PHGIdentifyPayload.h in Headers */,

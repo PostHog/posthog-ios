@@ -8304,20 +8304,13 @@
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/LogRecorder.swift",
       "kind": "FloatLiteral",
       "offset": 1131,
-      "length": 3,
-      "value": "1.0"
-    },
-    {
-      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/LogRecorder.swift",
-      "kind": "FloatLiteral",
-      "offset": 1137,
-      "length": 3,
-      "value": "1.0"
+      "length": 4,
+      "value": "10.0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/LogRecorder.swift",
       "kind": "IntegerLiteral",
-      "offset": 1231,
+      "offset": 1201,
       "length": 3,
       "value": "60"
     },

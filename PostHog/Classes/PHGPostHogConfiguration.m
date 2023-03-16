@@ -1,7 +1,7 @@
 #import "PHGPostHogConfiguration.h"
 #import "PHGPostHog.h"
 
-@import PostHogRecorder;
+#import <PostHogRecorder/PostHogRecorder.h>
 
 
 @implementation UIApplication (PHGApplicationProtocol)

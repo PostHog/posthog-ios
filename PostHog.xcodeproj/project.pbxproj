@@ -8,6 +8,28 @@
 
 /* Begin PBXBuildFile section */
 		2909CFFA247568CF00977728 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29BC6B32244DA78E00D7C963 /* CoreTelephony.framework */; };
+		3A16FD5E29C30F50001F9070 /* UIViewController+PHGScreen.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4829C30F50001F9070 /* UIViewController+PHGScreen.m */; };
+		3A16FD5F29C30F50001F9070 /* NSData+PHGGZIP.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD4929C30F50001F9070 /* NSData+PHGGZIP.h */; };
+		3A16FD6029C30F50001F9070 /* PHGPostHogIntegration.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4A29C30F50001F9070 /* PHGPostHogIntegration.m */; };
+		3A16FD6129C30F50001F9070 /* PHGUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD4B29C30F50001F9070 /* PHGUtils.h */; };
+		3A16FD6229C30F50001F9070 /* PHGHTTPClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4C29C30F50001F9070 /* PHGHTTPClient.m */; };
+		3A16FD6329C30F50001F9070 /* PHGStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD4D29C30F50001F9070 /* PHGStorage.h */; };
+		3A16FD6429C30F50001F9070 /* PHGUserDefaultsStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4E29C30F50001F9070 /* PHGUserDefaultsStorage.m */; };
+		3A16FD6529C30F50001F9070 /* PHGStoreKitCapturer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4F29C30F50001F9070 /* PHGStoreKitCapturer.m */; };
+		3A16FD6629C30F50001F9070 /* PHGAES256Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5029C30F50001F9070 /* PHGAES256Crypto.h */; };
+		3A16FD6729C30F50001F9070 /* PHGFileStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5129C30F50001F9070 /* PHGFileStorage.m */; };
+		3A16FD6829C30F50001F9070 /* PHGPostHogUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5229C30F50001F9070 /* PHGPostHogUtils.h */; };
+		3A16FD6929C30F50001F9070 /* PHGUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5329C30F50001F9070 /* PHGUtils.m */; };
+		3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */; };
+		3A16FD6B29C30F50001F9070 /* NSData+PHGGZIP.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5529C30F50001F9070 /* NSData+PHGGZIP.m */; };
+		3A16FD6C29C30F50001F9070 /* PHGMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5629C30F50001F9070 /* PHGMacros.h */; };
+		3A16FD6D29C30F50001F9070 /* UIViewController+PHGScreen.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5729C30F50001F9070 /* UIViewController+PHGScreen.h */; };
+		3A16FD6E29C30F50001F9070 /* PHGHTTPClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */; };
+		3A16FD6F29C30F50001F9070 /* PHGPostHogUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5929C30F50001F9070 /* PHGPostHogUtils.m */; };
+		3A16FD7029C30F50001F9070 /* PHGAES256Crypto.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5A29C30F50001F9070 /* PHGAES256Crypto.m */; };
+		3A16FD7129C30F50001F9070 /* PHGFileStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5B29C30F50001F9070 /* PHGFileStorage.h */; };
+		3A16FD7229C30F50001F9070 /* PHGStoreKitCapturer.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5C29C30F50001F9070 /* PHGStoreKitCapturer.h */; };
+		3A16FD7329C30F50001F9070 /* PHGUserDefaultsStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5D29C30F50001F9070 /* PHGUserDefaultsStorage.h */; };
 		3A94C839298166AA00C4E564 /* PostHogRecorder.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A94C838298166AA00C4E564 /* PostHogRecorder.xcframework */; };
 		3A94C83A298166AA00C4E564 /* PostHogRecorder.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3A94C838298166AA00C4E564 /* PostHogRecorder.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		53AF746F5FCA76CEB2766389 /* Pods_PostHogTestsTVOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5BC44201DE0BCC6DBCEAF485 /* Pods_PostHogTestsTVOS.framework */; };
@@ -29,49 +51,27 @@
 		9D8CE5A023EE014E00197D0C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EADEB85B1DECD080005322DA /* PostHog.framework */; };
 		A31958EF2385AC3A00A47EFA /* SerializationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A31958EE2385AC3A00A47EFA /* SerializationTests.m */; };
 		B67146EC810B9F83E27632CB /* Pods_PostHogTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3188CAE150B617611E6AC6D4 /* Pods_PostHogTests.framework */; };
-		BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E6F09398C169F35E675 /* PHGPayloadManager.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E6F09398C169F35E675 /* PHGPayloadManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C814E5A3BA7A84540D733 /* PHGContext.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8BD43F67239FA1902206 /* PHGContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C817D68B4E9B441E21D64 /* UIViewController+PHGScreen.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8AC249BECDAF13435FD2 /* UIViewController+PHGScreen.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		BF8C8181F96E1C8CB86D783D /* PHGPostHogUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8C0E43DD950DB9CA7725 /* PHGPostHogUtils.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C826724E6F30D02E53EA6 /* ObjC.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C88E533159E768C65C355 /* ObjC.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C8331F9BAC4B30CAAC061 /* PHGIdentifyPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C811B41CBE38598366297 /* PHGIdentifyPayload.m */; };
 		BF8C8334DB2564A7CFA7A87A /* PHGPayloadManager.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8CD474E1A05E0D0F8C88 /* PHGPayloadManager.m */; };
 		BF8C8374E0D8F97469715282 /* PHGPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C80633A9C834A27298FDE /* PHGPayload.m */; };
 		BF8C838C46F024993F46C108 /* PHGAliasPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8558DAB439462566DA94 /* PHGAliasPayload.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C84098D3C47C6F7B7FF9A /* PHGHTTPClient.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8A9AD350CD86D85DF182 /* PHGHTTPClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C845A65AB5AD06E1EE26B /* PHGStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C83BC7E9D748CA963E2C1 /* PHGStorage.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C84CDF20A0959FC24E076 /* PHGPostHogUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8CD3AE863FA75ADF0189 /* PHGPostHogUtils.m */; };
-		BF8C84DEF5634524F1F9110A /* PHGUserDefaultsStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E50F0C96453793BC955 /* PHGUserDefaultsStorage.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		BF8C850E6C20F8E009469D1E /* PHGPostHogIntegration.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C811FC65903D9C4661465 /* PHGPostHogIntegration.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C856B25377945554598DF /* UIViewController+PHGScreen.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8D864F905E2A4AF297E8 /* UIViewController+PHGScreen.m */; };
 		BF8C86649922EFA5F66C5BE7 /* PHGIdentifyPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8FC3DCC9BEBB4474F373 /* PHGIdentifyPayload.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C86ED787477703D8BCD6C /* PHGScreenPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C83FDEE5C86782CB11D8B /* PHGScreenPayload.m */; };
 		BF8C8735F5CF80C193F5AEDF /* PHGAliasPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8BC32FD2DF9975AB3A35 /* PHGAliasPayload.m */; };
 		BF8C8791A47E4BF8586F0B43 /* PHGCapturePayload.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8EE82249B851E06328EB /* PHGCapturePayload.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C87A812BB60E58DB7B1E4 /* PHGScreenPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C82BFA5872F7E8CBFA682 /* PHGScreenPayload.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C87E4B70CA478721EB11D /* PHGCapturePayload.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8D451AA492DA225B7DC7 /* PHGCapturePayload.m */; };
-		BF8C87E7C76982625BA92F48 /* PHGAES256Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C81224E7FCD6D6BDF4614 /* PHGAES256Crypto.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C8862C12DE007F3494399 /* PHGContext.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8F6DD6E7763114B6FCD1 /* PHGContext.m */; };
 		BF8C88B5A93AE29953A01E65 /* PHGMiddleware.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8AAA842A95EC8B4ED380 /* PHGMiddleware.m */; };
-		BF8C890FADEC88022E7A3588 /* NSData+PHGGZIP.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8F47D9775221FE48AA4D /* NSData+PHGGZIP.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		BF8C8A634BCECED539A18D57 /* PHGPostHogIntegration.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8AF3C1D249548CF69443 /* PHGPostHogIntegration.m */; };
-		BF8C8AD1FBFBB6941DE29D3B /* PHGFileStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C86671862A5FFA20C721C /* PHGFileStorage.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C8AEC72DA925C8B65B1A8 /* PHGMiddleware.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C81A4093856C696EF943D /* PHGMiddleware.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C8AF845410CCF3744EEA1 /* PHGAES256Crypto.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C861A6C2B0C33AC1E7D34 /* PHGAES256Crypto.m */; };
 		BF8C8C32C210AC2B093F1042 /* CHANGELOG.md in Sources */ = {isa = PBXBuildFile; fileRef = BF8C89860ED4391E417B39E9 /* CHANGELOG.md */; };
 		BF8C8C9C0FD46725EA63890A /* ObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8388F05135177F79C286 /* ObjC.m */; };
 		BF8C8CAB52120583B9BB4934 /* PHGPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E2E6C04BE91346F441D /* PHGPayload.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C8D75F1E684EA93578DF5 /* NSData+PHGGZIP.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C802EB41E4E93050D28BA /* NSData+PHGGZIP.m */; };
 		BF8C8D8EE891F5599F3D78D7 /* PHGCrypto.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C89BCDF12D1B64E9475F1 /* PHGCrypto.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C8D9B4A6389088569438F /* PHGHTTPClient.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8BFC78C6AE9EB9732E26 /* PHGHTTPClient.m */; };
-		BF8C8DC55C0552CCAFE7BEBF /* PHGMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8EC5CFC52D2FDC180500 /* PHGMacros.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		BF8C8DCC18E3AA39CCB330BC /* PHGStoreKitCapturer.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8CBED16F21362625BE46 /* PHGStoreKitCapturer.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		BF8C8E28834B124F2E9835A5 /* PHGUserDefaultsStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8CFB8B293A63E897C5A8 /* PHGUserDefaultsStorage.m */; };
-		BF8C8E57BD722DB6AEFF6835 /* PHGFileStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8EB90563BC3956BA25E4 /* PHGFileStorage.m */; };
-		BF8C8EF6349359A33E8C6DFD /* PHGUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8EF9E0ABC31A6E3C0868 /* PHGUtils.m */; };
 		BF8C8F2782C85B046B01C044 /* PHGIntegration.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8DC90BD0C5D0AF19498F /* PHGIntegration.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		BF8C8FC2CB4FAE70F5879308 /* PHGStoreKitCapturer.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8233411FABE41CC0964B /* PHGStoreKitCapturer.m */; };
-		BF8C8FCEC80B47BF2236236E /* PHGUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C81ED70A463EA7799B9B6 /* PHGUtils.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EA88A5981DED7608009FB66A /* PHGSerializableValue.h in Headers */ = {isa = PBXBuildFile; fileRef = EA88A5971DED7608009FB66A /* PHGSerializableValue.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EA8F09741E24C5C600B8B93F /* MiddlewareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8F09731E24C5C600B8B93F /* MiddlewareTests.swift */; };
 		EAA542771EB4035400945DA7 /* CapturingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAA542761EB4035400945DA7 /* CapturingTests.swift */; };
@@ -94,7 +94,7 @@
 		EADEB8F51DECD335005322DA /* CryptoTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADEB8E91DECD335005322DA /* CryptoTest.swift */; };
 		F250ADE0288B401B0045FA7E /* PHGSession.m in Sources */ = {isa = PBXBuildFile; fileRef = F250ADDF288B401B0045FA7E /* PHGSession.m */; };
 		F250ADE2288ED2E20045FA7E /* SessionTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F250ADE1288ED2E20045FA7E /* SessionTest.swift */; };
-		F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */ = {isa = PBXBuildFile; fileRef = F250ADDE288B3ED80045FA7E /* PHGSession.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */ = {isa = PBXBuildFile; fileRef = F250ADDE288B3ED80045FA7E /* PHGSession.h */; };
 		F2A54FB028772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F2A54FB128772F97006C53FF /* FeatureFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FAF28772F97006C53FF /* FeatureFlagTests.swift */; };
 		F2A54FB32877582E006C53FF /* PHGGroupPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = F2A54FB22877582E006C53FF /* PHGGroupPayload.m */; };
@@ -136,6 +136,28 @@
 /* Begin PBXFileReference section */
 		29BC6B32244DA78E00D7C963 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/CoreTelephony.framework; sourceTree = DEVELOPER_DIR; };
 		3188CAE150B617611E6AC6D4 /* Pods_PostHogTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PostHogTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A16FD4829C30F50001F9070 /* UIViewController+PHGScreen.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+PHGScreen.m"; sourceTree = "<group>"; };
+		3A16FD4929C30F50001F9070 /* NSData+PHGGZIP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+PHGGZIP.h"; sourceTree = "<group>"; };
+		3A16FD4A29C30F50001F9070 /* PHGPostHogIntegration.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGPostHogIntegration.m; sourceTree = "<group>"; };
+		3A16FD4B29C30F50001F9070 /* PHGUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGUtils.h; sourceTree = "<group>"; };
+		3A16FD4C29C30F50001F9070 /* PHGHTTPClient.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGHTTPClient.m; sourceTree = "<group>"; };
+		3A16FD4D29C30F50001F9070 /* PHGStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGStorage.h; sourceTree = "<group>"; };
+		3A16FD4E29C30F50001F9070 /* PHGUserDefaultsStorage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGUserDefaultsStorage.m; sourceTree = "<group>"; };
+		3A16FD4F29C30F50001F9070 /* PHGStoreKitCapturer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGStoreKitCapturer.m; sourceTree = "<group>"; };
+		3A16FD5029C30F50001F9070 /* PHGAES256Crypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGAES256Crypto.h; sourceTree = "<group>"; };
+		3A16FD5129C30F50001F9070 /* PHGFileStorage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGFileStorage.m; sourceTree = "<group>"; };
+		3A16FD5229C30F50001F9070 /* PHGPostHogUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGPostHogUtils.h; sourceTree = "<group>"; };
+		3A16FD5329C30F50001F9070 /* PHGUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGUtils.m; sourceTree = "<group>"; };
+		3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGPostHogIntegration.h; sourceTree = "<group>"; };
+		3A16FD5529C30F50001F9070 /* NSData+PHGGZIP.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+PHGGZIP.m"; sourceTree = "<group>"; };
+		3A16FD5629C30F50001F9070 /* PHGMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGMacros.h; sourceTree = "<group>"; };
+		3A16FD5729C30F50001F9070 /* UIViewController+PHGScreen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIViewController+PHGScreen.h"; sourceTree = "<group>"; };
+		3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGHTTPClient.h; sourceTree = "<group>"; };
+		3A16FD5929C30F50001F9070 /* PHGPostHogUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGPostHogUtils.m; sourceTree = "<group>"; };
+		3A16FD5A29C30F50001F9070 /* PHGAES256Crypto.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGAES256Crypto.m; sourceTree = "<group>"; };
+		3A16FD5B29C30F50001F9070 /* PHGFileStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGFileStorage.h; sourceTree = "<group>"; };
+		3A16FD5C29C30F50001F9070 /* PHGStoreKitCapturer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGStoreKitCapturer.h; sourceTree = "<group>"; };
+		3A16FD5D29C30F50001F9070 /* PHGUserDefaultsStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGUserDefaultsStorage.h; sourceTree = "<group>"; };
 		3A94C838298166AA00C4E564 /* PostHogRecorder.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = PostHogRecorder.xcframework; sourceTree = "<group>"; };
 		5BC44201DE0BCC6DBCEAF485 /* Pods_PostHogTestsTVOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PostHogTestsTVOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E38359A29234FB7AA01F92C /* Pods-PostHogTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogTests.release.xcconfig"; path = "Target Support Files/Pods-PostHogTests/Pods-PostHogTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -145,47 +167,25 @@
 		A14D993154AF28A98975EE2C /* Pods-PostHogTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogTests.debug.xcconfig"; path = "Target Support Files/Pods-PostHogTests/Pods-PostHogTests.debug.xcconfig"; sourceTree = "<group>"; };
 		A31958EE2385AC3A00A47EFA /* SerializationTests.m */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.c.objc; path = SerializationTests.m; sourceTree = "<group>"; tabWidth = 4; };
 		BC98E61BBCC1B364536F1D49 /* Pods-PostHogTestsTVOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogTestsTVOS.debug.xcconfig"; path = "Target Support Files/Pods-PostHogTestsTVOS/Pods-PostHogTestsTVOS.debug.xcconfig"; sourceTree = "<group>"; };
-		BF8C802EB41E4E93050D28BA /* NSData+PHGGZIP.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "NSData+PHGGZIP.m"; path = "Internal/NSData+PHGGZIP.m"; sourceTree = "<group>"; };
 		BF8C80633A9C834A27298FDE /* PHGPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGPayload.m; sourceTree = "<group>"; };
 		BF8C811B41CBE38598366297 /* PHGIdentifyPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGIdentifyPayload.m; sourceTree = "<group>"; };
-		BF8C811FC65903D9C4661465 /* PHGPostHogIntegration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGPostHogIntegration.h; path = Internal/PHGPostHogIntegration.h; sourceTree = "<group>"; };
-		BF8C81224E7FCD6D6BDF4614 /* PHGAES256Crypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGAES256Crypto.h; path = Internal/PHGAES256Crypto.h; sourceTree = "<group>"; };
 		BF8C81A4093856C696EF943D /* PHGMiddleware.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGMiddleware.h; sourceTree = "<group>"; };
-		BF8C81ED70A463EA7799B9B6 /* PHGUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGUtils.h; path = Internal/PHGUtils.h; sourceTree = "<group>"; };
-		BF8C8233411FABE41CC0964B /* PHGStoreKitCapturer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGStoreKitCapturer.m; path = Internal/PHGStoreKitCapturer.m; sourceTree = "<group>"; };
 		BF8C82BFA5872F7E8CBFA682 /* PHGScreenPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGScreenPayload.h; sourceTree = "<group>"; };
 		BF8C8388F05135177F79C286 /* ObjC.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ObjC.m; sourceTree = "<group>"; };
-		BF8C83BC7E9D748CA963E2C1 /* PHGStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGStorage.h; path = Internal/PHGStorage.h; sourceTree = "<group>"; };
 		BF8C83FDEE5C86782CB11D8B /* PHGScreenPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGScreenPayload.m; sourceTree = "<group>"; };
 		BF8C8558DAB439462566DA94 /* PHGAliasPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGAliasPayload.h; sourceTree = "<group>"; };
-		BF8C861A6C2B0C33AC1E7D34 /* PHGAES256Crypto.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGAES256Crypto.m; path = Internal/PHGAES256Crypto.m; sourceTree = "<group>"; };
-		BF8C86671862A5FFA20C721C /* PHGFileStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGFileStorage.h; path = Internal/PHGFileStorage.h; sourceTree = "<group>"; };
 		BF8C88E533159E768C65C355 /* ObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ObjC.h; sourceTree = "<group>"; };
 		BF8C89860ED4391E417B39E9 /* CHANGELOG.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		BF8C89BCDF12D1B64E9475F1 /* PHGCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGCrypto.h; sourceTree = "<group>"; };
-		BF8C8A9AD350CD86D85DF182 /* PHGHTTPClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGHTTPClient.h; path = Internal/PHGHTTPClient.h; sourceTree = "<group>"; };
 		BF8C8AAA842A95EC8B4ED380 /* PHGMiddleware.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGMiddleware.m; sourceTree = "<group>"; };
-		BF8C8AC249BECDAF13435FD2 /* UIViewController+PHGScreen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "UIViewController+PHGScreen.h"; path = "Internal/UIViewController+PHGScreen.h"; sourceTree = "<group>"; };
-		BF8C8AF3C1D249548CF69443 /* PHGPostHogIntegration.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGPostHogIntegration.m; path = Internal/PHGPostHogIntegration.m; sourceTree = "<group>"; };
 		BF8C8BC32FD2DF9975AB3A35 /* PHGAliasPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGAliasPayload.m; sourceTree = "<group>"; };
 		BF8C8BD43F67239FA1902206 /* PHGContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGContext.h; sourceTree = "<group>"; };
-		BF8C8BFC78C6AE9EB9732E26 /* PHGHTTPClient.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGHTTPClient.m; path = Internal/PHGHTTPClient.m; sourceTree = "<group>"; };
-		BF8C8C0E43DD950DB9CA7725 /* PHGPostHogUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGPostHogUtils.h; path = Internal/PHGPostHogUtils.h; sourceTree = "<group>"; };
-		BF8C8CBED16F21362625BE46 /* PHGStoreKitCapturer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGStoreKitCapturer.h; path = Internal/PHGStoreKitCapturer.h; sourceTree = "<group>"; };
-		BF8C8CD3AE863FA75ADF0189 /* PHGPostHogUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGPostHogUtils.m; path = Internal/PHGPostHogUtils.m; sourceTree = "<group>"; };
 		BF8C8CD474E1A05E0D0F8C88 /* PHGPayloadManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGPayloadManager.m; sourceTree = "<group>"; };
-		BF8C8CFB8B293A63E897C5A8 /* PHGUserDefaultsStorage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGUserDefaultsStorage.m; path = Internal/PHGUserDefaultsStorage.m; sourceTree = "<group>"; };
 		BF8C8D451AA492DA225B7DC7 /* PHGCapturePayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGCapturePayload.m; sourceTree = "<group>"; };
-		BF8C8D864F905E2A4AF297E8 /* UIViewController+PHGScreen.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIViewController+PHGScreen.m"; path = "Internal/UIViewController+PHGScreen.m"; sourceTree = "<group>"; };
 		BF8C8DC90BD0C5D0AF19498F /* PHGIntegration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGIntegration.h; sourceTree = "<group>"; };
 		BF8C8E2E6C04BE91346F441D /* PHGPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGPayload.h; sourceTree = "<group>"; };
-		BF8C8E50F0C96453793BC955 /* PHGUserDefaultsStorage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGUserDefaultsStorage.h; path = Internal/PHGUserDefaultsStorage.h; sourceTree = "<group>"; };
 		BF8C8E6F09398C169F35E675 /* PHGPayloadManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGPayloadManager.h; sourceTree = "<group>"; };
-		BF8C8EB90563BC3956BA25E4 /* PHGFileStorage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGFileStorage.m; path = Internal/PHGFileStorage.m; sourceTree = "<group>"; };
-		BF8C8EC5CFC52D2FDC180500 /* PHGMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PHGMacros.h; path = Internal/PHGMacros.h; sourceTree = "<group>"; };
 		BF8C8EE82249B851E06328EB /* PHGCapturePayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGCapturePayload.h; sourceTree = "<group>"; };
-		BF8C8EF9E0ABC31A6E3C0868 /* PHGUtils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PHGUtils.m; path = Internal/PHGUtils.m; sourceTree = "<group>"; };
-		BF8C8F47D9775221FE48AA4D /* NSData+PHGGZIP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "NSData+PHGGZIP.h"; path = "Internal/NSData+PHGGZIP.h"; sourceTree = "<group>"; };
 		BF8C8F6DD6E7763114B6FCD1 /* PHGContext.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PHGContext.m; sourceTree = "<group>"; };
 		BF8C8FC3DCC9BEBB4474F373 /* PHGIdentifyPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGIdentifyPayload.h; sourceTree = "<group>"; };
 		EA88A5971DED7608009FB66A /* PHGSerializableValue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PHGSerializableValue.h; sourceTree = "<group>"; };
@@ -268,6 +268,37 @@
 			path = Pods;
 			sourceTree = "<group>";
 		};
+		3A16FD4729C30F50001F9070 /* Internal */ = {
+			isa = PBXGroup;
+			children = (
+				3A16FD4929C30F50001F9070 /* NSData+PHGGZIP.h */,
+				3A16FD5529C30F50001F9070 /* NSData+PHGGZIP.m */,
+				3A16FD5029C30F50001F9070 /* PHGAES256Crypto.h */,
+				3A16FD5A29C30F50001F9070 /* PHGAES256Crypto.m */,
+				3A16FD5B29C30F50001F9070 /* PHGFileStorage.h */,
+				3A16FD5129C30F50001F9070 /* PHGFileStorage.m */,
+				3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */,
+				3A16FD4C29C30F50001F9070 /* PHGHTTPClient.m */,
+				3A16FD5629C30F50001F9070 /* PHGMacros.h */,
+				3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */,
+				3A16FD4A29C30F50001F9070 /* PHGPostHogIntegration.m */,
+				3A16FD5229C30F50001F9070 /* PHGPostHogUtils.h */,
+				3A16FD5929C30F50001F9070 /* PHGPostHogUtils.m */,
+				F250ADDE288B3ED80045FA7E /* PHGSession.h */,
+				F250ADDF288B401B0045FA7E /* PHGSession.m */,
+				3A16FD4D29C30F50001F9070 /* PHGStorage.h */,
+				3A16FD5C29C30F50001F9070 /* PHGStoreKitCapturer.h */,
+				3A16FD4F29C30F50001F9070 /* PHGStoreKitCapturer.m */,
+				3A16FD5D29C30F50001F9070 /* PHGUserDefaultsStorage.h */,
+				3A16FD4E29C30F50001F9070 /* PHGUserDefaultsStorage.m */,
+				3A16FD4B29C30F50001F9070 /* PHGUtils.h */,
+				3A16FD5329C30F50001F9070 /* PHGUtils.m */,
+				3A16FD5729C30F50001F9070 /* UIViewController+PHGScreen.h */,
+				3A16FD4829C30F50001F9070 /* UIViewController+PHGScreen.m */,
+			);
+			path = Internal;
+			sourceTree = "<group>";
+		};
 		E7F5B7E85686966D7A4D0284 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -317,31 +348,10 @@
 		EADEB85D1DECD080005322DA /* PostHog */ = {
 			isa = PBXGroup;
 			children = (
+				3A16FD4729C30F50001F9070 /* Internal */,
 				EADEB8751DECD12B005322DA /* Classes */,
 				EADEB85F1DECD080005322DA /* Info.plist */,
-				BF8C8F47D9775221FE48AA4D /* NSData+PHGGZIP.h */,
-				BF8C802EB41E4E93050D28BA /* NSData+PHGGZIP.m */,
-				BF8C81224E7FCD6D6BDF4614 /* PHGAES256Crypto.h */,
-				BF8C861A6C2B0C33AC1E7D34 /* PHGAES256Crypto.m */,
-				BF8C86671862A5FFA20C721C /* PHGFileStorage.h */,
-				BF8C8EB90563BC3956BA25E4 /* PHGFileStorage.m */,
-				BF8C8A9AD350CD86D85DF182 /* PHGHTTPClient.h */,
-				BF8C8BFC78C6AE9EB9732E26 /* PHGHTTPClient.m */,
-				BF8C8EC5CFC52D2FDC180500 /* PHGMacros.h */,
-				BF8C811FC65903D9C4661465 /* PHGPostHogIntegration.h */,
-				BF8C8AF3C1D249548CF69443 /* PHGPostHogIntegration.m */,
-				BF8C8C0E43DD950DB9CA7725 /* PHGPostHogUtils.h */,
-				BF8C8CD3AE863FA75ADF0189 /* PHGPostHogUtils.m */,
-				BF8C83BC7E9D748CA963E2C1 /* PHGStorage.h */,
-				BF8C8CBED16F21362625BE46 /* PHGStoreKitCapturer.h */,
-				BF8C8233411FABE41CC0964B /* PHGStoreKitCapturer.m */,
-				BF8C8E50F0C96453793BC955 /* PHGUserDefaultsStorage.h */,
-				BF8C8CFB8B293A63E897C5A8 /* PHGUserDefaultsStorage.m */,
-				BF8C81ED70A463EA7799B9B6 /* PHGUtils.h */,
-				BF8C8EF9E0ABC31A6E3C0868 /* PHGUtils.m */,
 				EADEB85E1DECD080005322DA /* PostHog.h */,
-				BF8C8AC249BECDAF13435FD2 /* UIViewController+PHGScreen.h */,
-				BF8C8D864F905E2A4AF297E8 /* UIViewController+PHGScreen.m */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -401,8 +411,6 @@
 				BF8C82BFA5872F7E8CBFA682 /* PHGScreenPayload.h */,
 				BF8C83FDEE5C86782CB11D8B /* PHGScreenPayload.m */,
 				EA88A5971DED7608009FB66A /* PHGSerializableValue.h */,
-				F250ADDE288B3ED80045FA7E /* PHGSession.h */,
-				F250ADDF288B401B0045FA7E /* PHGSession.m */,
 				EAA5427A1EB42B8C00945DA7 /* Vendor */,
 			);
 			path = Classes;
@@ -438,33 +446,33 @@
 				EADEB8DC1DECD12B005322DA /* PHGPostHog.h in Headers */,
 				EA88A5981DED7608009FB66A /* PHGSerializableValue.h in Headers */,
 				EADEB8DE1DECD12B005322DA /* PHGPostHogConfiguration.h in Headers */,
+				3A16FD6829C30F50001F9070 /* PHGPostHogUtils.h in Headers */,
 				BF8C8F2782C85B046B01C044 /* PHGIntegration.h in Headers */,
 				EADEB8601DECD080005322DA /* PostHog.h in Headers */,
 				EAA5427D1EB42B8C00945DA7 /* PHGReachability.h in Headers */,
 				BF8C826724E6F30D02E53EA6 /* ObjC.h in Headers */,
-				BF8C87E7C76982625BA92F48 /* PHGAES256Crypto.h in Headers */,
-				BF8C850E6C20F8E009469D1E /* PHGPostHogIntegration.h in Headers */,
-				BF8C8DC55C0552CCAFE7BEBF /* PHGMacros.h in Headers */,
-				BF8C84098D3C47C6F7B7FF9A /* PHGHTTPClient.h in Headers */,
-				BF8C817D68B4E9B441E21D64 /* UIViewController+PHGScreen.h in Headers */,
+				3A16FD6E29C30F50001F9070 /* PHGHTTPClient.h in Headers */,
+				3A16FD7129C30F50001F9070 /* PHGFileStorage.h in Headers */,
 				F2A54FB52877583C006C53FF /* PHGGroupPayload.h in Headers */,
-				BF8C8AD1FBFBB6941DE29D3B /* PHGFileStorage.h in Headers */,
-				BF8C845A65AB5AD06E1EE26B /* PHGStorage.h in Headers */,
-				BF8C890FADEC88022E7A3588 /* NSData+PHGGZIP.h in Headers */,
-				BF8C8181F96E1C8CB86D783D /* PHGPostHogUtils.h in Headers */,
-				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
-				BF8C8FCEC80B47BF2236236E /* PHGUtils.h in Headers */,
-				BF8C8DCC18E3AA39CCB330BC /* PHGStoreKitCapturer.h in Headers */,
-				BF8C84DEF5634524F1F9110A /* PHGUserDefaultsStorage.h in Headers */,
+				3A16FD7329C30F50001F9070 /* PHGUserDefaultsStorage.h in Headers */,
+				3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */,
+				3A16FD6129C30F50001F9070 /* PHGUtils.h in Headers */,
 				BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */,
+				3A16FD6D29C30F50001F9070 /* UIViewController+PHGScreen.h in Headers */,
+				3A16FD5F29C30F50001F9070 /* NSData+PHGGZIP.h in Headers */,
+				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
+				3A16FD7229C30F50001F9070 /* PHGStoreKitCapturer.h in Headers */,
 				BF8C86649922EFA5F66C5BE7 /* PHGIdentifyPayload.h in Headers */,
 				BF8C8CAB52120583B9BB4934 /* PHGPayload.h in Headers */,
 				BF8C87A812BB60E58DB7B1E4 /* PHGScreenPayload.h in Headers */,
+				3A16FD6629C30F50001F9070 /* PHGAES256Crypto.h in Headers */,
 				BF8C838C46F024993F46C108 /* PHGAliasPayload.h in Headers */,
 				BF8C8791A47E4BF8586F0B43 /* PHGCapturePayload.h in Headers */,
 				BF8C814E5A3BA7A84540D733 /* PHGContext.h in Headers */,
 				BF8C8AEC72DA925C8B65B1A8 /* PHGMiddleware.h in Headers */,
+				3A16FD6C29C30F50001F9070 /* PHGMacros.h in Headers */,
 				BF8C8D8EE891F5599F3D78D7 /* PHGCrypto.h in Headers */,
+				3A16FD6329C30F50001F9070 /* PHGStorage.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -546,6 +554,7 @@
 					EADEB85A1DECD080005322DA = {
 						CreatedOnToolsVersion = 8.1;
 						DevelopmentTeam = UG8G36W2HB;
+						LastSwiftMigration = 1420;
 						ProvisioningStyle = Automatic;
 					};
 					EADEB8691DECD0EF005322DA = {
@@ -725,24 +734,24 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3A16FD5E29C30F50001F9070 /* UIViewController+PHGScreen.m in Sources */,
 				EADEB8DD1DECD12B005322DA /* PHGPostHog.m in Sources */,
 				EADEB8DF1DECD12B005322DA /* PHGPostHogConfiguration.m in Sources */,
 				EAA5427E1EB42B8C00945DA7 /* PHGReachability.m in Sources */,
+				3A16FD6229C30F50001F9070 /* PHGHTTPClient.m in Sources */,
+				3A16FD6B29C30F50001F9070 /* NSData+PHGGZIP.m in Sources */,
 				BF8C8C9C0FD46725EA63890A /* ObjC.m in Sources */,
 				BF8C8C32C210AC2B093F1042 /* CHANGELOG.md in Sources */,
-				BF8C8AF845410CCF3744EEA1 /* PHGAES256Crypto.m in Sources */,
-				BF8C8E57BD722DB6AEFF6835 /* PHGFileStorage.m in Sources */,
-				BF8C856B25377945554598DF /* UIViewController+PHGScreen.m in Sources */,
-				BF8C8EF6349359A33E8C6DFD /* PHGUtils.m in Sources */,
-				BF8C84CDF20A0959FC24E076 /* PHGPostHogUtils.m in Sources */,
+				3A16FD7029C30F50001F9070 /* PHGAES256Crypto.m in Sources */,
+				3A16FD6029C30F50001F9070 /* PHGPostHogIntegration.m in Sources */,
+				3A16FD6429C30F50001F9070 /* PHGUserDefaultsStorage.m in Sources */,
 				F2A54FB32877582E006C53FF /* PHGGroupPayload.m in Sources */,
-				BF8C8E28834B124F2E9835A5 /* PHGUserDefaultsStorage.m in Sources */,
-				BF8C8FC2CB4FAE70F5879308 /* PHGStoreKitCapturer.m in Sources */,
-				BF8C8D75F1E684EA93578DF5 /* NSData+PHGGZIP.m in Sources */,
-				BF8C8D9B4A6389088569438F /* PHGHTTPClient.m in Sources */,
-				BF8C8A634BCECED539A18D57 /* PHGPostHogIntegration.m in Sources */,
+				3A16FD6729C30F50001F9070 /* PHGFileStorage.m in Sources */,
+				3A16FD6929C30F50001F9070 /* PHGUtils.m in Sources */,
 				BF8C8735F5CF80C193F5AEDF /* PHGAliasPayload.m in Sources */,
+				3A16FD6F29C30F50001F9070 /* PHGPostHogUtils.m in Sources */,
 				BF8C8374E0D8F97469715282 /* PHGPayload.m in Sources */,
+				3A16FD6529C30F50001F9070 /* PHGStoreKitCapturer.m in Sources */,
 				F250ADE0288B401B0045FA7E /* PHGSession.m in Sources */,
 				BF8C86ED787477703D8BCD6C /* PHGScreenPayload.m in Sources */,
 				BF8C8334DB2564A7CFA7A87A /* PHGPayloadManager.m in Sources */,
@@ -962,6 +971,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CODE_SIGN_IDENTITY = "";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
@@ -983,6 +993,7 @@
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos appletvos appletvsimulator";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 				TVOS_DEPLOYMENT_TARGET = 12.0;
@@ -993,6 +1004,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CODE_SIGN_IDENTITY = "";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";

@@ -3,6 +3,7 @@
 //
 
 #import "PHGPayloadManager.h"
+#import "PHGSession.h"
 #import "PHGAES256Crypto.h"
 #import "PHGFileStorage.h"
 #import "PHGUserDefaultsStorage.h"

@@ -13,18 +13,18 @@
 		3A16FD6029C30F50001F9070 /* PHGPostHogIntegration.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4A29C30F50001F9070 /* PHGPostHogIntegration.m */; };
 		3A16FD6129C30F50001F9070 /* PHGUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD4B29C30F50001F9070 /* PHGUtils.h */; };
 		3A16FD6229C30F50001F9070 /* PHGHTTPClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4C29C30F50001F9070 /* PHGHTTPClient.m */; };
-		3A16FD6329C30F50001F9070 /* PHGStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD4D29C30F50001F9070 /* PHGStorage.h */; };
+		3A16FD6329C30F50001F9070 /* PHGStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD4D29C30F50001F9070 /* PHGStorage.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A16FD6429C30F50001F9070 /* PHGUserDefaultsStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4E29C30F50001F9070 /* PHGUserDefaultsStorage.m */; };
 		3A16FD6529C30F50001F9070 /* PHGStoreKitCapturer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD4F29C30F50001F9070 /* PHGStoreKitCapturer.m */; };
 		3A16FD6629C30F50001F9070 /* PHGAES256Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5029C30F50001F9070 /* PHGAES256Crypto.h */; };
 		3A16FD6729C30F50001F9070 /* PHGFileStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5129C30F50001F9070 /* PHGFileStorage.m */; };
 		3A16FD6829C30F50001F9070 /* PHGPostHogUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5229C30F50001F9070 /* PHGPostHogUtils.h */; };
 		3A16FD6929C30F50001F9070 /* PHGUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5329C30F50001F9070 /* PHGUtils.m */; };
-		3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */; };
+		3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A16FD6B29C30F50001F9070 /* NSData+PHGGZIP.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5529C30F50001F9070 /* NSData+PHGGZIP.m */; };
 		3A16FD6C29C30F50001F9070 /* PHGMacros.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5629C30F50001F9070 /* PHGMacros.h */; };
 		3A16FD6D29C30F50001F9070 /* UIViewController+PHGScreen.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5729C30F50001F9070 /* UIViewController+PHGScreen.h */; };
-		3A16FD6E29C30F50001F9070 /* PHGHTTPClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */; };
+		3A16FD6E29C30F50001F9070 /* PHGHTTPClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A16FD6F29C30F50001F9070 /* PHGPostHogUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5929C30F50001F9070 /* PHGPostHogUtils.m */; };
 		3A16FD7029C30F50001F9070 /* PHGAES256Crypto.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A16FD5A29C30F50001F9070 /* PHGAES256Crypto.m */; };
 		3A16FD7129C30F50001F9070 /* PHGFileStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A16FD5B29C30F50001F9070 /* PHGFileStorage.h */; };
@@ -277,16 +277,11 @@
 				3A16FD5A29C30F50001F9070 /* PHGAES256Crypto.m */,
 				3A16FD5B29C30F50001F9070 /* PHGFileStorage.h */,
 				3A16FD5129C30F50001F9070 /* PHGFileStorage.m */,
-				3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */,
-				3A16FD4C29C30F50001F9070 /* PHGHTTPClient.m */,
 				3A16FD5629C30F50001F9070 /* PHGMacros.h */,
-				3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */,
-				3A16FD4A29C30F50001F9070 /* PHGPostHogIntegration.m */,
 				3A16FD5229C30F50001F9070 /* PHGPostHogUtils.h */,
 				3A16FD5929C30F50001F9070 /* PHGPostHogUtils.m */,
 				F250ADDE288B3ED80045FA7E /* PHGSession.h */,
 				F250ADDF288B401B0045FA7E /* PHGSession.m */,
-				3A16FD4D29C30F50001F9070 /* PHGStorage.h */,
 				3A16FD5C29C30F50001F9070 /* PHGStoreKitCapturer.h */,
 				3A16FD4F29C30F50001F9070 /* PHGStoreKitCapturer.m */,
 				3A16FD5D29C30F50001F9070 /* PHGUserDefaultsStorage.h */,
@@ -386,6 +381,11 @@
 		EADEB8751DECD12B005322DA /* Classes */ = {
 			isa = PBXGroup;
 			children = (
+				3A16FD4D29C30F50001F9070 /* PHGStorage.h */,
+				3A16FD5829C30F50001F9070 /* PHGHTTPClient.h */,
+				3A16FD4C29C30F50001F9070 /* PHGHTTPClient.m */,
+				3A16FD5429C30F50001F9070 /* PHGPostHogIntegration.h */,
+				3A16FD4A29C30F50001F9070 /* PHGPostHogIntegration.m */,
 				BF8C8558DAB439462566DA94 /* PHGAliasPayload.h */,
 				BF8C8BC32FD2DF9975AB3A35 /* PHGAliasPayload.m */,
 				BF8C8EE82249B851E06328EB /* PHGCapturePayload.h */,
@@ -451,14 +451,15 @@
 				EADEB8601DECD080005322DA /* PostHog.h in Headers */,
 				EAA5427D1EB42B8C00945DA7 /* PHGReachability.h in Headers */,
 				BF8C826724E6F30D02E53EA6 /* ObjC.h in Headers */,
-				3A16FD6E29C30F50001F9070 /* PHGHTTPClient.h in Headers */,
 				3A16FD7129C30F50001F9070 /* PHGFileStorage.h in Headers */,
 				F2A54FB52877583C006C53FF /* PHGGroupPayload.h in Headers */,
 				3A16FD7329C30F50001F9070 /* PHGUserDefaultsStorage.h in Headers */,
-				3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */,
 				3A16FD6129C30F50001F9070 /* PHGUtils.h in Headers */,
+				3A16FD6E29C30F50001F9070 /* PHGHTTPClient.h in Headers */,
+				3A16FD6A29C30F50001F9070 /* PHGPostHogIntegration.h in Headers */,
 				3A16FD6D29C30F50001F9070 /* UIViewController+PHGScreen.h in Headers */,
 				3A16FD5F29C30F50001F9070 /* NSData+PHGGZIP.h in Headers */,
+				3A16FD6329C30F50001F9070 /* PHGStorage.h in Headers */,
 				BF8C806E9390DA2FC00D1812 /* PHGPayloadManager.h in Headers */,
 				F250ADE3288ED4910045FA7E /* PHGSession.h in Headers */,
 				3A16FD7229C30F50001F9070 /* PHGStoreKitCapturer.h in Headers */,
@@ -472,7 +473,6 @@
 				BF8C8AEC72DA925C8B65B1A8 /* PHGMiddleware.h in Headers */,
 				3A16FD6C29C30F50001F9070 /* PHGMacros.h in Headers */,
 				BF8C8D8EE891F5599F3D78D7 /* PHGCrypto.h in Headers */,
-				3A16FD6329C30F50001F9070 /* PHGStorage.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

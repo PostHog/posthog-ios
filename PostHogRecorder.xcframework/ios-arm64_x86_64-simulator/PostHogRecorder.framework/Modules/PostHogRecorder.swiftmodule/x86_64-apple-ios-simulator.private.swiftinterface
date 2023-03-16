@@ -80,6 +80,7 @@ public enum PostHogEncoder {
   @objc deinit
   public func updateConfig(config: PostHogRecorder.PostHogRecorderConfig)
   public func start(config: PostHogRecorder.PostHogRecorderConfig?, eventHandler: @escaping (PostHogRecorder.PostHogEvent) -> Swift.Void)
+  public func log(message: Swift.String, level: PostHogRecorder.LogLevel = LogLevel.log)
 }
 extension PostHogRecorder.PostHog {
   public static let didStartNotification: Foundation.Notification.Name

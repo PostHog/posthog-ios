@@ -26,11 +26,11 @@
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
-		dybMCTvGJ3UFsDQrqcqi3B+5V1I=
+		w7eJpVfN8QtoYofz/7hRt0Y7mt8=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		gypU2ej+Af8u2U6ivpEQ2tN3WmQ=
+		FbtdDLXgiT9Ku1aPxrm+h0tr2bY=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
@@ -38,19 +38,19 @@
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		gypU2ej+Af8u2U6ivpEQ2tN3WmQ=
+		FbtdDLXgiT9Ku1aPxrm+h0tr2bY=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		hdGiVU0ZnGwu2KCxPnnIrnbBxBA=
+		WkoiiRL+RegDN69o6X+LGG6j5w4=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
-		dybMCTvGJ3UFsDQrqcqi3B+5V1I=
+		w7eJpVfN8QtoYofz/7hRt0Y7mt8=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		yB1+IfY2dYILZAa36j/ClTGhfnU=
+		gSOKxWWKuIkqChrUVXYxuDAhXL0=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
@@ -58,11 +58,11 @@
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		yB1+IfY2dYILZAa36j/ClTGhfnU=
+		gSOKxWWKuIkqChrUVXYxuDAhXL0=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		dvwHm3GDGOJQl6NOSVgXUvN6dTE=
+		8uPf3GLMjfc+T2FhVocFWkEqotQ=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -103,14 +103,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			cUS6cRwqhP2TrY3TewP3IlJjRCXse2QpLovpjPeiptI=
+			MCuebkAMnpkh/1wGHxUYWoKn7hI75BBowmk3pEZvIzY=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			JWk0gVeiVGwOdfCXGBN3Fj+6e7PjJSiRMAEHOU2f+nc=
+			oHvDvFZcQBqqlZm8pc5CXjP3jJFc/uHD882xhyWdKzw=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
@@ -124,28 +124,28 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			JWk0gVeiVGwOdfCXGBN3Fj+6e7PjJSiRMAEHOU2f+nc=
+			oHvDvFZcQBqqlZm8pc5CXjP3jJFc/uHD882xhyWdKzw=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			Si0hjDuz1u6ivBHISmBo0CSO1RQ/nVfcuGnR7gtncCk=
+			xu0yENN7M4rMqjrpi4m0Gf+QajYbLESts6lgKqTdRWM=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			cUS6cRwqhP2TrY3TewP3IlJjRCXse2QpLovpjPeiptI=
+			MCuebkAMnpkh/1wGHxUYWoKn7hI75BBowmk3pEZvIzY=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			XyyVKKVjSY+eR1Vt5H+WIkeNBQ9oJN1oYe4fpKuBwCs=
+			2O3Ufa5C6XfCeikwdWidI8Qjz2mIWadon/hli1Mc2PI=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
@@ -159,14 +159,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			XyyVKKVjSY+eR1Vt5H+WIkeNBQ9oJN1oYe4fpKuBwCs=
+			2O3Ufa5C6XfCeikwdWidI8Qjz2mIWadon/hli1Mc2PI=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			TG5TCs5Q1fJ7L6JOGIbmggqaMCggQiG1i3A2zTUK7po=
+			NBiID1qtLWuDI95eYh4QXAsihXRAFNTxUfnIv89Sdlo=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

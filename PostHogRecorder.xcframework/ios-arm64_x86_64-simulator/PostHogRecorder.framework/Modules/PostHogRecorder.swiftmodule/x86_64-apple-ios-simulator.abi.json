@@ -8324,14 +8324,14 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/ScreenRecorder.swift",
       "kind": "FloatLiteral",
-      "offset": 666,
+      "offset": 1210,
       "length": 3,
       "value": "1.0"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/ScreenRecorder.swift",
       "kind": "FloatLiteral",
-      "offset": 672,
+      "offset": 1216,
       "length": 3,
       "value": "2.0"
     },

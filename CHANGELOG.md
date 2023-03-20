@@ -1,6 +1,11 @@
+## 2.0.1 - 2023-03-20
+
+- Accept `options` parameter on feature flag methods to enable/disable emitting usage events
+
 ## 2.0.0 - 2022-08-29
 
 - Add support for groups, simplefeature flags, and  multivariate feature flags
+
 ## 1.4.4 - 2021-11-19
 
 Make enabled property public.

@@ -131,7 +131,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)group:(NSString *)groupType groupKey:(NSString *)groupKey properties:(SERIALIZABLE_DICT _Nullable)properties;
 
 - (id)getFeatureFlag:(NSString *)flagKey;
+- (id)getFeatureFlag:(NSString *)flagKey options:(NSDictionary *)options;
 - (bool)isFeatureEnabled:(NSString *)flagKey;
+- (bool)isFeatureEnabled:(NSString *)flagKey options:(NSDictionary *)options;
 - (void)reloadFeatureFlags;
 - (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey defaultValue:(NSString *)defaultValue;
 - (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey defaultValue:(NSInteger)defaultValue;

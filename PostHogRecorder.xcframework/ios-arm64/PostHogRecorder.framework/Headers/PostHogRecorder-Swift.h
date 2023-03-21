@@ -234,8 +234,6 @@ using UInt = size_t;
 @import ObjectiveC;
 #endif
 
-#import <PostHogRecorder/PostHogRecorder.h>
-
 #endif
 #pragma clang diagnostic ignored "-Wproperty-attribute-mismatch"
 #pragma clang diagnostic ignored "-Wduplicate-method-arg"
@@ -254,12 +252,9 @@ using UInt = size_t;
 #endif
 
 #if defined(__OBJC__)
-@class NSURLSessionTask;
 
 SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
-@interface NetworkRecorder : NSObject <NetworkRecordingIntegrationResponder>
-- (void)urlSessionTaskResume:(NSURLSessionTask * _Nonnull)sessionTask;
-- (void)urlSessionTask:(NSURLSessionTask * _Nonnull)sessionTask setState:(NSURLSessionTaskState)newState;
+@interface NetworkRecorder : NSObject
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
 + (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
 @end

@@ -29,6 +29,21 @@ public enum RRWebEncoder {
 }
 public enum PostHogEncoder {
 }
+@propertyWrapper final public class ReadWriteLock<Value> {
+  public init(wrappedValue value: Value)
+  @objc deinit
+  final public var wrappedValue: Value {
+    get
+    set
+  }
+  final public func mutate(_ closure: (inout Value) -> Swift.Void)
+}
+@_hasMissingDesignatedInitializers public class URLSessionInterceptor {
+  public func taskCreated(task: Foundation.URLSessionTask, session: Foundation.URLSession? = nil)
+  public func taskReceivedData(task: Foundation.URLSessionTask, data: Foundation.Data)
+  public func taskCompleted(task: Foundation.URLSessionTask, error: Swift.Error?)
+  @objc deinit
+}
 @_inheritsConvenienceInitializers @objc public class PostHog : ObjectiveC.NSObject {
   @objc public var config: PostHogRecorder.PostHogConfig? {
     get
@@ -90,9 +105,7 @@ extension PostHogRecorder.PostHog {
   public static let didStartRecordingNotification: Foundation.Notification.Name
   public static let didResetSessionNotification: Foundation.Notification.Name
 }
-@_hasMissingDesignatedInitializers @objc public class NetworkRecorder : ObjectiveC.NSObject, PostHogRecorder.NetworkRecordingIntegrationResponder {
-  @objc public func urlSessionTaskResume(_ sessionTask: Foundation.URLSessionTask)
-  @objc public func urlSessionTask(_ sessionTask: Foundation.URLSessionTask, setState newState: Foundation.URLSessionTask.State)
+@_hasMissingDesignatedInitializers @objc public class NetworkRecorder : ObjectiveC.NSObject {
   @objc deinit
 }
 @_hasMissingDesignatedInitializers public class PostHogEvent {

@@ -358,6 +358,16 @@
         "name": "Foundation",
         "printedName": "Foundation",
         "declKind": "Import",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
         "moduleName": "PostHogRecorder"
       },
       {
@@ -385,6 +395,348 @@
         "printedName": "UIKit",
         "declKind": "Import",
         "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "ReadWriteLock",
+        "printedName": "ReadWriteLock",
+        "children": [
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(wrappedValue:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "ReadWriteLock",
+                "printedName": "PostHogRecorder.ReadWriteLock<τ_0_0>",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "usr": "s:15PostHogRecorder13ReadWriteLockC"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "GenericTypeParam",
+                "printedName": "τ_0_0"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:15PostHogRecorder13ReadWriteLockC12wrappedValueACyxGx_tcfc",
+            "mangledName": "$s15PostHogRecorder13ReadWriteLockC12wrappedValueACyxGx_tcfc",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0>",
+            "sugared_genericSig": "<Value>",
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "init_kind": "Designated"
+          },
+          {
+            "kind": "Var",
+            "name": "wrappedValue",
+            "printedName": "wrappedValue",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "GenericTypeParam",
+                "printedName": "τ_0_0"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:15PostHogRecorder13ReadWriteLockC12wrappedValuexvp",
+            "mangledName": "$s15PostHogRecorder13ReadWriteLockC12wrappedValuexvp",
+            "moduleName": "PostHogRecorder",
+            "declAttributes": [
+              "Final",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder13ReadWriteLockC12wrappedValuexvg",
+                "mangledName": "$s15PostHogRecorder13ReadWriteLockC12wrappedValuexvg",
+                "moduleName": "PostHogRecorder",
+                "genericSig": "<τ_0_0>",
+                "sugared_genericSig": "<Value>",
+                "declAttributes": [
+                  "Final"
+                ],
+                "accessorKind": "get"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Set",
+                "printedName": "Set()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "GenericTypeParam",
+                    "printedName": "τ_0_0"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder13ReadWriteLockC12wrappedValuexvs",
+                "mangledName": "$s15PostHogRecorder13ReadWriteLockC12wrappedValuexvs",
+                "moduleName": "PostHogRecorder",
+                "genericSig": "<τ_0_0>",
+                "sugared_genericSig": "<Value>",
+                "declAttributes": [
+                  "Final"
+                ],
+                "accessorKind": "set"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Modify",
+                "printedName": "Modify()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:15PostHogRecorder13ReadWriteLockC12wrappedValuexvM",
+                "mangledName": "$s15PostHogRecorder13ReadWriteLockC12wrappedValuexvM",
+                "moduleName": "PostHogRecorder",
+                "genericSig": "<τ_0_0>",
+                "sugared_genericSig": "<Value>",
+                "implicit": true,
+                "declAttributes": [
+                  "Final"
+                ],
+                "accessorKind": "_modify"
+              }
+            ]
+          },
+          {
+            "kind": "Function",
+            "name": "mutate",
+            "printedName": "mutate(_:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(inout τ_0_0) -> ()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "InOut",
+                    "printedName": "inout τ_0_0"
+                  }
+                ],
+                "typeAttributes": [
+                  "noescape"
+                ]
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder13ReadWriteLockC6mutateyyyxzXEF",
+            "mangledName": "$s15PostHogRecorder13ReadWriteLockC6mutateyyyxzXEF",
+            "moduleName": "PostHogRecorder",
+            "genericSig": "<τ_0_0>",
+            "sugared_genericSig": "<Value>",
+            "declAttributes": [
+              "Final",
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Class",
+        "usr": "s:15PostHogRecorder13ReadWriteLockC",
+        "mangledName": "$s15PostHogRecorder13ReadWriteLockC",
+        "moduleName": "PostHogRecorder",
+        "genericSig": "<τ_0_0>",
+        "sugared_genericSig": "<Value>",
+        "declAttributes": [
+          "Final",
+          "AccessControl",
+          "PropertyWrapper",
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "URLSessionInterceptor",
+        "printedName": "URLSessionInterceptor",
+        "children": [
+          {
+            "kind": "Function",
+            "name": "taskCreated",
+            "printedName": "taskCreated(task:session:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "URLSessionTask",
+                "printedName": "Foundation.URLSessionTask",
+                "usr": "c:objc(cs)NSURLSessionTask"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Foundation.URLSession?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "URLSession",
+                    "printedName": "Foundation.URLSession",
+                    "usr": "c:objc(cs)NSURLSession"
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder21URLSessionInterceptorC11taskCreated0F07sessionySo16NSURLSessionTaskC_So0I0CSgtF",
+            "mangledName": "$s15PostHogRecorder21URLSessionInterceptorC11taskCreated0F07sessionySo16NSURLSessionTaskC_So0I0CSgtF",
+            "moduleName": "PostHogRecorder",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "taskReceivedData",
+            "printedName": "taskReceivedData(task:data:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "URLSessionTask",
+                "printedName": "Foundation.URLSessionTask",
+                "usr": "c:objc(cs)NSURLSessionTask"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Data",
+                "printedName": "Foundation.Data",
+                "usr": "s:10Foundation4DataV"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder21URLSessionInterceptorC16taskReceivedData0F04dataySo16NSURLSessionTaskC_10Foundation0H0VtF",
+            "mangledName": "$s15PostHogRecorder21URLSessionInterceptorC16taskReceivedData0F04dataySo16NSURLSessionTaskC_10Foundation0H0VtF",
+            "moduleName": "PostHogRecorder",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Function",
+            "name": "taskCompleted",
+            "printedName": "taskCompleted(task:error:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "URLSessionTask",
+                "printedName": "Foundation.URLSessionTask",
+                "usr": "c:objc(cs)NSURLSessionTask"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.Error?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Error",
+                    "printedName": "Swift.Error",
+                    "usr": "s:s5ErrorP"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:15PostHogRecorder21URLSessionInterceptorC13taskCompleted0F05errorySo16NSURLSessionTaskC_s5Error_pSgtF",
+            "mangledName": "$s15PostHogRecorder21URLSessionInterceptorC13taskCompleted0F05errorySo16NSURLSessionTaskC_s5Error_pSgtF",
+            "moduleName": "PostHogRecorder",
+            "declAttributes": [
+              "AccessControl",
+              "RawDocComment"
+            ],
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Class",
+        "usr": "s:15PostHogRecorder21URLSessionInterceptorC",
+        "mangledName": "$s15PostHogRecorder21URLSessionInterceptorC",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "AccessControl",
+          "RawDocComment"
+        ],
+        "hasMissingDesignatedInitializers": true
       },
       {
         "kind": "Import",
@@ -2999,68 +3351,6 @@
         "printedName": "NetworkRecorder",
         "children": [
           {
-            "kind": "Function",
-            "name": "urlSessionTaskResume",
-            "printedName": "urlSessionTaskResume(_:)",
-            "children": [
-              {
-                "kind": "TypeNominal",
-                "name": "Void",
-                "printedName": "()"
-              },
-              {
-                "kind": "TypeNominal",
-                "name": "URLSessionTask",
-                "printedName": "Foundation.URLSessionTask",
-                "usr": "c:objc(cs)NSURLSessionTask"
-              }
-            ],
-            "declKind": "Func",
-            "usr": "c:@M@PostHogRecorder@objc(cs)NetworkRecorder(im)urlSessionTaskResume:",
-            "mangledName": "$s15PostHogRecorder07NetworkC0C20urlSessionTaskResumeyySo012NSURLSessionG0CF",
-            "moduleName": "PostHogRecorder",
-            "objc_name": "urlSessionTaskResume:",
-            "declAttributes": [
-              "ObjC",
-              "AccessControl"
-            ],
-            "funcSelfKind": "NonMutating"
-          },
-          {
-            "kind": "Function",
-            "name": "urlSessionTask",
-            "printedName": "urlSessionTask(_:setState:)",
-            "children": [
-              {
-                "kind": "TypeNominal",
-                "name": "Void",
-                "printedName": "()"
-              },
-              {
-                "kind": "TypeNominal",
-                "name": "URLSessionTask",
-                "printedName": "Foundation.URLSessionTask",
-                "usr": "c:objc(cs)NSURLSessionTask"
-              },
-              {
-                "kind": "TypeNominal",
-                "name": "State",
-                "printedName": "Foundation.URLSessionTask.State",
-                "usr": "c:@E@NSURLSessionTaskState"
-              }
-            ],
-            "declKind": "Func",
-            "usr": "c:@M@PostHogRecorder@objc(cs)NetworkRecorder(im)urlSessionTask:setState:",
-            "mangledName": "$s15PostHogRecorder07NetworkC0C14urlSessionTask_8setStateySo012NSURLSessionG0C_So0jgI0VtF",
-            "moduleName": "PostHogRecorder",
-            "objc_name": "urlSessionTask:setState:",
-            "declAttributes": [
-              "ObjC",
-              "AccessControl"
-            ],
-            "funcSelfKind": "NonMutating"
-          },
-          {
             "kind": "Constructor",
             "name": "init",
             "printedName": "init()",
@@ -3949,6 +4239,16 @@
         "moduleName": "PostHogRecorder",
         "declAttributes": [
           "AccessControl"
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder",
+        "declAttributes": [
+          "RawDocComment"
         ]
       },
       {
@@ -7193,6 +7493,13 @@
         ]
       },
       {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "PostHogRecorder"
+      },
+      {
         "kind": "TypeDecl",
         "name": "KeyedDecodingContainer",
         "printedName": "KeyedDecodingContainer",
@@ -8210,6 +8517,20 @@
       "value": "\"40\""
     },
     {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Network\/URLSessionInterceptor.swift",
+      "kind": "StringLiteral",
+      "offset": 1215,
+      "length": 35,
+      "value": "\"com.posthog.URLSessionInterceptor\""
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Network\/URLSessionInterceptor.swift",
+      "kind": "Dictionary",
+      "offset": 1349,
+      "length": 3,
+      "value": "[]"
+    },
+    {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/PostHog.swift",
       "kind": "FloatLiteral",
       "offset": 171,
@@ -8338,9 +8659,16 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Queue.swift",
       "kind": "BooleanLiteral",
-      "offset": 2785,
+      "offset": 2804,
       "length": 5,
       "value": "false"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Queue.swift",
+      "kind": "StringLiteral",
+      "offset": 2896,
+      "length": 19,
+      "value": "\"com.posthog.Queue\""
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorder.swift",
@@ -8387,14 +8715,7 @@
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/NetworkRecorder.swift",
       "kind": "StringLiteral",
-      "offset": 868,
-      "length": 36,
-      "value": "\"PH_NETWORK_REQUEST_RECORDER_SAMPLE\""
-    },
-    {
-      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/NetworkRecorder.swift",
-      "kind": "StringLiteral",
-      "offset": 929,
+      "offset": 830,
       "length": 15,
       "value": "\"PostHogRecorder.NetworkRecorder\""
     },
@@ -8411,6 +8732,13 @@
       "offset": 1201,
       "length": 3,
       "value": "60"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Utils\/MethodSwizzler.swift",
+      "kind": "Dictionary",
+      "offset": 1180,
+      "length": 3,
+      "value": "[]"
     },
     {
       "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/PostHogRecorderConfiguration.swift",
@@ -8530,6 +8858,34 @@
       "offset": 4335,
       "length": 5,
       "value": "false"
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Network\/URLSessionSwizzler.swift",
+      "kind": "StringLiteral",
+      "offset": 2555,
+      "length": 35,
+      "value": "\"PostHogRecorder.DataTaskWithURLRequestAndCompletion\""
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Network\/URLSessionSwizzler.swift",
+      "kind": "StringLiteral",
+      "offset": 5867,
+      "length": 28,
+      "value": "\"PostHogRecorder.DataTaskWithURLAndCompletion\""
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Network\/URLSessionSwizzler.swift",
+      "kind": "StringLiteral",
+      "offset": 8839,
+      "length": 22,
+      "value": "\"PostHogRecorder.DataTaskWithURLRequest\""
+    },
+    {
+      "filePath": "\/Users\/benwhite\/Development\/posthog-ios-recorder\/PostHogRecorder\/Recording\/Recorders\/Network\/URLSessionSwizzler.swift",
+      "kind": "StringLiteral",
+      "offset": 10815,
+      "length": 15,
+      "value": "\"PostHogRecorder.DataTaskWithURL\""
     }
   ]
 }

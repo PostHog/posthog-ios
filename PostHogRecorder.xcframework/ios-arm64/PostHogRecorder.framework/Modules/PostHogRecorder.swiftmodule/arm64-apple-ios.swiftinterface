@@ -39,13 +39,16 @@ public enum PostHogEncoder {
   final public func mutate(_ closure: (inout Value) -> Swift.Void)
 }
 @_hasMissingDesignatedInitializers public class URLSessionInterceptor {
-  public func taskCreated(task: Foundation.URLSessionTask, session: Foundation.URLSession? = nil)
-  public func taskReceivedData(task: Foundation.URLSessionTask, data: Foundation.Data)
-  public func taskCompleted(task: Foundation.URLSessionTask, error: Swift.Error?)
+  public func taskCreated(task: Foundation.URLSessionTask, session _: Foundation.URLSession? = nil)
+  public func taskReceivedData(task _: Foundation.URLSessionTask, data _: Foundation.Data)
+  public func taskCompleted(task: Foundation.URLSessionTask, error _: Swift.Error?)
   @objc deinit
 }
 @_inheritsConvenienceInitializers @objc public class PostHog : ObjectiveC.NSObject {
   @objc public var config: PostHogRecorder.PostHogConfig? {
+    get
+  }
+  @objc public var isSetup: Swift.Bool {
     get
   }
   @objc public static let shared: PostHogRecorder.PostHog
@@ -55,9 +58,11 @@ public enum PostHogEncoder {
   }
   @objc public func debug(enabled: Swift.Bool = true)
   @objc public func setup(config: PostHogRecorder.PostHogConfig)
-  @objc public func getDistinctId() -> Swift.String
-  @objc public func getAnonymousId() -> Swift.String
-  @objc public func getSessionId() -> Swift.String
+  @objc public func getDistinctId() -> Swift.String?
+  @objc public func getAnonymousId() -> Swift.String?
+  @objc public func getSessionId() -> Swift.String?
+  public func flush()
+  public func reset()
   public func getGroups() -> [Swift.String : Swift.String]
   public func getRegisteredProperties() -> [Swift.String : Any]
   @objc public func register(_ properties: [Swift.String : Any]) -> [Swift.String : Any]
@@ -88,6 +93,7 @@ public enum PostHogEncoder {
   @objc public var maxBatchSize: Swift.Int
   @objc public var flushInterval: Swift.Double
   @objc public var dataMode: PostHogRecorder.PostHogDataMode
+  @objc public var storagePrefix: Swift.String?
   @objc public var recording: PostHogRecorder.PostHogRecorderConfig
   @objc public static func newInstance(apiKey: Swift.String) -> PostHogRecorder.PostHogConfig
   public init(apiKey: Swift.String)

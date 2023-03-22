@@ -266,14 +266,15 @@ SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
 SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
 @interface PostHog : NSObject
 @property (nonatomic, readonly, strong) PostHogConfig * _Nullable config;
+@property (nonatomic, readonly) BOOL isSetup;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
 + (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
 @property (nonatomic, readonly, strong) Recorder * _Nonnull recorder;
 - (void)debugWithEnabled:(BOOL)enabled;
 - (void)setupWithConfig:(PostHogConfig * _Nonnull)config;
-- (NSString * _Nonnull)getDistinctId SWIFT_WARN_UNUSED_RESULT;
-- (NSString * _Nonnull)getAnonymousId SWIFT_WARN_UNUSED_RESULT;
-- (NSString * _Nonnull)getSessionId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nullable)getDistinctId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nullable)getAnonymousId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nullable)getSessionId SWIFT_WARN_UNUSED_RESULT;
 - (NSDictionary<NSString *, id> * _Nonnull)register:(NSDictionary<NSString *, id> * _Nonnull)properties SWIFT_WARN_UNUSED_RESULT;
 - (void)unregister:(NSString * _Nonnull)key;
 - (void)identify:(NSString * _Nonnull)distinctId properties:(NSDictionary<NSString *, id> * _Nullable)properties;
@@ -300,6 +301,7 @@ SWIFT_CLASS_NAMED("PostHogConfig")
 @property (nonatomic) NSInteger maxBatchSize;
 @property (nonatomic) NSTimeInterval flushInterval;
 @property (nonatomic) enum PostHogDataMode dataMode;
+@property (nonatomic, copy) NSString * _Nullable storagePrefix;
 @property (nonatomic, strong) PostHogRecorderConfig * _Nonnull recording;
 + (PostHogConfig * _Nonnull)newInstanceWithApiKey:(NSString * _Nonnull)apiKey SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;
@@ -624,14 +626,15 @@ SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
 SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
 @interface PostHog : NSObject
 @property (nonatomic, readonly, strong) PostHogConfig * _Nullable config;
+@property (nonatomic, readonly) BOOL isSetup;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
 + (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
 @property (nonatomic, readonly, strong) Recorder * _Nonnull recorder;
 - (void)debugWithEnabled:(BOOL)enabled;
 - (void)setupWithConfig:(PostHogConfig * _Nonnull)config;
-- (NSString * _Nonnull)getDistinctId SWIFT_WARN_UNUSED_RESULT;
-- (NSString * _Nonnull)getAnonymousId SWIFT_WARN_UNUSED_RESULT;
-- (NSString * _Nonnull)getSessionId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nullable)getDistinctId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nullable)getAnonymousId SWIFT_WARN_UNUSED_RESULT;
+- (NSString * _Nullable)getSessionId SWIFT_WARN_UNUSED_RESULT;
 - (NSDictionary<NSString *, id> * _Nonnull)register:(NSDictionary<NSString *, id> * _Nonnull)properties SWIFT_WARN_UNUSED_RESULT;
 - (void)unregister:(NSString * _Nonnull)key;
 - (void)identify:(NSString * _Nonnull)distinctId properties:(NSDictionary<NSString *, id> * _Nullable)properties;
@@ -658,6 +661,7 @@ SWIFT_CLASS_NAMED("PostHogConfig")
 @property (nonatomic) NSInteger maxBatchSize;
 @property (nonatomic) NSTimeInterval flushInterval;
 @property (nonatomic) enum PostHogDataMode dataMode;
+@property (nonatomic, copy) NSString * _Nullable storagePrefix;
 @property (nonatomic, strong) PostHogRecorderConfig * _Nonnull recording;
 + (PostHogConfig * _Nonnull)newInstanceWithApiKey:(NSString * _Nonnull)apiKey SWIFT_WARN_UNUSED_RESULT;
 - (nonnull instancetype)init SWIFT_UNAVAILABLE;

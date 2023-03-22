@@ -21,6 +21,7 @@ static PHGPostHog *__sharedInstance = nil;
 @interface PHGPostHog ()
 
 @property (nonatomic, assign) BOOL enabled;
+@property (nonatomic, strong) NSDate *lastApplicationLifecycleEventExecutionTime;
 @property (nonatomic, strong) PHGPostHogConfiguration *configuration;
 @property (nonatomic, strong) PHGStoreKitCapturer *storeKitCapturer;
 @property (nonatomic, strong) PHGPayloadManager *payloadManager;
@@ -46,6 +47,7 @@ static PHGPostHog *__sharedInstance = nil;
     if (self = [self init]) {
         self.configuration = configuration;
         self.enabled = YES;
+        self.lastApplicationLifecycleEventExecutionTime = nil;
 
         // In swift this would not have been OK... But hey.. It's objc
         // TODO: Figure out if this is really the best way to do things here.
@@ -167,7 +169,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (void)_applicationWillEnterForeground
 {
-    if (!self.configuration.captureApplicationLifecycleEvents) {
+    if (!self.configuration.captureApplicationLifecycleEvents || !self.shouldCaptureApplicationLifecycleEvent) {
         return;
     }
     [self capture:@"Application Opened" properties:@{
@@ -177,7 +179,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (void)_applicationDidEnterBackground
 {
-  if (!self.configuration.captureApplicationLifecycleEvents) {
+  if (!self.configuration.captureApplicationLifecycleEvents || !self.shouldCaptureApplicationLifecycleEvent) {
     return;
   }
   [self capture: @"Application Backgrounded"];
@@ -460,4 +462,16 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     [self.runner run:context callback:nil];
 }
 
+- (BOOL)shouldCaptureApplicationLifecycleEvent
+{
+    NSDate *now = [NSDate date];
+    NSTimeInterval throttleInterval = _configuration.applicationLifecycleEventsThrottleInterval;
+
+    if (_lastApplicationLifecycleEventExecutionTime != nil && [now timeIntervalSinceDate:_lastApplicationLifecycleEventExecutionTime] < throttleInterval) {
+        return NO;
+    } else {
+        _lastApplicationLifecycleEventExecutionTime = now;
+        return YES;
+    }
+}
 @end

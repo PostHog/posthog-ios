@@ -55,6 +55,7 @@
         self.flushAt = 20;
         self.flushInterval = 30;
         self.maxQueueSize = 1000;
+        self.applicationLifecycleEventsThrottleInterval = 900; // 15 minutes in seconds
         self.libraryName = @"posthog-ios";
         self.libraryVersion = [PHGPostHog version];
         self.payloadFilters = @{

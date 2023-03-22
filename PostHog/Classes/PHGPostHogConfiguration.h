@@ -90,6 +90,10 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
  */
 @property (nonatomic, assign) BOOL captureApplicationLifecycleEvents;
 
+/**
+ * The throttle interval for certain application lifecycle events, such as "Application Opened" (from background) and "Application Backgrounded". 900 seconds by default.
+ */
+@property (nonatomic, assign) NSTimeInterval applicationLifecycleEventsThrottleInterval;
 
 /**
  * Whether the posthog client should record bluetooth information. If `YES`, please make sure to add a description for `NSBluetoothPeripheralUsageDescription` in your `Info.plist` explaining explaining why your app is accessing Bluetooth APIs. `NO` by default.

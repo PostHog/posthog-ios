@@ -10,7 +10,7 @@
 		</data>
 		<key>Headers/PostHogRecorder-Swift.h</key>
 		<data>
-		WJAbckLM0WZfiWk5hDC3G1HuH/o=
+		cPcBpwd47dOTRT/Ohld6KLsF2B4=
 		</data>
 		<key>Headers/PostHogRecorder.h</key>
 		<data>
@@ -22,11 +22,11 @@
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.abi.json</key>
 		<data>
-		0TdahBak7hgvnd0GUw8AYZfHezU=
+		Jsrx/Veo+AdYXsNAp/+d0itKPcE=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		s9a/gFrAckrXY2u4drf5XGsa/ew=
+		FUl/V0jdZbpDMKI0UfCwSLnEa0I=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
 		<data>
@@ -34,19 +34,19 @@
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		s9a/gFrAckrXY2u4drf5XGsa/ew=
+		FUl/V0jdZbpDMKI0UfCwSLnEa0I=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		F9hV7CK45cSNU9dmXWz9soE3Icg=
+		dqbhp6kABRLSeeMaItvEHigscv4=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<data>
-		0TdahBak7hgvnd0GUw8AYZfHezU=
+		Jsrx/Veo+AdYXsNAp/+d0itKPcE=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<data>
-		580yZcsRoHulbW1npx0CfItFYrQ=
+		Cxjj4H4k1NtTmM008MvXa9GANf4=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
 		<data>
@@ -54,11 +54,11 @@
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftinterface</key>
 		<data>
-		580yZcsRoHulbW1npx0CfItFYrQ=
+		Cxjj4H4k1NtTmM008MvXa9GANf4=
 		</data>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<data>
-		tER/zhaRoVUsDb8aIv0T8Ims6A4=
+		tqkkMKGoW6mUYWYKbO262+OsSII=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -78,7 +78,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			4dRfGjXIU+miljBOg/tE91ayM/Qkik2ripbzsbSgPyA=
+			LRKEdSoycyzcA+a5CkgR8UOsVoxeNtaIf33ImBRowBc=
 			</data>
 		</dict>
 		<key>Headers/PostHogRecorder.h</key>
@@ -92,14 +92,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			zMizVASVvgIq3YGUCnGWwAh/lYLECi5dAHDwXOki5qM=
+			RUiI4KMnCd5Driqaqhl0VV+a9pz8xVwLdcqAh5doy2k=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			hLbD6kDdmrphayxZUznVLcLJHxEPOf1/4e7wRqlVEjI=
+			/jg5y4r44bSc9IMUMIiexp1YlPnObVnuODq8yZtZnvo=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftdoc</key>
@@ -113,28 +113,28 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			hLbD6kDdmrphayxZUznVLcLJHxEPOf1/4e7wRqlVEjI=
+			/jg5y4r44bSc9IMUMIiexp1YlPnObVnuODq8yZtZnvo=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/arm64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			2Z/Thp63qQYH4pn5TiUo/Ih1fP8sTkm7PQh7dfAfjF0=
+			oWuX7bYG0u3c3MwOm/X7og2HCo1QpDrttl6kgP2jUaE=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.abi.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			zMizVASVvgIq3YGUCnGWwAh/lYLECi5dAHDwXOki5qM=
+			RUiI4KMnCd5Driqaqhl0VV+a9pz8xVwLdcqAh5doy2k=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.private.swiftinterface</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			oodzhhTaak4RfZuiHCSbl1LbF8kv+AmLKOC1Isqt6Rw=
+			tHPB8CUtUgonyFH5BgCWoPKvJmiMAD6NADsQBTwmXq4=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftdoc</key>
@@ -148,14 +148,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			oodzhhTaak4RfZuiHCSbl1LbF8kv+AmLKOC1Isqt6Rw=
+			tHPB8CUtUgonyFH5BgCWoPKvJmiMAD6NADsQBTwmXq4=
 			</data>
 		</dict>
 		<key>Modules/PostHogRecorder.swiftmodule/x86_64-apple-ios-simulator.swiftmodule</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			yLmnsoUSY5YE3wpBwipP9NqzEnc/gQ+x141QCoc7noU=
+			rMu3CJ/tyBRFWY1M1KqFTA39LKabCRCG+eGBvXOj7fs=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

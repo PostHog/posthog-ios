@@ -10,6 +10,7 @@ import SwiftUI
 import SystemConfiguration
 import UIKit
 import Vision
+import WebKit
 import _Concurrency
 import _StringProcessing
 import os
@@ -45,7 +46,7 @@ public enum PostHogEncoder {
   @objc deinit
 }
 @_inheritsConvenienceInitializers @objc public class PostHog : ObjectiveC.NSObject {
-  @objc public var config: PostHogRecorder.PostHogConfig? {
+  @objc public var config: PostHogRecorder.PostHogConfig {
     get
   }
   @objc public var isSetup: Swift.Bool {

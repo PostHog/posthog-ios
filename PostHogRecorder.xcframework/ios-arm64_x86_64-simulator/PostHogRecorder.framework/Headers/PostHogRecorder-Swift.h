@@ -265,7 +265,7 @@ SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
 
 SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
 @interface PostHog : NSObject
-@property (nonatomic, readonly, strong) PostHogConfig * _Nullable config;
+@property (nonatomic, readonly, strong) PostHogConfig * _Nonnull config;
 @property (nonatomic, readonly) BOOL isSetup;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
 + (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;
@@ -625,7 +625,7 @@ SWIFT_CLASS("_TtC15PostHogRecorder15NetworkRecorder")
 
 SWIFT_CLASS("_TtC15PostHogRecorder7PostHog")
 @interface PostHog : NSObject
-@property (nonatomic, readonly, strong) PostHogConfig * _Nullable config;
+@property (nonatomic, readonly, strong) PostHogConfig * _Nonnull config;
 @property (nonatomic, readonly) BOOL isSetup;
 SWIFT_CLASS_PROPERTY(@property (nonatomic, class, readonly, strong) PostHog * _Nonnull shared;)
 + (PostHog * _Nonnull)shared SWIFT_WARN_UNUSED_RESULT;

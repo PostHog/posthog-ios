@@ -23,8 +23,6 @@ NSString *const PHGPostHogDidSendRequestNotification = @"PostHogDidSendRequest";
 NSString *const PHGPostHogRequestDidSucceedNotification = @"PostHogRequestDidSucceed";
 NSString *const PHGPostHogRequestDidFailNotification = @"PostHogRequestDidFail";
 
-NSString *const PHGADClientClass = @"ADClient";
-
 NSString *const PHGDistinctIdKey = @"PHGDistinctId";
 NSString *const PHGQueueKey = @"PHGQueue";
 

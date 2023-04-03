@@ -155,25 +155,26 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     dict[@"$screen_width"] = @(screenSize.width);
     dict[@"$screen_height"] = @(screenSize.height);
 
-#if !(TARGET_IPHONE_SIMULATOR)
-    Class adClient = NSClassFromString(PHGADClientClass);
-    if (adClient) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        id sharedClient = [adClient performSelector:NSSelectorFromString(@"sharedClient")];
-#pragma clang diagnostic pop
-        void (^completionHandler)(BOOL iad) = ^(BOOL iad) {
-            if (iad) {
-                dict[@"$referrer_type"] = @"iad";
-            }
-        };
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        [sharedClient performSelector:NSSelectorFromString(@"determineAppInstallationAttributionWithCompletionHandler:")
-                           withObject:completionHandler];
-#pragma clang diagnostic pop
-    }
-#endif
+// This bit below doesn't seem to be effective anymore.  Will investigate later.
+// #if !(TARGET_IPHONE_SIMULATOR)
+//     Class adClient = NSClassFromString(PHGADClientClass);
+//     if (adClient) {
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+//         id sharedClient = [adClient performSelector:NSSelectorFromString(@"sharedClient")];
+// #pragma clang diagnostic pop
+//         void (^completionHandler)(BOOL iad) = ^(BOOL iad) {
+//             if (iad) {
+//                 dict[@"$referrer_type"] = @"iad";
+//             }
+//         };
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+//         [sharedClient performSelector:NSSelectorFromString(@"determineAppInstallationAttributionWithCompletionHandler:")
+//                            withObject:completionHandler];
+// #pragma clang diagnostic pop
+//     }
+// #endif
 
     return dict;
 }

@@ -1,3 +1,7 @@
+## 2.0.2 - 2023-04-04
+
+- Remove adclient
+
 ## 2.0.1 - 2023-03-20
 
 - Accept `options` parameter on feature flag methods to enable/disable emitting usage events

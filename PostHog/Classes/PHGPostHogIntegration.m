@@ -24,8 +24,6 @@ NSString *const PHGPostHogDidSendRequestNotification = @"PostHogDidSendRequest";
 NSString *const PHGPostHogRequestDidSucceedNotification = @"PostHogRequestDidSucceed";
 NSString *const PHGPostHogRequestDidFailNotification = @"PostHogRequestDidFail";
 
-NSString *const PHGADClientClass = @"ADClient";
-
 NSString *const PHGDistinctIdKey = @"PHGDistinctId";
 NSString *const PHGQueueKey = @"PHGQueue";
 
@@ -34,6 +32,9 @@ NSString *const kPHGQueueFilename = @"posthog.queue.plist";
 
 static NSString *const PHGEnabledFeatureFlags = @"PHGEnabledFeatureFlags";
 static NSString *const kPHGEnabledFeatureFlags = @"posthog.enabledFeatureFlags";
+
+static NSString *const PHGEnabledFeatureFlagPayloads = @"PHGEnabledFeatureFlagPayloads";
+static NSString *const kPHGEnabledFeatureFlagPayloads = @"posthog.enabledFeatureFlagPayloads";
 
 static NSString *const PHGGroups = @"PHGGroups";
 static NSString *const kPHGGroups = @"posthog.groups";
@@ -154,26 +155,6 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     CGSize screenSize = [UIScreen mainScreen].bounds.size;
     dict[@"$screen_width"] = @(screenSize.width);
     dict[@"$screen_height"] = @(screenSize.height);
-
-#if !(TARGET_IPHONE_SIMULATOR)
-    Class adClient = NSClassFromString(PHGADClientClass);
-    if (adClient) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        id sharedClient = [adClient performSelector:NSSelectorFromString(@"sharedClient")];
-#pragma clang diagnostic pop
-        void (^completionHandler)(BOOL iad) = ^(BOOL iad) {
-            if (iad) {
-                dict[@"$referrer_type"] = @"iad";
-            }
-        };
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        [sharedClient performSelector:NSSelectorFromString(@"determineAppInstallationAttributionWithCompletionHandler:")
-                           withObject:completionHandler];
-#pragma clang diagnostic pop
-    }
-#endif
 
     return dict;
 }
@@ -622,12 +603,14 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     return groups;
 }
 
-- (void)receivedFeatureFlags:(NSDictionary *)flags
+- (void)receivedFeatureFlags:(NSDictionary *)flags payloads:(nonnull NSDictionary *)payloads
 {
 #if TARGET_OS_TV
         [self.userDefaultsStorage setDictionary:flags forKey:PHGEnabledFeatureFlags];
+        [self.userDefaultsStorage setDictionary:payloads forKey:PHGEnabledFeatureFlagPayloads];
 #else
         [self.fileStorage setDictionary:flags forKey:kPHGEnabledFeatureFlags];
+        [self.fileStorage setDictionary:payloads forKey:kPHGEnabledFeatureFlagPayloads];
 #endif
 }
 
@@ -644,6 +627,16 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     NSDictionary *dict = [self.userDefaultsStorage dictionaryForKey:PHGEnabledFeatureFlags];
 #else
     NSDictionary *dict = [self.fileStorage dictionaryForKey:kPHGEnabledFeatureFlags];
+#endif
+    return dict;
+}
+
+- (NSDictionary *)getFeatureFlagPayloads
+{
+#if TARGET_OS_TV
+    NSDictionary *dict = [self.userDefaultsStorage dictionaryForKey:PHGEnabledFeatureFlagPayloads];
+#else
+    NSDictionary *dict = [self.fileStorage dictionaryForKey:kPHGEnabledFeatureFlagPayloads];
 #endif
     return dict;
 }

@@ -171,31 +171,32 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
 #pragma mark - Feature Flags
 
-- (void)receivedFeatureFlags:(NSDictionary *)flags
+- (void)receivedFeatureFlags:(NSDictionary *)flags payloads:(NSDictionary *)payloads
 {
-    [self.integration receivedFeatureFlags:flags];
+    [self.integration receivedFeatureFlags:flags payloads:payloads];
 }
 
 - (void)reloadFeatureFlags
 {
     NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
 //    TODO: handle IDs
-    [payload setObject:[self getAnonymousId] forKey:@"$anon_distinct_id"];
-    [payload setObject:self.integration.distinctId ? self.integration.distinctId : [self getAnonymousId] forKey:@"distinct_id"];
-    [payload setObject:[self getGroups] forKey:@"$groups"];
-    [payload setObject:self.posthog.configuration.apiKey forKey:@"api_key"];
+    [payload setValue:[self getAnonymousId] forKey:@"$anon_distinct_id"];
+    [payload setValue:self.integration.distinctId ? self.integration.distinctId : [self getAnonymousId] forKey:@"distinct_id"];
+    [payload setValue:[self getGroups] forKey:@"$groups"];
+    [payload setValue:self.posthog.configuration.apiKey forKey:@"api_key"];
     
     NSURL *url = [self.posthog.configuration.host URLByAppendingPathComponent:@"decide"];
     NSString *absoluteUrl = [url absoluteString];
-    absoluteUrl = [absoluteUrl stringByAppendingString:@"/?v=2"];
+    absoluteUrl = [absoluteUrl stringByAppendingString:@"/?v=3"];
     url = [NSURL URLWithString:absoluteUrl];
     
     
     [self.httpClient sharedSessionUpload:payload host:url success:^(NSDictionary * _Nonnull responseDict) {
         NSDictionary *flags = [responseDict objectForKey:@"featureFlags"];
-        [self receivedFeatureFlags:flags];
+        NSDictionary *flagPayloads = [responseDict objectForKey:@"featureFlagPayloads"];
+        [self receivedFeatureFlags:flags payloads:flagPayloads];
     } failure:^(NSError * _Nonnull error) {
-//        TODO: handle error
+        return;
     }];
 }
 
@@ -207,6 +208,11 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 - (NSDictionary *)getFlagVariants
 {
     return [self.integration getFeatureFlagsAndValues];
+}
+
+- (NSDictionary *)getFeatureFlagPayloads
+{
+    return [self.integration getFeatureFlagPayloads];
 }
 
 - (void)receivedRemoteNotification:(NSDictionary *)userInfo
@@ -255,6 +261,9 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
 - (NSString *)getAnonymousId;
 {
+    if (self.cachedAnonymousId == nil) {
+        [self resetAnonymousId];
+    }
     return self.cachedAnonymousId;
 }
 

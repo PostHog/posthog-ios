@@ -21,6 +21,8 @@
             self.requestFactory = requestFactory;
         }
         NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+        config.timeoutIntervalForRequest = 10;
+
         config.HTTPAdditionalHeaders = @{
             @"Accept-Encoding" : @"gzip",
             @"Content-Encoding" : @"gzip",
@@ -140,9 +142,17 @@
                 PHGLog(@"Error uploading request %@.", error);
                 failure(error);
             } else {
-                NSDictionary *json  = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-                NSLog(@"%@",json);
-                success(json);
+                NSInteger code = ((NSHTTPURLResponse *)response).statusCode;
+                if (code < 300) {
+                    NSDictionary *json  = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+                    success(json);
+                }
+                NSError *error = [NSError errorWithDomain:NSURLErrorDomain
+                                                     code:code
+                                                 userInfo:nil];
+                PHGLog(@"Server responded with unexpected HTTP code.", error);
+                failure(error);
+                
             }
          }];
          

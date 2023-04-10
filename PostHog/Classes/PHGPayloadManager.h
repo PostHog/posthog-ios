@@ -15,6 +15,7 @@ extern NSString *_Nonnull PHGPostHogIntegrationDidStart;
 
 - (NSArray *_Nonnull)getFeatureFlags;
 - (NSDictionary *_Nonnull)getFlagVariants;
+- (NSDictionary *_Nonnull)getFeatureFlagPayloads;
 - (NSDictionary *_Nonnull)getGroups;
 - (void)saveGroup:(NSString *_Nonnull)groupType groupKey:(NSString *_Nonnull)groupKey;
 

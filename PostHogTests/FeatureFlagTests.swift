@@ -102,7 +102,7 @@ class FeatureFlagTests: QuickSpec {
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
       let flagPayload = posthog.getFeatureFlagIntegerPayload("some-flag", defaultValue: 3)
-      print(flagPayload)
+
       expect(flagPayload).to(be(2000))
     }
     

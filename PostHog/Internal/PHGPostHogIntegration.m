@@ -149,9 +149,13 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     dict[@"$os_name"] = device.systemName;
     dict[@"$os_version"] = device.systemVersion;
 
-    CGSize screenSize = [UIScreen mainScreen].bounds.size;
-    dict[@"$screen_width"] = @(screenSize.width);
-    dict[@"$screen_height"] = @(screenSize.height);
+    // Access the screen via a window as UIScreen.mainScreen is deprecated
+    // and using it messes with the accent color in SwiftUI apps.
+    UIScreen *appScreen = UIApplication.sharedApplication.windows.firstObject.screen;
+    if (appScreen != nil) {
+        dict[@"$screen_width"] = @(appScreen.bounds.size.height);
+        dict[@"$screen_height"] = @(appScreen.bounds.size.width);
+    }
 
     return dict;
 }

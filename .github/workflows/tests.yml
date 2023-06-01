@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           # Latest xcode
-          - xcode: "13.4.1"
+          - xcode: "14.2"
             ios: "15.5"
           # Older version
           - xcode: "13.1"

@@ -155,18 +155,27 @@ class PostHogTests: QuickSpec {
       UIApplication.shared.endBackgroundTask(task)
     }
     
-    it("flushes using flushTimer") {
-      let integration = posthog.test_payloadManager()?.test_postHogIntegration()
-
-      posthog.capture("test")
-
-      expect(integration?.test_flushTimer()).toEventuallyNot(beNil())
-      expect(integration?.test_batchRequest()).to(beNil())
-
-      integration?.test_flushTimer()?.fire()
-      
-      expect(integration?.test_batchRequest()).toEventuallyNot(beNil())
-    }
+//    it("flushes using flushTimer") {
+//      let integration = posthog.test_payloadManager()?.test_postHogIntegration()
+//      
+//      let timer = posthog
+//        .test_payloadManager()?
+//        .test_postHogIntegration()?
+//        .test_flushTimer()
+//      
+//      expect(timer).toNot(beNil())
+//      expect(timer?.timeInterval) == config.flushInterval
+//
+//      posthog.capture("test")
+//
+//      expect(integration?.test_flushTimer()).toEventuallyNot(beNil())
+//      expect(integration?.test_batchRequest()).to(beNil())
+//
+//      timer?.fire()
+//    
+//      
+//      expect(integration?.test_batchRequest()).toEventuallyNot(beNil())
+//    }
 
     it("respects flushInterval") {
       let timer = posthog

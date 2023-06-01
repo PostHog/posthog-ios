@@ -13,6 +13,7 @@
 #import "PHGScreenPayload.h"
 #import "PHGAliasPayload.h"
 #import "PHGGroupPayload.h"
+#import "PHGApplicationUtils.h"
 
 #if TARGET_OS_IOS
 #import <CoreTelephony/CTCarrier.h>
@@ -148,11 +149,18 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
     dict[@"$os_name"] = device.systemName;
     dict[@"$os_version"] = device.systemVersion;
-
-    CGSize screenSize = [UIScreen mainScreen].bounds.size;
-    dict[@"$screen_width"] = @(screenSize.width);
-    dict[@"$screen_height"] = @(screenSize.height);
-
+    
+#if TARGET_OS_IOS || TARGET_OS_TV
+    NSArray<UIWindow *> *appWindows = [PHGApplicationUtils.sharedInstance windows];
+    if ([appWindows count] > 0) {
+        UIScreen *appScreen = appWindows.firstObject.screen;
+        if (appScreen != nil) {
+            dict[@"$screen_width"] = @(appScreen.bounds.size.height);
+            dict[@"$screen_height"] = @(appScreen.bounds.size.width);
+        }
+    }
+#endif
+    
     return dict;
 }
 

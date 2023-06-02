@@ -14,8 +14,8 @@ Pod::Spec.new do |s|
   s.source           = { :git => "https://github.com/PostHog/posthog-ios.git", :tag => s.version.to_s }
   s.social_media_url = 'https://twitter.com/PostHogHQ'
 
-  s.ios.deployment_target = '9.0'
-  s.tvos.deployment_target = '9.0'
+  s.ios.deployment_target = '11.0'
+  s.tvos.deployment_target = '11.0'
 
   s.ios.frameworks = 'CoreTelephony'
   s.frameworks = 'Security', 'StoreKit', 'SystemConfiguration', 'UIKit'

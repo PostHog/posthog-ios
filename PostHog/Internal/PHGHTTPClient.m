@@ -146,6 +146,7 @@
                 if (code < 300) {
                     NSDictionary *json  = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
                     success(json);
+                    return;
                 }
                 NSError *error = [NSError errorWithDomain:NSURLErrorDomain
                                                      code:code

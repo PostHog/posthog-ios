@@ -1,6 +1,5 @@
 #import "PHGUtils.h"
 
-
 @implementation PHGUtils
 
 + (NSData *_Nullable)dataFromPlist:(nonnull id)plist

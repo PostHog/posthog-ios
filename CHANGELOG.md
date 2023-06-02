@@ -1,3 +1,7 @@
+## 2.0.3 - 2023-06-02
+
+- Fixes an issue that interfered with a SwiftUI bug
+
 ## 2.0.2 - 2023-04-04
 
 - Remove adclient

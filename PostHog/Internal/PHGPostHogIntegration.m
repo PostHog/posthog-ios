@@ -39,7 +39,7 @@ static NSString *const kPHGEnabledFeatureFlagPayloads = @"posthog.enabledFeature
 static NSString *const PHGGroups = @"PHGGroups";
 static NSString *const kPHGGroups = @"posthog.groups";
 
-static NSString *GetDeviceModel()
+static NSString *GetDeviceModel(void)
 {
     size_t size;
     sysctlbyname("hw.machine", NULL, &size, NULL, 0);

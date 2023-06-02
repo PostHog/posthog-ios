@@ -18,7 +18,7 @@ extern NSString *const PHGPostHogRequestDidFailNotification;
 
 @interface PHGPostHogIntegration : NSObject <PHGIntegration>
 
-@property (nonatomic, copy) NSString *distinctId;
+@property (nonatomic, copy, nullable) NSString *distinctId;
 
 - (id)initWithPostHog:(PHGPostHog *)posthog httpClient:(PHGHTTPClient *)httpClient fileStorage:(id<PHGStorage>)fileStorage userDefaultsStorage:(id<PHGStorage>)userDefaultsStorage;
 - (NSDictionary *)staticContext;

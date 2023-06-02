@@ -14,8 +14,6 @@
 
     return sharedInstance;
 }
-    
-
 
 - (UIApplication *)sharedApplication
 {

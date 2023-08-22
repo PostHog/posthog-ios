@@ -233,7 +233,19 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
         _telephonyNetworkInfo = [[CTTelephonyNetworkInfo alloc] init];
     });
 
-    CTCarrier *carrier = [_telephonyNetworkInfo subscriberCellularProvider];
+    CTCarrier *carrier;
+    if (@available(iOS 12.0, tvOS 12.0, *)) {
+      NSDictionary<NSString *, CTCarrier *> *providers = [_telephonyNetworkInfo serviceSubscriberCellularProviders];
+      for(id key in providers) {
+        if (providers[key].carrierName != nil) {
+          carrier = providers[key];
+          break;
+        }
+      }
+    } else {
+      carrier = [_telephonyNetworkInfo subscriberCellularProvider];
+    }
+
     if (carrier.carrierName.length)
         context[@"$network_carrier"] = carrier.carrierName;
 #endif

@@ -141,8 +141,29 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
     UIDevice *device = [UIDevice currentDevice];
 
+    NSString *deviceType = nil;
+    switch (device.userInterfaceIdiom) {
+        case UIUserInterfaceIdiomUnspecified:
+            break;
+        case UIUserInterfaceIdiomPhone:
+            deviceType = @"Mobile";
+            break;
+        case UIUserInterfaceIdiomPad:
+            deviceType = @"Tablet";
+            break;
+        case UIUserInterfaceIdiomTV:
+            deviceType = @"TV";
+            break;
+        case UIUserInterfaceIdiomCarPlay:
+            deviceType = @"CarPlay";
+            break;
+        case UIUserInterfaceIdiomMac:
+            deviceType = @"Desktop";
+            break;
+    }
+
     dict[@"$device_manufacturer"] = @"Apple";
-    dict[@"$device_type"] = @"ios";
+    if (deviceType != nil) dict[@"$device_type"] = deviceType;
     dict[@"$device_model"] = GetDeviceModel();
     dict[@"$device_id"] = self.configuration.shouldSendDeviceID ? [[device identifierForVendor] UUIDString] : nil;
     dict[@"$device_name"] = [device model];

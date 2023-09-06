@@ -83,7 +83,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened for UIApplicationDidFinishLaunching") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidFinishLaunching, object: testApplication, userInfo: [
+      NotificationCenter.default.post(name: UIApplication.didFinishLaunchingNotification, object: testApplication, userInfo: [
         UIApplication.LaunchOptionsKey.sourceApplication: "testApp",
         UIApplication.LaunchOptionsKey.url: "test://test",
       ])
@@ -97,7 +97,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened during UIApplicationWillEnterForeground") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationWillEnterForeground, object: testApplication)
+      NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: testApplication)
       let event = testMiddleware.lastContext?.payload as? PHGCapturePayload
       expect(event?.event) == "Application Opened"
       expect(event?.properties?["from_background"] as? Bool) == true
@@ -105,14 +105,14 @@ class PostHogTests: QuickSpec {
     
     it("fires Application Backgrounded during UIApplicationDidEnterBackground") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: Notification.Name.UIApplicationDidEnterBackground, object: testApplication)
+      NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: testApplication)
       let event = testMiddleware.lastContext?.payload as? PHGCapturePayload
       expect(event?.event) == "Application Backgrounded"
     }
 
     it("flushes when UIApplicationDidEnterBackground is fired") {
       posthog.capture("test")
-      NotificationCenter.default.post(name: Notification.Name.UIApplicationDidEnterBackground, object: testApplication)
+      NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: testApplication)
       expect(testApplication.backgroundTasks.count).toEventually(equal(1))
       expect(testApplication.backgroundTasks[0].isEnded).toEventually(beFalse())
     }

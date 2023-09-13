@@ -262,7 +262,7 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 - (NSString *)getAnonymousId;
 {
     if (self.cachedAnonymousId == nil) {
-        [self resetAnonymousId];
+        self.cachedAnonymousId = [self loadOrGenerateAnonymousID:NO];
     }
     return self.cachedAnonymousId;
 }

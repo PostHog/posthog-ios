@@ -249,9 +249,9 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
 - (void)reset
 {
+    [self.fileStorage resetAll];
     [self resetAnonymousId];
     [self callWithSelector:_cmd arguments:nil options:nil];
-    [self.fileStorage resetAll];
 }
 
 - (void)resetAnonymousId
@@ -292,6 +292,9 @@ static NSString *const kPHGAnonymousIdFilename = @"posthog.anonymousId";
 
 - (void)saveAnonymousId:(NSString *)anonymousId
 {
+    if (!anonymousId) {
+        return;
+    }
     self.cachedAnonymousId = anonymousId;
 #if TARGET_OS_TV
     [self.userDefaultsStorage setString:anonymousId forKey:PHGAnonymousIdKey];

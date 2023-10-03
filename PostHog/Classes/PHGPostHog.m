@@ -86,7 +86,9 @@ static PHGPostHog *__sharedInstance = nil;
         }
 #endif
         
-        [self reloadFeatureFlags];
+        if (configuration.loadFeatureFlagsOnStart) {
+            [self reloadFeatureFlags];
+        }
     }
     return self;
 }

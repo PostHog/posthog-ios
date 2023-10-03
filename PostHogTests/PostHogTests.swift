@@ -15,6 +15,7 @@ class PostHogTests: QuickSpec {
       testApplication = TestApplication()
       config.application = testApplication
       config.captureApplicationLifecycleEvents = true
+      config.loadFeatureFlagsOnStart = true
 
       UserDefaults.standard.set("test PHGQueue should be removed", forKey: "PHGQueue")
       expect(UserDefaults.standard.string(forKey: "PHGQueue")).toNot(beNil())
@@ -38,6 +39,19 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.libraryVersion) == PHGPostHog.version()
       expect(posthog.configuration.httpSessionDelegate).to(beNil())
       expect(posthog.getAnonymousId()).toNot(beNil())
+    }
+
+    it("loads feature flags on init") {
+      expect(testMiddleware.lastContext?.eventType) == .reloadFeatureFlags
+    }
+
+    it("doesn't load feature flags on init when configured") {
+      config.loadFeatureFlagsOnStart = false
+      testMiddleware = TestMiddleware()
+      config.middlewares = [testMiddleware]
+
+      posthog = PHGPostHog(configuration: config)
+      expect(testMiddleware.lastContext).to(beNil())
     }
 
     it("initialized correctly with api host") {
@@ -83,7 +97,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened for UIApplicationDidFinishLaunching") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: UIApplication.didFinishLaunchingNotification, object: testApplication, userInfo: [
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidFinishLaunching, object: testApplication, userInfo: [
         UIApplication.LaunchOptionsKey.sourceApplication: "testApp",
         UIApplication.LaunchOptionsKey.url: "test://test",
       ])
@@ -97,7 +111,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened during UIApplicationWillEnterForeground") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: testApplication)
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationWillEnterForeground, object: testApplication)
       let event = testMiddleware.lastContext?.payload as? PHGCapturePayload
       expect(event?.event) == "Application Opened"
       expect(event?.properties?["from_background"] as? Bool) == true
@@ -105,14 +119,14 @@ class PostHogTests: QuickSpec {
     
     it("fires Application Backgrounded during UIApplicationDidEnterBackground") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: testApplication)
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidEnterBackground, object: testApplication)
       let event = testMiddleware.lastContext?.payload as? PHGCapturePayload
       expect(event?.event) == "Application Backgrounded"
     }
 
     it("flushes when UIApplicationDidEnterBackground is fired") {
       posthog.capture("test")
-      NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: testApplication)
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidEnterBackground, object: testApplication)
       expect(testApplication.backgroundTasks.count).toEventually(equal(1))
       expect(testApplication.backgroundTasks[0].isEnded).toEventually(beFalse())
     }

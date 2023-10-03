@@ -124,6 +124,13 @@ typedef NSMutableURLRequest *_Nonnull (^PHGRequestFactory)(NSURL *_Nonnull);
 @property (nonatomic, assign) BOOL shouldSendDeviceID;
 
 /**
+ * Whether the posthog client should load feature flags when initialized.
+ * Changing the value of this property after initializing the client will have no effect.
+ * The default value is `YES`.
+ */
+@property (nonatomic, assign) BOOL loadFeatureFlagsOnStart;
+
+/**
  * Dictionary indicating the options the app was launched with.
  */
 @property (nonatomic, strong, nullable) NSDictionary *launchOptions;

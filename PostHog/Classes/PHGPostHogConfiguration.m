@@ -57,7 +57,7 @@
         self.maxQueueSize = 1000;
         self.libraryName = @"posthog-ios";
         self.libraryVersion = [PHGPostHog version];
-        self.loadFeatureFlagsOnStart = YES;
+        self.preloadFeatureFlags = YES;
         self.payloadFilters = @{
             @"(fb\\d+://authorize#access_token=)([^ ]+)": @"$1((redacted/fb-auth-token))"
         };

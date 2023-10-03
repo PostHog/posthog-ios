@@ -86,7 +86,7 @@ static PHGPostHog *__sharedInstance = nil;
         }
 #endif
         
-        if (configuration.loadFeatureFlagsOnStart) {
+        if (configuration.preloadFeatureFlags) {
             [self reloadFeatureFlags];
         }
     }

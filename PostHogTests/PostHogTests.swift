@@ -15,7 +15,7 @@ class PostHogTests: QuickSpec {
       testApplication = TestApplication()
       config.application = testApplication
       config.captureApplicationLifecycleEvents = true
-      config.loadFeatureFlagsOnStart = true
+      config.preloadFeatureFlags = true
 
       UserDefaults.standard.set("test PHGQueue should be removed", forKey: "PHGQueue")
       expect(UserDefaults.standard.string(forKey: "PHGQueue")).toNot(beNil())
@@ -46,7 +46,7 @@ class PostHogTests: QuickSpec {
     }
 
     it("doesn't load feature flags on init when configured") {
-      config.loadFeatureFlagsOnStart = false
+      config.preloadFeatureFlags = false
       testMiddleware = TestMiddleware()
       config.middlewares = [testMiddleware]
 

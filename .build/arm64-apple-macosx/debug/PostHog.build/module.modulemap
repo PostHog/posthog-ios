@@ -1,4 +1,0 @@
-module PostHog {
-    umbrella "/Users/manoel/Github/posthog-ios/PostHog/Classes"
-    export *
-}

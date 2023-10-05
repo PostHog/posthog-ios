@@ -1,3 +1,8 @@
+## 2.0.4 - 2023-10-05
+
+- CoreTelephony should not be added to tvOS builds [#67](https://github.com/PostHog/posthog-ios/pull/67)
+- Remote notifications methods do not throw if no default implementation [#67](https://github.com/PostHog/posthog-ios/pull/67)
+
 ## 2.0.3 - 2023-06-02
 
 - Fixes an issue that interfered with a SwiftUI bug

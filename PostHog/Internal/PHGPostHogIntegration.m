@@ -403,9 +403,9 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     [self.cachedStaticContext[@"device"] setObject:[token copy] forKey:@"token"];
 }
 
-//- (void)handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo {
-//    // NoOp
-//}
+- (void)handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo {
+    // NoOp
+}
 
 - (void)continueUserActivity:(NSUserActivity *)activity
 {

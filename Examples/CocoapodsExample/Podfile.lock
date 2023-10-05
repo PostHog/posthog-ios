@@ -1,5 +1,5 @@
 PODS:
-  - PostHog (1.0.2)
+  - PostHog (2.0.3)
 
 DEPENDENCIES:
   - PostHog (from `../../`)
@@ -9,8 +9,8 @@ EXTERNAL SOURCES:
     :path: "../../"
 
 SPEC CHECKSUMS:
-  PostHog: 95fe0f9b3a2484a0262de32dfdc9dea78abfdbb6
+  PostHog: 68d0afcbb8ea8c9a1ce30b9fa20a6ef75cd3c6f6
 
 PODFILE CHECKSUM: d8ae0242089957a348baa3a1323724fc5f04d458
 
-COCOAPODS: 1.9.1
+COCOAPODS: 1.12.1

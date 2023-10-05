@@ -3,11 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2909CFFA247568CF00977728 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29BC6B32244DA78E00D7C963 /* CoreTelephony.framework */; };
+		2909CFFA247568CF00977728 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29BC6B32244DA78E00D7C963 /* CoreTelephony.framework */; platformFilters = (ios, maccatalyst, ); };
 		3A3AE0B42A29C63800556065 /* PHGApplicationUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A3AE0B22A29C63800556065 /* PHGApplicationUtils.h */; };
 		3A3AE0B52A29C63800556065 /* PHGApplicationUtils.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A3AE0B32A29C63800556065 /* PHGApplicationUtils.m */; };
 		4CD0E7D07BBBB59FF4827356 /* Pods_PostHog_PostHogTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1EB21C600E7907C3479131 /* Pods_PostHog_PostHogTests.framework */; };
@@ -57,7 +57,6 @@
 		BF8C8AD1FBFBB6941DE29D3B /* PHGFileStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C86671862A5FFA20C721C /* PHGFileStorage.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BF8C8AEC72DA925C8B65B1A8 /* PHGMiddleware.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C81A4093856C696EF943D /* PHGMiddleware.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C8AF845410CCF3744EEA1 /* PHGAES256Crypto.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C861A6C2B0C33AC1E7D34 /* PHGAES256Crypto.m */; };
-		BF8C8C32C210AC2B093F1042 /* CHANGELOG.md in Sources */ = {isa = PBXBuildFile; fileRef = BF8C89860ED4391E417B39E9 /* CHANGELOG.md */; };
 		BF8C8C9C0FD46725EA63890A /* ObjC.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C8388F05135177F79C286 /* ObjC.m */; };
 		BF8C8CAB52120583B9BB4934 /* PHGPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = BF8C8E2E6C04BE91346F441D /* PHGPayload.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BF8C8D75F1E684EA93578DF5 /* NSData+PHGGZIP.m in Sources */ = {isa = PBXBuildFile; fileRef = BF8C802EB41E4E93050D28BA /* NSData+PHGGZIP.m */; };
@@ -738,7 +737,6 @@
 				EAA5427E1EB42B8C00945DA7 /* PHGReachability.m in Sources */,
 				BF8C8C9C0FD46725EA63890A /* ObjC.m in Sources */,
 				3A3AE0B52A29C63800556065 /* PHGApplicationUtils.m in Sources */,
-				BF8C8C32C210AC2B093F1042 /* CHANGELOG.md in Sources */,
 				BF8C8AF845410CCF3744EEA1 /* PHGAES256Crypto.m in Sources */,
 				BF8C8E57BD722DB6AEFF6835 /* PHGFileStorage.m in Sources */,
 				BF8C856B25377945554598DF /* UIViewController+PHGScreen.m in Sources */,
@@ -806,7 +804,11 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				DEVELOPMENT_TEAM = UG8G36W2HB;
 				INFOPLIST_FILE = PostHogTests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "appletvsimulator appletvos";
@@ -824,12 +826,17 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				DEVELOPMENT_TEAM = UG8G36W2HB;
 				INFOPLIST_FILE = PostHogTests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "appletvsimulator appletvos";
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/PostHogTests-Bridging-Header.h";
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				TARGETED_DEVICE_FAMILY = 3;
 			};
 			name = Release;
@@ -885,12 +892,13 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 11.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -941,12 +949,14 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 11.0;
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -969,7 +979,11 @@
 				INFOPLIST_FILE = PostHog/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -997,7 +1011,11 @@
 				INFOPLIST_FILE = PostHog/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -1017,7 +1035,11 @@
 				DEVELOPMENT_TEAM = UG8G36W2HB;
 				INFOPLIST_FILE = PostHogTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -1034,11 +1056,16 @@
 				DEVELOPMENT_TEAM = UG8G36W2HB;
 				INFOPLIST_FILE = PostHogTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/PostHogTests-Bridging-Header.h";
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
 			name = Release;
 		};

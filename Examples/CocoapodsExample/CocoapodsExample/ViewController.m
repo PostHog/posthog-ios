@@ -28,8 +28,13 @@
 {
     [[PHGPostHog sharedPostHog] capture:@"Cocoapods Example Button"];
     [[PHGPostHog sharedPostHog] flush];
+//    NSMutableDictionary *payload = [[NSMutableDictionary alloc] init];
+//    [[PHGPostHog sharedPostHog] handleActionWithIdentifier:(@"identifier")
+//                                         forRemoteNotification:(payload)];
+//    [[PHGPostHog sharedPostHog] receivedRemoteNotification:(payload)];
+//    NSError * myInternalError = [NSError errorWithDomain:@"com.myerror" code:1 userInfo:payload];
+//    [[PHGPostHog sharedPostHog] failedToRegisterForRemoteNotificationsWithError:(myInternalError)];
 }
-
 
 - (void)didReceiveMemoryWarning
 {

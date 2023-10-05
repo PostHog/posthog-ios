@@ -380,6 +380,14 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     [self enqueueAction:dictionary];
 }
 
+- (void)receivedRemoteNotification:(NSDictionary *)userInfo {
+    // NoOp
+}
+
+- (void)failedToRegisterForRemoteNotificationsWithError:(NSError *)error {
+    // NoOp
+}
+
 - (void)registeredForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
 {
     NSCParameterAssert(deviceToken != nil);
@@ -393,6 +401,10 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
         [token appendString:[NSString stringWithFormat:@"%02lx", (unsigned long)buffer[i]]];
     }
     [self.cachedStaticContext[@"device"] setObject:[token copy] forKey:@"token"];
+}
+
+- (void)handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo {
+    // NoOp
 }
 
 - (void)continueUserActivity:(NSUserActivity *)activity

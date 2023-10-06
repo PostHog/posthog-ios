@@ -1,5 +1,7 @@
 ## Next
 
+## 2.0.5 - 2023-10-06
+
 - Update device type [#63](https://github.com/PostHog/posthog-ios/pull/63)
 - `$active_feature_flags` event should filter non active flags ([#41](https://github.com/PostHog/posthog-android/pull/41))
 

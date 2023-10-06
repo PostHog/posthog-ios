@@ -235,17 +235,35 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     }
     
     context[@"$groups"] = [self getGroups];
-    context[@"$active_feature_flags"] = [self getFeatureFlags];
     
     NSDictionary *flagsAndValues = [self getFeatureFlagsAndValues];
     
+    NSMutableArray *activeFlags = [NSMutableArray array];
     int n = 0;
     for(id flag in flagsAndValues){
         NSString *key = [NSString stringWithFormat:@"$feature/%@", flag];
+        // $active_feature_flags__x is legacy and likely not used anymore
         NSString *enumeratedKey = [NSString stringWithFormat:@"$active_feature_flags__%d", n];
-        context[key] = [flagsAndValues objectForKey:flag];
+        
+        id value = [flagsAndValues valueForKey:flag];
+        
+        context[key] = value;
         context[enumeratedKey] = flag;
+        
+        // only add active feature flags
+        // a flag is only inactive if its a boolean: false
+        bool isActive = YES;
+        if ([value isKindOfClass:[NSNumber class]]) {
+            isActive = [value boolValue];
+        }
+        if (isActive) {
+            [activeFlags addObject:key];
+        }
+        
         n++;
+    }
+    if ([activeFlags count] > 0) {
+        [context setObject:activeFlags forKey:@"$active_feature_flags"];
     }
 
 #if TARGET_OS_IOS

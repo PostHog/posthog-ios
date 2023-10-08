@@ -1,6 +1,6 @@
 ## Next
 
-- isFeatureEnabled now returns false if disabled [#63](https://github.com/PostHog/posthog-ios/pull/63)
+- isFeatureEnabled now returns false if disabled [#74](https://github.com/PostHog/posthog-ios/pull/74)
 
 ## 2.0.5 - 2023-10-06
 

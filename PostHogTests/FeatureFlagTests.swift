@@ -10,7 +10,7 @@ class FeatureFlagTests: QuickSpec {
 
     beforeEach {
       LSNocilla.sharedInstance().start()
-      let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE", host: "https://app.posthog.test")
+      let config = PHGPostHogConfiguration(apiKey: "foobar", host: "https://app.posthog.test")
       passthrough = PHGPassthroughMiddleware()
       config.middlewares = [
         passthrough,
@@ -27,12 +27,23 @@ class FeatureFlagTests: QuickSpec {
     it("checks flag is enabled") {
       _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
         .andReturn(200)?
-        .withBody("{\"featureFlags\":{\"some-flag\":\"true\"}}" as LSHTTPBody);
+        .withBody("{\"featureFlags\":{\"some-flag\": true}}" as LSHTTPBody);
       posthog.reloadFeatureFlags()
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
       let isEnabled = posthog.isFeatureEnabled("some-flag")
       expect(isEnabled).to(beTrue())
+    }
+    
+    it("checks flag is disabled") {
+      _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
+        .andReturn(200)?
+        .withBody("{\"featureFlags\":{\"some-flag\": false}}" as LSHTTPBody);
+      posthog.reloadFeatureFlags()
+      // Hacky: Need to buffer for async request to happen without stub being cleaned up
+      sleep(1)
+      let isEnabled = posthog.isFeatureEnabled("some-flag")
+      expect(isEnabled).to(beFalse())
     }
       
     it("checks multivariate flag is enabled - integer") {
@@ -212,7 +223,7 @@ class FeatureFlagTests: QuickSpec {
     it("bad request does not override current flags") {
       _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
         .andReturn(200)?
-        .withBody("{\"featureFlags\":{\"some-flag\":\"true\"}}" as LSHTTPBody);
+        .withBody("{\"featureFlags\":{\"some-flag\": true}}" as LSHTTPBody);
       posthog.reloadFeatureFlags()
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)
@@ -231,7 +242,7 @@ class FeatureFlagTests: QuickSpec {
     it("Won't send $feature_flag_called if option is set to false") {
       _ = stubRequest("POST", "https://app.posthog.test/decide/?v=3" as LSMatcheable)
         .andReturn(200)?
-        .withBody("{\"featureFlags\":{\"some-flag\":\"true\"}}" as LSHTTPBody);
+        .withBody("{\"featureFlags\":{\"some-flag\": true}}" as LSHTTPBody);
       posthog.reloadFeatureFlags()
       // Hacky: Need to buffer for async request to happen without stub being cleaned up
       sleep(1)

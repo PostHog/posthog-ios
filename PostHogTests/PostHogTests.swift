@@ -4,7 +4,7 @@ import PostHog
 
 class PostHogTests: QuickSpec {
   override func spec() {
-    let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE")
+    let config = PHGPostHogConfiguration(apiKey: "foobar")
     var posthog: PHGPostHog!
     var testMiddleware: TestMiddleware!
     var testApplication: TestApplication!
@@ -30,7 +30,7 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.flushAt) == 20
       expect(posthog.configuration.flushInterval) == 30
       expect(posthog.configuration.maxQueueSize) == 1000
-      expect(posthog.configuration.apiKey) == "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE"
+      expect(posthog.configuration.apiKey) == "foobar"
       expect(posthog.configuration.host) == URL(string: "https://app.posthog.com")
       expect(posthog.configuration.shouldUseLocationServices) == false
       expect(posthog.configuration.shouldUseBluetooth) == false
@@ -41,7 +41,7 @@ class PostHogTests: QuickSpec {
     }
 
     it("initialized correctly with api host") {
-      let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE", host: "https://testapp.posthog.test")
+      let config = PHGPostHogConfiguration(apiKey: "foobar", host: "https://testapp.posthog.test")
       config.libraryName = "posthog-ios-test"
       config.libraryVersion = "posthog-ios-version"
       
@@ -49,7 +49,7 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.flushAt) == 20
       expect(posthog.configuration.flushInterval) == 30
       expect(posthog.configuration.maxQueueSize) == 1000
-      expect(posthog.configuration.apiKey) == "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE"
+      expect(posthog.configuration.apiKey) == "foobar"
       expect(posthog.configuration.host) == URL(string: "https://testapp.posthog.test")
       expect(posthog.configuration.shouldUseLocationServices) == false
       expect(posthog.configuration.shouldUseBluetooth) == false
@@ -83,7 +83,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened for UIApplicationDidFinishLaunching") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: UIApplication.didFinishLaunchingNotification, object: testApplication, userInfo: [
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidFinishLaunching, object: testApplication, userInfo: [
         UIApplication.LaunchOptionsKey.sourceApplication: "testApp",
         UIApplication.LaunchOptionsKey.url: "test://test",
       ])
@@ -97,7 +97,7 @@ class PostHogTests: QuickSpec {
 
     it("fires Application Opened during UIApplicationWillEnterForeground") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: testApplication)
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationWillEnterForeground, object: testApplication)
       let event = testMiddleware.lastContext?.payload as? PHGCapturePayload
       expect(event?.event) == "Application Opened"
       expect(event?.properties?["from_background"] as? Bool) == true
@@ -105,14 +105,14 @@ class PostHogTests: QuickSpec {
     
     it("fires Application Backgrounded during UIApplicationDidEnterBackground") {
       testMiddleware.swallowEvent = true
-      NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: testApplication)
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidEnterBackground, object: testApplication)
       let event = testMiddleware.lastContext?.payload as? PHGCapturePayload
       expect(event?.event) == "Application Backgrounded"
     }
 
     it("flushes when UIApplicationDidEnterBackground is fired") {
       posthog.capture("test")
-      NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: testApplication)
+      NotificationCenter.default.post(name: NSNotification.Name.UIApplicationDidEnterBackground, object: testApplication)
       expect(testApplication.backgroundTasks.count).toEventually(equal(1))
       expect(testApplication.backgroundTasks[0].isEnded).toEventually(beFalse())
     }

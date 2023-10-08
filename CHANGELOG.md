@@ -1,5 +1,7 @@
 ## Next
 
+- isFeatureEnabled now returns false if disabled [#63](https://github.com/PostHog/posthog-ios/pull/63)
+
 ## 2.0.5 - 2023-10-06
 
 - Update device type [#63](https://github.com/PostHog/posthog-ios/pull/63)

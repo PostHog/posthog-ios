@@ -12,7 +12,7 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     // Use your own apiKey!
-    [PHGPostHog setupWithConfiguration:[PHGPostHogConfiguration configurationWithApiKey:@"St5WbSrxW5bzxn2NGwPDVzS9PBPYctOl" host:@"https://app.posthog.com"]];
+    [PHGPostHog setupWithConfiguration:[PHGPostHogConfiguration configurationWithApiKey:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI" host:@"https://app.posthog.com"]];
     [[PHGPostHog sharedPostHog] capture:@"Manual Example Launched"];
     [[PHGPostHog sharedPostHog] flush];
 

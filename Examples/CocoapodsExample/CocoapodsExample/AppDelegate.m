@@ -6,7 +6,7 @@
 
 @end
 
-NSString *const POSTHOG_API_KEY = @"BrpS4SctoaCCsyjlnlun3OzyNJAafdlv__jUWaaJWXg";
+NSString *const POSTHOG_API_KEY = @"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI";
 
 
 @implementation AppDelegate

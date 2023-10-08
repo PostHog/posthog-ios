@@ -10,8 +10,7 @@ class PostHogE2ETests: QuickSpec {
     var posthog: PHGPostHog!
 
     beforeEach {
-//      let config = PHGPostHogConfiguration(apiKey: "BrpS4SctoaCCsyjlnlun3OzyNJAafdlv__jUWaaJWXg")
-      let config = PHGPostHogConfiguration(apiKey: "8jVz0YZ2YPtP7eL1I5l5RQIp-WcuFeD3pZO8c0YDMx4", host: "http://localhost:8000")
+     let config = PHGPostHogConfiguration(apiKey: "foobar")
       config.flushAt = 1
 
       PHGPostHog.setup(with: config)

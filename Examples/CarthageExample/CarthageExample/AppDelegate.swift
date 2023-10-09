@@ -2,7 +2,7 @@ import UIKit
 import PostHog
 
 // Use your own apiKey!
-let PostHog = PHGPostHog(configuration: PHGPostHogConfiguration(apiKey: "b2XoQDHA5YhWQAjr2FZ4qIckgyEqXyY8"))
+let PostHog = PHGPostHog(configuration: PHGPostHogConfiguration(apiKey: "_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"))
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {

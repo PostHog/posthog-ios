@@ -4,7 +4,7 @@ import PostHog
 
 class PostHogTests: QuickSpec {
   override func spec() {
-    let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE")
+    let config = PHGPostHogConfiguration(apiKey: "foobar")
     var posthog: PHGPostHog!
     var testMiddleware: TestMiddleware!
     var testApplication: TestApplication!
@@ -31,7 +31,7 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.flushAt) == 20
       expect(posthog.configuration.flushInterval) == 30
       expect(posthog.configuration.maxQueueSize) == 1000
-      expect(posthog.configuration.apiKey) == "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE"
+      expect(posthog.configuration.apiKey) == "foobar"
       expect(posthog.configuration.host) == URL(string: "https://app.posthog.com")
       expect(posthog.configuration.shouldUseLocationServices) == false
       expect(posthog.configuration.shouldUseBluetooth) == false
@@ -55,7 +55,7 @@ class PostHogTests: QuickSpec {
     }
 
     it("initialized correctly with api host") {
-      let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE", host: "https://testapp.posthog.test")
+      let config = PHGPostHogConfiguration(apiKey: "foobar", host: "https://testapp.posthog.test")
       config.libraryName = "posthog-ios-test"
       config.libraryVersion = "posthog-ios-version"
       
@@ -63,7 +63,7 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.flushAt) == 20
       expect(posthog.configuration.flushInterval) == 30
       expect(posthog.configuration.maxQueueSize) == 1000
-      expect(posthog.configuration.apiKey) == "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE"
+      expect(posthog.configuration.apiKey) == "foobar"
       expect(posthog.configuration.host) == URL(string: "https://testapp.posthog.test")
       expect(posthog.configuration.shouldUseLocationServices) == false
       expect(posthog.configuration.shouldUseBluetooth) == false

@@ -8,7 +8,7 @@ class CapturingTests: QuickSpec {
     var posthog: PHGPostHog!
 
     beforeEach {
-      let config = PHGPostHogConfiguration(apiKey: "QUI5ydwIGeFFTa1IvCBUhxL9PyW5B0jE")
+      let config = PHGPostHogConfiguration(apiKey: "foobar")
       passthrough = PHGPassthroughMiddleware()
       config.middlewares = [
         passthrough,

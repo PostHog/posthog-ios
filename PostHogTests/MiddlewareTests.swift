@@ -30,7 +30,7 @@ let eatAllCalls = PHGBlockMiddleware { (context, next) in
 class MiddlewareTests: QuickSpec {
   override func spec() {
     it("receives events") {
-      let config = PHGPostHogConfiguration(apiKey: "TESTKEY")
+      let config = PHGPostHogConfiguration(apiKey: "foobar")
       let passthrough = PHGPassthroughMiddleware()
       config.middlewares = [
         passthrough,
@@ -43,7 +43,7 @@ class MiddlewareTests: QuickSpec {
     }
     
     it("modifies and passes event to next") {
-      let config = PHGPostHogConfiguration(apiKey: "TESTKEY")
+      let config = PHGPostHogConfiguration(apiKey: "foobar")
       let passthrough = PHGPassthroughMiddleware()
       config.middlewares = [
         customizeAllCaptureCalls,
@@ -60,7 +60,7 @@ class MiddlewareTests: QuickSpec {
     }
     
     it("expects event to be swallowed if next is not called") {
-      let config = PHGPostHogConfiguration(apiKey: "TESTKEY")
+      let config = PHGPostHogConfiguration(apiKey: "foobar")
       let passthrough = PHGPassthroughMiddleware()
       config.middlewares = [
         eatAllCalls,

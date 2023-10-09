@@ -315,8 +315,18 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (bool)isFeatureEnabled:(NSString *)flagKey options:(NSDictionary *)options
 {
-    NSArray *keys = [self.payloadManager getFeatureFlags];
-    BOOL isFlagEnabled = [keys containsObject: flagKey];
+    NSDictionary *flags = [self.payloadManager getFlagVariants];
+
+    bool isFlagEnabled = true;
+    id value = [flags valueForKey:flagKey];
+    
+    if (value != nil) {
+        if ([value isKindOfClass:[NSNumber class]]) {
+            isFlagEnabled = [value boolValue];
+        }
+    } else {
+        isFlagEnabled = false;
+    }
     
     id send_event = [options valueForKey:@"send_event"];
     

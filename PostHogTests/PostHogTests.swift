@@ -15,6 +15,7 @@ class PostHogTests: QuickSpec {
       testApplication = TestApplication()
       config.application = testApplication
       config.captureApplicationLifecycleEvents = true
+      config.preloadFeatureFlags = true
 
       UserDefaults.standard.set("test PHGQueue should be removed", forKey: "PHGQueue")
       expect(UserDefaults.standard.string(forKey: "PHGQueue")).toNot(beNil())
@@ -38,6 +39,19 @@ class PostHogTests: QuickSpec {
       expect(posthog.configuration.libraryVersion) == PHGPostHog.version()
       expect(posthog.configuration.httpSessionDelegate).to(beNil())
       expect(posthog.getAnonymousId()).toNot(beNil())
+    }
+
+    it("loads feature flags on init") {
+      expect(testMiddleware.lastContext?.eventType) == .reloadFeatureFlags
+    }
+
+    it("doesn't load feature flags on init when configured") {
+      config.preloadFeatureFlags = false
+      testMiddleware = TestMiddleware()
+      config.middlewares = [testMiddleware]
+
+      posthog = PHGPostHog(configuration: config)
+      expect(testMiddleware.lastContext).to(beNil())
     }
 
     it("initialized correctly with api host") {

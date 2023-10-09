@@ -1,3 +1,15 @@
+## Next
+
+## 2.0.5 - 2023-10-06
+
+- Update device type [#63](https://github.com/PostHog/posthog-ios/pull/63)
+- `$active_feature_flags` event should filter non active flags ([#41](https://github.com/PostHog/posthog-android/pull/41))
+
+## 2.0.4 - 2023-10-05
+
+- CoreTelephony should not be added to tvOS builds [#67](https://github.com/PostHog/posthog-ios/pull/67)
+- Remote notifications methods do not throw if no default implementation [#67](https://github.com/PostHog/posthog-ios/pull/67)
+
 ## 2.0.3 - 2023-06-02
 
 - Fixes an issue that interfered with a SwiftUI bug

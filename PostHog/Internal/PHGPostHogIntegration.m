@@ -141,8 +141,29 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
 
     UIDevice *device = [UIDevice currentDevice];
 
+    NSString *deviceType = nil;
+    switch (device.userInterfaceIdiom) {
+        case UIUserInterfaceIdiomUnspecified:
+            break;
+        case UIUserInterfaceIdiomPhone:
+            deviceType = @"Mobile";
+            break;
+        case UIUserInterfaceIdiomPad:
+            deviceType = @"Tablet";
+            break;
+        case UIUserInterfaceIdiomTV:
+            deviceType = @"TV";
+            break;
+        case UIUserInterfaceIdiomCarPlay:
+            deviceType = @"CarPlay";
+            break;
+        case UIUserInterfaceIdiomMac:
+            deviceType = @"Desktop";
+            break;
+    }
+
     dict[@"$device_manufacturer"] = @"Apple";
-    dict[@"$device_type"] = @"ios";
+    if (deviceType != nil) dict[@"$device_type"] = deviceType;
     dict[@"$device_model"] = GetDeviceModel();
     dict[@"$device_id"] = self.configuration.shouldSendDeviceID ? [[device identifierForVendor] UUIDString] : nil;
     dict[@"$device_name"] = [device model];
@@ -214,17 +235,35 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     }
     
     context[@"$groups"] = [self getGroups];
-    context[@"$active_feature_flags"] = [self getFeatureFlags];
     
     NSDictionary *flagsAndValues = [self getFeatureFlagsAndValues];
     
+    NSMutableArray *activeFlags = [NSMutableArray array];
     int n = 0;
     for(id flag in flagsAndValues){
         NSString *key = [NSString stringWithFormat:@"$feature/%@", flag];
+        // $active_feature_flags__x is legacy and likely not used anymore
         NSString *enumeratedKey = [NSString stringWithFormat:@"$active_feature_flags__%d", n];
-        context[key] = [flagsAndValues objectForKey:flag];
+        
+        id value = [flagsAndValues valueForKey:flag];
+        
+        context[key] = value;
         context[enumeratedKey] = flag;
+        
+        // only add active feature flags
+        // a flag is only inactive if its a boolean: false
+        bool isActive = YES;
+        if ([value isKindOfClass:[NSNumber class]]) {
+            isActive = [value boolValue];
+        }
+        if (isActive) {
+            [activeFlags addObject:key];
+        }
+        
         n++;
+    }
+    if ([activeFlags count] > 0) {
+        [context setObject:activeFlags forKey:@"$active_feature_flags"];
     }
 
 #if TARGET_OS_IOS
@@ -380,6 +419,14 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
     [self enqueueAction:dictionary];
 }
 
+- (void)receivedRemoteNotification:(NSDictionary *)userInfo {
+    // NoOp
+}
+
+- (void)failedToRegisterForRemoteNotificationsWithError:(NSError *)error {
+    // NoOp
+}
+
 - (void)registeredForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
 {
     NSCParameterAssert(deviceToken != nil);
@@ -393,6 +440,10 @@ static CTTelephonyNetworkInfo *_telephonyNetworkInfo;
         [token appendString:[NSString stringWithFormat:@"%02lx", (unsigned long)buffer[i]]];
     }
     [self.cachedStaticContext[@"device"] setObject:[token copy] forKey:@"token"];
+}
+
+- (void)handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo {
+    // NoOp
 }
 
 - (void)continueUserActivity:(NSUserActivity *)activity

@@ -1,7 +1,9 @@
 ## Next
 
+## 2.1.0 - 2023-10-10
+
 - isFeatureEnabled now returns false if disabled [#74](https://github.com/PostHog/posthog-ios/pull/74)
-- Add loadFeatureFlagsOnStart configuration flag [#71](https://github.com/PostHog/posthog-ios/pull/71)
+- Add preloadFeatureFlags configuration flag [#71](https://github.com/PostHog/posthog-ios/pull/71)
 
 ## 2.0.5 - 2023-10-06
 

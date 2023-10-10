@@ -1,17 +1,18 @@
 # Releasing
 
-1.  Update the version in `PostHog.podspec`, `PostHog/Info.plist`, and `version` in `PostHog/Classes/PHGPostHog.m` to the next release version.
-2.  Update the `CHANGELOG.md` for the impending release.
-3.  `git commit -am "Prepare for release X.Y.Z."` (where X.Y.Z is the new version).
-4.  `git tag -a X.Y.Z -m "Version X.Y.Z"` (where X.Y.Z is the new version).
-5.  `git push && git push --tags`.
-6.  `pod trunk push PostHog.podspec`.
+1. Update the version in `PostHog.podspec`, `PostHog/Info.plist`, and `version` in `PostHog/Classes/PHGPostHog.m` to the next release version.
+2. Update the `CHANGELOG.md` for the impending release.
+3. `git commit -am "Prepare for release X.Y.Z."` (where X.Y.Z is the new version).
+4. `git tag -a X.Y.Z -m "Version X.Y.Z"` (where X.Y.Z is the new version).
+5. `git push && git push --tags`.
+6. `pod trunk push PostHog.podspec --allow-warnings`.
+7. Go to [GH Releases](https://github.com/PostHog/posthog-ios/releases) and create a new release from the tag you just pushed. Copy the changelog entry into the description and publish the release.
 
 ## On Apple Silicon
 
 Run this first:
 
-```
+```bash
 sudo arch -x86_64 gem install ffi
 arch -x86_64 pod install
 ```

@@ -18,8 +18,6 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.0'
-      - name: Get swift version
-        run: swift --version
       - name: Build SDK
         run: make buildSdk
       - name: Build Example

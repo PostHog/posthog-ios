@@ -1,6 +1,6 @@
 //
-//  PostHog.swift
-//  PostHog
+//  PostHogSDK.swift
+//  PostHogSDK
 //
 //  Created by Ben White on 07.02.23.
 //

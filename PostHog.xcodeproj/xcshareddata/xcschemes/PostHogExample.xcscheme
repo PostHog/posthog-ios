@@ -20,34 +20,6 @@
                ReferencedContainer = "container:PostHog.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3AA34D0A296D9649003398F4"
-               BuildableName = "PostHogExampleUITests.xctest"
-               BlueprintName = "PostHogExampleUITests"
-               ReferencedContainer = "container:PostHog.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3AC745BE296D6FE60025C109"
-               BuildableName = "PostHogTests.xctest"
-               BlueprintName = "PostHogTests"
-               ReferencedContainer = "container:PostHog.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -56,28 +28,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3AC745BE296D6FE60025C109"
-               BuildableName = "PostHogTests.xctest"
-               BlueprintName = "PostHogTests"
-               ReferencedContainer = "container:PostHog.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3AA34D0A296D9649003398F4"
-               BuildableName = "PostHogExampleUITests.xctest"
-               BlueprintName = "PostHogExampleUITests"
-               ReferencedContainer = "container:PostHog.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

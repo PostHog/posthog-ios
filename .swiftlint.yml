@@ -1,6 +1,5 @@
 excluded: # case-sensitive paths to ignore during linting. Takes precedence over `included`
   - PostHogExample
-  - PostHogExampleUITests
   - PostHogTests
   - PostHog/Recording
   - PostHog/Utils/MethodSwizzler.swift

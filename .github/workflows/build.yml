@@ -8,13 +8,16 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
 
       - uses: swift-actions/setup-swift@v1
         with:
           swift-version: "5.3.0"
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.0'
       - name: Get swift version
         run: swift --version
       - name: Build SDK

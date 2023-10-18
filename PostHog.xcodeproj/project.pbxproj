@@ -403,7 +403,6 @@
 					3AC745BE296D6FE60025C109 = {
 						CreatedOnToolsVersion = 14.2;
 						LastSwiftMigration = 1420;
-						TestTargetID = 3AA34CF6296D951A003398F4;
 					};
 				};
 			};
@@ -827,7 +826,6 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PostHogExample.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PostHogExample";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
 			};
 			name = Debug;
@@ -855,7 +853,6 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/TestUtils/PostHogTests-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PostHogExample.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PostHogExample";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
 			};
 			name = Release;

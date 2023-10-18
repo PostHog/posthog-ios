@@ -13,7 +13,7 @@ import Quick
 class FeatureFlagTests: QuickSpec {
     override func spec() {
         var harness: TestPostHog!
-        var posthog: PostHog!
+        var posthog: PostHogSDK!
 
         beforeEach {
             harness = TestPostHog()

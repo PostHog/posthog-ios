@@ -14,7 +14,8 @@ import Foundation
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
-@objc public class PostHog: NSObject {
+// renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
+@objc public class PostHogSDK: NSObject {
     private var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
@@ -37,8 +38,8 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
 
-    @objc public static let shared: PostHog = {
-        let instance = PostHog(PostHogConfig(apiKey: ""))
+    @objc public static let shared: PostHogSDK = {
+        let instance = PostHogSDK(PostHogConfig(apiKey: ""))
         return instance
     }()
 
@@ -61,10 +62,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            if PostHog.apiKeys.contains(config.apiKey) {
+            if PostHogSDK.apiKeys.contains(config.apiKey) {
                 hedgeLog("API Key: ${config.apiKey} already has a PostHog instance.")
             } else {
-                PostHog.apiKeys.insert(config.apiKey)
+                PostHogSDK.apiKeys.insert(config.apiKey)
             }
 
             enabled = true
@@ -95,7 +96,7 @@ let maxRetryDelay = 30.0
             queue?.start()
 
             DispatchQueue.main.async {
-                NotificationCenter.default.post(name: PostHog.didStartNotification, object: nil)
+                NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
 
             if config.preloadFeatureFlags {
@@ -495,7 +496,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
-            PostHog.apiKeys.remove(config.apiKey)
+            PostHogSDK.apiKeys.remove(config.apiKey)
 
             queue?.stop()
             queue = nil
@@ -509,8 +510,8 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public static func with(_ config: PostHogConfig) -> PostHog {
-        let postHog = PostHog(config)
+    @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
+        let postHog = PostHogSDK(config)
         postHog.setup(config)
         return postHog
     }

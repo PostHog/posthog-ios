@@ -30,7 +30,7 @@ class QueueTest: QuickSpec {
         }
 
         it("Consumes items from the queue") {
-            var consumedEvents = [PostHogEvent]()
+            let consumedEvents = [PostHogEvent]()
             let expectation = self.expectation(description: "Callback")
 
 //            queue.consume { payload in
@@ -44,7 +44,7 @@ class QueueTest: QuickSpec {
             queue.add(PostHogEvent(event: "event3", distinctId: "123"))
             queue.flush()
 
-            self.wait(for: [expectation], timeout: 5)
+            await self.fulfillment(of: [expectation], timeout: 5)
 
             expect(consumedEvents.count) == 3
             expect(consumedEvents[0].event) == "event1"
@@ -54,7 +54,7 @@ class QueueTest: QuickSpec {
         }
 
         it("Returns processing to the queue if failed") {
-            var consumedEvents = [PostHogEvent]()
+            let consumedEvents = [PostHogEvent]()
             let expectation = self.expectation(description: "Callback")
 
 //            queue.consume { payload in
@@ -68,7 +68,7 @@ class QueueTest: QuickSpec {
             queue.add(PostHogEvent(event: "event3", distinctId: "123"))
             queue.flush()
 
-            self.wait(for: [expectation], timeout: 5)
+            await self.fulfillment(of: [expectation], timeout: 5)
             expect(consumedEvents.count) == 3
             expect(queue.depth) == 3
         }

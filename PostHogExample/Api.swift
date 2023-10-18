@@ -41,7 +41,10 @@ class Api: ObservableObject {
 
         logger.info("Requesting protected endpoint...")
         let task = URLSession.shared.dataTask(with: url) { data, _, _ in
-            print("Response", data)
+            if data == nil {
+                return
+            }
+            print("Response", String(decoding: data!, as: UTF8.self))
         }
 
         task.resume()

@@ -11,13 +11,13 @@ import XCTest
 
 class TestPostHog {
     var server: MockPostHogServer!
-    var posthog: PostHog!
+    var posthog: PostHogSDK!
 
     init() {
         server = MockPostHogServer()
         server.start()
         let config = server.posthogConfig
-        posthog = PostHog.with(config)
+        posthog = PostHogSDK.with(config)
     }
 
     func stop() {

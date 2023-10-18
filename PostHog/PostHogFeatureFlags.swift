@@ -75,7 +75,7 @@ class PostHogFeatureFlags {
                 }
 
                 DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: PostHog.didReceiveFeatureFlags, object: nil)
+                    NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
                 }
 
                 self.setLoading(false)

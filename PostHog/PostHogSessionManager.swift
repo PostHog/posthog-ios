@@ -79,7 +79,7 @@ class PostHogSessionManager {
 
             hedgeLog("Session expired - creating new session '\(sessionId!)'")
             DispatchQueue.main.async {
-                NotificationCenter.default.post(name: PostHog.didResetSessionNotification, object: sessionId)
+                NotificationCenter.default.post(name: PostHogSDK.didResetSessionNotification, object: sessionId)
             }
         }
 

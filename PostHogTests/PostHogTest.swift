@@ -6,7 +6,7 @@ import Quick
 class PostHogTest: QuickSpec {
     override func spec() {
         var harness: TestPostHog!
-        var posthog: PostHog!
+        var posthog: PostHogSDK!
 
         beforeEach {
             harness = TestPostHog()
@@ -46,7 +46,7 @@ class PostHogTest: QuickSpec {
             let sessionId = posthog.getSessionId()
 
             let config = PostHogConfig(apiKey: "test-api-key")
-            let otherPostHog = PostHog.with(config)
+            let otherPostHog = PostHogSDK.with(config)
 
             let otherAnonymousId = otherPostHog.getAnonymousId()
             let otherDistinctId = otherPostHog.getDistinctId()

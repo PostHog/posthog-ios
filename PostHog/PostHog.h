@@ -7,6 +7,8 @@
 
 
 #import <Foundation/Foundation.h>
+// do not use <>
+// 'NSData+PHGGZIP.h' file not found with <angled> include; use "quotes" instead
 #import "NSData+PHGGZIP.h"
 
 //! Project version number for PostHog.

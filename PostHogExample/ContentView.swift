@@ -22,7 +22,12 @@ class SignInViewModel: NSObject, ObservableObject, ASWebAuthenticationPresentati
 
         // Initialize the session.
         let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: scheme) { callbackURL, error in
-            print(callbackURL, error)
+            if callbackURL != nil {
+                print("URL", callbackURL!.absoluteString)
+            }
+            if error != nil {
+                print("Error", error!.localizedDescription)
+            }
         }
         session.presentationContextProvider = self
         session.prefersEphemeralWebBrowserSession = true
@@ -38,19 +43,19 @@ class FeatureFlagsModel: ObservableObject {
     @Published var isReloading: Bool = false
 
     init() {
-        NotificationCenter.default.addObserver(self, selector: #selector(reloaded), name: PostHog.didReceiveFeatureFlags, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(reloaded), name: PostHogSDK.didReceiveFeatureFlags, object: nil)
     }
 
     @objc func reloaded() {
-        boolValue = PostHog.shared.isFeatureEnabled("4535-funnel-bar-viz")
-        stringValue = PostHog.shared.getFeatureFlag("multivariant") as? String
-        payloadValue = PostHog.shared.getFeatureFlagPayload("multivariant") as? [String: String]
+        boolValue = PostHogSDK.shared.isFeatureEnabled("4535-funnel-bar-viz")
+        stringValue = PostHogSDK.shared.getFeatureFlag("multivariant") as? String
+        payloadValue = PostHogSDK.shared.getFeatureFlagPayload("multivariant") as? [String: String]
     }
 
     func reload() {
         isReloading = true
 
-        PostHog.shared.reloadFeatureFlags { _, _ in
+        PostHogSDK.shared.reloadFeatureFlags { _, _ in
             self.isReloading = false
         }
     }
@@ -71,7 +76,7 @@ struct ContentView: View {
     }
 
     func triggerIdentify() {
-        PostHog.shared.identify(name, userProperties: [
+        PostHogSDK.shared.identify(name, userProperties: [
             "name": name,
         ])
     }

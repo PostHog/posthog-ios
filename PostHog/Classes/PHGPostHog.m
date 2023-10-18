@@ -108,7 +108,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 {
     PHGApplicationLifecyclePayload *payload = [[PHGApplicationLifecyclePayload alloc] init];
     payload.notificationName = note.name;
-    [self run:PHGEventTypeApplicationLifecycle payload:payload];
+    [self run:PHGEventTypeApplicationLifecycle payload:payload callback:nil];
 
     if ([note.name isEqualToString:UIApplicationDidFinishLaunchingNotification]) {
         [self _applicationDidFinishLaunchingWithOptions:note.userInfo];
@@ -214,10 +214,10 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         anonId = [self getAnonymousId];
     }
 
-    [self run:PHGEventTypeIdentify payload:
-                                       [[PHGIdentifyPayload alloc] initWithDistinctId:distinctId
-                                                                          anonymousId:anonId
-                                                                           properties:properties]];
+    PHGIdentifyPayload *payload = [[PHGIdentifyPayload alloc] initWithDistinctId:distinctId
+                                                                     anonymousId:anonId
+                                                                      properties:properties];
+    [self run:PHGEventTypeIdentify payload:payload callback:nil];
 }
 
 #pragma mark - Capture
@@ -230,9 +230,9 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 - (void)capture:(NSString *)event properties:(NSDictionary *)properties
 {
     NSCAssert1(event.length > 0, @"event (%@) must not be empty.", event);
-    [self run:PHGEventTypeCapture payload:
-                                    [[PHGCapturePayload alloc] initWithEvent:event
-                                                                  properties:PHGCoerceDictionary(properties)]];
+    PHGCapturePayload * payload = [[PHGCapturePayload alloc] initWithEvent:event
+                                                                properties:PHGCoerceDictionary(properties)];
+    [self run:PHGEventTypeCapture payload:payload callback:nil];
 }
 
 #pragma mark - Screen
@@ -245,18 +245,17 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 - (void)screen:(NSString *)screenTitle properties:(NSDictionary *)properties
 {
     NSCAssert1(screenTitle.length > 0, @"screen name (%@) must not be empty.", screenTitle);
-
-    [self run:PHGEventTypeScreen payload:
-                                     [[PHGScreenPayload alloc] initWithName:screenTitle
-                                                                 properties:PHGCoerceDictionary(properties)]];
+    PHGScreenPayload *payload = [[PHGScreenPayload alloc] initWithName:screenTitle
+                                                            properties:PHGCoerceDictionary(properties)];
+    [self run:PHGEventTypeScreen payload: payload callback:nil];
 }
 
 #pragma mark - Alias
 
 - (void)alias:(NSString *)alias
 {
-    [self run:PHGEventTypeAlias payload:
-                                    [[PHGAliasPayload alloc] initWithAlias:alias]];
+    PHGAliasPayload *payload = [[PHGAliasPayload alloc] initWithAlias:alias];
+    [self run:PHGEventTypeAlias payload:payload callback:nil];
 }
 
 #pragma mark - Group
@@ -272,8 +271,11 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     
 //    TODO: set groups as super property
     [self.payloadManager saveGroup:groupType groupKey:groupKey];
-    
-    [self run:PHGEventTypeGroup payload: [[PHGGroupPayload alloc] initWithType:groupType groupKey:groupKey properties:PHGCoerceDictionary(properties)]];
+
+    PHGGroupPayload *payload = [[PHGGroupPayload alloc] initWithType:groupType
+                                                            groupKey:groupKey
+                                                          properties:PHGCoerceDictionary(properties)];
+    [self run:PHGEventTypeGroup payload: payload callback:nil];
     
     NSString *possibleGroupKey = [currentGroups objectForKey:groupType];
 
@@ -299,10 +301,9 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         [properties setValue:flagKey forKey:@"$feature_flag"];
         [properties setValue:variantValue forKey:@"$feature_flag_response"];
         
-        
-        [self run:PHGEventTypeCapture payload:
-                                        [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
-                                                                    properties:PHGCoerceDictionary(properties)]];
+        PHGCapturePayload *payload = [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                   properties:PHGCoerceDictionary(properties)];
+        [self run:PHGEventTypeCapture payload:payload callback:nil];
     }
 
     return variantValue;
@@ -335,10 +336,9 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
         [properties setValue:flagKey forKey:@"$feature_flag"];
         [properties setValue:@(isFlagEnabled) forKey:@"$feature_flag_response"];
-        
-        [self run:PHGEventTypeCapture payload:
-                                        [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
-                                                                    properties:PHGCoerceDictionary(properties)]];
+        PHGCapturePayload *payload = [[PHGCapturePayload alloc] initWithEvent:@"$feature_flag_called"
+                                                                   properties:PHGCoerceDictionary(properties)];
+        [self run:PHGEventTypeCapture payload: payload callback:nil];
     }
     
     return isFlagEnabled;
@@ -434,7 +434,14 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (void)reloadFeatureFlags
 {
-    [self run:PHGEventTypeReloadFeatureFlags payload:nil];
+    [self run:PHGEventTypeReloadFeatureFlags payload:nil callback:nil];
+}
+
+- (void)reloadFeatureFlagsWithCallback:(void(^)(void))callback
+{
+    [self run:PHGEventTypeReloadFeatureFlags payload:nil callback:^(BOOL earlyExit, NSArray<id<PHGMiddleware>> * _Nonnull remainingMiddlewares) {
+        callback();
+    }];
 }
 
 - (void)capturePushNotification:(NSDictionary *)properties fromLaunch:(BOOL)launch
@@ -453,14 +460,14 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     }
     PHGRemoteNotificationPayload *payload = [[PHGRemoteNotificationPayload alloc] init];
     payload.userInfo = userInfo;
-    [self run:PHGEventTypeReceivedRemoteNotification payload:payload];
+    [self run:PHGEventTypeReceivedRemoteNotification payload:payload callback:nil];
 }
 
 - (void)failedToRegisterForRemoteNotificationsWithError:(NSError *)error
 {
     PHGRemoteNotificationPayload *payload = [[PHGRemoteNotificationPayload alloc] init];
     payload.error = error;
-    [self run:PHGEventTypeFailedToRegisterForRemoteNotifications payload:payload];
+    [self run:PHGEventTypeFailedToRegisterForRemoteNotifications payload:payload callback:nil];
 }
 
 - (void)registeredForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
@@ -468,7 +475,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     NSParameterAssert(deviceToken != nil);
     PHGRemoteNotificationPayload *payload = [[PHGRemoteNotificationPayload alloc] init];
     payload.deviceToken = deviceToken;
-    [self run:PHGEventTypeRegisteredForRemoteNotifications payload:payload];
+    [self run:PHGEventTypeRegisteredForRemoteNotifications payload:payload callback:nil];
 }
 
 - (void)handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo
@@ -476,14 +483,14 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     PHGRemoteNotificationPayload *payload = [[PHGRemoteNotificationPayload alloc] init];
     payload.actionIdentifier = identifier;
     payload.userInfo = userInfo;
-    [self run:PHGEventTypeHandleActionWithForRemoteNotification payload:payload];
+    [self run:PHGEventTypeHandleActionWithForRemoteNotification payload:payload callback:nil];
 }
 
 - (void)continueUserActivity:(NSUserActivity *)activity
 {
     PHGContinueUserActivityPayload *payload = [[PHGContinueUserActivityPayload alloc] init];
     payload.activity = activity;
-    [self run:PHGEventTypeContinueUserActivity payload:payload];
+    [self run:PHGEventTypeContinueUserActivity payload:payload callback:nil];
 
     if (!self.configuration.captureDeepLinks) {
         return;
@@ -506,7 +513,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
     payload.url = [NSURL URLWithString:[PHGUtils traverseJSON:url.absoluteString
                                         andReplaceWithFilters:self.configuration.payloadFilters]];
     payload.options = options;
-    [self run:PHGEventTypeOpenURL payload:payload];
+    [self run:PHGEventTypeOpenURL payload:payload callback:nil];
 
     if (!self.configuration.captureDeepLinks) {
         return;
@@ -522,12 +529,12 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 - (void)reset
 {
-    [self run:PHGEventTypeReset payload:nil];
+    [self run:PHGEventTypeReset payload:nil callback:nil];
 }
 
 - (void)flush
 {
-    [self run:PHGEventTypeFlush payload:nil];
+    [self run:PHGEventTypeFlush payload:nil callback:nil];
 }
 
 - (void)enable
@@ -567,7 +574,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
 
 #pragma mark - Helpers
 
-- (void)run:(PHGEventType)eventType payload:(PHGPayload *)payload
+- (void)run:(PHGEventType)eventType payload:(PHGPayload *)payload callback:(RunMiddlewaresCallback _Nullable)callback
 {
     if (!self.enabled) {
         return;
@@ -576,8 +583,7 @@ NSString *const PHGBuildKeyV2 = @"PHGBuildKeyV2";
         ctx.eventType = eventType;
         ctx.payload = payload;
     }];
-    // Could probably do more things with callback later, but we don't use it yet.
-    [self.runner run:context callback:nil];
+    [self.runner run:context callback:callback];
 }
 
 @end

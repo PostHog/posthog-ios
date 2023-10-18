@@ -135,6 +135,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (bool)isFeatureEnabled:(NSString *)flagKey;
 - (bool)isFeatureEnabled:(NSString *)flagKey options:(NSDictionary *_Nullable)options;
 - (void)reloadFeatureFlags;
+- (void)reloadFeatureFlagsWithCallback:(void(^)(void))callback;
 - (NSString *)getFeatureFlagStringPayload:(NSString *)flagKey defaultValue:(NSString *)defaultValue;
 - (NSInteger)getFeatureFlagIntegerPayload:(NSString *)flagKey defaultValue:(NSInteger)defaultValue;
 - (double)getFeatureFlagDoublePayload:(NSString *)flagKey defaultValue:(double)defaultValue;

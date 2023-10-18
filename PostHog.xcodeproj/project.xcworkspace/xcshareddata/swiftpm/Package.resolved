@@ -1,0 +1,95 @@
+{
+  "pins" : [
+    {
+      "identity" : "cwlcatchexception",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattgallagher/CwlCatchException.git",
+      "state" : {
+        "revision" : "35f9e770f54ce62dd8526470f14c6e137cef3eea",
+        "version" : "2.1.1"
+      }
+    },
+    {
+      "identity" : "cwlpreconditiontesting",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattgallagher/CwlPreconditionTesting.git",
+      "state" : {
+        "revision" : "c21f7bab5ca8eee0a9998bbd17ca1d0eb45d4688",
+        "version" : "2.1.0"
+      }
+    },
+    {
+      "identity" : "grmustache.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRMustache.swift",
+      "state" : {
+        "revision" : "edbe65da33671ca1e93e0751cbbeffc893b48da8",
+        "version" : "4.1.0"
+      }
+    },
+    {
+      "identity" : "nimble",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Quick/Nimble.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "7d16c1cdf6fedfe559456bd933284e37cc481e13"
+      }
+    },
+    {
+      "identity" : "ohhttpstubs",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AliSoftware/OHHTTPStubs",
+      "state" : {
+        "revision" : "12f19662426d0434d6c330c6974d53e2eb10ecd9",
+        "version" : "9.1.0"
+      }
+    },
+    {
+      "identity" : "quick",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Quick/Quick.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "1572f3972d0d6fe051743ccfb24a9f7c2ce45238"
+      }
+    },
+    {
+      "identity" : "shock",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/justeat/Shock",
+      "state" : {
+        "revision" : "6cf1d47a09fa8bab09dd822fe15f77151ba0cc7b",
+        "version" : "6.2.0"
+      }
+    },
+    {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "ff3d2212b6b093db7f177d0855adbc4ef9c5f036",
+        "version" : "1.0.3"
+      }
+    },
+    {
+      "identity" : "swift-collections",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-collections.git",
+      "state" : {
+        "revision" : "937e904258d22af6e447a0b72c0bc67583ef64a2",
+        "version" : "1.0.4"
+      }
+    },
+    {
+      "identity" : "swift-nio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-nio",
+      "state" : {
+        "revision" : "9b2848d76f5caad08b97e71a04345aa5bdb23a06",
+        "version" : "2.49.0"
+      }
+    }
+  ],
+  "version" : 2
+}

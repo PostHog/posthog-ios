@@ -1,0 +1,1074 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108229C47940002C0084 /* UIViewExample.swift */; };
+		3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */; };
+		3A0F108729C9BD23002C0084 /* MethodSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108629C9BD23002C0084 /* MethodSwizzler.swift */; };
+		3A0F108929C9BD76002C0084 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108829C9BD76002C0084 /* Errors.swift */; };
+		3A2BCF4A299E2BDA008BB5F3 /* Swizzle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF49299E2BDA008BB5F3 /* Swizzle.swift */; };
+		3A2BCF4C299E4E35008BB5F3 /* QueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF4B299E4E35008BB5F3 /* QueueTest.swift */; };
+		3A2BCF52299F7724008BB5F3 /* CodableUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */; };
+		3A4F510D299A78E100B68D5E /* NSData+PHGGZIP.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3A580B3F29E481F200C5C6F3 /* OHHTTPStubs in Frameworks */ = {isa = PBXBuildFile; productRef = 3A580B3E29E481F200C5C6F3 /* OHHTTPStubs */; };
+		3A580B4129E481F200C5C6F3 /* OHHTTPStubsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3A580B4029E481F200C5C6F3 /* OHHTTPStubsSwift */; };
+		3A580B4329E489D000C5C6F3 /* URLSession+body.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A580B4229E489D000C5C6F3 /* URLSession+body.swift */; };
+		3A62646429C9E0E7007E8C07 /* PostHogTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646329C9E0E7007E8C07 /* PostHogTest.swift */; };
+		3A62646729C9E36B007E8C07 /* Shock in Frameworks */ = {isa = PBXBuildFile; productRef = 3A62646629C9E36B007E8C07 /* Shock */; };
+		3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646929C9E385007E8C07 /* MockPostHogServer.swift */; };
+		3A62646F29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646E29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m */; };
+		3A62647129CAF67B007E8C07 /* SessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647029CAF67B007E8C07 /* SessionManagerTest.swift */; };
+		3A62647329CB0043007E8C07 /* CaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647229CB0043007E8C07 /* CaptureTests.swift */; };
+		3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647429CB0168007E8C07 /* TestPostHog.swift */; };
+		3A81BEAE297704F400A6908D /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		3A867B7029C1DF73009D0852 /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = 3A867B6F29C1DF73009D0852 /* Quick */; };
+		3A867B7329C1DFEF009D0852 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = 3A867B7229C1DFEF009D0852 /* Nimble */; };
+		3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */; };
+		3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CFB296D951A003398F4 /* ContentView.swift */; };
+		3AA34CFE296D951B003398F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34CFD296D951B003398F4 /* Assets.xcassets */; };
+		3AA34D01296D951B003398F4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34D00296D951B003398F4 /* Preview Assets.xcassets */; };
+		3AA34D0E296D9649003398F4 /* PostHogExampleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34D0D296D9649003398F4 /* PostHogExampleUITests.swift */; };
+		3AA34D10296D9649003398F4 /* PostHogExampleUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34D0F296D9649003398F4 /* PostHogExampleUITestsLaunchTests.swift */; };
+		3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34D16296D9993003398F4 /* AppDelegate.swift */; };
+		3AB7330D29E420E400C8AA71 /* FeatureFlagsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AB7330C29E420E400C8AA71 /* FeatureFlagsTest.swift */; };
+		3AC745C0296D6FE60025C109 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		3AC745C6296D6FE60025C109 /* PostHog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AC745B8296D6FE60025C109 /* PostHog.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB2B2991320300AFFC18 /* Api.swift */; };
+		3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB322991388500AFFC18 /* PostHogQueue.swift */; };
+		3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */; };
+		3AE3FB3B29924CE100AFFC18 /* NSData+PHGGZIP.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */; };
+		3AE3FB3D29924E8200AFFC18 /* PostHog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3C29924E8200AFFC18 /* PostHog.swift */; };
+		3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */; };
+		3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB422992985A00AFFC18 /* Reachability.swift */; };
+		3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */; };
+		3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */; };
+		3AE3FB4B2993A68500AFFC18 /* StorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */; };
+		3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */; };
+		69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */; };
+		69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */; };
+		69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */; };
+		69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */; };
+		69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */; };
+		69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D222AD9784200232EC7 /* PostHogVersion.swift */; };
+		69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D242AD9787A00232EC7 /* PostHogExtensions.swift */; };
+		6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6926DA8D2ADD2876005760D2 /* PostHogContext.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3A81BEB0297704F400A6908D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
+		3AA34D05296D9523003398F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AA34CF6296D951A003398F4;
+			remoteInfo = PostHogExample;
+		};
+		3AA34D11296D9649003398F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AA34CF6296D951A003398F4;
+			remoteInfo = PostHogExample;
+		};
+		3AC745C1296D6FE60025C109 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3A81BEB2297704F400A6908D /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		3A0F108229C47940002C0084 /* UIViewExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewExample.swift; sourceTree = "<group>"; };
+		3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadWriteLock.swift; sourceTree = "<group>"; };
+		3A0F108629C9BD23002C0084 /* MethodSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MethodSwizzler.swift; sourceTree = "<group>"; };
+		3A0F108829C9BD76002C0084 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
+		3A2BCF49299E2BDA008BB5F3 /* Swizzle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Swizzle.swift; sourceTree = "<group>"; };
+		3A2BCF4B299E4E35008BB5F3 /* QueueTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueueTest.swift; sourceTree = "<group>"; };
+		3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableUtils.swift; sourceTree = "<group>"; };
+		3A580B4229E489D000C5C6F3 /* URLSession+body.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+body.swift"; sourceTree = "<group>"; };
+		3A62646329C9E0E7007E8C07 /* PostHogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogTest.swift; sourceTree = "<group>"; };
+		3A62646929C9E385007E8C07 /* MockPostHogServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPostHogServer.swift; sourceTree = "<group>"; };
+		3A62646C29C9ECD9007E8C07 /* PostHogTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogTests-Bridging-Header.h"; sourceTree = "<group>"; };
+		3A62646D29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+PHGGUNZIPP.h"; sourceTree = "<group>"; };
+		3A62646E29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+PHGGUNZIPP.m"; sourceTree = "<group>"; };
+		3A62647029CAF67B007E8C07 /* SessionManagerTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManagerTest.swift; sourceTree = "<group>"; };
+		3A62647229CB0043007E8C07 /* CaptureTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CaptureTests.swift; sourceTree = "<group>"; };
+		3A62647429CB0168007E8C07 /* TestPostHog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPostHog.swift; sourceTree = "<group>"; };
+		3AA34CF7296D951A003398F4 /* PostHogExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleApp.swift; sourceTree = "<group>"; };
+		3AA34CFB296D951A003398F4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		3AA34CFD296D951B003398F4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3AA34D00296D951B003398F4 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		3AA34D0B296D9649003398F4 /* PostHogExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PostHogExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AA34D0D296D9649003398F4 /* PostHogExampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleUITests.swift; sourceTree = "<group>"; };
+		3AA34D0F296D9649003398F4 /* PostHogExampleUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		3AA34D16296D9993003398F4 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		3AAFB13129C0C699004F485B /* Package.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+		3AB7330C29E420E400C8AA71 /* FeatureFlagsTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FeatureFlagsTest.swift; sourceTree = "<group>"; };
+		3AC745B5296D6FE60025C109 /* PostHog.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PostHog.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AC745B8296D6FE60025C109 /* PostHog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PostHog.h; sourceTree = "<group>"; };
+		3AC745BF296D6FE60025C109 /* PostHogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PostHogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AE3FB2B2991320300AFFC18 /* Api.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Api.swift; sourceTree = "<group>"; };
+		3AE3FB322991388500AFFC18 /* PostHogQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueue.swift; sourceTree = "<group>"; };
+		3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApi.swift; sourceTree = "<group>"; };
+		3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+PHGGZIP.h"; sourceTree = "<group>"; };
+		3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+PHGGZIP.m"; sourceTree = "<group>"; };
+		3AE3FB3C29924E8200AFFC18 /* PostHog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHog.swift; sourceTree = "<group>"; };
+		3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfig.swift; sourceTree = "<group>"; };
+		3AE3FB422992985A00AFFC18 /* Reachability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
+		3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hedgelog.swift; sourceTree = "<group>"; };
+		3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorage.swift; sourceTree = "<group>"; };
+		3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageTest.swift; sourceTree = "<group>"; };
+		3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManager.swift; sourceTree = "<group>"; };
+		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
+		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
+		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
+		69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueue.swift; sourceTree = "<group>"; };
+		69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsumerPayload.swift; sourceTree = "<group>"; };
+		69261D222AD9784200232EC7 /* PostHogVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogVersion.swift; sourceTree = "<group>"; };
+		69261D242AD9787A00232EC7 /* PostHogExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExtensions.swift; sourceTree = "<group>"; };
+		6926DA8D2ADD2876005760D2 /* PostHogContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogContext.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3AA34CF4296D951A003398F4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A81BEAE297704F400A6908D /* PostHog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AA34D08296D9649003398F4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AC745B2296D6FE60025C109 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AC745BC296D6FE60025C109 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A580B3F29E481F200C5C6F3 /* OHHTTPStubs in Frameworks */,
+				3A580B4129E481F200C5C6F3 /* OHHTTPStubsSwift in Frameworks */,
+				3A867B7329C1DFEF009D0852 /* Nimble in Frameworks */,
+				3A62646729C9E36B007E8C07 /* Shock in Frameworks */,
+				3A867B7029C1DF73009D0852 /* Quick in Frameworks */,
+				3AC745C0296D6FE60025C109 /* PostHog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3A0F108129C4792E002C0084 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				3A0F108229C47940002C0084 /* UIViewExample.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		3A62646829C9E37A007E8C07 /* TestUtils */ = {
+			isa = PBXGroup;
+			children = (
+				3A62646D29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.h */,
+				3A62646E29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m */,
+				3A62646929C9E385007E8C07 /* MockPostHogServer.swift */,
+				3A62647429CB0168007E8C07 /* TestPostHog.swift */,
+				3A62646C29C9ECD9007E8C07 /* PostHogTests-Bridging-Header.h */,
+				3A580B4229E489D000C5C6F3 /* URLSession+body.swift */,
+			);
+			path = TestUtils;
+			sourceTree = "<group>";
+		};
+		3AA34CF8296D951A003398F4 /* PostHogExample */ = {
+			isa = PBXGroup;
+			children = (
+				3A0F108129C4792E002C0084 /* Views */,
+				3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */,
+				3AE3FB2B2991320300AFFC18 /* Api.swift */,
+				3AA34D16296D9993003398F4 /* AppDelegate.swift */,
+				3AA34CFB296D951A003398F4 /* ContentView.swift */,
+				3AA34CFD296D951B003398F4 /* Assets.xcassets */,
+				3AA34CFF296D951B003398F4 /* Preview Content */,
+			);
+			path = PostHogExample;
+			sourceTree = "<group>";
+		};
+		3AA34CFF296D951B003398F4 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				3AA34D00296D951B003398F4 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		3AA34D0C296D9649003398F4 /* PostHogExampleUITests */ = {
+			isa = PBXGroup;
+			children = (
+				3AA34D0D296D9649003398F4 /* PostHogExampleUITests.swift */,
+				3AA34D0F296D9649003398F4 /* PostHogExampleUITestsLaunchTests.swift */,
+			);
+			path = PostHogExampleUITests;
+			sourceTree = "<group>";
+		};
+		3AA4C09B2988315D006C4731 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */,
+				3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */,
+				3AE3FB422992985A00AFFC18 /* Reachability.swift */,
+				3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */,
+				3A2BCF49299E2BDA008BB5F3 /* Swizzle.swift */,
+				3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */,
+				3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */,
+				3A0F108629C9BD23002C0084 /* MethodSwizzler.swift */,
+				3A0F108829C9BD76002C0084 /* Errors.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		3AC745AB296D6FE60025C109 = {
+			isa = PBXGroup;
+			children = (
+				3AAFB13129C0C699004F485B /* Package.swift */,
+				3AC745B7296D6FE60025C109 /* PostHog */,
+				3AC745C3296D6FE60025C109 /* PostHogTests */,
+				3AA34CF8296D951A003398F4 /* PostHogExample */,
+				3AA34D0C296D9649003398F4 /* PostHogExampleUITests */,
+				3AC745B6296D6FE60025C109 /* Products */,
+				69261D152AD92D6C00232EC7 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		3AC745B6296D6FE60025C109 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3AC745B5296D6FE60025C109 /* PostHog.framework */,
+				3AC745BF296D6FE60025C109 /* PostHogTests.xctest */,
+				3AA34CF7296D951A003398F4 /* PostHogExample.app */,
+				3AA34D0B296D9649003398F4 /* PostHogExampleUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		3AC745B7296D6FE60025C109 /* PostHog */ = {
+			isa = PBXGroup;
+			children = (
+				3AC745B8296D6FE60025C109 /* PostHog.h */,
+				3AA4C09B2988315D006C4731 /* Utils */,
+				3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */,
+				3AE3FB322991388500AFFC18 /* PostHogQueue.swift */,
+				3AE3FB3C29924E8200AFFC18 /* PostHog.swift */,
+				3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */,
+				3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */,
+				3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */,
+				69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */,
+				69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */,
+				69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */,
+				69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */,
+				69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */,
+				69261D222AD9784200232EC7 /* PostHogVersion.swift */,
+				69261D242AD9787A00232EC7 /* PostHogExtensions.swift */,
+				6926DA8D2ADD2876005760D2 /* PostHogContext.swift */,
+			);
+			path = PostHog;
+			sourceTree = "<group>";
+		};
+		3AC745C3296D6FE60025C109 /* PostHogTests */ = {
+			isa = PBXGroup;
+			children = (
+				3A62646829C9E37A007E8C07 /* TestUtils */,
+				3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */,
+				3AB7330C29E420E400C8AA71 /* FeatureFlagsTest.swift */,
+				3A2BCF4B299E4E35008BB5F3 /* QueueTest.swift */,
+				3A62646329C9E0E7007E8C07 /* PostHogTest.swift */,
+				3A62647229CB0043007E8C07 /* CaptureTests.swift */,
+				3A62647029CAF67B007E8C07 /* SessionManagerTest.swift */,
+			);
+			path = PostHogTests;
+			sourceTree = "<group>";
+		};
+		69261D152AD92D6C00232EC7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		3AC745B0296D6FE60025C109 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
+				3A4F510D299A78E100B68D5E /* NSData+PHGGZIP.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		3AA34CF6296D951A003398F4 /* PostHogExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3AA34D02296D951B003398F4 /* Build configuration list for PBXNativeTarget "PostHogExample" */;
+			buildPhases = (
+				3AA34CF3296D951A003398F4 /* Sources */,
+				3AA34CF4296D951A003398F4 /* Frameworks */,
+				3AA34CF5296D951A003398F4 /* Resources */,
+				3A81BEB2297704F400A6908D /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3A81BEB1297704F400A6908D /* PBXTargetDependency */,
+			);
+			name = PostHogExample;
+			productName = PostHogExample;
+			productReference = 3AA34CF7296D951A003398F4 /* PostHogExample.app */;
+			productType = "com.apple.product-type.application";
+		};
+		3AA34D0A296D9649003398F4 /* PostHogExampleUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3AA34D13296D9649003398F4 /* Build configuration list for PBXNativeTarget "PostHogExampleUITests" */;
+			buildPhases = (
+				3AA34D07296D9649003398F4 /* Sources */,
+				3AA34D08296D9649003398F4 /* Frameworks */,
+				3AA34D09296D9649003398F4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3AA34D12296D9649003398F4 /* PBXTargetDependency */,
+			);
+			name = PostHogExampleUITests;
+			productName = PostHogExampleUITests;
+			productReference = 3AA34D0B296D9649003398F4 /* PostHogExampleUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		3AC745B4296D6FE60025C109 /* PostHog */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3AC745C9296D6FE60025C109 /* Build configuration list for PBXNativeTarget "PostHog" */;
+			buildPhases = (
+				3AC745B0296D6FE60025C109 /* Headers */,
+				3AC745B1296D6FE60025C109 /* Sources */,
+				3AC745B2296D6FE60025C109 /* Frameworks */,
+				3AC745B3296D6FE60025C109 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PostHog;
+			packageProductDependencies = (
+			);
+			productName = PostHog;
+			productReference = 3AC745B5296D6FE60025C109 /* PostHog.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		3AC745BE296D6FE60025C109 /* PostHogTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3AC745CC296D6FE60025C109 /* Build configuration list for PBXNativeTarget "PostHogTests" */;
+			buildPhases = (
+				3AC745BB296D6FE60025C109 /* Sources */,
+				3AC745BC296D6FE60025C109 /* Frameworks */,
+				3AC745BD296D6FE60025C109 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3AC745C2296D6FE60025C109 /* PBXTargetDependency */,
+				3AA34D06296D9523003398F4 /* PBXTargetDependency */,
+			);
+			name = PostHogTests;
+			packageProductDependencies = (
+				3A867B6F29C1DF73009D0852 /* Quick */,
+				3A867B7229C1DFEF009D0852 /* Nimble */,
+				3A62646629C9E36B007E8C07 /* Shock */,
+				3A580B3E29E481F200C5C6F3 /* OHHTTPStubs */,
+				3A580B4029E481F200C5C6F3 /* OHHTTPStubsSwift */,
+			);
+			productName = PostHogTests;
+			productReference = 3AC745BF296D6FE60025C109 /* PostHogTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3AC745AC296D6FE60025C109 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1420;
+				LastUpgradeCheck = 1420;
+				TargetAttributes = {
+					3AA34CF6296D951A003398F4 = {
+						CreatedOnToolsVersion = 14.2;
+					};
+					3AA34D0A296D9649003398F4 = {
+						CreatedOnToolsVersion = 14.2;
+						TestTargetID = 3AA34CF6296D951A003398F4;
+					};
+					3AC745B4296D6FE60025C109 = {
+						CreatedOnToolsVersion = 14.2;
+						LastSwiftMigration = 1420;
+					};
+					3AC745BE296D6FE60025C109 = {
+						CreatedOnToolsVersion = 14.2;
+						LastSwiftMigration = 1420;
+					};
+				};
+			};
+			buildConfigurationList = 3AC745AF296D6FE60025C109 /* Build configuration list for PBXProject "PostHog" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 3AC745AB296D6FE60025C109;
+			packageReferences = (
+				3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */,
+				3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */,
+				3A62646529C9E36B007E8C07 /* XCRemoteSwiftPackageReference "Shock" */,
+				3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */,
+			);
+			productRefGroup = 3AC745B6296D6FE60025C109 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3AC745B4296D6FE60025C109 /* PostHog */,
+				3AC745BE296D6FE60025C109 /* PostHogTests */,
+				3AA34CF6296D951A003398F4 /* PostHogExample */,
+				3AA34D0A296D9649003398F4 /* PostHogExampleUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3AA34CF5296D951A003398F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3AA34D01296D951B003398F4 /* Preview Assets.xcassets in Resources */,
+				3AA34CFE296D951B003398F4 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AA34D09296D9649003398F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AC745B3296D6FE60025C109 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AC745BD296D6FE60025C109 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3AA34CF3296D951A003398F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */,
+				3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */,
+				3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */,
+				3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */,
+				3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AA34D07296D9649003398F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3AA34D0E296D9649003398F4 /* PostHogExampleUITests.swift in Sources */,
+				3AA34D10296D9649003398F4 /* PostHogExampleUITestsLaunchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AC745B1296D6FE60025C109 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A2BCF52299F7724008BB5F3 /* CodableUtils.swift in Sources */,
+				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
+				69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */,
+				3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */,
+				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
+				69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */,
+				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
+				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
+				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,
+				69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */,
+				3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */,
+				3AE3FB3D29924E8200AFFC18 /* PostHog.swift in Sources */,
+				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
+				3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */,
+				3AE3FB3B29924CE100AFFC18 /* NSData+PHGGZIP.m in Sources */,
+				69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */,
+				3A2BCF4A299E2BDA008BB5F3 /* Swizzle.swift in Sources */,
+				3A0F108729C9BD23002C0084 /* MethodSwizzler.swift in Sources */,
+				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
+				69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */,
+				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,
+				3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AC745BB296D6FE60025C109 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */,
+				3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */,
+				3A62646F29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m in Sources */,
+				3A62647129CAF67B007E8C07 /* SessionManagerTest.swift in Sources */,
+				3AE3FB4B2993A68500AFFC18 /* StorageTest.swift in Sources */,
+				3A580B4329E489D000C5C6F3 /* URLSession+body.swift in Sources */,
+				3A62646429C9E0E7007E8C07 /* PostHogTest.swift in Sources */,
+				3A62647329CB0043007E8C07 /* CaptureTests.swift in Sources */,
+				3A2BCF4C299E4E35008BB5F3 /* QueueTest.swift in Sources */,
+				3AB7330D29E420E400C8AA71 /* FeatureFlagsTest.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3A81BEB1297704F400A6908D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = 3A81BEB0297704F400A6908D /* PBXContainerItemProxy */;
+		};
+		3AA34D06296D9523003398F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AA34CF6296D951A003398F4 /* PostHogExample */;
+			targetProxy = 3AA34D05296D9523003398F4 /* PBXContainerItemProxy */;
+		};
+		3AA34D12296D9649003398F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AA34CF6296D951A003398F4 /* PostHogExample */;
+			targetProxy = 3AA34D11296D9649003398F4 /* PBXContainerItemProxy */;
+		};
+		3AC745C2296D6FE60025C109 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = 3AC745C1296D6FE60025C109 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3AA34D03296D951B003398F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
+				DEVELOPMENT_TEAM = XGVSYR3W92;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Debug;
+		};
+		3AA34D04296D951B003398F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
+				DEVELOPMENT_TEAM = XGVSYR3W92;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Release;
+		};
+		3AA34D14296D9649003398F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PostHogExample;
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Debug;
+		};
+		3AA34D15296D9649003398F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PostHogExample;
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Release;
+		};
+		3AC745C7296D6FE60025C109 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		3AC745C8296D6FE60025C109 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		3AC745CA296D6FE60025C109 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				EXCLUDED_ARCHS = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Debug;
+		};
+		3AC745CB296D6FE60025C109 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Release;
+		};
+		3AC745CD296D6FE60025C109 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/TestUtils/PostHogTests-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Debug;
+		};
+		3AC745CE296D6FE60025C109 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/TestUtils/PostHogTests-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3AA34D02296D951B003398F4 /* Build configuration list for PBXNativeTarget "PostHogExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3AA34D03296D951B003398F4 /* Debug */,
+				3AA34D04296D951B003398F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3AA34D13296D9649003398F4 /* Build configuration list for PBXNativeTarget "PostHogExampleUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3AA34D14296D9649003398F4 /* Debug */,
+				3AA34D15296D9649003398F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3AC745AF296D6FE60025C109 /* Build configuration list for PBXProject "PostHog" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3AC745C7296D6FE60025C109 /* Debug */,
+				3AC745C8296D6FE60025C109 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3AC745C9296D6FE60025C109 /* Build configuration list for PBXNativeTarget "PostHog" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3AC745CA296D6FE60025C109 /* Debug */,
+				3AC745CB296D6FE60025C109 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3AC745CC296D6FE60025C109 /* Build configuration list for PBXNativeTarget "PostHogTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3AC745CD296D6FE60025C109 /* Debug */,
+				3AC745CE296D6FE60025C109 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AliSoftware/OHHTTPStubs";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		3A62646529C9E36B007E8C07 /* XCRemoteSwiftPackageReference "Shock" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/justeat/Shock";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.0;
+			};
+		};
+		3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Quick/Quick.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Quick/Nimble.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3A580B3E29E481F200C5C6F3 /* OHHTTPStubs */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */;
+			productName = OHHTTPStubs;
+		};
+		3A580B4029E481F200C5C6F3 /* OHHTTPStubsSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */;
+			productName = OHHTTPStubsSwift;
+		};
+		3A62646629C9E36B007E8C07 /* Shock */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A62646529C9E36B007E8C07 /* XCRemoteSwiftPackageReference "Shock" */;
+			productName = Shock;
+		};
+		3A867B6F29C1DF73009D0852 /* Quick */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */;
+			productName = Quick;
+		};
+		3A867B7229C1DFEF009D0852 /* Nimble */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */;
+			productName = Nimble;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3AC745AC296D6FE60025C109 /* Project object */;
+}

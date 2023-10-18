@@ -34,6 +34,20 @@
                ReferencedContainer = "container:PostHog.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "3AC745BE296D6FE60025C109"
+               BuildableName = "PostHogTests.xctest"
+               BlueprintName = "PostHogTests"
+               ReferencedContainer = "container:PostHog.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

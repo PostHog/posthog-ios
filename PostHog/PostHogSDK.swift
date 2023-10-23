@@ -155,12 +155,34 @@ let maxRetryDelay = 30.0
         return properties
     }
 
-    private func buildProperties(_ properties: [String: Any]?) -> [String: Any] {
-        // TODO: Add property coersion to ensure everything is codable
-        (properties ?? [:])
-            .merging(context?.staticContext() ?? [:]) { current, _ in current }
-            .merging(context?.dynamicContext() ?? [:]) { current, _ in current }
-            .merging(dynamicContext()) { current, _ in current }
+    private func buildProperties(properties _: [String: Any]?,
+                                 userProperties: [String: Any]? = nil,
+                                 userPropertiesSetOnce: [String: Any]? = nil,
+                                 groupProperties: [String: Any]? = nil) -> [String: Any]
+    {
+        var props: [String: Any] = [:]
+
+        let staticCtx = context?.staticContext()
+        let dynamicCtx = context?.dynamicContext()
+        let localDynamicCtx = dynamicContext()
+
+        if staticCtx != nil {
+            props = props.merging(staticCtx ?? [:]) { current, _ in current }
+        }
+        if dynamicCtx != nil {
+            props = props.merging(dynamicCtx ?? [:]) { current, _ in current }
+        }
+        props = props.merging(localDynamicCtx) { current, _ in current }
+        if userProperties != nil {
+            props["$set"] = (userProperties ?? [:])
+        }
+        if userPropertiesSetOnce != nil {
+            props["$set_once"] = (userPropertiesSetOnce ?? [:])
+        }
+        if groupProperties != nil {
+            props["$groups"] = (groupProperties ?? [:])
+        }
+        return props
     }
 
     @objc public func flush() {
@@ -216,7 +238,11 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public func identify(_ distinctId: String, userProperties: [String: Any]? = nil) {
+    @objc public func identify(_ distinctId: String,
+                               properties _: [String: Any]? = nil,
+                               userProperties: [String: Any]? = nil,
+                               userPropertiesSetOnce: [String: Any]? = nil)
+    {
         if !isEnabled() {
             return
         }
@@ -229,11 +255,10 @@ let maxRetryDelay = 30.0
         queue.add(PostHogEvent(
             event: "$identify",
             distinctId: distinctId,
-            properties: buildProperties([
+            properties: buildProperties(properties: [
                 "distinct_id": distinctId,
                 "$anon_distinct_id": getAnonymousId(),
-                "$set": userProperties ?? [:],
-            ])
+            ], userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
         ))
 
         if distinctId != oldDistinctId {
@@ -245,7 +270,12 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public func capture(_ event: String, properties: [String: Any]? = nil) {
+    @objc public func capture(_ event: String,
+                              properties: [String: Any]? = nil,
+                              userProperties: [String: Any]? = nil,
+                              userPropertiesSetOnce: [String: Any]? = nil,
+                              groupProperties: [String: Any]? = nil)
+    {
         if !isEnabled() {
             return
         }
@@ -256,7 +286,10 @@ let maxRetryDelay = 30.0
         queue.add(PostHogEvent(
             event: event,
             distinctId: getDistinctId(),
-            properties: buildProperties(properties)
+            properties: buildProperties(properties: properties,
+                                        userProperties: userProperties,
+                                        userPropertiesSetOnce: userPropertiesSetOnce,
+                                        groupProperties: groupProperties)
         ))
     }
 
@@ -276,7 +309,7 @@ let maxRetryDelay = 30.0
         queue.add(PostHogEvent(
             event: "$screen",
             distinctId: getDistinctId(),
-            properties: buildProperties(props)
+            properties: buildProperties(properties: props)
         ))
     }
 
@@ -296,7 +329,7 @@ let maxRetryDelay = 30.0
         queue.add(PostHogEvent(
             event: "$create_alias",
             distinctId: getDistinctId(),
-            properties: buildProperties(props)
+            properties: buildProperties(properties: props)
         ))
     }
 
@@ -340,7 +373,7 @@ let maxRetryDelay = 30.0
         queue.add(PostHogEvent(
             event: "$groupidentify",
             distinctId: getDistinctId(),
-            properties: buildProperties([
+            properties: buildProperties(properties: [
                 "$group_type": type,
                 "$group_key": key,
                 "$group_set": groupProperties ?? [],

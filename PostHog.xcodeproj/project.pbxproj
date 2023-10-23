@@ -9,9 +9,7 @@
 /* Begin PBXBuildFile section */
 		3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108229C47940002C0084 /* UIViewExample.swift */; };
 		3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */; };
-		3A0F108729C9BD23002C0084 /* MethodSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108629C9BD23002C0084 /* MethodSwizzler.swift */; };
 		3A0F108929C9BD76002C0084 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108829C9BD76002C0084 /* Errors.swift */; };
-		3A2BCF4A299E2BDA008BB5F3 /* Swizzle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF49299E2BDA008BB5F3 /* Swizzle.swift */; };
 		3A2BCF4C299E4E35008BB5F3 /* QueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF4B299E4E35008BB5F3 /* QueueTest.swift */; };
 		3A2BCF52299F7724008BB5F3 /* CodableUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */; };
 		3A4F510D299A78E100B68D5E /* NSData+PHGGZIP.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -100,9 +98,7 @@
 /* Begin PBXFileReference section */
 		3A0F108229C47940002C0084 /* UIViewExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewExample.swift; sourceTree = "<group>"; };
 		3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadWriteLock.swift; sourceTree = "<group>"; };
-		3A0F108629C9BD23002C0084 /* MethodSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MethodSwizzler.swift; sourceTree = "<group>"; };
 		3A0F108829C9BD76002C0084 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
-		3A2BCF49299E2BDA008BB5F3 /* Swizzle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Swizzle.swift; sourceTree = "<group>"; };
 		3A2BCF4B299E4E35008BB5F3 /* QueueTest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QueueTest.swift; sourceTree = "<group>"; };
 		3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodableUtils.swift; sourceTree = "<group>"; };
 		3A580B4229E489D000C5C6F3 /* URLSession+body.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+body.swift"; sourceTree = "<group>"; };
@@ -230,10 +226,8 @@
 				3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */,
 				3AE3FB422992985A00AFFC18 /* Reachability.swift */,
 				3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */,
-				3A2BCF49299E2BDA008BB5F3 /* Swizzle.swift */,
 				3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */,
 				3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */,
-				3A0F108629C9BD23002C0084 /* MethodSwizzler.swift */,
 				3A0F108829C9BD76002C0084 /* Errors.swift */,
 			);
 			path = Utils;
@@ -264,6 +258,7 @@
 		3AC745B7296D6FE60025C109 /* PostHog */ = {
 			isa = PBXGroup;
 			children = (
+				69779BED2AE6B29E00D7A48E /* Models */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				3AA4C09B2988315D006C4731 /* Utils */,
 				3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */,
@@ -274,7 +269,6 @@
 				3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */,
 				69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */,
 				69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */,
-				69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */,
 				69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */,
 				69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */,
 				69261D222AD9784200232EC7 /* PostHogVersion.swift */,
@@ -304,6 +298,14 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		69779BED2AE6B29E00D7A48E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -495,8 +497,6 @@
 				3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */,
 				3AE3FB3B29924CE100AFFC18 /* NSData+PHGGZIP.m in Sources */,
 				69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */,
-				3A2BCF4A299E2BDA008BB5F3 /* Swizzle.swift in Sources */,
-				3A0F108729C9BD23002C0084 /* MethodSwizzler.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */,
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,

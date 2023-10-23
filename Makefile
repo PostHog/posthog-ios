@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExample format swiftLint swiftFormat test lint
+.PHONY: build buildSdk buildExample format swiftLint swiftFormat test lint bootstrap
 
 build: buildSdk buildExample
 
@@ -21,3 +21,9 @@ test:
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint
+
+# requires gem and brew
+bootstrap:
+	gem install xcpretty
+	brew install swiftlint
+	brew install swiftformat

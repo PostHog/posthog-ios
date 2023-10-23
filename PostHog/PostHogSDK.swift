@@ -38,6 +38,7 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
+    private var appFromBackground = false
 
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
@@ -544,10 +545,25 @@ let maxRetryDelay = 30.0
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
-            let didFinishLaunchingNotification = UIApplication.didFinishLaunchingNotification
-
-            defaultCenter.addObserver(self, selector: #selector(captureAppLifecycle), name: didFinishLaunchingNotification, object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(captureAppLifecycle),
+                                      name: UIApplication.didFinishLaunchingNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(captureAppBackgrounded),
+                                      name: UIApplication.didEnterBackgroundNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(captureAppOpenedFromBackground),
+                                      name: UIApplication.willEnterForegroundNotification,
+                                      object: nil)
         #endif
+    }
+
+    private func captureScreenViews() {
+        if config.captureScreenViews {
+//            swizzle(selector: #selector(), with: <#T##Selector#>, inClass: <#T##AnyClass#>, usingClass: <#T##AnyClass#>)
+        }
     }
 
     private func captureAppInstalled() {
@@ -606,12 +622,13 @@ let maxRetryDelay = 30.0
     }
 
     private func captureAppOpened() {
+        var props: [String: Any] = [:]
+        props["from_background"] = false
+
         let bundle = Bundle.main
 
         let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
         let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
-
-        var props: [String: Any] = [:]
 
         if versionName != nil {
             props["version"] = versionName
@@ -619,10 +636,20 @@ let maxRetryDelay = 30.0
         if versionCode != nil {
             props["build"] = versionCode
         }
-//    TODO: detect info dynamically
-        props["from_background"] = false
+
 //        props["referring_application"] = launchOptions[UIApplicationLaunchOptionsSourceApplicationKey]
 //        props["url"] = launchOptions[UIApplicationLaunchOptionsURLKey]
+
+        capture("Application Opened", properties: props)
+    }
+
+    @objc private func captureAppOpenedFromBackground() {
+        var props: [String: Any] = [:]
+        props["from_background"] = appFromBackground
+
+        if !appFromBackground {
+            appFromBackground = true
+        }
 
         capture("Application Opened", properties: props)
     }
@@ -634,5 +661,12 @@ let maxRetryDelay = 30.0
 
         captureAppInstalled()
         captureAppOpened()
+    }
+
+    @objc private func captureAppBackgrounded() {
+        if !config.captureApplicationLifecycleEvents {
+            return
+        }
+        capture("Application Backgrounded")
     }
 }

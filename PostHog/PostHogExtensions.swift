@@ -16,7 +16,5 @@ import Foundation
 
 public extension PostHogSDK {
     static let didStartNotification = Notification.Name("PostHogDidStart") // object: nil
-    static let didStartRecordingNotification = Notification.Name("PostHogDidStartRecording") // object: nil
-    static let didResetSessionNotification = Notification.Name("PostHogDidResetSession") // object: String
     static let didReceiveFeatureFlags = Notification.Name("PostHogDidReceiveFeatureFlags") // object: nil
 }

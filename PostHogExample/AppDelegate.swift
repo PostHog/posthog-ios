@@ -28,7 +28,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //                "iteration": iteration
 //            ])
 //        }
+        
+        let defaultCenter = NotificationCenter.default
+
+        #if os(iOS) || os(tvOS)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(self.receiveFeatureFlags),
+                                      name: PostHogSDK.didReceiveFeatureFlags,
+                                      object: nil)
+        #endif
 
         return true
+    }
+    
+    @objc func receiveFeatureFlags() {
+        print("receiveFeatureFlags")
     }
 }

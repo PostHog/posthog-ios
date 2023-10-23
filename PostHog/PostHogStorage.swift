@@ -27,7 +27,6 @@ class PostHogStorage {
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case groups = "posthog.groups"
-        case sessionId = "posthog.sessionId"
         case sessionlastTimestamp = "posthog.sessionlastTimestamp"
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"

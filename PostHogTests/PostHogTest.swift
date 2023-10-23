@@ -37,21 +37,17 @@ class PostHogTest: QuickSpec {
         it("setups default IDs") {
             expect(posthog.getAnonymousId()).toNot(beNil())
             expect(posthog.getDistinctId()) == posthog.getAnonymousId()
-            expect(posthog.getSessionId()).toNot(beNil())
         }
 
         it("persits IDs but resets the session ID on load") {
             let anonymousId = posthog.getAnonymousId()
             let distinctId = posthog.getDistinctId()
-            let sessionId = posthog.getSessionId()
 
             let config = PostHogConfig(apiKey: "test-api-key")
             let otherPostHog = PostHogSDK.with(config)
 
             let otherAnonymousId = otherPostHog.getAnonymousId()
             let otherDistinctId = otherPostHog.getDistinctId()
-            let otherSessionId = otherPostHog.getSessionId()
-            let refreshedSessionId = posthog.getSessionId()
 
             expect(anonymousId) == otherAnonymousId
             expect(distinctId) == otherDistinctId

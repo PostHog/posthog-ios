@@ -22,11 +22,11 @@ import Foundation
     @objc public var dataMode: PostHogDataMode = .any
     @objc public var sendFeatureFlagEvent: Bool = true
     @objc public var preloadFeatureFlags: Bool = true
+    @objc public var captureApplicationLifecycleEvents: Bool = true
+    @objc public var captureScreenViews: Bool = true
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
     public static let defaultHost: String = "https://app.posthog.com"
-    // TODO: encryption, captureApplicationLifecycleEvents, recordScreenViews, captureInAppPurchases,
-    // capturePushNotifications, captureDeepLinks, launchOptions
 
     public init(
         apiKey: String,

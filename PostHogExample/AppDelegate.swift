@@ -16,8 +16,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         )
 
         PostHogSDK.shared.setup(config)
-        PostHogSDK.shared.debug()
-        PostHogSDK.shared.capture("App started!")
+//        PostHogSDK.shared.debug()
+//        PostHogSDK.shared.capture("App started!")
 
 //        DispatchQueue.global(qos: .utility).async {
 //            let task = Api().failingRequest()

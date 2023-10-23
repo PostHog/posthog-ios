@@ -37,6 +37,7 @@ let maxRetryDelay = 30.0
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
+    private var capturedAppInstalled = false
 
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
@@ -90,10 +91,9 @@ let maxRetryDelay = 30.0
 
             queue = PostHogQueue(config, theStorage, theApi, reachability)
 
-            // TODO: Decide if we definitely want to reset the session on load or not
-            sessionManager?.resetSession()
-
             queue?.start()
+
+            registerNotifications()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -121,20 +121,11 @@ let maxRetryDelay = 30.0
         return sessionManager?.getAnonymousId() ?? ""
     }
 
-    @objc public func getSessionId() -> String? {
-        if !isEnabled() {
-            return nil
-        }
-
-        return sessionManager?.getSessionId()
-    }
-
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        properties["$session_id"] = getSessionId()
         var groups: [String: String]?
         groupsLock.withLock {
             groups = getGroups()
@@ -514,5 +505,101 @@ let maxRetryDelay = 30.0
         let postHog = PostHogSDK(config)
         postHog.setup(config)
         return postHog
+    }
+
+    private func registerNotifications() {
+        let defaultCenter = NotificationCenter.default
+
+        #if os(iOS) || os(tvOS)
+            let didFinishLaunchingNotification = UIApplication.didFinishLaunchingNotification
+
+            defaultCenter.addObserver(self, selector: #selector(captureAppLifecycle), name: didFinishLaunchingNotification, object: nil)
+        #endif
+    }
+
+    private func captureAppInstalled() {
+        let bundle = Bundle.main
+
+        let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
+        let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
+
+        // capture app installed/updated
+        if !capturedAppInstalled {
+            let userDefaults = UserDefaults.standard
+
+            let previousVersion = userDefaults.string(forKey: "PHGVersionKey")
+            let previousVersionCode = userDefaults.string(forKey: "PHGBuildKeyV2")
+
+            var props: [String: Any] = [:]
+            var event: String
+            if previousVersionCode == nil {
+                // installed
+                event = "Application Installed"
+            } else {
+                event = "Application Updated"
+
+                // Do not send version updates if its the same
+                if previousVersionCode == versionCode {
+                    return
+                }
+
+                if previousVersion != nil {
+                    props["previous_version"] = previousVersion
+                }
+                props["previous_build"] = previousVersionCode
+            }
+
+            var syncDefaults = false
+            if versionName != nil {
+                props["version"] = versionName
+                userDefaults.setValue(versionName, forKey: "PHGVersionKey")
+                syncDefaults = true
+            }
+
+            if versionCode != nil {
+                props["build"] = versionCode
+                userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
+                syncDefaults = true
+            }
+
+            if syncDefaults {
+                userDefaults.synchronize()
+            }
+
+            capture(event, properties: props)
+
+            capturedAppInstalled = true
+        }
+    }
+
+    private func captureAppOpened() {
+        let bundle = Bundle.main
+
+        let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
+        let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
+
+        var props: [String: Any] = [:]
+
+        if versionName != nil {
+            props["version"] = versionName
+        }
+        if versionCode != nil {
+            props["build"] = versionCode
+        }
+//    TODO: detect info dynamically
+        props["from_background"] = false
+//        props["referring_application"] = launchOptions[UIApplicationLaunchOptionsSourceApplicationKey]
+//        props["url"] = launchOptions[UIApplicationLaunchOptionsURLKey]
+
+        capture("Application Opened", properties: props)
+    }
+
+    @objc private func captureAppLifecycle() {
+        if !config.captureApplicationLifecycleEvents {
+            return
+        }
+
+        captureAppInstalled()
+        captureAppOpened()
     }
 }

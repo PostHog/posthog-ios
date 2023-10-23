@@ -45,26 +45,5 @@ class SessionManagerTest: QuickSpec {
             expect(newAnonymousId) != newDistinctId
             expect(newDistinctId) == idToSet
         }
-
-        it("Generates a session id") {
-            let sessionId = sessionManager.getSessionId()
-            expect(sessionId).toNot(beNil())
-
-            let secondSessionId = sessionManager.getSessionId()
-            expect(secondSessionId) == sessionId
-        }
-
-        it("Generates a new session id if last timestamp is older") {
-            let sessionId = sessionManager.getSessionId()
-            expect(sessionId).toNot(beNil())
-
-            changeSessionLastTimestamp(timeToAdd: TimeInterval(0 - sessionManager.sessionChangeThreshold + 100))
-            let sameSessionId = sessionManager.getSessionId()
-            expect(sameSessionId) == sessionId
-
-            changeSessionLastTimestamp(timeToAdd: TimeInterval(0 - sessionManager.sessionChangeThreshold - 100))
-            let newSessionId = sessionManager.getSessionId()
-            expect(newSessionId) != sessionId
-        }
     }
 }

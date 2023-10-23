@@ -56,6 +56,7 @@
 		69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D222AD9784200232EC7 /* PostHogVersion.swift */; };
 		69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D242AD9787A00232EC7 /* PostHogExtensions.swift */; };
 		6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6926DA8D2ADD2876005760D2 /* PostHogContext.swift */; };
+		69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69779BEB2AE68E6900D7A48E /* UIViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -144,6 +145,7 @@
 		69261D222AD9784200232EC7 /* PostHogVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogVersion.swift; sourceTree = "<group>"; };
 		69261D242AD9787A00232EC7 /* PostHogExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExtensions.swift; sourceTree = "<group>"; };
 		6926DA8D2ADD2876005760D2 /* PostHogContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogContext.swift; sourceTree = "<group>"; };
+		69779BEB2AE68E6900D7A48E /* UIViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -278,6 +280,7 @@
 				69261D222AD9784200232EC7 /* PostHogVersion.swift */,
 				69261D242AD9787A00232EC7 /* PostHogExtensions.swift */,
 				6926DA8D2ADD2876005760D2 /* PostHogContext.swift */,
+				69779BEB2AE68E6900D7A48E /* UIViewController.swift */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -481,6 +484,7 @@
 				3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */,
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
 				69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */,
+				69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */,
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
 				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
 				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,

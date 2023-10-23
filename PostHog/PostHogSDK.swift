@@ -95,6 +95,7 @@ let maxRetryDelay = 30.0
             queue?.start()
 
             registerNotifications()
+            captureScreenViews()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -562,7 +563,7 @@ let maxRetryDelay = 30.0
 
     private func captureScreenViews() {
         if config.captureScreenViews {
-//            swizzle(selector: #selector(), with: <#T##Selector#>, inClass: <#T##AnyClass#>, usingClass: <#T##AnyClass#>)
+            UIViewController.swizzleScreenView()
         }
     }
 

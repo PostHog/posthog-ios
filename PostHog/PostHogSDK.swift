@@ -49,7 +49,7 @@ let maxRetryDelay = 30.0
         self.reachability?.stopNotifier()
     }
 
-    @objc public func debug(enabled: Bool = true) {
+    @objc public func debug(_ enabled: Bool = true) {
         if !isEnabled() {
             return
         }
@@ -240,10 +240,30 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public func identify(_ distinctId: String,
-                               properties _: [String: Any]? = nil,
-                               userProperties: [String: Any]? = nil,
-                               userPropertiesSetOnce: [String: Any]? = nil)
+    @objc public func identify(_ distinctId: String) {
+        identify(distinctId, properties: nil, userProperties: nil, userPropertiesSetOnce: nil)
+    }
+
+    @objc(distinctId:properties:)
+    public func identify(_ distinctId: String,
+                         properties: [String: Any]? = nil)
+    {
+        identify(distinctId, properties: properties, userProperties: nil, userPropertiesSetOnce: nil)
+    }
+
+    @objc(distinctId:properties:userProperties:)
+    public func identify(_ distinctId: String,
+                         properties: [String: Any]? = nil,
+                         userProperties: [String: Any]? = nil)
+    {
+        identify(distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil)
+    }
+
+    @objc(distinctId:properties:userProperties:userPropertiesSetOnce:)
+    public func identify(_ distinctId: String,
+                         properties _: [String: Any]? = nil,
+                         userProperties: [String: Any]? = nil,
+                         userPropertiesSetOnce: [String: Any]? = nil)
     {
         if !isEnabled() {
             return
@@ -272,11 +292,40 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public func capture(_ event: String,
-                              properties: [String: Any]? = nil,
-                              userProperties: [String: Any]? = nil,
-                              userPropertiesSetOnce: [String: Any]? = nil,
-                              groupProperties: [String: Any]? = nil)
+    @objc public func capture(_ event: String) {
+        capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
+    }
+
+    @objc(event:properties:)
+    public func capture(_ event: String,
+                        properties: [String: Any]? = nil)
+    {
+        capture(event, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
+    }
+
+    @objc(event:properties:userProperties:)
+    public func capture(_ event: String,
+                        properties: [String: Any]? = nil,
+                        userProperties: [String: Any]? = nil)
+    {
+        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groupProperties: nil)
+    }
+
+    @objc(event:properties:userProperties:userPropertiesSetOnce:)
+    public func capture(_ event: String,
+                        properties: [String: Any]? = nil,
+                        userProperties: [String: Any]? = nil,
+                        userPropertiesSetOnce: [String: Any]? = nil)
+    {
+        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groupProperties: nil)
+    }
+
+    @objc(event:properties:userProperties:userPropertiesSetOnce:groupProperties:)
+    public func capture(_ event: String,
+                        properties: [String: Any]? = nil,
+                        userProperties: [String: Any]? = nil,
+                        userPropertiesSetOnce: [String: Any]? = nil,
+                        groupProperties: [String: Any]? = nil)
     {
         if !isEnabled() {
             return
@@ -294,8 +343,13 @@ let maxRetryDelay = 30.0
                                         groupProperties: groupProperties)
         ))
     }
+    
+    @objc public func screen(_ screenTitle: String) {
+        screen(screenTitle, properties: nil)
+    }
 
-    @objc public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
+    @objc(screenTitle:properties:)
+    public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -314,8 +368,13 @@ let maxRetryDelay = 30.0
             properties: buildProperties(properties: props)
         ))
     }
+    
+    @objc public func alias(_ alias: String) {
+        self.alias(alias, properties: nil)
+    }
 
-    @objc public func alias(_ alias: String, properties: [String: Any]? = nil) {
+    @objc(alias:properties:)
+    public func alias(_ alias: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }

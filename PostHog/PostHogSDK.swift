@@ -219,7 +219,9 @@ let maxRetryDelay = 30.0
         return props
     }
 
-    @objc public func register(_ properties: [String: Any]) {
+    // register is a reserved word in ObjC
+    @objc(registerProperty:)
+    public func register(_ properties: [String: Any]) {
         if !isEnabled() {
             return
         }
@@ -232,7 +234,8 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public func unregister(_ key: String) {
+    @objc(unregisterProperty:)
+    public func unregister(_ key: String) {
         personPropsLock.withLock {
             var props = getRegisteredProperties()
             props.removeValue(forKey: key)
@@ -244,14 +247,14 @@ let maxRetryDelay = 30.0
         identify(distinctId, properties: nil, userProperties: nil, userPropertiesSetOnce: nil)
     }
 
-    @objc(distinctId:properties:)
+    @objc(identifyWithDistinctId:properties:)
     public func identify(_ distinctId: String,
                          properties: [String: Any]? = nil)
     {
         identify(distinctId, properties: properties, userProperties: nil, userPropertiesSetOnce: nil)
     }
 
-    @objc(distinctId:properties:userProperties:)
+    @objc(identifyWithDistinctId:properties:userProperties:)
     public func identify(_ distinctId: String,
                          properties: [String: Any]? = nil,
                          userProperties: [String: Any]? = nil)
@@ -259,7 +262,7 @@ let maxRetryDelay = 30.0
         identify(distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil)
     }
 
-    @objc(distinctId:properties:userProperties:userPropertiesSetOnce:)
+    @objc(identifyWithDistinctId:properties:userProperties:userPropertiesSetOnce:)
     public func identify(_ distinctId: String,
                          properties _: [String: Any]? = nil,
                          userProperties: [String: Any]? = nil,
@@ -296,14 +299,14 @@ let maxRetryDelay = 30.0
         capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
     }
 
-    @objc(event:properties:)
+    @objc(captureWithEvent:properties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil)
     {
         capture(event, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
     }
 
-    @objc(event:properties:userProperties:)
+    @objc(captureWithEvent:properties:userProperties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil)
@@ -311,7 +314,7 @@ let maxRetryDelay = 30.0
         capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groupProperties: nil)
     }
 
-    @objc(event:properties:userProperties:userPropertiesSetOnce:)
+    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
@@ -320,7 +323,7 @@ let maxRetryDelay = 30.0
         capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groupProperties: nil)
     }
 
-    @objc(event:properties:userProperties:userPropertiesSetOnce:groupProperties:)
+    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groupProperties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
@@ -343,12 +346,12 @@ let maxRetryDelay = 30.0
                                         groupProperties: groupProperties)
         ))
     }
-    
+
     @objc public func screen(_ screenTitle: String) {
         screen(screenTitle, properties: nil)
     }
 
-    @objc(screenTitle:properties:)
+    @objc(screenWithTitle:properties:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
             return
@@ -368,12 +371,12 @@ let maxRetryDelay = 30.0
             properties: buildProperties(properties: props)
         ))
     }
-    
+
     @objc public func alias(_ alias: String) {
         self.alias(alias, properties: nil)
     }
 
-    @objc(alias:properties:)
+    @objc(aliasWithAlias:properties:)
     public func alias(_ alias: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
             return
@@ -422,7 +425,7 @@ let maxRetryDelay = 30.0
         return mergedGroups ?? [:]
     }
 
-    @objc public func groupIdentify(type: String, key: String, groupProperties: [String: Any]? = nil) {
+    private func groupIdentify(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -442,7 +445,13 @@ let maxRetryDelay = 30.0
         ))
     }
 
-    @objc public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
+    @objc(groupWithType:key:)
+    public func group(type: String, key: String) {
+        group(type: type, key: key, groupProperties: nil)
+    }
+
+    @objc(groupWithType:key:groupProperties:)
+    public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -456,12 +465,13 @@ let maxRetryDelay = 30.0
 
     // FEATURE FLAGS
     @objc public func reloadFeatureFlags() {
-        reloadFeatureFlags { _, _ in
+        reloadFeatureFlags {
             // No use case
         }
     }
 
-    @objc public func reloadFeatureFlags(_ completion: @escaping ([String: Any]?, [String: Any]?) -> Void) {
+    @objc(reloadFeatureFlagsWithCallback:)
+    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
         if !isEnabled() {
             return
         }
@@ -478,11 +488,11 @@ let maxRetryDelay = 30.0
             distinctId: sessionManager.getDistinctId(),
             anonymousId: sessionManager.getAnonymousId(),
             groups: groups ?? [:],
-            completion: completion
+            callback: callback
         )
     }
 
-    @objc public func getFeatureFlag(_ flagKey: String) -> Any? {
+    @objc public func getFeatureFlag(_ key: String) -> Any? {
         if !isEnabled() {
             return nil
         }
@@ -491,16 +501,16 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        let value = featureFlags.getFeatureFlag(flagKey)
+        let value = featureFlags.getFeatureFlag(key)
 
         if config.sendFeatureFlagEvent {
-            reportFeatureFlagCalled(flagKey: flagKey, flagValue: value)
+            reportFeatureFlagCalled(flagKey: key, flagValue: value)
         }
 
         return value
     }
 
-    @objc public func isFeatureEnabled(_ flagKey: String) -> Bool {
+    @objc public func isFeatureEnabled(_ key: String) -> Bool {
         if !isEnabled() {
             return false
         }
@@ -509,10 +519,10 @@ let maxRetryDelay = 30.0
             return false
         }
 
-        return featureFlags.isFeatureEnabled(flagKey)
+        return featureFlags.isFeatureEnabled(key)
     }
 
-    @objc public func getFeatureFlagPayload(_ flagKey: String) -> Any? {
+    @objc public func getFeatureFlagPayload(_ key: String) -> Any? {
         if !isEnabled() {
             return nil
         }
@@ -521,7 +531,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        return featureFlags.getFeatureFlagPayload(flagKey)
+        return featureFlags.getFeatureFlagPayload(key)
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {

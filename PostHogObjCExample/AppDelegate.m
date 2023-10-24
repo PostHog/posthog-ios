@@ -52,9 +52,8 @@
     [[PostHogSDK shared] unregisterProperties:@"test2"];
     
     [[PostHogSDK shared] identify:@"my_new_id"];
-    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" properties:props];
-    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" properties:props userProperties:userProps];
-    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" properties:props userProperties:userProps userPropertiesSetOnce:userPropsOnce];
+    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" userProperties:userProps];
+    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" userProperties:userProps userPropertiesSetOnce:userPropsOnce];
     
     
     [[PostHogSDK shared] optIn];

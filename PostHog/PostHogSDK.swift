@@ -244,27 +244,18 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func identify(_ distinctId: String) {
-        identify(distinctId, properties: nil, userProperties: nil, userPropertiesSetOnce: nil)
+        identify(distinctId, userProperties: nil, userPropertiesSetOnce: nil)
     }
 
-    @objc(identifyWithDistinctId:properties:)
+    @objc(identifyWithDistinctId:userProperties:)
     public func identify(_ distinctId: String,
-                         properties: [String: Any]? = nil)
-    {
-        identify(distinctId, properties: properties, userProperties: nil, userPropertiesSetOnce: nil)
-    }
-
-    @objc(identifyWithDistinctId:properties:userProperties:)
-    public func identify(_ distinctId: String,
-                         properties: [String: Any]? = nil,
                          userProperties: [String: Any]? = nil)
     {
-        identify(distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil)
+        identify(distinctId, userProperties: userProperties, userPropertiesSetOnce: nil)
     }
 
-    @objc(identifyWithDistinctId:properties:userProperties:userPropertiesSetOnce:)
+    @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:)
     public func identify(_ distinctId: String,
-                         properties _: [String: Any]? = nil,
                          userProperties: [String: Any]? = nil,
                          userPropertiesSetOnce: [String: Any]? = nil)
     {

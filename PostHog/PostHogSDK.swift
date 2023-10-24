@@ -220,7 +220,7 @@ let maxRetryDelay = 30.0
     }
 
     // register is a reserved word in ObjC
-    @objc(registerProperty:)
+    @objc(registerProperties:)
     public func register(_ properties: [String: Any]) {
         if !isEnabled() {
             return
@@ -234,7 +234,7 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc(unregisterProperty:)
+    @objc(unregisterProperties:)
     public func unregister(_ key: String) {
         personPropsLock.withLock {
             var props = getRegisteredProperties()
@@ -373,11 +373,6 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func alias(_ alias: String) {
-        self.alias(alias, properties: nil)
-    }
-
-    @objc(aliasWithAlias:properties:)
-    public func alias(_ alias: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -386,9 +381,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        let props = [
-            "alias": alias,
-        ].merging(properties ?? [:]) { prop, _ in prop }
+        let props = ["alias": alias]
 
         queue.add(PostHogEvent(
             event: "$create_alias",

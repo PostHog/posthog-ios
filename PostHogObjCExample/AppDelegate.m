@@ -48,8 +48,8 @@
 
     NSMutableDictionary *registerProps = [NSMutableDictionary dictionary];
     props[@"loggedIn"] = @YES;
-    [[PostHogSDK shared] registerProperty:registerProps];
-    [[PostHogSDK shared] unregisterProperty:@"test2"];
+    [[PostHogSDK shared] registerProperties:registerProps];
+    [[PostHogSDK shared] unregisterProperties:@"test2"];
     
     [[PostHogSDK shared] identify:@"my_new_id"];
     [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" properties:props];
@@ -79,7 +79,6 @@
     [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey" groupProperties:groupProps];
     
     [[PostHogSDK shared] alias:@"theAlias"];
-    [[PostHogSDK shared] aliasWithAlias:@"theAlias" properties:props];
     
     [[PostHogSDK shared] screen:@"theScreen"];
     [[PostHogSDK shared] screenWithTitle:@"theScreen" properties:props];

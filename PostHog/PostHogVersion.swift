@@ -7,4 +7,4 @@
 
 import Foundation
 
-let postHogVersion = "3.0.0"
+let postHogVersion = "3.0.0-alpha.1"

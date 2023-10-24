@@ -14,7 +14,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let defaultCenter = NotificationCenter.default
 
         defaultCenter.addObserver(self,
-                                  selector: #selector(self.receiveFeatureFlags),
+                                  selector: #selector(receiveFeatureFlags),
                                   name: PostHogSDK.didReceiveFeatureFlags,
                                   object: nil)
 

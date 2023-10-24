@@ -79,6 +79,13 @@
 			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
 			remoteInfo = PostHog;
 		};
+		690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 690FF01E2AE7C5B900A0B06B;
+			remoteInfo = PostHogExampleWithPods;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -133,6 +140,7 @@
 		3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorage.swift; sourceTree = "<group>"; };
 		3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageTest.swift; sourceTree = "<group>"; };
 		3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManager.swift; sourceTree = "<group>"; };
+		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
@@ -236,6 +244,7 @@
 		3AC745AB296D6FE60025C109 = {
 			isa = PBXGroup;
 			children = (
+				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
 				3AAFB13129C0C699004F485B /* Package.swift */,
 				3AC745B7296D6FE60025C109 /* PostHog */,
 				3AC745C3296D6FE60025C109 /* PostHogTests */,
@@ -291,6 +300,14 @@
 				3A62647029CAF67B007E8C07 /* SessionManagerTest.swift */,
 			);
 			path = PostHogTests;
+			sourceTree = "<group>";
+		};
+		690FF0302AE7C5BA00A0B06B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 		69261D152AD92D6C00232EC7 /* Frameworks */ = {
@@ -428,6 +445,12 @@
 			);
 			productRefGroup = 3AC745B6296D6FE60025C109 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 690FF0302AE7C5BA00A0B06B /* Products */;
+					ProjectRef = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				3AC745B4296D6FE60025C109 /* PostHog */,
@@ -436,6 +459,16 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = PostHogExampleWithPods.app;
+			remoteRef = 690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		3AA34CF5296D951A003398F4 /* Resources */ = {

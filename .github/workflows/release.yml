@@ -1,0 +1,38 @@
+name: 'Release'
+on:
+  release:
+    # runs for stable and pre-releases
+    types: [published]
+
+jobs:
+  cancel-previous-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@01ce38bf961b4e243a6342cbade0dbc8ba3f0432 # pin@0.12.0
+        with:
+          access_token: ${{ github.token }}
+
+  release:
+    name: Release
+    runs-on: macos-latest
+    env:
+      COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using Manoel's token for now
+
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Install Cocoapods
+        run: gem install cocoapods
+
+      - name: Update version
+        run: ./scripts/bump-version.sh ${{ github.event.release.tag_name }}
+
+      - name: Commit & push
+        run: |
+          echo "Tag name from github.ref_name: ${{ github.event.release.target_commitish }}"
+          ./scripts/commit-code.sh ${{ github.event.release.target_commitish }}
+  
+      - name: Release
+        run: make releaseCocoaPods

@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExample format swiftLint swiftFormat test lint bootstrap
+.PHONY: build buildSdk buildExample format swiftLint swiftFormat test lint bootstrap releaseCocoaPods
 
 build: buildSdk buildExample
 
@@ -27,3 +27,6 @@ bootstrap:
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
+
+releaseCocoaPods:
+	pod trunk push PostHog.podspec --allow-warnings

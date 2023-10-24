@@ -8,6 +8,7 @@
 import Nimble
 @testable import PostHog
 import Quick
+import Foundation
 
 class SessionManagerTest: QuickSpec {
     override func spec() {

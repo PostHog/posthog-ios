@@ -27,7 +27,9 @@
  THE SOFTWARE.
  */
 
-import struct Foundation.Data
+// issues importing scoped classes
+//import struct Foundation.Data
+import Foundation
 
 #if os(Linux)
     import zlibLinux

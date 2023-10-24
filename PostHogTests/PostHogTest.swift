@@ -1,5 +1,6 @@
 import Nimble
 import Quick
+import Foundation
 
 @testable import PostHog
 

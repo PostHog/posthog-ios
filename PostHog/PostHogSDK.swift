@@ -226,10 +226,14 @@ let maxRetryDelay = 30.0
             return
         }
 
+        let sanitizedProps = sanitizeDicionary(properties)
+        if sanitizedProps == nil {
+            return
+        }
+
         personPropsLock.withLock {
-            // TODO: Sanitise props for storage
             let props = getRegisteredProperties()
-            let mergedProps = props.merging(properties) { _, new in new }
+            let mergedProps = props.merging(sanitizedProps) { _, new in new }
             storage?.setDictionary(forKey: .registerProperties, contents: mergedProps)
         }
     }
@@ -274,7 +278,7 @@ let maxRetryDelay = 30.0
             properties: buildProperties(properties: [
                 "distinct_id": distinctId,
                 "$anon_distinct_id": getAnonymousId(),
-            ], userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+            ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
         ))
 
         if distinctId != oldDistinctId {
@@ -331,10 +335,10 @@ let maxRetryDelay = 30.0
         queue.add(PostHogEvent(
             event: event,
             distinctId: getDistinctId(),
-            properties: buildProperties(properties: properties,
-                                        userProperties: userProperties,
-                                        userPropertiesSetOnce: userPropertiesSetOnce,
-                                        groupProperties: groupProperties)
+            properties: buildProperties(properties: sanitizeDicionary(properties),
+                                        userProperties: sanitizeDicionary(userProperties),
+                                        userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
+                                        groupProperties: sanitizeDicionary(groupProperties))
         ))
     }
 
@@ -354,7 +358,7 @@ let maxRetryDelay = 30.0
 
         let props = [
             "$screen_name": screenTitle,
-        ].merging(properties ?? [:]) { prop, _ in prop }
+        ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
         queue.add(PostHogEvent(
             event: "$screen",
@@ -417,15 +421,21 @@ let maxRetryDelay = 30.0
         guard let queue = queue else {
             return
         }
+
+        var props: [String: Any] = ["$group_type": type,
+                                    "$group_key": key]
+
+        var groupProps = sanitizeDicionary(groupProperties)
+
+        if groupProps != nil {
+            props["$group_set"] = groupProps
+        }
+
         // Same as .group but without associating the current user with the group
         queue.add(PostHogEvent(
             event: "$groupidentify",
             distinctId: getDistinctId(),
-            properties: buildProperties(properties: [
-                "$group_type": type,
-                "$group_key": key,
-                "$group_set": groupProperties ?? [],
-            ])
+            properties: buildProperties(properties: props)
         ))
     }
 
@@ -443,7 +453,7 @@ let maxRetryDelay = 30.0
         _ = groups([type: key])
 
         if groupProperties != nil {
-            groupIdentify(type: type, key: key, groupProperties: groupProperties)
+            groupIdentify(type: type, key: key, groupProperties: sanitizeDicionary(groupProperties))
         }
     }
 
@@ -722,5 +732,13 @@ let maxRetryDelay = 30.0
             return
         }
         capture("Application Backgrounded")
+    }
+
+    private func sanitizeDicionary(_ dict: [String: Any]?) -> [String: Any]? {
+        if dict == nil || dict!.isEmpty || !JSONSerialization.isValidJSONObject(dict!) {
+            return nil
+        }
+
+        return dict
     }
 }

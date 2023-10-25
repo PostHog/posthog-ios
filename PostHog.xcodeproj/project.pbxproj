@@ -12,14 +12,12 @@
 		3A0F108929C9BD76002C0084 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108829C9BD76002C0084 /* Errors.swift */; };
 		3A2BCF4C299E4E35008BB5F3 /* QueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF4B299E4E35008BB5F3 /* QueueTest.swift */; };
 		3A2BCF52299F7724008BB5F3 /* CodableUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */; };
-		3A4F510D299A78E100B68D5E /* NSData+PHGGZIP.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A580B3F29E481F200C5C6F3 /* OHHTTPStubs in Frameworks */ = {isa = PBXBuildFile; productRef = 3A580B3E29E481F200C5C6F3 /* OHHTTPStubs */; };
 		3A580B4129E481F200C5C6F3 /* OHHTTPStubsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 3A580B4029E481F200C5C6F3 /* OHHTTPStubsSwift */; };
 		3A580B4329E489D000C5C6F3 /* URLSession+body.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A580B4229E489D000C5C6F3 /* URLSession+body.swift */; };
 		3A62646429C9E0E7007E8C07 /* PostHogTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646329C9E0E7007E8C07 /* PostHogTest.swift */; };
 		3A62646729C9E36B007E8C07 /* Shock in Frameworks */ = {isa = PBXBuildFile; productRef = 3A62646629C9E36B007E8C07 /* Shock */; };
 		3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646929C9E385007E8C07 /* MockPostHogServer.swift */; };
-		3A62646F29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646E29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m */; };
 		3A62647129CAF67B007E8C07 /* SessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647029CAF67B007E8C07 /* SessionManagerTest.swift */; };
 		3A62647329CB0043007E8C07 /* CaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647229CB0043007E8C07 /* CaptureTests.swift */; };
 		3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647429CB0168007E8C07 /* TestPostHog.swift */; };
@@ -38,7 +36,6 @@
 		3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB2B2991320300AFFC18 /* Api.swift */; };
 		3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB322991388500AFFC18 /* PostHogQueue.swift */; };
 		3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */; };
-		3AE3FB3B29924CE100AFFC18 /* NSData+PHGGZIP.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */; };
 		3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3C29924E8200AFFC18 /* PostHogSDK.swift */; };
 		3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */; };
 		3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB422992985A00AFFC18 /* Reachability.swift */; };
@@ -46,6 +43,7 @@
 		3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */; };
 		3AE3FB4B2993A68500AFFC18 /* StorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */; };
 		3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */; };
+		690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */; };
 		69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */; };
 		69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */; };
 		69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */; };
@@ -95,6 +93,13 @@
 			remoteGlobalIDString = 690FF01E2AE7C5B900A0B06B;
 			remoteInfo = PostHogExampleWithPods;
 		};
+		690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 690FF0422AE7DB3600A0B06B;
+			remoteInfo = PostHogExampleWithSPM;
+		};
 		69278D4D2AE6BC9000BB541A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
@@ -138,9 +143,6 @@
 		3A580B4229E489D000C5C6F3 /* URLSession+body.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+body.swift"; sourceTree = "<group>"; };
 		3A62646329C9E0E7007E8C07 /* PostHogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogTest.swift; sourceTree = "<group>"; };
 		3A62646929C9E385007E8C07 /* MockPostHogServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPostHogServer.swift; sourceTree = "<group>"; };
-		3A62646C29C9ECD9007E8C07 /* PostHogTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogTests-Bridging-Header.h"; sourceTree = "<group>"; };
-		3A62646D29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+PHGGUNZIPP.h"; sourceTree = "<group>"; };
-		3A62646E29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+PHGGUNZIPP.m"; sourceTree = "<group>"; };
 		3A62647029CAF67B007E8C07 /* SessionManagerTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManagerTest.swift; sourceTree = "<group>"; };
 		3A62647229CB0043007E8C07 /* CaptureTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CaptureTests.swift; sourceTree = "<group>"; };
 		3A62647429CB0168007E8C07 /* TestPostHog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPostHog.swift; sourceTree = "<group>"; };
@@ -158,8 +160,6 @@
 		3AE3FB2B2991320300AFFC18 /* Api.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Api.swift; sourceTree = "<group>"; };
 		3AE3FB322991388500AFFC18 /* PostHogQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueue.swift; sourceTree = "<group>"; };
 		3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApi.swift; sourceTree = "<group>"; };
-		3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+PHGGZIP.h"; sourceTree = "<group>"; };
-		3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+PHGGZIP.m"; sourceTree = "<group>"; };
 		3AE3FB3C29924E8200AFFC18 /* PostHogSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDK.swift; sourceTree = "<group>"; };
 		3AE3FB3E29924F4F00AFFC18 /* PostHogConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfig.swift; sourceTree = "<group>"; };
 		3AE3FB422992985A00AFFC18 /* Reachability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
@@ -168,6 +168,8 @@
 		3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageTest.swift; sourceTree = "<group>"; };
 		3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManager.swift; sourceTree = "<group>"; };
 		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
+		690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithSPM.xcodeproj; path = PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj; sourceTree = "<group>"; };
+		690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Gzip.swift"; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
@@ -242,11 +244,8 @@
 		3A62646829C9E37A007E8C07 /* TestUtils */ = {
 			isa = PBXGroup;
 			children = (
-				3A62646D29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.h */,
-				3A62646E29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m */,
 				3A62646929C9E385007E8C07 /* MockPostHogServer.swift */,
 				3A62647429CB0168007E8C07 /* TestPostHog.swift */,
-				3A62646C29C9ECD9007E8C07 /* PostHogTests-Bridging-Header.h */,
 				3A580B4229E489D000C5C6F3 /* URLSession+body.swift */,
 			);
 			path = TestUtils;
@@ -277,13 +276,12 @@
 		3AA4C09B2988315D006C4731 /* Utils */ = {
 			isa = PBXGroup;
 			children = (
-				3AE3FB3829924CE100AFFC18 /* NSData+PHGGZIP.h */,
-				3AE3FB3929924CE100AFFC18 /* NSData+PHGGZIP.m */,
 				3AE3FB422992985A00AFFC18 /* Reachability.swift */,
 				3AE3FB462992AB0000AFFC18 /* Hedgelog.swift */,
 				3A2BCF51299F7724008BB5F3 /* CodableUtils.swift */,
 				3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */,
 				3A0F108829C9BD76002C0084 /* Errors.swift */,
+				690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -291,6 +289,7 @@
 		3AC745AB296D6FE60025C109 = {
 			isa = PBXGroup;
 			children = (
+				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
 				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
 				3AAFB13129C0C699004F485B /* Package.swift */,
 				3AC745B7296D6FE60025C109 /* PostHog */,
@@ -359,6 +358,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		690FF0542AE7DB3700A0B06B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		69261D152AD92D6C00232EC7 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -400,7 +407,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
-				3A4F510D299A78E100B68D5E /* NSData+PHGGZIP.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -539,6 +545,10 @@
 					ProductGroup = 690FF0302AE7C5BA00A0B06B /* Products */;
 					ProjectRef = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
 				},
+				{
+					ProductGroup = 690FF0542AE7DB3700A0B06B /* Products */;
+					ProjectRef = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
+				},
 			);
 			projectRoot = "";
 			targets = (
@@ -556,6 +566,13 @@
 			fileType = wrapper.application;
 			path = PostHogExampleWithPods.app;
 			remoteRef = 690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = PostHogExampleWithSPM.app;
+			remoteRef = 690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -614,6 +631,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3A2BCF52299F7724008BB5F3 /* CodableUtils.swift in Sources */,
+				690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */,
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
 				69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */,
 				3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */,
@@ -628,7 +646,6 @@
 				3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */,
-				3AE3FB3B29924CE100AFFC18 /* NSData+PHGGZIP.m in Sources */,
 				69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */,
@@ -643,7 +660,6 @@
 			files = (
 				3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */,
 				3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */,
-				3A62646F29C9ECDA007E8C07 /* NSData+PHGGUNZIPP.m in Sources */,
 				3A62647129CAF67B007E8C07 /* SessionManagerTest.swift in Sources */,
 				3AE3FB4B2993A68500AFFC18 /* StorageTest.swift in Sources */,
 				3A580B4329E489D000C5C6F3 /* URLSession+body.swift in Sources */,
@@ -994,7 +1010,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/TestUtils/PostHogTests-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1022,7 +1038,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "PostHogTests/TestUtils/PostHogTests-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TVOS_DEPLOYMENT_TARGET = 13.0;

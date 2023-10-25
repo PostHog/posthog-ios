@@ -53,9 +53,14 @@ class PostHogApi {
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
         }
 
-        let gzippedPayload = NSData(data: data!).posthog_gzipped()
+        var gzippedPayload: Data?
+        do {
+            gzippedPayload = try data!.gzipped()
+        } catch {
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+        }
 
-        URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
             if error != nil {
                 return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
             }

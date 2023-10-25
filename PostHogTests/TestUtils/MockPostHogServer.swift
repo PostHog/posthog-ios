@@ -78,8 +78,12 @@ class MockPostHogServer {
     }
 
     func parseBatchRequest(_ context: URLRequest) -> [String: Any]? {
-        let data = NSData(data: context.body()!)
-        let unzippedData = data.posthog_gunzipped()
+        var unzippedData: Data?
+        do {
+            unzippedData = try context.body()!.gzipped()
+        } catch {
+            // its ok
+        }
 
         return try? JSONSerialization.jsonObject(with: unzippedData!, options: []) as? [String: Any]
     }

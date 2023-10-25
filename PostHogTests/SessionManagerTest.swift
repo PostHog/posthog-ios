@@ -5,6 +5,7 @@
 //  Created by Ben White on 22.03.23.
 //
 
+import Foundation
 import Nimble
 @testable import PostHog
 import Quick

@@ -1,12 +1,10 @@
 excluded: # case-sensitive paths to ignore during linting. Takes precedence over `included`
   - PostHogExample
+  - PostHogExampleWithSPM
   - PostHogTests
-  - PostHog/Recording
-  - PostHog/Utils/MethodSwizzler.swift
   - PostHog/Utils/ReadWriteLock.swift
   - PostHog/Utils/Reachability.swift
-  - PostHog/Utils/NSData+PHGGZIP.h
-  - PostHog/Utils/NSData+PHGGZIP.m
+  - PostHog/Utils/Data+Gzip.swift
   - .build
   - Pods
 

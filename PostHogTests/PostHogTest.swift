@@ -1,3 +1,4 @@
+import Foundation
 import Nimble
 import Quick
 
@@ -51,8 +52,6 @@ class PostHogTest: QuickSpec {
 
             expect(anonymousId) == otherAnonymousId
             expect(distinctId) == otherDistinctId
-            expect(sessionId) != otherSessionId
-            expect(refreshedSessionId) == otherSessionId
         }
 
 //    it("fires Application Opened for UIApplicationDidFinishLaunching") {

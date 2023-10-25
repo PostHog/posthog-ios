@@ -425,7 +425,7 @@ let maxRetryDelay = 30.0
         var props: [String: Any] = ["$group_type": type,
                                     "$group_key": key]
 
-        var groupProps = sanitizeDicionary(groupProperties)
+        let groupProps = sanitizeDicionary(groupProperties)
 
         if groupProps != nil {
             props["$group_set"] = groupProps

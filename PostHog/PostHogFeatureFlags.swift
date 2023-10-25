@@ -34,7 +34,7 @@ class PostHogFeatureFlags {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        completion: @escaping ([String: Any]?, [String: Any]?) -> Void
+        callback: @escaping () -> Void
     ) {
         isLoadingLock.withLock {
             if self.isLoadingFeatureFlags {
@@ -53,7 +53,7 @@ class PostHogFeatureFlags {
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
                     self.setLoading(false)
-                    return completion(nil, nil)
+                    return callback()
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
@@ -80,7 +80,7 @@ class PostHogFeatureFlags {
 
                 self.setLoading(false)
 
-                return completion(featureFlags, featureFlagPayloads)
+                return callback()
             }
         }
     }
@@ -94,13 +94,13 @@ class PostHogFeatureFlags {
         return flags
     }
 
-    func isFeatureEnabled(_ flagKey: String) -> Bool {
+    func isFeatureEnabled(_ key: String) -> Bool {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
             flags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
         }
 
-        let value = flags?[flagKey]
+        let value = flags?[key]
 
         if value != nil {
             let boolValue = value as? Bool ?? false
@@ -114,22 +114,22 @@ class PostHogFeatureFlags {
         }
     }
 
-    func getFeatureFlag(_ flagKey: String) -> Any? {
+    func getFeatureFlag(_ key: String) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
             flags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
         }
 
-        return flags?[flagKey]
+        return flags?[key]
     }
 
-    func getFeatureFlagPayload(_ flagKey: String) -> Any? {
+    func getFeatureFlagPayload(_ key: String) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
             flags = self.storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
         }
 
-        let value = flags?[flagKey]
+        let value = flags?[key]
 
         guard let stringValue = value as? String else {
             return value

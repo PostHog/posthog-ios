@@ -54,6 +54,15 @@
 		69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D222AD9784200232EC7 /* PostHogVersion.swift */; };
 		69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D242AD9787A00232EC7 /* PostHogExtensions.swift */; };
 		6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6926DA8D2ADD2876005760D2 /* PostHogContext.swift */; };
+		69278D362AE6BC7100BB541A /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 69278D352AE6BC7100BB541A /* AppDelegate.m */; };
+		69278D392AE6BC7100BB541A /* SceneDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 69278D382AE6BC7100BB541A /* SceneDelegate.m */; };
+		69278D3C2AE6BC7100BB541A /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 69278D3B2AE6BC7100BB541A /* ViewController.m */; };
+		69278D3F2AE6BC7100BB541A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 69278D3D2AE6BC7100BB541A /* Main.storyboard */; };
+		69278D412AE6BC7200BB541A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 69278D402AE6BC7200BB541A /* Assets.xcassets */; };
+		69278D442AE6BC7200BB541A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 69278D422AE6BC7200BB541A /* LaunchScreen.storyboard */; };
+		69278D472AE6BC7200BB541A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 69278D462AE6BC7200BB541A /* main.m */; };
+		69278D4B2AE6BC9000BB541A /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		69278D4C2AE6BC9000BB541A /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69779BEB2AE68E6900D7A48E /* UIViewController.swift */; };
 /* End PBXBuildFile section */
 
@@ -86,6 +95,13 @@
 			remoteGlobalIDString = 690FF01E2AE7C5B900A0B06B;
 			remoteInfo = PostHogExampleWithPods;
 		};
+		69278D4D2AE6BC9000BB541A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -96,6 +112,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		69278D4F2AE6BC9000BB541A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				69278D4C2AE6BC9000BB541A /* PostHog.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -149,6 +176,18 @@
 		69261D222AD9784200232EC7 /* PostHogVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogVersion.swift; sourceTree = "<group>"; };
 		69261D242AD9787A00232EC7 /* PostHogExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExtensions.swift; sourceTree = "<group>"; };
 		6926DA8D2ADD2876005760D2 /* PostHogContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogContext.swift; sourceTree = "<group>"; };
+		69278D322AE6BC7100BB541A /* PostHogObjCExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogObjCExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		69278D342AE6BC7100BB541A /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		69278D352AE6BC7100BB541A /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		69278D372AE6BC7100BB541A /* SceneDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SceneDelegate.h; sourceTree = "<group>"; };
+		69278D382AE6BC7100BB541A /* SceneDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SceneDelegate.m; sourceTree = "<group>"; };
+		69278D3A2AE6BC7100BB541A /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
+		69278D3B2AE6BC7100BB541A /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		69278D3E2AE6BC7100BB541A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		69278D402AE6BC7200BB541A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		69278D432AE6BC7200BB541A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		69278D452AE6BC7200BB541A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		69278D462AE6BC7200BB541A /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		69779BEB2AE68E6900D7A48E /* UIViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -178,6 +217,14 @@
 				3A62646729C9E36B007E8C07 /* Shock in Frameworks */,
 				3A867B7029C1DF73009D0852 /* Quick in Frameworks */,
 				3AC745C0296D6FE60025C109 /* PostHog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		69278D2F2AE6BC7100BB541A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69278D4B2AE6BC9000BB541A /* PostHog.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +296,7 @@
 				3AC745B7296D6FE60025C109 /* PostHog */,
 				3AC745C3296D6FE60025C109 /* PostHogTests */,
 				3AA34CF8296D951A003398F4 /* PostHogExample */,
+				69278D332AE6BC7100BB541A /* PostHogObjCExample */,
 				3AC745B6296D6FE60025C109 /* Products */,
 				69261D152AD92D6C00232EC7 /* Frameworks */,
 			);
@@ -260,6 +308,7 @@
 				3AC745B5296D6FE60025C109 /* PostHog.framework */,
 				3AC745BF296D6FE60025C109 /* PostHogTests.xctest */,
 				3AA34CF7296D951A003398F4 /* PostHogExample.app */,
+				69278D322AE6BC7100BB541A /* PostHogObjCExample.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -315,6 +364,24 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		69278D332AE6BC7100BB541A /* PostHogObjCExample */ = {
+			isa = PBXGroup;
+			children = (
+				69278D342AE6BC7100BB541A /* AppDelegate.h */,
+				69278D352AE6BC7100BB541A /* AppDelegate.m */,
+				69278D372AE6BC7100BB541A /* SceneDelegate.h */,
+				69278D382AE6BC7100BB541A /* SceneDelegate.m */,
+				69278D3A2AE6BC7100BB541A /* ViewController.h */,
+				69278D3B2AE6BC7100BB541A /* ViewController.m */,
+				69278D3D2AE6BC7100BB541A /* Main.storyboard */,
+				69278D402AE6BC7200BB541A /* Assets.xcassets */,
+				69278D422AE6BC7200BB541A /* LaunchScreen.storyboard */,
+				69278D452AE6BC7200BB541A /* Info.plist */,
+				69278D462AE6BC7200BB541A /* main.m */,
+			);
+			path = PostHogObjCExample;
 			sourceTree = "<group>";
 		};
 		69779BED2AE6B29E00D7A48E /* Models */ = {
@@ -405,6 +472,25 @@
 			productReference = 3AC745BF296D6FE60025C109 /* PostHogTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		69278D312AE6BC7100BB541A /* PostHogObjCExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 69278D482AE6BC7200BB541A /* Build configuration list for PBXNativeTarget "PostHogObjCExample" */;
+			buildPhases = (
+				69278D2E2AE6BC7100BB541A /* Sources */,
+				69278D2F2AE6BC7100BB541A /* Frameworks */,
+				69278D302AE6BC7100BB541A /* Resources */,
+				69278D4F2AE6BC9000BB541A /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				69278D4E2AE6BC9000BB541A /* PBXTargetDependency */,
+			);
+			name = PostHogObjCExample;
+			productName = PostHogObjCExample;
+			productReference = 69278D322AE6BC7100BB541A /* PostHogObjCExample.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -425,6 +511,9 @@
 					3AC745BE296D6FE60025C109 = {
 						CreatedOnToolsVersion = 14.2;
 						LastSwiftMigration = 1420;
+					};
+					69278D312AE6BC7100BB541A = {
+						CreatedOnToolsVersion = 15.0.1;
 					};
 				};
 			};
@@ -456,6 +545,7 @@
 				3AC745B4296D6FE60025C109 /* PostHog */,
 				3AC745BE296D6FE60025C109 /* PostHogTests */,
 				3AA34CF6296D951A003398F4 /* PostHogExample */,
+				69278D312AE6BC7100BB541A /* PostHogObjCExample */,
 			);
 		};
 /* End PBXProject section */
@@ -491,6 +581,16 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		69278D302AE6BC7100BB541A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69278D442AE6BC7200BB541A /* LaunchScreen.storyboard in Resources */,
+				69278D412AE6BC7200BB541A /* Assets.xcassets in Resources */,
+				69278D3F2AE6BC7100BB541A /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -554,6 +654,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		69278D2E2AE6BC7100BB541A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69278D3C2AE6BC7100BB541A /* ViewController.m in Sources */,
+				69278D362AE6BC7100BB541A /* AppDelegate.m in Sources */,
+				69278D472AE6BC7200BB541A /* main.m in Sources */,
+				69278D392AE6BC7100BB541A /* SceneDelegate.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -572,7 +683,31 @@
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = 3AC745C1296D6FE60025C109 /* PBXContainerItemProxy */;
 		};
+		69278D4E2AE6BC9000BB541A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = 69278D4D2AE6BC9000BB541A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		69278D3D2AE6BC7100BB541A /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				69278D3E2AE6BC7100BB541A /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		69278D422AE6BC7200BB541A /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				69278D432AE6BC7200BB541A /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		3AA34D03296D951B003398F4 /* Debug */ = {
@@ -894,6 +1029,68 @@
 			};
 			name = Release;
 		};
+		69278D492AE6BC7200BB541A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogObjCExample/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogObjCExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		69278D4A2AE6BC7200BB541A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogObjCExample/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogObjCExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -929,6 +1126,15 @@
 			buildConfigurations = (
 				3AC745CD296D6FE60025C109 /* Debug */,
 				3AC745CE296D6FE60025C109 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		69278D482AE6BC7200BB541A /* Build configuration list for PBXNativeTarget "PostHogObjCExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				69278D492AE6BC7200BB541A /* Debug */,
+				69278D4A2AE6BC7200BB541A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

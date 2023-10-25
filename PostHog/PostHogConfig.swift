@@ -28,6 +28,15 @@ import Foundation
     @objc public var optOut: Bool = false
     public static let defaultHost: String = "https://app.posthog.com"
 
+    @objc(apiKey:)
+    public init(
+        apiKey: String
+    ) {
+        self.apiKey = apiKey
+        host = URL(string: PostHogConfig.defaultHost)!
+    }
+
+    @objc(apiKey:host:)
     public init(
         apiKey: String,
         host: String = defaultHost

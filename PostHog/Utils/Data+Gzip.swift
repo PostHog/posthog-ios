@@ -28,7 +28,7 @@
  */
 
 // issues importing scoped classes
-//import struct Foundation.Data
+// import struct Foundation.Data
 import Foundation
 
 #if os(Linux)

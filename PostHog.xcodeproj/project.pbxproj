@@ -86,19 +86,19 @@
 			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
 			remoteInfo = PostHog;
 		};
-		690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = 690FF0422AE7DB3600A0B06B;
-			remoteInfo = PostHogExampleWithSPM;
-		};
 		690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = 690FF01E2AE7C5B900A0B06B;
 			remoteInfo = PostHogExampleWithPods;
+		};
+		690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 690FF0422AE7DB3600A0B06B;
+			remoteInfo = PostHogExampleWithSPM;
 		};
 		69278D4D2AE6BC9000BB541A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -167,12 +167,9 @@
 		3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorage.swift; sourceTree = "<group>"; };
 		3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageTest.swift; sourceTree = "<group>"; };
 		3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManager.swift; sourceTree = "<group>"; };
-<<<<<<< HEAD
+		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
 		690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithSPM.xcodeproj; path = PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj; sourceTree = "<group>"; };
 		690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Gzip.swift"; sourceTree = "<group>"; };
-=======
-		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
->>>>>>> v3.0.0
 		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
@@ -292,11 +289,8 @@
 		3AC745AB296D6FE60025C109 = {
 			isa = PBXGroup;
 			children = (
-<<<<<<< HEAD
 				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
-=======
 				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
->>>>>>> v3.0.0
 				3AAFB13129C0C699004F485B /* Package.swift */,
 				3AC745B7296D6FE60025C109 /* PostHog */,
 				3AC745C3296D6FE60025C109 /* PostHogTests */,
@@ -356,17 +350,18 @@
 			path = PostHogTests;
 			sourceTree = "<group>";
 		};
-<<<<<<< HEAD
-		690FF0542AE7DB3700A0B06B /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */,
-=======
 		690FF0302AE7C5BA00A0B06B /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */,
->>>>>>> v3.0.0
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		690FF0542AE7DB3700A0B06B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -547,13 +542,12 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-<<<<<<< HEAD
-					ProductGroup = 690FF0542AE7DB3700A0B06B /* Products */;
-					ProjectRef = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
-=======
 					ProductGroup = 690FF0302AE7C5BA00A0B06B /* Products */;
 					ProjectRef = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
->>>>>>> v3.0.0
+				},
+				{
+					ProductGroup = 690FF0542AE7DB3700A0B06B /* Products */;
+					ProjectRef = 690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -567,19 +561,18 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-<<<<<<< HEAD
-		690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.application;
-			path = PostHogExampleWithSPM.app;
-			remoteRef = 690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */;
-=======
 		690FF0342AE7C5BB00A0B06B /* PostHogExampleWithPods.app */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.application;
 			path = PostHogExampleWithPods.app;
 			remoteRef = 690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */;
->>>>>>> v3.0.0
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = PostHogExampleWithSPM.app;
+			remoteRef = 690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */

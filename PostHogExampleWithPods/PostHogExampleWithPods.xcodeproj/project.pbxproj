@@ -12,6 +12,7 @@
 		690FF0262AE7C5BA00A0B06B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 690FF0252AE7C5BA00A0B06B /* Assets.xcassets */; };
 		690FF0292AE7C5BA00A0B06B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 690FF0282AE7C5BA00A0B06B /* Preview Assets.xcassets */; };
 		690FF0362AE7C61300A0B06B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0352AE7C61300A0B06B /* AppDelegate.swift */; };
+		C0A3DD993CB1FDADCC4FA4A3 /* Pods_PostHogExampleWithPods.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 232850674C6F805AF056B5E2 /* Pods_PostHogExampleWithPods.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0A3DD993CB1FDADCC4FA4A3 /* Pods_PostHogExampleWithPods.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

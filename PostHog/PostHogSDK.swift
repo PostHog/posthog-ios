@@ -233,7 +233,7 @@ let maxRetryDelay = 30.0
 
         personPropsLock.withLock {
             let props = getRegisteredProperties()
-            let mergedProps = props.merging(sanitizedProps) { _, new in new }
+            let mergedProps = props.merging(sanitizedProps!) { _, new in new }
             storage?.setDictionary(forKey: .registerProperties, contents: mergedProps)
         }
     }

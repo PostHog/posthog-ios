@@ -735,8 +735,11 @@ let maxRetryDelay = 30.0
     }
 
     private func sanitizeDicionary(_ dict: [String: Any]?) -> [String: Any]? {
-        if dict == nil || dict!.isEmpty || !JSONSerialization.isValidJSONObject(dict!) {
+        if dict == nil || dict!.isEmpty {
             return nil
+        }
+        if !JSONSerialization.isValidJSONObject(dict!) {
+            hedgeLog("Properties: \(dict!) are not serializable, dropping those items.")
         }
 
         return dict

@@ -20,7 +20,7 @@ class FeatureFlagTests: QuickSpec {
             posthog = harness.posthog
 
             let expectation = self.expectation(description: "Waits for flags")
-            posthog.reloadFeatureFlags { _, _ in
+            posthog.reloadFeatureFlags {
                 expectation.fulfill()
             }
 

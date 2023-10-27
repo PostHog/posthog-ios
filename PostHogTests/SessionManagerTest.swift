@@ -15,12 +15,6 @@ class SessionManagerTest: QuickSpec {
         var sessionManager: PostHogSessionManager!
         var config: PostHogConfig!
 
-        func changeSessionLastTimestamp(timeToAdd: TimeInterval) {
-            // Forcefully set the timestamp to the past
-            let olderSessionTimestamp = Date().addingTimeInterval(timeToAdd).timeIntervalSince1970
-            PostHogStorage(config).setNumber(forKey: .sessionlastTimestamp, contents: Double(olderSessionTimestamp))
-        }
-
         beforeEach {
             config = PostHogConfig(apiKey: "test")
             sessionManager = PostHogSessionManager(config: config)

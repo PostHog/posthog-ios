@@ -44,6 +44,7 @@
 		3AE3FB4B2993A68500AFFC18 /* StorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4A2993A68500AFFC18 /* StorageTest.swift */; };
 		3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4D2993D1D600AFFC18 /* PostHogSessionManager.swift */; };
 		690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */; };
+		690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */; };
 		69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */; };
 		69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */; };
 		69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */; };
@@ -170,6 +171,7 @@
 		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
 		690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithSPM.xcodeproj; path = PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj; sourceTree = "<group>"; };
 		690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Gzip.swift"; sourceTree = "<group>"; };
+		690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtils.swift; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
@@ -282,6 +284,7 @@
 				3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */,
 				3A0F108829C9BD76002C0084 /* Errors.swift */,
 				690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */,
+				690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -641,6 +644,7 @@
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
 				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
 				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,
+				690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */,
 				69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */,
 				3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */,
 				3AE3FB3D29924E8200AFFC18 /* PostHogSDK.swift in Sources */,

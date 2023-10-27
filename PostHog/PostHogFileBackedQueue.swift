@@ -21,12 +21,14 @@ class PostHogFileBackedQueue {
         setup(oldQueue: oldQueue)
     }
 
-    private func setup(oldQueue: URL) {
+    private func setup(oldQueue: URL?) {
         if !FileManager.default.fileExists(atPath: queue.path) {
             try? FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
         }
 
-        migrateOldQueue(oldQueue)
+        if oldQueue != nil {
+            migrateOldQueue(oldQueue!)
+        }
 
         do {
             items = try FileManager.default.contentsOfDirectory(atPath: queue.path)
@@ -54,6 +56,7 @@ class PostHogFileBackedQueue {
             let array = try JSONSerialization.jsonObject(with: data) as? [Any]
 
             if array == nil {
+                deleteFiles = true
                 return
             }
 
@@ -112,7 +115,7 @@ class PostHogFileBackedQueue {
         if FileManager.default.fileExists(atPath: queue.path) {
             try? FileManager.default.removeItem(at: queue)
         }
-//        setup()
+        setup(oldQueue: nil)
     }
 
     private func loadFiles(_ count: Int) -> [Data] {

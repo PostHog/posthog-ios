@@ -17,15 +17,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()
-//        let props: [String : Any] = ["test": 1,
-//                                     "test2": 2.1,
-//                                     "test3": "test",
-//                                     "test4": true,
-//                                     "test5": [1, 2, 3],
-//                                     "test6": ["one": 1]]
-        let defaultCenter = NotificationCenter.default
-        let props: [String: Any] = ["not": defaultCenter, "url": URL(string: "123")!]
-        PostHogSDK.shared.capture("App started!", properties: props)
+//        PostHogSDK.shared.capture("App started!")
 
 //        DispatchQueue.global(qos: .utility).async {
 //            let task = Api().failingRequest()
@@ -36,6 +28,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //                "iteration": iteration
 //            ])
 //        }
+
+        let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,

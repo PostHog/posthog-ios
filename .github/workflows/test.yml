@@ -1,4 +1,4 @@
-name: Build Examples
+name: Tests
 on:
   push:
     branches:
@@ -7,12 +7,16 @@ on:
       - v3.0.0
   pull_request:
 jobs:
-  build:
+  test:
     runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
+
+      - uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: "5.9.0"
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.0'
-      - name: Build Example
-        run: make buildExample
+      - name: Test SDK
+        run: make test

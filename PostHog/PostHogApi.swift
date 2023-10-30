@@ -42,7 +42,7 @@ class PostHogApi {
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,
             "batch": events.map { $0.toJSON() },
-            "sent_at": ISO8601DateFormatter().string(from: Date()),
+            "sent_at": toISO8601String(Date()),
         ]
 
         var data: Data?

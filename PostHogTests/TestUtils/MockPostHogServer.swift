@@ -27,6 +27,7 @@ class MockPostHogServer {
     }
 
     public var errorsWhileComputingFlags = false
+    public var return500 = false
 
     init(port _: Int = 9001) {
         stub(condition: isPath("/decide")) { _ in
@@ -57,7 +58,11 @@ class MockPostHogServer {
         }
 
         stub(condition: isPath("/batch")) { _ in
-            HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            if self.return500 {
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            } else {
+                HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
         }
 
         HTTPStubs.onStubActivation { request, _, _ in

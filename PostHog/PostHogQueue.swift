@@ -146,11 +146,15 @@ class PostHogQueue {
     }
 
     func add(_ event: PostHogEvent) {
-        guard let data = try? JSONSerialization.data(withJSONObject: event.toJSON()) else {
-            hedgeLog("Tried to queue unserialisable PostHogEvent")
+        var data: Data?
+        do {
+            data = try JSONSerialization.data(withJSONObject: event.toJSON())
+        } catch {
+            hedgeLog("Tried to queue unserialisable PostHogEvent \(error)")
             return
         }
-        fileQueue.add(data)
+
+        fileQueue.add(data!)
         hedgeLog("Queued event '\(event.event)'. Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
     }
@@ -164,40 +168,22 @@ class PostHogQueue {
                 self.isFlushing = true
             }
 
-            let datas = self.fileQueue.peek(count)
+            let items = self.fileQueue.peek(count)
 
             var processing = [PostHogEvent]()
-            var deleteIndexes = [Int]()
-            for (index, data) in datas.enumerated() {
+
+            for item in items {
                 // each element is a PostHogEvent if fromJSON succeeds
-                guard let event = PostHogEvent.fromJSON(data) else {
-                    deleteIndexes.append(index)
+                guard let event = PostHogEvent.fromJSON(item) else {
                     continue
                 }
                 processing.append(event)
             }
 
-            // delete files that aren't valid as a event JSON
-            if !deleteIndexes.isEmpty {
-                for index in deleteIndexes {
-                    // TOOD: check if the indexes dont move and delete the wrong files
-                    // might need an array of file paths instead of the data, so we know what to delete correctly
-                    self.fileQueue.delete(index: index)
-                }
-            }
-
-            if processing.isEmpty {
-                self.isFlushingLock.withLock {
-                    self.isFlushing = false
-                }
-
-                return
-            }
-
             completion(PostHogConsumerPayload(events: processing) { success in
                 hedgeLog("Completed!")
                 if success {
-                    self.fileQueue.pop(processing.count)
+                    self.fileQueue.pop(items.count)
                 }
 
                 self.isFlushingLock.withLock {

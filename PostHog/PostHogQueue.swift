@@ -45,7 +45,7 @@ class PostHogQueue {
         self.storage = storage
         self.api = api
         self.reachability = reachability
-        fileQueue = PostHogFileBackedQueue(url: storage.url(forKey: .queue))
+        fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
     }
 
     private func eventHandler(_ payload: PostHogConsumerPayload) {

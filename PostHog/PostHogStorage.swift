@@ -23,11 +23,11 @@ class PostHogStorage {
     enum StorageKey: String {
         case distinctId = "posthog.distinctId"
         case anonymousId = "posthog.anonymousId"
-        case queue = "posthog.queueFolder" // NOTE: This is different to posthog-ios as we don't want to touch the other queue
+        case queue = "posthog.queueFolder" // NOTE: This is different to posthog-ios v2
+        case oldQeueue = "posthog.queue.plist"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case groups = "posthog.groups"
-        case sessionlastTimestamp = "posthog.sessionlastTimestamp"
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"
     }
@@ -40,7 +40,7 @@ class PostHogStorage {
     init(_ config: PostHogConfig) {
         self.config = config
 
-        appFolderUrl = applicationSupportDirectoryURL()
+        appFolderUrl = applicationSupportDirectoryURL() // .appendingPathComponent(config.apiKey)
 
         createDirectoryAtURLIfNeeded(url: appFolderUrl)
     }

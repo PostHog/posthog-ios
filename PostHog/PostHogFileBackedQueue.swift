@@ -16,18 +16,20 @@ class PostHogFileBackedQueue {
         items.count
     }
 
-    init(url: URL) {
-        self.queue = url
-        setup()
+    init(queue: URL, oldQueue: URL) {
+        self.queue = queue
+        setup(oldQueue: oldQueue)
     }
 
-    private func setup() {
-        if !FileManager.default.fileExists(atPath: queue.path) {
-            do {
-                try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
-            } catch {
-                hedgeLog("Error trying to create caching folder \(error)")
-            }
+    private func setup(oldQueue: URL?) {
+        do {
+            try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
+        } catch {
+            hedgeLog("Error trying to create caching folder \(error)")
+        }
+
+        if oldQueue != nil {
+            migrateOldQueue(queue: queue, oldQueue: oldQueue!)
         }
 
         do {
@@ -68,8 +70,7 @@ class PostHogFileBackedQueue {
 
     func clear() {
         deleteSafely(queue)
-
-        setup()
+        setup(oldQueue: nil)
     }
 
     private func loadFiles(_ count: Int) -> [Data] {

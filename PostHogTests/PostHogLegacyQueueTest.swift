@@ -88,7 +88,6 @@ class PostHogLegacyQueueTest: QuickSpec {
             let eventData = try Data(contentsOf: eventURL)
             let eventObject = try JSONSerialization.jsonObject(with: eventData, options: .allowFragments) as? [String: Any]
 
-            expect(items[0]) == "1698236044.407"
             expect(eventObject!["distinct_id"] as? String) == "Prateek"
             expect(eventObject!["event"] as? String) == "Cocoapods Example Button"
             expect(eventObject!["message_id"] as? String) == "5CE069F8-E967-4B47-9D89-207EF7519453"

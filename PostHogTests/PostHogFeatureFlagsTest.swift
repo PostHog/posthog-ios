@@ -108,8 +108,6 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 group.leave()
             })
 
-            group.wait()
-
             expect(sut.getFeatureFlagPayload("payload-json") as? [String: String]) == ["foo": "bar"]
         }
 

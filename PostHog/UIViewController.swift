@@ -9,6 +9,7 @@
 //
 
 import Foundation
+#if os(iOS) || os(tvOS)
 import UIKit
 
 extension UIViewController {
@@ -84,3 +85,4 @@ extension UIViewController {
         return controller
     }
 }
+#endif

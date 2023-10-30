@@ -15,6 +15,9 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
+        .package(url: "https://github.com/Quick/Quick.git", from: "7.0.0"),
+        .package(url: "https://github.com/Quick/Nimble.git", from: "13.0.0"),
+        .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -25,7 +28,12 @@ let package = Package(
         ),
         .testTarget(
             name: "PostHogTests",
-            dependencies: ["PostHog"],
+            dependencies: [
+                "PostHog", 
+                "Quick", 
+                "Nimble",
+                "OHHTTPStubs",
+            ],
             path: "PostHogTests"
         ),
     ]

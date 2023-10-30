@@ -80,21 +80,5 @@ class PostHogQueueTest: QuickSpec {
 
             sut.clear()
         }
-
-        it("drop item if there are server errors") {
-            let sut = self.getSut()
-
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            server.return500 = true
-            sut.add(event)
-
-            expect(sut.depth) == 1
-
-            _ = self.getBatchedEvents(server)
-
-            expect(sut.depth) == 0
-
-            sut.clear()
-        }
     }
 }

@@ -628,7 +628,9 @@ let maxRetryDelay = 30.0
 
     private func captureScreenViews() {
         if config.captureScreenViews {
+            #if os(iOS) || os(tvOS)
             UIViewController.swizzleScreenView()
+            #endif
         }
     }
 

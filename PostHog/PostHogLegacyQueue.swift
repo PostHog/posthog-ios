@@ -16,7 +16,7 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
     var deleteFiles = false
     defer {
         if deleteFiles {
-            try? FileManager.default.removeItem(at: oldQueue)
+            deleteSafely(oldQueue)
         }
     }
 

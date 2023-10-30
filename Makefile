@@ -16,8 +16,10 @@ swiftLint:
 swiftFormat:
 	swiftformat . --swiftversion 5.3
 
+# test:
+# 	set -o pipefail && xcodebuild test -project PostHog.xcodeproj -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0.1' | xcpretty
 test:
-	set -o pipefail && xcodebuild test -project PostHog.xcodeproj -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0.1' | xcpretty
+	swift test
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint

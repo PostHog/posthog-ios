@@ -15,7 +15,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/Quick/Quick.git", from: "7.0.0"),
+        .package(url: "https://github.com/Quick/Quick.git", from: "6.0.0"),
         .package(url: "https://github.com/Quick/Nimble.git", from: "12.0.0"),
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
     ],
@@ -33,6 +33,7 @@ let package = Package(
                 "Quick",
                 "Nimble",
                 "OHHTTPStubs",
+                .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
             ],
             path: "PostHogTests"
         ),

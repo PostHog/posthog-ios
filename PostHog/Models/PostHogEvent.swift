@@ -42,12 +42,23 @@ public class PostHogEvent {
 
     static func fromJSON(_ json: [String: Any]) -> PostHogEvent? {
         guard let event = json["event"] as? String else { return nil }
-        guard let timestamp = json["timestamp"] as? String else { return nil }
-        guard let distinctId = json["distinct_id"] as? String else { return nil }
-        guard let properties = json["properties"] as? [String: Any]? else { return nil }
-        guard let timestampDate = ISO8601DateFormatter().date(from: timestamp) else { return nil }
-        guard let uuid = json["uuid"] as? String else { return nil }
-        guard let uuidObj = UUID(uuidString: uuid) else { return nil }
+
+        let timestamp = json["timestamp"] as? String ?? toISO8601String(Date())
+
+        let timestampDate = toISO8601Date(timestamp) ?? Date()
+
+        var properties = (json["properties"] as? [String: Any]) ?? [:]
+
+        // back compatibility with v2
+        let setProps = json["$set"] as? [String: Any]
+        if setProps != nil {
+            properties["$set"] = setProps
+        }
+
+        guard let distinctId = (json["distinct_id"] as? String) ?? (properties["distinct_id"] as? String) else { return nil }
+
+        let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID().uuidString
+        let uuidObj = UUID(uuidString: uuid) ?? UUID()
 
         return PostHogEvent(
             event: event,
@@ -63,7 +74,7 @@ public class PostHogEvent {
             "event": event,
             "distinct_id": distinctId,
             "properties": properties,
-            "timestamp": ISO8601DateFormatter().string(from: timestamp),
+            "timestamp": toISO8601String(timestamp),
             "uuid": uuid.uuidString,
         ]
     }

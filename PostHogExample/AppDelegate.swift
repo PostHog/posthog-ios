@@ -14,20 +14,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let config = PostHogConfig(
             apiKey: "_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"
         )
+        // the ScreenViews for SwiftUI does not work, the names are not useful
+        config.captureScreenViews = false
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()
 //        PostHogSDK.shared.capture("App started!")
-
-//        DispatchQueue.global(qos: .utility).async {
-//            let task = Api().failingRequest()
-//        }
-
-//        DispatchQueue.concurrentPerform(iterations: 10) { iteration in
-//            PostHog.shared.capture("Parallel event", properties: [
-//                "iteration": iteration
-//            ])
-//        }
 
         let defaultCenter = NotificationCenter.default
 

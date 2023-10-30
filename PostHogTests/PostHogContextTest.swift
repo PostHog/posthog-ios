@@ -30,20 +30,25 @@ class PostHogContextTest: QuickSpec {
             expect(context["$app_version"] as? String) != nil
             expect(context["$app_build"] as? String) != nil
             expect(context["$app_namespace"] as? String) == "com.apple.dt.xctest.tool"
-            expect(context["$device_name"] as? String) != nil
-            expect(context["$os_name"] as? String) != nil
-            expect(context["$os_version"] as? String) != nil
-            expect(context["$device_type"] as? String) != nil
-            expect(context["$device_model"] as? String) != nil
-            expect(context["$device_manufacturer"] as? String) == "Apple"
+            #if os(iOS) || os(tvOS)
+                expect(context["$device_name"] as? String) != nil
+                expect(context["$os_name"] as? String) != nil
+                expect(context["$os_version"] as? String) != nil
+                expect(context["$device_type"] as? String) != nil
+                expect(context["$device_model"] as? String) != nil
+                expect(context["$device_manufacturer"] as? String) == "Apple"
+            #endif
         }
 
         it("returns dynamic context") {
             let sut = self.getSut()
 
             let context = sut.dynamicContext()
-            expect(context["$screen_width"] as? Float) != nil
-            expect(context["$screen_height"] as? Float) != nil
+
+            #if os(iOS) || os(tvOS)
+                expect(context["$screen_width"] as? Float) != nil
+                expect(context["$screen_height"] as? Float) != nil
+            #endif
             expect(context["$lib"] as? String) == "posthog-ios"
             expect(context["$lib_version"] as? String) == postHogVersion
             expect(context["$locale"] as? String) != nil

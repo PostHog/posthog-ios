@@ -61,7 +61,6 @@ class PostHogContext {
             if deviceType != nil {
                 properties["$device_type"] = deviceType
             }
-
         #endif
 
         return properties

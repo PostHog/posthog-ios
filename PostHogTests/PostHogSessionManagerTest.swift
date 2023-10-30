@@ -1,5 +1,5 @@
 //
-//  SessionManagerTest.swift
+//  PostHogSessionManagerTest.swift
 //  PostHogTests
 //
 //  Created by Ben White on 22.03.23.
@@ -15,22 +15,22 @@ class PostHogSessionManagerTest: QuickSpec {
         let config = PostHogConfig(apiKey: "123")
         return PostHogSessionManager(config)
     }
-    
+
     override func spec() {
         it("Generates an anonymousId") {
             let sut = self.getSut()
-            
+
             let anonymousId = sut.getAnonymousId()
             expect(anonymousId) != nil
             let secondAnonymousId = sut.getAnonymousId()
             expect(secondAnonymousId) == anonymousId
-            
+
             sut.reset()
         }
 
         it("Uses the anonymousId for distinctId if not set") {
             let sut = self.getSut()
-            
+
             let anonymousId = sut.getAnonymousId()
             let distinctId = sut.getDistinctId()
             expect(distinctId) == anonymousId
@@ -42,7 +42,7 @@ class PostHogSessionManagerTest: QuickSpec {
             expect(newAnonymousId) == anonymousId
             expect(newAnonymousId) != newDistinctId
             expect(newDistinctId) == idToSet
-            
+
             sut.reset()
         }
     }

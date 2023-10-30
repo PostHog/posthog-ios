@@ -89,7 +89,9 @@ class PostHogQueue {
 
             // Always trigger a flush when we are on wifi
             if reachability.connection == .wifi {
-                self.flush()
+                if !self.isFlushing {
+                    self.flush()
+                }
             }
         }
 
@@ -108,7 +110,9 @@ class PostHogQueue {
 
         timerLock.withLock {
             timer = Timer.scheduledTimer(withTimeInterval: config.flushIntervalSeconds, repeats: true, block: { _ in
-                self.flush()
+                if !self.isFlushing {
+                    self.flush()
+                }
             })
         }
     }
@@ -125,7 +129,10 @@ class PostHogQueue {
     }
 
     func flush() {
-        if !canFlush() { return }
+        if !canFlush() {
+            hedgeLog("Already flushing")
+            return
+        }
 
         take(config.maxBatchSize) { payload in
             self.eventHandler(payload)
@@ -180,6 +187,10 @@ class PostHogQueue {
             }
 
             if processing.isEmpty {
+                self.isFlushingLock.withLock {
+                    self.isFlushing = false
+                }
+
                 return
             }
 

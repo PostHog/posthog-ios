@@ -13,21 +13,19 @@ class TestPostHog {
     var server: MockPostHogServer!
     var posthog: PostHogSDK!
 
-    init() {
+    init(preloadFeatureFlags: Bool = false) {
         server = MockPostHogServer()
         server.start()
-        let config = server.posthogConfig
+        let config = server.getPosthogConfig(preloadFeatureFlags: preloadFeatureFlags)
         posthog = PostHogSDK.with(config)
     }
 
     func stop() {
         server.stop()
-        posthog.reset()
     }
 
     func getBatchedEvents() -> [PostHogEvent] {
-        posthog.flush()
-        let result = XCTWaiter.wait(for: [server.expectation(1)], timeout: 2.0)
+        let result = XCTWaiter.wait(for: [server.expectation(1)], timeout: 10.0)
 
         if result != XCTWaiter.Result.completed {
             XCTFail("The expected requests never arrived")

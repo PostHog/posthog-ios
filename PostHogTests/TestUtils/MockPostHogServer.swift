@@ -26,19 +26,31 @@ class MockPostHogServer {
         }
     }
 
+    public var errorsWhileComputingFlags = false
+
     init(port _: Int = 9001) {
         stub(condition: isPath("/decide")) { _ in
+            var flags = [
+                "bool-value": true,
+                "string-value": "test",
+                "disabled-flag": false,
+                "number-value": true,
+            ]
+
+            if self.errorsWhileComputingFlags {
+                flags["new-flag"] = true
+                flags.removeValue(forKey: "bool-value")
+            }
+
             let obj: [String: Any] = [
-                "featureFlags": [
-                    "bool-value": true,
-                    "string-value": "test",
-                ],
+                "featureFlags": flags,
                 "featureFlagPayloads": [
                     "payload-bool": "true",
-                    "payload-number": "2",
+                    "number-value": "2",
                     "payload-string": "\"string-value\"",
                     "payload-json": "{ \"foo\": \"bar\" }",
                 ],
+                "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
             ]
 
             return HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
@@ -71,8 +83,10 @@ class MockPostHogServer {
         return expectation!
     }
 
-    var posthogConfig: PostHogConfig {
+    func getPosthogConfig(preloadFeatureFlags: Bool = false) -> PostHogConfig {
         let config = PostHogConfig(apiKey: "test-123", host: "http://localhost:9001")
+        config.flushAt = 1
+        config.preloadFeatureFlags = preloadFeatureFlags
 
         return config
     }
@@ -80,7 +94,7 @@ class MockPostHogServer {
     func parseBatchRequest(_ context: URLRequest) -> [String: Any]? {
         var unzippedData: Data?
         do {
-            unzippedData = try context.body()!.gzipped()
+            unzippedData = try context.body()!.gunzipped()
         } catch {
             // its ok
         }

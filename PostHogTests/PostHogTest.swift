@@ -12,6 +12,7 @@ class PostHogTest: QuickSpec {
         beforeEach {
             harness = TestPostHog()
             posthog = harness.posthog
+            posthog.reset()
         }
 
         afterEach {
@@ -25,9 +26,9 @@ class PostHogTest: QuickSpec {
             expect(config.apiKey) == "test-api-key"
             expect(config.flushAt) == 20
             expect(config.maxQueueSize) == 1000
-            expect(config.maxBatchSize) == 100
+            expect(config.maxBatchSize) == 50
             expect(config.flushIntervalSeconds) == 30
-            expect(config.dataMode) == .wifi
+            expect(config.dataMode) == .any
         }
 
         it("initialized correctly with api host") {

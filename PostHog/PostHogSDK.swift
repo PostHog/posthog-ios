@@ -77,7 +77,7 @@ let maxRetryDelay = 30.0
             let theApi = PostHogApi(config)
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
-            sessionManager = PostHogSessionManager(config: config)
+            sessionManager = PostHogSessionManager(config)
             do {
                 reachability = try Reachability()
             } catch {
@@ -157,7 +157,7 @@ let maxRetryDelay = 30.0
         return properties
     }
 
-    private func buildProperties(properties _: [String: Any]?,
+    private func buildProperties(properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
                                  groupProperties: [String: Any]? = nil) -> [String: Any]
@@ -184,6 +184,8 @@ let maxRetryDelay = 30.0
         if groupProperties != nil {
             props["$groups"] = (groupProperties ?? [:])
         }
+        props = props.merging(properties ?? [:]) { current, _ in current }
+
         return props
     }
 

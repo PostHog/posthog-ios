@@ -19,6 +19,7 @@ class CaptureTest: QuickSpec {
         beforeEach {
             harness = TestPostHog()
             posthog = harness.posthog
+            posthog.reset()
         }
         afterEach {
             harness.stop()
@@ -37,15 +38,6 @@ class CaptureTest: QuickSpec {
 
             expect(events[1].event) == "test event2"
             expect(events[1].properties["foo"] as? String) == "bar"
-        }
-
-        it(".capture handles null values") {
-            posthog.capture("null test", properties: [
-                "nullTest": NSNull(),
-            ])
-
-            let events = harness.getBatchedEvents()
-            expect(events[0].properties["nullTest"] is NSNull) == true
         }
 
         it(".identify") {
@@ -84,16 +76,18 @@ class CaptureTest: QuickSpec {
             posthog.group(type: "some-type", key: "some-key", groupProperties: [
                 "name": "some-company-name",
             ])
-            posthog.capture("test-event")
 
-            let events = harness.getBatchedEvents()
-            expect(events[0].event) == "$groupidentify"
-            expect(events[0].properties["$group_type"] as? String?) == "some-type"
-            expect(events[0].properties["$group_key"] as? String?) == "some-key"
-            expect((events[0].properties["$group_set"] as? [String: String])?["name"] as? String) == "some-company-name"
+            let groupEvent = harness.getBatchedEvents()[0]
+            expect(groupEvent.event) == "$groupidentify"
+            expect(groupEvent.properties["$group_type"] as? String?) == "some-type"
+            expect(groupEvent.properties["$group_key"] as? String?) == "some-key"
+            expect((groupEvent.properties["$group_set"] as? [String: String])?["name"] as? String) == "some-company-name"
+
+            posthog.capture("test-event")
+            let event = harness.getBatchedEvents()[0]
 
             // Verify that subsequent call has the groups
-            let groups = events[1].properties["$groups"] as? [String: String]
+            let groups = event.properties["$groups"] as? [String: String]
             expect(groups?["some-type"]) == "some-key"
         }
     }

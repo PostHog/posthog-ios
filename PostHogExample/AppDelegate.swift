@@ -14,6 +14,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let config = PostHogConfig(
             apiKey: "_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"
         )
+        config.captureScreenViews = false
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()

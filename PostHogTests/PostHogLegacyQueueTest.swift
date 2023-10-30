@@ -88,11 +88,44 @@ class PostHogLegacyQueueTest: QuickSpec {
             let eventData = try Data(contentsOf: eventURL)
             let eventObject = try JSONSerialization.jsonObject(with: eventData, options: .allowFragments) as? [String: Any]
 
+            expect(items[0]) == "1698236044.407"
             expect(eventObject!["distinct_id"] as? String) == "Prateek"
             expect(eventObject!["event"] as? String) == "Cocoapods Example Button"
             expect(eventObject!["message_id"] as? String) == "5CE069F8-E967-4B47-9D89-207EF7519453"
             expect(eventObject!["timestamp"] as? String) == "2023-10-25T14:14:04.407Z"
             expect(eventObject!["properties"] as? [String: Any]) != nil
+
+            deleteSafely(oldURL)
+            deleteSafely(newURL)
+        }
+
+        it("ignore and delete corrupted file") {
+            let baseUrl = applicationSupportDirectoryURL()
+            try FileManager.default.createDirectory(atPath: baseUrl.path, withIntermediateDirectories: true)
+
+            let newURL = baseUrl.appendingPathComponent("queue")
+            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+            let oldURL = baseUrl.appendingPathComponent("oldQueue")
+
+            let eventsArray =
+                """
+                [
+                  i am broken
+                ]
+                """
+
+            let eventsData = eventsArray.data(using: .utf8)!
+            try eventsData.write(to: oldURL)
+
+            expect(FileManager.default.fileExists(atPath: oldURL.path)) == true
+
+            migrateOldQueue(queue: newURL, oldQueue: oldURL)
+
+            expect(FileManager.default.fileExists(atPath: oldURL.path)) == false
+
+            let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
+            expect(items.isEmpty) == true
 
             deleteSafely(oldURL)
             deleteSafely(newURL)

@@ -8,7 +8,7 @@
 import Foundation
 
 class PostHogFileBackedQueue {
-    private let queue: URL
+    let queue: URL
     @ReadWriteLock
     private var items = [String]()
 
@@ -52,10 +52,8 @@ class PostHogFileBackedQueue {
         deleteSafely(queue.appendingPathComponent(removed))
     }
 
-    func pop(_ count: Int) -> [Data] {
-        let result = loadFiles(count)
+    func pop(_ count: Int) {
         deleteFiles(count)
-        return result
     }
 
     func add(_ contents: Data) {

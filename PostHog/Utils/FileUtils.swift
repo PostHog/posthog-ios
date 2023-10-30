@@ -14,7 +14,5 @@ public func deleteSafely(_ file: URL) {
         } catch {
             hedgeLog("Error trying to delete file \(file.path) \(error)")
         }
-    } else {
-        hedgeLog("File \(file.path) does not exist")
     }
 }

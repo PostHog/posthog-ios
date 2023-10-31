@@ -18,8 +18,9 @@ class MockPostHogServer {
     var batchExpectation: XCTestExpectation?
     var decideExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
+    var decideRequests = [URLRequest]()
 
-    func trackRequest(_ request: URLRequest) {
+    func trackBatchRequest(_ request: URLRequest) {
         batchRequests.append(request)
 
         if batchRequests.count >= (batchExpectationCount ?? 0) {
@@ -27,7 +28,9 @@ class MockPostHogServer {
         }
     }
 
-    func trackDecide() {
+    func trackDecide(_ request: URLRequest) {
+        decideRequests.append(request)
+
         decideExpectation?.fulfill()
     }
 
@@ -72,35 +75,43 @@ class MockPostHogServer {
 
         HTTPStubs.onStubActivation { request, _, _ in
             if request.url?.path == "/batch" {
-                self.trackRequest(request)
+                self.trackBatchRequest(request)
             } else if request.url?.path == "/decide" {
-                self.trackDecide()
+                self.trackDecide(request)
             }
         }
     }
 
     func start(batchCount: Int = 1) {
-        batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
-        decideExpectation = XCTestExpectation(description: "1 decide requests to occur")
-        batchExpectationCount = batchCount
+        reset(batchCount: batchCount)
 
         HTTPStubs.setEnabled(true)
     }
 
     func stop() {
-        batchRequests = []
-        batchExpectation = nil
-        errorsWhileComputingFlags = false
-        return500 = false
-        batchExpectationCount = nil
+        reset()
 
         HTTPStubs.removeAllStubs()
     }
 
-    func parseBatchRequest(_ context: URLRequest) -> [String: Any]? {
+    func reset(batchCount: Int = 1) {
+        batchRequests = []
+        decideRequests = []
+        batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
+        decideExpectation = XCTestExpectation(description: "1 decide requests to occur")
+        batchExpectationCount = batchCount
+        errorsWhileComputingFlags = false
+        return500 = false
+    }
+
+    func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {
         var unzippedData: Data?
         do {
-            unzippedData = try context.body()!.gunzipped()
+            if gzip {
+                unzippedData = try context.body()!.gunzipped()
+            } else {
+                unzippedData = context.body()!
+            }
         } catch {
             // its ok
         }
@@ -109,7 +120,7 @@ class MockPostHogServer {
     }
 
     func parsePostHogEvents(_ context: URLRequest) -> [PostHogEvent] {
-        let data = parseBatchRequest(context)
+        let data = parseRequest(context)
         guard let batchEvents = data?["batch"] as? [[String: Any]] else {
             return []
         }

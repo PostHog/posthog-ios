@@ -18,10 +18,8 @@ func getBatchedEvents(_ server: MockPostHogServer) -> [PostHogEvent] {
 
     var events: [PostHogEvent] = []
     for request in server.batchRequests.reversed() {
-        if request.url?.path == "/batch" {
-            let items = server.parsePostHogEvents(request)
-            events.append(contentsOf: items)
-        }
+        let items = server.parsePostHogEvents(request)
+        events.append(contentsOf: items)
     }
 
     return events
@@ -33,4 +31,16 @@ func waitDecideRequest(_ server: MockPostHogServer) {
     if result != XCTWaiter.Result.completed {
         XCTFail("The expected requests never arrived")
     }
+}
+
+func getDecideRequest(_ server: MockPostHogServer) -> [[String: Any]] {
+    waitDecideRequest(server)
+
+    var requests: [[String: Any]] = []
+    for request in server.decideRequests.reversed() {
+        let item = server.parseRequest(request, gzip: false)
+        requests.append(item!)
+    }
+
+    return requests
 }

@@ -59,7 +59,7 @@ import Foundation
             }
 
             if name != "Unknown" {
-                PostHogSDK.shared.capture(name)
+                PostHogSDK.shared.screen(name)
             }
         }
 

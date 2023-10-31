@@ -72,20 +72,21 @@ class MockPostHogServer {
         }
     }
 
-    func start() {
+    func start(_ requestCount: Int = 1) {
+        expectation = XCTestExpectation(description: "\(requestCount) requests to occur")
+        expectationCount = requestCount
+
         HTTPStubs.setEnabled(true)
     }
 
     func stop() {
         requests = []
+        expectation = nil
+        errorsWhileComputingFlags = false
+        return500 = false
+        expectationCount = nil
+
         HTTPStubs.removeAllStubs()
-    }
-
-    func expectation(_ requestCount: Int) -> XCTestExpectation {
-        expectation = XCTestExpectation(description: "\(requestCount) requests to occur")
-        expectationCount = requestCount
-
-        return expectation!
     }
 
     func getPosthogConfig(preloadFeatureFlags: Bool = false) -> PostHogConfig {

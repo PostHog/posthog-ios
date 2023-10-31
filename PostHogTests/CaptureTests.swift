@@ -13,83 +13,136 @@ import Quick
 
 // As E2E as possible tests
 class CaptureTest: QuickSpec {
+    func getSut() -> PostHogSDK {
+        let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
+        config.flushAt = 1
+        config.preloadFeatureFlags = false
+        config.sendFeatureFlagEvent = false
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        return PostHogSDK.with(config)
+    }
+
     override func spec() {
-        var harness: TestPostHog!
-        var posthog: PostHogSDK!
+        var server: MockPostHogServer!
 
         beforeEach {
-            harness = TestPostHog()
-            posthog = harness.posthog
-            posthog.reset()
+            server = MockPostHogServer()
+            server.start()
         }
         afterEach {
-            harness.stop()
+            server.stop()
+            server = nil
         }
 
-//        it(".capture") {
-//            posthog.capture("test event")
-//            posthog.capture("test event2", properties: ["foo": "bar"])
-//
-//            let events = harness.getBatchedEvents()
-//
-//            expect(events.count) == 2
-//
-//            expect(events[0].event) == "test event"
-//            expect(Set(events[0].properties.keys)) == ["$device_id", "$os_name", "$app_version", "$lib_version", "$screen_height", "$app_name", "$timezone", "$screen_width", "$app_namespace", "$network_cellular", "$os_version", "$device_name", "$network_wifi", "distinct_id", "$lib", "$session_id", "$locale", "$app_build", "$device_type", "$groups"]
-//
-//            expect(events[1].event) == "test event2"
-//            expect(events[1].properties["foo"] as? String) == "bar"
-//        }
-//
-//        it(".identify") {
-//            let anonymousId = posthog.getAnonymousId()
-//            posthog.identify("testDistinctId1", userProperties: [
-//                "firstName": "Peter",
-//            ])
-//
-//            let event = harness.getBatchedEvents()[0]
-//            expect(event.event) == "$identify"
-//            expect(event.properties["distinct_id"] as? String) == "testDistinctId1"
-//            expect(event.properties["$anon_distinct_id"] as? String) == anonymousId
-//            expect((event.properties["$set"] as? [String: String])?["firstName"] as? String) == "Peter"
-//        }
-//
-//        it(".alias") {
-//            posthog.alias("persistentDistinctId")
-//
-//            let event = harness.getBatchedEvents()[0]
-//            expect(event.event) == "$create_alias"
-//            expect(event.properties["alias"] as? String) == "persistentDistinctId"
-//        }
-//
-//        it(".screen") {
-//            posthog.screen("Home", properties: [
-//                "referrer": "Google",
-//            ])
-//
-//            let event = harness.getBatchedEvents()[0]
-//            expect(event.event) == "$screen"
-//            expect(event.properties["$screen_name"] as? String) == "Home"
-//            expect(event.properties["referrer"] as? String) == "Google"
-//        }
-//
-//        it(".group") {
-//            posthog.group(type: "some-type", key: "some-key", groupProperties: [
-//                "name": "some-company-name",
-//            ])
-//
-//            let groupEvent = harness.getBatchedEvents()[0]
-//            expect(groupEvent.event) == "$groupidentify"
-//            expect(groupEvent.properties["$group_type"] as? String?) == "some-type"
-//            expect(groupEvent.properties["$group_key"] as? String?) == "some-key"
-//            expect((groupEvent.properties["$group_set"] as? [String: String])?["name"] as? String) == "some-company-name"
-//
-//            posthog.capture("test-event")
-//            let event = harness.getBatchedEvents()[0]
-//
-//            // Verify that subsequent call has the groups
-//            let groups = event.properties["$groups"] as? [String: String]
-//            expect(groups?["some-type"]) == "some-key"
-//        }
+        it(".capture") {
+            let sut = self.getSut()
+
+            sut.capture("test event",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"],
+                        groupProperties: ["groupProp": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "test event"
+
+            expect(event.properties["foo"] as? String) == "bar"
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["userProp"] as? String) == "value"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["userPropOnce"] as? String) == "value"
+
+            let groupProps = event.properties["$groups"] as? [String: Any] ?? [:]
+            expect(groupProps["groupProp"] as? String) == "value"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it(".identify") {
+            let sut = self.getSut()
+
+            sut.identify("distinctId",
+                         userProperties: ["userProp": "value"],
+                         userPropertiesSetOnce: ["userPropOnce": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$identify"
+
+            expect(event.distinctId) == "distinctId"
+            let anonId = sut.getAnonymousId()
+            expect(event.properties["$anon_distinct_id"] as? String) == anonId
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["userProp"] as? String) == "value"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["userPropOnce"] as? String) == "value"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it(".alias") {
+            let sut = self.getSut()
+
+            sut.alias("theAlias")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$create_alias"
+
+            expect(event.properties["alias"] as? String) == "theAlias"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it(".screen") {
+            let sut = self.getSut()
+
+            sut.screen("theScreen", properties: ["prop": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$screen"
+
+            expect(event.properties["$screen_name"] as? String) == "theScreen"
+            expect(event.properties["prop"] as? String) == "value"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it(".group") {
+            let sut = self.getSut()
+
+            sut.group(type: "some-type", key: "some-key", groupProperties: [
+                "name": "some-company-name",
+            ])
+
+            let groupEvent = getBatchedEvents(server)[0]
+            expect(groupEvent.event) == "$groupidentify"
+            expect(groupEvent.properties["$group_type"] as? String?) == "some-type"
+            expect(groupEvent.properties["$group_key"] as? String?) == "some-key"
+            expect((groupEvent.properties["$group_set"] as? [String: String])?["name"] as? String) == "some-company-name"
+        }
     }
 }

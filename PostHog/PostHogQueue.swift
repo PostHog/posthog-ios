@@ -75,45 +75,51 @@ class PostHogQueue {
         }
     }
 
-    func start() {
-        // Setup the monitoring of network status for the queue
-        reachability?.whenReachable = { reachability in
-            self.pausedLock.withLock {
-                if self.config.dataMode == .wifi, reachability.connection != .wifi {
-                    hedgeLog("Queue is paused because its not in WiFi mode")
+    func start(disableReachabilityForTesting: Bool,
+               disableQueueTimerForTesting: Bool)
+    {
+        if !disableReachabilityForTesting {
+            // Setup the monitoring of network status for the queue
+            reachability?.whenReachable = { reachability in
+                self.pausedLock.withLock {
+                    if self.config.dataMode == .wifi, reachability.connection != .wifi {
+                        hedgeLog("Queue is paused because its not in WiFi mode")
+                        self.paused = true
+                    } else {
+                        self.paused = false
+                    }
+                }
+
+                // Always trigger a flush when we are on wifi
+                if reachability.connection == .wifi {
+                    if !self.isFlushing {
+                        self.flush()
+                    }
+                }
+            }
+
+            reachability?.whenUnreachable = { _ in
+                self.pausedLock.withLock {
+                    hedgeLog("Queue is paused because network is unreachable")
                     self.paused = true
-                } else {
-                    self.paused = false
                 }
             }
 
-            // Always trigger a flush when we are on wifi
-            if reachability.connection == .wifi {
-                if !self.isFlushing {
-                    self.flush()
-                }
+            do {
+                try reachability?.startNotifier()
+            } catch {
+                hedgeLog("Error: Unable to monitor network reachability")
             }
         }
 
-        reachability?.whenUnreachable = { _ in
-            self.pausedLock.withLock {
-                hedgeLog("Queue is paused because network is unreachable")
-                self.paused = true
+        if !disableQueueTimerForTesting {
+            timerLock.withLock {
+                timer = Timer.scheduledTimer(withTimeInterval: config.flushIntervalSeconds, repeats: true, block: { _ in
+                    if !self.isFlushing {
+                        self.flush()
+                    }
+                })
             }
-        }
-
-        do {
-            try reachability?.startNotifier()
-        } catch {
-            hedgeLog("Error: Unable to monitor network reachability")
-        }
-
-        timerLock.withLock {
-            timer = Timer.scheduledTimer(withTimeInterval: config.flushIntervalSeconds, repeats: true, block: { _ in
-                if !self.isFlushing {
-                    self.flush()
-                }
-            })
         }
     }
 

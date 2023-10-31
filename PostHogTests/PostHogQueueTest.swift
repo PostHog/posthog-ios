@@ -20,22 +20,6 @@ class PostHogQueueTest: QuickSpec {
         return PostHogQueue(config, storage, api, nil)
     }
 
-    func getBatchedEvents(_ server: MockPostHogServer) -> [PostHogEvent] {
-        let result = XCTWaiter.wait(for: [server.expectation(1)], timeout: 10.0)
-
-        if result != XCTWaiter.Result.completed {
-            XCTFail("The expected requests never arrived")
-        }
-
-        for request in server.requests.reversed() {
-            if request.url?.path == "/batch" {
-                return server.parsePostHogEvents(request)
-            }
-        }
-
-        return []
-    }
-
     override func spec() {
         var server: MockPostHogServer!
 
@@ -55,7 +39,7 @@ class PostHogQueueTest: QuickSpec {
 
             expect(sut.depth) == 1
 
-            let events = self.getBatchedEvents(server)
+            let events = getBatchedEvents(server)
             expect(events.count) == 1
 
             expect(sut.depth) == 0
@@ -73,7 +57,7 @@ class PostHogQueueTest: QuickSpec {
 
             expect(sut.depth) == 2
 
-            let events = self.getBatchedEvents(server)
+            let events = getBatchedEvents(server)
             expect(events.count) == 1
 
             expect(sut.depth) == 1

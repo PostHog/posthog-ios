@@ -92,7 +92,8 @@ let maxRetryDelay = 30.0
 
             queue = PostHogQueue(config, theStorage, theApi, reachability)
 
-            queue?.start()
+            queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                         disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             registerNotifications()
             captureScreenViews()
@@ -182,7 +183,10 @@ let maxRetryDelay = 30.0
             props["$set_once"] = (userPropertiesSetOnce ?? [:])
         }
         if groupProperties != nil {
-            props["$groups"] = (groupProperties ?? [:])
+            // $groups are also set via the dynamicContext
+            let currentGroups = props["$groups"] as? [String: Any] ?? [:]
+            let mergedGroups = currentGroups.merging(groupProperties ?? [:]) { current, _ in current }
+            props["$groups"] = mergedGroups
         }
         props = props.merging(properties ?? [:]) { current, _ in current }
 
@@ -704,9 +708,6 @@ let maxRetryDelay = 30.0
         if versionCode != nil {
             props["build"] = versionCode
         }
-
-//        props["referring_application"] = launchOptions[UIApplicationLaunchOptionsSourceApplicationKey]
-//        props["url"] = launchOptions[UIApplicationLaunchOptionsURLKey]
 
         capture("Application Opened", properties: props)
     }

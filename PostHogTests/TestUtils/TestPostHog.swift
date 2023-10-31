@@ -24,19 +24,25 @@ class TestPostHog {
         server.stop()
     }
 
-    func getBatchedEvents() -> [PostHogEvent] {
-        let result = XCTWaiter.wait(for: [server.expectation(1)], timeout: 10.0)
-
-        if result != XCTWaiter.Result.completed {
-            XCTFail("The expected requests never arrived")
-        }
-
-        for request in server.requests.reversed() {
-            if request.url?.path == "/batch" {
-                return server.parsePostHogEvents(request)
-            }
-        }
-
-        return []
+    public func getBatchedEvents() -> [PostHogEvent] {
+        PostHogTests.getBatchedEvents(server)
     }
+}
+
+func getBatchedEvents(_ server: MockPostHogServer) -> [PostHogEvent] {
+    let result = XCTWaiter.wait(for: [server.expectation!], timeout: 10.0)
+
+    if result != XCTWaiter.Result.completed {
+        XCTFail("The expected requests never arrived")
+    }
+
+    var events: [PostHogEvent] = []
+    for request in server.requests.reversed() {
+        if request.url?.path == "/batch" {
+            let items = server.parsePostHogEvents(request)
+            events.append(contentsOf: items)
+        }
+    }
+
+    return events
 }

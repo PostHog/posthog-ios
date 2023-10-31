@@ -14,16 +14,21 @@ import OHHTTPStubsSwift
 @testable import PostHog
 
 class MockPostHogServer {
-    var requests = [URLRequest]()
-    var expectation: XCTestExpectation?
-    var expectationCount: Int?
+    var batchRequests = [URLRequest]()
+    var batchExpectation: XCTestExpectation?
+    var decideExpectation: XCTestExpectation?
+    var batchExpectationCount: Int?
 
     func trackRequest(_ request: URLRequest) {
-        requests.append(request)
+        batchRequests.append(request)
 
-        if requests.count >= (expectationCount ?? 0) {
-            expectation?.fulfill()
+        if batchRequests.count >= (batchExpectationCount ?? 0) {
+            batchExpectation?.fulfill()
         }
+    }
+
+    func trackDecide() {
+        decideExpectation?.fulfill()
     }
 
     public var errorsWhileComputingFlags = false
@@ -68,33 +73,28 @@ class MockPostHogServer {
         HTTPStubs.onStubActivation { request, _, _ in
             if request.url?.path == "/batch" {
                 self.trackRequest(request)
+            } else if request.url?.path == "/decide" {
+                self.trackDecide()
             }
         }
     }
 
-    func start(_ requestCount: Int = 1) {
-        expectation = XCTestExpectation(description: "\(requestCount) requests to occur")
-        expectationCount = requestCount
+    func start(batchCount: Int = 1) {
+        batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
+        decideExpectation = XCTestExpectation(description: "1 decide requests to occur")
+        batchExpectationCount = batchCount
 
         HTTPStubs.setEnabled(true)
     }
 
     func stop() {
-        requests = []
-        expectation = nil
+        batchRequests = []
+        batchExpectation = nil
         errorsWhileComputingFlags = false
         return500 = false
-        expectationCount = nil
+        batchExpectationCount = nil
 
         HTTPStubs.removeAllStubs()
-    }
-
-    func getPosthogConfig(preloadFeatureFlags: Bool = false) -> PostHogConfig {
-        let config = PostHogConfig(apiKey: "test-123", host: "http://localhost:9001")
-        config.flushAt = 1
-        config.preloadFeatureFlags = preloadFeatureFlags
-
-        return config
     }
 
     func parseBatchRequest(_ context: URLRequest) -> [String: Any]? {

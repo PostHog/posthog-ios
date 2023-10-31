@@ -519,7 +519,13 @@ let maxRetryDelay = 30.0
             return false
         }
 
-        return featureFlags.isFeatureEnabled(key)
+        let value = featureFlags.isFeatureEnabled(key)
+
+        if config.sendFeatureFlagEvent {
+            reportFeatureFlagCalled(flagKey: key, flagValue: value)
+        }
+
+        return value
     }
 
     @objc public func getFeatureFlagPayload(_ key: String) -> Any? {

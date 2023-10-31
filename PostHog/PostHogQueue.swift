@@ -51,8 +51,6 @@ class PostHogQueue {
     private func eventHandler(_ payload: PostHogConsumerPayload) {
         hedgeLog("Sending batch of \(payload.events.count) events to PostHog")
 
-        hedgeLog("Events: \(payload.events.map(\.event).joined(separator: ","))")
-
         api.batch(events: payload.events) { result in
             // -1 means its not anything related to the API but rather network or something else, so we try again
             let statusCode = result.statusCode ?? -1

@@ -1,4 +1,4 @@
-[![Build](https://img.shields.io/github/actions/workflow/status/PostHog/posthog-ios/build.yml?branch=v3.0.0)](https://github.com/PostHog/posthog-ios/actions/workflows/build.yml?query=branch%3Av3.0.0)
+[![Build](https://img.shields.io/github/actions/workflow/status/PostHog/posthog-ios/build.yml?branch=main)](https://github.com/PostHog/posthog-ios/actions/workflows/build.yml?query=branch%3Amain)
 [![CocoaPods compadible](https://img.shields.io/cocoapods/v/PostHog.svg)](https://cocoapods.org/pods/PostHog)
 [![SwiftPM compatible](https://img.shields.io/badge/spm-compatible-brightgreen.svg?style=flat)](https://swift.org/package-manager)
 ![platforms](https://img.shields.io/cocoapods/p/PostHog.svg?style=flat)

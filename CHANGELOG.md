@@ -1,6 +1,6 @@
 ## Next
 
-## 3.0.0-alpha.1
+## 3.0.0-alpha.1 - 2023-11-02
 
 - First alpha of the new major version of the iOS SDK
 

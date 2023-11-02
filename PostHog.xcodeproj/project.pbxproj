@@ -105,6 +105,20 @@
 			remoteGlobalIDString = 690FF0422AE7DB3600A0B06B;
 			remoteInfo = PostHogExampleWithSPM;
 		};
+		690FF1782AF3CE8B00A0B06B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 690FF1562AF3CE8900A0B06B;
+			remoteInfo = PostHogExampleWatchOS;
+		};
+		690FF17A2AF3CE8B00A0B06B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 690FF15C2AF3CE8900A0B06B;
+			remoteInfo = "PostHogExampleWatchOS Watch App";
+		};
 		69278D4D2AE6BC9000BB541A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
@@ -181,6 +195,7 @@
 		690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfigTest.swift; sourceTree = "<group>"; };
 		690FF0E82AEFD3BD00A0B06B /* PostHogQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueueTest.swift; sourceTree = "<group>"; };
 		690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDKTest.swift; sourceTree = "<group>"; };
+		690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWatchOS.xcodeproj; path = PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
@@ -301,6 +316,7 @@
 		3AC745AB296D6FE60025C109 = {
 			isa = PBXGroup;
 			children = (
+				690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */,
 				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
 				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
 				3AAFB13129C0C699004F485B /* Package.swift */,
@@ -378,6 +394,15 @@
 			isa = PBXGroup;
 			children = (
 				690FF0582AE7DB3700A0B06B /* PostHogExampleWithSPM.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		690FF1742AF3CE8A00A0B06B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				690FF1792AF3CE8B00A0B06B /* PostHogExampleWatchOS.app */,
+				690FF17B2AF3CE8B00A0B06B /* PostHogExampleWatchOS Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -557,6 +582,10 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
+					ProductGroup = 690FF1742AF3CE8A00A0B06B /* Products */;
+					ProjectRef = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
+				},
+				{
 					ProductGroup = 690FF0302AE7C5BA00A0B06B /* Products */;
 					ProjectRef = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
 				},
@@ -588,6 +617,20 @@
 			fileType = wrapper.application;
 			path = PostHogExampleWithSPM.app;
 			remoteRef = 690FF0572AE7DB3700A0B06B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		690FF1792AF3CE8B00A0B06B /* PostHogExampleWatchOS.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = PostHogExampleWatchOS.app;
+			remoteRef = 690FF1782AF3CE8B00A0B06B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		690FF17B2AF3CE8B00A0B06B /* PostHogExampleWatchOS Watch App.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = "PostHogExampleWatchOS Watch App.app";
+			remoteRef = 690FF17A2AF3CE8B00A0B06B /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -958,15 +1001,16 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 			};
 			name = Debug;
 		};
@@ -1000,14 +1044,15 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 			};
 			name = Release;
 		};

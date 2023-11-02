@@ -12,7 +12,9 @@ import Foundation
 #endif
 
 class PostHogContext {
-    private let reachability: Reachability?
+    #if !os(watchOS)
+        private let reachability: Reachability?
+    #endif
 
     private lazy var theStaticContext: [String: Any] = {
         // Properties that do not change over the lifecycle of an application
@@ -66,9 +68,13 @@ class PostHogContext {
         return properties
     }()
 
-    init(_ reachability: Reachability?) {
-        self.reachability = reachability
-    }
+    #if !os(watchOS)
+        init(_ reachability: Reachability?) {
+            self.reachability = reachability
+        }
+    #else
+        init() {}
+    #endif
 
     func staticContext() -> [String: Any] {
         theStaticContext
@@ -98,10 +104,12 @@ class PostHogContext {
         }
         properties["$timezone"] = TimeZone.current.identifier
 
-        if reachability != nil {
-            properties["$network_wifi"] = reachability?.connection == .wifi
-            properties["$network_cellular"] = reachability?.connection == .cellular
-        }
+        #if !os(watchOS)
+            if reachability != nil {
+                properties["$network_wifi"] = reachability?.connection == .wifi
+                properties["$network_cellular"] = reachability?.connection == .cellular
+            }
+        #endif
 
         return properties
     }

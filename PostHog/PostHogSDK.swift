@@ -32,7 +32,9 @@ let maxRetryDelay = 30.0
     private var api: PostHogApi?
     private var storage: PostHogStorage?
     private var sessionManager: PostHogSessionManager?
-    private var reachability: Reachability?
+    #if !os(watchOS)
+        private var reachability: Reachability?
+    #endif
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
@@ -46,7 +48,9 @@ let maxRetryDelay = 30.0
     }()
 
     deinit {
-        self.reachability?.stopNotifier()
+        #if !os(watchOS)
+            self.reachability?.stopNotifier()
+        #endif
     }
 
     @objc public func debug(_ enabled: Bool = true) {
@@ -78,19 +82,25 @@ let maxRetryDelay = 30.0
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
             sessionManager = PostHogSessionManager(config)
-            do {
-                reachability = try Reachability()
-            } catch {
-                // ignored
-            }
-            context = PostHogContext(reachability)
+            #if !os(watchOS)
+                do {
+                    reachability = try Reachability()
+                } catch {
+                    // ignored
+                }
+                context = PostHogContext(reachability)
+            #endif
 
             optOutLock.withLock {
                 let optOut = theStorage.getBool(forKey: .optOut)
                 config.optOut = optOut ?? config.optOut
             }
 
-            queue = PostHogQueue(config, theStorage, theApi, reachability)
+            #if !os(watchOS)
+                queue = PostHogQueue(config, theStorage, theApi, reachability)
+            #else
+                queue = PostHogQueue(config, theStorage, theApi)
+            #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                          disableQueueTimerForTesting: config.disableQueueTimerForTesting)
@@ -609,8 +619,10 @@ let maxRetryDelay = 30.0
             sessionManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil
-            self.reachability?.stopNotifier()
-            reachability = nil
+            #if !os(watchOS)
+                self.reachability?.stopNotifier()
+                reachability = nil
+            #endif
             flagCallReported.removeAll()
             featureFlags = nil
         }

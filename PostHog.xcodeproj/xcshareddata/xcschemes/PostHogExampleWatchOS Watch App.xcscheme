@@ -14,10 +14,24 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "690FF01D2AE7C5B900A0B06B"
-               BuildableName = "PostHogExampleWithPods.app"
-               BlueprintName = "PostHogExampleWithPods"
-               ReferencedContainer = "container:PostHogExampleWithPods.xcodeproj">
+               BlueprintIdentifier = "690FF15B2AF3CE8900A0B06B"
+               BuildableName = "PostHogExampleWatchOS Watch App.app"
+               BlueprintName = "PostHogExampleWatchOS Watch App"
+               ReferencedContainer = "container:PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "690FF1552AF3CE8900A0B06B"
+               BuildableName = "PostHogExampleWatchOS.app"
+               BlueprintName = "PostHogExampleWatchOS"
+               ReferencedContainer = "container:PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -43,10 +57,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "690FF01D2AE7C5B900A0B06B"
-            BuildableName = "PostHogExampleWithPods.app"
-            BlueprintName = "PostHogExampleWithPods"
-            ReferencedContainer = "container:PostHogExampleWithPods.xcodeproj">
+            BlueprintIdentifier = "690FF15B2AF3CE8900A0B06B"
+            BuildableName = "PostHogExampleWatchOS Watch App.app"
+            BlueprintName = "PostHogExampleWatchOS Watch App"
+            ReferencedContainer = "container:PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -60,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "690FF01D2AE7C5B900A0B06B"
-            BuildableName = "PostHogExampleWithPods.app"
-            BlueprintName = "PostHogExampleWithPods"
-            ReferencedContainer = "container:PostHogExampleWithPods.xcodeproj">
+            BlueprintIdentifier = "690FF15B2AF3CE8900A0B06B"
+            BuildableName = "PostHogExampleWatchOS Watch App.app"
+            BlueprintName = "PostHogExampleWatchOS Watch App"
+            ReferencedContainer = "container:PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

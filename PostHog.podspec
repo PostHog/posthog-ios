@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "PostHog"
-  s.version          = "2.1.0"
+  s.version          = "3.0.0-alpha.2"
   s.summary          = "The hassle-free way to add posthog to your iOS app."
 
   s.description      = <<-DESC
@@ -10,19 +10,19 @@ Pod::Spec.new do |s|
 
   s.homepage         = "http://posthog.com/"
   s.license          =  { :type => 'MIT' }
-  s.author           = { "PostHog" => "tim@posthog.com" }
+  s.author           = { "PostHog" => "engineering@posthog.com" }
   s.source           = { :git => "https://github.com/PostHog/posthog-ios.git", :tag => s.version.to_s }
   s.social_media_url = 'https://twitter.com/PostHog'
 
-  s.ios.deployment_target = '11.0'
-  s.tvos.deployment_target = '11.0'
+  s.ios.deployment_target = '13.0'
+  s.tvos.deployment_target = '13.0'
+  s.osx.deployment_target = "10.14"
+  s.watchos.deployment_target = "6.0"
+  s.swift_versions = "5.3"
 
-  s.ios.frameworks = 'CoreTelephony'
-  s.frameworks = 'Security', 'StoreKit', 'SystemConfiguration', 'UIKit'
+  s.frameworks = 'Foundation'
 
   s.source_files = [
-    'PostHog/Classes/**/*',
-    'PostHog/Internal/**/*',
-    'PostHog/Vendor/**/*'
+    'PostHog/**/*'
   ]
 end

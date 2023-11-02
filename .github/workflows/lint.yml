@@ -1,0 +1,16 @@
+name: Lint
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+jobs:
+  lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run lints
+        run: make lint

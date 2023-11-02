@@ -1,22 +1,14 @@
-# Releasing
+Releasing
+=========
 
-1. Update the version in `PostHog.podspec`, `PostHog/Info.plist`, and `version` in `PostHog/Classes/PHGPostHog.m` to the next release version.
-2. Update the `CHANGELOG.md` for the impending release.
-3. `git commit -am "Prepare for release X.Y.Z."` (where X.Y.Z is the new version).
-4. `git tag -a X.Y.Z -m "Version X.Y.Z"` (where X.Y.Z is the new version).
-5. `git push && git push --tags`.
-6. `pod trunk push PostHog.podspec --allow-warnings`.
-7. Go to [GH Releases](https://github.com/PostHog/posthog-ios/releases) and create a new release from the tag you just pushed. Copy the changelog entry into the description and publish the release.
-
-## On Apple Silicon
-
-Run this first:
-
-```bash
-sudo arch -x86_64 gem install ffi
-arch -x86_64 pod install
-```
-
-Then, [configure XCode CLI tools](https://stackoverflow.com/questions/29108172/how-do-i-fix-the-xcrun-unable-to-find-simctl-error).
-
-Finally, prepend `arch -x86_64` to the pod command in the steps above.
+ 1. Update the CHANGELOG.md with the version and date 
+ 2. Go to [GH Releases](https://github.com/PostHog/posthog-ios/releases)
+ 3. Choose a tag name (e.g. `3.0.0`), this is the version number of the release.
+     1. Preview releases follow the pattern `3.0.0-alpha.1`, `3.0.0-beta.1`, `3.0.0-RC.1`
+ 4. Choose a release name (e.g. `3.0.0`), ideally it matches the above.
+ 5. Write a description of the release.
+ 6. Publish the release.
+ 7. GH Action (release.yml) is doing everything else automatically.
+      1. SPM uses the tag name to determine the version, directly from the repo.
+      2. CocoaPods are published.
+ 8. Done.

@@ -1,5 +1,14 @@
 ## Next
 
+## 3.0.0-alpha.2 - 2023-11-02
+
+- Just testing the release automation
+
+## 3.0.0-alpha.1 - 2023-11-02
+
+- First alpha of the new major version of the iOS SDK
+- Just testing the release automation
+
 ## 2.1.0 - 2023-10-10
 
 - isFeatureEnabled now returns false if disabled [#74](https://github.com/PostHog/posthog-ios/pull/74)

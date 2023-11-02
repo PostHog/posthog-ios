@@ -1,3 +1,0 @@
-github "PostHog/posthog-ios" "1.0.2"
-# Use a local project when debugging
-# git "~/Projects/PostHog/posthog-ios/" "master"

@@ -1,35 +1,41 @@
 // swift-tools-version:5.3
-
 import PackageDescription
 
 let package = Package(
     name: "PostHog",
     platforms: [
-        .iOS(.v11), .tvOS(.v11)
+        .macOS(.v10_14), .iOS(.v13), .tvOS(.v13), .watchOS(.v6),
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "PostHog",
-            targets: ["PostHog"]),
+            targets: ["PostHog"]
+        ),
+    ],
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        .package(url: "https://github.com/Quick/Quick.git", from: "6.0.0"),
+        .package(url: "https://github.com/Quick/Nimble.git", from: "12.0.0"),
+        .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
+        // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "PostHog",
-            dependencies: [],
-            path: "PostHog/",
-            exclude: ["Info.plist"],
-            sources: ["Classes",
-                      "Internal",
-                      "Vendor"],
-            publicHeadersPath: "Classes",
-            cSettings: [
-                .headerSearchPath("Vendor"),
-                .headerSearchPath("Internal"),
-                .headerSearchPath("Classes"),
-            ]
-        )
+            path: "PostHog"
+        ),
+        .testTarget(
+            name: "PostHogTests",
+            dependencies: [
+                "PostHog",
+                "Quick",
+                "Nimble",
+                "OHHTTPStubs",
+                .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
+            ],
+            path: "PostHogTests"
+        ),
     ]
 )

@@ -16,9 +16,13 @@ class PostHogFeatureFlags {
     private let featureFlagsLock = NSLock()
     private var isLoadingFeatureFlags = false
 
-    private let dispatchQueue = DispatchQueue(label: "com.posthog.FeatureFlags", target: .global(qos: .utility))
+    private let dispatchQueue = DispatchQueue(label: "com.posthog.FeatureFlags",
+                                              target: .global(qos: .utility))
 
-    init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
+    init(_ config: PostHogConfig,
+         _ storage: PostHogStorage,
+         _ api: PostHogApi)
+    {
         self.config = config
         self.storage = storage
         self.api = api
@@ -52,7 +56,9 @@ class PostHogFeatureFlags {
                       let featureFlagPayloads = data?["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
-                    self.setLoading(false)
+
+                    self.notifyAndRelease()
+
                     return callback()
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
@@ -74,15 +80,19 @@ class PostHogFeatureFlags {
                     }
                 }
 
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
-                }
-
-                self.setLoading(false)
+                self.notifyAndRelease()
 
                 return callback()
             }
         }
+    }
+
+    private func notifyAndRelease() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
+        }
+
+        setLoading(false)
     }
 
     func getFeatureFlags() -> [String: Any]? {
@@ -103,9 +113,9 @@ class PostHogFeatureFlags {
         let value = flags?[key]
 
         if value != nil {
-            let boolValue = value as? Bool ?? false
-            if boolValue {
-                return boolValue
+            let boolValue = value as? Bool
+            if boolValue != nil {
+                return boolValue!
             } else {
                 return true
             }
@@ -135,14 +145,15 @@ class PostHogFeatureFlags {
             return value
         }
 
-        // The payload value is stored as a string and is not pre-parsed...
-        // We need to mimic the JSON.parse of JS which is what posthog-js uses
-        let jsonData = try? JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
-
-        if jsonData == nil {
-            return value
+        do {
+            // The payload value is stored as a string and is not pre-parsed...
+            // We need to mimic the JSON.parse of JS which is what posthog-js uses
+            return try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
+        } catch {
+            hedgeLog("Error parsing the object \(String(describing: value)): \(error)")
         }
 
-        return jsonData
+        // fallbak to original value if not possible to serialize
+        return value
     }
 }

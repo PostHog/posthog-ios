@@ -51,8 +51,6 @@ class PostHogQueue {
     private func eventHandler(_ payload: PostHogConsumerPayload) {
         hedgeLog("Sending batch of \(payload.events.count) events to PostHog")
 
-        hedgeLog("Events: \(payload.events.map(\.event).joined(separator: ","))")
-
         api.batch(events: payload.events) { result in
             // -1 means its not anything related to the API but rather network or something else, so we try again
             let statusCode = result.statusCode ?? -1
@@ -75,41 +73,51 @@ class PostHogQueue {
         }
     }
 
-    func start() {
-        // Setup the monitoring of network status for the queue
-        reachability?.whenReachable = { reachability in
-            self.pausedLock.withLock {
-                if self.config.dataMode == .wifi, reachability.connection != .wifi {
-                    hedgeLog("Queue is paused because its not in WiFi mode")
-                    self.paused = true
-                } else {
-                    self.paused = false
+    func start(disableReachabilityForTesting: Bool,
+               disableQueueTimerForTesting: Bool)
+    {
+        if !disableReachabilityForTesting {
+            // Setup the monitoring of network status for the queue
+            reachability?.whenReachable = { reachability in
+                self.pausedLock.withLock {
+                    if self.config.dataMode == .wifi, reachability.connection != .wifi {
+                        hedgeLog("Queue is paused because its not in WiFi mode")
+                        self.paused = true
+                    } else {
+                        self.paused = false
+                    }
+                }
+
+                // Always trigger a flush when we are on wifi
+                if reachability.connection == .wifi {
+                    if !self.isFlushing {
+                        self.flush()
+                    }
                 }
             }
 
-            // Always trigger a flush when we are on wifi
-            if reachability.connection == .wifi {
-                self.flush()
+            reachability?.whenUnreachable = { _ in
+                self.pausedLock.withLock {
+                    hedgeLog("Queue is paused because network is unreachable")
+                    self.paused = true
+                }
+            }
+
+            do {
+                try reachability?.startNotifier()
+            } catch {
+                hedgeLog("Error: Unable to monitor network reachability")
             }
         }
 
-        reachability?.whenUnreachable = { _ in
-            self.pausedLock.withLock {
-                hedgeLog("Queue is paused because network is unreachable")
-                self.paused = true
+        if !disableQueueTimerForTesting {
+            timerLock.withLock {
+                timer = Timer.scheduledTimer(withTimeInterval: config.flushIntervalSeconds, repeats: true, block: { _ in
+                    if !self.isFlushing {
+                        self.flush()
+                    }
+                })
             }
-        }
-
-        do {
-            try reachability?.startNotifier()
-        } catch {
-            hedgeLog("Error: Unable to monitor network reachability")
-        }
-
-        timerLock.withLock {
-            timer = Timer.scheduledTimer(withTimeInterval: config.flushIntervalSeconds, repeats: true, block: { _ in
-                self.flush()
-            })
         }
     }
 
@@ -125,7 +133,10 @@ class PostHogQueue {
     }
 
     func flush() {
-        if !canFlush() { return }
+        if !canFlush() {
+            hedgeLog("Already flushing")
+            return
+        }
 
         take(config.maxBatchSize) { payload in
             self.eventHandler(payload)
@@ -139,11 +150,15 @@ class PostHogQueue {
     }
 
     func add(_ event: PostHogEvent) {
-        guard let data = try? JSONSerialization.data(withJSONObject: event.toJSON()) else {
-            hedgeLog("Tried to queue unserialisable PostHogEvent")
+        var data: Data?
+        do {
+            data = try JSONSerialization.data(withJSONObject: event.toJSON())
+        } catch {
+            hedgeLog("Tried to queue unserialisable PostHogEvent \(error)")
             return
         }
-        fileQueue.add(data)
+
+        fileQueue.add(data!)
         hedgeLog("Queued event '\(event.event)'. Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
     }
@@ -157,36 +172,22 @@ class PostHogQueue {
                 self.isFlushing = true
             }
 
-            let datas = self.fileQueue.peek(count)
+            let items = self.fileQueue.peek(count)
 
             var processing = [PostHogEvent]()
-            var deleteIndexes = [Int]()
-            for (index, data) in datas.enumerated() {
+
+            for item in items {
                 // each element is a PostHogEvent if fromJSON succeeds
-                guard let event = PostHogEvent.fromJSON(data) else {
-                    deleteIndexes.append(index)
+                guard let event = PostHogEvent.fromJSON(item) else {
                     continue
                 }
                 processing.append(event)
             }
 
-            // delete files that aren't valid as a event JSON
-            if !deleteIndexes.isEmpty {
-                for index in deleteIndexes {
-                    // TOOD: check if the indexes dont move and delete the wrong files
-                    // might need an array of file paths instead of the data, so we know what to delete correctly
-                    self.fileQueue.delete(index: index)
-                }
-            }
-
-            if processing.isEmpty {
-                return
-            }
-
             completion(PostHogConsumerPayload(events: processing) { success in
                 hedgeLog("Completed!")
                 if success {
-                    _ = self.fileQueue.pop(processing.count)
+                    self.fileQueue.pop(items.count)
                 }
 
                 self.isFlushingLock.withLock {

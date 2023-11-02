@@ -28,6 +28,10 @@ import Foundation
     @objc public var optOut: Bool = false
     public static let defaultHost: String = "https://app.posthog.com"
 
+    // only internal
+    var disableReachabilityForTesting: Bool = false
+    var disableQueueTimerForTesting: Bool = false
+
     @objc(apiKey:)
     public init(
         apiKey: String

@@ -8,7 +8,7 @@
 import Foundation
 
 class PostHogFileBackedQueue {
-    private let queue: URL
+    let queue: URL
     @ReadWriteLock
     private var items = [String]()
 
@@ -22,8 +22,10 @@ class PostHogFileBackedQueue {
     }
 
     private func setup(oldQueue: URL?) {
-        if !FileManager.default.fileExists(atPath: queue.path) {
-            try? FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
+        } catch {
+            hedgeLog("Error trying to create caching folder \(error)")
         }
 
         if oldQueue != nil {
@@ -34,7 +36,7 @@ class PostHogFileBackedQueue {
             items = try FileManager.default.contentsOfDirectory(atPath: queue.path)
             items.sort { Double($0)! < Double($1)! }
         } catch {
-            hedgeLog("Failed to load files for queue")
+            hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
         }
     }
@@ -46,13 +48,12 @@ class PostHogFileBackedQueue {
     func delete(index: Int) {
         if items.isEmpty { return }
         let removed = items.remove(at: index)
-        try? FileManager.default.removeItem(at: queue.appendingPathComponent(removed))
+
+        deleteSafely(queue.appendingPathComponent(removed))
     }
 
-    func pop(_ count: Int) -> [Data] {
-        let result = loadFiles(count)
+    func pop(_ count: Int) {
         deleteFiles(count)
-        return result
     }
 
     func add(_ contents: Data) {
@@ -61,14 +62,12 @@ class PostHogFileBackedQueue {
             try contents.write(to: queue.appendingPathComponent(filename))
             items.append(filename)
         } catch {
-            hedgeLog("Could not write file")
+            hedgeLog("Could not write file \(error)")
         }
     }
 
     func clear() {
-        if FileManager.default.fileExists(atPath: queue.path) {
-            try? FileManager.default.removeItem(at: queue)
-        }
+        deleteSafely(queue)
         setup(oldQueue: nil)
     }
 
@@ -76,14 +75,21 @@ class PostHogFileBackedQueue {
         var results = [Data]()
 
         for item in items {
-            let itemPath = queue.appendingPathComponent(item)
-            guard let contents = try? Data(contentsOf: itemPath) else {
-                try? FileManager.default.removeItem(at: itemPath)
-                hedgeLog("File \(itemPath) is corrupted")
-                continue
+            let itemURL = queue.appendingPathComponent(item)
+            do {
+                if !FileManager.default.fileExists(atPath: itemURL.path) {
+                    hedgeLog("File \(itemURL) does not exist")
+                    continue
+                }
+                let contents = try Data(contentsOf: itemURL)
+
+                results.append(contents)
+            } catch {
+                hedgeLog("File \(itemURL) is corrupted \(error)")
+
+                deleteSafely(itemURL)
             }
 
-            results.append(contents)
             if results.count == count {
                 return results
             }
@@ -96,7 +102,8 @@ class PostHogFileBackedQueue {
         for _ in 0 ..< count {
             if items.isEmpty { return }
             let removed = items.remove(at: 0) // We always remove from the top of the queue
-            try? FileManager.default.removeItem(at: queue.appendingPathComponent(removed))
+
+            deleteSafely(queue.appendingPathComponent(removed))
         }
     }
 }

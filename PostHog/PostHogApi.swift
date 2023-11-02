@@ -49,7 +49,7 @@ class PostHogApi {
 
         do {
             data = try JSONSerialization.data(withJSONObject: toSend)
-        } catch let error as NSError {
+        } catch {
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
         }
 
@@ -109,7 +109,7 @@ class PostHogApi {
 
         do {
             data = try JSONSerialization.data(withJSONObject: toSend)
-        } catch let error as NSError {
+        } catch {
             return completion(nil, error)
         }
 
@@ -128,7 +128,7 @@ class PostHogApi {
             do {
                 let jsonData = try JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]
                 completion(jsonData, nil)
-            } catch let error as NSError {
+            } catch {
                 completion(nil, error)
             }
         }.resume()

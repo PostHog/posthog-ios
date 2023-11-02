@@ -9,36 +9,38 @@ import Foundation
 import PostHog
 import XCTest
 
-class TestPostHog {
-    var server: MockPostHogServer!
-    var posthog: PostHogSDK!
+func getBatchedEvents(_ server: MockPostHogServer) -> [PostHogEvent] {
+    let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: 15.0)
 
-    init() {
-        server = MockPostHogServer()
-        server.start()
-        let config = server.posthogConfig
-        posthog = PostHogSDK.with(config)
+    if result != XCTWaiter.Result.completed {
+        XCTFail("The expected requests never arrived")
     }
 
-    func stop() {
-        server.stop()
-        posthog.reset()
+    var events: [PostHogEvent] = []
+    for request in server.batchRequests.reversed() {
+        let items = server.parsePostHogEvents(request)
+        events.append(contentsOf: items)
     }
 
-    func getBatchedEvents() -> [PostHogEvent] {
-        posthog.flush()
-        let result = XCTWaiter.wait(for: [server.expectation(1)], timeout: 2.0)
+    return events
+}
 
-        if result != XCTWaiter.Result.completed {
-            XCTFail("The expected requests never arrived")
-        }
+func waitDecideRequest(_ server: MockPostHogServer) {
+    let result = XCTWaiter.wait(for: [server.decideExpectation!], timeout: 15)
 
-        for request in server.requests.reversed() {
-            if request.url?.path == "/batch" {
-                return server.parsePostHogEvents(request)
-            }
-        }
-
-        return []
+    if result != XCTWaiter.Result.completed {
+        XCTFail("The expected requests never arrived")
     }
+}
+
+func getDecideRequest(_ server: MockPostHogServer) -> [[String: Any]] {
+    waitDecideRequest(server)
+
+    var requests: [[String: Any]] = []
+    for request in server.decideRequests.reversed() {
+        let item = server.parseRequest(request, gzip: false)
+        requests.append(item!)
+    }
+
+    return requests
 }

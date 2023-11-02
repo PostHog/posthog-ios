@@ -12,7 +12,7 @@ class PostHogSessionManager {
 
     private let anonLock = NSLock()
     private let distinctLock = NSLock()
-    init(config: PostHogConfig) {
+    init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
     }
 
@@ -51,6 +51,15 @@ class PostHogSessionManager {
     public func setDistinctId(_ id: String) {
         distinctLock.withLock {
             storage.setString(forKey: .distinctId, contents: id)
+        }
+    }
+
+    public func reset() {
+        distinctLock.withLock {
+            storage.remove(key: .distinctId)
+        }
+        anonLock.withLock {
+            storage.remove(key: .anonymousId)
         }
     }
 }

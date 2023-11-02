@@ -13,11 +13,8 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
         return
     }
 
-    var deleteFiles = false
     defer {
-        if deleteFiles {
-            try? FileManager.default.removeItem(at: oldQueue)
-        }
+        deleteSafely(oldQueue)
     }
 
     do {
@@ -25,7 +22,6 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
         let array = try JSONSerialization.jsonObject(with: data) as? [Any]
 
         if array == nil {
-            deleteFiles = true
             return
         }
 
@@ -39,16 +35,11 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
 
             let filename = "\(timestampDate.timeIntervalSince1970)"
 
-            let contents = try? JSONSerialization.data(withJSONObject: event)
+            let contents = try JSONSerialization.data(withJSONObject: event)
 
-            if contents == nil {
-                continue
-            }
-            try? contents!.write(to: queue.appendingPathComponent(filename))
-
-            deleteFiles = true
+            try contents.write(to: queue.appendingPathComponent(filename))
         }
     } catch {
-        deleteFiles = false
+        hedgeLog("Failed to migrate queue \(error)")
     }
 }

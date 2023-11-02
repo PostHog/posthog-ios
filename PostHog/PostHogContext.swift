@@ -61,7 +61,6 @@ class PostHogContext {
             if deviceType != nil {
                 properties["$device_type"] = deviceType
             }
-
         #endif
 
         return properties
@@ -87,8 +86,8 @@ class PostHogContext {
         var properties: [String: Any] = [:]
 
         #if os(iOS) || os(tvOS)
-            properties["$screen_width"] = UIScreen.main.bounds.width
-            properties["$screen_height"] = UIScreen.main.bounds.height
+            properties["$screen_width"] = Float(UIScreen.main.bounds.width)
+            properties["$screen_height"] = Float(UIScreen.main.bounds.height)
         #endif
 
         properties["$lib"] = "posthog-ios"

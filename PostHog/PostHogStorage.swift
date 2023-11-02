@@ -46,11 +46,11 @@ class PostHogStorage {
     }
 
     private func createDirectoryAtURLIfNeeded(url: URL) {
-        if FileManager.default.fileExists(atPath: url.path, isDirectory: nil) { return }
+        if FileManager.default.fileExists(atPath: url.path) { return }
         do {
             try FileManager.default.createDirectory(atPath: url.path, withIntermediateDirectories: true)
         } catch {
-            hedgeLog("Error creating storage directory: \(error.localizedDescription)")
+            hedgeLog("Error creating storage directory: \(error)")
         }
     }
 
@@ -64,11 +64,13 @@ class PostHogStorage {
         let url = url(forKey: forKey)
 
         do {
-            let data = try Data(contentsOf: url)
-            return data
+            if FileManager.default.fileExists(atPath: url.path) {
+                return try Data(contentsOf: url)
+            }
         } catch {
-            return nil
+            hedgeLog("Error reading data from key \(forKey): \(error)")
         }
+        return nil
     }
 
     private func setData(forKey: StorageKey, contents: Data?) {
@@ -76,7 +78,7 @@ class PostHogStorage {
 
         do {
             if contents == nil {
-                try FileManager.default.removeItem(at: url)
+                deleteSafely(url)
                 return
             }
 
@@ -84,16 +86,21 @@ class PostHogStorage {
 
             var resourceValues = URLResourceValues()
             resourceValues.isExcludedFromBackup = true
-            try? url.setResourceValues(resourceValues)
-
+            try url.setResourceValues(resourceValues)
         } catch {
-            hedgeLog("Failed to write data for key '\(forKey)' error: \(error.localizedDescription)")
+            hedgeLog("Failed to write data for key '\(forKey)' error: \(error)")
         }
     }
 
     private func getJson(forKey key: StorageKey) -> Any? {
         guard let data = getData(forKey: key) else { return nil }
-        return try? JSONSerialization.jsonObject(with: data)
+
+        do {
+            return try JSONSerialization.jsonObject(with: data)
+        } catch {
+            hedgeLog("Failed to serialize key '\(key)' error: \(error)")
+        }
+        return nil
     }
 
     private func setJson(forKey key: StorageKey, json: Any) {
@@ -108,26 +115,24 @@ class PostHogStorage {
             jsonObject = [key.rawValue: json]
         }
 
-        let data = try? JSONSerialization.data(withJSONObject: jsonObject!)
+        var data: Data?
+        do {
+            data = try JSONSerialization.data(withJSONObject: jsonObject!)
+        } catch {
+            hedgeLog("Failed to serialize key '\(key)' error: \(error)")
+        }
         setData(forKey: key, contents: data)
     }
 
     public func reset() {
-        do {
-            try FileManager.default.removeItem(at: appFolderUrl)
-            createDirectoryAtURLIfNeeded(url: appFolderUrl)
-        } catch {
-            hedgeLog("Failed to reset storage folder, error: \(error.localizedDescription)")
-        }
+        deleteSafely(appFolderUrl)
+        createDirectoryAtURLIfNeeded(url: appFolderUrl)
     }
 
     public func remove(key: StorageKey) {
         let url = url(forKey: key)
-        do {
-            try FileManager.default.removeItem(at: url)
-        } catch {
-            hedgeLog("Failed to remove key '\(key)', error: \(error.localizedDescription)")
-        }
+
+        deleteSafely(url)
     }
 
     public func getString(forKey key: StorageKey) -> String? {
@@ -144,20 +149,6 @@ class PostHogStorage {
         setJson(forKey: key, json: contents)
     }
 
-    public func getNumber(forKey key: StorageKey) -> Double? {
-        let value = getJson(forKey: key)
-        if let doubleValue = value as? Double {
-            return doubleValue
-        } else if let dictValue = value as? [String: Double] {
-            return dictValue[key.rawValue]
-        }
-        return nil
-    }
-
-    public func setNumber(forKey key: StorageKey, contents: Double) {
-        setJson(forKey: key, json: contents)
-    }
-
     public func getDictionary(forKey key: StorageKey) -> [AnyHashable: Any]? {
         getJson(forKey: key) as? [AnyHashable: Any]
     }
@@ -166,16 +157,14 @@ class PostHogStorage {
         setJson(forKey: key, json: contents)
     }
 
-    public func getArray(forKey key: StorageKey) -> [Any]? {
-        getJson(forKey: key) as? [Any]
-    }
-
-    public func setArray(forKey key: StorageKey, contents: [Any]) {
-        setJson(forKey: key, json: contents)
-    }
-
     public func getBool(forKey key: StorageKey) -> Bool? {
-        getJson(forKey: key) as? Bool
+        let value = getJson(forKey: key)
+        if let boolValue = value as? Bool {
+            return boolValue
+        } else if let dictValue = value as? [String: Bool] {
+            return dictValue[key.rawValue]
+        }
+        return nil
     }
 
     public func setBool(forKey key: StorageKey, contents: Bool) {

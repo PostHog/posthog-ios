@@ -77,7 +77,7 @@ let maxRetryDelay = 30.0
             let theApi = PostHogApi(config)
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
-            sessionManager = PostHogSessionManager(config: config)
+            sessionManager = PostHogSessionManager(config)
             do {
                 reachability = try Reachability()
             } catch {
@@ -92,7 +92,8 @@ let maxRetryDelay = 30.0
 
             queue = PostHogQueue(config, theStorage, theApi, reachability)
 
-            queue?.start()
+            queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                         disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             registerNotifications()
             captureScreenViews()
@@ -126,24 +127,31 @@ let maxRetryDelay = 30.0
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {
-        var properties: [String: Any] = [:]
+        var properties = getRegisteredProperties()
 
         var groups: [String: String]?
         groupsLock.withLock {
             groups = getGroups()
         }
-        properties["$groups"] = groups ?? [:]
+        if groups != nil, !groups!.isEmpty {
+            properties["$groups"] = groups!
+        }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
-            return [:]
+            return properties
         }
 
         var keys: [String] = []
         for (key, value) in flags {
             properties["$feature/\(key)"] = value
 
-            let boolValue = value as? Bool ?? false
-            let active = boolValue ? boolValue : true
+            var active = true
+            let boolValue = value as? Bool
+            if boolValue != nil {
+                active = boolValue!
+            } else {
+                active = true
+            }
 
             if active {
                 keys.append(key)
@@ -157,7 +165,7 @@ let maxRetryDelay = 30.0
         return properties
     }
 
-    private func buildProperties(properties _: [String: Any]?,
+    private func buildProperties(properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
                                  groupProperties: [String: Any]? = nil) -> [String: Any]
@@ -182,8 +190,13 @@ let maxRetryDelay = 30.0
             props["$set_once"] = (userPropertiesSetOnce ?? [:])
         }
         if groupProperties != nil {
-            props["$groups"] = (groupProperties ?? [:])
+            // $groups are also set via the dynamicContext
+            let currentGroups = props["$groups"] as? [String: Any] ?? [:]
+            let mergedGroups = currentGroups.merging(groupProperties ?? [:]) { current, _ in current }
+            props["$groups"] = mergedGroups
         }
+        props = props.merging(properties ?? [:]) { current, _ in current }
+
         return props
     }
 
@@ -213,7 +226,7 @@ let maxRetryDelay = 30.0
     }
 
     private func getRegisteredProperties() -> [String: Any] {
-        guard let props = storage?.getDictionary(forKey: .registerProperties) as? [String: String] else {
+        guard let props = storage?.getDictionary(forKey: .registerProperties) as? [String: Any] else {
             return [:]
         }
         return props
@@ -452,9 +465,7 @@ let maxRetryDelay = 30.0
 
         _ = groups([type: key])
 
-        if groupProperties != nil {
-            groupIdentify(type: type, key: key, groupProperties: sanitizeDicionary(groupProperties))
-        }
+        groupIdentify(type: type, key: key, groupProperties: sanitizeDicionary(groupProperties))
     }
 
     // FEATURE FLAGS
@@ -513,7 +524,13 @@ let maxRetryDelay = 30.0
             return false
         }
 
-        return featureFlags.isFeatureEnabled(key)
+        let value = featureFlags.isFeatureEnabled(key)
+
+        if config.sendFeatureFlagEvent {
+            reportFeatureFlagCalled(flagKey: key, flagValue: value)
+        }
+
+        return value
     }
 
     @objc public func getFeatureFlagPayload(_ key: String) -> Any? {
@@ -626,11 +643,13 @@ let maxRetryDelay = 30.0
 
     private func captureScreenViews() {
         if config.captureScreenViews {
-            UIViewController.swizzleScreenView()
+            #if os(iOS) || os(tvOS)
+                UIViewController.swizzleScreenView()
+            #endif
         }
     }
 
-    private func captureAppInstalled() {
+    func captureAppInstalled() {
         let bundle = Bundle.main
 
         let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
@@ -685,7 +704,7 @@ let maxRetryDelay = 30.0
         }
     }
 
-    private func captureAppOpened() {
+    func captureAppOpened() {
         var props: [String: Any] = [:]
         props["from_background"] = false
 
@@ -701,13 +720,10 @@ let maxRetryDelay = 30.0
             props["build"] = versionCode
         }
 
-//        props["referring_application"] = launchOptions[UIApplicationLaunchOptionsSourceApplicationKey]
-//        props["url"] = launchOptions[UIApplicationLaunchOptionsURLKey]
-
         capture("Application Opened", properties: props)
     }
 
-    @objc private func captureAppOpenedFromBackground() {
+    @objc func captureAppOpenedFromBackground() {
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 
@@ -727,7 +743,7 @@ let maxRetryDelay = 30.0
         captureAppOpened()
     }
 
-    @objc private func captureAppBackgrounded() {
+    @objc func captureAppBackgrounded() {
         if !config.captureApplicationLifecycleEvents {
             return
         }

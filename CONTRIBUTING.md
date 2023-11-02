@@ -1,7 +1,7 @@
 # Contributing
 
 If you would like to contribute code to `posthog-ios` you can do so through
-GitHub by forking the repository and opening a pull request against `master`.
+GitHub by forking the repository and opening a pull request against `main`.
 
 ## Development Guide
 

@@ -1,16 +1,15 @@
-**What does this PR do?**
+## :bulb: Motivation and Context
+<!--- Why is this change required? What problem does it solve? -->
+<!--- If it fixes an open issue, please link to the issue here. -->
 
-**Where should the reviewer start?**
 
-**How should this be manually tested?**
+## :green_heart: How did you test it?
 
-**Any background context you want to provide?**
 
-**What are the relevant tickets?**
+## :pencil: Checklist
+<!--- Put an `x` in the boxes that apply -->
 
-**Screenshots or screencasts (if UI/UX change)**
-
-**Questions:**
-- Does the docs need an update?
-- Are there any security concerns?
-- Do we need to update engineering / success?
+- [ ] I reviewed the submitted code.
+- [ ] I added tests to verify the changes.
+- [ ] I updated the docs if needed.
+- [ ] No breaking change or entry added to the changelog.

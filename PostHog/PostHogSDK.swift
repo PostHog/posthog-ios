@@ -89,6 +89,8 @@ let maxRetryDelay = 30.0
                     // ignored
                 }
                 context = PostHogContext(reachability)
+            #else
+                context = PostHogContext()
             #endif
 
             optOutLock.withLock {

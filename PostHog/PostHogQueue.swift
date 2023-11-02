@@ -25,7 +25,9 @@ class PostHogQueue {
     private var pausedLock = NSLock()
     private var pausedUntil: Date?
     private var retryCount: TimeInterval = 0
-    private let reachability: Reachability?
+    #if !os(watchOS)
+        private let reachability: Reachability?
+    #endif
 
     private var isFlushing = false
     private let isFlushingLock = NSLock()
@@ -40,13 +42,22 @@ class PostHogQueue {
 
     private let fileQueue: PostHogFileBackedQueue
 
-    init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
-        self.config = config
-        self.storage = storage
-        self.api = api
-        self.reachability = reachability
-        fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
-    }
+    #if !os(watchOS)
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
+            self.config = config
+            self.storage = storage
+            self.api = api
+            self.reachability = reachability
+            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+        }
+    #else
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
+            self.config = config
+            self.storage = storage
+            self.api = api
+            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+        }
+    #endif
 
     private func eventHandler(_ payload: PostHogConsumerPayload) {
         hedgeLog("Sending batch of \(payload.events.count) events to PostHog")
@@ -78,36 +89,38 @@ class PostHogQueue {
     {
         if !disableReachabilityForTesting {
             // Setup the monitoring of network status for the queue
-            reachability?.whenReachable = { reachability in
-                self.pausedLock.withLock {
-                    if self.config.dataMode == .wifi, reachability.connection != .wifi {
-                        hedgeLog("Queue is paused because its not in WiFi mode")
+            #if !os(watchOS)
+                reachability?.whenReachable = { reachability in
+                    self.pausedLock.withLock {
+                        if self.config.dataMode == .wifi, reachability.connection != .wifi {
+                            hedgeLog("Queue is paused because its not in WiFi mode")
+                            self.paused = true
+                        } else {
+                            self.paused = false
+                        }
+                    }
+
+                    // Always trigger a flush when we are on wifi
+                    if reachability.connection == .wifi {
+                        if !self.isFlushing {
+                            self.flush()
+                        }
+                    }
+                }
+
+                reachability?.whenUnreachable = { _ in
+                    self.pausedLock.withLock {
+                        hedgeLog("Queue is paused because network is unreachable")
                         self.paused = true
-                    } else {
-                        self.paused = false
                     }
                 }
 
-                // Always trigger a flush when we are on wifi
-                if reachability.connection == .wifi {
-                    if !self.isFlushing {
-                        self.flush()
-                    }
+                do {
+                    try reachability?.startNotifier()
+                } catch {
+                    hedgeLog("Error: Unable to monitor network reachability")
                 }
-            }
-
-            reachability?.whenUnreachable = { _ in
-                self.pausedLock.withLock {
-                    hedgeLog("Queue is paused because network is unreachable")
-                    self.paused = true
-                }
-            }
-
-            do {
-                try reachability?.startNotifier()
-            } catch {
-                hedgeLog("Error: Unable to monitor network reachability")
-            }
+            #endif
         }
 
         if !disableQueueTimerForTesting {

@@ -14,8 +14,8 @@
 		3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646929C9E385007E8C07 /* MockPostHogServer.swift */; };
 		3A62647129CAF67B007E8C07 /* PostHogSessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647029CAF67B007E8C07 /* PostHogSessionManagerTest.swift */; };
 		3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647429CB0168007E8C07 /* TestPostHog.swift */; };
-		3A81BEAE297704F400A6908D /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
-		3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		3A81BEAE297704F400A6908D /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; platformFilters = (ios, maccatalyst, macos, ); };
+		3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; platformFilters = (ios, maccatalyst, macos, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */; };
 		3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CFB296D951A003398F4 /* ContentView.swift */; };
 		3AA34CFE296D951B003398F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34CFD296D951B003398F4 /* Assets.xcassets */; };
@@ -181,6 +181,7 @@
 		690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfigTest.swift; sourceTree = "<group>"; };
 		690FF0E82AEFD3BD00A0B06B /* PostHogQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueueTest.swift; sourceTree = "<group>"; };
 		690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDKTest.swift; sourceTree = "<group>"; };
+		690FF1462AF3C79000A0B06B /* PostHogExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PostHogExample.entitlements; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlags.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
@@ -264,6 +265,7 @@
 		3AA34CF8296D951A003398F4 /* PostHogExample */ = {
 			isa = PBXGroup;
 			children = (
+				690FF1462AF3C79000A0B06B /* PostHogExample.entitlements */,
 				3A0F108129C4792E002C0084 /* Views */,
 				3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */,
 				3AE3FB2B2991320300AFFC18 /* Api.swift */,
@@ -707,6 +709,11 @@
 /* Begin PBXTargetDependency section */
 		3A81BEB1297704F400A6908D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+				maccatalyst,
+				macos,
+			);
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = 3A81BEB0297704F400A6908D /* PBXContainerItemProxy */;
 		};
@@ -752,6 +759,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
@@ -769,6 +777,8 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -781,6 +791,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
@@ -798,6 +809,8 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -958,14 +971,14 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
 			};
 			name = Debug;
@@ -1000,13 +1013,13 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
 			};
 			name = Release;

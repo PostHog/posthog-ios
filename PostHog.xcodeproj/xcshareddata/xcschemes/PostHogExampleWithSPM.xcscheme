@@ -17,7 +17,7 @@
                BlueprintIdentifier = "690FF0412AE7DB3600A0B06B"
                BuildableName = "PostHogExampleWithSPM.app"
                BlueprintName = "PostHogExampleWithSPM"
-               ReferencedContainer = "container:PostHogExampleWithSPM.xcodeproj">
+               ReferencedContainer = "container:PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,7 +46,7 @@
             BlueprintIdentifier = "690FF0412AE7DB3600A0B06B"
             BuildableName = "PostHogExampleWithSPM.app"
             BlueprintName = "PostHogExampleWithSPM"
-            ReferencedContainer = "container:PostHogExampleWithSPM.xcodeproj">
+            ReferencedContainer = "container:PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,7 +63,7 @@
             BlueprintIdentifier = "690FF0412AE7DB3600A0B06B"
             BuildableName = "PostHogExampleWithSPM.app"
             BlueprintName = "PostHogExampleWithSPM"
-            ReferencedContainer = "container:PostHogExampleWithSPM.xcodeproj">
+            ReferencedContainer = "container:PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

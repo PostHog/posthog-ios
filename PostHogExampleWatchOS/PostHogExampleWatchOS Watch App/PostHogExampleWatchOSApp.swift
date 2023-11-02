@@ -9,7 +9,7 @@ import PostHog
 import SwiftUI
 
 @main
-struct PostHogExampleWatchOS_Watch_AppApp: App {
+struct PostHogExampleWatchOSApp: App {
     init() {
         // TODO: init on app delegate instead
         let config = PostHogConfig(

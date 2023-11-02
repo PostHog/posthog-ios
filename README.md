@@ -1,24 +1,14 @@
-[![Version](https://img.shields.io/cocoapods/v/PostHog.svg?style=flat)](https://cocoapods.org//pods/PostHog)
-[![License](https://img.shields.io/cocoapods/l/PostHog.svg?style=flat)](http://cocoapods.org/pods/PostHog)
-[![SwiftPM Compatible](https://img.shields.io/badge/SwiftPM-Compatible-F05138.svg)](https://swift.org/package-manager/)
+[![Build](https://img.shields.io/github/actions/workflow/status/PostHog/posthog-ios/build.yml?branch=v3.0.0)](https://github.com/PostHog/posthog-ios/actions/workflows/build.yml?query=branch%3Av3.0.0)
+[![CocoaPods compadible](https://img.shields.io/cocoapods/v/PostHog.svg)](https://cocoapods.org/pods/PostHog)
+[![SwiftPM compatible](https://img.shields.io/badge/spm-compatible-brightgreen.svg?style=flat)](https://swift.org/package-manager)
+![platforms](https://img.shields.io/cocoapods/p/PostHog.svg?style=flat)
+[![Swift Package Index](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FPostHog%2Fposthog-ios%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/PostHog/posthog-ios)
 
 # PostHog iOS
 
 Please see the main [PostHog docs](https://posthog.com/docs).
 
 Specifically, the [iOS integration](https://posthog.com/docs/integrations/ios-integration) details.
-
-# Development Guide
-
-To get started
-
-1. Install XCode
-2. Install [CocoaPods](https://guides.cocoapods.org/using/getting-started.html)
-3. Run `pod install`
-    1. If you face segmentation faults on M1 Macs, [this might be a potential cause](https://github.com/ffi/ffi/issues/864)
-    2. To fix, run `gem install --user-install ffi -- --enable-libffi-alloc`
-4. Open the **file** `PostHog.xcworkspace` workspace in XCode
-5. Run tests [using the test navigator](https://developer.apple.com/library/archive/documentation/DeveloperTools/Conceptual/testing_with_xcode/chapters/05-running_tests.html) . Skip TvOS tests by changing the target in the top middle bar from `PostHog` to `PostHogTests`.
 
 ## Questions?
 

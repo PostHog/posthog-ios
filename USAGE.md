@@ -123,7 +123,7 @@ Load feature flags automatically
 NotificationCenter.default.addObserver(self, selector: #selector(receiveFeatureFlags), name: PostHogSDK.didReceiveFeatureFlags, object: nil)
 PostHogSDK.shared.setup(config)
 
-`receiveFeatureFlags` will be called when the SDK receives the feature flags from the server.
+The "receiveFeatureFlags" method will be called when the SDK receives the feature flags from the server.
 
 // And/Or manually
 PostHogSDK.shared.reloadFeatureFlags {

@@ -1,5 +1,9 @@
 ## Next
 
+## 3.0.0-alpha.5 - 2023-11-03
+
+- Just testing the release automation
+
 ## 3.0.0-alpha.4 - 2023-11-03
 
 - Just testing the release automation

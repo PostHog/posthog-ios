@@ -3,12 +3,13 @@ set -euo pipefail
 
 CURRENT_TAG="$1"
 TEMP_TAG="${CURRENT_TAG}-temp"
+GITHUB_BRANCH="${2}"
 
 echo "Going to push the tag changes."
 git config --global user.name 'PostHog Github Bot'
 git config --global user.email 'github-bot@posthog.com'
 git fetch
-git checkout ${CURRENT_TAG}
+git checkout ${GITHUB_BRANCH}
 # Create a new temporary tag after pushing the changes from the previous tag (bump version)
 git tag -a ${TEMP_TAG} -m "${TEMP_TAG}"
 # Remove the current tag

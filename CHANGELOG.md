@@ -1,5 +1,9 @@
 ## Next
 
+## 3.0.0-alpha.4 - 2023-11-03
+
+- Just testing the release automation
+
 ## 3.0.0-alpha.3 - 2023-11-02
 
 - Add more targets and change default branch to main [#75](https://github.com/PostHog/posthog-ios/pull/75)

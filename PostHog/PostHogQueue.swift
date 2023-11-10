@@ -152,7 +152,11 @@ class PostHogQueue {
         }
 
         take(config.maxBatchSize) { payload in
-            self.eventHandler(payload)
+            if !payload.events.isEmpty {
+                self.eventHandler(payload)
+            } else {
+                payload.completion(true)
+            }
         }
     }
 
@@ -199,7 +203,7 @@ class PostHogQueue {
 
             completion(PostHogConsumerPayload(events: processing) { success in
                 hedgeLog("Completed!")
-                if success {
+                if success, items.count > 0 {
                     self.fileQueue.pop(items.count)
                 }
 

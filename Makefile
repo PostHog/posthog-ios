@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExample format swiftLint swiftFormat test testOnSimulator lint bootstrap releaseCocoaPods
+.PHONY: build buildSdk buildExample format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods
 
 build: buildSdk buildExample
 
@@ -16,8 +16,11 @@ swiftLint:
 swiftFormat:
 	swiftformat . --swiftversion 5.3
 
-testOnSimulator:
+testOniOSSimulator:
 	set -o pipefail && xcodebuild test -project PostHog.xcodeproj -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0.1' | xcpretty
+
+testOnMacSimulator:
+	set -o pipefail && xcodebuild test -project PostHog.xcodeproj -scheme PostHog -destination 'platform=macOS' | xcpretty
 
 test:
 	swift test

@@ -14,8 +14,8 @@
 		3A62646A29C9E385007E8C07 /* MockPostHogServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62646929C9E385007E8C07 /* MockPostHogServer.swift */; };
 		3A62647129CAF67B007E8C07 /* PostHogSessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647029CAF67B007E8C07 /* PostHogSessionManagerTest.swift */; };
 		3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A62647429CB0168007E8C07 /* TestPostHog.swift */; };
-		3A81BEAE297704F400A6908D /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
-		3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		3A81BEAE297704F400A6908D /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; platformFilters = (ios, maccatalyst, macos, tvos, ); };
+		3A81BEAF297704F400A6908D /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; platformFilters = (ios, maccatalyst, macos, tvos, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */; };
 		3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34CFB296D951A003398F4 /* ContentView.swift */; };
 		3AA34CFE296D951B003398F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34CFD296D951B003398F4 /* Assets.xcassets */; };
@@ -67,6 +67,13 @@
 		69278D4B2AE6BC9000BB541A /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		69278D4C2AE6BC9000BB541A /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69779BEB2AE68E6900D7A48E /* UIViewController.swift */; };
+		699991882AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699991872AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift */; };
+		6999918A2AFE1B37000DCB78 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699991892AFE1B37000DCB78 /* ContentView.swift */; };
+		6999918C2AFE1B39000DCB78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6999918B2AFE1B39000DCB78 /* Assets.xcassets */; };
+		6999918F2AFE1B39000DCB78 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6999918E2AFE1B39000DCB78 /* Preview Assets.xcassets */; };
+		699991942AFE1B56000DCB78 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		699991952AFE1B56000DCB78 /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		6999919A2AFE1BAB000DCB78 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699991992AFE1BAB000DCB78 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,6 +133,13 @@
 			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
 			remoteInfo = PostHog;
 		};
+		699991962AFE1B56000DCB78 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -147,6 +161,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				69278D4C2AE6BC9000BB541A /* PostHog.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		699991982AFE1B56000DCB78 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				699991952AFE1B56000DCB78 /* PostHog.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -217,6 +242,14 @@
 		69278D452AE6BC7200BB541A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		69278D462AE6BC7200BB541A /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		69779BEB2AE68E6900D7A48E /* UIViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewController.swift; sourceTree = "<group>"; };
+		699991562AFE0E9F000DCB78 /* PostHogExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PostHogExample.entitlements; sourceTree = "<group>"; };
+		699991852AFE1B37000DCB78 /* PostHogExampleMacOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleMacOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		699991872AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleMacOSApp.swift; sourceTree = "<group>"; };
+		699991892AFE1B37000DCB78 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		6999918B2AFE1B39000DCB78 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6999918E2AFE1B39000DCB78 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		699991902AFE1B39000DCB78 /* PostHogExampleMacOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PostHogExampleMacOS.entitlements; sourceTree = "<group>"; };
+		699991992AFE1BAB000DCB78 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -255,6 +288,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		699991822AFE1B37000DCB78 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				699991942AFE1B56000DCB78 /* PostHog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -279,6 +320,7 @@
 		3AA34CF8296D951A003398F4 /* PostHogExample */ = {
 			isa = PBXGroup;
 			children = (
+				699991562AFE0E9F000DCB78 /* PostHogExample.entitlements */,
 				3A0F108129C4792E002C0084 /* Views */,
 				3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */,
 				3AE3FB2B2991320300AFFC18 /* Api.swift */,
@@ -324,6 +366,7 @@
 				3AC745C3296D6FE60025C109 /* PostHogTests */,
 				3AA34CF8296D951A003398F4 /* PostHogExample */,
 				69278D332AE6BC7100BB541A /* PostHogObjCExample */,
+				699991862AFE1B37000DCB78 /* PostHogExampleMacOS */,
 				3AC745B6296D6FE60025C109 /* Products */,
 				69261D152AD92D6C00232EC7 /* Frameworks */,
 			);
@@ -336,6 +379,7 @@
 				3AC745BF296D6FE60025C109 /* PostHogTests.xctest */,
 				3AA34CF7296D951A003398F4 /* PostHogExample.app */,
 				69278D322AE6BC7100BB541A /* PostHogObjCExample.app */,
+				699991852AFE1B37000DCB78 /* PostHogExampleMacOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -440,6 +484,27 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		699991862AFE1B37000DCB78 /* PostHogExampleMacOS */ = {
+			isa = PBXGroup;
+			children = (
+				699991872AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift */,
+				699991892AFE1B37000DCB78 /* ContentView.swift */,
+				6999918B2AFE1B39000DCB78 /* Assets.xcassets */,
+				699991902AFE1B39000DCB78 /* PostHogExampleMacOS.entitlements */,
+				6999918D2AFE1B39000DCB78 /* Preview Content */,
+				699991992AFE1BAB000DCB78 /* AppDelegate.swift */,
+			);
+			path = PostHogExampleMacOS;
+			sourceTree = "<group>";
+		};
+		6999918D2AFE1B39000DCB78 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				6999918E2AFE1B39000DCB78 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -537,6 +602,25 @@
 			productReference = 69278D322AE6BC7100BB541A /* PostHogObjCExample.app */;
 			productType = "com.apple.product-type.application";
 		};
+		699991842AFE1B37000DCB78 /* PostHogExampleMacOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 699991912AFE1B39000DCB78 /* Build configuration list for PBXNativeTarget "PostHogExampleMacOS" */;
+			buildPhases = (
+				699991812AFE1B37000DCB78 /* Sources */,
+				699991822AFE1B37000DCB78 /* Frameworks */,
+				699991832AFE1B37000DCB78 /* Resources */,
+				699991982AFE1B56000DCB78 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				699991972AFE1B56000DCB78 /* PBXTargetDependency */,
+			);
+			name = PostHogExampleMacOS;
+			productName = PostHogExampleMacOS;
+			productReference = 699991852AFE1B37000DCB78 /* PostHogExampleMacOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -544,7 +628,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1420;
+				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					3AA34CF6296D951A003398F4 = {
@@ -561,6 +645,9 @@
 					69278D312AE6BC7100BB541A = {
 						CreatedOnToolsVersion = 15.0.1;
 					};
+					699991842AFE1B37000DCB78 = {
+						CreatedOnToolsVersion = 15.0.1;
+					};
 				};
 			};
 			buildConfigurationList = 3AC745AF296D6FE60025C109 /* Build configuration list for PBXProject "PostHog" */;
@@ -575,7 +662,6 @@
 			packageReferences = (
 				3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */,
 				3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */,
-				3A62646529C9E36B007E8C07 /* XCRemoteSwiftPackageReference "Shock" */,
 				3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */,
 			);
 			productRefGroup = 3AC745B6296D6FE60025C109 /* Products */;
@@ -600,6 +686,7 @@
 				3AC745BE296D6FE60025C109 /* PostHogTests */,
 				3AA34CF6296D951A003398F4 /* PostHogExample */,
 				69278D312AE6BC7100BB541A /* PostHogObjCExample */,
+				699991842AFE1B37000DCB78 /* PostHogExampleMacOS */,
 			);
 		};
 /* End PBXProject section */
@@ -666,6 +753,15 @@
 				69278D442AE6BC7200BB541A /* LaunchScreen.storyboard in Resources */,
 				69278D412AE6BC7200BB541A /* Assets.xcassets in Resources */,
 				69278D3F2AE6BC7100BB541A /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		699991832AFE1B37000DCB78 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6999918F2AFE1B39000DCB78 /* Preview Assets.xcassets in Resources */,
+				6999918C2AFE1B39000DCB78 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -745,11 +841,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		699991812AFE1B37000DCB78 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6999919A2AFE1BAB000DCB78 /* AppDelegate.swift in Sources */,
+				6999918A2AFE1B37000DCB78 /* ContentView.swift in Sources */,
+				699991882AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		3A81BEB1297704F400A6908D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+				maccatalyst,
+				macos,
+				tvos,
+			);
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = 3A81BEB0297704F400A6908D /* PBXContainerItemProxy */;
 		};
@@ -767,6 +879,11 @@
 			isa = PBXTargetDependency;
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = 69278D4D2AE6BC9000BB541A /* PBXContainerItemProxy */;
+		};
+		699991972AFE1B56000DCB78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = 699991962AFE1B56000DCB78 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -795,6 +912,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
+				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
@@ -808,10 +927,13 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -824,6 +946,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
+				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
@@ -837,10 +961,13 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -902,14 +1029,17 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 			};
 			name = Debug;
 		};
@@ -961,14 +1091,17 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
 				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 			};
 			name = Release;
 		};
@@ -994,7 +1127,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
@@ -1037,7 +1170,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
@@ -1071,16 +1204,19 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 			};
 			name = Debug;
 		};
@@ -1099,15 +1235,18 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 			};
 			name = Release;
 		};
@@ -1128,7 +1267,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1159,7 +1298,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1170,6 +1309,71 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		699991922AFE1B39000DCB78 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExampleMacOS/PostHogExampleMacOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExampleMacOS/Preview Content\"";
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleMacOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		699991932AFE1B39000DCB78 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExampleMacOS/PostHogExampleMacOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExampleMacOS/Preview Content\"";
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleMacOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
@@ -1221,6 +1425,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		699991912AFE1B39000DCB78 /* Build configuration list for PBXNativeTarget "PostHogExampleMacOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				699991922AFE1B39000DCB78 /* Debug */,
+				699991932AFE1B39000DCB78 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1232,28 +1445,20 @@
 				minimumVersion = 9.0.0;
 			};
 		};
-		3A62646529C9E36B007E8C07 /* XCRemoteSwiftPackageReference "Shock" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/justeat/Shock";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 6.0.0;
-			};
-		};
 		3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Quick/Quick.git";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.0;
 			};
 		};
 		3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Quick/Nimble.git";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

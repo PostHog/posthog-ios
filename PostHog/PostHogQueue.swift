@@ -155,6 +155,7 @@ class PostHogQueue {
             if !payload.events.isEmpty {
                 self.eventHandler(payload)
             } else {
+                // there's nothing to be sent
                 payload.completion(true)
             }
         }

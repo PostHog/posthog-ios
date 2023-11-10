@@ -10,11 +10,9 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 
-
 buildExamples:
 	cd PostHogExampleWithPods && pod install
 	cd ..
-	ls  PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace
 	set -o pipefail && xcrun xcodebuild build -workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace -scheme PostHogExampleWithPods -destination generic/platform=ios | xcpretty #CocoaPods
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios

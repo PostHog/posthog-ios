@@ -5,7 +5,7 @@ build: buildSdk buildExample
 buildSdk:
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun swift build --arch arm64 #macOS
-	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination platform=macos,arch=arm64 | xcpretty #macOS
+	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=xros | xcpretty #visionOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
@@ -15,7 +15,7 @@ buildExample:
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty #ObjC
-	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleMacOS -destination platform=macos,arch=arm64 | xcpretty #macOS
+	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
 
 format: swiftLint swiftFormat

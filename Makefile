@@ -12,8 +12,10 @@ buildSdk:
 
 
 buildExamples:
+	cd PostHogExampleWithPods && pod install
+	set -o pipefail && xcrun xcodebuild build -workspace PostHogExampleWithPods.xcworkspace -scheme PostHogExampleWithPods -destination generic/platform=ios | xcpretty #CocoaPods
+	cd ..
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
-	set -o pipefail && xcrun xcodebuild build -workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace -scheme PostHogExampleWithPods -destination generic/platform=ios | xcpretty #CocoaPods
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty #ObjC
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty #macOS

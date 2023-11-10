@@ -12,13 +12,17 @@ import Quick
 
 class PostHogContextTest: QuickSpec {
     func getSut() -> PostHogContext {
-        var reachability: Reachability?
-        do {
-            reachability = try Reachability()
-        } catch {
-            // ignored
-        }
-        return PostHogContext(reachability)
+        #if !os(watchOS)
+            var reachability: Reachability?
+            do {
+                reachability = try Reachability()
+            } catch {
+                // ignored
+            }
+            return PostHogContext(reachability)
+        #else
+            return PostHogContext()
+        #endif
     }
 
     override func spec() {

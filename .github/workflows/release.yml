@@ -26,16 +26,5 @@ jobs:
       - name: Install Cocoapods
         run: gem install cocoapods
 
-      - name: Update version
-        run: ./scripts/bump-version.sh ${{ github.event.release.tag_name }}
-
-      - name: Commit & push
-        run: |
-          ./scripts/commit-code.sh ${{ github.event.release.target_commitish }}
-
-      - name: Update tag
-        run: |
-          ./scripts/update-tag.sh ${{ github.event.release.tag_name }} ${{ github.event.release.target_commitish }}
-  
       - name: Release
         run: make releaseCocoaPods

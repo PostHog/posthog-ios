@@ -1,5 +1,9 @@
 ## Next
 
+## 3.0.0-beta.1 - 2024-01-08
+
+- Promoted to beta since no issues were found in the alpha release
+
 ## 3.0.0-alpha.5 - 2023-11-03
 
 - Just testing the release automation

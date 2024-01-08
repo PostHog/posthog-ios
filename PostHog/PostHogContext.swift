@@ -96,8 +96,8 @@ class PostHogContext {
             properties["$screen_height"] = Float(UIScreen.main.bounds.height)
         #endif
 
-        properties["$lib"] = PostHogVersion.postHogSdkName
-        properties["$lib_version"] = PostHogVersion.postHogVersion
+        properties["$lib"] = postHogSdkName
+        properties["$lib_version"] = postHogVersion
 
         if Locale.current.languageCode != nil {
             properties["$locale"] = Locale.current.languageCode

@@ -69,7 +69,7 @@ let maxRetryDelay = 30.0
             }
 
             if PostHogSDK.apiKeys.contains(config.apiKey) {
-                hedgeLog("API Key: ${config.apiKey} already has a PostHog instance.")
+                hedgeLog("API Key: \(config.apiKey) already has a PostHog instance.")
             } else {
                 PostHogSDK.apiKeys.insert(config.apiKey)
             }

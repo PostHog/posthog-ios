@@ -7,5 +7,10 @@
 
 import Foundation
 
-// if you change this, make sure to also change it in the podspec and check if the script scripts/bump-version.sh still works
-let postHogVersion = "3.0.0-beta.1"
+// This class is internal only
+public class PostHogVersion {
+    // if you change this, make sure to also change it in the podspec and check if the script scripts/bump-version.sh still works
+    public static var postHogVersion = "3.0.0-beta.1"
+
+    public static var postHogSdkName = "posthog-ios"
+}

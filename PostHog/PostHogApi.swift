@@ -19,7 +19,7 @@ class PostHogApi {
 
         config.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "posthog-ios/\(postHogVersion)",
+            "User-Agent": "\(PostHogVersion.postHogSdkName)/\(PostHogVersion.postHogVersion)",
         ]
 
         return config

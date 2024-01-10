@@ -41,6 +41,7 @@ let maxRetryDelay = 30.0
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var appFromBackground = false
+    private var ignoreFirstAppFromBackground = true
 
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
@@ -738,6 +739,14 @@ let maxRetryDelay = 30.0
     }
 
     @objc func captureAppOpenedFromBackground() {
+        // when the app is opened for the first time, the OS sends 2 notifications, didFinishLaunchingNotification
+        // and willEnterForegroundNotification, but we only want to log one "Application Opened" event.
+        // All the following app opened from background events should be logged normally.
+        if ignoreFirstAppFromBackground {
+            ignoreFirstAppFromBackground = false
+            return
+        }
+
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 

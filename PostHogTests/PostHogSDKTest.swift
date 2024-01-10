@@ -341,9 +341,24 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("capture AppOpenedFromBackground") {
+        it("ignore first AppOpenedFromBackground") {
             let sut = self.getSut()
 
+            sut.captureAppOpenedFromBackground()
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 0
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture AppOpenedFromBackground from_background should be false") {
+            let sut = self.getSut()
+
+            // the first call is just to flip the ignoreFirstAppFromBackground flag
+            sut.captureAppOpenedFromBackground()
             sut.captureAppOpenedFromBackground()
 
             let events = getBatchedEvents(server)
@@ -358,9 +373,11 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("capture AppOpenedFromBackground") {
+        it("capture AppOpenedFromBackground from_background should be true") {
             let sut = self.getSut(flushAt: 2)
 
+            // the first call is just to flip the ignoreFirstAppFromBackground flag
+            sut.captureAppOpenedFromBackground()
             sut.captureAppOpenedFromBackground()
             sut.captureAppOpenedFromBackground()
 

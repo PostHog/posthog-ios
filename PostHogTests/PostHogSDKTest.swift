@@ -346,9 +346,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.captureAppOpenedFromBackground()
 
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 0
+            expect(server.batchRequests.count) == 0
 
             sut.reset()
             sut.close()

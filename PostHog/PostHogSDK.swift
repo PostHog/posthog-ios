@@ -641,7 +641,7 @@ let maxRetryDelay = 30.0
 
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppLifecycle),
+                                      selector: #selector(captureAppInstallLifecycle),
                                       name: UIApplication.didFinishLaunchingNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
@@ -649,8 +649,8 @@ let maxRetryDelay = 30.0
                                       name: UIApplication.didEnterBackgroundNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppOpenedFromBackground),
-                                      name: UIApplication.willEnterForegroundNotification,
+                                      selector: #selector(captureAppOpened),
+                                      name: UIApplication.didBecomeActiveNotification,
                                       object: nil)
         #endif
     }
@@ -663,7 +663,11 @@ let maxRetryDelay = 30.0
         }
     }
 
-    func captureAppInstalled() {
+    @objc func captureAppInstallLifecycle() {
+        if !config.captureApplicationLifecycleEvents {
+            return
+        }
+
         let bundle = Bundle.main
 
         let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
@@ -718,43 +722,27 @@ let maxRetryDelay = 30.0
         }
     }
 
-    func captureAppOpened() {
-        var props: [String: Any] = [:]
-        props["from_background"] = false
-
-        let bundle = Bundle.main
-
-        let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
-        let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
-
-        if versionName != nil {
-            props["version"] = versionName
-        }
-        if versionCode != nil {
-            props["build"] = versionCode
-        }
-
-        capture("Application Opened", properties: props)
-    }
-
-    @objc func captureAppOpenedFromBackground() {
+    @objc func captureAppOpened() {
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 
         if !appFromBackground {
+            let bundle = Bundle.main
+
+            let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
+            let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
+
+            if versionName != nil {
+                props["version"] = versionName
+            }
+            if versionCode != nil {
+                props["build"] = versionCode
+            }
+
             appFromBackground = true
         }
 
         capture("Application Opened", properties: props)
-    }
-
-    @objc private func captureAppLifecycle() {
-        if !config.captureApplicationLifecycleEvents {
-            return
-        }
-
-        captureAppInstalled()
-        captureAppOpened()
     }
 
     @objc func captureAppBackgrounded() {

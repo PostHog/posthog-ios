@@ -301,7 +301,7 @@ class PostHogSDKTest: QuickSpec {
         it("capture AppInstalled") {
             let sut = self.getSut()
 
-            sut.captureAppInstalled()
+            sut.captureAppInstallLifecycle()
 
             let events = getBatchedEvents(server)
 
@@ -324,7 +324,7 @@ class PostHogSDKTest: QuickSpec {
             userDefaults.setValue("1", forKey: "PHGBuildKeyV2")
             userDefaults.synchronize()
 
-            sut.captureAppInstalled()
+            sut.captureAppInstallLifecycle()
 
             let events = getBatchedEvents(server)
 
@@ -341,10 +341,10 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("capture AppOpenedFromBackground") {
+        it("capture AppOpenedFromBackground from_background should be false") {
             let sut = self.getSut()
 
-            sut.captureAppOpenedFromBackground()
+            sut.captureAppOpened()
 
             let events = getBatchedEvents(server)
 
@@ -358,11 +358,11 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("capture AppOpenedFromBackground") {
+        it("capture AppOpenedFromBackground from_background should be true") {
             let sut = self.getSut(flushAt: 2)
 
-            sut.captureAppOpenedFromBackground()
-            sut.captureAppOpenedFromBackground()
+            sut.captureAppOpened()
+            sut.captureAppOpened()
 
             let events = getBatchedEvents(server)
 

@@ -1,5 +1,7 @@
 ## Next
 
+- Do not report dupe `Application Opened` event during the first time [#95](https://github.com/PostHog/posthog-ios/pull/95)
+
 ## 3.0.0-beta.2 - 2024-01-09
 
 - Internal changes only

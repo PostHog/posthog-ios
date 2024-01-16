@@ -67,12 +67,12 @@ class PostHogContext {
             }
         #elseif os(macOS)
             let deviceName = Host.current().localizedName
-            if ((deviceName?.isEmpty) != nil) {
+            if (deviceName?.isEmpty) != nil {
                 properties["$device_name"] = deviceName
             }
             let processInfo = ProcessInfo.processInfo
             properties["$os_name"] = "macOS \(processInfo.operatingSystemVersionString)" // eg Version 14.2.1 (Build 23C71)
-            let osVersion = processInfo.operatingSystemVersion;
+            let osVersion = processInfo.operatingSystemVersion
             properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
             properties["$device_type"] = "Desktop"
         #endif

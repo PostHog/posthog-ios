@@ -1,5 +1,7 @@
 ## Next
 
+## 3.0.0-RC.1 - 2024-01-16
+
 - better macOS support with more event properties [#96](https://github.com/PostHog/posthog-ios/pull/96)
 
 ## 3.0.0-beta.3 - 2024-01-11

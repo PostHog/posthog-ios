@@ -9,6 +9,8 @@ import Foundation
 
 #if os(iOS) || os(tvOS)
     import UIKit
+#elseif os(macOS)
+    import AppKit
 #endif
 
 class PostHogContext {
@@ -35,13 +37,13 @@ class PostHogContext {
         if Bundle.main.bundleIdentifier != nil {
             properties["$app_namespace"] = Bundle.main.bundleIdentifier
         }
+        properties["$device_manufacturer"] = "Apple"
+        properties["$device_model"] = platform()
 
         #if os(iOS) || os(tvOS)
             let device = UIDevice.current
             // use https://github.com/devicekit/DeviceKit
-            properties["$device_model"] = platform()
             properties["$device_name"] = device.model
-            properties["$device_manufacturer"] = "Apple"
             properties["$os_name"] = device.systemName
             properties["$os_version"] = device.systemVersion
 
@@ -63,6 +65,16 @@ class PostHogContext {
             if deviceType != nil {
                 properties["$device_type"] = deviceType
             }
+        #elseif os(macOS)
+            let deviceName = Host.current().localizedName
+            if (deviceName?.isEmpty) != nil {
+                properties["$device_name"] = deviceName
+            }
+            let processInfo = ProcessInfo.processInfo
+            properties["$os_name"] = "macOS \(processInfo.operatingSystemVersionString)" // eg Version 14.2.1 (Build 23C71)
+            let osVersion = processInfo.operatingSystemVersion
+            properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+            properties["$device_type"] = "Desktop"
         #endif
 
         return properties
@@ -94,6 +106,12 @@ class PostHogContext {
         #if os(iOS) || os(tvOS)
             properties["$screen_width"] = Float(UIScreen.main.bounds.width)
             properties["$screen_height"] = Float(UIScreen.main.bounds.height)
+        #elseif os(macOS)
+            if let mainScreen = NSScreen.main {
+                let screenFrame = mainScreen.visibleFrame
+                properties["$screen_width"] = Float(screenFrame.size.width)
+                properties["$screen_height"] = Float(screenFrame.size.height)
+            }
         #endif
 
         properties["$lib"] = postHogSdkName

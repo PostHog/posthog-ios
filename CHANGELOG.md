@@ -1,5 +1,7 @@
 ## Next
 
+- better macOS support with more event properties [#96](https://github.com/PostHog/posthog-ios/pull/96)
+
 ## 3.0.0-beta.3 - 2024-01-11
 
 - Do not report dupe `Application Opened` event during the first time [#95](https://github.com/PostHog/posthog-ios/pull/95)

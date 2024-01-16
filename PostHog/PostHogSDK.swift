@@ -9,6 +9,8 @@ import Foundation
 
 #if os(iOS) || os(tvOS)
     import UIKit
+#elseif os(macOS)
+    import AppKit
 #endif
 
 let retryDelay = 5.0
@@ -651,6 +653,20 @@ let maxRetryDelay = 30.0
             defaultCenter.addObserver(self,
                                       selector: #selector(captureAppOpened),
                                       name: UIApplication.didBecomeActiveNotification,
+                                      object: nil)
+        #elseif os(macOS)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(captureAppInstallLifecycle),
+                                      name: NSApplication.didFinishLaunchingNotification,
+                                      object: nil)
+            // macOS does not have didEnterBackgroundNotification, so we use didResignActiveNotification
+            defaultCenter.addObserver(self,
+                                      selector: #selector(captureAppBackgrounded),
+                                      name: NSApplication.didResignActiveNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(captureAppOpened),
+                                      name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #endif
     }

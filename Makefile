@@ -6,7 +6,7 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun swift build --arch arm64 #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
-	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=xros | xcpretty #visionOS
+	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 

@@ -3,6 +3,7 @@
 build: buildSdk buildExamples
 
 buildSdk:
+	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun swift build --arch arm64 #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
@@ -11,6 +12,7 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 
 buildExamples:
+	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty #ObjC
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty #macOS

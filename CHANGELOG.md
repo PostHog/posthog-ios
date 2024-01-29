@@ -1,5 +1,16 @@
 ## Next
 
+## 3.0.0 - 2024-01-29
+
+Check out the updated [docs](https://posthog.com/docs/libraries/ios).
+
+Check out the [USAGE](https://github.com/PostHog/posthog-ios/blob/main/USAGE.md) guide.
+
+### Changes
+
+- Rewritten in Swift.
+- [Breaking changes](https://github.com/PostHog/posthog-ios/blob/main/USAGE.md#breaking-changes) in the API.
+
 ## 3.0.0-RC.1 - 2024-01-16
 
 - better macOS support with more event properties [#96](https://github.com/PostHog/posthog-ios/pull/96)

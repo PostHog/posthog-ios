@@ -8,7 +8,7 @@ on:
       - "**/*.md"
 jobs:
   build:
-    runs-on: macos-13-xl
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1

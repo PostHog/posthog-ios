@@ -31,7 +31,7 @@ class PostHogStorage {
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"
         case sessionId = "posthog.sessionId"
-        case sessionlastTimestamp = "posthog.sessionlastTimestamp"
+        case sessionLastTimestamp = "posthog.sessionLastTimestamp"
     }
 
     private let config: PostHogConfig

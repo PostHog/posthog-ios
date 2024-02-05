@@ -261,12 +261,12 @@ private let sessionChangeThreshold: TimeInterval = 1800
         storage?.setString(forKey: .sessionId, contents: newValue)
     }
     
-    private func getSessionlastTimestamp() -> TimeInterval? {
-        storage?.getDouble(forKey: .sessionlastTimestamp)
+    private func getSessionLastTimestamp() -> TimeInterval? {
+        storage?.getDouble(forKey: .sessionLastTimestamp)
     }
     
-    private func setSessionlastTimestamp(_ newValue: TimeInterval) {
-        storage?.setDouble(forKey: .sessionlastTimestamp, contents: newValue)
+    private func setSessionLastTimestamp(_ newValue: TimeInterval) {
+        storage?.setDouble(forKey: .sessionLastTimestamp, contents: newValue)
     }
 
     // register is a reserved word in ObjC
@@ -382,8 +382,6 @@ private let sessionChangeThreshold: TimeInterval = 1800
         guard let queue = queue else {
             return
         }
-        
-        rotateSessionIdIfRequired()
       
         queue.add(PostHogEvent(
             event: event,
@@ -606,8 +604,8 @@ private let sessionChangeThreshold: TimeInterval = 1800
     }
   
     private func rotateSessionIdIfRequired() {
-        let sessionId = storage?.getString(forKey: .sessionId)
-        let sessionLastTimestamp = storage?.getDouble(forKey: .sessionlastTimestamp)
+        let sessionId = getSessionId()
+        let sessionLastTimestamp = getSessionLastTimestamp()
         
         guard let _ = sessionId, let sessionLastTimestamp = sessionLastTimestamp else {
             rotateSession()
@@ -621,10 +619,10 @@ private let sessionChangeThreshold: TimeInterval = 1800
     
     private func rotateSession() {
         let sessionId = UUID()
-        let sessionlastTimestamp = Date()
+        let sessionLastTimestamp = Date()
         
         setSessionId(sessionId.uuidString)
-        setSessionlastTimestamp(sessionlastTimestamp.timeIntervalSince1970)
+        setSessionLastTimestamp(sessionLastTimestamp.timeIntervalSince1970)
     }
 
     @objc public func optIn() {

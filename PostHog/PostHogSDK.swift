@@ -15,6 +15,7 @@ import Foundation
 
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
+private let sessionChangeThreshold: TimeInterval = 1800
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {
@@ -99,7 +100,7 @@ let maxRetryDelay = 30.0
                 let optOut = theStorage.getBool(forKey: .optOut)
                 config.optOut = optOut ?? config.optOut
             }
-
+            
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, theApi, reachability)
             #else
@@ -111,6 +112,8 @@ let maxRetryDelay = 30.0
 
             registerNotifications()
             captureScreenViews()
+            
+            rotateSessionIdIfRequired()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -142,6 +145,8 @@ let maxRetryDelay = 30.0
 
     private func dynamicContext() -> [String: Any] {
         var properties = getRegisteredProperties()
+        let sessionId = getSessionId()
+        let sessionlastTimestamp = getSessionlastTimestamp()
 
         var groups: [String: String]?
         groupsLock.withLock {
@@ -149,6 +154,11 @@ let maxRetryDelay = 30.0
         }
         if groups != nil, !groups!.isEmpty {
             properties["$groups"] = groups!
+        }
+        
+        if let sessionId = sessionId, let sessionlastTimestamp = sessionlastTimestamp {
+            properties["posthog.sessionId"] = sessionId
+            properties["posthog.sessionlastTimestamp"] = sessionlastTimestamp
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
@@ -244,6 +254,22 @@ let maxRetryDelay = 30.0
             return [:]
         }
         return props
+    }
+    
+    private func getSessionId() -> String? {
+        storage?.getString(forKey: .sessionId)
+    }
+    
+    private func setSessionId(_ newValue: String) {
+        storage?.setString(forKey: .sessionId, contents: newValue)
+    }
+    
+    private func getSessionlastTimestamp() -> TimeInterval? {
+        storage?.getDouble(forKey: .sessionlastTimestamp)
+    }
+    
+    private func setSessionlastTimestamp(_ newValue: TimeInterval) {
+        storage?.setDouble(forKey: .sessionlastTimestamp, contents: newValue)
     }
 
     // register is a reserved word in ObjC
@@ -359,6 +385,9 @@ let maxRetryDelay = 30.0
         guard let queue = queue else {
             return
         }
+        
+        rotateSessionIdIfRequired()
+      
         queue.add(PostHogEvent(
             event: event,
             distinctId: getDistinctId(),
@@ -578,6 +607,28 @@ let maxRetryDelay = 30.0
         }
         return enabled
     }
+  
+    private func rotateSessionIdIfRequired() {
+        let sessionId = storage?.getString(forKey: .sessionId)
+        let sessionLastTimestamp = storage?.getDouble(forKey: .sessionlastTimestamp)
+        
+        guard let _ = sessionId, let sessionLastTimestamp = sessionLastTimestamp else {
+            rotateSession()
+            return
+        }
+        
+        if (Date().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold) {
+            rotateSession()
+        }
+    }
+    
+    private func rotateSession() {
+        let sessionId = UUID()
+        let sessionlastTimestamp = Date()
+        
+        setSessionId(sessionId.uuidString)
+        setSessionlastTimestamp(sessionlastTimestamp.timeIntervalSince1970)
+    }
 
     @objc public func optIn() {
         if !isEnabled() {
@@ -643,7 +694,7 @@ let maxRetryDelay = 30.0
 
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppInstallLifecycle),
+                                      selector: #selector(handleAppOpened),
                                       name: UIApplication.didFinishLaunchingNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
@@ -651,7 +702,7 @@ let maxRetryDelay = 30.0
                                       name: UIApplication.didEnterBackgroundNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppOpened),
+                                      selector: #selector(handleAppOpened),
                                       name: UIApplication.didBecomeActiveNotification,
                                       object: nil)
         #elseif os(macOS)
@@ -678,8 +729,13 @@ let maxRetryDelay = 30.0
             #endif
         }
     }
+    
+    @objc func handleAppStarted() {
+        rotateSessionIdIfRequired()
+        captureAppInstallLifecycle()
+    }
 
-    @objc func captureAppInstallLifecycle() {
+    private func captureAppInstallLifecycle() {
         if !config.captureApplicationLifecycleEvents {
             return
         }
@@ -737,8 +793,13 @@ let maxRetryDelay = 30.0
             capturedAppInstalled = true
         }
     }
+    
+    @objc func handleAppOpened() {
+        rotateSessionIdIfRequired()
+        captureAppOpened()
+    }
 
-    @objc func captureAppOpened() {
+    private func captureAppOpened() {
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 

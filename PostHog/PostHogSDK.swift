@@ -145,9 +145,7 @@ private let sessionChangeThreshold: TimeInterval = 1800
 
     private func dynamicContext() -> [String: Any] {
         var properties = getRegisteredProperties()
-        let sessionId = getSessionId()
-        let sessionlastTimestamp = getSessionlastTimestamp()
-
+        
         var groups: [String: String]?
         groupsLock.withLock {
             groups = getGroups()
@@ -156,9 +154,8 @@ private let sessionChangeThreshold: TimeInterval = 1800
             properties["$groups"] = groups!
         }
         
-        if let sessionId = sessionId, let sessionlastTimestamp = sessionlastTimestamp {
-            properties["posthog.sessionId"] = sessionId
-            properties["posthog.sessionlastTimestamp"] = sessionlastTimestamp
+        if let sessionId = getSessionId() {
+            properties["$session_id"] = sessionId
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {

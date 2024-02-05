@@ -15,7 +15,8 @@ import Foundation
 
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
-private let sessionChangeThreshold: TimeInterval = 1800
+// 30 minutes in seconds
+private let sessionChangeThreshold: TimeInterval = 60 * 30
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {

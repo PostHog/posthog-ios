@@ -158,9 +158,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         if groups != nil, !groups!.isEmpty {
             properties["$groups"] = groups!
         }
-
-        if let sessionId = sessionId {
-            properties["$session_id"] = sessionId
+        
+        var theSessionId: String?
+        sessionLock.withLock {
+            theSessionId = sessionId
+        }
+        if let theSessionId = theSessionId {
+            properties["$session_id"] = theSessionId
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
@@ -371,6 +375,15 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         guard let queue = queue else {
             return
         }
+        
+        // If events fire in the background after the threshold, they should no longer have a sessionId
+        if isInBackground && sessionId != nil,
+           let sessionLastTimestamp = sessionLastTimestamp,
+           Date().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
+            sessionLock.withLock {
+                sessionId = nil
+            }
+        }
 
         queue.add(PostHogEvent(
             event: event,
@@ -380,12 +393,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
                                         groupProperties: sanitizeDicionary(groupProperties))
         ))
-
-        if !isInBackground {
-            sessionLock.withLock {
-                sessionLastTimestamp = Date().timeIntervalSince1970
-            }
-        }
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -814,6 +821,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
     @objc func handleAppDidEnterBackground() {
         captureAppBackgrounded()
+
+        sessionLock.withLock {
+            sessionLastTimestamp = Date().timeIntervalSince1970
+        }
+
         isInBackground = true
     }
 

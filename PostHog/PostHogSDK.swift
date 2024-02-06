@@ -696,16 +696,16 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                       object: nil)
         #elseif os(macOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppOpened),
+                                      selector: #selector(handleAppDidFinishLaunching),
                                       name: NSApplication.didFinishLaunchingNotification,
                                       object: nil)
             // macOS does not have didEnterBackgroundNotification, so we use didResignActiveNotification
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppBackgrounded),
+                                      selector: #selector(handleAppDidEnterBackground),
                                       name: NSApplication.didResignActiveNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppOpened),
+                                      selector: #selector(handleAppDidBecomeActive),
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #endif

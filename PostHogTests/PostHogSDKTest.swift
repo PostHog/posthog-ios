@@ -614,7 +614,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.handleAppDidEnterBackground() // Background "timer": 0 mins
 
-            mockNow.date.addTimeInterval(60 * 30 + 1) // Background "timer": 15 mins
+            mockNow.date.addTimeInterval(60 * 30 + 1) // Background "timer": 30 mins 1 second
 
             sut.capture("event captured while in background")
 

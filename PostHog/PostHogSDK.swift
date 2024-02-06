@@ -31,6 +31,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
     private let personPropsLock = NSLock()
+    private let sessionLock = NSLock()
 
     private var queue: PostHogQueue?
     private var api: PostHogApi?
@@ -45,6 +46,9 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var appFromBackground = false
+    private var sessionId: String?
+    private var sessionLastTimestamp: TimeInterval?
+    private var isInBackground = false
 
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
@@ -114,7 +118,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             registerNotifications()
             captureScreenViews()
             
-            rotateSessionIdIfRequired()
+            rotateSession()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -155,7 +159,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             properties["$groups"] = groups!
         }
         
-        if let sessionId = getSessionId() {
+        if let sessionId = sessionId {
             properties["$session_id"] = sessionId
         }
 
@@ -252,22 +256,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return [:]
         }
         return props
-    }
-    
-    private func getSessionId() -> String? {
-        storage?.getString(forKey: .sessionId)
-    }
-    
-    private func setSessionId(_ newValue: String) {
-        storage?.setString(forKey: .sessionId, contents: newValue)
-    }
-    
-    private func getSessionLastTimestamp() -> TimeInterval? {
-        storage?.getDouble(forKey: .sessionLastTimestamp)
-    }
-    
-    private func setSessionLastTimestamp(_ newValue: TimeInterval) {
-        storage?.setDouble(forKey: .sessionLastTimestamp, contents: newValue)
     }
 
     // register is a reserved word in ObjC
@@ -392,6 +380,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
                                         groupProperties: sanitizeDicionary(groupProperties))
         ))
+
+        if !isInBackground {
+            sessionLock.withLock {
+                sessionLastTimestamp =  Date().timeIntervalSince1970
+            }
+        }
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -605,9 +599,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
   
     private func rotateSessionIdIfRequired() {
-        let sessionId = getSessionId()
-        let sessionLastTimestamp = getSessionLastTimestamp()
-        
         guard let _ = sessionId, let sessionLastTimestamp = sessionLastTimestamp else {
             rotateSession()
             return
@@ -619,11 +610,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
     
     private func rotateSession() {
-        let sessionId = UUID()
-        let sessionLastTimestamp = Date()
-        
-        setSessionId(sessionId.uuidString)
-        setSessionLastTimestamp(sessionLastTimestamp.timeIntervalSince1970)
+        let newSessionId = UUID().uuidString
+        let newSessionLastTimestamp = Date().timeIntervalSince1970
+
+        sessionLock.withLock {
+            sessionId = newSessionId
+            sessionLastTimestamp = newSessionLastTimestamp
+        }
     }
 
     @objc public func optIn() {
@@ -690,20 +683,20 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppOpened),
+                                      selector: #selector(handleAppDidFinishLaunching),
                                       name: UIApplication.didFinishLaunchingNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppBackgrounded),
+                                      selector: #selector(handleAppDidEnterBackground),
                                       name: UIApplication.didEnterBackgroundNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppOpened),
+                                      selector: #selector(handleAppDidBecomeActive),
                                       name: UIApplication.didBecomeActiveNotification,
                                       object: nil)
         #elseif os(macOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppInstallLifecycle),
+                                      selector: #selector(handleAppOpened),
                                       name: NSApplication.didFinishLaunchingNotification,
                                       object: nil)
             // macOS does not have didEnterBackgroundNotification, so we use didResignActiveNotification
@@ -712,7 +705,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                       name: NSApplication.didResignActiveNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppOpened),
+                                      selector: #selector(handleAppOpened),
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #endif
@@ -726,8 +719,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
     
-    @objc func handleAppStarted() {
-        rotateSessionIdIfRequired()
+    @objc func handleAppDidFinishLaunching() {
         captureAppInstallLifecycle()
     }
 
@@ -790,8 +782,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
     
-    @objc func handleAppOpened() {
+    @objc func handleAppDidBecomeActive() {
         rotateSessionIdIfRequired()
+
+        isInBackground = false
         captureAppOpened()
     }
 
@@ -818,7 +812,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         capture("Application Opened", properties: props)
     }
 
-    @objc func captureAppBackgrounded() {
+    @objc func handleAppDidEnterBackground() {
+        captureAppBackgrounded()
+        isInBackground = true
+    }
+
+    private func captureAppBackgrounded() {
         if !config.captureApplicationLifecycleEvents {
             return
         }

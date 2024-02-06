@@ -30,8 +30,6 @@ class PostHogStorage {
         case groups = "posthog.groups"
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"
-        case sessionId = "posthog.sessionId"
-        case sessionLastTimestamp = "posthog.sessionLastTimestamp"
     }
 
     private let config: PostHogConfig
@@ -146,7 +144,7 @@ class PostHogStorage {
         }
         return nil
     }
-    
+
     public func setString(forKey key: StorageKey, contents: String) {
         setJson(forKey: key, json: contents)
     }
@@ -170,18 +168,6 @@ class PostHogStorage {
     }
 
     public func setBool(forKey key: StorageKey, contents: Bool) {
-        setJson(forKey: key, json: contents)
-    }
-    
-    public func getDouble(forKey key: StorageKey) -> Double? {
-        let value = getJson(forKey: key)
-        if let timeIntervalValue = value as? Double {
-            return timeIntervalValue
-        }
-        return nil
-    }
-    
-    public func setDouble(forKey key: StorageKey, contents: Double) {
         setJson(forKey: key, json: contents)
     }
 }

@@ -631,5 +631,5 @@ class PostHogSDKTest: QuickSpec {
 }
 
 private class MockDate {
-    var date = Calendar(identifier: .gregorian).date(from: .init(year: 2024, month: 1, day: 1))!
+    var date = Date()
 }

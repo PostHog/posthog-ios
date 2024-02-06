@@ -378,7 +378,8 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
 
         // If events fire in the background after the threshold, they should no longer have a sessionId
-        if isInBackground && sessionId != nil,
+        if isInBackground,
+           sessionId != nil,
            let sessionLastTimestamp = sessionLastTimestamp,
            now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold
         {

@@ -105,7 +105,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                 let optOut = theStorage.getBool(forKey: .optOut)
                 config.optOut = optOut ?? config.optOut
             }
-            
+
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, theApi, reachability)
             #else
@@ -117,7 +117,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
             registerNotifications()
             captureScreenViews()
-            
+
             rotateSession()
 
             DispatchQueue.main.async {
@@ -150,7 +150,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
     private func dynamicContext() -> [String: Any] {
         var properties = getRegisteredProperties()
-        
+
         var groups: [String: String]?
         groupsLock.withLock {
             groups = getGroups()
@@ -158,7 +158,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         if groups != nil, !groups!.isEmpty {
             properties["$groups"] = groups!
         }
-        
+
         if let sessionId = sessionId {
             properties["$session_id"] = sessionId
         }
@@ -371,7 +371,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         guard let queue = queue else {
             return
         }
-      
+
         queue.add(PostHogEvent(
             event: event,
             distinctId: getDistinctId(),
@@ -383,7 +383,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
         if !isInBackground {
             sessionLock.withLock {
-                sessionLastTimestamp =  Date().timeIntervalSince1970
+                sessionLastTimestamp = Date().timeIntervalSince1970
             }
         }
     }
@@ -597,18 +597,18 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
         return enabled
     }
-  
+
     private func rotateSessionIdIfRequired() {
-        guard let _ = sessionId, let sessionLastTimestamp = sessionLastTimestamp else {
+        guard sessionId != nil, let sessionLastTimestamp = sessionLastTimestamp else {
             rotateSession()
             return
         }
-        
-        if (Date().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold) {
+
+        if Date().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
             rotateSession()
         }
     }
-    
+
     private func rotateSession() {
         let newSessionId = UUID().uuidString
         let newSessionLastTimestamp = Date().timeIntervalSince1970
@@ -718,7 +718,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             #endif
         }
     }
-    
+
     @objc func handleAppDidFinishLaunching() {
         captureAppInstallLifecycle()
     }
@@ -781,7 +781,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             capturedAppInstalled = true
         }
     }
-    
+
     @objc func handleAppDidBecomeActive() {
         rotateSessionIdIfRequired()
 

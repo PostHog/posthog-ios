@@ -45,6 +45,7 @@ class PostHogSDKTest: QuickSpec {
             server.start()
         }
         afterEach {
+            PostHogSDK.shared.now = { Date() }
             server.stop()
             server = nil
         }
@@ -285,7 +286,7 @@ class PostHogSDKTest: QuickSpec {
         it("capture AppBackgrounded") {
             let sut = self.getSut()
 
-            sut.captureAppBackgrounded()
+            sut.handleAppDidEnterBackground()
 
             let events = getBatchedEvents(server)
 
@@ -301,7 +302,7 @@ class PostHogSDKTest: QuickSpec {
         it("capture AppInstalled") {
             let sut = self.getSut()
 
-            sut.handleAppDidBecomeActive()
+            sut.handleAppDidFinishLaunching()
 
             let events = getBatchedEvents(server)
 
@@ -324,7 +325,7 @@ class PostHogSDKTest: QuickSpec {
             userDefaults.setValue("1", forKey: "PHGBuildKeyV2")
             userDefaults.synchronize()
 
-            sut.handleAppDidBecomeActive()
+            sut.handleAppDidFinishLaunching()
 
             let events = getBatchedEvents(server)
 
@@ -524,5 +525,111 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
+
+        it("sets sessionId on app start") {
+            let sut = self.getSut()
+
+            sut.handleAppDidBecomeActive()
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.properties["$session_id"]).toNot(beNil())
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("uses the same sessionId for all events in a session") {
+            let sut = self.getSut(flushAt: 3)
+            let mockNow = MockDate()
+            sut.now = { mockNow.date }
+
+            sut.capture("event1")
+
+            mockNow.date.addTimeInterval(10)
+
+            sut.capture("event2")
+
+            mockNow.date.addTimeInterval(10)
+
+            sut.capture("event3")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 3
+
+            let sessionId = events[0].properties["$session_id"] as? String
+            expect(sessionId).toNot(beNil())
+            expect(events[1].properties["$session_id"] as? String).to(equal(sessionId))
+            expect(events[2].properties["$session_id"] as? String).to(equal(sessionId))
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("rotates to a new sessionId only after > 30 mins in the background") {
+            let sut = self.getSut(flushAt: 5)
+            let mockNow = MockDate()
+            sut.now = { mockNow.date }
+
+            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
+
+            mockNow.date.addTimeInterval(60 * 15) // Background "timer": 15 mins
+
+            sut.capture("event captured while in background")
+
+            mockNow.date.addTimeInterval(60 * 14) // Background "timer": 29 mins
+
+            sut.handleAppDidBecomeActive() // Background "timer": Resets back to 0 mins on next backgrounding
+
+            mockNow.date.addTimeInterval(60)
+
+            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
+
+            mockNow.date.addTimeInterval(30 * 60 + 1) // Background "timer": 30 mins 1 second
+
+            sut.handleAppDidBecomeActive() // New sessionId created
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 5
+
+            let sessionId1 = events[0].properties["$session_id"] as? String
+            expect(sessionId1).toNot(beNil()) // Background "timer": 0 mins
+            expect(events[1].properties["$session_id"] as? String).to(equal(sessionId1)) // Background "timer": 15 mins
+            expect(events[2].properties["$session_id"] as? String).to(equal(sessionId1)) // Background "timer": 29 mins
+            expect(events[3].properties["$session_id"] as? String).to(equal(sessionId1)) // Background "timer": 0 mins
+            expect(events[4].properties["$session_id"] as? String).toNot(equal(sessionId1)) // Background "timer": 30 mins 1 second
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("clears sessionId for background events after 30 mins in background") {
+            let sut = self.getSut(flushAt: 2)
+            let mockNow = MockDate()
+            sut.now = { mockNow.date }
+
+            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
+
+            mockNow.date.addTimeInterval(60 * 30 + 1) // Background "timer": 15 mins
+
+            sut.capture("event captured while in background")
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 2
+
+            expect(events[0].properties["$session_id"] as? String).toNot(beNil())
+            expect(events[1].properties["$session_id"] as? String).to(beNil())
+
+            sut.reset()
+            sut.close()
+        }
     }
+}
+
+private class MockDate {
+    var date = Calendar(identifier: .gregorian).date(from: .init(year: 2024, month: 1, day: 1))!
 }

@@ -40,6 +40,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
+    var now: () -> Date = { Date() }
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
@@ -158,7 +159,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         if groups != nil, !groups!.isEmpty {
             properties["$groups"] = groups!
         }
-        
+
         var theSessionId: String?
         sessionLock.withLock {
             theSessionId = sessionId
@@ -375,11 +376,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         guard let queue = queue else {
             return
         }
-        
+
         // If events fire in the background after the threshold, they should no longer have a sessionId
         if isInBackground && sessionId != nil,
            let sessionLastTimestamp = sessionLastTimestamp,
-           Date().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
+           now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold
+        {
             sessionLock.withLock {
                 sessionId = nil
             }
@@ -611,14 +613,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
-        if Date().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
+        if now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
             rotateSession()
         }
     }
 
     private func rotateSession() {
         let newSessionId = UUID().uuidString
-        let newSessionLastTimestamp = Date().timeIntervalSince1970
+        let newSessionLastTimestamp = now().timeIntervalSince1970
 
         sessionLock.withLock {
             sessionId = newSessionId
@@ -823,7 +825,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         captureAppBackgrounded()
 
         sessionLock.withLock {
-            sessionLastTimestamp = Date().timeIntervalSince1970
+            sessionLastTimestamp = now().timeIntervalSince1970
         }
 
         isInBackground = true

@@ -15,6 +15,8 @@ import Foundation
 
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
+// 30 minutes in seconds
+private let sessionChangeThreshold: TimeInterval = 60 * 30
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {
@@ -29,6 +31,7 @@ let maxRetryDelay = 30.0
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
     private let personPropsLock = NSLock()
+    private let sessionLock = NSLock()
 
     private var queue: PostHogQueue?
     private var api: PostHogApi?
@@ -37,12 +40,16 @@ let maxRetryDelay = 30.0
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
+    var now: () -> Date = { Date() }
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var appFromBackground = false
+    private var sessionId: String?
+    private var sessionLastTimestamp: TimeInterval?
+    private var isInBackground = false
 
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
@@ -112,6 +119,8 @@ let maxRetryDelay = 30.0
             registerNotifications()
             captureScreenViews()
 
+            rotateSession()
+
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
@@ -149,6 +158,14 @@ let maxRetryDelay = 30.0
         }
         if groups != nil, !groups!.isEmpty {
             properties["$groups"] = groups!
+        }
+
+        var theSessionId: String?
+        sessionLock.withLock {
+            theSessionId = sessionId
+        }
+        if let theSessionId = theSessionId {
+            properties["$session_id"] = theSessionId
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
@@ -359,6 +376,18 @@ let maxRetryDelay = 30.0
         guard let queue = queue else {
             return
         }
+
+        // If events fire in the background after the threshold, they should no longer have a sessionId
+        if isInBackground,
+           sessionId != nil,
+           let sessionLastTimestamp = sessionLastTimestamp,
+           now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold
+        {
+            sessionLock.withLock {
+                sessionId = nil
+            }
+        }
+
         queue.add(PostHogEvent(
             event: event,
             distinctId: getDistinctId(),
@@ -579,6 +608,27 @@ let maxRetryDelay = 30.0
         return enabled
     }
 
+    private func rotateSessionIdIfRequired() {
+        guard sessionId != nil, let sessionLastTimestamp = sessionLastTimestamp else {
+            rotateSession()
+            return
+        }
+
+        if now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
+            rotateSession()
+        }
+    }
+
+    private func rotateSession() {
+        let newSessionId = UUID().uuidString
+        let newSessionLastTimestamp = now().timeIntervalSince1970
+
+        sessionLock.withLock {
+            sessionId = newSessionId
+            sessionLastTimestamp = newSessionLastTimestamp
+        }
+    }
+
     @objc public func optIn() {
         if !isEnabled() {
             return
@@ -643,29 +693,29 @@ let maxRetryDelay = 30.0
 
         #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppInstallLifecycle),
+                                      selector: #selector(handleAppDidFinishLaunching),
                                       name: UIApplication.didFinishLaunchingNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppBackgrounded),
+                                      selector: #selector(handleAppDidEnterBackground),
                                       name: UIApplication.didEnterBackgroundNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppOpened),
+                                      selector: #selector(handleAppDidBecomeActive),
                                       name: UIApplication.didBecomeActiveNotification,
                                       object: nil)
         #elseif os(macOS)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppInstallLifecycle),
+                                      selector: #selector(handleAppDidFinishLaunching),
                                       name: NSApplication.didFinishLaunchingNotification,
                                       object: nil)
             // macOS does not have didEnterBackgroundNotification, so we use didResignActiveNotification
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppBackgrounded),
+                                      selector: #selector(handleAppDidEnterBackground),
                                       name: NSApplication.didResignActiveNotification,
                                       object: nil)
             defaultCenter.addObserver(self,
-                                      selector: #selector(captureAppOpened),
+                                      selector: #selector(handleAppDidBecomeActive),
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
         #endif
@@ -679,7 +729,11 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc func captureAppInstallLifecycle() {
+    @objc func handleAppDidFinishLaunching() {
+        captureAppInstallLifecycle()
+    }
+
+    private func captureAppInstallLifecycle() {
         if !config.captureApplicationLifecycleEvents {
             return
         }
@@ -738,7 +792,14 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc func captureAppOpened() {
+    @objc func handleAppDidBecomeActive() {
+        rotateSessionIdIfRequired()
+
+        isInBackground = false
+        captureAppOpened()
+    }
+
+    private func captureAppOpened() {
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 
@@ -761,7 +822,17 @@ let maxRetryDelay = 30.0
         capture("Application Opened", properties: props)
     }
 
-    @objc func captureAppBackgrounded() {
+    @objc func handleAppDidEnterBackground() {
+        captureAppBackgrounded()
+
+        sessionLock.withLock {
+            sessionLastTimestamp = now().timeIntervalSince1970
+        }
+
+        isInBackground = true
+    }
+
+    private func captureAppBackgrounded() {
         if !config.captureApplicationLifecycleEvents {
             return
         }

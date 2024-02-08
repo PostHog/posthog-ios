@@ -14,6 +14,7 @@ import Quick
 class PostHogSDKTest: QuickSpec {
     func getSut(preloadFeatureFlags: Bool = false,
                 sendFeatureFlagEvent: Bool = false,
+                captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
                 optOut: Bool = false) -> PostHogSDK
     {
@@ -23,6 +24,7 @@ class PostHogSDKTest: QuickSpec {
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
+        config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
         return PostHogSDK.with(config)
     }
@@ -284,7 +286,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("capture AppBackgrounded") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             sut.handleAppDidEnterBackground()
 
@@ -300,7 +302,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("capture AppInstalled") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             sut.handleAppDidFinishLaunching()
 
@@ -318,7 +320,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("capture AppUpdated") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             let userDefaults = UserDefaults.standard
             userDefaults.setValue("1.0.0", forKey: "PHGVersionKey")
@@ -343,7 +345,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("capture AppOpenedFromBackground from_background should be false") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             sut.handleAppDidBecomeActive()
 
@@ -360,7 +362,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("capture AppOpenedFromBackground from_background should be true") {
-            let sut = self.getSut(flushAt: 2)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
 
             sut.handleAppDidBecomeActive()
             sut.handleAppDidBecomeActive()
@@ -378,7 +380,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("capture captureAppOpened") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             sut.handleAppDidBecomeActive()
 
@@ -391,6 +393,26 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["from_background"] as? Bool) == false
             expect(event.properties["version"] as? String) != nil
             expect(event.properties["build"] as? String) != nil
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("does not capture life cycle events") {
+            let sut = self.getSut()
+
+            sut.handleAppDidFinishLaunching()
+            sut.handleAppDidBecomeActive()
+            sut.handleAppDidEnterBackground()
+
+            sut.screen("test")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$screen"
 
             sut.reset()
             sut.close()
@@ -527,7 +549,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("sets sessionId on app start") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             sut.handleAppDidBecomeActive()
 
@@ -571,7 +593,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("rotates to a new sessionId only after > 30 mins in the background") {
-            let sut = self.getSut(flushAt: 5)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 5)
             let mockNow = MockDate()
             sut.now = { mockNow.date }
 
@@ -608,7 +630,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("clears sessionId for background events after 30 mins in background") {
-            let sut = self.getSut(flushAt: 2)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
             let mockNow = MockDate()
             sut.now = { mockNow.date }
 

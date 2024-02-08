@@ -397,20 +397,20 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
-        
+
         it("does not capture life cycle events") {
             let sut = self.getSut()
 
             sut.handleAppDidFinishLaunching()
             sut.handleAppDidBecomeActive()
             sut.handleAppDidEnterBackground()
-            
+
             sut.screen("test")
 
             let events = getBatchedEvents(server)
 
             expect(events.count) == 1
-            
+
             let event = events.first!
             expect(event.event) == "$screen"
 
@@ -549,7 +549,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("sets sessionId on app start") {
-            let sut = self.getSut()
+            let sut = self.getSut(captureApplicationLifecycleEvents: true)
 
             sut.handleAppDidBecomeActive()
 
@@ -593,7 +593,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("rotates to a new sessionId only after > 30 mins in the background") {
-            let sut = self.getSut(flushAt: 5)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 5)
             let mockNow = MockDate()
             sut.now = { mockNow.date }
 
@@ -630,7 +630,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("clears sessionId for background events after 30 mins in background") {
-            let sut = self.getSut(flushAt: 2)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
             let mockNow = MockDate()
             sut.now = { mockNow.date }
 

@@ -1,5 +1,9 @@
 ## Next
 
+## 3.1.1 - 2024-02-08
+
+- `Application Opened` respects the `captureApplicationLifecycleEvents` config. [#100](https://github.com/PostHog/posthog-ios/pull/100)
+
 ## 3.1.0 - 2024-02-07
 
 - Add session tracking [#100](https://github.com/PostHog/posthog-ios/pull/100)

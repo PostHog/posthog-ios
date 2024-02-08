@@ -803,7 +803,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         if !config.captureApplicationLifecycleEvents {
             return
         }
-        
+
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 

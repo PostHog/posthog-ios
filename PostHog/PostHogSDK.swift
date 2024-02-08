@@ -800,6 +800,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     private func captureAppOpened() {
+        if !config.captureApplicationLifecycleEvents {
+            return
+        }
+
         var props: [String: Any] = [:]
         props["from_background"] = appFromBackground
 

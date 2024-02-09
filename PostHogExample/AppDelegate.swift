@@ -12,13 +12,15 @@ import UIKit
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_pQ70jJhZKHRvDIL5ruOErnPy6xiAiWCqlL4ayELj4X8"
+            apiKey: "phc_qG6IuV0jr9X2UqJvwSttW3ic2xICSqTXT4q40Aw5Mlb",
+            host: "https://euuuu.posthog.com"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
         config.flushIntervalSeconds = 10
+        config.debug = true
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()

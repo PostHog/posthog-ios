@@ -118,7 +118,7 @@ class PostHogQueue {
                 do {
                     try reachability?.startNotifier()
                 } catch {
-                    hedgeLog("Error: Unable to monitor network reachability")
+                    hedgeLog("Error: Unable to monitor network reachability: \(error)")
                 }
             #endif
         }

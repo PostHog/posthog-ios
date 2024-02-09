@@ -1,5 +1,9 @@
 ## Next
 
+## 3.1.2 - 2024-02-09
+
+- fix and improve logging if the `debug` flag is enabled [#104](https://github.com/PostHog/posthog-ios/pull/104)
+
 ## 3.1.1 - 2024-02-08
 
 - `Application Opened` respects the `captureApplicationLifecycleEvents` config. [#102](https://github.com/PostHog/posthog-ios/pull/102)

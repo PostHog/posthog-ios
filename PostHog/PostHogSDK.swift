@@ -72,6 +72,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
     @objc public func setup(_ config: PostHogConfig) {
         setupLock.withLock {
+            toggleHedgeLog(config.debug)
             if enabled {
                 hedgeLog("Setup called despite already being setup!")
                 return

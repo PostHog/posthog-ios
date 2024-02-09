@@ -27,6 +27,7 @@ class PostHogApi {
 
     func batch(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
         guard let url = URL(string: "batch", relativeTo: config.host) else {
+            hedgeLog("Malformed batch URL error.")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
 
@@ -50,6 +51,7 @@ class PostHogApi {
         do {
             data = try JSONSerialization.data(withJSONObject: toSend)
         } catch {
+            hedgeLog("Error parsing the batch body: \(error)")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
         }
 
@@ -57,22 +59,23 @@ class PostHogApi {
         do {
             gzippedPayload = try data!.gzipped()
         } catch {
+            hedgeLog("Error gzipping the batch body: \(error).")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
             if error != nil {
+                hedgeLog("Error calling the batch API: \(String(describing: error)).")
                 return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
             }
 
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                do {
-                    try hedgeLog("Error sending events to PostHog: \(JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any])")
-                } catch {
-                    hedgeLog("Error sending events to PostHog")
-                }
+                let errorMessage = "Error sending events to batch API: status: \(httpResponse.statusCode), body: \(String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]))."
+                hedgeLog(errorMessage)
+            } else {
+                hedgeLog("Events sent successfully.")
             }
 
             return completion(PostHogBatchUploadInfo(statusCode: httpResponse.statusCode, error: error))
@@ -90,6 +93,7 @@ class PostHogApi {
         urlComps.queryItems = [URLQueryItem(name: "v", value: "3")]
 
         guard let url = urlComps.url(relativeTo: config.host) else {
+            hedgeLog("Malformed decide URL error.")
             return completion(nil, nil)
         }
 
@@ -110,25 +114,33 @@ class PostHogApi {
         do {
             data = try JSONSerialization.data(withJSONObject: toSend)
         } catch {
+            hedgeLog("Error parsing the decide body: \(error)")
             return completion(nil, error)
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: data!) { data, response, error in
             if error != nil {
+                hedgeLog("Error calling the decide API: \(String(describing: error))")
                 return completion(nil, error)
             }
 
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
+                let errorMessage = "Error calling decide API: status: \(httpResponse.statusCode), body: \(String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]))."
+                hedgeLog(errorMessage)
+
                 return completion(nil,
-                                  InternalPostHogError(description: "/decide returned a non 2xx status: \(httpResponse.statusCode)"))
+                                  InternalPostHogError(description: errorMessage))
+            } else {
+                hedgeLog("Decide called successfully.")
             }
 
             do {
                 let jsonData = try JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]
                 completion(jsonData, nil)
             } catch {
+                hedgeLog("Error parsing the decide response: \(error)")
                 completion(nil, error)
             }
         }.resume()

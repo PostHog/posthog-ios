@@ -19,6 +19,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
         config.flushIntervalSeconds = 10
+        config.debug = true
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()

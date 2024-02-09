@@ -203,9 +203,9 @@ class PostHogQueue {
             }
 
             completion(PostHogConsumerPayload(events: processing) { success in
-                hedgeLog("Completed!")
                 if success, items.count > 0 {
                     self.fileQueue.pop(items.count)
+                    hedgeLog("Completed!")
                 }
 
                 self.isFlushingLock.withLock {

@@ -6,7 +6,8 @@ build: buildSdk buildExamples
 buildSdk:
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
-	set -o pipefail && xcrun swift build --arch arm64 #macOS
+	set -o pipefail && xcrun swift build --arch arm64 #macOS SPM
+	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination platform=macos,arch=arm64 #macOS Xcode
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS

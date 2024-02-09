@@ -7,8 +7,15 @@
 
 import Foundation
 
+// returns 2024-02-09T10:53:53.781Z
 public func toISO8601String(_ date: Date) -> String {
+    let formatter = ISO8601DateFormatter()
+//    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+//    formatter.string(from: date)
+    
     let dateFormatter = DateFormatter()
+    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+    
     dateFormatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss.SSS'Z'"
     return dateFormatter.string(from: date)
 }

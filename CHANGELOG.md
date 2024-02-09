@@ -1,5 +1,9 @@
 ## Next
 
+## 3.1.3 - 2024-02-09
+
+- fix ISO8601 formatter to always use the 24h format [#106](https://github.com/PostHog/posthog-ios/pull/106)
+
 ## 3.1.2 - 2024-02-09
 
 - fix and improve logging if the `debug` flag is enabled [#104](https://github.com/PostHog/posthog-ios/pull/104)

@@ -1,6 +1,6 @@
 ## Next
 
-- fix reset session when reset or close are called [#106](https://github.com/PostHog/posthog-ios/pull/106)
+- fix reset session when reset or close are called [#107](https://github.com/PostHog/posthog-ios/pull/107)
 
 ## 3.1.3 - 2024-02-09
 

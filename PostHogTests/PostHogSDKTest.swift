@@ -655,7 +655,7 @@ class PostHogSDKTest: QuickSpec {
             let mockNow = MockDate()
             sut.now = { mockNow.date }
 
-            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
+            sut.capture("event captured with session")
 
             var events = getBatchedEvents(server)
             expect(events.count) == 1
@@ -669,7 +669,7 @@ class PostHogSDKTest: QuickSpec {
             server = MockPostHogServer()
             server.start()
 
-            sut.capture("event captured while in background")
+            sut.capture("event captured w/o session")
 
             events = getBatchedEvents(server)
             expect(events.count) == 1

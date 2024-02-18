@@ -649,6 +649,36 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
+
+        it("clears sessionId after reset") {
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
+            let mockNow = MockDate()
+            sut.now = { mockNow.date }
+
+            sut.capture("event captured with session")
+
+            var events = getBatchedEvents(server)
+            expect(events.count) == 1
+
+            expect(events[0].properties["$session_id"] as? String).toNot(beNil())
+
+            sut.reset()
+
+            server.stop()
+            server = nil
+            server = MockPostHogServer()
+            server.start()
+
+            sut.capture("event captured w/o session")
+
+            events = getBatchedEvents(server)
+            expect(events.count) == 1
+
+            expect(events[0].properties["$session_id"] as? String).to(beNil())
+
+            sut.reset()
+            sut.close()
+        }
     }
 }
 

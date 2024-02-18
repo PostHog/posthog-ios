@@ -245,9 +245,18 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
+        // storage also removes all feature flags
         storage?.reset()
         queue?.clear()
         flagCallReported.removeAll()
+        resetSession()
+    }
+
+    private func resetSession() {
+        sessionLock.withLock {
+            sessionId = nil
+            sessionLastTimestamp = nil
+        }
     }
 
     private func getGroups() -> [String: String] {
@@ -674,12 +683,22 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             sessionManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil
+            featureFlags = nil
+            storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()
                 reachability = nil
             #endif
             flagCallReported.removeAll()
             featureFlags = nil
+            context = nil
+            resetSession()
+            unregisterNotifications()
+            capturedAppInstalled = false
+            appFromBackground = false
+            isInBackground = false
+            toggleHedgeLog(false)
+            // TODO: remove swizzlers
         }
     }
 
@@ -687,6 +706,20 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         let postHog = PostHogSDK(config)
         postHog.setup(config)
         return postHog
+    }
+
+    private func unregisterNotifications() {
+        let defaultCenter = NotificationCenter.default
+
+        #if os(iOS) || os(tvOS)
+            defaultCenter.removeObserver(self, name: UIApplication.didFinishLaunchingNotification, object: nil)
+            defaultCenter.removeObserver(self, name: UIApplication.didEnterBackgroundNotification, object: nil)
+            defaultCenter.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
+        #elseif os(macOS)
+            defaultCenter.removeObserver(self, name: NSApplication.didFinishLaunchingNotification, object: nil)
+            defaultCenter.removeObserver(self, name: NSApplication.didResignActiveNotification, object: nil)
+            defaultCenter.removeObserver(self, name: NSApplication.didBecomeActiveNotification, object: nil)
+        #endif
     }
 
     private func registerNotifications() {

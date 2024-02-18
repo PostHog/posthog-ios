@@ -1,5 +1,7 @@
 ## Next
 
+- fix reset session when reset or close are called [#107](https://github.com/PostHog/posthog-ios/pull/107)
+
 ## 3.1.3 - 2024-02-09
 
 - fix ISO8601 formatter to always use the 24h format [#106](https://github.com/PostHog/posthog-ios/pull/106)

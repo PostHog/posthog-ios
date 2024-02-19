@@ -26,6 +26,8 @@ class PostHogContext {
 
         if let appName = infoDictionary?[kCFBundleNameKey as String] {
             properties["$app_name"] = appName
+        } else if let appName = infoDictionary?["CFBundleDisplayName"] {
+            properties["$app_name"] = appName
         }
         if let appVersion = infoDictionary?["CFBundleShortVersionString"] {
             properties["$app_version"] = appVersion

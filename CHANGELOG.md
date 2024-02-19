@@ -1,5 +1,7 @@
 ## Next
 
+- read `$app_name` from `CFBundleDisplayName` as a fallback is `CFBundleName` isn't available [#107](https://github.com/PostHog/posthog-ios/pull/107)
+
 ## 3.1.4 - 2024-02-19
 
 - fix reset session when reset or close are called [#107](https://github.com/PostHog/posthog-ios/pull/107)

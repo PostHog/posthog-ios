@@ -1,6 +1,7 @@
 ## Next
 
 - read `$app_name` from `CFBundleDisplayName` as a fallback if `CFBundleName` isn't available [#108](https://github.com/PostHog/posthog-ios/pull/108)
+- add PrivacyInfo manifest [#110](https://github.com/PostHog/posthog-ios/pull/110)
 
 ## 3.1.4 - 2024-02-19
 

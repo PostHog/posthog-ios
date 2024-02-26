@@ -430,6 +430,7 @@
 		3AC745B7296D6FE60025C109 /* PostHog */ = {
 			isa = PBXGroup;
 			children = (
+				69BA38E62B893F2200AA69D6 /* Resources */,
 				69779BED2AE6B29E00D7A48E /* Models */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				3AA4C09B2988315D006C4731 /* Utils */,
@@ -448,7 +449,6 @@
 				6926DA8D2ADD2876005760D2 /* PostHogContext.swift */,
 				69779BEB2AE68E6900D7A48E /* UIViewController.swift */,
 				690FF0C42AEFAE8200A0B06B /* PostHogLegacyQueue.swift */,
-				69BA38D62B888E8500AA69D6 /* PrivacyInfo.xcprivacy */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -567,6 +567,14 @@
 				6999918E2AFE1B39000DCB78 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		69BA38E62B893F2200AA69D6 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				69BA38D62B888E8500AA69D6 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

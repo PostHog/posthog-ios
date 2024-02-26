@@ -1,5 +1,7 @@
 ## Next
 
+- PrivacyInfo manifest set in the SPM and CocoaPods config  [#112](https://github.com/PostHog/posthog-ios/pull/112)
+
 ## 3.2.0 - 2024-02-23
 
 - read `$app_name` from `CFBundleDisplayName` as a fallback if `CFBundleName` isn't available [#108](https://github.com/PostHog/posthog-ios/pull/108)

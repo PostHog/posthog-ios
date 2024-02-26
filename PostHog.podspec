@@ -25,4 +25,5 @@ Pod::Spec.new do |s|
   s.source_files = [
     'PostHog/**/*'
   ]
+  s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
 end

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.2.1 - 2024-02-26
+
 - PrivacyInfo manifest set in the SPM and CocoaPods config  [#112](https://github.com/PostHog/posthog-ios/pull/112)
 
 ## 3.2.0 - 2024-02-23

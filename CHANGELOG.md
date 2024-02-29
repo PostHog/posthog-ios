@@ -1,6 +1,6 @@
 ## Next
 
-- API requests do a 10s timeoutInterval instead of 60s  [#112](https://github.com/PostHog/posthog-ios/pull/112)
+- API requests do a 10s timeoutInterval instead of 60s  [#113](https://github.com/PostHog/posthog-ios/pull/113)
 
 ## 3.2.1 - 2024-02-26
 

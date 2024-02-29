@@ -10,6 +10,9 @@ import Foundation
 class PostHogApi {
     private let config: PostHogConfig
 
+    // default is 60s but we do 10s
+    private let defaultTimeout: TimeInterval = 10
+
     init(_ config: PostHogConfig) {
         self.config = config
     }
@@ -25,6 +28,13 @@ class PostHogApi {
         return config
     }
 
+    private func getURL(_ url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = defaultTimeout
+        return request
+    }
+
     func batch(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
         guard let url = URL(string: "batch", relativeTo: config.host) else {
             hedgeLog("Malformed batch URL error.")
@@ -37,8 +47,7 @@ class PostHogApi {
         headers["Content-Encoding"] = "gzip"
         config.httpAdditionalHeaders = headers
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        let request = getURL(url)
 
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,
@@ -99,8 +108,7 @@ class PostHogApi {
 
         let config = sessionConfig()
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        let request = getURL(url)
 
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,

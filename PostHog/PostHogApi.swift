@@ -9,7 +9,7 @@ import Foundation
 
 class PostHogApi {
     private let config: PostHogConfig
-    
+
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
 
@@ -27,7 +27,7 @@ class PostHogApi {
 
         return config
     }
-    
+
     private func getURL(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

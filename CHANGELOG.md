@@ -1,6 +1,6 @@
 ## Next
 
-- `optOut` wasn't respected in capture methods [#113](https://github.com/PostHog/posthog-ios/pull/113)
+- `optOut` wasn't respected in capture methods [#114](https://github.com/PostHog/posthog-ios/pull/114)
 
 ## 3.2.2 - 2024-03-01
 

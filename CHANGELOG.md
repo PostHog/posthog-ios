@@ -1,12 +1,14 @@
 ## Next
 
+- `optOut` wasn't respected in capture methods [#113](https://github.com/PostHog/posthog-ios/pull/113)
+
 ## 3.2.2 - 2024-03-01
 
-- API requests do a 10s timeoutInterval instead of 60s  [#113](https://github.com/PostHog/posthog-ios/pull/113)
+- API requests do a 10s timeoutInterval instead of 60s [#113](https://github.com/PostHog/posthog-ios/pull/113)
 
 ## 3.2.1 - 2024-02-26
 
-- PrivacyInfo manifest set in the SPM and CocoaPods config  [#112](https://github.com/PostHog/posthog-ios/pull/112)
+- PrivacyInfo manifest set in the SPM and CocoaPods config [#112](https://github.com/PostHog/posthog-ios/pull/112)
 
 ## 3.2.0 - 2024-02-23
 
@@ -110,7 +112,7 @@ Check out the [USAGE](https://github.com/PostHog/posthog-ios/blob/main/USAGE.md)
 
 ## 2.0.0 - 2022-08-29
 
-- Add support for groups, simplefeature flags, and  multivariate feature flags
+- Add support for groups, simplefeature flags, and multivariate feature flags
 
 ## 1.4.4 - 2021-11-19
 

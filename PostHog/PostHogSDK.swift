@@ -321,6 +321,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
+        if isOptOutState() {
+            return
+        }
+
         guard let queue = queue, let sessionManager = sessionManager else {
             return
         }
@@ -372,6 +376,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groupProperties: nil)
     }
 
+    private func isOptOutState() -> Bool {
+        if config.optOut {
+            hedgeLog("PostHog is in OptOut state.")
+            return true
+        }
+        return false
+    }
+
     @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groupProperties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
@@ -380,6 +392,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                         groupProperties: [String: Any]? = nil)
     {
         if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
             return
         }
 
@@ -418,6 +434,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
+        if isOptOutState() {
+            return
+        }
+
         guard let queue = queue else {
             return
         }
@@ -435,6 +455,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
     @objc public func alias(_ alias: String) {
         if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
             return
         }
 
@@ -484,6 +508,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
+        if isOptOutState() {
+            return
+        }
+
         guard let queue = queue else {
             return
         }
@@ -513,6 +541,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     @objc(groupWithType:key:groupProperties:)
     public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
             return
         }
 

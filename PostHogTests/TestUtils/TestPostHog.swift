@@ -9,10 +9,10 @@ import Foundation
 import PostHog
 import XCTest
 
-func getBatchedEvents(_ server: MockPostHogServer) -> [PostHogEvent] {
-    let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: 15.0)
+func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
+    let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
 
-    if result != XCTWaiter.Result.completed {
+    if result != XCTWaiter.Result.completed, failIfNotCompleted {
         XCTFail("The expected requests never arrived")
     }
 

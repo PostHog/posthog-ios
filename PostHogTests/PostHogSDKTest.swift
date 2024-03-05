@@ -205,6 +205,21 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("does not capture event if opt out") {
+            let sut = self.getSut()
+
+            sut.optOut()
+
+            sut.capture("event")
+
+            // no need to await 15s
+            let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+            expect(events.count) == 0
+
+            sut.reset()
+            sut.close()
+        }
+
         it("calls reloadFeatureFlags") {
             let sut = self.getSut()
 

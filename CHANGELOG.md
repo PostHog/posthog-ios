@@ -1,5 +1,7 @@
 ## Next
 
+## 3.2.3 - 2024-03-05
+
 - `optOut` wasn't respected in capture methods [#114](https://github.com/PostHog/posthog-ios/pull/114)
 
 ## 3.2.2 - 2024-03-01

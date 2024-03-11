@@ -2,8 +2,6 @@
 //  PostHogSessionReplayConfig.swift
 //  PostHog
 //
-//  Created by Manoel Aranda Neto on 11.03.24.
-//
 
 import Foundation
 

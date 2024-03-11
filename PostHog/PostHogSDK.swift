@@ -155,10 +155,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return sessionManager?.getAnonymousId() ?? ""
     }
 
-//    private func isSessionReplayActive() -> Bool {
-//        return config.sessionReplay &&
-//    }
-
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {

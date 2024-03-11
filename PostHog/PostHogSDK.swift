@@ -209,12 +209,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return properties
     }
 
-    private func buildProperties(properties: [String: Any]?,
+    private func buildProperties(distinctId: String,
+                                 properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
                                  groupProperties: [String: Any]? = nil,
-                                 appendSharedProps: Bool = true,
-                                 distinctId: String? = nil) -> [String: Any]
+                                 appendSharedProps: Bool = true) -> [String: Any]
     {
         var props: [String: Any] = [:]
 
@@ -244,7 +244,8 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
         // Replay needs distinct_id also in the props
         // remove after https://github.com/PostHog/posthog/pull/18954 gets merged
-        if !appendSharedProps, distinctId != nil, props["distinct_id"] == nil {
+        let propDistinctId = props["distinct_id"] as? String
+        if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
             props["distinct_id"] = distinctId
         }
         // TODO: only append props for analytics events
@@ -355,7 +356,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         queue.add(PostHogEvent(
             event: "$identify",
             distinctId: distinctId,
-            properties: buildProperties(properties: [
+            properties: buildProperties(distinctId: distinctId, properties: [
                 "distinct_id": distinctId,
                 "$anon_distinct_id": getAnonymousId(),
             ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
@@ -445,12 +446,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         let posthogEvent = PostHogEvent(
             event: event,
             distinctId: distinctId,
-            properties: buildProperties(properties: sanitizeDicionary(properties),
+            properties: buildProperties(distinctId: distinctId,
+                                        properties: sanitizeDicionary(properties),
                                         userProperties: sanitizeDicionary(userProperties),
                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
                                         groupProperties: sanitizeDicionary(groupProperties),
-                                        appendSharedProps: !snapshotEvent,
-                                        distinctId: distinctId)
+                                        appendSharedProps: !snapshotEvent)
         )
 
         // Replay has its own queue
@@ -487,10 +488,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             "$screen_name": screenTitle,
         ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
+        let distinctId = getDistinctId()
         queue.add(PostHogEvent(
             event: "$screen",
-            distinctId: getDistinctId(),
-            properties: buildProperties(properties: props)
+            distinctId: distinctId,
+            properties: buildProperties(distinctId: distinctId, properties: props)
         ))
     }
 
@@ -509,10 +511,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
         let props = ["alias": alias]
 
+        let distinctId = getDistinctId()
         queue.add(PostHogEvent(
             event: "$create_alias",
-            distinctId: getDistinctId(),
-            properties: buildProperties(properties: props)
+            distinctId: distinctId,
+            properties: buildProperties(distinctId: distinctId, properties: props)
         ))
     }
 
@@ -567,10 +570,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
 
         // Same as .group but without associating the current user with the group
+        let distinctId = getDistinctId()
         queue.add(PostHogEvent(
             event: "$groupidentify",
-            distinctId: getDistinctId(),
-            properties: buildProperties(properties: props)
+            distinctId: distinctId,
+            properties: buildProperties(distinctId: distinctId, properties: props)
         ))
     }
 

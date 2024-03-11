@@ -18,11 +18,16 @@ import Foundation
  */
 
 class PostHogQueue {
+    enum PostHogApiEndpoint: Int {
+        case batch
+        case snapshot
+    }
+
     private let config: PostHogConfig
     private let storage: PostHogStorage
     private let api: PostHogApi
     private var paused: Bool = false
-    private var pausedLock = NSLock()
+    private let pausedLock = NSLock()
     private var pausedUntil: Date?
     private var retryCount: TimeInterval = 0
     #if !os(watchOS)
@@ -33,8 +38,8 @@ class PostHogQueue {
     private let isFlushingLock = NSLock()
     private var timer: Timer?
     private let timerLock = NSLock()
-
-    private let dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
+    private let endpoint: PostHogApiEndpoint
+    private let dispatchQueue: DispatchQueue
 
     var depth: Int {
         fileQueue.depth
@@ -43,45 +48,74 @@ class PostHogQueue {
     private let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint, _ reachability: Reachability?) {
             self.config = config
             self.storage = storage
             self.api = api
             self.reachability = reachability
-            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+            self.endpoint = endpoint
+
+            switch endpoint {
+            case .batch:
+                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+                dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
+            case .snapshot:
+                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .replayQeueue))
+                dispatchQueue = DispatchQueue(label: "com.posthog.ReplayQueue", target: .global(qos: .utility))
+            }
         }
     #else
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint) {
             self.config = config
             self.storage = storage
             self.api = api
-            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+            self.endpoint = endpoint
+
+            switch endpoint {
+            case .batch:
+                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+                dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
+            case .snapshot:
+                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .replayQeueue))
+                dispatchQueue = DispatchQueue(label: "com.posthog.ReplayQueue", target: .global(qos: .utility))
+            }
         }
     #endif
 
     private func eventHandler(_ payload: PostHogConsumerPayload) {
         hedgeLog("Sending batch of \(payload.events.count) events to PostHog")
 
-        api.batch(events: payload.events) { result in
-            // -1 means its not anything related to the API but rather network or something else, so we try again
-            let statusCode = result.statusCode ?? -1
-
-            var shouldRetry = false
-            if 300 ... 399 ~= statusCode || statusCode == -1 {
-                shouldRetry = true
+        switch endpoint {
+        case .batch:
+            api.batch(events: payload.events) { result in
+                self.handleResult(result, payload)
             }
-
-            if shouldRetry {
-                self.retryCount += 1
-                let delay = min(self.retryCount * retryDelay, maxRetryDelay)
-                self.pauseFor(seconds: delay)
-                hedgeLog("Pausing queue consumption for \(delay) seconds due to \(self.retryCount) API failure(s).")
-            } else {
-                self.retryCount = 0
+        case .snapshot:
+            api.snapshot(events: payload.events) { result in
+                self.handleResult(result, payload)
             }
-
-            payload.completion(!shouldRetry)
         }
+    }
+
+    private func handleResult(_ result: PostHogBatchUploadInfo, _ payload: PostHogConsumerPayload) {
+        // -1 means its not anything related to the API but rather network or something else, so we try again
+        let statusCode = result.statusCode ?? -1
+
+        var shouldRetry = false
+        if 300 ... 399 ~= statusCode || statusCode == -1 {
+            shouldRetry = true
+        }
+
+        if shouldRetry {
+            retryCount += 1
+            let delay = min(retryCount * retryDelay, maxRetryDelay)
+            pauseFor(seconds: delay)
+            hedgeLog("Pausing queue consumption for \(delay) seconds due to \(retryCount) API failure(s).")
+        } else {
+            retryCount = 0
+        }
+
+        payload.completion(!shouldRetry)
     }
 
     func start(disableReachabilityForTesting: Bool,

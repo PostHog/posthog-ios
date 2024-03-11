@@ -74,6 +74,7 @@
 		6992AA8E2AFE51CE00087600 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		6992AA8F2AFE51CE00087600 /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		6992AA942AFE529E00087600 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6992AA932AFE529E00087600 /* AppDelegate.swift */; };
+		6993C40B2B9F35E300075A72 /* PostHogSessionReplayConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6993C40A2B9F35E300075A72 /* PostHogSessionReplayConfig.swift */; };
 		699991882AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699991872AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift */; };
 		6999918A2AFE1B37000DCB78 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699991892AFE1B37000DCB78 /* ContentView.swift */; };
 		6999918C2AFE1B39000DCB78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6999918B2AFE1B39000DCB78 /* Assets.xcassets */; };
@@ -274,6 +275,7 @@
 		6992AA862AFE51A100087600 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6992AA892AFE51A100087600 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		6992AA932AFE529E00087600 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		6993C40A2B9F35E300075A72 /* PostHogSessionReplayConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConfig.swift; sourceTree = "<group>"; };
 		699991562AFE0E9F000DCB78 /* PostHogExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PostHogExample.entitlements; sourceTree = "<group>"; };
 		699991852AFE1B37000DCB78 /* PostHogExampleMacOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleMacOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		699991872AFE1B37000DCB78 /* PostHogExampleMacOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleMacOSApp.swift; sourceTree = "<group>"; };
@@ -449,6 +451,7 @@
 				6926DA8D2ADD2876005760D2 /* PostHogContext.swift */,
 				69779BEB2AE68E6900D7A48E /* UIViewController.swift */,
 				690FF0C42AEFAE8200A0B06B /* PostHogLegacyQueue.swift */,
+				6993C40A2B9F35E300075A72 /* PostHogSessionReplayConfig.swift */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -892,6 +895,7 @@
 				690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */,
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
 				690FF0BF2AEFA97F00A0B06B /* FileUtils.swift in Sources */,
+				6993C40B2B9F35E300075A72 /* PostHogSessionReplayConfig.swift in Sources */,
 				69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */,
 				3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */,
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,

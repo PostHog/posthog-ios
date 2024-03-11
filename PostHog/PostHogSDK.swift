@@ -34,6 +34,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private let sessionLock = NSLock()
 
     private var queue: PostHogQueue?
+    private var replayQueue: PostHogQueue?
     private var api: PostHogApi?
     private var storage: PostHogStorage?
     private var sessionManager: PostHogSessionManager?
@@ -109,9 +110,15 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             }
 
             #if !os(watchOS)
-                queue = PostHogQueue(config, theStorage, theApi, reachability)
+                queue = PostHogQueue(config, theStorage, theApi, .batch, reachability)
             #else
-                queue = PostHogQueue(config, theStorage, theApi)
+                queue = PostHogQueue(config, theStorage, theApi, .batch)
+            #endif
+
+            #if !os(watchOS)
+                replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot, reachability)
+            #else
+                replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -148,6 +155,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return sessionManager?.getAnonymousId() ?? ""
     }
 
+//    private func isSessionReplayActive() -> Bool {
+//        return config.sessionReplay &&
+//    }
+
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {
@@ -167,6 +178,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
         if let theSessionId = theSessionId {
             properties["$session_id"] = theSessionId
+            // Session replay requires $window_id, so we set as the same as $session_id.
+            // the backend might fallback to $session_id if $window_id is not present next.
+            if config.sessionReplay {
+                properties["$window_id"] = theSessionId
+            }
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
@@ -200,7 +216,9 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private func buildProperties(properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
-                                 groupProperties: [String: Any]? = nil) -> [String: Any]
+                                 groupProperties: [String: Any]? = nil,
+                                 appendSharedProps: Bool = true,
+                                 distinctId: String? = nil) -> [String: Any]
     {
         var props: [String: Any] = [:]
 
@@ -227,6 +245,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             let mergedGroups = currentGroups.merging(groupProperties ?? [:]) { current, _ in current }
             props["$groups"] = mergedGroups
         }
+
+        // Replay needs distinct_id also in the props
+        // remove after https://github.com/PostHog/posthog/pull/18954 gets merged
+        if !appendSharedProps, distinctId != nil, props["distinct_id"] == nil {
+            props["distinct_id"] = distinctId
+        }
+        // TODO: only append props for analytics events
+
         props = props.merging(properties ?? [:]) { current, _ in current }
 
         return props
@@ -403,6 +429,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
+        var snapshotEvent = false
+        if event == "$snapshot" {
+            snapshotEvent = true
+        }
+
         // If events fire in the background after the threshold, they should no longer have a sessionId
         if isInBackground,
            sessionId != nil,
@@ -414,14 +445,28 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             }
         }
 
-        queue.add(PostHogEvent(
+        let distinctId = getDistinctId()
+        let posthogEvent = PostHogEvent(
             event: event,
-            distinctId: getDistinctId(),
+            distinctId: distinctId,
             properties: buildProperties(properties: sanitizeDicionary(properties),
                                         userProperties: sanitizeDicionary(userProperties),
                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
-                                        groupProperties: sanitizeDicionary(groupProperties))
-        ))
+                                        groupProperties: sanitizeDicionary(groupProperties),
+                                        appendSharedProps: !snapshotEvent,
+                                        distinctId: distinctId)
+        )
+
+        // Replay has its own queue
+        if snapshotEvent {
+            guard let replayQueue = replayQueue else {
+                return
+            }
+            replayQueue.add(posthogEvent)
+            return
+        }
+
+        queue.add(posthogEvent)
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -712,6 +757,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
             queue?.stop()
             queue = nil
+            replayQueue = nil
             sessionManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil

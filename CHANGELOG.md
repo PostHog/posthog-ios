@@ -1,6 +1,6 @@
 ## Next
 
-- `maxQueueSize` wasn't respected when capturing events [#114](https://github.com/PostHog/posthog-ios/pull/114)
+- `maxQueueSize` wasn't respected when capturing events [#116](https://github.com/PostHog/posthog-ios/pull/116)
 
 ## 3.2.3 - 2024-03-05
 

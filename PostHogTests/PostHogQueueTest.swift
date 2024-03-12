@@ -12,9 +12,10 @@ import Quick
 import XCTest
 
 class PostHogQueueTest: QuickSpec {
-    func getSut() -> PostHogQueue {
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000) -> PostHogQueue {
         let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
-        config.flushAt = 1
+        config.flushAt = flushAt
+        config.maxQueueSize = maxQueueSize
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
         return PostHogQueue(config, storage, api, nil)
@@ -61,6 +62,32 @@ class PostHogQueueTest: QuickSpec {
             expect(events.count) == 1
 
             expect(sut.depth) == 1
+
+            sut.clear()
+        }
+
+        it("add item to queue and rotate queue") {
+            let sut = self.getSut(flushAt: 3, maxQueueSize: 2)
+
+            let event = PostHogEvent(event: "event", distinctId: "distinctId")
+            let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
+            let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
+            sut.add(event)
+            sut.add(event2)
+            sut.add(event3)
+
+            expect(sut.depth) == 2
+
+            sut.flush()
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            let first = events.first!
+            let last = events.last!
+            expect(first.event) == "event2"
+            expect(last.event) == "event3"
 
             sut.clear()
         }

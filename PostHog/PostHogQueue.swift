@@ -168,6 +168,12 @@ class PostHogQueue {
     }
 
     func add(_ event: PostHogEvent) {
+        if fileQueue.depth >= config.maxQueueSize {
+            hedgeLog("Queue is full, dropping oldest event")
+            // first is always oldest
+            fileQueue.delete(index: 0)
+        }
+
         var data: Data?
         do {
             data = try JSONSerialization.data(withJSONObject: event.toJSON())

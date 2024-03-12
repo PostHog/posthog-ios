@@ -17,7 +17,7 @@ class PostHogQueueTest: QuickSpec {
         config.flushAt = 1
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        return PostHogQueue(config, storage, api, nil)
+        return PostHogQueue(config, storage, api, .batch, nil)
     }
 
     override func spec() {

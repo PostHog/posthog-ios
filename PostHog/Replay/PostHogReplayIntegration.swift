@@ -42,14 +42,15 @@
         }
 
         private func generateSnapshot(_ view: UIView) {
-            let timestamp = Int(Date().timeIntervalSince1970.rounded())
+            let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
             let snapshotStatus = windowViews.object(forKey: view) ?? ViewTreeSnapshotStatus()
 
             var hasChanges = false
 
             if !snapshotStatus.sentMetaEvent {
-                let width = Float(view.bounds.width)
-                let height = Float(view.bounds.height)
+                let size = view.bounds.size
+                let width = Int(size.width)
+                let height = Int(size.height)
 
                 // TODO: set href
                 let data: [String: Any] = ["width": width, "height": height]

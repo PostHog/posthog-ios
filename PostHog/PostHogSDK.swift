@@ -188,9 +188,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             properties["$session_id"] = theSessionId
             // Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
-            if config.sessionReplay {
-                properties["$window_id"] = theSessionId
-            }
+            #if os(iOS) || os(tvOS)
+                if config.sessionReplay {
+                    properties["$window_id"] = theSessionId
+                }
+            #endif
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {

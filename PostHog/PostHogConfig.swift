@@ -39,7 +39,7 @@ import Foundation
         /// Session Replay configuration
         /// Experimental support
         /// Default: false
-        @objc public var sessionReplayConfig: PostHogSessionReplayConfig = .init()
+        @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
     // only internal

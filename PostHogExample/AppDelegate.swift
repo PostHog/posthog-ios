@@ -18,7 +18,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
-        config.flushIntervalSeconds = 10
+//        config.flushIntervalSeconds = 10
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
@@ -26,22 +26,22 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         PostHogSDK.shared.setup(config)
         PostHogSDK.shared.debug()
 
-        var width: Float = 0
-        var height: Float = 0
-        #if os(iOS) || os(tvOS)
-            width = Float(UIScreen.main.bounds.width)
-            height = Float(UIScreen.main.bounds.height)
-        #elseif os(macOS)
-            if let mainScreen = NSScreen.main {
-                width = Float(screenFrame.size.width)
-                height = Float(screenFrame.size.height)
-            }
-        #endif
+//        var width: Float = 0
+//        var height: Float = 0
+//        #if os(iOS) || os(tvOS)
+//            width = Float(UIScreen.main.bounds.width)
+//            height = Float(UIScreen.main.bounds.height)
+//        #elseif os(macOS)
+//            if let mainScreen = NSScreen.main {
+//                width = Float(screenFrame.size.width)
+//                height = Float(screenFrame.size.height)
+//            }
+//        #endif
 
-        let timestamp = Int(Date().timeIntervalSince1970.rounded())
-        let data: [String: Any] = ["href": "AppDelegate", "width": width, "height": height]
-        let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": 1_710_173_534_407]
-        PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
+//        let timestamp = Int(Date().timeIntervalSince1970.rounded())
+//        let data: [String: Any] = ["href": "AppDelegate", "width": width, "height": height]
+//        let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": 1_710_173_534_407]
+//        PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
 
         let defaultCenter = NotificationCenter.default
 

@@ -25,6 +25,12 @@ import Foundation
                                      new: #selector(UIViewController.viewDidApperOverride))
         }
 
+        static func unswizzleScreenView() {
+            UIViewController.swizzle(forClass: UIViewController.self,
+                                     original: #selector(UIViewController.viewDidApperOverride),
+                                     new: #selector(UIViewController.viewDidAppear(_:)))
+        }
+
         private func activeController() -> UIViewController? {
             // if a view is being dismissed, this will return nil
             if let root = viewIfLoaded?.window?.rootViewController {

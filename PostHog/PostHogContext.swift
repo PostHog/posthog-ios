@@ -42,6 +42,18 @@ class PostHogContext {
         properties["$device_manufacturer"] = "Apple"
         properties["$device_model"] = platform()
 
+        // if there's a receipt, we assume its installed via store or testflight
+        if let appStoreReceiptURL = Bundle.main.appStoreReceiptURL,
+           FileManager.default.fileExists(atPath: appStoreReceiptURL.path)
+        {
+            properties["$is_sideloaded"] = false
+            // if the receipt ends with sandboxReceipt, we assume its a testing build (testflight)
+            properties["$is_testflight"] = appStoreReceiptURL.lastPathComponent == "sandboxReceipt"
+        } else {
+            properties["$is_sideloaded"] = true
+            properties["$is_testflight"] = false
+        }
+
         #if os(iOS) || os(tvOS)
             let device = UIDevice.current
             // use https://github.com/devicekit/DeviceKit

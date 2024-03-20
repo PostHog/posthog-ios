@@ -26,18 +26,21 @@ import Foundation
     @objc public var captureScreenViews: Bool = true
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
-    /// Enable Recording of Session Replays for iOS
-    /// Experimental support
-    /// Default: false
-    @objc public var sessionReplay: Bool = false
-    /// Session Replay configuration
-    /// Experimental support
-    /// Default: false
-    @objc public var sessionReplayConfig: PostHogSessionReplayConfig = .init()
     /// Internal
     var snapshotEndpoint: String = "/s/"
 
     public static let defaultHost: String = "https://app.posthog.com"
+
+    #if os(iOS) || os(tvOS)
+        /// Enable Recording of Session Replays for iOS
+        /// Experimental support
+        /// Default: false
+        @objc public var sessionReplay: Bool = false
+        /// Session Replay configuration
+        /// Experimental support
+        /// Default: false
+        @objc public var sessionReplayConfig: PostHogSessionReplayConfig = .init()
+    #endif
 
     // only internal
     var disableReachabilityForTesting: Bool = false

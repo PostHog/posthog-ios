@@ -33,6 +33,7 @@
         func stop() {
             stopTimer()
             ViewLayoutTracker.unSwizzleLayoutSubviews()
+            windowViews.removeAllObjects()
         }
 
         private func stopTimer() {

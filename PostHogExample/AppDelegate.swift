@@ -18,7 +18,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
-        config.flushIntervalSeconds = 10
+        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true

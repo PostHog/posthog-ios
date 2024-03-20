@@ -50,9 +50,11 @@
                 let width = Float(view.bounds.width)
                 let height = Float(view.bounds.height)
 
-                let data: [String: Any] = ["href": "Unknown", "width": width, "height": height]
+                // TODO: set href
+                let data: [String: Any] = ["width": width, "height": height]
                 let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                 PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
+                snapshotStatus.sentMetaEvent = true
                 hasChanges = true
             }
 

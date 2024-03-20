@@ -14,6 +14,8 @@
         private let timeInterval = 1.0 / 2.0
         private var timer: Timer?
 
+        private let windowViews = NSMapTable<UIView, ViewTreeSnapshotStatus>.weakToStrongObjects()
+
         init(_ config: PostHogConfig) {
             self.config = config
         }
@@ -39,7 +41,24 @@
         }
 
         private func generateSnapshot(_ view: UIView) {
-            let size = view.bounds.size
+            let timestamp = Int(Date().timeIntervalSince1970.rounded())
+            let snapshotStatus = windowViews.object(forKey: view) ?? ViewTreeSnapshotStatus()
+
+            var hasChanges = false
+
+            if !snapshotStatus.sentMetaEvent {
+                let width = Float(view.bounds.width)
+                let height = Float(view.bounds.height)
+
+                let data: [String: Any] = ["href": "Unknown", "width": width, "height": height]
+                let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
+                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
+                hasChanges = true
+            }
+
+            if hasChanges {
+                windowViews.setObject(snapshotStatus, forKey: view)
+            }
         }
 
         private func isSessionActive() -> Bool {

@@ -51,8 +51,8 @@ import Foundation
             return nil
         }
 
-        private func captureScreenView() {
-            var rootController = viewIfLoaded?.window?.rootViewController
+        private func captureScreenView(_ window: UIWindow?) {
+            var rootController = window?.rootViewController
             if rootController == nil {
                 rootController = activeController()
             }
@@ -70,7 +70,7 @@ import Foundation
         }
 
         @objc func viewDidApperOverride(animated: Bool) {
-            captureScreenView()
+            captureScreenView(viewIfLoaded?.window)
             // it looks like we're calling ourselves, but we're actually
             // calling the original implementation of viewDidAppear since it's been swizzled.
             viewDidApperOverride(animated: animated)

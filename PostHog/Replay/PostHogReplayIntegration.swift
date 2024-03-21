@@ -42,10 +42,14 @@
         }
 
         private func generateSnapshot(_ view: UIView) {
-            let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+            var hasChanges = false
+
+            let timestamp = Date().toMillis()
             let snapshotStatus = windowViews.object(forKey: view) ?? ViewTreeSnapshotStatus()
 
-            var hasChanges = false
+            guard let wireframe = toWireframe(view) else {
+                return
+            }
 
             if !snapshotStatus.sentMetaEvent {
                 let size = view.bounds.size
@@ -63,6 +67,58 @@
             if hasChanges {
                 windowViews.setObject(snapshotStatus, forKey: view)
             }
+
+            var wireframes: [Any] = []
+            wireframes.append(wireframe.toDict())
+            let initialOffset = ["top": 0, "left": 0]
+            let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
+            let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
+            PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
+        }
+
+        private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
+            if !view.isVisible() {
+                return nil
+            }
+
+            let wireframe = RRWireframe()
+
+            wireframe.id = view.hash
+            wireframe.x = Int(view.frame.origin.x)
+            wireframe.y = Int(view.frame.origin.y)
+            wireframe.width = Int(view.frame.size.width)
+            wireframe.height = Int(view.frame.size.height)
+            let style = RRStyle()
+
+            if let textView = view as? UITextView {
+                wireframe.type = "text"
+                wireframe.text = textView.isNoCapture() ? textView.text.mask() : textView.text
+                wireframe.disabled = !textView.isEditable
+                style.color = textView.textColor?.toRGBString()
+                style.fontFamily = textView.font?.familyName
+                if let fontSize = textView.font?.pointSize {
+                    style.fontSize = Int(fontSize)
+                }
+            }
+
+            style.backgroundColor = view.backgroundColor?.toRGBString()
+            style.borderWidth = Int(view.layer.borderWidth)
+            style.borderRadius = Int(view.layer.cornerRadius)
+            style.borderColor = view.layer.borderColor?.toRGBString()
+
+            wireframe.style = style
+
+            if !view.subviews.isEmpty {
+                var childWireframes: [RRWireframe] = []
+                for subview in view.subviews {
+                    if let child = toWireframe(subview, parentId: view.hash) {
+                        childWireframes.append(child)
+                    }
+                }
+                wireframe.childWireframes = childWireframes
+            }
+
+            return wireframe
         }
 
         private func isSessionActive() -> Bool {
@@ -77,7 +133,6 @@
             if !ViewLayoutTracker.hasChanges {
                 return
             }
-            // TODO: thread safe
             ViewLayoutTracker.clear()
 
             guard let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) else {

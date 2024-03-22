@@ -7,6 +7,7 @@
 #if os(iOS) || os(tvOS)
     import Foundation
     import UIKit
+    import WebKit
 
     class PostHogReplayIntegration {
         private let config: PostHogConfig
@@ -99,6 +100,70 @@
                 if let fontSize = textView.font?.pointSize {
                     style.fontSize = Int(fontSize)
                 }
+            }
+
+            if let textField = view as? UITextField {
+                wireframe.type = "input"
+                wireframe.inputType = "text_area"
+                if let text = textField.text {
+                    wireframe.value = (textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
+                } else {
+                    if let text = textField.placeholder {
+                        wireframe.value = (textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
+                    }
+                }
+                wireframe.disabled = !textField.isEnabled
+                style.color = textField.textColor?.toRGBString()
+                style.fontFamily = textField.font?.familyName
+                if let fontSize = textField.font?.pointSize {
+                    style.fontSize = Int(fontSize)
+                }
+            }
+
+            if let theSwitch = view as? UISwitch {
+                wireframe.type = "input"
+                wireframe.inputType = "toggle"
+                wireframe.checked = theSwitch.isOn
+            }
+
+            if let image = view as? UIImageView {
+                wireframe.type = "image"
+                if !image.isNoCapture() {
+                    // TODO: check png quality
+                    wireframe.base64 = image.image?.pngData()?.base64EncodedString()
+                }
+            }
+
+            if let label = view as? UILabel {
+                wireframe.type = "text"
+                if let text = label.text {
+                    wireframe.text = label.isNoCapture() ? text.mask() : text
+                }
+                wireframe.disabled = !label.isEnabled
+                style.color = label.textColor?.toRGBString()
+                style.fontFamily = label.font?.familyName
+                if let fontSize = label.font?.pointSize {
+                    style.fontSize = Int(fontSize)
+                }
+            }
+
+            if view is WKWebView {
+                wireframe.type = "web_view"
+            }
+
+            if let progressView = view as? UIProgressView {
+                wireframe.type = "input"
+                wireframe.inputType = "progress"
+                wireframe.value = progressView.progress
+                wireframe.max = 1
+                // UIProgressView theres not circular format, only custom view or swiftui
+                style.bar = "horizontal"
+            }
+
+            if view is UIActivityIndicatorView {
+                wireframe.type = "input"
+                wireframe.inputType = "progress"
+                style.bar = "circular"
             }
 
             // TODO: missing horizontalAlign, verticalAlign, paddings, backgroundImage

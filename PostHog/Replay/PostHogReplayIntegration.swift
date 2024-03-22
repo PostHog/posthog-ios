@@ -84,15 +84,15 @@
             let wireframe = RRWireframe()
 
             wireframe.id = view.hash
-            wireframe.x = Int(view.frame.origin.x)
-            wireframe.y = Int(view.frame.origin.y)
+            wireframe.posX = Int(view.frame.origin.x)
+            wireframe.posY = Int(view.frame.origin.y)
             wireframe.width = Int(view.frame.size.width)
             wireframe.height = Int(view.frame.size.height)
             let style = RRStyle()
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
-                wireframe.text = textView.isNoCapture() ? textView.text.mask() : textView.text
+                wireframe.text = (textView.isNoCapture() || textView.isSensitiveText()) ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
@@ -101,10 +101,13 @@
                 }
             }
 
+            // TODO: missing horizontalAlign, verticalAlign, paddings, backgroundImage
+
             style.backgroundColor = view.backgroundColor?.toRGBString()
-            style.borderWidth = Int(view.layer.borderWidth)
-            style.borderRadius = Int(view.layer.cornerRadius)
-            style.borderColor = view.layer.borderColor?.toRGBString()
+            let layer = view.layer
+            style.borderWidth = Int(layer.borderWidth)
+            style.borderRadius = Int(layer.cornerRadius)
+            style.borderColor = layer.borderColor?.toRGBString()
 
             wireframe.style = style
 

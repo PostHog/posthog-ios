@@ -1,3 +1,5 @@
+// swiftlint:disable cyclomatic_complexity
+
 //
 //  RRStyle.swift
 //  PostHog
@@ -90,3 +92,5 @@ class RRStyle {
         return dict
     }
 }
+
+// swiftlint:enable cyclomatic_complexity

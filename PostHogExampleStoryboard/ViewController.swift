@@ -14,6 +14,8 @@ class ViewController: UIViewController {
 
         let view = UITextView(frame: CGRect(x: 50, y: 50, width: 100, height: 100))
         view.text = "test"
+//        view.accessibilityIdentifier = "ph-no-capture"
+//        view.textContentType = .password
         self.view.addSubview(view)
     }
 }

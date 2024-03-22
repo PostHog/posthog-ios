@@ -1,3 +1,5 @@
+// swiftlint:disable cyclomatic_complexity
+
 //
 //  RRWireframe.swift
 //  PostHog
@@ -9,8 +11,8 @@ import Foundation
 
 class RRWireframe {
     var id: Int = 0
-    var x: Int = 0
-    var y: Int = 0
+    var posX: Int = 0
+    var posY: Int = 0
     var width: Int = 0
     var height: Int = 0
     var childWireframes: [RRWireframe]?
@@ -31,8 +33,8 @@ class RRWireframe {
     func toDict() -> [String: Any] {
         var dict: [String: Any] = [
             "id": id,
-            "x": x,
-            "y": y,
+            "x": posX,
+            "y": posY,
             "width": width,
             "height": height,
         ]
@@ -88,3 +90,5 @@ class RRWireframe {
         return dict
     }
 }
+
+// swiftlint:enable cyclomatic_complexity

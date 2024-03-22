@@ -16,5 +16,13 @@
             }
             return true
         }
+
+        func isNoCapture() -> Bool {
+            if let identifier = accessibilityIdentifier {
+                return identifier.lowercased().contains("ph-no-capture")
+            }
+
+            return false
+        }
     }
 #endif

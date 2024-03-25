@@ -117,13 +117,9 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, theApi, .batch, reachability)
-            #else
-                queue = PostHogQueue(config, theStorage, theApi, .batch)
-            #endif
-
-            #if !os(watchOS)
                 replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot, reachability)
             #else
+                queue = PostHogQueue(config, theStorage, theApi, .batch)
                 replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot)
             #endif
 

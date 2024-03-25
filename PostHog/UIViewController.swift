@@ -55,7 +55,7 @@ import Foundation
             var title = "Unknown"
             title = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
 
-            if title.count == 0 {
+            if title.isEmpty {
                 title = viewController.title ?? "Unknown"
             }
 

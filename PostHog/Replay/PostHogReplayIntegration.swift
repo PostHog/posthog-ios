@@ -84,6 +84,17 @@
             PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
         }
 
+        private func setAlignment(_ alignment: NSTextAlignment, _ style: RRStyle) {
+            if alignment == .center {
+                style.verticalAlign = "center"
+                style.horizontalAlign = "center"
+            } else if alignment == .right {
+                style.horizontalAlign = "right"
+            } else if alignment == .left {
+                style.horizontalAlign = "left"
+            }
+        }
+
         private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
             if !view.isVisible() {
                 return nil
@@ -107,6 +118,7 @@
                 if let fontSize = textView.font?.pointSize {
                     style.fontSize = Int(fontSize)
                 }
+                setAlignment(textView.textAlignment, style)
             }
 
             if let textField = view as? UITextField {
@@ -125,6 +137,12 @@
                 if let fontSize = textField.font?.pointSize {
                     style.fontSize = Int(fontSize)
                 }
+                setAlignment(textField.textAlignment, style)
+            }
+
+            if let picker = view as? UIPickerView {
+                wireframe.type = "input"
+                wireframe.inputType = "select"
             }
 
             if let theSwitch = view as? UISwitch {
@@ -141,6 +159,16 @@
                 }
             }
 
+            if let button = view as? UIButton {
+                wireframe.type = "input"
+                wireframe.inputType = "button"
+                wireframe.disabled = !button.isEnabled
+
+                if let text = button.titleLabel?.text {
+                    wireframe.value = button.isNoCapture() ? text.mask() : text
+                }
+            }
+
             if let label = view as? UILabel {
                 wireframe.type = "text"
                 if let text = label.text {
@@ -152,6 +180,7 @@
                 if let fontSize = label.font?.pointSize {
                     style.fontSize = Int(fontSize)
                 }
+                setAlignment(label.textAlignment, style)
             }
 
             if view is WKWebView {
@@ -174,6 +203,7 @@
             }
 
             // TODO: missing horizontalAlign, verticalAlign, paddings, backgroundImage
+            // UITabBar, UINavigationBar, UISlider, UIStepper, UIDatePicker
 
             style.backgroundColor = view.backgroundColor?.toRGBString()
             let layer = view.layer

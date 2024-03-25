@@ -51,7 +51,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private var sessionId: String?
     private var sessionLastTimestamp: TimeInterval?
     private var isInBackground = false
-    #if os(iOS) || os(tvOS)
+    #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
 
@@ -96,7 +96,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
             sessionManager = PostHogSessionManager(config)
-            #if os(iOS) || os(tvOS)
+            #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
             #if !os(watchOS)
@@ -135,7 +135,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
             rotateSession()
 
-            #if os(iOS) || os(tvOS)
+            #if os(iOS)
                 if config.sessionReplay {
                     replayIntegration?.start()
                 }
@@ -188,7 +188,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             properties["$session_id"] = theSessionId
             // Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
-            #if os(iOS) || os(tvOS)
+            #if os(iOS)
                 if config.sessionReplay {
                     properties["$window_id"] = theSessionId
                 }
@@ -776,7 +776,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             }
 
             queue?.stop()
-            #if os(iOS) || os(tvOS)
+            #if os(iOS)
                 replayIntegration?.stop()
                 replayIntegration = nil
             #endif

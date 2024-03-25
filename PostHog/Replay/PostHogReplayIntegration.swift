@@ -4,7 +4,7 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS) || os(tvOS)
+#if os(iOS)
     import Foundation
     import UIKit
     import WebKit
@@ -147,9 +147,11 @@
                 }
             }
 
-            if view is WKWebView {
-                wireframe.type = "web_view"
-            }
+            #if os(iOS)
+                if view is WKWebView {
+                    wireframe.type = "web_view"
+                }
+            #endif
 
             if let progressView = view as? UIProgressView {
                 wireframe.type = "input"

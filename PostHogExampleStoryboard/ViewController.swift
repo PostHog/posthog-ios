@@ -40,16 +40,16 @@ class ViewController: UIViewController {
 //        view.text = "test"
 //        view.accessibilityIdentifier = "ph-no-capture"
 
-        let view = UIImageView(frame: CGRect(x: 50, y: 50, width: 100, height: 100))
-        let url = URL(string: "https://1.bp.blogspot.com/-hkNkoCjc5UA/T4JTlCjhhfI/AAAAAAAAB98/XxQwZ-QPkI8/s1600/Free+Google+Wallpapers+3.jpg")!
-        if let data = try? Data(contentsOf: url) {
-            if let image = UIImage(data: data) {
-                DispatchQueue.main.async {
-                    view.image = image
-                }
-            }
-        }
-
-        self.view.addSubview(view)
+//        let view = UIImageView(frame: CGRect(x: 50, y: 50, width: 100, height: 100))
+//        let url = URL(string: "https://1.bp.blogspot.com/-hkNkoCjc5UA/T4JTlCjhhfI/AAAAAAAAB98/XxQwZ-QPkI8/s1600/Free+Google+Wallpapers+3.jpg")!
+//        if let data = try? Data(contentsOf: url) {
+//            if let image = UIImage(data: data) {
+//                DispatchQueue.main.async {
+//                    view.image = image
+//                }
+//            }
+//        }
+//
+//        self.view.addSubview(view)
     }
 }

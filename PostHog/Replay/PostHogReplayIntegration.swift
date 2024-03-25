@@ -1,3 +1,5 @@
+// swiftlint:disable cyclomatic_complexity
+
 //
 //  PostHogReplayIntegration.swift
 //  PostHog
@@ -43,7 +45,7 @@
             timer = nil
         }
 
-        private func generateSnapshot(_ view: UIView) {
+        private func generateSnapshot(_ view: UIView, _ screenName: String? = nil) {
             var hasChanges = false
 
             let timestamp = Date().toMillis()
@@ -58,8 +60,12 @@
                 let width = Int(size.width)
                 let height = Int(size.height)
 
-                // TODO: set href
-                let data: [String: Any] = ["width": width, "height": height]
+                var data: [String: Any] = ["width": width, "height": height]
+
+                if screenName != nil {
+                    data["href"] = screenName
+                }
+
                 let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                 PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
                 snapshotStatus.sentMetaEvent = true
@@ -148,11 +154,9 @@
                 }
             }
 
-            #if os(iOS)
-                if view is WKWebView {
-                    wireframe.type = "web_view"
-                }
-            #endif
+            if view is WKWebView {
+                wireframe.type = "web_view"
+            }
 
             if let progressView = view as? UIProgressView {
                 wireframe.type = "input"
@@ -214,15 +218,17 @@
                 return
             }
 
+            var screenName: String?
             if let controller = window.rootViewController {
                 if controller is AnyObjectUIHostingViewController {
                     hedgeLog("SwiftUI snapshot not supported.")
                     return
                 }
+                screenName = UIViewController.getViewControllerName(controller)
             }
 
             // TODO: offload conversion to off main thread
-            generateSnapshot(window)
+            generateSnapshot(window, screenName)
         }
     }
 
@@ -231,3 +237,5 @@
     extension UIHostingController: AnyObjectUIHostingViewController {}
 
 #endif
+
+// swiftlint:enable cyclomatic_complexity

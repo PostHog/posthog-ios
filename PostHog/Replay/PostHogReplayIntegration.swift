@@ -20,6 +20,9 @@
 
         private let windowViews = NSMapTable<UIView, ViewTreeSnapshotStatus>.weakToStrongObjects()
 
+        private let dispatchQueue = DispatchQueue(label: "com.posthog.SessionReplay",
+                                                  target: .global(qos: .utility))
+
         init(_ config: PostHogConfig) {
             self.config = config
         }
@@ -56,13 +59,16 @@
             }
 
             if !snapshotStatus.sentMetaEvent {
-                let size = view.bounds.size
+                var size = CGSize.zero
+                DispatchQueue.main.sync {
+                    size = view.bounds.size
+                }
                 let width = Int(size.width)
                 let height = Int(size.height)
 
                 var data: [String: Any] = ["width": width, "height": height]
 
-                if screenName != nil {
+                if let screenName = screenName {
                     data["href"] = screenName
                 }
 
@@ -84,6 +90,16 @@
             PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
         }
 
+        private func getSubViews(_ view: UIView) -> [UIView] {
+            var subviews = [UIView]()
+            DispatchQueue.main.sync {
+                for subview in view.subviews {
+                    subviews.append(subview)
+                }
+            }
+            return subviews
+        }
+
         private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
             if !view.isVisible() {
                 return nil
@@ -92,10 +108,16 @@
             let wireframe = RRWireframe()
 
             wireframe.id = view.hash
-            wireframe.posX = Int(view.frame.origin.x)
-            wireframe.posY = Int(view.frame.origin.y)
-            wireframe.width = Int(view.frame.size.width)
-            wireframe.height = Int(view.frame.size.height)
+
+            var frame = CGRect.zero
+            DispatchQueue.main.sync {
+                frame = view.frame
+            }
+
+            wireframe.posX = Int(frame.origin.x)
+            wireframe.posY = Int(frame.origin.y)
+            wireframe.width = Int(frame.size.width)
+            wireframe.height = Int(frame.size.height)
             let style = RRStyle()
 
             if let textView = view as? UITextView {
@@ -175,17 +197,28 @@
 
             // TODO: missing horizontalAlign, verticalAlign, paddings, backgroundImage
 
-            style.backgroundColor = view.backgroundColor?.toRGBString()
-            let layer = view.layer
-            style.borderWidth = Int(layer.borderWidth)
-            style.borderRadius = Int(layer.cornerRadius)
-            style.borderColor = layer.borderColor?.toRGBString()
+            var backgroundColor: UIColor?
+            var layer: CALayer?
+
+            DispatchQueue.main.sync {
+                backgroundColor = view.backgroundColor
+                layer = view.layer
+            }
+
+            style.backgroundColor = backgroundColor?.toRGBString()
+
+            if let layer = layer {
+                style.borderWidth = Int(layer.borderWidth)
+                style.borderRadius = Int(layer.cornerRadius)
+                style.borderColor = layer.borderColor?.toRGBString()
+            }
 
             wireframe.style = style
 
-            if !view.subviews.isEmpty {
+            let subviews = getSubViews(view)
+            if !subviews.isEmpty {
                 var childWireframes: [RRWireframe] = []
-                for subview in view.subviews {
+                for subview in subviews {
                     if let child = toWireframe(subview, parentId: view.hash) {
                         childWireframes.append(child)
                     }
@@ -227,8 +260,9 @@
                 screenName = UIViewController.getViewControllerName(controller)
             }
 
-            // TODO: offload conversion to off main thread
-            generateSnapshot(window, screenName)
+            dispatchQueue.async {
+                self.generateSnapshot(window, screenName)
+            }
         }
     }
 

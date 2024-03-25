@@ -11,10 +11,13 @@
 
     extension UIView {
         func isVisible() -> Bool {
-            if isHidden || alpha == 0 || frame == .zero {
-                return false
+            var visible = true
+            DispatchQueue.main.sync {
+                if isHidden || alpha == 0 || frame == .zero {
+                    visible = false
+                }
             }
-            return true
+            return visible
         }
 
         func isNoCapture() -> Bool {

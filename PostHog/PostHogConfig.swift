@@ -31,7 +31,7 @@ import Foundation
 
     public static let defaultHost: String = "https://app.posthog.com"
 
-    #if os(iOS) || os(tvOS)
+    #if os(iOS)
         /// Enable Recording of Session Replays for iOS
         /// Experimental support
         /// Default: false

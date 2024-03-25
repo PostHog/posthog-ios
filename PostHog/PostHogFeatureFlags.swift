@@ -63,7 +63,7 @@ class PostHogFeatureFlags {
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
-                #if os(iOS) || os(tvOS)
+                #if os(iOS)
                     if let sessionRecording = data?["sessionRecording"] as? Bool {
                         self.config.sessionReplay = self.config.sessionReplay && sessionRecording
                     } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {

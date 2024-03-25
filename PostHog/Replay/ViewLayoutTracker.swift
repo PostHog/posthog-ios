@@ -1,4 +1,4 @@
-#if os(iOS) || os(tvOS)
+#if os(iOS)
     import Foundation
     import UIKit
 

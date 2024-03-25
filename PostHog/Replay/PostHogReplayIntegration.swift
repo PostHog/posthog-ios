@@ -227,7 +227,8 @@
                 screenName = UIViewController.getViewControllerName(controller)
             }
 
-            // TODO: offload conversion to off main thread
+            // this cannot run off of the main thread because most properties require to be called within the main thread
+            // this method has to be fast and do as little as possible
             generateSnapshot(window, screenName)
         }
     }

@@ -59,14 +59,19 @@
             }
 
             if !snapshotStatus.sentMetaEvent {
-                var size = CGSize.zero
+                var size: CGSize?
+                var data: [String: Any] = [:]
+
                 DispatchQueue.main.sync {
                     size = view.bounds.size
                 }
-                let width = Int(size.width)
-                let height = Int(size.height)
+                if let size = size {
+                    let width = Int(size.width)
+                    let height = Int(size.height)
 
-                var data: [String: Any] = ["width": width, "height": height]
+                    data["width"] = width
+                    data["height"] = height
+                }
 
                 if let screenName = screenName {
                     data["href"] = screenName
@@ -91,13 +96,14 @@
         }
 
         private func getSubViews(_ view: UIView) -> [UIView] {
-            var subviews = [UIView]()
+//            var subviews = [UIView]()
             DispatchQueue.main.sync {
-                for subview in view.subviews {
-                    subviews.append(subview)
-                }
+//                for subview in view.subviews {
+//                    subviews.append(subview)
+//                }
+                view.subviews
             }
-            return subviews
+//            return subviews
         }
 
         private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
@@ -109,15 +115,18 @@
 
             wireframe.id = view.hash
 
-            var frame = CGRect.zero
+            var frame: CGRect?
             DispatchQueue.main.sync {
                 frame = view.frame
             }
 
-            wireframe.posX = Int(frame.origin.x)
-            wireframe.posY = Int(frame.origin.y)
-            wireframe.width = Int(frame.size.width)
-            wireframe.height = Int(frame.size.height)
+            if let frame = frame {
+                wireframe.posX = Int(frame.origin.x)
+                wireframe.posY = Int(frame.origin.y)
+                wireframe.width = Int(frame.size.width)
+                wireframe.height = Int(frame.size.height)
+            }
+
             let style = RRStyle()
 
             if let textView = view as? UITextView {

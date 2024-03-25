@@ -118,7 +118,7 @@
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
-                wireframe.text = (textView.isNoCapture() || textView.isSensitiveText()) ? textView.text.mask() : textView.text
+                wireframe.text = (config.sessionReplayConfig.maskAllTextInputs || textView.isNoCapture() || textView.isSensitiveText()) ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
@@ -133,10 +133,10 @@
                 wireframe.type = "input"
                 wireframe.inputType = "text_area"
                 if let text = textField.text {
-                    wireframe.value = (textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
+                    wireframe.value = (config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
                 } else {
                     if let text = textField.placeholder {
-                        wireframe.value = (textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
+                        wireframe.value = (config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
                     }
                 }
                 wireframe.disabled = !textField.isEnabled
@@ -161,7 +161,7 @@
 
             if let image = view as? UIImageView {
                 wireframe.type = "image"
-                if !image.isNoCapture() {
+                if !image.isNoCapture(), !config.sessionReplayConfig.maskAllImages {
                     // TODO: check png quality
                     wireframe.base64 = image.image?.pngData()?.base64EncodedString()
                 }
@@ -173,14 +173,14 @@
                 wireframe.disabled = !button.isEnabled
 
                 if let text = button.titleLabel?.text {
-                    wireframe.value = button.isNoCapture() ? text.mask() : text
+                    wireframe.value = (config.sessionReplayConfig.maskAllTextInputs || button.isNoCapture()) ? text.mask() : text
                 }
             }
 
             if let label = view as? UILabel {
                 wireframe.type = "text"
                 if let text = label.text {
-                    wireframe.text = label.isNoCapture() ? text.mask() : text
+                    wireframe.text = (config.sessionReplayConfig.maskAllTextInputs || label.isNoCapture()) ? text.mask() : text
                 }
                 wireframe.disabled = !label.isEnabled
                 style.color = label.textColor?.toRGBString()

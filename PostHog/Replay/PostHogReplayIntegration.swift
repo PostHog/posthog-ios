@@ -6,6 +6,7 @@
 //
 #if os(iOS)
     import Foundation
+    import SwiftUI
     import UIKit
     import WebKit
 
@@ -213,8 +214,20 @@
                 return
             }
 
+            if let controller = window.rootViewController {
+                if controller is AnyObjectUIHostingViewController {
+                    hedgeLog("SwiftUI snapshot not supported.")
+                    return
+                }
+            }
+
             // TODO: offload conversion to off main thread
             generateSnapshot(window)
         }
     }
+
+    private protocol AnyObjectUIHostingViewController: AnyObject {}
+
+    extension UIHostingController: AnyObjectUIHostingViewController {}
+
 #endif

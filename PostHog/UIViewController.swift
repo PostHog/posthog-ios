@@ -51,6 +51,17 @@ import Foundation
             return nil
         }
 
+        static func getViewControllerName(_ viewController: UIViewController) -> String {
+            var title = "Unknown"
+            title = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+
+            if title.count == 0 {
+                title = viewController.title ?? "Unknown"
+            }
+
+            return title
+        }
+
         private func captureScreenView(_ window: UIWindow?) {
             var rootController = window?.rootViewController
             if rootController == nil {
@@ -58,11 +69,7 @@ import Foundation
             }
             guard let top = findVisibleViewController(activeController()) else { return }
 
-            var name = String(describing: top.classForCoder).replacingOccurrences(of: "ViewController", with: "")
-
-            if name.count == 0 {
-                name = top.title ?? "Unknown"
-            }
+            let name = UIViewController.getViewControllerName(top)
 
             if name != "Unknown" {
                 PostHogSDK.shared.screen(name)

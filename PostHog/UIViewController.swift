@@ -25,6 +25,12 @@ import Foundation
                                      new: #selector(UIViewController.viewDidApperOverride))
         }
 
+        static func unswizzleScreenView() {
+            UIViewController.swizzle(forClass: UIViewController.self,
+                                     original: #selector(UIViewController.viewDidApperOverride),
+                                     new: #selector(UIViewController.viewDidAppear(_:)))
+        }
+
         private func activeController() -> UIViewController? {
             // if a view is being dismissed, this will return nil
             if let root = viewIfLoaded?.window?.rootViewController {
@@ -45,8 +51,8 @@ import Foundation
             return nil
         }
 
-        private func captureScreenView() {
-            var rootController = viewIfLoaded?.window?.rootViewController
+        private func captureScreenView(_ window: UIWindow?) {
+            var rootController = window?.rootViewController
             if rootController == nil {
                 rootController = activeController()
             }
@@ -64,7 +70,7 @@ import Foundation
         }
 
         @objc func viewDidApperOverride(animated: Bool) {
-            captureScreenView()
+            captureScreenView(viewIfLoaded?.window)
             // it looks like we're calling ourselves, but we're actually
             // calling the original implementation of viewDidAppear since it's been swizzled.
             viewDidApperOverride(animated: animated)

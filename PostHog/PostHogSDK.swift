@@ -51,6 +51,9 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private var sessionId: String?
     private var sessionLastTimestamp: TimeInterval?
     private var isInBackground = false
+    #if os(iOS)
+        private var replayIntegration: PostHogReplayIntegration?
+    #endif
 
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
@@ -93,6 +96,9 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
             sessionManager = PostHogSessionManager(config)
+            #if os(iOS)
+                replayIntegration = PostHogReplayIntegration(config)
+            #endif
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()
@@ -128,6 +134,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             captureScreenViews()
 
             rotateSession()
+
+            #if os(iOS)
+                if config.sessionReplay {
+                    replayIntegration?.start()
+                }
+            #endif
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -176,9 +188,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             properties["$session_id"] = theSessionId
             // Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
-            if config.sessionReplay {
-                properties["$window_id"] = theSessionId
-            }
+            #if os(iOS)
+                if config.sessionReplay {
+                    properties["$window_id"] = theSessionId
+                }
+            #endif
         }
 
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
@@ -755,7 +769,17 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             enabled = false
             PostHogSDK.apiKeys.remove(config.apiKey)
 
+            if config.captureScreenViews {
+                #if os(iOS) || os(tvOS)
+                    UIViewController.unswizzleScreenView()
+                #endif
+            }
+
             queue?.stop()
+            #if os(iOS)
+                replayIntegration?.stop()
+                replayIntegration = nil
+            #endif
             queue = nil
             replayQueue = nil
             sessionManager = nil
@@ -768,7 +792,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                 reachability = nil
             #endif
             flagCallReported.removeAll()
-            featureFlags = nil
             context = nil
             resetSession()
             unregisterNotifications()
@@ -776,7 +799,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             appFromBackground = false
             isInBackground = false
             toggleHedgeLog(false)
-            // TODO: remove swizzlers
         }
     }
 
@@ -953,5 +975,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
         capture("Application Backgrounded")
+    }
+
+    func isSessionActive() -> Bool {
+        var active = false
+        sessionLock.withLock {
+            active = sessionId != nil
+        }
+        return active
     }
 }

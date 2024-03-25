@@ -95,6 +95,13 @@
             }
         }
 
+        private func setPadding(_ insets: UIEdgeInsets, _ style: RRStyle) {
+            style.paddingTop = Int(insets.top)
+            style.paddingRight = Int(insets.right)
+            style.paddingBottom = Int(insets.bottom)
+            style.paddingLeft = Int(insets.left)
+        }
+
         private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
             if !view.isVisible() {
                 return nil
@@ -119,6 +126,7 @@
                     style.fontSize = Int(fontSize)
                 }
                 setAlignment(textView.textAlignment, style)
+                setPadding(textView.textContainerInset, style)
             }
 
             if let textField = view as? UITextField {
@@ -202,8 +210,8 @@
                 style.bar = "circular"
             }
 
-            // TODO: missing horizontalAlign, verticalAlign, paddings, backgroundImage
-            // UITabBar, UINavigationBar, UISlider, UIStepper, UIDatePicker
+            // TODO: props: backgroundImage (probably not needed)
+            // TODO: componenets: UITabBar, UINavigationBar, UISlider, UIStepper, UIDatePicker
 
             style.backgroundColor = view.backgroundColor?.toRGBString()
             let layer = view.layer

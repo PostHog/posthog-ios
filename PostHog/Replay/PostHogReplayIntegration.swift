@@ -244,10 +244,6 @@
             return wireframe
         }
 
-        private func isSessionActive() -> Bool {
-            config.sessionReplay && PostHogSDK.shared.isSessionActive()
-        }
-
         static func getCurrentWindow() -> UIWindow? {
             guard let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) else {
                 return nil
@@ -260,7 +256,7 @@
         }
 
         @objc private func snapshot() {
-            if !isSessionActive() {
+            if !PostHogSDK.shared.isSessionReplayActive() {
                 return
             }
 

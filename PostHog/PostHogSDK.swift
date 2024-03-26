@@ -980,4 +980,8 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
         return active
     }
+
+    func isSessionReplayActive() -> Bool {
+        config.sessionReplay && isSessionActive()
+    }
 }

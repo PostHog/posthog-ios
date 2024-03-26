@@ -3,8 +3,8 @@
     import UIKit
 
     enum ViewLayoutTracker {
-        static var hasChanges = false
-        static var hasSwizzled = false
+        private static var hasChanges = false
+        private static var hasSwizzled = false
 
         static func viewDidLayout(view _: UIView) {
             hasChanges = true

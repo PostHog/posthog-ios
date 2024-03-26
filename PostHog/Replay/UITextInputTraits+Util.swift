@@ -9,7 +9,7 @@
     import Foundation
     import UIKit
 
-    let sensibleTypes: [UITextContentType] = [
+    private let sensibleTypes: [UITextContentType] = [
         .newPassword, .oneTimeCode, .creditCardNumber,
         .telephoneNumber, .emailAddress, .password,
         .username, .URL, .name, .nickname,

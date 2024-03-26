@@ -8,7 +8,6 @@
     import Foundation
 
     @objc(PostHogSessionReplayConfig) public class PostHogSessionReplayConfig: NSObject {
-        @objc var captureConsoleLogs: Bool = true
         /// Enable masking of all text input fields
         /// Experimental support
         /// Default: true
@@ -19,6 +18,6 @@
         /// Default: true
         @objc public var maskAllImages: Bool = true
 
-        // TODO: sessionRecording config such as networkPayloadCapture, sampleRate, etc
+        // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }
 #endif

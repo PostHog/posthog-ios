@@ -10,7 +10,7 @@
     import UIKit
 
     enum UIApplicationTracker {
-        static var hasSwizzled = false
+        private static var hasSwizzled = false
 
         static func swizzleSendEvent() {
             if hasSwizzled {
@@ -40,6 +40,10 @@
             // touch.timestamp is since boot time so we need to get the current time, best effort
             let timestamp = Date().toMillis()
             sendEventOverride(event)
+
+            if !PostHogSDK.shared.isSessionReplayActive() {
+                return
+            }
 
             guard event.type == .touches else {
                 return

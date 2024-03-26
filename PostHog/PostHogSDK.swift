@@ -980,4 +980,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
         return active
     }
+
+    #if os(iOS)
+        func isSessionReplayActive() -> Bool {
+            config.sessionReplay && isSessionActive()
+        }
+    #endif
 }

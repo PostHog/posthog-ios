@@ -62,8 +62,8 @@
         ) {
             sync {
                 let currentIMP = method_getImplementation(foundMethod.method)
-                let current_typedIMP = unsafeBitCast(currentIMP, to: TypedIMP.self)
-                let newImpBlock: TypedBlockIMP = impProvider(current_typedIMP)
+                let currentTypedIMP = unsafeBitCast(currentIMP, to: TypedIMP.self)
+                let newImpBlock: TypedBlockIMP = impProvider(currentTypedIMP)
                 let newImp: IMP = imp_implementationWithBlock(newImpBlock)
 
                 set(newIMP: newImp, for: foundMethod)

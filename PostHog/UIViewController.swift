@@ -29,7 +29,7 @@ import Foundation
             // if a view is being dismissed, this will return nil
             if let root = viewIfLoaded?.window?.rootViewController {
                 return root
-            } else if #available(iOS 13.0, *) {
+            } else {
                 // preferred way to get active controller in ios 13+
                 for scene in UIApplication.shared.connectedScenes where scene.activationState == .foregroundActive {
                     let windowScene = scene as? UIWindowScene
@@ -38,9 +38,6 @@ import Foundation
                         return window?.rootViewController
                     }
                 }
-            } else {
-                // this was deprecated in ios 13.0
-                return UIApplication.shared.keyWindow?.rootViewController
             }
             return nil
         }

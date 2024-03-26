@@ -19,9 +19,17 @@
         private var timer: Timer?
 
         private let windowViews = NSMapTable<UIView, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        private let urlInterceptor: URLSessionInterceptor
+        private var sessionSwizzler: URLSessionSwizzler?
 
         init(_ config: PostHogConfig) {
             self.config = config
+            urlInterceptor = URLSessionInterceptor()
+            do {
+                try sessionSwizzler = URLSessionSwizzler(interceptor: urlInterceptor)
+            } catch {
+                hedgeLog("Error trying to Swizzle URLSession: \(error)")
+            }
         }
 
         func start() {
@@ -34,6 +42,8 @@
             ViewLayoutTracker.swizzleLayoutSubviews()
 
             UIApplicationTracker.swizzleSendEvent()
+
+            sessionSwizzler?.swizzle()
         }
 
         func stop() {
@@ -41,6 +51,9 @@
             ViewLayoutTracker.unSwizzleLayoutSubviews()
             windowViews.removeAllObjects()
             UIApplicationTracker.unswizzleSendEvent()
+
+            sessionSwizzler?.unswizzle()
+            urlInterceptor.stop()
         }
 
         private func stopTimer() {

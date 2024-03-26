@@ -86,6 +86,10 @@
 		69EE82BC2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */; };
 		69EE82BE2BA9C8AA00EB9542 /* ViewLayoutTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EE82BD2BA9C8AA00EB9542 /* ViewLayoutTracker.swift */; };
 		69EE82CE2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EE82CD2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift */; };
+		69F23A742BB3088E001194F6 /* URLSessionSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A732BB3088E001194F6 /* URLSessionSwizzler.swift */; };
+		69F23A762BB308AE001194F6 /* URLSessionInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A752BB308AE001194F6 /* URLSessionInterceptor.swift */; };
+		69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A772BB30991001194F6 /* NetworkSample.swift */; };
+		69F23A7A2BB309F3001194F6 /* MethodSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F23A792BB309F3001194F6 /* MethodSwizzler.swift */; };
 		69F517E82BAC675800F52C14 /* RRWireframe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517E72BAC675800F52C14 /* RRWireframe.swift */; };
 		69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517E92BAC684F00F52C14 /* RRStyle.swift */; };
 		69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F517F22BAC734300F52C14 /* UIColor+Util.swift */; };
@@ -327,6 +331,10 @@
 		69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConfig.swift; sourceTree = "<group>"; };
 		69EE82BD2BA9C8AA00EB9542 /* ViewLayoutTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewLayoutTracker.swift; sourceTree = "<group>"; };
 		69EE82CD2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewTreeSnapshotStatus.swift; sourceTree = "<group>"; };
+		69F23A732BB3088E001194F6 /* URLSessionSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionSwizzler.swift; sourceTree = "<group>"; };
+		69F23A752BB308AE001194F6 /* URLSessionInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionInterceptor.swift; sourceTree = "<group>"; };
+		69F23A772BB30991001194F6 /* NetworkSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSample.swift; sourceTree = "<group>"; };
+		69F23A792BB309F3001194F6 /* MethodSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MethodSwizzler.swift; sourceTree = "<group>"; };
 		69F517E72BAC675800F52C14 /* RRWireframe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRWireframe.swift; sourceTree = "<group>"; };
 		69F517E92BAC684F00F52C14 /* RRStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RRStyle.swift; sourceTree = "<group>"; };
 		69F517F22BAC734300F52C14 /* UIColor+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIColor+Util.swift"; sourceTree = "<group>"; };
@@ -667,6 +675,10 @@
 				69F518172BAC80A300F52C14 /* String+Util.swift */,
 				69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */,
 				69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */,
+				69F23A732BB3088E001194F6 /* URLSessionSwizzler.swift */,
+				69F23A752BB308AE001194F6 /* URLSessionInterceptor.swift */,
+				69F23A772BB30991001194F6 /* NetworkSample.swift */,
+				69F23A792BB309F3001194F6 /* MethodSwizzler.swift */,
 			);
 			path = Replay;
 			sourceTree = "<group>";
@@ -1034,6 +1046,8 @@
 				69EE82BE2BA9C8AA00EB9542 /* ViewLayoutTracker.swift in Sources */,
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
 				69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */,
+				69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */,
+				69F23A762BB308AE001194F6 /* URLSessionInterceptor.swift in Sources */,
 				690FF0BF2AEFA97F00A0B06B /* FileUtils.swift in Sources */,
 				69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */,
 				3AE3FB4E2993D1D600AFFC18 /* PostHogSessionManager.swift in Sources */,
@@ -1046,6 +1060,7 @@
 				690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */,
 				69F518162BAC7F9200F52C14 /* UIView+Util.swift in Sources */,
 				69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */,
+				69F23A742BB3088E001194F6 /* URLSessionSwizzler.swift in Sources */,
 				69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */,
 				69F5183A2BB2BA8300F52C14 /* UIApplicationTracker.swift in Sources */,
 				69F518182BAC80A300F52C14 /* String+Util.swift in Sources */,
@@ -1059,6 +1074,7 @@
 				690FF0C52AEFAE8200A0B06B /* PostHogLegacyQueue.swift in Sources */,
 				3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */,
 				690FF0B52AEBBD3C00A0B06B /* DictUtils.swift in Sources */,
+				69F23A7A2BB309F3001194F6 /* MethodSwizzler.swift in Sources */,
 				69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */,
 				69EE82BC2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift in Sources */,
 				69EE82CE2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift in Sources */,

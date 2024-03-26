@@ -16,7 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             apiKey: "phc_pQ70jJhZKHRvDIL5ruOErnPy6xiAiWCqlL4ayELj4X8"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
-        config.captureScreenViews = true
+        config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
         config.flushIntervalSeconds = 30

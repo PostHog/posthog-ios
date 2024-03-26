@@ -68,7 +68,8 @@
                 let posX = Int(touch.location(in: window).x)
                 let posY = Int(touch.location(in: window).y)
 
-                let touchData: [String: Any] = ["id": touch.hash, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
+                // if the id is 0, BE transformer will set it to the virtual bodyId
+                let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
 
                 let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": timestamp]
                 snapshotsData.append(data)

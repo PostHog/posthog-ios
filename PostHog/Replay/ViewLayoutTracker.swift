@@ -7,40 +7,40 @@
         static var hasSwizzled = false
 
         static func viewDidLayout(view _: UIView) {
-            ViewLayoutTracker.hasChanges = true
+            hasChanges = true
         }
 
         static func clear() {
-            ViewLayoutTracker.hasChanges = false
+            hasChanges = false
         }
 
         static func swizzleLayoutSubviews() {
-            if ViewLayoutTracker.hasSwizzled {
+            if hasSwizzled {
                 return
             }
+            swizzle(forClass: UIView.self,
+                    original: #selector(UIView.layoutSubviews),
+                    new: #selector(UIView.layoutSubviewsOverride))
             hasSwizzled = true
-            UIViewController.swizzle(forClass: UIView.self,
-                                     original: #selector(UIView.layoutSubviews),
-                                     new: #selector(UIView.ph_layoutSubviews))
         }
 
         static func unSwizzleLayoutSubviews() {
-            if !ViewLayoutTracker.hasSwizzled {
+            if !hasSwizzled {
                 return
             }
+            swizzle(forClass: UIView.self,
+                    original: #selector(UIView.layoutSubviewsOverride),
+                    new: #selector(UIView.layoutSubviews))
             hasSwizzled = false
-            UIViewController.swizzle(forClass: UIView.self,
-                                     original: #selector(UIView.ph_layoutSubviews),
-                                     new: #selector(UIView.layoutSubviews))
         }
     }
 
     extension UIView {
-        @objc func ph_layoutSubviews() {
+        @objc func layoutSubviewsOverride() {
             guard Thread.isMainThread else {
                 return
             }
-            ph_layoutSubviews()
+            layoutSubviewsOverride()
             ViewLayoutTracker.viewDidLayout(view: self)
         }
     }

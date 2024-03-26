@@ -13,22 +13,16 @@ import Foundation
     import UIKit
 
     extension UIViewController {
-        static func swizzle(forClass: AnyClass, original: Selector, new: Selector) {
-            guard let originalMethod = class_getInstanceMethod(forClass, original) else { return }
-            guard let swizzledMethod = class_getInstanceMethod(forClass, new) else { return }
-            method_exchangeImplementations(originalMethod, swizzledMethod)
-        }
-
         static func swizzleScreenView() {
-            UIViewController.swizzle(forClass: UIViewController.self,
-                                     original: #selector(UIViewController.viewDidAppear(_:)),
-                                     new: #selector(UIViewController.viewDidApperOverride))
+            swizzle(forClass: UIViewController.self,
+                    original: #selector(UIViewController.viewDidAppear(_:)),
+                    new: #selector(UIViewController.viewDidApperOverride))
         }
 
         static func unswizzleScreenView() {
-            UIViewController.swizzle(forClass: UIViewController.self,
-                                     original: #selector(UIViewController.viewDidApperOverride),
-                                     new: #selector(UIViewController.viewDidAppear(_:)))
+            swizzle(forClass: UIViewController.self,
+                    original: #selector(UIViewController.viewDidApperOverride),
+                    new: #selector(UIViewController.viewDidAppear(_:)))
         }
 
         private func activeController() -> UIViewController? {
@@ -51,12 +45,11 @@ import Foundation
             return nil
         }
 
-        static func getViewControllerName(_ viewController: UIViewController) -> String {
-            var title = "Unknown"
-            title = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+        static func getViewControllerName(_ viewController: UIViewController) -> String? {
+            var title: String? = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
 
-            if title.isEmpty {
-                title = viewController.title ?? "Unknown"
+            if title?.isEmpty == true {
+                title = viewController.title ?? nil
             }
 
             return title
@@ -71,7 +64,7 @@ import Foundation
 
             let name = UIViewController.getViewControllerName(top)
 
-            if name != "Unknown" {
+            if let name = name {
                 PostHogSDK.shared.screen(name)
             }
         }

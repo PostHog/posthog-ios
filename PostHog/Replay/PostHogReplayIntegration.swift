@@ -32,12 +32,15 @@
                                          userInfo: nil,
                                          repeats: true)
             ViewLayoutTracker.swizzleLayoutSubviews()
+
+            UIApplicationTracker.swizzleSendEvent()
         }
 
         func stop() {
             stopTimer()
             ViewLayoutTracker.unSwizzleLayoutSubviews()
             windowViews.removeAllObjects()
+            UIApplicationTracker.unswizzleSendEvent()
         }
 
         private func stopTimer() {
@@ -55,6 +58,8 @@
                 return
             }
 
+            var snapshotsData: [Any] = []
+
             if !snapshotStatus.sentMetaEvent {
                 let size = view.bounds.size
                 let width = Int(size.width)
@@ -62,12 +67,12 @@
 
                 var data: [String: Any] = ["width": width, "height": height]
 
-                if screenName != nil {
+                if let screenName = screenName {
                     data["href"] = screenName
                 }
 
                 let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
-                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
+                snapshotsData.append(snapshotData)
                 snapshotStatus.sentMetaEvent = true
                 hasChanges = true
             }
@@ -81,7 +86,12 @@
             let initialOffset = ["top": 0, "left": 0]
             let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
             let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
-            PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotData])
+            snapshotsData.append(snapshotData)
+
+            // off the main thread at least the event capture
+            DispatchQueue.global().async {
+                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+            }
         }
 
         private func setAlignment(_ alignment: NSTextAlignment, _ style: RRStyle) {
@@ -148,7 +158,7 @@
                 setAlignment(textField.textAlignment, style)
             }
 
-            if let picker = view as? UIPickerView {
+            if view is UIPickerView {
                 wireframe.type = "input"
                 wireframe.inputType = "select"
             }
@@ -238,6 +248,17 @@
             config.sessionReplay && PostHogSDK.shared.isSessionActive()
         }
 
+        static func getCurrentWindow() -> UIWindow? {
+            guard let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) else {
+                return nil
+            }
+
+            guard let window = (activeScene as? UIWindowScene)?.windows.first(where: { $0.isKeyWindow }) else {
+                return nil
+            }
+            return window
+        }
+
         @objc private func snapshot() {
             if !isSessionActive() {
                 return
@@ -248,11 +269,7 @@
             }
             ViewLayoutTracker.clear()
 
-            guard let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) else {
-                return
-            }
-
-            guard let window = (activeScene as? UIWindowScene)?.windows.first(where: { $0.isKeyWindow }) else {
+            guard let window = PostHogReplayIntegration.getCurrentWindow() else {
                 return
             }
 

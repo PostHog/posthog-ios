@@ -14,6 +14,10 @@
             hasChanges = false
         }
 
+        static func hasChanges() -> Bool {
+            hasChanges
+        }
+
         static func swizzleLayoutSubviews() {
             if hasSwizzled {
                 return

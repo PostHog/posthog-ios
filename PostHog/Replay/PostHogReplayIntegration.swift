@@ -260,7 +260,7 @@
                 return
             }
 
-            if !ViewLayoutTracker.hasChanges {
+            if !ViewLayoutTracker.hasChanges() {
                 return
             }
             ViewLayoutTracker.clear()

@@ -25,6 +25,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.sessionReplay = true
         config.sessionReplayConfig.maskAllTextInputs = false
         config.sessionReplayConfig.maskAllImages = false
+        config.sessionReplayConfig.captureNetworkTelemetry = true
 
         PostHogSDK.shared.setup(config)
 

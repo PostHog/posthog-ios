@@ -18,6 +18,11 @@
         /// Default: true
         @objc public var maskAllImages: Bool = true
 
+        /// Enable capturing network telemetry
+        /// Experimental support
+        /// Default: false
+        @objc public var captureNetworkTelemetry: Bool = false
+
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }
 #endif

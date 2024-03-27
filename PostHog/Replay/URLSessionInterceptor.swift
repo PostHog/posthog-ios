@@ -9,6 +9,12 @@
     import Foundation
 
     class URLSessionInterceptor {
+        private let config: PostHogConfig
+
+        init(_ config: PostHogConfig) {
+            self.config = config
+        }
+
         /// An internal queue for synchronising the access to `samplesByTask`.
         private let queue = DispatchQueue(label: "com.posthog.URLSessionInterceptor", target: .global(qos: .utility))
         private var samplesByTask: [URLSessionTask: NetworkSample] = [:]
@@ -19,6 +25,9 @@
         /// This method should be called as soon as the task was created.
         /// - Parameter task: the task object obtained from `URLSession`.
         public func taskCreated(task: URLSessionTask, session _: URLSession? = nil) {
+            if !isCaptureNetworkEnabled() {
+                return
+            }
             guard let request = task.originalRequest else {
                 return
             }
@@ -48,6 +57,10 @@
         /// - Parameter task: the task object obtained from `URLSession`.
         /// - Parameter error: optional `Error` if the task completed with error.
         public func taskCompleted(task: URLSessionTask, error _: Error?) {
+            if !isCaptureNetworkEnabled() {
+                return
+            }
+
             guard let request = task.originalRequest else {
                 return
             }
@@ -84,9 +97,12 @@
             return -1
         }
 
+        private func isCaptureNetworkEnabled() -> Bool {
+            config.sessionReplayConfig.captureNetworkTelemetry && PostHogSDK.shared.isSessionReplayActive()
+        }
+
         private func finish(task: URLSessionTask, sample: NetworkSample) {
-            if !PostHogSDK.shared.isSessionReplayActive() {
-                samplesByTask.removeValue(forKey: task)
+            if !isCaptureNetworkEnabled() {
                 return
             }
             var snapshotsData: [Any] = []

@@ -24,7 +24,7 @@
 
         init(_ config: PostHogConfig) {
             self.config = config
-            urlInterceptor = URLSessionInterceptor()
+            urlInterceptor = URLSessionInterceptor(self.config)
             do {
                 try sessionSwizzler = URLSessionSwizzler(interceptor: urlInterceptor)
             } catch {

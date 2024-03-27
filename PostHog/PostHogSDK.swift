@@ -228,28 +228,30 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     {
         var props: [String: Any] = [:]
 
-        let staticCtx = context?.staticContext()
-        let dynamicCtx = context?.dynamicContext()
-        let localDynamicCtx = dynamicContext()
+        if appendSharedProps {
+            let staticCtx = context?.staticContext()
+            let dynamicCtx = context?.dynamicContext()
+            let localDynamicCtx = dynamicContext()
 
-        if staticCtx != nil {
-            props = props.merging(staticCtx ?? [:]) { current, _ in current }
-        }
-        if dynamicCtx != nil {
-            props = props.merging(dynamicCtx ?? [:]) { current, _ in current }
-        }
-        props = props.merging(localDynamicCtx) { current, _ in current }
-        if userProperties != nil {
-            props["$set"] = (userProperties ?? [:])
-        }
-        if userPropertiesSetOnce != nil {
-            props["$set_once"] = (userPropertiesSetOnce ?? [:])
-        }
-        if groupProperties != nil {
-            // $groups are also set via the dynamicContext
-            let currentGroups = props["$groups"] as? [String: Any] ?? [:]
-            let mergedGroups = currentGroups.merging(groupProperties ?? [:]) { current, _ in current }
-            props["$groups"] = mergedGroups
+            if staticCtx != nil {
+                props = props.merging(staticCtx ?? [:]) { current, _ in current }
+            }
+            if dynamicCtx != nil {
+                props = props.merging(dynamicCtx ?? [:]) { current, _ in current }
+            }
+            props = props.merging(localDynamicCtx) { current, _ in current }
+            if userProperties != nil {
+                props["$set"] = (userProperties ?? [:])
+            }
+            if userPropertiesSetOnce != nil {
+                props["$set_once"] = (userPropertiesSetOnce ?? [:])
+            }
+            if groupProperties != nil {
+                // $groups are also set via the dynamicContext
+                let currentGroups = props["$groups"] as? [String: Any] ?? [:]
+                let mergedGroups = currentGroups.merging(groupProperties ?? [:]) { current, _ in current }
+                props["$groups"] = mergedGroups
+            }
         }
 
         // Replay needs distinct_id also in the props
@@ -258,7 +260,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
             props["distinct_id"] = distinctId
         }
-        // TODO: only append props for analytics events
 
         props = props.merging(properties ?? [:]) { current, _ in current }
 

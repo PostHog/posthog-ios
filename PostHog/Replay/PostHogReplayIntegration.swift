@@ -19,9 +19,17 @@
         private var timer: Timer?
 
         private let windowViews = NSMapTable<UIView, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        private let urlInterceptor: URLSessionInterceptor
+        private var sessionSwizzler: URLSessionSwizzler?
 
         init(_ config: PostHogConfig) {
             self.config = config
+            urlInterceptor = URLSessionInterceptor(self.config)
+            do {
+                try sessionSwizzler = URLSessionSwizzler(interceptor: urlInterceptor)
+            } catch {
+                hedgeLog("Error trying to Swizzle URLSession: \(error)")
+            }
         }
 
         func start() {
@@ -34,6 +42,10 @@
             ViewLayoutTracker.swizzleLayoutSubviews()
 
             UIApplicationTracker.swizzleSendEvent()
+
+            if config.sessionReplayConfig.captureNetworkTelemetry {
+                sessionSwizzler?.swizzle()
+            }
         }
 
         func stop() {
@@ -41,6 +53,9 @@
             ViewLayoutTracker.unSwizzleLayoutSubviews()
             windowViews.removeAllObjects()
             UIApplicationTracker.unswizzleSendEvent()
+
+            sessionSwizzler?.unswizzle()
+            urlInterceptor.stop()
         }
 
         private func stopTimer() {
@@ -128,7 +143,8 @@
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
-                wireframe.text = (config.sessionReplayConfig.maskAllTextInputs || textView.isNoCapture() || textView.isSensitiveText()) ? textView.text.mask() : textView.text
+                let isSensitive = config.sessionReplayConfig.maskAllTextInputs || textView.isNoCapture() || textView.isSensitiveText()
+                wireframe.text = isSensitive ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
@@ -143,10 +159,12 @@
                 wireframe.type = "input"
                 wireframe.inputType = "text_area"
                 if let text = textField.text {
-                    wireframe.value = (config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
+                    let isSensitive = config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()
+                    wireframe.value = isSensitive ? text.mask() : text
                 } else {
                     if let text = textField.placeholder {
-                        wireframe.value = (config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()) ? text.mask() : text
+                        let isSensitive = config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()
+                        wireframe.value = isSensitive ? text.mask() : text
                     }
                 }
                 wireframe.disabled = !textField.isEnabled

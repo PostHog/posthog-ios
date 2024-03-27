@@ -20,8 +20,8 @@
 
         /// Enable capturing network telemetry
         /// Experimental support
-        /// Default: false
-        @objc public var captureNetworkTelemetry: Bool = false
+        /// Default: true
+        @objc public var captureNetworkTelemetry: Bool = true
 
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }

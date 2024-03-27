@@ -38,7 +38,6 @@ import Foundation
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration
         /// Experimental support
-        /// Default: false
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 

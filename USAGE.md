@@ -197,3 +197,31 @@ PostHogSDK.shared.close()
 For the removed methods, you can use the `PostHogSDK.shared.capture` methods manually instead.
 
 If any of the breaking changes are blocking you, please [open an issue](https://github.com/PostHog/posthog-ios/issues/new) and let us know your use case.
+
+## iOS Session Recording
+
+Enable `Record user sessions` on the [PostHog project settings](https://us.posthog.com/settings/project-replay#replay).
+
+Requires the iOS SDK version >= [3.3.0-alpha.1](https://github.com/PostHog/posthog-ios/releases/).
+
+Enable the SDK to capture Session Recording.
+
+```swift
+let config = PostHogConfig(apiKey: apiKey)
+// sessionReplay is disabled by default
+config.sessionReplay = true
+// sessionReplayConfig is optional, they are enabled by default
+config.sessionReplayConfig.maskAllTextInputs = true
+config.sessionReplayConfig.maskAllImages = true
+config.sessionReplayConfig.captureNetworkTelemetry = true
+```
+
+If you don't want to mask everything, you can disable the mask config above and mask specific views using the `ph-no-capture` [accessibilityIdentifier](https://developer.apple.com/documentation/uikit/uiaccessibilityidentification/1623132-accessibilityidentifier).
+
+### Limitations
+
+- Not compatible with [SwiftUI](https://developer.apple.com/xcode/swiftui/) yet.
+- It's a representation of the user's screen, not a video recording nor a screenshot.
+  - Custom views are not fully supported.
+- WebView is not supported, a placeholder will be shown.
+- React Native and Flutter for iOS aren't supported.

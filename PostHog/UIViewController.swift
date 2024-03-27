@@ -13,23 +13,23 @@ import Foundation
     import UIKit
 
     extension UIViewController {
-        static func swizzle(forClass: AnyClass, original: Selector, new: Selector) {
-            guard let originalMethod = class_getInstanceMethod(forClass, original) else { return }
-            guard let swizzledMethod = class_getInstanceMethod(forClass, new) else { return }
-            method_exchangeImplementations(originalMethod, swizzledMethod)
+        static func swizzleScreenView() {
+            swizzle(forClass: UIViewController.self,
+                    original: #selector(UIViewController.viewDidAppear(_:)),
+                    new: #selector(UIViewController.viewDidApperOverride))
         }
 
-        static func swizzleScreenView() {
-            UIViewController.swizzle(forClass: UIViewController.self,
-                                     original: #selector(UIViewController.viewDidAppear(_:)),
-                                     new: #selector(UIViewController.viewDidApperOverride))
+        static func unswizzleScreenView() {
+            swizzle(forClass: UIViewController.self,
+                    original: #selector(UIViewController.viewDidApperOverride),
+                    new: #selector(UIViewController.viewDidAppear(_:)))
         }
 
         private func activeController() -> UIViewController? {
             // if a view is being dismissed, this will return nil
             if let root = viewIfLoaded?.window?.rootViewController {
                 return root
-            } else if #available(iOS 13.0, *) {
+            } else {
                 // preferred way to get active controller in ios 13+
                 for scene in UIApplication.shared.connectedScenes where scene.activationState == .foregroundActive {
                     let windowScene = scene as? UIWindowScene
@@ -38,33 +38,36 @@ import Foundation
                         return window?.rootViewController
                     }
                 }
-            } else {
-                // this was deprecated in ios 13.0
-                return UIApplication.shared.keyWindow?.rootViewController
             }
             return nil
         }
 
-        private func captureScreenView() {
-            var rootController = viewIfLoaded?.window?.rootViewController
+        static func getViewControllerName(_ viewController: UIViewController) -> String? {
+            var title: String? = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+
+            if title?.isEmpty == true {
+                title = viewController.title ?? nil
+            }
+
+            return title
+        }
+
+        private func captureScreenView(_ window: UIWindow?) {
+            var rootController = window?.rootViewController
             if rootController == nil {
                 rootController = activeController()
             }
             guard let top = findVisibleViewController(activeController()) else { return }
 
-            var name = String(describing: top.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+            let name = UIViewController.getViewControllerName(top)
 
-            if name.count == 0 {
-                name = top.title ?? "Unknown"
-            }
-
-            if name != "Unknown" {
+            if let name = name {
                 PostHogSDK.shared.screen(name)
             }
         }
 
         @objc func viewDidApperOverride(animated: Bool) {
-            captureScreenView()
+            captureScreenView(viewIfLoaded?.window)
             // it looks like we're calling ourselves, but we're actually
             // calling the original implementation of viewDidAppear since it's been swizzled.
             viewDidApperOverride(animated: animated)

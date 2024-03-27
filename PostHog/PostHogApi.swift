@@ -81,10 +81,68 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let errorMessage = "Error sending events to batch API: status: \(httpResponse.statusCode), body: \(String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]))."
+                let jsonBody = String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any])
+                let errorMessage = "Error sending events to batch API: status: \(jsonBody)."
                 hedgeLog(errorMessage)
             } else {
                 hedgeLog("Events sent successfully.")
+            }
+
+            return completion(PostHogBatchUploadInfo(statusCode: httpResponse.statusCode, error: error))
+        }.resume()
+    }
+
+    func snapshot(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
+        guard let url = URL(string: config.snapshotEndpoint, relativeTo: config.host) else {
+            hedgeLog("Malformed snapshot URL error.")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+        }
+
+        for event in events {
+            event.apiKey = self.config.apiKey
+        }
+
+        let config = sessionConfig()
+        var headers = config.httpAdditionalHeaders ?? [:]
+        headers["Accept-Encoding"] = "gzip"
+        headers["Content-Encoding"] = "gzip"
+        config.httpAdditionalHeaders = headers
+
+        let request = getURL(url)
+
+        let toSend = events.map { $0.toJSON() }
+
+        var data: Data?
+
+        do {
+            data = try JSONSerialization.data(withJSONObject: toSend)
+        } catch {
+            hedgeLog("Error parsing the snapshot body: \(error)")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+        }
+
+        var gzippedPayload: Data?
+        do {
+            gzippedPayload = try data!.gzipped()
+        } catch {
+            hedgeLog("Error gzipping the snapshot body: \(error).")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+        }
+
+        URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
+            if error != nil {
+                hedgeLog("Error calling the snapshot API: \(String(describing: error)).")
+                return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+            }
+
+            let httpResponse = response as! HTTPURLResponse
+
+            if !(200 ... 299 ~= httpResponse.statusCode) {
+                let jsonBody = String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any])
+                let errorMessage = "Error sending events to snapshot API: status: \(httpResponse.statusCode), body: \(jsonBody)."
+                hedgeLog(errorMessage)
+            } else {
+                hedgeLog("Snapshots sent successfully.")
             }
 
             return completion(PostHogBatchUploadInfo(statusCode: httpResponse.statusCode, error: error))
@@ -135,7 +193,8 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let errorMessage = "Error calling decide API: status: \(httpResponse.statusCode), body: \(String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]))."
+                let jsonBody = String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any])
+                let errorMessage = "Error calling decide API: status: \(httpResponse.statusCode), body: \(jsonBody)."
                 hedgeLog(errorMessage)
 
                 return completion(nil,

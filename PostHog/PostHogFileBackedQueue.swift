@@ -16,7 +16,7 @@ class PostHogFileBackedQueue {
         items.count
     }
 
-    init(queue: URL, oldQueue: URL) {
+    init(queue: URL, oldQueue: URL? = nil) {
         self.queue = queue
         setup(oldQueue: oldQueue)
     }

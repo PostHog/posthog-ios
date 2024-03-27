@@ -25,6 +25,7 @@ class PostHogStorage {
         case anonymousId = "posthog.anonymousId"
         case queue = "posthog.queueFolder" // NOTE: This is different to posthog-ios v2
         case oldQeueue = "posthog.queue.plist"
+        case replayQeueue = "posthog.replayFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case groups = "posthog.groups"

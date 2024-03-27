@@ -19,18 +19,18 @@ class Api: ObservableObject {
 
     var logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "main")
 
-    func listBeers(completion: @escaping ([PostHogBeerInfo]) -> Void) {
+    func listBeers(completion _: @escaping ([PostHogBeerInfo]) -> Void) {
         guard let url = URL(string: "https://api.punkapi.com/v2/beers") else {
             return
         }
 
         logger.info("Requesting beers list...")
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            let beers = try! JSONDecoder().decode([PostHogBeerInfo].self, from: data!)
-
-            DispatchQueue.main.async {
-                completion(beers)
-            }
+        URLSession.shared.dataTask(with: url) { _, _, _ in
+//            let beers = try! JSONDecoder().decode([PostHogBeerInfo].self, from: data!)
+//
+//            DispatchQueue.main.async {
+//                completion(beers)
+//            }
         }.resume()
     }
 

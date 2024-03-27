@@ -63,6 +63,20 @@ class PostHogFeatureFlags {
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
+                #if os(iOS)
+                    if let sessionRecording = data?["sessionRecording"] as? Bool {
+                        self.config.sessionReplay = self.config.sessionReplay && sessionRecording
+                    } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
+                        // keeps the value from config.sessionReplay since having sessionRecording
+                        // means its enabled on the project settings, but its only enabled
+                        // when local config.sessionReplay is also enabled
+                        if let endpoint = sessionRecording["endpoint"] as? String {
+                            self.config.snapshotEndpoint = endpoint
+                        }
+                        // TODO: handle sessionRecording config such as consoleLogRecordingEnabled, networkPayloadCapture, sampleRate, etc
+                    }
+                #endif
+
                 self.featureFlagsLock.withLock {
                     if errorsWhileComputingFlags {
                         let cachedFeatureFlags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any] ?? [:]

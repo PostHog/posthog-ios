@@ -13,6 +13,8 @@ public class PostHogEvent {
     public var properties: [String: Any]
     public var timestamp: Date
     public var uuid: UUID
+    // Only used for Replay
+    public var apiKey: String?
 
     enum Key: String {
         case event
@@ -20,14 +22,16 @@ public class PostHogEvent {
         case properties
         case timestamp
         case uuid
+        case apiKey
     }
 
-    init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = .init()) {
+    init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = .init(), apiKey: String? = nil) {
         self.event = event
         self.distinctId = distinctId
         self.properties = properties ?? [:]
         self.timestamp = timestamp
         self.uuid = uuid
+        self.apiKey = apiKey
     }
 
     // NOTE: Ideally we would use the NSCoding behaviour but it gets needlessly complex
@@ -60,22 +64,31 @@ public class PostHogEvent {
         let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID().uuidString
         let uuidObj = UUID(uuidString: uuid) ?? UUID()
 
+        let apiKey = json["api_key"] as? String
+
         return PostHogEvent(
             event: event,
             distinctId: distinctId,
             properties: properties,
             timestamp: timestampDate,
-            uuid: uuidObj
+            uuid: uuidObj,
+            apiKey: apiKey
         )
     }
 
     func toJSON() -> [String: Any] {
-        [
+        var json: [String: Any] = [
             "event": event,
             "distinct_id": distinctId,
             "properties": properties,
             "timestamp": toISO8601String(timestamp),
             "uuid": uuid.uuidString,
         ]
+
+        if let apiKey = apiKey {
+            json["api_key"] = apiKey
+        }
+
+        return json
     }
 }

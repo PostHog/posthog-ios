@@ -24,7 +24,7 @@
         /// Notifies the `URLSessionTask` creation.
         /// This method should be called as soon as the task was created.
         /// - Parameter task: the task object obtained from `URLSession`.
-        public func taskCreated(task: URLSessionTask, session _: URLSession? = nil) {
+        func taskCreated(task: URLSessionTask, session _: URLSession? = nil) {
             if !isCaptureNetworkEnabled() {
                 return
             }
@@ -48,7 +48,7 @@
         /// - Parameters:
         ///   - task: task receiving data.
         ///   - data: next chunk of data delivered to `URLSessionDataDelegate`.
-        public func taskReceivedData(task _: URLSessionTask, data _: Data) {
+        func taskReceivedData(task _: URLSessionTask, data _: Data) {
             // Currently we don't do anything with this
         }
 
@@ -56,7 +56,7 @@
         /// This method should be called as soon as the task was completed.
         /// - Parameter task: the task object obtained from `URLSession`.
         /// - Parameter error: optional `Error` if the task completed with error.
-        public func taskCompleted(task: URLSessionTask, error _: Error?) {
+        func taskCompleted(task: URLSessionTask, error _: Error?) {
             if !isCaptureNetworkEnabled() {
                 return
             }

@@ -10,7 +10,7 @@
     class MethodSwizzler<TypedIMP, TypedBlockIMP> {
         struct FoundMethod: Hashable {
             let method: Method
-            let klass: AnyClass
+            private let klass: AnyClass
 
             fileprivate init(method: Method, klass: AnyClass) {
                 self.method = method

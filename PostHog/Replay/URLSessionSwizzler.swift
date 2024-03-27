@@ -12,16 +12,18 @@
 
     class URLSessionSwizzler {
         /// `URLSession.dataTask(with:completionHandler:)` (for `URLRequest`) swizzling.
-        let dataTaskWithURLRequestAndCompletion: DataTaskWithURLRequestAndCompletion
+        private let dataTaskWithURLRequestAndCompletion: DataTaskWithURLRequestAndCompletion
         /// `URLSession.dataTask(with:)` (for `URLRequest`) swizzling.
-        let dataTaskWithURLRequest: DataTaskWithURLRequest
+        private let dataTaskWithURLRequest: DataTaskWithURLRequest
 
         /// `URLSession.dataTask(with:completionHandler:)` (for `URL`) swizzling. Only applied on iOS 13 and above.
-        let dataTaskWithURLAndCompletion: DataTaskWithURLAndCompletion?
+        private let dataTaskWithURLAndCompletion: DataTaskWithURLAndCompletion?
         /// `URLSession.dataTask(with:)` (for `URL`) swizzling. Only applied on iOS 13 and above.
-        let dataTaskWithURL: DataTaskWithURL?
+        private let dataTaskWithURL: DataTaskWithURL?
 
-        let interceptor: URLSessionInterceptor
+        private let interceptor: URLSessionInterceptor
+
+        private var hasSwizzled = false
 
         init(interceptor: URLSessionInterceptor) throws {
             self.interceptor = interceptor
@@ -38,13 +40,18 @@
             dataTaskWithURLAndCompletion?.swizzle()
             dataTaskWithURLRequest.swizzle()
             dataTaskWithURL?.swizzle()
+            hasSwizzled = true
         }
 
         func unswizzle() {
+            if !hasSwizzled {
+                return
+            }
             dataTaskWithURLRequestAndCompletion.unswizzle()
             dataTaskWithURLRequest.unswizzle()
             dataTaskWithURLAndCompletion?.unswizzle()
             dataTaskWithURL?.unswizzle()
+            hasSwizzled = false
         }
 
         // MARK: - Swizzlings

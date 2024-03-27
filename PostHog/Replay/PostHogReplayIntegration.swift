@@ -43,7 +43,9 @@
 
             UIApplicationTracker.swizzleSendEvent()
 
-            sessionSwizzler?.swizzle()
+            if config.sessionReplayConfig.captureNetworkTelemetry {
+                sessionSwizzler?.swizzle()
+            }
         }
 
         func stop() {

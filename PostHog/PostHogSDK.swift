@@ -56,7 +56,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         private var replayIntegration: PostHogReplayIntegration?
     #endif
 
-//    @objc public nonisolated(unsafe) static let shared = PostHogSDK(PostHogConfig(apiKey: ""))
     @objc public static let shared: PostHogSDK = {
         let instance = PostHogSDK(PostHogConfig(apiKey: ""))
         return instance

@@ -1,6 +1,6 @@
 ## Next
 
-- chore: silence `shared` warning for strict concurrency [#115](https://github.com/PostHog/posthog-ios/pull/115)
+- chore: silence `shared` warning for strict concurrency [#129](https://github.com/PostHog/posthog-ios/pull/129)
 
 ## 3.3.0-alpha.1 - 2024-03-27
 

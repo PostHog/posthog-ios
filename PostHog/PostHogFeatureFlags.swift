@@ -7,7 +7,7 @@
 
 import Foundation
 
-class PostHogFeatureFlags {
+class PostHogFeatureFlags: @unchecked Sendable {
     private let config: PostHogConfig
     private let storage: PostHogStorage
     private let api: PostHogApi
@@ -38,7 +38,7 @@ class PostHogFeatureFlags {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        callback: @escaping () -> Void
+        callback: @escaping @Sendable () -> Void
     ) {
         isLoadingLock.withLock {
             if self.isLoadingFeatureFlags {
@@ -52,8 +52,9 @@ class PostHogFeatureFlags {
                    groups: groups)
         { data, _ in
             self.dispatchQueue.async {
-                guard let featureFlags = data?["featureFlags"] as? [String: Any],
-                      let featureFlagPayloads = data?["featureFlagPayloads"] as? [String: Any]
+                guard let data = data,
+                      let featureFlags = data["featureFlags"] as? [String: Any],
+                      let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
 
@@ -61,12 +62,12 @@ class PostHogFeatureFlags {
 
                     return callback()
                 }
-                let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
+                let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
 
                 #if os(iOS)
-                    if let sessionRecording = data?["sessionRecording"] as? Bool {
+                    if let sessionRecording = data["sessionRecording"] as? Bool {
                         self.config.sessionReplay = self.config.sessionReplay && sessionRecording
-                    } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
+                    } else if let sessionRecording = data["sessionRecording"] as? [String: Any] {
                         // keeps the value from config.sessionReplay since having sessionRecording
                         // means its enabled on the project settings, but its only enabled
                         // when local config.sessionReplay is also enabled

@@ -17,7 +17,7 @@ import Foundation
 
  */
 
-class PostHogQueue {
+class PostHogQueue: @unchecked Sendable {
     enum PostHogApiEndpoint: Int {
         case batch
         case snapshot
@@ -221,7 +221,7 @@ class PostHogQueue {
         flushIfOverThreshold()
     }
 
-    private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload) -> Void) {
+    private func take(_ count: Int, completion: @escaping @Sendable (PostHogConsumerPayload) -> Void) {
         dispatchQueue.async {
             self.isFlushingLock.withLock {
                 if self.isFlushing {

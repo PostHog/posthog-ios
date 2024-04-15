@@ -19,7 +19,8 @@ let maxRetryDelay = 30.0
 private let sessionChangeThreshold: TimeInterval = 60 * 30
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
-@objc public class PostHogSDK: NSObject {
+// @unchecked because its operations are manually locked
+@objc public class PostHogSDK: NSObject, @unchecked Sendable {
     private var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
@@ -45,7 +46,8 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
-    private static var apiKeys = Set<String>()
+    // nonisolated because its manually locked with setupLock
+    private nonisolated(unsafe) static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var appFromBackground = false
     private var sessionId: String?
@@ -74,7 +76,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         toggleHedgeLog(enabled)
     }
 
-    @objc public func setup(_ config: PostHogConfig) {
+    @MainActor @objc public func setup(_ config: PostHogConfig) {
         setupLock.withLock {
             toggleHedgeLog(config.debug)
             if enabled {
@@ -219,7 +221,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return properties
     }
 
-    private func buildProperties(distinctId: String,
+    @MainActor private func buildProperties(distinctId: String,
                                  properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
@@ -335,18 +337,18 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
 
-    @objc public func identify(_ distinctId: String) {
+    @MainActor @objc public func identify(_ distinctId: String) {
         identify(distinctId, userProperties: nil, userPropertiesSetOnce: nil)
     }
 
-    @objc(identifyWithDistinctId:userProperties:)
+    @MainActor @objc(identifyWithDistinctId:userProperties:)
     public func identify(_ distinctId: String,
                          userProperties: [String: Any]? = nil)
     {
         identify(distinctId, userProperties: userProperties, userPropertiesSetOnce: nil)
     }
 
-    @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:)
+    @MainActor @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:)
     public func identify(_ distinctId: String,
                          userProperties: [String: Any]? = nil,
                          userPropertiesSetOnce: [String: Any]? = nil)
@@ -382,18 +384,18 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
 
-    @objc public func capture(_ event: String) {
+    @MainActor @objc public func capture(_ event: String) {
         capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
     }
 
-    @objc(captureWithEvent:properties:)
+    @MainActor @objc(captureWithEvent:properties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil)
     {
         capture(event, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
     }
 
-    @objc(captureWithEvent:properties:userProperties:)
+    @MainActor @objc(captureWithEvent:properties:userProperties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil)
@@ -401,7 +403,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groupProperties: nil)
     }
 
-    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
+    @MainActor @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
@@ -418,7 +420,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return false
     }
 
-    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groupProperties:)
+    @MainActor @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groupProperties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
@@ -477,11 +479,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         queue.add(posthogEvent)
     }
 
-    @objc public func screen(_ screenTitle: String) {
+    @MainActor @objc public func screen(_ screenTitle: String) {
         screen(screenTitle, properties: nil)
     }
 
-    @objc(screenWithTitle:properties:)
+    @MainActor @objc(screenWithTitle:properties:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
             return
@@ -507,7 +509,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         ))
     }
 
-    @objc public func alias(_ alias: String) {
+    @MainActor @objc public func alias(_ alias: String) {
         if !isEnabled() {
             return
         }
@@ -558,7 +560,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return mergedGroups ?? [:]
     }
 
-    private func groupIdentify(type: String, key: String, groupProperties: [String: Any]? = nil) {
+    @MainActor private func groupIdentify(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
             return
         }
@@ -589,12 +591,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         ))
     }
 
-    @objc(groupWithType:key:)
+    @MainActor @objc(groupWithType:key:)
     public func group(type: String, key: String) {
         group(type: type, key: key, groupProperties: nil)
     }
 
-    @objc(groupWithType:key:groupProperties:)
+    @MainActor @objc(groupWithType:key:groupProperties:)
     public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
             return
@@ -617,7 +619,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     @objc(reloadFeatureFlagsWithCallback:)
-    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
+    public func reloadFeatureFlags(_ callback: @escaping @Sendable () -> Void) {
         if !isEnabled() {
             return
         }
@@ -638,7 +640,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         )
     }
 
-    @objc public func getFeatureFlag(_ key: String) -> Any? {
+    @MainActor @objc public func getFeatureFlag(_ key: String) -> Any? {
         if !isEnabled() {
             return nil
         }
@@ -656,7 +658,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return value
     }
 
-    @objc public func isFeatureEnabled(_ key: String) -> Bool {
+    @MainActor @objc public func isFeatureEnabled(_ key: String) -> Bool {
         if !isEnabled() {
             return false
         }
@@ -686,7 +688,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return featureFlags.getFeatureFlagPayload(key)
     }
 
-    private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
+    @MainActor private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
         if !flagCallReported.contains(flagKey) {
             let properties: [String: Any] = [
                 "$feature_flag": flagKey,
@@ -757,7 +759,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return config.optOut
     }
 
-    @objc public func close() {
+    @MainActor @objc public func close() {
         if !isEnabled() {
             return
         }
@@ -799,13 +801,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
 
-    @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
+    @MainActor @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
         let postHog = PostHogSDK(config)
         postHog.setup(config)
         return postHog
     }
 
-    private func unregisterNotifications() {
+    @MainActor private func unregisterNotifications() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -819,7 +821,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         #endif
     }
 
-    private func registerNotifications() {
+    @MainActor private func registerNotifications() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -852,7 +854,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         #endif
     }
 
-    private func captureScreenViews() {
+    @MainActor private func captureScreenViews() {
         if config.captureScreenViews {
             #if os(iOS) || os(tvOS)
                 UIViewController.swizzleScreenView()
@@ -860,11 +862,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
 
-    @objc func handleAppDidFinishLaunching() {
+    @MainActor @objc func handleAppDidFinishLaunching() {
         captureAppInstallLifecycle()
     }
 
-    private func captureAppInstallLifecycle() {
+    @MainActor private func captureAppInstallLifecycle() {
         if !config.captureApplicationLifecycleEvents {
             return
         }
@@ -923,14 +925,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
 
-    @objc func handleAppDidBecomeActive() {
+    @MainActor @objc func handleAppDidBecomeActive() {
         rotateSessionIdIfRequired()
 
         isInBackground = false
         captureAppOpened()
     }
 
-    private func captureAppOpened() {
+    @MainActor private func captureAppOpened() {
         if !config.captureApplicationLifecycleEvents {
             return
         }
@@ -957,7 +959,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         capture("Application Opened", properties: props)
     }
 
-    @objc func handleAppDidEnterBackground() {
+    @MainActor @objc func handleAppDidEnterBackground() {
         captureAppBackgrounded()
 
         sessionLock.withLock {
@@ -967,7 +969,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         isInBackground = true
     }
 
-    private func captureAppBackgrounded() {
+    @MainActor private func captureAppBackgrounded() {
         if !config.captureApplicationLifecycleEvents {
             return
         }

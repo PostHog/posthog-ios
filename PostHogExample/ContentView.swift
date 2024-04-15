@@ -46,7 +46,7 @@ class FeatureFlagsModel: ObservableObject {
         NotificationCenter.default.addObserver(self, selector: #selector(reloaded), name: PostHogSDK.didReceiveFeatureFlags, object: nil)
     }
 
-    @objc func reloaded() {
+    @MainActor @objc func reloaded() {
         boolValue = PostHogSDK.shared.isFeatureEnabled("4535-funnel-bar-viz")
         stringValue = PostHogSDK.shared.getFeatureFlag("multivariant") as? String
         payloadValue = PostHogSDK.shared.getFeatureFlagPayload("multivariant") as? [String: String]

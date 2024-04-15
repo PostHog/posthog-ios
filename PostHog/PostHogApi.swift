@@ -7,7 +7,7 @@
 
 import Foundation
 
-class PostHogApi {
+class PostHogApi: @unchecked Sendable {
     private let config: PostHogConfig
 
     // default is 60s but we do 10s
@@ -35,7 +35,7 @@ class PostHogApi {
         return request
     }
 
-    func batch(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
+    func batch(events: [PostHogEvent], completion: @escaping @Sendable (PostHogBatchUploadInfo) -> Void) {
         guard let url = URL(string: "batch", relativeTo: config.host) else {
             hedgeLog("Malformed batch URL error.")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
@@ -92,7 +92,7 @@ class PostHogApi {
         }.resume()
     }
 
-    func snapshot(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
+    func snapshot(events: [PostHogEvent], completion: @escaping @Sendable (PostHogBatchUploadInfo) -> Void) {
         guard let url = URL(string: config.snapshotEndpoint, relativeTo: config.host) else {
             hedgeLog("Malformed snapshot URL error.")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
@@ -153,7 +153,7 @@ class PostHogApi {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+        completion: @escaping @Sendable ([String: Any]?, _ error: Error?) -> Void
     ) {
         var urlComps = URLComponents()
         urlComps.path = "/decide"

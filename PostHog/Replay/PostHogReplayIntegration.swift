@@ -63,7 +63,7 @@
             timer = nil
         }
 
-        private func generateSnapshot(_ view: UIView, _ screenName: String? = nil) {
+        @MainActor private func generateSnapshot(_ view: UIView, _ screenName: String? = nil) {
             var hasChanges = false
 
             let timestamp = Date().toMillis()
@@ -127,7 +127,7 @@
             style.paddingLeft = Int(insets.left)
         }
 
-        private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
+        @MainActor private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
             if !view.isVisible() {
                 return nil
             }
@@ -262,7 +262,7 @@
             return wireframe
         }
 
-        static func getCurrentWindow() -> UIWindow? {
+        @MainActor static func getCurrentWindow() -> UIWindow? {
             guard let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) else {
                 return nil
             }
@@ -273,7 +273,7 @@
             return window
         }
 
-        @objc private func snapshot() {
+        @MainActor @objc private func snapshot() {
             if !PostHogSDK.shared.isSessionReplayActive() {
                 return
             }

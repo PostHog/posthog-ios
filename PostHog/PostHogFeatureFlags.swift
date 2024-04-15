@@ -52,8 +52,9 @@ class PostHogFeatureFlags: @unchecked Sendable {
                    groups: groups)
         { data, _ in
             self.dispatchQueue.async {
-                guard let featureFlags = data?["featureFlags"] as? [String: Any],
-                      let featureFlagPayloads = data?["featureFlagPayloads"] as? [String: Any]
+                guard let data = data,
+                      let featureFlags = data["featureFlags"] as? [String: Any],
+                      let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
 
@@ -61,12 +62,12 @@ class PostHogFeatureFlags: @unchecked Sendable {
 
                     return callback()
                 }
-                let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
+                let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
 
                 #if os(iOS)
-                    if let sessionRecording = data?["sessionRecording"] as? Bool {
+                    if let sessionRecording = data["sessionRecording"] as? Bool {
                         self.config.sessionReplay = self.config.sessionReplay && sessionRecording
-                    } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
+                    } else if let sessionRecording = data["sessionRecording"] as? [String: Any] {
                         // keeps the value from config.sessionReplay since having sessionRecording
                         // means its enabled on the project settings, but its only enabled
                         // when local config.sessionReplay is also enabled

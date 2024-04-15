@@ -56,122 +56,124 @@
 
         // MARK: - Swizzlings
 
-        typealias CompletionHandler = (Data?, URLResponse?, Error?) -> Void
+        typealias CompletionHandler = @Sendable (Data?, URLResponse?, Error?) -> Void
 
         /// Swizzles the `URLSession.dataTask(with:completionHandler:)` for `URLRequest`.
         class DataTaskWithURLRequestAndCompletion: MethodSwizzler<
         @convention(c) (URLSession, Selector, URLRequest, CompletionHandler?) -> URLSessionDataTask,
             @convention(block) (URLSession, URLRequest, CompletionHandler?) -> URLSessionDataTask
-            > {
-                private nonisolated(unsafe) static let selector = #selector(
-                    URLSession.dataTask(with:completionHandler:) as (URLSession) -> (URLRequest, @escaping CompletionHandler) -> URLSessionDataTask
+        >, @unchecked Sendable {
+            private nonisolated(unsafe) static let selector = #selector(
+                URLSession.dataTask(with:completionHandler:) as (URLSession) -> (URLRequest, @escaping CompletionHandler) -> URLSessionDataTask
+            )
+
+            private let method: FoundMethod
+            private let interceptor: URLSessionInterceptor
+
+            static func build(interceptor: URLSessionInterceptor) throws -> DataTaskWithURLRequestAndCompletion {
+                try DataTaskWithURLRequestAndCompletion(
+                    selector: selector,
+                    klass: URLSession.self,
+                    interceptor: interceptor
                 )
+            }
 
-                private let method: FoundMethod
-                private let interceptor: URLSessionInterceptor
+            private init(selector: Selector, klass: AnyClass, interceptor: URLSessionInterceptor) throws {
+                method = try Self.findMethod(with: selector, in: klass)
+                self.interceptor = interceptor
+                super.init()
+            }
 
-                static func build(interceptor: URLSessionInterceptor) throws -> DataTaskWithURLRequestAndCompletion {
-                    try DataTaskWithURLRequestAndCompletion(
-                        selector: selector,
-                        klass: URLSession.self,
-                        interceptor: interceptor
-                    )
-                }
-
-                private init(selector: Selector, klass: AnyClass, interceptor: URLSessionInterceptor) throws {
-                    method = try Self.findMethod(with: selector, in: klass)
-                    self.interceptor = interceptor
-                    super.init()
-                }
-
-                func swizzle() {
-                    typealias Signature = @convention(block) (URLSession, URLRequest, CompletionHandler?) -> URLSessionDataTask
-                    swizzle(method) { previousImplementation -> Signature in { session, urlRequest, completionHandler -> URLSessionDataTask in
-                        let task: URLSessionDataTask
-                        if completionHandler != nil {
-                            var taskReference: URLSessionDataTask?
-                            let newCompletionHandler: CompletionHandler = { data, response, error in
-                                if let task = taskReference { // sanity check, should always succeed
-                                    if let data = data {
-                                        self.interceptor.taskReceivedData(task: task, data: data)
-                                    }
-                                    self.interceptor.taskCompleted(task: task, error: error)
+            func swizzle() {
+                typealias Signature = @convention(block) (URLSession, URLRequest, CompletionHandler?) -> URLSessionDataTask
+                swizzle(method) { previousImplementation -> Signature in { session, urlRequest, completionHandler -> URLSessionDataTask in
+                    let task: URLSessionDataTask
+                    if completionHandler != nil {
+                        var taskReference: URLSessionDataTask?
+                        let newCompletionHandler: CompletionHandler = { [weak self, taskReference] data, response, error in
+                            guard let self = self else { return }
+                            if let task = taskReference { // sanity check, should always succeed
+                                if let data = data {
+                                    self.interceptor.taskReceivedData(task: task, data: data)
                                 }
-                                completionHandler?(data, response, error)
+                                self.interceptor.taskCompleted(task: task, error: error)
                             }
-
-                            task = previousImplementation(session, Self.selector, urlRequest, newCompletionHandler)
-                            taskReference = task
-                        } else {
-                            // The `completionHandler` can be `nil` in two cases:
-                            // - on iOS 11 or 12, where `dataTask(with:)` (for `URL` and `URLRequest`) calls
-                            //   the `dataTask(with:completionHandler:)` (for `URLRequest`) internally by nullifying the completion block.
-                            // - when `[session dataTaskWithURL:completionHandler:]` is called in Objective-C with explicitly passing
-                            //   `nil` as the `completionHandler` (it produces a warning, but compiles).
-                            task = previousImplementation(session, Self.selector, urlRequest, completionHandler)
+                            completionHandler?(data, response, error)
                         }
-                        self.interceptor.taskCreated(task: task, session: session)
-                        return task
+
+                        task = previousImplementation(session, Self.selector, urlRequest, newCompletionHandler)
+                        taskReference = task
+                    } else {
+                        // The `completionHandler` can be `nil` in two cases:
+                        // - on iOS 11 or 12, where `dataTask(with:)` (for `URL` and `URLRequest`) calls
+                        //   the `dataTask(with:completionHandler:)` (for `URLRequest`) internally by nullifying the completion block.
+                        // - when `[session dataTaskWithURL:completionHandler:]` is called in Objective-C with explicitly passing
+                        //   `nil` as the `completionHandler` (it produces a warning, but compiles).
+                        task = previousImplementation(session, Self.selector, urlRequest, completionHandler)
                     }
-                    }
+                    self.interceptor.taskCreated(task: task, session: session)
+                    return task
+                }
                 }
             }
+        }
 
         /// Swizzles the `URLSession.dataTask(with:completionHandler:)` for `URL`.
         class DataTaskWithURLAndCompletion: MethodSwizzler<
         @convention(c) (URLSession, Selector, URL, CompletionHandler?) -> URLSessionDataTask,
             @convention(block) (URLSession, URL, CompletionHandler?) -> URLSessionDataTask
-            > {
-                private nonisolated(unsafe) static let selector = #selector(
-                    URLSession.dataTask(with:completionHandler:) as (URLSession) -> (URL, @escaping CompletionHandler) -> URLSessionDataTask
+        >, @unchecked Sendable {
+            private nonisolated(unsafe) static let selector = #selector(
+                URLSession.dataTask(with:completionHandler:) as (URLSession) -> (URL, @escaping CompletionHandler) -> URLSessionDataTask
+            )
+
+            private let method: FoundMethod
+            private let interceptor: URLSessionInterceptor
+
+            static func build(interceptor: URLSessionInterceptor) throws -> DataTaskWithURLAndCompletion {
+                try DataTaskWithURLAndCompletion(
+                    selector: selector,
+                    klass: URLSession.self,
+                    interceptor: interceptor
                 )
+            }
 
-                private let method: FoundMethod
-                private let interceptor: URLSessionInterceptor
+            private init(selector: Selector, klass: AnyClass, interceptor: URLSessionInterceptor) throws {
+                method = try Self.findMethod(with: selector, in: klass)
+                self.interceptor = interceptor
+                super.init()
+            }
 
-                static func build(interceptor: URLSessionInterceptor) throws -> DataTaskWithURLAndCompletion {
-                    try DataTaskWithURLAndCompletion(
-                        selector: selector,
-                        klass: URLSession.self,
-                        interceptor: interceptor
-                    )
-                }
-
-                private init(selector: Selector, klass: AnyClass, interceptor: URLSessionInterceptor) throws {
-                    method = try Self.findMethod(with: selector, in: klass)
-                    self.interceptor = interceptor
-                    super.init()
-                }
-
-                func swizzle() {
-                    typealias Signature = @convention(block) (URLSession, URL, CompletionHandler?) -> URLSessionDataTask
-                    swizzle(method) { previousImplementation -> Signature in { session, url, completionHandler -> URLSessionDataTask in
-                        let task: URLSessionDataTask
-                        if completionHandler != nil {
-                            var taskReference: URLSessionDataTask?
-                            let newCompletionHandler: CompletionHandler = { data, response, error in
-                                if let task = taskReference { // sanity check, should always succeed
-                                    if let data = data {
-                                        self.interceptor.taskReceivedData(task: task, data: data)
-                                    }
-                                    self.interceptor.taskCompleted(task: task, error: error)
+            func swizzle() {
+                typealias Signature = @convention(block) (URLSession, URL, CompletionHandler?) -> URLSessionDataTask
+                swizzle(method) { previousImplementation -> Signature in { session, url, completionHandler -> URLSessionDataTask in
+                    let task: URLSessionDataTask
+                    if completionHandler != nil {
+                        var taskReference: URLSessionDataTask?
+                        let newCompletionHandler: CompletionHandler = { [weak self, taskReference] data, response, error in
+                            guard let self = self else { return }
+                            if let task = taskReference { // sanity check, should always succeed
+                                if let data = data {
+                                    self.interceptor.taskReceivedData(task: task, data: data)
                                 }
-                                completionHandler?(data, response, error)
+                                self.interceptor.taskCompleted(task: task, error: error)
                             }
-                            task = previousImplementation(session, Self.selector, url, newCompletionHandler)
-                            taskReference = task
-                        } else {
-                            // The `completionHandler` can be `nil` in one case:
-                            // - when `[session dataTaskWithURL:completionHandler:]` is called in Objective-C with explicitly passing
-                            //   `nil` as the `completionHandler` (it produces a warning, but compiles).
-                            task = previousImplementation(session, Self.selector, url, completionHandler)
+                            completionHandler?(data, response, error)
                         }
-                        self.interceptor.taskCreated(task: task, session: session)
-                        return task
+                        task = previousImplementation(session, Self.selector, url, newCompletionHandler)
+                        taskReference = task
+                    } else {
+                        // The `completionHandler` can be `nil` in one case:
+                        // - when `[session dataTaskWithURL:completionHandler:]` is called in Objective-C with explicitly passing
+                        //   `nil` as the `completionHandler` (it produces a warning, but compiles).
+                        task = previousImplementation(session, Self.selector, url, completionHandler)
                     }
-                    }
+                    self.interceptor.taskCreated(task: task, session: session)
+                    return task
+                }
                 }
             }
+        }
 
         /// Swizzles the `URLSession.dataTask(with:)` for `URLRequest`.
         class DataTaskWithURLRequest: MethodSwizzler<

@@ -78,7 +78,7 @@
                 let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": timestamp]
                 snapshotsData.append(data)
             }
-            
+
             if !snapshotsData.isEmpty {
                 DispatchQueue.global().async {
                     PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])

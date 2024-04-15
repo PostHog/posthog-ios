@@ -26,6 +26,7 @@ class PostHogContext: @unchecked Sendable {
         init() {}
     #endif
 
+    // UIDevice is marked as @MainActor
     @MainActor func staticContext() -> [String: Any] {
         // Properties that do not change over the lifecycle of an application
         var properties: [String: Any] = [:]
@@ -98,6 +99,7 @@ class PostHogContext: @unchecked Sendable {
         return String(cString: machine)
     }
 
+    // UIScreen is marked as @MainActor
     @MainActor func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 

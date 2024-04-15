@@ -102,7 +102,7 @@
             config.sessionReplayConfig.captureNetworkTelemetry && PostHogSDK.shared.isSessionReplayActive()
         }
 
-        private func finish(task: URLSessionTask, sample: NetworkSample) {
+        @MainActor private func finish(task: URLSessionTask, sample: NetworkSample) {
             if !isCaptureNetworkEnabled() {
                 return
             }

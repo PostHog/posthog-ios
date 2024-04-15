@@ -19,7 +19,8 @@ let maxRetryDelay = 30.0
 private let sessionChangeThreshold: TimeInterval = 60 * 30
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
-@objc public class PostHogSDK: NSObject {
+// @unchecked because its operations are manually locked
+@objc public class PostHogSDK: NSObject, @unchecked Sendable {
     private var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
@@ -55,7 +56,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         private var replayIntegration: PostHogReplayIntegration?
     #endif
 
-    @objc public nonisolated(unsafe) static let shared = PostHogSDK(PostHogConfig(apiKey: ""))
+//    @objc public nonisolated(unsafe) static let shared = PostHogSDK(PostHogConfig(apiKey: ""))
+    @objc public static let shared: PostHogSDK = {
+        let instance = PostHogSDK(PostHogConfig(apiKey: ""))
+        return instance
+    }()
 
     deinit {
         #if !os(watchOS)

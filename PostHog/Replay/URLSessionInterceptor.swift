@@ -8,7 +8,7 @@
 
     import Foundation
 
-    class URLSessionInterceptor {
+    class URLSessionInterceptor: @unchecked Sendable {
         private let config: PostHogConfig
 
         init(_ config: PostHogConfig) {
@@ -17,7 +17,7 @@
 
         /// An internal queue for synchronising the access to `samplesByTask`.
         private let queue = DispatchQueue(label: "com.posthog.URLSessionInterceptor", target: .global(qos: .utility))
-        private var samplesByTask: [URLSessionTask: NetworkSample] = [:]
+        private nonisolated(unsafe) var samplesByTask: [URLSessionTask: NetworkSample] = [:]
 
         // MARK: - Interception Flow
 
@@ -37,7 +37,8 @@
             }
 
             let date = Date()
-            queue.async {
+            queue.async { [weak self] in
+                guard let self = self else { return }
                 let sample = NetworkSample(timeOrigin: date, url: url.absoluteString)
                 self.samplesByTask[task] = sample
             }

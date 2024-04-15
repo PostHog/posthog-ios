@@ -13,12 +13,20 @@ import Foundation
     import AppKit
 #endif
 
-class PostHogContext {
+class PostHogContext: @unchecked Sendable {
     #if !os(watchOS)
         private let reachability: Reachability?
     #endif
 
-    private lazy var theStaticContext: [String: Any] = {
+    #if !os(watchOS)
+        init(_ reachability: Reachability?) {
+            self.reachability = reachability
+        }
+    #else
+        init() {}
+    #endif
+
+    @MainActor func staticContext() -> [String: Any] {
         // Properties that do not change over the lifecycle of an application
         var properties: [String: Any] = [:]
 
@@ -80,18 +88,6 @@ class PostHogContext {
         #endif
 
         return properties
-    }()
-
-    #if !os(watchOS)
-        init(_ reachability: Reachability?) {
-            self.reachability = reachability
-        }
-    #else
-        init() {}
-    #endif
-
-    func staticContext() -> [String: Any] {
-        theStaticContext
     }
 
     private func platform() -> String {
@@ -102,7 +98,7 @@ class PostHogContext {
         return String(cString: machine)
     }
 
-    func dynamicContext() -> [String: Any] {
+    @MainActor func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
         #if os(iOS) || os(tvOS)

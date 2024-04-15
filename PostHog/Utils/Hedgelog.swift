@@ -7,7 +7,7 @@
 
 import Foundation
 
-var hedgeLogEnabled = false
+nonisolated(unsafe) var hedgeLogEnabled = false
 
 func toggleHedgeLog(_ enabled: Bool) {
     hedgeLogEnabled = enabled

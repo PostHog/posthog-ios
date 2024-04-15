@@ -45,7 +45,7 @@ import Foundation
         static let reachabilityChanged = Notification.Name("reachabilityChanged")
     }
 
-    public class Reachability {
+    public class Reachability: @unchecked Sendable {
         public typealias NetworkReachable = (Reachability) -> Void
         public typealias NetworkUnreachable = (Reachability) -> Void
 
@@ -72,7 +72,7 @@ import Foundation
             }
 
             @available(*, deprecated, renamed: "unavailable")
-            public static let none: Connection = .unavailable
+            public nonisolated(unsafe) static let none: Connection = .unavailable
         }
 
         public var whenReachable: NetworkReachable?
@@ -271,7 +271,7 @@ import Foundation
         }
 
         func notifyReachabilityChanged() {
-            let notify = { [weak self] in
+            let notify: @Sendable () -> Void = { [weak self] in
                 guard let self = self else { return }
                 self.connection != .unavailable ? self.whenReachable?(self) : self.whenUnreachable?(self)
                 self.notificationCenter.post(name: .reachabilityChanged, object: self)

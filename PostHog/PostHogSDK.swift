@@ -19,7 +19,8 @@ let maxRetryDelay = 30.0
 private let sessionChangeThreshold: TimeInterval = 60 * 30
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
-@objc public class PostHogSDK: NSObject {
+// @unchecked because its operations are manually locked
+@objc public class PostHogSDK: NSObject, @unchecked Sendable {
     private var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
@@ -45,7 +46,8 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
-    private static var apiKeys = Set<String>()
+    // nonisolated because its manually locked with setupLock
+    private nonisolated(unsafe) static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var appFromBackground = false
     private var sessionId: String?
@@ -74,7 +76,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         toggleHedgeLog(enabled)
     }
 
-    @objc public func setup(_ config: PostHogConfig) {
+    @MainActor @objc public func setup(_ config: PostHogConfig) {
         setupLock.withLock {
             toggleHedgeLog(config.debug)
             if enabled {
@@ -617,7 +619,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     @objc(reloadFeatureFlagsWithCallback:)
-    public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
+    public func reloadFeatureFlags(_ callback: @escaping @Sendable () -> Void) {
         if !isEnabled() {
             return
         }
@@ -757,7 +759,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return config.optOut
     }
 
-    @objc public func close() {
+    @MainActor @objc public func close() {
         if !isEnabled() {
             return
         }
@@ -799,13 +801,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     }
 
-    @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
+    @MainActor @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
         let postHog = PostHogSDK(config)
         postHog.setup(config)
         return postHog
     }
 
-    private func unregisterNotifications() {
+    @MainActor private func unregisterNotifications() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -819,7 +821,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         #endif
     }
 
-    private func registerNotifications() {
+    @MainActor private func registerNotifications() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -852,7 +854,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         #endif
     }
 
-    private func captureScreenViews() {
+    @MainActor private func captureScreenViews() {
         if config.captureScreenViews {
             #if os(iOS) || os(tvOS)
                 UIViewController.swizzleScreenView()

@@ -63,7 +63,7 @@
         @convention(c) (URLSession, Selector, URLRequest, CompletionHandler?) -> URLSessionDataTask,
             @convention(block) (URLSession, URLRequest, CompletionHandler?) -> URLSessionDataTask
             > {
-                private static let selector = #selector(
+                private nonisolated(unsafe) static let selector = #selector(
                     URLSession.dataTask(with:completionHandler:) as (URLSession) -> (URLRequest, @escaping CompletionHandler) -> URLSessionDataTask
                 )
 
@@ -122,7 +122,7 @@
         @convention(c) (URLSession, Selector, URL, CompletionHandler?) -> URLSessionDataTask,
             @convention(block) (URLSession, URL, CompletionHandler?) -> URLSessionDataTask
             > {
-                private static let selector = #selector(
+                private nonisolated(unsafe) static let selector = #selector(
                     URLSession.dataTask(with:completionHandler:) as (URLSession) -> (URL, @escaping CompletionHandler) -> URLSessionDataTask
                 )
 
@@ -178,7 +178,7 @@
         @convention(c) (URLSession, Selector, URLRequest) -> URLSessionDataTask,
             @convention(block) (URLSession, URLRequest) -> URLSessionDataTask
             > {
-                private static let selector = #selector(
+                private nonisolated(unsafe) static let selector = #selector(
                     URLSession.dataTask(with:) as (URLSession) -> (URLRequest) -> URLSessionDataTask
                 )
 
@@ -215,7 +215,7 @@
         @convention(c) (URLSession, Selector, URL) -> URLSessionDataTask,
             @convention(block) (URLSession, URL) -> URLSessionDataTask
             > {
-                private static let selector = #selector(
+                private nonisolated(unsafe) static let selector = #selector(
                     URLSession.dataTask(with:) as (URLSession) -> (URL) -> URLSessionDataTask
                 )
 

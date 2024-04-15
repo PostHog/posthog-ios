@@ -7,7 +7,7 @@
 
 import Foundation
 
-class PostHogFeatureFlags {
+class PostHogFeatureFlags: @unchecked Sendable {
     private let config: PostHogConfig
     private let storage: PostHogStorage
     private let api: PostHogApi
@@ -38,7 +38,7 @@ class PostHogFeatureFlags {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        callback: @escaping () -> Void
+        callback: @escaping @Sendable () -> Void
     ) {
         isLoadingLock.withLock {
             if self.isLoadingFeatureFlags {

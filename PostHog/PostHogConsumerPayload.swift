@@ -9,5 +9,5 @@ import Foundation
 
 struct PostHogConsumerPayload {
     let events: [PostHogEvent]
-    let completion: (Bool) -> Void
+    let completion: @Sendable (Bool) -> Void
 }

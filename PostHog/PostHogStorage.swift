@@ -15,8 +15,9 @@ import Foundation
  */
 
 func applicationSupportDirectoryURL() -> URL {
-    let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return url.appendingPathComponent("com.posthog")
+    return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        .appendingPathComponent(Bundle.main.bundleIdentifier ?? UUID().uuidString) // There’s no main bundle identifier when running in a unit test bundle.
+        .appendingPathComponent("com.posthog")
 }
 
 class PostHogStorage {

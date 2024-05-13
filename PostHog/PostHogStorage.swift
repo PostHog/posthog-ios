@@ -16,7 +16,7 @@ import Foundation
 
 func applicationSupportDirectoryURL() -> URL {
     let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
+    return url.appendingPathComponent("com.posthog")
 }
 
 class PostHogStorage {
@@ -41,7 +41,7 @@ class PostHogStorage {
     init(_ config: PostHogConfig) {
         self.config = config
 
-        appFolderUrl = applicationSupportDirectoryURL() // .appendingPathComponent(config.apiKey)
+        appFolderUrl = applicationSupportDirectoryURL()
 
         createDirectoryAtURLIfNeeded(url: appFolderUrl)
     }

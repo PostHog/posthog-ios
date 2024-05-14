@@ -127,20 +127,15 @@ class PostHogStorage {
 
     public func reset() {
         // sadly the StorageKey.allCases does not work here
-        deleteAndCreateDir(url(forKey: .distinctId))
-        deleteAndCreateDir(url(forKey: .anonymousId))
+        deleteSafely(url(forKey: .distinctId))
+        deleteSafely(url(forKey: .anonymousId))
         // .queue not needed since it'll be deleted by the queue.clear()
-        deleteAndCreateDir(url(forKey: .oldQeueue))
-        deleteAndCreateDir(url(forKey: .enabledFeatureFlags))
-        deleteAndCreateDir(url(forKey: .enabledFeatureFlagPayloads))
-        deleteAndCreateDir(url(forKey: .groups))
-        deleteAndCreateDir(url(forKey: .registerProperties))
-        deleteAndCreateDir(url(forKey: .optOut))
-    }
-
-    private func deleteAndCreateDir(_ url: URL) {
-        deleteSafely(url)
-        createDirectoryAtURLIfNeeded(url: url)
+        deleteSafely(url(forKey: .oldQeueue))
+        deleteSafely(url(forKey: .enabledFeatureFlags))
+        deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
+        deleteSafely(url(forKey: .groups))
+        deleteSafely(url(forKey: .registerProperties))
+        deleteSafely(url(forKey: .optOut))
     }
 
     public func remove(key: StorageKey) {

@@ -2,6 +2,8 @@
 
 ## 3.2.5 - 2024-05-14
 
+- fix: `reset` deletes only sdk files instead of the whole folder [#132](https://github.com/PostHog/posthog-ios/pull/132)
+
 ## 3.2.4 - 2024-03-12
 
 - `maxQueueSize` wasn't respected when capturing events [#116](https://github.com/PostHog/posthog-ios/pull/116)

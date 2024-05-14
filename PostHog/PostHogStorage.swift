@@ -20,6 +20,7 @@ func applicationSupportDirectoryURL() -> URL {
 }
 
 class PostHogStorage {
+    // when adding or removing items here, make sure to update the reset method
     enum StorageKey: String {
         case distinctId = "posthog.distinctId"
         case anonymousId = "posthog.anonymousId"
@@ -125,8 +126,21 @@ class PostHogStorage {
     }
 
     public func reset() {
-        deleteSafely(appFolderUrl)
-        createDirectoryAtURLIfNeeded(url: appFolderUrl)
+        // sadly the StorageKey.allCases does not work here
+        deleteAndCreateDir(url(forKey: .distinctId))
+        deleteAndCreateDir(url(forKey: .anonymousId))
+        // .queue not needed since it'll be deleted by the queue.clear()
+        deleteAndCreateDir(url(forKey: .oldQeueue))
+        deleteAndCreateDir(url(forKey: .enabledFeatureFlags))
+        deleteAndCreateDir(url(forKey: .enabledFeatureFlagPayloads))
+        deleteAndCreateDir(url(forKey: .groups))
+        deleteAndCreateDir(url(forKey: .registerProperties))
+        deleteAndCreateDir(url(forKey: .optOut))
+    }
+
+    private func deleteAndCreateDir(_ url: URL) {
+        deleteSafely(url)
+        createDirectoryAtURLIfNeeded(url: url)
     }
 
     public func remove(key: StorageKey) {

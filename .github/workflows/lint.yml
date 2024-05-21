@@ -16,6 +16,4 @@ jobs:
         run: make bootstrap
 
       - name: Run lints
-        run: |
-          brew install swiftlint
-          make lint
+        run: make lint

@@ -52,7 +52,7 @@ class PostHogSessionManagerTest: QuickSpec {
             config.getAnonymousId = { _ in fixedUuid }
             let sut = PostHogSessionManager(config)
             let anonymousId = sut.getAnonymousId()
-            expect(anonymousId) == fixedUuid
+            expect(anonymousId) == fixedUuid.uuidString
 
             sut.reset()
         }

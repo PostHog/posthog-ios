@@ -12,5 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Bootstrap
+        run: make bootstrap
+
       - name: Run lints
         run: make lint

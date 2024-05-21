@@ -130,7 +130,7 @@ class PostHogStorage {
         // sadly the StorageKey.allCases does not work here
         deleteSafely(url(forKey: .distinctId))
         deleteSafely(url(forKey: .anonymousId))
-        // .queue not needed since it'll be deleted by the queue.clear()
+        // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
         deleteSafely(url(forKey: .oldQeueue))
         deleteSafely(url(forKey: .enabledFeatureFlags))
         deleteSafely(url(forKey: .enabledFeatureFlagPayloads))

@@ -45,5 +45,16 @@ class PostHogSessionManagerTest: QuickSpec {
 
             sut.reset()
         }
+
+        it("Can can accept id customization via config") {
+            let config = PostHogConfig(apiKey: "123")
+            let fixedUuid = UUID()
+            config.getAnonymousId = { _ in fixedUuid }
+            let sut = PostHogSessionManager(config)
+            let anonymousId = sut.getAnonymousId()
+            expect(anonymousId) == fixedUuid.uuidString
+
+            sut.reset()
+        }
     }
 }

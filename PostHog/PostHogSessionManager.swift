@@ -12,8 +12,11 @@ class PostHogSessionManager {
 
     private let anonLock = NSLock()
     private let distinctLock = NSLock()
+    private let idGen: (UUID) -> UUID
+
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
+        idGen = config.getAnonymousId
     }
 
     public func getAnonymousId() -> String {
@@ -22,7 +25,7 @@ class PostHogSessionManager {
             anonymousId = storage.getString(forKey: .anonymousId)
 
             if anonymousId == nil {
-                anonymousId = UUID().uuidString
+                anonymousId = idGen(UUID()).uuidString
                 setAnonId(anonymousId ?? "")
             }
         }

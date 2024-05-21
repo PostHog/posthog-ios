@@ -26,6 +26,7 @@ import Foundation
     @objc public var captureScreenViews: Bool = true
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
+    @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
     /// Internal
     var snapshotEndpoint: String = "/s/"
 

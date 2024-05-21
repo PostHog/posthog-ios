@@ -1,5 +1,7 @@
 ## Next
 
+- allow anonymous id generation to be configurable ([#133](https://github.com/PostHog/posthog-ios/pull/133))
+
 ## 3.3.0 - 2024-05-21
 
 - chore: apply patches from 3.2.5 to 3.3.0 and session recording fixes [#135](https://github.com/PostHog/posthog-ios/pull/135)

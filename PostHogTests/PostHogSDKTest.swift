@@ -694,6 +694,18 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
+
+        it("reset deletes posthog files but not other folders") {
+            let appFolder = applicationSupportDirectoryURL()
+            expect(FileManager.default.fileExists(atPath: appFolder.path)) == false
+
+            let sut = self.getSut()
+
+            sut.reset()
+            sut.close()
+
+            expect(FileManager.default.fileExists(atPath: appFolder.path)) == true
+        }
     }
 }
 

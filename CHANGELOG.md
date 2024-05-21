@@ -1,5 +1,10 @@
 ## Next
 
+## 3.3.0 - 2024-05-21
+
+- chore: apply patches from 3.2.5 to 3.3.0 and session recording fixes [#135](https://github.com/PostHog/posthog-ios/pull/135)
+  - iOS session recording is still experimental
+
 ## 3.2.5 - 2024-05-14
 
 - fix: `reset` deletes only sdk files instead of the whole folder [#132](https://github.com/PostHog/posthog-ios/pull/132)

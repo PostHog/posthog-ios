@@ -134,6 +134,9 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                          disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
+            replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                               disableQueueTimerForTesting: config.disableQueueTimerForTesting)
+
             registerNotifications()
             captureScreenViews()
 
@@ -280,6 +283,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
 
         queue?.flush()
+        replayQueue?.flush()
     }
 
     @objc public func reset() {
@@ -290,6 +294,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         // storage also removes all feature flags
         storage?.reset()
         queue?.clear()
+        replayQueue?.clear()
         flagCallReported.removeAll()
         resetSession()
     }
@@ -781,6 +786,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             }
 
             queue?.stop()
+            replayQueue?.stop()
             #if os(iOS)
                 replayIntegration?.stop()
                 replayIntegration = nil

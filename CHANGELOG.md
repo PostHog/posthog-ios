@@ -1,5 +1,7 @@
 ## Next
 
+## 3.4.0 - 2024-05-23
+
 - allow anonymous id generation to be configurable ([#133](https://github.com/PostHog/posthog-ios/pull/133))
 - fix: PrivacyInfo warning when using Cocoapods ([#138](https://github.com/PostHog/posthog-ios/pull/138))
 

@@ -30,7 +30,8 @@ import Foundation
     /// Internal
     var snapshotEndpoint: String = "/s/"
 
-    public static let defaultHost: String = "https://app.posthog.com"
+    /// or EU Host: 'https://eu.i.posthog.com'
+    public static let defaultHost: String = "https://us.i.posthog.com"
 
     #if os(iOS)
         /// Enable Recording of Session Replays for iOS

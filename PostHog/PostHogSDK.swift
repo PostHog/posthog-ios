@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 //
 //  PostHogSDK.swift
 //  PostHogSDK
@@ -234,7 +236,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                  properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
-                                 groupProperties: [String: Any]? = nil,
+                                 groups: [String: String]? = nil,
                                  appendSharedProps: Bool = true) -> [String: Any]
     {
         var props: [String: Any] = [:]
@@ -257,10 +259,10 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             if userPropertiesSetOnce != nil {
                 props["$set_once"] = (userPropertiesSetOnce ?? [:])
             }
-            if groupProperties != nil {
+            if groups != nil {
                 // $groups are also set via the dynamicContext
-                let currentGroups = props["$groups"] as? [String: Any] ?? [:]
-                let mergedGroups = currentGroups.merging(groupProperties ?? [:]) { current, _ in current }
+                let currentGroups = props["$groups"] as? [String: String] ?? [:]
+                let mergedGroups = currentGroups.merging(groups ?? [:]) { current, _ in current }
                 props["$groups"] = mergedGroups
             }
         }
@@ -396,14 +398,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     @objc public func capture(_ event: String) {
-        capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
+        capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
     @objc(captureWithEvent:properties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil)
     {
-        capture(event, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groupProperties: nil)
+        capture(event, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
     @objc(captureWithEvent:properties:userProperties:)
@@ -411,7 +413,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil)
     {
-        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groupProperties: nil)
+        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groups: nil)
     }
 
     @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
@@ -420,7 +422,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil)
     {
-        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groupProperties: nil)
+        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
     }
 
     private func isOptOutState() -> Bool {
@@ -431,12 +433,12 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return false
     }
 
-    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groupProperties:)
+    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groups:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil,
-                        groupProperties: [String: Any]? = nil)
+                        groups: [String: String]? = nil)
     {
         if !isEnabled() {
             return
@@ -474,7 +476,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                         properties: sanitizeDicionary(properties),
                                         userProperties: sanitizeDicionary(userProperties),
                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
-                                        groupProperties: sanitizeDicionary(groupProperties),
+                                        groups: groups,
                                         appendSharedProps: !snapshotEvent)
         )
 
@@ -1002,3 +1004,5 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     #endif
 }
+
+// swiftlint:enable file_length

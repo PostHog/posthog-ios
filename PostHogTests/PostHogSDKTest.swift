@@ -541,9 +541,7 @@ class PostHogSDKTest: QuickSpec {
                         userProperties: ["userProp": "value",
                                          "test2": UserDefaults.standard],
                         userPropertiesSetOnce: ["userPropOnce": "value",
-                                                "test3": UserDefaults.standard],
-                        groups: ["groupProp": "value",
-                                 "test4": UserDefaults.standard])
+                                                "test3": UserDefaults.standard])
 
             let events = getBatchedEvents(server)
 

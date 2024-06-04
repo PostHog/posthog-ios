@@ -474,7 +474,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                                         properties: sanitizeDicionary(properties),
                                         userProperties: sanitizeDicionary(userProperties),
                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
-                                        groups: sanitizeDicionary(groups),
+                                        groups: groups,
                                         appendSharedProps: !snapshotEvent)
         )
 

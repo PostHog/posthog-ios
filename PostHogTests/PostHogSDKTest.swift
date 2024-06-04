@@ -59,7 +59,7 @@ class PostHogSDKTest: QuickSpec {
                         properties: ["foo": "bar"],
                         userProperties: ["userProp": "value"],
                         userPropertiesSetOnce: ["userPropOnce": "value"],
-                        groupProperties: ["groupProp": "value"])
+                        groups: ["groupProp": "value"])
 
             let events = getBatchedEvents(server)
 
@@ -76,8 +76,8 @@ class PostHogSDKTest: QuickSpec {
             let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
             expect(setOnce["userPropOnce"] as? String) == "value"
 
-            let groupProps = event.properties["$groups"] as? [String: Any] ?? [:]
-            expect(groupProps["groupProp"] as? String) == "value"
+            let groupProps = event.properties["$groups"] as? [String: String] ?? [:]
+            expect(groupProps["groupProp"]) == "value"
 
             sut.reset()
             sut.close()
@@ -163,7 +163,7 @@ class PostHogSDKTest: QuickSpec {
             expect(groupEvent.event) == "$groupidentify"
             expect(groupEvent.properties["$group_type"] as? String?) == "some-type"
             expect(groupEvent.properties["$group_key"] as? String?) == "some-key"
-            expect((groupEvent.properties["$group_set"] as? [String: String])?["name"] as? String) == "some-company-name"
+            expect((groupEvent.properties["$group_set"] as? [String: Any])?["name"] as? String) == "some-company-name"
 
             sut.reset()
             sut.close()
@@ -451,8 +451,8 @@ class PostHogSDKTest: QuickSpec {
             expect(requests.count) == 1
             let request = requests.first
 
-            let groups = request!["$groups"] as? [String: Any]
-            expect(groups!["some-type"] as? String) == "some-key"
+            let groups = request!["$groups"] as? [String: String] ?? [:]
+            expect(groups["some-type"]) == "some-key"
 
             sut.reset()
             sut.close()
@@ -472,9 +472,9 @@ class PostHogSDKTest: QuickSpec {
             expect(events.count) == 3
             let event = events.last!
 
-            let groups = event.properties["$groups"] as? [String: Any]
-            expect(groups!["some-type"] as? String) == "some-key"
-            expect(groups!["some-type-2"] as? String) == "some-key-2"
+            let groups = event.properties["$groups"] as? [String: String]
+            expect(groups!["some-type"]) == "some-key"
+            expect(groups!["some-type-2"]) == "some-key-2"
 
             sut.reset()
             sut.close()
@@ -541,9 +541,7 @@ class PostHogSDKTest: QuickSpec {
                         userProperties: ["userProp": "value",
                                          "test2": UserDefaults.standard],
                         userPropertiesSetOnce: ["userPropOnce": "value",
-                                                "test3": UserDefaults.standard],
-                        groupProperties: ["groupProp": "value",
-                                          "test4": UserDefaults.standard])
+                                                "test3": UserDefaults.standard])
 
             let events = getBatchedEvents(server)
 

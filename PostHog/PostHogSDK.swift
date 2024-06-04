@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 //
 //  PostHogSDK.swift
 //  PostHogSDK
@@ -1002,3 +1004,5 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
     #endif
 }
+
+// swiftlint:enable file_length

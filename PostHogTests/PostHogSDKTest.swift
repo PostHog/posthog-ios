@@ -163,7 +163,7 @@ class PostHogSDKTest: QuickSpec {
             expect(groupEvent.event) == "$groupidentify"
             expect(groupEvent.properties["$group_type"] as? String?) == "some-type"
             expect(groupEvent.properties["$group_key"] as? String?) == "some-key"
-            expect((groupEvent.properties["$group_set"] as? [String: String])?["name"] as? String) == "some-company-name"
+            expect((groupEvent.properties["$group_set"] as? [String: Any])?["name"] as? String) == "some-company-name"
 
             sut.reset()
             sut.close()
@@ -451,8 +451,8 @@ class PostHogSDKTest: QuickSpec {
             expect(requests.count) == 1
             let request = requests.first
 
-            let groups = request!["$groups"] as? [String: String]
-            expect(groups!["some-type"]) == "some-key"
+            let groups = request!["$groups"] as? [String: String] ?? [:]
+            expect(groups["some-type"]) == "some-key"
 
             sut.reset()
             sut.close()

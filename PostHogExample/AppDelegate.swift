@@ -12,7 +12,7 @@ import UIKit
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_pQ70jJhZKHRvDIL5ruOErnPy6xiAiWCqlL4ayELj4X8"
+            apiKey: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
@@ -22,6 +22,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
+        config.sessionReplayConfig.screenshot = true
 
         PostHogSDK.shared.setup(config)
         PostHogSDK.shared.debug()

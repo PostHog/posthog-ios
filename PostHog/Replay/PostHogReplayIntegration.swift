@@ -96,6 +96,7 @@
                 windowViews.setObject(snapshotStatus, forKey: view)
             }
 
+            // TODO: IncrementalSnapshot
             var wireframes: [Any] = []
             wireframes.append(wireframe.toDict())
             let initialOffset = ["top": 0, "left": 0]
@@ -140,6 +141,19 @@
             wireframe.width = Int(view.frame.size.width)
             wireframe.height = Int(view.frame.size.height)
             let style = RRStyle()
+
+            // no parent id means its the root
+            if parentId == nil, config.sessionReplayConfig.screenshot {
+                let image = view.toImage()
+                let jpegData = image?.jpegData(compressionQuality: 0.3)
+                let base64 = jpegData?.base64EncodedString()
+
+                if let base64 = base64 {
+                    wireframe.base64 = "data:image/jpeg;base64," + base64
+                }
+                wireframe.type = "screenshot"
+                return wireframe
+            }
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
@@ -190,8 +204,12 @@
             if let image = view as? UIImageView {
                 wireframe.type = "image"
                 if !image.isNoCapture(), !config.sessionReplayConfig.maskAllImages {
-                    // TODO: check png quality
-                    wireframe.base64 = image.image?.pngData()?.base64EncodedString()
+                    let jpegData = image.image?.jpegData(compressionQuality: 0.3)
+                    let base64 = jpegData?.base64EncodedString()
+
+                    if let base64 = base64 {
+                        wireframe.base64 = "data:image/jpeg;base64," + base64
+                    }
                 }
             }
 
@@ -289,11 +307,14 @@
 
             var screenName: String?
             if let controller = window.rootViewController {
-                if controller is AnyObjectUIHostingViewController {
-                    hedgeLog("SwiftUI snapshot not supported.")
+                // SwiftUI only supported with screenshot
+                if controller is AnyObjectUIHostingViewController, !config.sessionReplayConfig.screenshot {
+                    hedgeLog("SwiftUI snapshot not supported, enable screenshot mode.")
                     return
+                        // screen name only makes sense if we are not using SwiftUI
+                } else if !config.sessionReplayConfig.screenshot {
+                    screenName = UIViewController.getViewControllerName(controller)
                 }
-                screenName = UIViewController.getViewControllerName(controller)
             }
 
             // this cannot run off of the main thread because most properties require to be called within the main thread

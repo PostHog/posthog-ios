@@ -23,6 +23,13 @@
         /// Default: true
         @objc public var captureNetworkTelemetry: Bool = true
 
+        /// By default Session replay will capture all the views on the screen as a wireframe,
+        /// By enabling this option, PostHog will capture the screenshot of the screen.
+        /// The screenshot may contain sensitive information, use with caution.
+        /// Experimental support
+        /// Default: false
+        @objc public var screenshot: Bool = false
+
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }
 #endif

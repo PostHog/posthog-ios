@@ -304,9 +304,9 @@
 
             var screenName: String?
             if let controller = window.rootViewController {
-                // SwiftUI only supported with screenshot
+                // SwiftUI only supported with screenhshotMode
                 if controller is AnyObjectUIHostingViewController, !config.sessionReplayConfig.screenhshotMode {
-                    hedgeLog("SwiftUI snapshot not supported, enable screenshot mode.")
+                    hedgeLog("SwiftUI snapshot not supported, enable screenhshotMode.")
                     return
                         // screen name only makes sense if we are not using SwiftUI
                 } else if !config.sessionReplayConfig.screenhshotMode {

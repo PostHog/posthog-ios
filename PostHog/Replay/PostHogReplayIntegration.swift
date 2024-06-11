@@ -96,7 +96,8 @@
                 windowViews.setObject(snapshotStatus, forKey: view)
             }
 
-            // TODO: IncrementalSnapshot
+            // TODO: IncrementalSnapshot, type=2
+
             var wireframes: [Any] = []
             wireframes.append(wireframe.toDict())
             let initialOffset = ["top": 0, "left": 0]
@@ -149,7 +150,7 @@
                 let base64 = jpegData?.base64EncodedString()
 
                 if let base64 = base64 {
-                    wireframe.base64 = "data:image/jpeg;base64," + base64
+                    wireframe.base64 = "data:image/jpeg;base64,\(base64)"
                 }
                 wireframe.type = "screenshot"
                 return wireframe
@@ -208,7 +209,7 @@
                     let base64 = jpegData?.base64EncodedString()
 
                     if let base64 = base64 {
-                        wireframe.base64 = "data:image/jpeg;base64," + base64
+                        wireframe.base64 = "data:image/jpeg;base64,\(base64)"
                     }
                 }
             }

@@ -1,7 +1,7 @@
 ## Next
 
 - chore: change host to new address ([#139](https://github.com/PostHog/posthog-ios/pull/139))
-- fix: rename groupProperties to groups for capture methods ([#140](https://github.com/PostHog/posthog-android/pull/140))
+- fix: rename groupProperties to groups for capture methods ([#140](https://github.com/PostHog/posthog-ios/pull/140))
 
 ## 3.4.0 - 2024-05-23
 

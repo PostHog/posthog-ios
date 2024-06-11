@@ -115,12 +115,12 @@ class PostHogApi {
         var data: Data?
 
         do {
-            data = try JSONSerialization.data(withJSONObject: toSend, options: .prettyPrinted)
-            // TODO: remove, only for debugging
-            if let newData = data {
-                let convertedString = String(data: newData, encoding: .utf8)
-                hedgeLog("snapshot body: \(convertedString ?? "")")
-            }
+            data = try JSONSerialization.data(withJSONObject: toSend)
+//            remove it only for debugging
+//            if let newData = data {
+//                let convertedString = String(data: newData, encoding: .utf8)
+//                hedgeLog("snapshot body: \(convertedString ?? "")")
+//            }
         } catch {
             hedgeLog("Error parsing the snapshot body: \(error)")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))

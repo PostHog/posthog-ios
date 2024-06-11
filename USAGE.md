@@ -214,18 +214,18 @@ config.sessionReplay = true
 config.sessionReplayConfig.maskAllTextInputs = true
 config.sessionReplayConfig.maskAllImages = true
 config.sessionReplayConfig.captureNetworkTelemetry = true
-// screenshot is disabled by default
+// screenhshotMode is disabled by default
 // The screenshot may contain sensitive information, use with caution
-config.sessionReplayConfig.screenshot = true
+config.sessionReplayConfig.screenhshotMode = true
 ```
 
 If you don't want to mask everything, you can disable the mask config above and mask specific views using the `ph-no-capture` [accessibilityIdentifier](https://developer.apple.com/documentation/uikit/uiaccessibilityidentification/1623132-accessibilityidentifier).
 
 ### Limitations
 
-- [SwiftUI](https://developer.apple.com/xcode/swiftui/) is only supported if the `screenshot` option is enabled.
+- [SwiftUI](https://developer.apple.com/xcode/swiftui/) is only supported if the `screenhshotMode` option is enabled.
 - It's a representation of the user's screen, not a video recording nor a screenshot.
   - Custom views are not fully supported.
-  - If the option `screenshot` is enabled, the SDK will take a screenshot of the screen instead of making a representation of the user's screen.
+  - If the option `screenhshotMode` is enabled, the SDK will take a screenshot of the screen instead of making a representation of the user's screen.
 - WebView is not supported, a placeholder will be shown.
 - React Native and Flutter for iOS aren't supported.

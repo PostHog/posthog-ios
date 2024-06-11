@@ -189,21 +189,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             properties["$groups"] = groups!
         }
 
-        var theSessionId: String?
-        sessionLock.withLock {
-            theSessionId = sessionId
-        }
-        if let theSessionId = theSessionId {
-            properties["$session_id"] = theSessionId
-            // Session replay requires $window_id, so we set as the same as $session_id.
-            // the backend might fallback to $session_id if $window_id is not present next.
-            #if os(iOS)
-                if config.sessionReplay {
-                    properties["$window_id"] = theSessionId
-                }
-            #endif
-        }
-
         guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
             return properties
         }
@@ -265,6 +250,21 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
                 let mergedGroups = currentGroups.merging(groups ?? [:]) { current, _ in current }
                 props["$groups"] = mergedGroups
             }
+        }
+
+        var theSessionId: String?
+        sessionLock.withLock {
+            theSessionId = sessionId
+        }
+        if let theSessionId = theSessionId {
+            props["$session_id"] = theSessionId
+            // Session replay requires $window_id, so we set as the same as $session_id.
+            // the backend might fallback to $session_id if $window_id is not present next.
+            #if os(iOS)
+                if config.sessionReplay {
+                    props["$window_id"] = theSessionId
+                }
+            #endif
         }
 
         // Replay needs distinct_id also in the props

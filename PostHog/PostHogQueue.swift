@@ -106,6 +106,9 @@ class PostHogQueue {
             shouldRetry = true
         }
 
+        // TODO: https://github.com/PostHog/posthog-android/pull/130
+        // fix: reduce batch size if API returns 413
+
         if shouldRetry {
             retryCount += 1
             let delay = min(retryCount * retryDelay, maxRetryDelay)

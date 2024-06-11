@@ -16,7 +16,7 @@ class RRWireframe {
     var width: Int = 0
     var height: Int = 0
     var childWireframes: [RRWireframe]?
-    var type: String? // text|image|rectangle|input|div
+    var type: String? // text|image|rectangle|input|div|screenshot
     var inputType: String?
     var text: String?
     var label: String?

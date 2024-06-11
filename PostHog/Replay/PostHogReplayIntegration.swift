@@ -145,12 +145,8 @@
 
             // no parent id means its the root
             if parentId == nil, config.sessionReplayConfig.screenshot {
-                let image = view.toImage()
-                let jpegData = image?.jpegData(compressionQuality: 0.3)
-                let base64 = jpegData?.base64EncodedString()
-
-                if let base64 = base64 {
-                    wireframe.base64 = "data:image/jpeg;base64,\(base64)"
+                if let image = view.toImage() {
+                    wireframe.base64 = imageToBase64(image)
                 }
                 wireframe.type = "screenshot"
                 return wireframe
@@ -205,11 +201,8 @@
             if let image = view as? UIImageView {
                 wireframe.type = "image"
                 if !image.isNoCapture(), !config.sessionReplayConfig.maskAllImages {
-                    let jpegData = image.image?.jpegData(compressionQuality: 0.3)
-                    let base64 = jpegData?.base64EncodedString()
-
-                    if let base64 = base64 {
-                        wireframe.base64 = "data:image/jpeg;base64,\(base64)"
+                    if let image = image.image {
+                        wireframe.base64 = imageToBase64(image)
                     }
                 }
             }
@@ -321,6 +314,17 @@
             // this cannot run off of the main thread because most properties require to be called within the main thread
             // this method has to be fast and do as little as possible
             generateSnapshot(window, screenName)
+        }
+
+        private func imageToBase64(_ image: UIImage) -> String? {
+            let jpegData = image.jpegData(compressionQuality: 0.3)
+            let base64 = jpegData?.base64EncodedString()
+
+            if let base64 = base64 {
+                return "data:image/jpeg;base64,\(base64)"
+            }
+
+            return nil
         }
     }
 

@@ -11,5 +11,5 @@ class ViewTreeSnapshotStatus {
     var sentFullSnapshot: Bool = false
     var sentMetaEvent: Bool = false
     var keyboardVisible: Bool = false
-    var lastSnapshot: Bool = false // TODO: check the whole metadata
+    var lastSnapshot: Bool = false
 }

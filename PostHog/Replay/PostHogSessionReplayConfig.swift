@@ -28,7 +28,7 @@
         /// The screenshot may contain sensitive information, use with caution.
         /// Experimental support
         /// Default: false
-        @objc public var screenshot: Bool = false
+        @objc public var screenhshotMode: Bool = false
 
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }

@@ -144,7 +144,7 @@
             let style = RRStyle()
 
             // no parent id means its the root
-            if parentId == nil, config.sessionReplayConfig.screenshot {
+            if parentId == nil, config.sessionReplayConfig.screenhshotMode {
                 if let image = view.toImage() {
                     wireframe.base64 = imageToBase64(image)
                 }
@@ -305,11 +305,11 @@
             var screenName: String?
             if let controller = window.rootViewController {
                 // SwiftUI only supported with screenshot
-                if controller is AnyObjectUIHostingViewController, !config.sessionReplayConfig.screenshot {
+                if controller is AnyObjectUIHostingViewController, !config.sessionReplayConfig.screenhshotMode {
                     hedgeLog("SwiftUI snapshot not supported, enable screenshot mode.")
                     return
                         // screen name only makes sense if we are not using SwiftUI
-                } else if !config.sessionReplayConfig.screenshot {
+                } else if !config.sessionReplayConfig.screenhshotMode {
                     screenName = UIViewController.getViewControllerName(controller)
                 }
             }

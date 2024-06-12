@@ -202,7 +202,7 @@ If any of the breaking changes are blocking you, please [open an issue](https://
 
 Enable `Record user sessions` on the [PostHog project settings](https://us.posthog.com/settings/project-replay#replay).
 
-Requires the iOS SDK version >= [3.3.0-alpha.1](https://github.com/PostHog/posthog-ios/releases/).
+Requires the iOS SDK version >= [3.5.0](https://github.com/PostHog/posthog-ios/releases/).
 
 Enable the SDK to capture Session Recording.
 

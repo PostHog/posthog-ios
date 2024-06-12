@@ -22,7 +22,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
-        config.sessionReplayConfig.screenhshotMode = true
+        config.sessionReplayConfig.screenshotMode = true
 
         PostHogSDK.shared.setup(config)
         PostHogSDK.shared.debug()

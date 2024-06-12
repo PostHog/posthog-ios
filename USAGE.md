@@ -202,7 +202,7 @@ If any of the breaking changes are blocking you, please [open an issue](https://
 
 Enable `Record user sessions` on the [PostHog project settings](https://us.posthog.com/settings/project-replay#replay).
 
-Requires the iOS SDK version >= [3.3.0-alpha.1](https://github.com/PostHog/posthog-ios/releases/).
+Requires the iOS SDK version >= [3.5.0](https://github.com/PostHog/posthog-ios/releases/).
 
 Enable the SDK to capture Session Recording.
 
@@ -214,18 +214,18 @@ config.sessionReplay = true
 config.sessionReplayConfig.maskAllTextInputs = true
 config.sessionReplayConfig.maskAllImages = true
 config.sessionReplayConfig.captureNetworkTelemetry = true
-// screenhshotMode is disabled by default
+// screenshotMode is disabled by default
 // The screenshot may contain sensitive information, use with caution
-config.sessionReplayConfig.screenhshotMode = true
+config.sessionReplayConfig.screenshotMode = true
 ```
 
 If you don't want to mask everything, you can disable the mask config above and mask specific views using the `ph-no-capture` [accessibilityIdentifier](https://developer.apple.com/documentation/uikit/uiaccessibilityidentification/1623132-accessibilityidentifier).
 
 ### Limitations
 
-- [SwiftUI](https://developer.apple.com/xcode/swiftui/) is only supported if the `screenhshotMode` option is enabled.
+- [SwiftUI](https://developer.apple.com/xcode/swiftui/) is only supported if the `screenshotMode` option is enabled.
 - It's a representation of the user's screen, not a video recording nor a screenshot.
   - Custom views are not fully supported.
-  - If the option `screenhshotMode` is enabled, the SDK will take a screenshot of the screen instead of making a representation of the user's screen.
+  - If the option `screenshotMode` is enabled, the SDK will take a screenshot of the screen instead of making a representation of the user's screen.
 - WebView is not supported, a placeholder will be shown.
 - React Native and Flutter for iOS aren't supported.

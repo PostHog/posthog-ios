@@ -1,5 +1,7 @@
 ## Next
 
+- recording: fix `screenshotMode` typo ([#143](https://github.com/PostHog/posthog-android/pull/143))
+
 ## 3.5.0 - 2024-06-11
 
 - chore: change host to new address ([#139](https://github.com/PostHog/posthog-ios/pull/139))

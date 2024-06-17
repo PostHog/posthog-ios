@@ -12,7 +12,6 @@ import Nimble
 @testable import PostHog
 import Quick
 
-@available(iOS 17, *)
 class UUIDTest: QuickSpec {
     override func spec() {
         it("test duplicated") {

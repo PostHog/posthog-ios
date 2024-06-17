@@ -733,7 +733,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     private func rotateSession() {
-        let newSessionId = UUID().uuidString
+        let newSessionId = UUID.v7().uuidString
         let newSessionLastTimestamp = now().timeIntervalSince1970
 
         sessionLock.withLock {

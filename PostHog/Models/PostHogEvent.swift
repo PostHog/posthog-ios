@@ -25,7 +25,7 @@ public class PostHogEvent {
         case apiKey
     }
 
-    init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = .init(), apiKey: String? = nil) {
+    init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = UUID.v7(), apiKey: String? = nil) {
         self.event = event
         self.distinctId = distinctId
         self.properties = properties ?? [:]
@@ -61,8 +61,8 @@ public class PostHogEvent {
 
         guard let distinctId = (json["distinct_id"] as? String) ?? (properties["distinct_id"] as? String) else { return nil }
 
-        let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID().uuidString
-        let uuidObj = UUID(uuidString: uuid) ?? UUID()
+        let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7().uuidString
+        let uuidObj = UUID(uuidString: uuid) ?? UUID.v7()
 
         let apiKey = json["api_key"] as? String
 

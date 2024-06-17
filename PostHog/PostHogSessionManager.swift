@@ -25,7 +25,8 @@ class PostHogSessionManager {
             anonymousId = storage.getString(forKey: .anonymousId)
 
             if anonymousId == nil {
-                anonymousId = idGen(UUID()).uuidString
+                let uuid = UUID.v7()
+                anonymousId = idGen(uuid).uuidString
                 setAnonId(anonymousId ?? "")
             }
         }

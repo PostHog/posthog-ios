@@ -35,7 +35,7 @@ class PostHogSessionManagerTest: QuickSpec {
             let distinctId = sut.getDistinctId()
             expect(distinctId) == anonymousId
 
-            let idToSet = UUID().uuidString
+            let idToSet = UUID.v7().uuidString
             sut.setDistinctId(idToSet)
             let newAnonymousId = sut.getAnonymousId()
             let newDistinctId = sut.getDistinctId()
@@ -48,7 +48,7 @@ class PostHogSessionManagerTest: QuickSpec {
 
         it("Can can accept id customization via config") {
             let config = PostHogConfig(apiKey: "123")
-            let fixedUuid = UUID()
+            let fixedUuid = UUID.v7()
             config.getAnonymousId = { _ in fixedUuid }
             let sut = PostHogSessionManager(config)
             let anonymousId = sut.getAnonymousId()

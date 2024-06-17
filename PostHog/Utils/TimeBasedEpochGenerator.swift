@@ -39,14 +39,12 @@ class TimeBasedEpochGenerator {
         uuidBytes.append(contentsOf: timeBytes)
 
         if unixTimeMilliseconds == lastTimestamp {
-            var c = true
-            for i in (0 ..< 10).reversed() {
-                if c {
-                    var temp = lastEntropy[i]
-                    temp = temp &+ 0x01
-                    c = lastEntropy[i] == 0xFF
-                    lastEntropy[i] = temp
-                }
+            var check = true
+            for index in (0 ..< 10).reversed() where check {
+                var temp = lastEntropy[index]
+                temp = temp &+ 0x01
+                check = lastEntropy[index] == 0xFF
+                lastEntropy[index] = temp
             }
         } else {
             lastTimestamp = unixTimeMilliseconds

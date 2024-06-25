@@ -22,6 +22,11 @@
         private let urlInterceptor: URLSessionInterceptor
         private var sessionSwizzler: URLSessionSwizzler?
 
+        // SwiftUI image types
+        private let swiftUIImageTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
+                                         "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
+                                         "SwiftUI._UIGraphicsView", "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
+
         init(_ config: PostHogConfig) {
             self.config = config
             urlInterceptor = URLSessionInterceptor(self.config)
@@ -170,6 +175,11 @@
                 }
             }
 
+            if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
+                maskableWidgets.append(view.frame)
+                return
+            }
+
             if !view.subviews.isEmpty {
                 for child in view.subviews {
                     if !child.isVisible() {
@@ -230,12 +240,6 @@
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
-            // TODO: redact SwiftUI images:
-            // _TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView
-            // _TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView
-            // SwiftUI._UIGraphicsView
-            // SwiftUI.ImageLayer
-
             var isAsset = false
             if let image = view.image {
                 isAsset = isAssetsImage(image)
@@ -254,8 +258,7 @@
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
-                let isSensitive = isTextViewSensitive(textView)
-                wireframe.text = isSensitive ? textView.text.mask() : textView.text
+                wireframe.text = isTextViewSensitive(textView) ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
@@ -318,9 +321,8 @@
 
             if let label = view as? UILabel {
                 wireframe.type = "text"
-                let isSensitive = isTextInputSensitive(view)
                 if let text = label.text {
-                    wireframe.text = isSensitive ? text.mask() : text
+                    wireframe.text = isTextInputSensitive(view) ? text.mask() : text
                 }
                 wireframe.disabled = !label.isEnabled
                 style.color = label.textColor?.toRGBString()

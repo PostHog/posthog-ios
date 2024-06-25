@@ -19,14 +19,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
 //        config.flushAt = 1
-//        config.flushIntervalSeconds = 10
+//        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
         config.sessionReplayConfig.maskAllTextInputs = true
         config.sessionReplayConfig.screenshotMode = true
         config.sessionReplayConfig.maskAllImages = true
-        config.sessionReplayConfig.captureNetworkTelemetry = false
+        config.sessionReplayConfig.captureNetworkTelemetry = true
 
         PostHogSDK.shared.setup(config)
 

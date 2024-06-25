@@ -22,7 +22,7 @@ class ViewController: UIViewController {
 
         let imageView = UIImageView(frame: CGRect(x: 5, y: 5, width: 100, height: 100))
 
-//        view.accessibilityIdentifier = "test"
+        imageView.accessibilityIdentifier = "ph-no-capture"
         let url = URL(string: "https://1.bp.blogspot.com/-hkNkoCjc5UA/T4JTlCjhhfI/AAAAAAAAB98/XxQwZ-QPkI8/s1600/Free+Google+Wallpapers+3.jpg")!
 
         let task = URLSession.shared.dataTask(with: url) { data, _, error in

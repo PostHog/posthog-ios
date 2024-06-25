@@ -29,10 +29,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //        PostHogSDK.shared.capture("App started!")
 //        PostHogSDK.shared.reset()
 
-//        for i in 0 ... 19 {
-//            PostHogSDK.shared.capture("Event \(i) iOS")
-//        }
-
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)

@@ -23,11 +23,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
         config.sessionReplayConfig.screenshotMode = true
+        config.sessionReplayConfig.maskAllTextInputs = true
+        config.sessionReplayConfig.maskAllImages = true
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()
 //        PostHogSDK.shared.capture("App started!")
 //        PostHogSDK.shared.reset()
+        
+        PostHogSDK.shared.identify("Manoel")
 
         let defaultCenter = NotificationCenter.default
 

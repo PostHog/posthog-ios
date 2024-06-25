@@ -176,8 +176,10 @@
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
-                maskableWidgets.append(view.toAbsoluteRect(parent))
-                return
+                if isAnyInputSensitive(view) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
             }
 
             if !view.subviews.isEmpty {
@@ -202,21 +204,17 @@
             let wireframe = createBasicWireframe(view)
 
             if let image = view.toImage() {
-                if !maskableWidgets.isEmpty {
-                    let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
-                        context.cgContext.interpolationQuality = .none
-                        image.draw(at: .zero)
+                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                    context.cgContext.interpolationQuality = .none
+                    image.draw(at: .zero)
 
-                        for rect in maskableWidgets {
-                            let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
-                            UIColor.black.setFill()
-                            path.fill()
-                        }
+                    for rect in maskableWidgets {
+                        let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+                        UIColor.black.setFill()
+                        path.fill()
                     }
-                    wireframe.base64 = imageToBase64(redactedImage)
-                } else {
-                    wireframe.base64 = imageToBase64(image)
                 }
+                wireframe.base64 = imageToBase64(redactedImage)
             }
             wireframe.type = "screenshot"
             return wireframe
@@ -225,6 +223,10 @@
         private func isAssetsImage(_ image: UIImage) -> Bool {
             // https://github.com/daydreamboy/lldb_scripts#9-pimage
             image.imageAsset?.value(forKey: "_containingBundle") != nil
+        }
+
+        private func isAnyInputSensitive(_ view: UIView) -> Bool {
+            config.sessionReplayConfig.maskAllTextInputs || config.sessionReplayConfig.maskAllImages || view.isNoCapture()
         }
 
         private func isTextInputSensitive(_ view: UIView) -> Bool {

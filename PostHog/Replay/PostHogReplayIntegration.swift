@@ -146,37 +146,37 @@
             return wireframe
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ maskableWidgets: inout [CGRect]) {
+        private func findMaskableWidgets(_ view: UIView, _ parent: UIView, _ maskableWidgets: inout [CGRect]) {
             if let textView = view as? UITextView {
                 if isTextViewSensitive(textView) {
-                    maskableWidgets.append(textView.frame)
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
             if let textField = view as? UITextField {
                 if isTextFieldSensitive(textField) {
-                    maskableWidgets.append(textField.frame)
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
             if let image = view as? UIImageView {
                 if isImageViewSensitive(image) {
-                    maskableWidgets.append(image.frame)
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let label = view as? UILabel {
+            if view is UILabel {
                 if isTextInputSensitive(view) {
-                    maskableWidgets.append(label.frame)
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
-                maskableWidgets.append(view.frame)
+                maskableWidgets.append(view.toAbsoluteRect(parent))
                 return
             }
 
@@ -186,7 +186,7 @@
                         continue
                     }
 
-                    findMaskableWidgets(child, &maskableWidgets)
+                    findMaskableWidgets(child, parent, &maskableWidgets)
                 }
             }
         }
@@ -197,7 +197,7 @@
             }
 
             var maskableWidgets: [CGRect] = []
-            findMaskableWidgets(view, &maskableWidgets)
+            findMaskableWidgets(view, view, &maskableWidgets)
 
             let wireframe = createBasicWireframe(view)
 

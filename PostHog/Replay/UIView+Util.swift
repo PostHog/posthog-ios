@@ -18,11 +18,19 @@
         }
 
         func isNoCapture() -> Bool {
+            var isNoCapture = false
             if let identifier = accessibilityIdentifier {
-                return identifier.lowercased().contains("ph-no-capture")
+                isNoCapture = checkLabel(identifier)
+            }
+            if let label = accessibilityLabel, !isNoCapture {
+                isNoCapture = checkLabel(label)
             }
 
-            return false
+            return isNoCapture
+        }
+
+        private func checkLabel(_ label: String) -> Bool {
+            label.lowercased().contains("ph-no-capture")
         }
 
         func toImage() -> UIImage? {

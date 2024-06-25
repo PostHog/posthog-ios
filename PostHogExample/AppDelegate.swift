@@ -17,17 +17,21 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
-        config.flushAt = 1
-        config.flushIntervalSeconds = 30
+//        config.flushAt = 1
+//        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
         config.sessionReplayConfig.screenshotMode = true
 
         PostHogSDK.shared.setup(config)
-        PostHogSDK.shared.debug()
+//        PostHogSDK.shared.debug()
 //        PostHogSDK.shared.capture("App started!")
 //        PostHogSDK.shared.reset()
+
+//        for i in 0 ... 19 {
+//            PostHogSDK.shared.capture("Event \(i) iOS")
+//        }
 
         let defaultCenter = NotificationCenter.default
 

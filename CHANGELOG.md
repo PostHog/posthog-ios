@@ -1,5 +1,7 @@
 ## Next
 
+- recording: improvements to screenshot masking ([#147](https://github.com/PostHog/posthog-ios/pull/147))
+
 ## 3.6.0 - 2024-06-18
 
 - recording: screenshot masking ([#146](https://github.com/PostHog/posthog-ios/pull/146))

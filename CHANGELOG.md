@@ -1,5 +1,7 @@
 ## Next
 
+- recording: screenshot masking ([#146](https://github.com/PostHog/posthog-ios/pull/146))
+
 ## 3.5.2 - 2024-06-18
 
 - chore: migrate UUID from v4 to v7 ([#145](https://github.com/PostHog/posthog-ios/pull/145))

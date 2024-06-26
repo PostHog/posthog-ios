@@ -22,6 +22,14 @@
         private let urlInterceptor: URLSessionInterceptor
         private var sessionSwizzler: URLSessionSwizzler?
 
+        // SwiftUI image types
+        // https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app
+        // https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application
+        private let swiftUIImageTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
+                                         "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
+                                         "SwiftUI._UIGraphicsView",
+                                         "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
+
         init(_ config: PostHogConfig) {
             self.config = config
             urlInterceptor = URLSessionInterceptor(self.config)
@@ -69,7 +77,7 @@
             let timestamp = Date().toMillis()
             let snapshotStatus = windowViews.object(forKey: view) ?? ViewTreeSnapshotStatus()
 
-            guard let wireframe = toWireframe(view) else {
+            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(view) : toWireframe(view) else {
                 return
             }
 
@@ -129,11 +137,7 @@
             style.paddingLeft = Int(insets.left)
         }
 
-        private func toWireframe(_ view: UIView, parentId: Int? = nil) -> RRWireframe? {
-            if !view.isVisible() {
-                return nil
-            }
-
+        private func createBasicWireframe(_ view: UIView) -> RRWireframe {
             let wireframe = RRWireframe()
 
             wireframe.id = view.hash
@@ -141,21 +145,125 @@
             wireframe.posY = Int(view.frame.origin.y)
             wireframe.width = Int(view.frame.size.width)
             wireframe.height = Int(view.frame.size.height)
-            let style = RRStyle()
 
-            // no parent id means its the root
-            if parentId == nil, config.sessionReplayConfig.screenshotMode {
-                if let image = view.toImage() {
-                    wireframe.base64 = imageToBase64(image)
+            return wireframe
+        }
+
+        private func findMaskableWidgets(_ view: UIView, _ parent: UIView, _ maskableWidgets: inout [CGRect]) {
+            if let textView = view as? UITextView {
+                if isTextViewSensitive(textView) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
                 }
-                wireframe.type = "screenshot"
-                return wireframe
             }
+
+            if let textField = view as? UITextField {
+                if isTextFieldSensitive(textField) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if let image = view as? UIImageView {
+                if isImageViewSensitive(image) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if view is UILabel {
+                if isTextInputSensitive(view) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
+                if isAnyInputSensitive(view) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if !view.subviews.isEmpty {
+                for child in view.subviews {
+                    if !child.isVisible() {
+                        continue
+                    }
+
+                    findMaskableWidgets(child, parent, &maskableWidgets)
+                }
+            }
+        }
+
+        private func toScreenshotWireframe(_ view: UIView) -> RRWireframe? {
+            if !view.isVisible() {
+                return nil
+            }
+
+            var maskableWidgets: [CGRect] = []
+            findMaskableWidgets(view, view, &maskableWidgets)
+
+            let wireframe = createBasicWireframe(view)
+
+            if let image = view.toImage() {
+                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                    context.cgContext.interpolationQuality = .none
+                    image.draw(at: .zero)
+
+                    for rect in maskableWidgets {
+                        let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+                        UIColor.black.setFill()
+                        path.fill()
+                    }
+                }
+                wireframe.base64 = imageToBase64(redactedImage)
+            }
+            wireframe.type = "screenshot"
+            return wireframe
+        }
+
+        private func isAssetsImage(_ image: UIImage) -> Bool {
+            // https://github.com/daydreamboy/lldb_scripts#9-pimage
+            image.imageAsset?.value(forKey: "_containingBundle") != nil
+        }
+
+        private func isAnyInputSensitive(_ view: UIView) -> Bool {
+            config.sessionReplayConfig.maskAllTextInputs || config.sessionReplayConfig.maskAllImages || view.isNoCapture()
+        }
+
+        private func isTextInputSensitive(_ view: UIView) -> Bool {
+            config.sessionReplayConfig.maskAllTextInputs || view.isNoCapture()
+        }
+
+        private func isTextViewSensitive(_ view: UITextView) -> Bool {
+            isTextInputSensitive(view) || view.isSensitiveText()
+        }
+
+        private func isTextFieldSensitive(_ view: UITextField) -> Bool {
+            isTextInputSensitive(view) || view.isSensitiveText()
+        }
+
+        private func isImageViewSensitive(_ view: UIImageView) -> Bool {
+            var isAsset = false
+            if let image = view.image {
+                isAsset = isAssetsImage(image)
+            }
+            return (config.sessionReplayConfig.maskAllImages && !isAsset) || view.isNoCapture()
+        }
+
+        private func toWireframe(_ view: UIView) -> RRWireframe? {
+            if !view.isVisible() {
+                return nil
+            }
+
+            let wireframe = createBasicWireframe(view)
+
+            let style = RRStyle()
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
-                let isSensitive = config.sessionReplayConfig.maskAllTextInputs || textView.isNoCapture() || textView.isSensitiveText()
-                wireframe.text = isSensitive ? textView.text.mask() : textView.text
+                wireframe.text = isTextViewSensitive(textView) ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
@@ -169,12 +277,11 @@
             if let textField = view as? UITextField {
                 wireframe.type = "input"
                 wireframe.inputType = "text_area"
+                let isSensitive = isTextFieldSensitive(textField)
                 if let text = textField.text {
-                    let isSensitive = config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()
                     wireframe.value = isSensitive ? text.mask() : text
                 } else {
                     if let text = textField.placeholder {
-                        let isSensitive = config.sessionReplayConfig.maskAllTextInputs || textField.isNoCapture() || textField.isSensitiveText()
                         wireframe.value = isSensitive ? text.mask() : text
                     }
                 }
@@ -198,10 +305,10 @@
                 wireframe.checked = theSwitch.isOn
             }
 
-            if let image = view as? UIImageView {
+            if let imageView = view as? UIImageView {
                 wireframe.type = "image"
-                if !image.isNoCapture(), !config.sessionReplayConfig.maskAllImages {
-                    if let image = image.image {
+                if let image = imageView.image {
+                    if !isImageViewSensitive(imageView) {
                         wireframe.base64 = imageToBase64(image)
                     }
                 }
@@ -220,7 +327,7 @@
             if let label = view as? UILabel {
                 wireframe.type = "text"
                 if let text = label.text {
-                    wireframe.text = (config.sessionReplayConfig.maskAllTextInputs || label.isNoCapture()) ? text.mask() : text
+                    wireframe.text = isTextInputSensitive(view) ? text.mask() : text
                 }
                 wireframe.disabled = !label.isEnabled
                 style.color = label.textColor?.toRGBString()
@@ -264,7 +371,7 @@
             if !view.subviews.isEmpty {
                 var childWireframes: [RRWireframe] = []
                 for subview in view.subviews {
-                    if let child = toWireframe(subview, parentId: view.hash) {
+                    if let child = toWireframe(subview) {
                         childWireframes.append(child)
                     }
                 }

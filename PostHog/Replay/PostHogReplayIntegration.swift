@@ -179,7 +179,7 @@
             }
 
             if let webView = view as? WKWebView {
-                // since we cannot the webview content, if masking texts or images are enabled
+                // since we cannot mask the webview content, if masking texts or images are enabled
                 // we mask the whole webview as well
                 if isAnyInputSensitive(webView) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))

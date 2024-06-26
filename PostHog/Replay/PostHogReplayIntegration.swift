@@ -171,8 +171,38 @@
                 }
             }
 
-            if view is UILabel {
-                if isTextInputSensitive(view) {
+            if let label = view as? UILabel {
+                if isLabelSensitive(label) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if let webView = view as? WKWebView {
+                // since we cannot mask the webview content, if masking texts or images are enabled
+                // we mask the whole webview as well
+                if isAnyInputSensitive(webView) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if let button = view as? UIButton {
+                if isButtonSensitive(button) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if let theSwitch = view as? UISwitch {
+                if isSwitchSensitive(theSwitch) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if let picker = view as? UIPickerView {
+                if isPickerSensitive(picker) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
@@ -225,29 +255,63 @@
 
         private func isAssetsImage(_ image: UIImage) -> Bool {
             // https://github.com/daydreamboy/lldb_scripts#9-pimage
+            // do not mask if its an asset image, likely not PII anyway
             image.imageAsset?.value(forKey: "_containingBundle") != nil
         }
 
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
-            config.sessionReplayConfig.maskAllTextInputs || config.sessionReplayConfig.maskAllImages || view.isNoCapture()
+            isTextInputSensitive(view) || config.sessionReplayConfig.maskAllImages
         }
 
         private func isTextInputSensitive(_ view: UIView) -> Bool {
             config.sessionReplayConfig.maskAllTextInputs || view.isNoCapture()
         }
 
+        private func isLabelSensitive(_ view: UILabel) -> Bool {
+            isTextInputSensitive(view) && hasText(view.text)
+        }
+
+        private func isButtonSensitive(_ view: UIButton) -> Bool {
+            isTextInputSensitive(view) && hasText(view.titleLabel?.text)
+        }
+
         private func isTextViewSensitive(_ view: UITextView) -> Bool {
-            isTextInputSensitive(view) || view.isSensitiveText()
+            (isTextInputSensitive(view) || view.isSensitiveText()) && hasText(view.text)
+        }
+
+        private func isPickerSensitive(_ view: UIPickerView) -> Bool {
+            isTextInputSensitive(view) && view.dataSource != nil
+        }
+
+        private func isSwitchSensitive(_ view: UISwitch) -> Bool {
+            var containsText = true
+            if #available(iOS 14.0, *) {
+                containsText = hasText(view.title)
+            }
+
+            return isTextInputSensitive(view) && containsText
         }
 
         private func isTextFieldSensitive(_ view: UITextField) -> Bool {
-            isTextInputSensitive(view) || view.isSensitiveText()
+            (isTextInputSensitive(view) || view.isSensitiveText()) && (hasText(view.text) || hasText(view.placeholder))
+        }
+
+        private func hasText(_ text: String?) -> Bool {
+            if let text = text, !text.isEmpty {
+                return true
+            } else {
+                // if there's no text, there's nothing to mask
+                return false
+            }
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
             var isAsset = false
             if let image = view.image {
                 isAsset = isAssetsImage(image)
+            } else {
+                // if there's no image, there's nothing to mask
+                return false
             }
             return (config.sessionReplayConfig.maskAllImages && !isAsset) || view.isNoCapture()
         }
@@ -294,15 +358,21 @@
                 setAlignment(textField.textAlignment, style)
             }
 
-            if view is UIPickerView {
+            if let picker = view as? UIPickerView {
                 wireframe.type = "input"
                 wireframe.inputType = "select"
+                // set wireframe.value from selected row
             }
 
             if let theSwitch = view as? UISwitch {
                 wireframe.type = "input"
                 wireframe.inputType = "toggle"
                 wireframe.checked = theSwitch.isOn
+                if #available(iOS 14.0, *) {
+                    if let text = theSwitch.title {
+                        wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
+                    }
+                }
             }
 
             if let imageView = view as? UIImageView {
@@ -320,14 +390,14 @@
                 wireframe.disabled = !button.isEnabled
 
                 if let text = button.titleLabel?.text {
-                    wireframe.value = (config.sessionReplayConfig.maskAllTextInputs || button.isNoCapture()) ? text.mask() : text
+                    wireframe.value = isButtonSensitive(button) ? text.mask() : text
                 }
             }
 
             if let label = view as? UILabel {
                 wireframe.type = "text"
                 if let text = label.text {
-                    wireframe.text = isTextInputSensitive(view) ? text.mask() : text
+                    wireframe.text = isLabelSensitive(label) ? text.mask() : text
                 }
                 wireframe.disabled = !label.isEnabled
                 style.color = label.textColor?.toRGBString()

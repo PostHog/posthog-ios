@@ -117,7 +117,7 @@ struct ContentView: View {
                         Text(String(counter))
                     }.accessibilityIdentifier("ph-no-capture-id").accessibilityLabel("ph-no-capture")
 
-                    TextField("Enter your name", text: $name)
+                    TextField("Enter your name", text: $name).accessibilityLabel("ph-no-capture")
                     Text("Hello, \(name)!")
                     Button(action: triggerAuthentication) {
                         Text("Trigger fake authentication!")

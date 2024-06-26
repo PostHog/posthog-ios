@@ -184,7 +184,6 @@ class PostHogQueue {
 
     func flush() {
         if !canFlush() {
-            hedgeLog("Already flushing")
             return
         }
 
@@ -264,16 +263,19 @@ class PostHogQueue {
 
     private func canFlush() -> Bool {
         if isFlushing {
+            hedgeLog("Already flushing")
             return false
         }
 
         if paused {
             // We don't flush data if the queue is paused
+            hedgeLog("The queue is paused due to the reachability check")
             return false
         }
 
         if pausedUntil != nil, pausedUntil! > Date() {
             // We don't flush data if the queue is temporarily paused
+            hedgeLog("The queue is paused until `\(pausedUntil!)`")
             return false
         }
 

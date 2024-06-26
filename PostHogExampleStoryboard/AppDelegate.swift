@@ -18,13 +18,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
-        config.flushAt = 1
-        config.flushIntervalSeconds = 30
+//        config.flushAt = 1
+//        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
-        config.sessionReplayConfig.maskAllTextInputs = false
-        config.sessionReplayConfig.maskAllImages = false
+        config.sessionReplayConfig.maskAllTextInputs = true
+        config.sessionReplayConfig.screenshotMode = true
+        config.sessionReplayConfig.maskAllImages = true
         config.sessionReplayConfig.captureNetworkTelemetry = true
 
         PostHogSDK.shared.setup(config)

@@ -20,15 +20,11 @@ class ViewController: UIViewController {
 //
 //        self.view.addSubview(view)
 
-        let view = UIImageView(frame: CGRect(x: 50, y: 50, width: 100, height: 100))
+        let imageView = UIImageView(frame: CGRect(x: 5, y: 5, width: 100, height: 100))
+
+        imageView.accessibilityIdentifier = "ph-no-capture"
         let url = URL(string: "https://1.bp.blogspot.com/-hkNkoCjc5UA/T4JTlCjhhfI/AAAAAAAAB98/XxQwZ-QPkI8/s1600/Free+Google+Wallpapers+3.jpg")!
-//        if let data = try? Data(contentsOf: url) {
-//            if let image = UIImage(data: data) {
-//                DispatchQueue.main.async {
-//                    view.image = image
-//                }
-//            }
-//        }
+
         let task = URLSession.shared.dataTask(with: url) { data, _, error in
             if let error = error {
                 print("Error: \(error)")
@@ -41,12 +37,17 @@ class ViewController: UIViewController {
             }
 
             DispatchQueue.main.async {
-                view.image = image
+                imageView.image = image
             }
         }
 
         task.resume()
 
-        self.view.addSubview(view)
+        view.addSubview(imageView)
+
+        let textView = UITextView(frame: CGRect(x: 5, y: 105, width: 100, height: 20))
+        textView.text = "test"
+
+        view.addSubview(textView)
     }
 }

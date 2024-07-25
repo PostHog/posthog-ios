@@ -12,9 +12,11 @@ class PostHogFeatureFlags {
     private let storage: PostHogStorage
     private let api: PostHogApi
 
-    private let isLoadingLock = NSLock()
+    private let loadingLock = NSLock()
     private let featureFlagsLock = NSLock()
-    private var isLoadingFeatureFlags = false
+    private var loadingFeatureFlags = false
+    private var featureFlagsLoaded = false
+    private var sessionReplayFlagActive = false
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.FeatureFlags",
                                               target: .global(qos: .utility))
@@ -26,12 +28,23 @@ class PostHogFeatureFlags {
         self.config = config
         self.storage = storage
         self.api = api
+
+        preloadSesssionReplayFlag()
     }
 
-    private func setLoading(_ value: Bool) {
-        isLoadingLock.withLock {
-            self.isLoadingFeatureFlags = value
+    private func preloadSesssionReplayFlag() {
+        var sessionReplay: [String: Any]?
+        featureFlagsLock.withLock {
+            sessionReplay = self.storage.getDictionary(forKey: .sessionReplay) as? [String: Any]
         }
+
+        if sessionReplay != nil {
+            sessionReplayFlagActive = true
+        }
+    }
+
+    func isFeatureFlagsLoaded() -> Bool {
+        featureFlagsLoaded
     }
 
     func loadFeatureFlags(
@@ -40,11 +53,11 @@ class PostHogFeatureFlags {
         groups: [String: String],
         callback: @escaping () -> Void
     ) {
-        isLoadingLock.withLock {
-            if self.isLoadingFeatureFlags {
+        loadingLock.withLock {
+            if self.loadingFeatureFlags {
                 return
             }
-            self.isLoadingFeatureFlags = true
+            self.loadingFeatureFlags = true
         }
 
         api.decide(distinctId: distinctId,
@@ -57,6 +70,8 @@ class PostHogFeatureFlags {
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
 
+                    // we dont reset featureFlagsLoaded here because it might have been succeed last time
+
                     self.notifyAndRelease()
 
                     return callback()
@@ -65,7 +80,13 @@ class PostHogFeatureFlags {
 
                 #if os(iOS)
                     if let sessionRecording = data?["sessionRecording"] as? Bool {
-                        self.config.sessionReplay = self.config.sessionReplay && sessionRecording
+                        self.sessionReplayFlagActive = sessionRecording
+
+                        // its always false here anyway
+                        if !sessionRecording {
+                            self.storage.remove(key: .sessionReplay)
+                        }
+
                     } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
                         // keeps the value from config.sessionReplay since having sessionRecording
                         // means its enabled on the project settings, but its only enabled
@@ -73,7 +94,8 @@ class PostHogFeatureFlags {
                         if let endpoint = sessionRecording["endpoint"] as? String {
                             self.config.snapshotEndpoint = endpoint
                         }
-                        // TODO: handle sessionRecording config such as consoleLogRecordingEnabled, networkPayloadCapture, sampleRate, etc
+                        self.sessionReplayFlagActive = true
+                        self.storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
                     }
                 #endif
 
@@ -94,6 +116,8 @@ class PostHogFeatureFlags {
                     }
                 }
 
+                self.featureFlagsLoaded = true
+
                 self.notifyAndRelease()
 
                 return callback()
@@ -106,7 +130,9 @@ class PostHogFeatureFlags {
             NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
         }
 
-        setLoading(false)
+        loadingLock.withLock {
+            self.loadingFeatureFlags = false
+        }
     }
 
     func getFeatureFlags() -> [String: Any]? {
@@ -170,4 +196,10 @@ class PostHogFeatureFlags {
         // fallbak to original value if not possible to serialize
         return value
     }
+
+    #if os(iOS)
+        func isSessionReplayFlagActive() -> Bool {
+            sessionReplayFlagActive
+        }
+    #endif
 }

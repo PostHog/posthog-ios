@@ -1,5 +1,7 @@
 ## Next
 
+## 3.6.2 - 2024-07-25
+
 - recording: fix MTLTextureDescriptor has width of zero issue ([#149](https://github.com/PostHog/posthog-ios/pull/149))
 
 ## 3.6.1 - 2024-06-26

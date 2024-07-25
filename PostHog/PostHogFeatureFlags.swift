@@ -15,7 +15,6 @@ class PostHogFeatureFlags {
     private let loadingLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
-    private var featureFlagsLoaded = false
     private var sessionReplayFlagActive = false
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.FeatureFlags",
@@ -43,10 +42,6 @@ class PostHogFeatureFlags {
         }
     }
 
-    func isFeatureFlagsLoaded() -> Bool {
-        featureFlagsLoaded
-    }
-
     func loadFeatureFlags(
         distinctId: String,
         anonymousId: String,
@@ -69,8 +64,6 @@ class PostHogFeatureFlags {
                       let featureFlagPayloads = data?["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
-
-                    // we dont reset featureFlagsLoaded here because it might have been succeed last time
 
                     self.notifyAndRelease()
 
@@ -115,8 +108,6 @@ class PostHogFeatureFlags {
                         self.storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: featureFlagPayloads)
                     }
                 }
-
-                self.featureFlagsLoaded = true
 
                 self.notifyAndRelease()
 

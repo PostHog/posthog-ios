@@ -237,6 +237,10 @@
             let wireframe = createBasicWireframe(view)
 
             if let image = view.toImage() {
+                if !image.size.hasSize() {
+                    return nil
+                }
+
                 let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
                     context.cgContext.interpolationQuality = .none
                     image.draw(at: .zero)
@@ -358,7 +362,7 @@
                 setAlignment(textField.textAlignment, style)
             }
 
-            if let picker = view as? UIPickerView {
+            if view is UIPickerView {
                 wireframe.type = "input"
                 wireframe.inputType = "select"
                 // set wireframe.value from selected row

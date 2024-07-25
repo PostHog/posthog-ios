@@ -34,6 +34,12 @@
         }
 
         func toImage() -> UIImage? {
+            let size = bounds.size
+
+            if !size.hasSize() {
+                return nil
+            }
+
             // Begin image context
             UIGraphicsBeginImageContextWithOptions(bounds.size, isOpaque, 0.0)
 

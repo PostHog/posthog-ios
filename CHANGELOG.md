@@ -1,5 +1,7 @@
 ## Next
 
+- recording: fix MTLTextureDescriptor has width of zero issue ([#149](https://github.com/PostHog/posthog-ios/pull/149))
+
 ## 3.6.1 - 2024-06-26
 
 - recording: improvements to screenshot masking ([#147](https://github.com/PostHog/posthog-ios/pull/147))

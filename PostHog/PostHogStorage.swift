@@ -32,7 +32,7 @@ class PostHogStorage {
         case groups = "posthog.groups"
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"
-        case sessionReplay
+        case sessionReplay = "posthog.sessionReplay"
     }
 
     private let config: PostHogConfig

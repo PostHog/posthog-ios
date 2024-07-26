@@ -32,6 +32,7 @@ class PostHogStorage {
         case groups = "posthog.groups"
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"
+        case sessionReplay = "posthog.sessionReplay"
     }
 
     private let config: PostHogConfig
@@ -137,6 +138,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .groups))
         deleteSafely(url(forKey: .registerProperties))
         deleteSafely(url(forKey: .optOut))
+        deleteSafely(url(forKey: .sessionReplay))
     }
 
     public func remove(key: StorageKey) {

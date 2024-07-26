@@ -36,6 +36,7 @@ class MockPostHogServer {
 
     public var errorsWhileComputingFlags = false
     public var return500 = false
+    public var returnReplay = false
 
     init(port _: Int = 9001) {
         stub(condition: isPath("/decide")) { _ in
@@ -51,7 +52,7 @@ class MockPostHogServer {
                 flags.removeValue(forKey: "bool-value")
             }
 
-            let obj: [String: Any] = [
+            var obj: [String: Any] = [
                 "featureFlags": flags,
                 "featureFlagPayloads": [
                     "payload-bool": "true",
@@ -61,6 +62,15 @@ class MockPostHogServer {
                 ],
                 "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
             ]
+
+            if self.returnReplay {
+                let sessionRecording: [String: Any] = [
+                    "endpoint": "/newS/",
+                ]
+                obj["sessionRecording"] = sessionRecording
+            } else {
+                obj["sessionRecording"] = false
+            }
 
             return HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
         }

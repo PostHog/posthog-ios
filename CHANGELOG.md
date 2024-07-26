@@ -1,5 +1,7 @@
 ## Next
 
+- recording: fix: respect session replay project settings from app start ([#150](https://github.com/PostHog/posthog-ios/pull/150))
+
 ## 3.6.2 - 2024-07-25
 
 - recording: fix MTLTextureDescriptor has width of zero issue ([#149](https://github.com/PostHog/posthog-ios/pull/149))

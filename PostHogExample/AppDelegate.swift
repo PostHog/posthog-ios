@@ -23,9 +23,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.sendFeatureFlagEvent = false
         config.sessionReplay = true
         config.sessionReplayConfig.screenshotMode = true
-        config.sessionReplayConfig.maskAllTextInputs = false
+        config.sessionReplayConfig.maskAllTextInputs = true
         config.sessionReplayConfig.maskAllImages = true
-        config.optOut = true
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()

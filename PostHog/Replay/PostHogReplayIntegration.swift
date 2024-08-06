@@ -25,9 +25,9 @@
         // SwiftUI image types
         // https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app
         // https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application
-        private let swiftUIImageTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView", // 0
+        private let swiftUIImageTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
                                          "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
-                                         "SwiftUI._UIGraphicsView", // 0
+                                         "SwiftUI._UIGraphicsView",
                                          "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
 
         init(_ config: PostHogConfig) {

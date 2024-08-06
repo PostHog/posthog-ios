@@ -379,13 +379,16 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
         let oldDistinctId = getDistinctId()
 
+        let properties = buildProperties(distinctId: distinctId, properties: [
+            "distinct_id": distinctId,
+            "$anon_distinct_id": getAnonymousId(),
+        ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
+        let sanitizedProperties = sanitizeProperties(properties)
+
         queue.add(PostHogEvent(
             event: "$identify",
             distinctId: distinctId,
-            properties: buildProperties(distinctId: distinctId, properties: [
-                "distinct_id": distinctId,
-                "$anon_distinct_id": getAnonymousId(),
-            ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
+            properties: sanitizedProperties
         ))
 
         if distinctId != oldDistinctId {
@@ -469,15 +472,19 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
 
         let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId,
+                                         properties: sanitizeDicionary(properties),
+                                         userProperties: sanitizeDicionary(userProperties),
+                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
+                                         groups: groups,
+                                         appendSharedProps: !snapshotEvent)
+        let sanitizedProperties = sanitizeProperties(properties)
+
         let posthogEvent = PostHogEvent(
             event: event,
             distinctId: distinctId,
-            properties: buildProperties(distinctId: distinctId,
-                                        properties: sanitizeDicionary(properties),
-                                        userProperties: sanitizeDicionary(userProperties),
-                                        userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
-                                        groups: groups,
-                                        appendSharedProps: !snapshotEvent)
+            properties: sanitizedProperties
         )
 
         // Replay has its own queue
@@ -515,11 +522,22 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let sanitizedProperties = sanitizeProperties(properties)
+
         queue.add(PostHogEvent(
             event: "$screen",
             distinctId: distinctId,
-            properties: buildProperties(distinctId: distinctId, properties: props)
+            properties: sanitizedProperties
         ))
+    }
+
+    private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
+        if let sanitizer = config.propertiesSanitizer {
+            return sanitizer.sanitize(properties)
+        }
+        return properties
     }
 
     @objc public func alias(_ alias: String) {
@@ -538,10 +556,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         let props = ["alias": alias]
 
         let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let sanitizedProperties = sanitizeProperties(properties)
+
         queue.add(PostHogEvent(
             event: "$create_alias",
             distinctId: distinctId,
-            properties: buildProperties(distinctId: distinctId, properties: props)
+            properties: sanitizedProperties
         ))
     }
 
@@ -597,10 +619,14 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
 
         // Same as .group but without associating the current user with the group
         let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let sanitizedProperties = sanitizeProperties(properties)
+
         queue.add(PostHogEvent(
             event: "$groupidentify",
             distinctId: distinctId,
-            properties: buildProperties(distinctId: distinctId, properties: props)
+            properties: sanitizedProperties
         ))
     }
 

@@ -1,6 +1,6 @@
 ## Next
 
-- chore: Support the `propertiesSanitizer` config ([#150](https://github.com/PostHog/posthog-ios/pull/150))
+- chore: Support the `propertiesSanitizer` config ([#154](https://github.com/PostHog/posthog-ios/pull/154))
 
 ## 3.6.3 - 2024-07-26
 

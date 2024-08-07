@@ -16,7 +16,8 @@ class PostHogSDKTest: QuickSpec {
                 sendFeatureFlagEvent: Bool = false,
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
-                optOut: Bool = false) -> PostHogSDK
+                optOut: Bool = false,
+                propertiesSanitizer: PostHogPropertiesSanitizer? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -26,6 +27,7 @@ class PostHogSDKTest: QuickSpec {
         config.disableQueueTimerForTesting = true
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
+        config.propertiesSanitizer = propertiesSanitizer
         return PostHogSDK.with(config)
     }
 
@@ -703,6 +705,22 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
 
             expect(FileManager.default.fileExists(atPath: appFolder.path)) == true
+        }
+
+        it("client sanitize properties") {
+            let sanitizer = ExampleSanitizer()
+            let sut = self.getSut(propertiesSanitizer: sanitizer)
+
+            let props: [String: Any] = ["empty": ""]
+
+            sut.capture("event", properties: props)
+
+            let events = getBatchedEvents(server)
+
+            expect(events[0].properties["empty"] as? String).to(beNil())
+
+            sut.reset()
+            sut.close()
         }
     }
 }

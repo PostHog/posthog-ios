@@ -27,6 +27,10 @@ import Foundation
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
+    /// Hook that allows to sanitize the event properties
+    /// The hook is called before the event is cached or sent over the wire
+    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer?
+
     /// Internal
     var snapshotEndpoint: String = "/s/"
 

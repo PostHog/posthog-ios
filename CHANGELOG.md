@@ -1,5 +1,7 @@
 ## Next
 
+- chore: Support the `propertiesSanitizer` config ([#154](https://github.com/PostHog/posthog-ios/pull/154))
+
 ## 3.6.3 - 2024-07-26
 
 - recording: fix: respect session replay project settings from app start ([#150](https://github.com/PostHog/posthog-ios/pull/150))

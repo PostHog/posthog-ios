@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "LocalizedDeviceModel",
+        "repositoryURL": "https://github.com/bixcorp/BDLocalizedDevicesModels",
+        "state": {
+          "branch": null,
+          "revision": "d98a5668573829560fd89a77c5b44373ad5db6a6",
+          "version": "3.4.1"
+        }
+      },
+      {
         "package": "CwlCatchException",
         "repositoryURL": "https://github.com/mattgallagher/CwlCatchException.git",
         "state": {

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import LocalizedDeviceModel
 
 #if os(iOS) || os(tvOS)
     import UIKit
@@ -44,8 +45,7 @@ class PostHogContext {
 
         #if os(iOS) || os(tvOS)
             let device = UIDevice.current
-            // use https://github.com/devicekit/DeviceKit
-            properties["$device_name"] = device.model
+            properties["$device_name"] = device.productName
             properties["$os_name"] = device.systemName
             properties["$os_version"] = device.systemVersion
 

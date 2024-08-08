@@ -1,5 +1,7 @@
 ## Next
 
+- Update device name to a more explicit name.
+
 ## 3.7.0 - 2024-08-07
 
 - chore: Support the `propertiesSanitizer` config ([#154](https://github.com/PostHog/posthog-ios/pull/154))

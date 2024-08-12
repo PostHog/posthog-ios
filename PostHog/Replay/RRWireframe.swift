@@ -8,7 +8,9 @@
 //
 
 import Foundation
-import UIKit
+#if os(iOS)
+    import UIKit
+#endif
 
 class RRWireframe {
     var id: Int = 0
@@ -22,8 +24,10 @@ class RRWireframe {
     var text: String?
     var label: String?
     var value: Any? // string or number
-    var image: UIImage? // clean reference after using it
-    var maskableWidgets: [CGRect]?
+    #if os(iOS)
+        var image: UIImage?
+        var maskableWidgets: [CGRect]?
+    #endif
     var base64: String?
     var style: RRStyle?
     var disabled: Bool?
@@ -33,39 +37,41 @@ class RRWireframe {
     // internal
     var parentId: Int?
 
-    private func imageToBase64(_ image: UIImage) -> String? {
-        let jpegData = image.jpegData(compressionQuality: 0.3)
-        let base64 = jpegData?.base64EncodedString()
+    #if os(iOS)
+        private func imageToBase64(_ image: UIImage) -> String? {
+            let jpegData = image.jpegData(compressionQuality: 0.3)
+            let base64 = jpegData?.base64EncodedString()
 
-        if let base64 = base64 {
-            return "data:image/jpeg;base64,\(base64)"
-        }
-
-        return nil
-    }
-
-    private func maskImage() -> UIImage? {
-        if let image = image {
-            if let maskableWidgets = maskableWidgets {
-                if maskableWidgets.isEmpty {
-                    return nil
-                }
-
-                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
-                    context.cgContext.interpolationQuality = .none
-                    image.draw(at: .zero)
-
-                    for rect in maskableWidgets {
-                        let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
-                        UIColor.black.setFill()
-                        path.fill()
-                    }
-                }
-                return redactedImage
+            if let base64 = base64 {
+                return "data:image/jpeg;base64,\(base64)"
             }
+
+            return nil
         }
-        return nil
-    }
+
+        private func maskImage() -> UIImage? {
+            if let image = image {
+                if let maskableWidgets = maskableWidgets {
+                    if maskableWidgets.isEmpty {
+                        return nil
+                    }
+
+                    let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                        context.cgContext.interpolationQuality = .none
+                        image.draw(at: .zero)
+
+                        for rect in maskableWidgets {
+                            let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+                            UIColor.black.setFill()
+                            path.fill()
+                        }
+                    }
+                    return redactedImage
+                }
+            }
+            return nil
+        }
+    #endif
 
     func toDict() -> [String: Any] {
         var dict: [String: Any] = [
@@ -100,14 +106,15 @@ class RRWireframe {
             dict["value"] = value
         }
 
-        if let image = image {
-            if let maskedImage = maskImage() {
-                base64 = imageToBase64(maskedImage)
-            } else {
-                base64 = imageToBase64(image)
+        #if os(iOS)
+            if let image = image {
+                if let maskedImage = maskImage() {
+                    base64 = imageToBase64(maskedImage)
+                } else {
+                    base64 = imageToBase64(image)
+                }
             }
-        }
-        image = nil
+        #endif
 
         if let base64 = base64 {
             dict["base64"] = base64

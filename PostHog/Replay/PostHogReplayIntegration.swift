@@ -41,7 +41,7 @@
 
         func start() {
             stopTimer()
-            timer = Timer.scheduledTimer(timeInterval: config.sessionReplayConfig.debouncerDelayMs,
+            timer = Timer.scheduledTimer(timeInterval: config.sessionReplayConfig.debouncerDelay,
                                          target: self,
                                          selector: #selector(snapshot),
                                          userInfo: nil,
@@ -112,7 +112,7 @@
                 let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
-                
+
                 PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
             }
         }
@@ -240,7 +240,7 @@
                 }
 
                 wireframe.maskableWidgets = maskableWidgets
-                
+
                 wireframe.image = image
             }
             wireframe.type = "screenshot"

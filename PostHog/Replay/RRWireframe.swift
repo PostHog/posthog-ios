@@ -32,7 +32,7 @@ class RRWireframe {
     var max: Int?
     // internal
     var parentId: Int?
-    
+
     private func imageToBase64(_ image: UIImage) -> String? {
         let jpegData = image.jpegData(compressionQuality: 0.3)
         let base64 = jpegData?.base64EncodedString()
@@ -43,7 +43,7 @@ class RRWireframe {
 
         return nil
     }
-    
+
     private func maskImage() -> UIImage? {
         if let image = image {
             if let maskableWidgets = maskableWidgets {
@@ -95,7 +95,7 @@ class RRWireframe {
         if let value = value {
             dict["value"] = value
         }
-        
+
         if let image = image {
             if let maskedImage = maskImage() {
                 base64 = imageToBase64(maskedImage)

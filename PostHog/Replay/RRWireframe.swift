@@ -47,6 +47,10 @@ class RRWireframe {
     private func maskImage() -> UIImage? {
         if let image = image {
             if let maskableWidgets = maskableWidgets {
+                if maskableWidgets.isEmpty {
+                    return nil
+                }
+
                 let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
                     context.cgContext.interpolationQuality = .none
                     image.draw(at: .zero)

@@ -15,7 +15,6 @@
     class PostHogReplayIntegration {
         private let config: PostHogConfig
 
-        private let timeInterval = 1.0 / 2.0
         private var timer: Timer?
 
         private let windowViews = NSMapTable<UIView, ViewTreeSnapshotStatus>.weakToStrongObjects()
@@ -42,7 +41,7 @@
 
         func start() {
             stopTimer()
-            timer = Timer.scheduledTimer(timeInterval: timeInterval,
+            timer = Timer.scheduledTimer(timeInterval: config.sessionReplayConfig.debouncerDelayMs,
                                          target: self,
                                          selector: #selector(snapshot),
                                          userInfo: nil,
@@ -106,15 +105,14 @@
 
             // TODO: IncrementalSnapshot, type=2
 
-            var wireframes: [Any] = []
-            wireframes.append(wireframe.toDict())
-            let initialOffset = ["top": 0, "left": 0]
-            let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
-            let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
-            snapshotsData.append(snapshotData)
-
-            // off the main thread at least the event capture
             DispatchQueue.global().async {
+                var wireframes: [Any] = []
+                wireframes.append(wireframe.toDict())
+                let initialOffset = ["top": 0, "left": 0]
+                let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
+                let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
+                snapshotsData.append(snapshotData)
+                
                 PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
             }
         }
@@ -241,17 +239,9 @@
                     return nil
                 }
 
-                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
-                    context.cgContext.interpolationQuality = .none
-                    image.draw(at: .zero)
-
-                    for rect in maskableWidgets {
-                        let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
-                        UIColor.black.setFill()
-                        path.fill()
-                    }
-                }
-                wireframe.base64 = imageToBase64(redactedImage)
+                wireframe.maskableWidgets = maskableWidgets
+                
+                wireframe.image = image
             }
             wireframe.type = "screenshot"
             return wireframe
@@ -383,7 +373,7 @@
                 wireframe.type = "image"
                 if let image = imageView.image {
                     if !isImageViewSensitive(imageView) {
-                        wireframe.base64 = imageToBase64(image)
+                        wireframe.image = image
                     }
                 }
             }
@@ -498,17 +488,6 @@
             // this cannot run off of the main thread because most properties require to be called within the main thread
             // this method has to be fast and do as little as possible
             generateSnapshot(window, screenName)
-        }
-
-        private func imageToBase64(_ image: UIImage) -> String? {
-            let jpegData = image.jpegData(compressionQuality: 0.3)
-            let base64 = jpegData?.base64EncodedString()
-
-            if let base64 = base64 {
-                return "data:image/jpeg;base64,\(base64)"
-            }
-
-            return nil
         }
     }
 

@@ -51,23 +51,20 @@ class RRWireframe {
 
         private func maskImage() -> UIImage? {
             if let image = image {
-                if let maskableWidgets = maskableWidgets {
-                    if maskableWidgets.isEmpty {
-                        return nil
-                    }
+                // the scale also affects the image size/resolution, from usually 100kb to 15kb each
+                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                    context.cgContext.interpolationQuality = .none
+                    image.draw(at: .zero)
 
-                    let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
-                        context.cgContext.interpolationQuality = .none
-                        image.draw(at: .zero)
-
+                    if let maskableWidgets = maskableWidgets {
                         for rect in maskableWidgets {
                             let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
                             UIColor.black.setFill()
                             path.fill()
                         }
                     }
-                    return redactedImage
                 }
+                return redactedImage
             }
             return nil
         }

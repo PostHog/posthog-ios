@@ -29,6 +29,9 @@
                                          "SwiftUI._UIGraphicsView",
                                          "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
 
+        static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
+                                                 target: .global(qos: .utility))
+
         init(_ config: PostHogConfig) {
             self.config = config
             urlInterceptor = URLSessionInterceptor(self.config)
@@ -105,7 +108,7 @@
 
             // TODO: IncrementalSnapshot, type=2
 
-            DispatchQueue.global().async {
+            PostHogReplayIntegration.dispatchQueue.async {
                 var wireframes: [Any] = []
                 wireframes.append(wireframe.toDict())
                 let initialOffset = ["top": 0, "left": 0]

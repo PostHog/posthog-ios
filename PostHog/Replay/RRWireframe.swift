@@ -8,6 +8,9 @@
 //
 
 import Foundation
+#if os(iOS)
+    import UIKit
+#endif
 
 class RRWireframe {
     var id: Int = 0
@@ -21,6 +24,10 @@ class RRWireframe {
     var text: String?
     var label: String?
     var value: Any? // string or number
+    #if os(iOS)
+        var image: UIImage?
+        var maskableWidgets: [CGRect]?
+    #endif
     var base64: String?
     var style: RRStyle?
     var disabled: Bool?
@@ -29,6 +36,39 @@ class RRWireframe {
     var max: Int?
     // internal
     var parentId: Int?
+
+    #if os(iOS)
+        private func imageToBase64(_ image: UIImage) -> String? {
+            let jpegData = image.jpegData(compressionQuality: 0.3)
+            let base64 = jpegData?.base64EncodedString()
+
+            if let base64 = base64 {
+                return "data:image/jpeg;base64,\(base64)"
+            }
+
+            return nil
+        }
+
+        private func maskImage() -> UIImage? {
+            if let image = image {
+                // the scale also affects the image size/resolution, from usually 100kb to 15kb each
+                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                    context.cgContext.interpolationQuality = .none
+                    image.draw(at: .zero)
+
+                    if let maskableWidgets = maskableWidgets {
+                        for rect in maskableWidgets {
+                            let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+                            UIColor.black.setFill()
+                            path.fill()
+                        }
+                    }
+                }
+                return redactedImage
+            }
+            return nil
+        }
+    #endif
 
     func toDict() -> [String: Any] {
         var dict: [String: Any] = [
@@ -62,6 +102,16 @@ class RRWireframe {
         if let value = value {
             dict["value"] = value
         }
+
+        #if os(iOS)
+            if let image = image {
+                if let maskedImage = maskImage() {
+                    base64 = imageToBase64(maskedImage)
+                } else {
+                    base64 = imageToBase64(image)
+                }
+            }
+        #endif
 
         if let base64 = base64 {
             dict["base64"] = base64

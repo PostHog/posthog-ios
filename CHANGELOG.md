@@ -1,5 +1,7 @@
 ## Next
 
+## 3.7.1 - 2024-08-13
+
 - recording: improve ios session recording performance by doing some work off of the main thread ([#158](https://github.com/PostHog/posthog-ios/pull/158))
 
 ## 3.7.0 - 2024-08-07

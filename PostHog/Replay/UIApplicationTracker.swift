@@ -37,8 +37,6 @@
 
     extension UIApplication {
         private func captureEvent(_ event: UIEvent, date: Date) {
-            let timestamp = date.toMillis()
-
             if !PostHogSDK.shared.isSessionReplayActive() {
                 return
             }
@@ -73,7 +71,7 @@
                     // if the id is 0, BE transformer will set it to the virtual bodyId
                     let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
 
-                    let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": timestamp]
+                    let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": date.toMillis()]
                     snapshotsData.append(data)
                 }
                 if !snapshotsData.isEmpty {

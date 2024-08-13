@@ -40,21 +40,12 @@
                 return nil
             }
 
-            // Begin image context
-            UIGraphicsBeginImageContextWithOptions(bounds.size, isOpaque, 0.0)
+            let renderer = UIGraphicsImageRenderer(size: size)
 
-            // Render the view's layer into the current context
-            guard let context = UIGraphicsGetCurrentContext() else {
-                UIGraphicsEndImageContext()
-                return UIImage()
+            let image = renderer.image { context in
+                // Render the view's layer into the current context
+                layer.render(in: context.cgContext)
             }
-            layer.render(in: context)
-
-            // Capture the image from the current context
-            let image = UIGraphicsGetImageFromCurrentImageContext()
-
-            // End the image context
-            UIGraphicsEndImageContext()
 
             return image
         }

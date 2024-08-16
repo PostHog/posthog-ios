@@ -1,5 +1,8 @@
 ## Next
 
+- recording: improve ios session recording performance by avoiding redrawing after screen updates ([#166](https://github.com/PostHog/posthog-ios/pull/166))
+  - `debouncerDelay` is changed from 500ms to 1s since the iOS screenshot has to be taken in the main thread and its more sensitive to performance issues
+
 ## 3.7.1 - 2024-08-13
 
 - recording: improve ios session recording performance by doing some work off of the main thread ([#158](https://github.com/PostHog/posthog-ios/pull/158))

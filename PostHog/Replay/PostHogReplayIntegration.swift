@@ -460,9 +460,6 @@
         }
 
         @objc private func snapshot() {
-            // TODO: add debouncer with debouncerDelayMs to take into account how long it takes to execute the
-            // snapshot method
-
             if !PostHogSDK.shared.isSessionReplayActive() {
                 return
             }

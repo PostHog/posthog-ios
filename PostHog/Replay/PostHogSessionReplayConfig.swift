@@ -33,8 +33,8 @@
         /// Deboucer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact
-        /// Defaults to 500ms
-        @objc public var debouncerDelay: TimeInterval = 1.0 / 2.0
+        /// Defaults to 1s
+        @objc public var debouncerDelay: TimeInterval = 1.0
 
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }

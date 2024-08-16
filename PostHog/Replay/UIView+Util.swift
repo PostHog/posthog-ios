@@ -45,7 +45,8 @@
             // This can significantly improve rendering performance because the renderer won't need to
             // process transparency.
             rendererFormat.opaque = isOpaque
-            rendererFormat.scale = 0.5
+            // Another way to improve rendering performance is to scale the renderer's content.
+            // rendererFormat.scale = 0.5
             let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
 
             let image = renderer.image { context in

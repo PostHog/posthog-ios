@@ -35,13 +35,15 @@
 
         func toImage() -> UIImage? {
             // Avoid Rendering Offscreen Views
-            let size = bounds.intersection(superview?.bounds ?? bounds).size
+            let bounds = superview?.bounds ?? bounds
+            let size = bounds.intersection(bounds).size
 
             if !size.hasSize() {
                 return nil
             }
 
             let rendererFormat = UIGraphicsImageRendererFormat.default()
+
             // This can significantly improve rendering performance because the renderer won't need to
             // process transparency.
             rendererFormat.opaque = isOpaque
@@ -49,9 +51,8 @@
             // rendererFormat.scale = 0.5
             let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
 
-            let image = renderer.image { context in
-                // Render the view's layer into the current context
-                layer.render(in: context.cgContext)
+            let image = renderer.image { _ in
+                drawHierarchy(in: bounds, afterScreenUpdates: false)
             }
 
             return image

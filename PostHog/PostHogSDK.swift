@@ -176,13 +176,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return sessionManager?.getAnonymousId() ?? ""
     }
 
-    @objc public func getSessionId() -> String {
+    @objc public func getSessionId() -> String? {
         if !isEnabled() {
-            return ""
+            return nil
         }
-        
+
         return sessionLock.withLock {
-            return sessionId ?? ""
+            sessionId ?? ""
         }
     }
 

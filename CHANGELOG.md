@@ -1,6 +1,6 @@
 ## Next
 
-- recording: expose session id ([#165](https://github.com/PostHog/posthog-ios/pull/165)) and ([#166](https://github.com/PostHog/posthog-ios/pull/166))
+- chore: expose session id ([#165](https://github.com/PostHog/posthog-ios/pull/165)) and ([#170](https://github.com/PostHog/posthog-ios/pull/170))
 
 ## 3.7.1 - 2024-08-13
 

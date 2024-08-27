@@ -1,5 +1,7 @@
 ## Next
 
+- chore: expose session id ([#165](https://github.com/PostHog/posthog-ios/pull/165)) and ([#170](https://github.com/PostHog/posthog-ios/pull/170))
+
 ## 3.7.2 - 2024-08-16
 
 - recording: improve ios session recording performance by avoiding redrawing after screen updates ([#166](https://github.com/PostHog/posthog-ios/pull/166))

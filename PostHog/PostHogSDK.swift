@@ -181,9 +181,11 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return nil
         }
 
-        return sessionLock.withLock {
-            sessionId ?? ""
+        var tempSessionId: String?
+        sessionLock.withLock {
+            tempSessionId = sessionId
         }
+        return tempSessionId
     }
 
     // EVENT CAPTURE

@@ -67,7 +67,7 @@ class PostHogSessionManager {
     func startSession() {
         sessionLock.withLock {
             // only start if there is no session
-            guard sessionId != nil else {
+            if sessionId != nil {
                 return
             }
             rotateSession()
@@ -96,9 +96,6 @@ class PostHogSessionManager {
     }
 
     func isSessionActive() -> Bool {
-        guard let _ = getSessionId() else {
-            return false
-        }
-        return true
+        getSessionId() != nil
     }
 }

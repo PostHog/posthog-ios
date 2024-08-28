@@ -25,3 +25,5 @@ public func toISO8601Date(_ date: String) -> Date? {
     let dateFormatter = newDateFormatter()
     return dateFormatter.date(from: date)
 }
+
+var now: () -> Date = { Date() }

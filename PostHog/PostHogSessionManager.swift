@@ -2,68 +2,103 @@
 //  PostHogSessionManager.swift
 //  PostHog
 //
-//  Created by Ben White on 08.02.23.
+//  Created by Manoel Aranda Neto on 28.08.24.
 //
 
 import Foundation
 
 class PostHogSessionManager {
-    private let storage: PostHogStorage!
+    static let shared = PostHogSessionManager()
 
-    private let anonLock = NSLock()
-    private let distinctLock = NSLock()
-    private let idGen: (UUID) -> UUID
+    // Private initializer to prevent multiple instances
+    private init() {}
 
-    init(_ config: PostHogConfig) {
-        storage = PostHogStorage(config)
-        idGen = config.getAnonymousId
+    private var sessionId: String?
+    private var sessionLastTimestamp: TimeInterval?
+    private let sessionLock = NSLock()
+    // 30 minutes in seconds
+    private let sessionChangeThreshold: TimeInterval = 60 * 30
+
+    func getSessionId() -> String? {
+        var tempSessionId: String?
+        sessionLock.withLock {
+            tempSessionId = sessionId
+        }
+        return tempSessionId
+    }
+    
+    func setSessionId(sessionId: String) {
+        sessionLock.withLock {
+            self.sessionId = sessionId
+        }
     }
 
-    public func getAnonymousId() -> String {
-        var anonymousId: String?
-        anonLock.withLock {
-            anonymousId = storage.getString(forKey: .anonymousId)
+    func endSession() {
+        sessionLock.withLock {
+            sessionId = nil
+            sessionLastTimestamp = nil
+        }
+    }
 
-            if anonymousId == nil {
-                let uuid = UUID.v7()
-                anonymousId = idGen(uuid).uuidString
-                setAnonId(anonymousId ?? "")
+    private func isExpired(_ timeNow: TimeInterval, _ sessionLastTimestamp: TimeInterval) -> Bool {
+        timeNow - sessionLastTimestamp > sessionChangeThreshold
+    }
+
+    func resetSessionIfExpired() {
+        sessionLock.withLock {
+            let timeNow = now().timeIntervalSince1970
+            if sessionId != nil,
+               let sessionLastTimestamp = sessionLastTimestamp,
+               isExpired(timeNow, sessionLastTimestamp)
+            {
+                sessionId = nil
             }
         }
-
-        return anonymousId ?? ""
     }
 
-    public func setAnonymousId(_ id: String) {
-        anonLock.withLock {
-            setAnonId(id)
+    private func rotateSession() {
+        let newSessionId = UUID.v7().uuidString
+        let newSessionLastTimestamp = now().timeIntervalSince1970
+
+        sessionId = newSessionId
+        sessionLastTimestamp = newSessionLastTimestamp
+    }
+
+    func startSession() {
+        sessionLock.withLock {
+            // only start if there is no session
+            guard sessionId != nil else {
+                return
+            }
+            rotateSession()
         }
     }
 
-    private func setAnonId(_ id: String) {
-        storage.setString(forKey: .anonymousId, contents: id)
-    }
+    func rotateSessionIdIfRequired() {
+        sessionLock.withLock {
+            let timeNow = now().timeIntervalSince1970
 
-    public func getDistinctId() -> String {
-        var distinctId: String?
-        distinctLock.withLock {
-            distinctId = storage.getString(forKey: .distinctId) ?? getAnonymousId()
-        }
-        return distinctId ?? ""
-    }
+            guard sessionId != nil, let sessionLastTimestamp = sessionLastTimestamp else {
+                rotateSession()
+                return
+            }
 
-    public func setDistinctId(_ id: String) {
-        distinctLock.withLock {
-            storage.setString(forKey: .distinctId, contents: id)
+            if isExpired(timeNow, sessionLastTimestamp) {
+                rotateSession()
+            }
         }
     }
 
-    public func reset() {
-        distinctLock.withLock {
-            storage.remove(key: .distinctId)
+    func updateSessionLastTime() {
+        sessionLock.withLock {
+            sessionLastTimestamp = now().timeIntervalSince1970
         }
-        anonLock.withLock {
-            storage.remove(key: .anonymousId)
+    }
+
+    func isSessionActive() -> Bool {
+        guard let _ = getSessionId() else {
+            return false
         }
+        return true
     }
 }

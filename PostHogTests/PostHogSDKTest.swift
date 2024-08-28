@@ -49,7 +49,7 @@ class PostHogSDKTest: QuickSpec {
             server.start()
         }
         afterEach {
-            PostHogSDK.shared.now = { Date() }
+            now = { Date() }
             server.stop()
             server = nil
         }
@@ -582,7 +582,7 @@ class PostHogSDKTest: QuickSpec {
         it("uses the same sessionId for all events in a session") {
             let sut = self.getSut(flushAt: 3)
             let mockNow = MockDate()
-            sut.now = { mockNow.date }
+            now = { mockNow.date }
 
             sut.capture("event1")
 
@@ -610,7 +610,7 @@ class PostHogSDKTest: QuickSpec {
         it("rotates to a new sessionId only after > 30 mins in the background") {
             let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 5)
             let mockNow = MockDate()
-            sut.now = { mockNow.date }
+            now = { mockNow.date }
 
             sut.handleAppDidEnterBackground() // Background "timer": 0 mins
 
@@ -647,7 +647,7 @@ class PostHogSDKTest: QuickSpec {
         it("clears sessionId for background events after 30 mins in background") {
             let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
             let mockNow = MockDate()
-            sut.now = { mockNow.date }
+            now = { mockNow.date }
 
             sut.handleAppDidEnterBackground() // Background "timer": 0 mins
 
@@ -668,7 +668,7 @@ class PostHogSDKTest: QuickSpec {
         it("clears sessionId after reset") {
             let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
             let mockNow = MockDate()
-            sut.now = { mockNow.date }
+            now = { mockNow.date }
 
             sut.capture("event captured with session")
 

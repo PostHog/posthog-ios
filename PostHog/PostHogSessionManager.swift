@@ -26,7 +26,7 @@ class PostHogSessionManager {
         }
         return tempSessionId
     }
-    
+
     func setSessionId(sessionId: String) {
         sessionLock.withLock {
             self.sessionId = sessionId

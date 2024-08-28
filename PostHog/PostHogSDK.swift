@@ -178,6 +178,22 @@ let maxRetryDelay = 30.0
         return PostHogSessionManager.shared.getSessionId()
     }
 
+    @objc public func startSession() {
+        if !isEnabled() {
+            return
+        }
+
+        return PostHogSessionManager.shared.startSession()
+    }
+
+    @objc public func endSession() {
+        if !isEnabled() {
+            return
+        }
+
+        return PostHogSessionManager.shared.endSession()
+    }
+
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {
@@ -979,10 +995,7 @@ let maxRetryDelay = 30.0
     }
 
     func isSessionActive() -> Bool {
-        guard let _ = PostHogSessionManager.shared.getSessionId() else {
-            return false
-        }
-        return true
+        PostHogSessionManager.shared.isSessionActive()
     }
 
     #if os(iOS)

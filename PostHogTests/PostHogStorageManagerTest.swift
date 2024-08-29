@@ -1,5 +1,5 @@
 //
-//  PostHogSessionManagerTest.swift
+//  PostHogStorageManagerTest.swift
 //  PostHogTests
 //
 //  Created by Ben White on 22.03.23.
@@ -10,10 +10,10 @@ import Nimble
 @testable import PostHog
 import Quick
 
-class PostHogSessionManagerTest: QuickSpec {
-    func getSut() -> PostHogSessionManager {
+class PostHogStorageManagerTest: QuickSpec {
+    func getSut() -> PostHogStorageManager {
         let config = PostHogConfig(apiKey: "123")
-        return PostHogSessionManager(config)
+        return PostHogStorageManager(config)
     }
 
     override func spec() {
@@ -50,7 +50,7 @@ class PostHogSessionManagerTest: QuickSpec {
             let config = PostHogConfig(apiKey: "123")
             let fixedUuid = UUID.v7()
             config.getAnonymousId = { _ in fixedUuid }
-            let sut = PostHogSessionManager(config)
+            let sut = PostHogStorageManager(config)
             let anonymousId = sut.getAnonymousId()
             expect(anonymousId) == fixedUuid.uuidString
 

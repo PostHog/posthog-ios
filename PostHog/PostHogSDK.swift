@@ -17,8 +17,6 @@ import Foundation
 
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
-// 30 minutes in seconds
-private let sessionChangeThreshold: TimeInterval = 60 * 30
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {
@@ -33,25 +31,21 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
     private let personPropsLock = NSLock()
-    private let sessionLock = NSLock()
 
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
     private var api: PostHogApi?
     private var storage: PostHogStorage?
-    private var sessionManager: PostHogSessionManager?
+    private var storageManager: PostHogStorageManager?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
-    var now: () -> Date = { Date() }
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var appFromBackground = false
-    private var sessionId: String?
-    private var sessionLastTimestamp: TimeInterval?
     private var isInBackground = false
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
@@ -105,7 +99,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             let theApi = PostHogApi(config)
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
-            sessionManager = PostHogSessionManager(config)
+            storageManager = PostHogStorageManager(config)
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
@@ -142,7 +136,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             registerNotifications()
             captureScreenViews()
 
-            rotateSession()
+            PostHogSessionManager.shared.startSession()
 
             #if os(iOS)
                 if config.sessionReplay {
@@ -165,7 +159,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return ""
         }
 
-        return sessionManager?.getDistinctId() ?? ""
+        return storageManager?.getDistinctId() ?? ""
     }
 
     @objc public func getAnonymousId() -> String {
@@ -173,7 +167,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return ""
         }
 
-        return sessionManager?.getAnonymousId() ?? ""
+        return storageManager?.getAnonymousId() ?? ""
     }
 
     @objc public func getSessionId() -> String? {
@@ -181,11 +175,23 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return nil
         }
 
-        var tempSessionId: String?
-        sessionLock.withLock {
-            tempSessionId = sessionId
+        return PostHogSessionManager.shared.getSessionId()
+    }
+
+    @objc public func startSession() {
+        if !isEnabled() {
+            return
         }
-        return tempSessionId
+
+        return PostHogSessionManager.shared.startSession()
+    }
+
+    @objc public func endSession() {
+        if !isEnabled() {
+            return
+        }
+
+        return PostHogSessionManager.shared.endSession()
     }
 
     // EVENT CAPTURE
@@ -264,17 +270,13 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             }
         }
 
-        var theSessionId: String?
-        sessionLock.withLock {
-            theSessionId = sessionId
-        }
-        if let theSessionId = theSessionId {
-            props["$session_id"] = theSessionId
+        if let sessionId = PostHogSessionManager.shared.getSessionId() {
+            props["$session_id"] = sessionId
             // Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
             #if os(iOS)
                 if config.sessionReplay {
-                    props["$window_id"] = theSessionId
+                    props["$window_id"] = sessionId
                 }
             #endif
         }
@@ -310,14 +312,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         queue?.clear()
         replayQueue?.clear()
         flagCallReported.removeAll()
-        resetSession()
-    }
-
-    private func resetSession() {
-        sessionLock.withLock {
-            sessionId = nil
-            sessionLastTimestamp = nil
-        }
+        PostHogSessionManager.shared.endSession()
     }
 
     private func getGroups() -> [String: String] {
@@ -386,7 +381,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
-        guard let queue = queue, let sessionManager = sessionManager else {
+        guard let queue = queue, let sessionManager = storageManager else {
             return
         }
         let oldDistinctId = getDistinctId()
@@ -473,14 +468,8 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         }
 
         // If events fire in the background after the threshold, they should no longer have a sessionId
-        if isInBackground,
-           sessionId != nil,
-           let sessionLastTimestamp = sessionLastTimestamp,
-           now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold
-        {
-            sessionLock.withLock {
-                sessionId = nil
-            }
+        if isInBackground {
+            PostHogSessionManager.shared.resetSessionIfExpired()
         }
 
         let distinctId = getDistinctId()
@@ -675,7 +664,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             return
         }
 
-        guard let featureFlags = featureFlags, let sessionManager = sessionManager else {
+        guard let featureFlags = featureFlags, let sessionManager = storageManager else {
             return
         }
 
@@ -759,27 +748,6 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
         return enabled
     }
 
-    private func rotateSessionIdIfRequired() {
-        guard sessionId != nil, let sessionLastTimestamp = sessionLastTimestamp else {
-            rotateSession()
-            return
-        }
-
-        if now().timeIntervalSince1970 - sessionLastTimestamp > sessionChangeThreshold {
-            rotateSession()
-        }
-    }
-
-    private func rotateSession() {
-        let newSessionId = UUID.v7().uuidString
-        let newSessionLastTimestamp = now().timeIntervalSince1970
-
-        sessionLock.withLock {
-            sessionId = newSessionId
-            sessionLastTimestamp = newSessionLastTimestamp
-        }
-    }
-
     @objc public func optIn() {
         if !isEnabled() {
             return
@@ -833,7 +801,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             #endif
             queue = nil
             replayQueue = nil
-            sessionManager = nil
+            storageManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil
             featureFlags = nil
@@ -844,7 +812,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
             #endif
             flagCallReported.removeAll()
             context = nil
-            resetSession()
+            PostHogSessionManager.shared.endSession()
             unregisterNotifications()
             capturedAppInstalled = false
             appFromBackground = false
@@ -978,7 +946,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     @objc func handleAppDidBecomeActive() {
-        rotateSessionIdIfRequired()
+        PostHogSessionManager.shared.rotateSessionIdIfRequired()
 
         isInBackground = false
         captureAppOpened()
@@ -1014,9 +982,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     @objc func handleAppDidEnterBackground() {
         captureAppBackgrounded()
 
-        sessionLock.withLock {
-            sessionLastTimestamp = now().timeIntervalSince1970
-        }
+        PostHogSessionManager.shared.updateSessionLastTime()
 
         isInBackground = true
     }
@@ -1029,11 +995,7 @@ private let sessionChangeThreshold: TimeInterval = 60 * 30
     }
 
     func isSessionActive() -> Bool {
-        var active = false
-        sessionLock.withLock {
-            active = sessionId != nil
-        }
-        return active
+        PostHogSessionManager.shared.isSessionActive()
     }
 
     #if os(iOS)

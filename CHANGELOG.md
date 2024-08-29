@@ -1,5 +1,7 @@
 ## Next
 
+## 3.8.0 - 2024-08-29
+
 - fix: rotate session id when reset is called ([#174](https://github.com/PostHog/posthog-ios/pull/174))
 - chore: expose session id ([#165](https://github.com/PostHog/posthog-ios/pull/165)), ([#170](https://github.com/PostHog/posthog-ios/pull/170)) and ([#171](https://github.com/PostHog/posthog-ios/pull/171))
 

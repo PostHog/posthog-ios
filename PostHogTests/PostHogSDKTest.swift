@@ -693,7 +693,7 @@ class PostHogSDKTest: QuickSpec {
 
             let newSessionId = events[0].properties["$session_id"] as? String
             expect(newSessionId).toNot(beNil())
-            
+
             expect(currentSessionId).toNot(equal(newSessionId))
 
             sut.reset()

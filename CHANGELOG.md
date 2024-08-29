@@ -1,6 +1,6 @@
 ## Next
 
-- chore: expose session id ([#165](https://github.com/PostHog/posthog-ios/pull/165)) and ([#170](https://github.com/PostHog/posthog-ios/pull/170))
+- chore: expose session id ([#165](https://github.com/PostHog/posthog-ios/pull/165)), ([#170](https://github.com/PostHog/posthog-ios/pull/170)) and ([#171](https://github.com/PostHog/posthog-ios/pull/171))
 
 ## 3.7.2 - 2024-08-16
 

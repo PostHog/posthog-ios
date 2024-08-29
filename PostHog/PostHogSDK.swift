@@ -313,6 +313,7 @@ let maxRetryDelay = 30.0
         replayQueue?.clear()
         flagCallReported.removeAll()
         PostHogSessionManager.shared.endSession()
+        PostHogSessionManager.shared.startSession()
     }
 
     private func getGroups() -> [String: String] {

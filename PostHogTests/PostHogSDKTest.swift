@@ -666,7 +666,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("clears sessionId after reset") {
+        it("reset sessionId after reset") {
             let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
             let mockNow = MockDate()
             now = { mockNow.date }
@@ -676,7 +676,8 @@ class PostHogSDKTest: QuickSpec {
             var events = getBatchedEvents(server)
             expect(events.count) == 1
 
-            expect(events[0].properties["$session_id"] as? String).toNot(beNil())
+            let currentSessionId = events[0].properties["$session_id"] as? String
+            expect(currentSessionId).toNot(beNil())
 
             sut.reset()
 
@@ -690,7 +691,10 @@ class PostHogSDKTest: QuickSpec {
             events = getBatchedEvents(server)
             expect(events.count) == 1
 
-            expect(events[0].properties["$session_id"] as? String).to(beNil())
+            let newSessionId = events[0].properties["$session_id"] as? String
+            expect(newSessionId).toNot(beNil())
+
+            expect(currentSessionId).toNot(equal(newSessionId))
 
             sut.reset()
             sut.close()

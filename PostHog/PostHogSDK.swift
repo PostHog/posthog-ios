@@ -309,11 +309,12 @@ let maxRetryDelay = 30.0
 
         // storage also removes all feature flags
         storage?.reset()
-        queue?.clear()
-        replayQueue?.clear()
         flagCallReported.removeAll()
         PostHogSessionManager.shared.endSession()
         PostHogSessionManager.shared.startSession()
+
+        // reload flags as anon user
+        reloadFeatureFlags()
     }
 
     private func getGroups() -> [String: String] {

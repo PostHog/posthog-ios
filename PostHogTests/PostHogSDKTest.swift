@@ -727,6 +727,17 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
+
+        it("reset reloads flags as anon user") {
+            let sut = self.getSut()
+
+            sut.reset()
+
+            waitDecideRequest(server)
+            expect(sut.isFeatureEnabled("bool-value")) == true
+
+            sut.close()
+        }
     }
 }
 

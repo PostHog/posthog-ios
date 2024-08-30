@@ -1,5 +1,8 @@
 ## Next
 
+- fix: do not clear events when reset is called ([#175](https://github.com/PostHog/posthog-ios/pull/175))
+- fix: reload feature flags as anon user after reset is called ([#175](https://github.com/PostHog/posthog-ios/pull/175))
+
 ## 3.8.0 - 2024-08-29
 
 - fix: rotate session id when reset is called ([#174](https://github.com/PostHog/posthog-ios/pull/174))

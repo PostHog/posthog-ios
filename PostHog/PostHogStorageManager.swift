@@ -23,22 +23,19 @@ class PostHogStorageManager {
     }
 
     public func getAnonymousId() -> String {
-        var anonymousId: String?
         anonLock.withLock {
             if self.anonymousId == nil {
-                anonymousId = storage.getString(forKey: .anonymousId)
-                // update the memory value
-                self.anonymousId = anonymousId
-            }
+                var anonymousId = storage.getString(forKey: .anonymousId)
 
-            if anonymousId == nil {
-                let uuid = UUID.v7()
-                anonymousId = idGen(uuid).uuidString
-                setAnonId(anonymousId ?? "")
+                if anonymousId == nil {
+                    let uuid = UUID.v7()
+                    anonymousId = idGen(uuid).uuidString
+                    setAnonId(anonymousId ?? "")
+                }
             }
         }
 
-        return self.anonymousId ?? ""
+        return anonymousId ?? ""
     }
 
     public func setAnonymousId(_ id: String) {
@@ -56,12 +53,18 @@ class PostHogStorageManager {
         var distinctId: String?
         distinctLock.withLock {
             if self.distinctId == nil {
-                distinctId = storage.getString(forKey: .distinctId) ?? getAnonymousId()
-                // update the memory value
-                self.distinctId = distinctId
+                distinctId = storage.getString(forKey: .distinctId)
+
+                // do this to not assign the AnonymousId to the DistinctId, its just a fallback
+                if distinctId == nil {
+                    distinctId = getAnonymousId()
+                } else {
+                    // update the memory value
+                    self.distinctId = distinctId
+                }
             }
         }
-        return self.distinctId ?? ""
+        return distinctId ?? ""
     }
 
     public func setDistinctId(_ id: String) {

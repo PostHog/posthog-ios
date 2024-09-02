@@ -1,6 +1,6 @@
 ## Next
 
-- chore: cache flags, distinct id and anon id in memory to avoid file IO every time ([#175](https://github.com/PostHog/posthog-ios/pull/175))
+- chore: cache flags, distinct id and anon id in memory to avoid file IO every time ([#177](https://github.com/PostHog/posthog-ios/pull/177))
 
 ## 3.8.1 - 2024-08-30
 

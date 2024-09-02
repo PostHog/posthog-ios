@@ -20,8 +20,6 @@ class PostHogFeatureFlags {
     private var featureFlags: [String: Any]?
     private var featureFlagPayloads: [String: Any]?
 
-    // TODO: cache flags
-
     private let dispatchQueue = DispatchQueue(label: "com.posthog.FeatureFlags",
                                               target: .global(qos: .utility))
 

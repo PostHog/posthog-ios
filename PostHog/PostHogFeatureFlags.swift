@@ -17,6 +17,9 @@ class PostHogFeatureFlags {
     private var loadingFeatureFlags = false
     private var sessionReplayFlagActive = false
 
+    private var featureFlags: [String: Any]?
+    private var featureFlagPayloads: [String: Any]?
+
     private let dispatchQueue = DispatchQueue(label: "com.posthog.FeatureFlags",
                                               target: .global(qos: .utility))
 
@@ -94,18 +97,18 @@ class PostHogFeatureFlags {
 
                 self.featureFlagsLock.withLock {
                     if errorsWhileComputingFlags {
-                        let cachedFeatureFlags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any] ?? [:]
-                        let cachedFeatureFlagsPayloads = self.storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any] ?? [:]
+                        let cachedFeatureFlags = self.getCachedFeatureFlags() ?? [:]
+                        let cachedFeatureFlagsPayloads = self.getCachedFeatureFlagPayload() ?? [:]
 
                         let newFeatureFlags = cachedFeatureFlags.merging(featureFlags) { _, new in new }
                         let newFeatureFlagsPayloads = cachedFeatureFlagsPayloads.merging(featureFlagPayloads) { _, new in new }
 
                         // if not all flags were computed, we upsert flags instead of replacing them
-                        self.storage.setDictionary(forKey: .enabledFeatureFlags, contents: newFeatureFlags)
-                        self.storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: newFeatureFlagsPayloads)
+                        self.setCachedFeatureFlags(newFeatureFlags)
+                        self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                     } else {
-                        self.storage.setDictionary(forKey: .enabledFeatureFlags, contents: featureFlags)
-                        self.storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: featureFlagPayloads)
+                        self.setCachedFeatureFlags(featureFlags)
+                        self.setCachedFeatureFlagPayload(featureFlagPayloads)
                     }
                 }
 
@@ -129,7 +132,7 @@ class PostHogFeatureFlags {
     func getFeatureFlags() -> [String: Any]? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
-            flags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
+            flags = self.getCachedFeatureFlags()
         }
 
         return flags
@@ -138,7 +141,7 @@ class PostHogFeatureFlags {
     func isFeatureEnabled(_ key: String) -> Bool {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
-            flags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
+            flags = self.getCachedFeatureFlags()
         }
 
         let value = flags?[key]
@@ -158,16 +161,40 @@ class PostHogFeatureFlags {
     func getFeatureFlag(_ key: String) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
-            flags = self.storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
+            flags = self.getCachedFeatureFlags()
         }
 
         return flags?[key]
     }
 
+    private func getCachedFeatureFlagPayload() -> [String: Any]? {
+        if featureFlagPayloads == nil {
+            featureFlagPayloads = storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
+        }
+        return featureFlagPayloads
+    }
+
+    private func setCachedFeatureFlagPayload(_ featureFlagPayloads: [String: Any]) {
+        self.featureFlagPayloads = featureFlagPayloads
+        storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: featureFlagPayloads)
+    }
+
+    private func getCachedFeatureFlags() -> [String: Any]? {
+        if featureFlags == nil {
+            featureFlags = storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
+        }
+        return featureFlags
+    }
+
+    private func setCachedFeatureFlags(_ featureFlags: [String: Any]) {
+        self.featureFlags = featureFlags
+        storage.setDictionary(forKey: .enabledFeatureFlags, contents: featureFlags)
+    }
+
     func getFeatureFlagPayload(_ key: String) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
-            flags = self.storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
+            flags = getCachedFeatureFlagPayload()
         }
 
         let value = flags?[key]

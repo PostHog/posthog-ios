@@ -15,6 +15,7 @@ class PostHogStorageManager {
     private let idGen: (UUID) -> UUID
 
     private var distinctId: String?
+    private var cachedDistinctId = false
     private var anonymousId: String?
 
     init(_ config: PostHogConfig) {
@@ -53,7 +54,13 @@ class PostHogStorageManager {
         var distinctId: String?
         distinctLock.withLock {
             if self.distinctId == nil {
-                distinctId = storage.getString(forKey: .distinctId)
+                // since distinctId is nil until its identified, no need to read from
+                // cache every single time, otherwise anon users will never used the
+                // cached values
+                if !cachedDistinctId {
+                    distinctId = storage.getString(forKey: .distinctId)
+                    cachedDistinctId = true
+                }
 
                 // do this to not assign the AnonymousId to the DistinctId, its just a fallback
                 if distinctId == nil {
@@ -78,6 +85,7 @@ class PostHogStorageManager {
         distinctLock.withLock {
             storage.remove(key: .distinctId)
             distinctId = nil
+            cachedDistinctId = false
         }
         anonLock.withLock {
             storage.remove(key: .anonymousId)

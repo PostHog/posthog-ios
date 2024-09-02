@@ -14,6 +14,9 @@ class PostHogStorageManager {
     private let distinctLock = NSLock()
     private let idGen: (UUID) -> UUID
 
+    private var distinctId: String?
+    private var anonymousId: String?
+
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
         idGen = config.getAnonymousId
@@ -22,7 +25,7 @@ class PostHogStorageManager {
     public func getAnonymousId() -> String {
         var anonymousId: String?
         anonLock.withLock {
-            anonymousId = storage.getString(forKey: .anonymousId)
+            anonymousId = self.anonymousId ?? storage.getString(forKey: .anonymousId)
 
             if anonymousId == nil {
                 let uuid = UUID.v7()
@@ -41,19 +44,21 @@ class PostHogStorageManager {
     }
 
     private func setAnonId(_ id: String) {
+        anonymousId = id
         storage.setString(forKey: .anonymousId, contents: id)
     }
 
     public func getDistinctId() -> String {
         var distinctId: String?
         distinctLock.withLock {
-            distinctId = storage.getString(forKey: .distinctId) ?? getAnonymousId()
+            distinctId = self.distinctId ?? storage.getString(forKey: .distinctId) ?? getAnonymousId()
         }
         return distinctId ?? ""
     }
 
     public func setDistinctId(_ id: String) {
         distinctLock.withLock {
+            distinctId = id
             storage.setString(forKey: .distinctId, contents: id)
         }
     }
@@ -61,9 +66,11 @@ class PostHogStorageManager {
     public func reset() {
         distinctLock.withLock {
             storage.remove(key: .distinctId)
+            distinctId = nil
         }
         anonLock.withLock {
             storage.remove(key: .anonymousId)
+            anonymousId = nil
         }
     }
 }

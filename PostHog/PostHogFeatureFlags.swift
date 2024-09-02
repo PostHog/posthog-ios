@@ -168,7 +168,10 @@ class PostHogFeatureFlags {
     }
 
     private func getCachedFeatureFlagPayload() -> [String: Any]? {
-        featureFlagPayloads ?? storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
+        if featureFlagPayloads == nil {
+            featureFlagPayloads = storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
+        }
+        return featureFlagPayloads
     }
 
     private func setCachedFeatureFlagPayload(_ featureFlagPayloads: [String: Any]) {
@@ -177,7 +180,10 @@ class PostHogFeatureFlags {
     }
 
     private func getCachedFeatureFlags() -> [String: Any]? {
-        featureFlags ?? storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
+        if featureFlags == nil {
+            featureFlags = storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
+        }
+        return featureFlags
     }
 
     private func setCachedFeatureFlags(_ featureFlags: [String: Any]) {

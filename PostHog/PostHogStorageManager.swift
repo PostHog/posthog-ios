@@ -31,6 +31,11 @@ class PostHogStorageManager {
                 let uuid = UUID.v7()
                 anonymousId = idGen(uuid).uuidString
                 setAnonId(anonymousId ?? "")
+            } else {
+                // update the memory value
+                if self.anonymousId == nil {
+                    self.anonymousId = anonymousId
+                }
             }
         }
 
@@ -52,6 +57,11 @@ class PostHogStorageManager {
         var distinctId: String?
         distinctLock.withLock {
             distinctId = self.distinctId ?? storage.getString(forKey: .distinctId) ?? getAnonymousId()
+
+            // update the memory value
+            if self.distinctId == nil, distinctId != nil {
+                self.distinctId = distinctId
+            }
         }
         return distinctId ?? ""
     }

@@ -63,7 +63,7 @@ class FeatureFlagsModel: ObservableObject {
 
 struct ContentView: View {
     @State var counter: Int = 0
-    @State private var name: String = "Manoel3"
+    @State private var name: String = "Max"
     @State private var showingSheet = false
     @State private var showingRedactedSheet = false
     @StateObject var api = Api()

@@ -31,7 +31,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //        PostHogSDK.shared.capture("App started!")
 //        PostHogSDK.shared.reset()
 
-        PostHogSDK.shared.identify("Manoel")
+//        PostHogSDK.shared.identify("Manoel")
 
         let defaultCenter = NotificationCenter.default
 

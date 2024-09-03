@@ -1,6 +1,6 @@
 ## Next
 
-- recording: use non deprecated methods for getCurrentWindow if available ([#177](https://github.com/PostHog/posthog-ios/pull/177))
+- recording: use non deprecated methods for getCurrentWindow if available ([#178](https://github.com/PostHog/posthog-ios/pull/178))
 
 ## 3.8.2 - 2024-09-03
 

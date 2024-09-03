@@ -449,14 +449,27 @@
         }
 
         static func getCurrentWindow() -> UIWindow? {
-            guard let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) else {
-                return nil
+            // TODO: support multi windows
+
+            // UIApplication.shared.windows is deprecated
+            for scene in UIApplication.shared.connectedScenes {
+                if scene is UIWindowScene,
+                   scene.activationState == .foregroundActive,
+                   let windowScene = scene as? UIWindowScene
+                {
+                    if #available(iOS 15.0, *) {
+                        if let keyWindow = windowScene.keyWindow {
+                            return keyWindow
+                        }
+                    }
+
+                    for window in windowScene.windows where window.isKeyWindow {
+                        return window
+                    }
+                }
             }
 
-            guard let window = (activeScene as? UIWindowScene)?.windows.first(where: { $0.isKeyWindow }) else {
-                return nil
-            }
-            return window
+            return nil
         }
 
         @objc private func snapshot() {

@@ -449,12 +449,10 @@
         }
 
         static func getCurrentWindow() -> UIWindow? {
-            let app = UIApplication.shared
-
             // TODO: support multi windows
 
-            // app.windows is deprecated
-            for scene in app.connectedScenes {
+            // UIApplication.shared.windows is deprecated
+            for scene in UIApplication.shared.connectedScenes {
                 if scene is UIWindowScene,
                    scene.activationState == .foregroundActive,
                    let windowScene = scene as? UIWindowScene

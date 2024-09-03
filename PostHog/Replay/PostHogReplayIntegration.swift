@@ -454,7 +454,6 @@
             // TODO: support multi windows
 
             // app.windows is deprecated
-            var currentWindow: UIWindow?
             for scene in app.connectedScenes {
                 if scene is UIWindowScene,
                    scene.activationState == .foregroundActive,
@@ -462,19 +461,17 @@
                 {
                     if #available(iOS 15.0, *) {
                         if let keyWindow = windowScene.keyWindow {
-                            currentWindow = keyWindow
-                            break
+                            return keyWindow
                         }
                     }
 
                     for window in windowScene.windows where window.isKeyWindow {
-                        currentWindow = window
-                        break
+                        return window
                     }
                 }
             }
 
-            return currentWindow
+            return nil
         }
 
         @objc private func snapshot() {

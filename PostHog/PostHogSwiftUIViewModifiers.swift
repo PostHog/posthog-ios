@@ -37,8 +37,8 @@
                                                        properties: properties))
         }
 
-        func postHogViewEvent(_ event: String,
-                              _ properties: [String: Any]? = nil) -> some View
+        func postHogViewSeen(_ event: String,
+                             _ properties: [String: Any]? = nil) -> some View
         {
             modifier(PostHogSwiftUIViewModifier(viewEventName: event,
                                                 screenEvent: false,

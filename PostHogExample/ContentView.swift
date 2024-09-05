@@ -125,7 +125,7 @@ struct ContentView: View {
                     }
                     Button(action: triggerIdentify) {
                         Text("Trigger identify!")
-                    }.postHogViewEvent("Trigger identify")
+                    }.postHogViewSeen("Trigger identify")
                 }
 
                 Section("Feature flags") {

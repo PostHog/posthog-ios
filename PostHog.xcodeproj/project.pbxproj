@@ -89,6 +89,7 @@
 		699C5FEF2C20242A007DB818 /* UUIDTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699C5FEE2C20242A007DB818 /* UUIDTest.swift */; };
 		69BA38D72B888E8500AA69D6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 69BA38D62B888E8500AA69D6 /* PrivacyInfo.xcprivacy */; };
 		69ED1A5C2C7F15F300FE7A91 /* PostHogSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */; };
+		69ED1A882C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */; };
 		69EE82BA2BA9C50400EB9542 /* PostHogReplayIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EE82B92BA9C50400EB9542 /* PostHogReplayIntegration.swift */; };
 		69EE82BC2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */; };
 		69EE82BE2BA9C8AA00EB9542 /* ViewLayoutTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69EE82BD2BA9C8AA00EB9542 /* ViewLayoutTracker.swift */; };
@@ -341,6 +342,7 @@
 		699C5FEE2C20242A007DB818 /* UUIDTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UUIDTest.swift; sourceTree = "<group>"; };
 		69BA38D62B888E8500AA69D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManager.swift; sourceTree = "<group>"; };
+		69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwiftUIViewModifiers.swift; sourceTree = "<group>"; };
 		69EE82B92BA9C50400EB9542 /* PostHogReplayIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayIntegration.swift; sourceTree = "<group>"; };
 		69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConfig.swift; sourceTree = "<group>"; };
 		69EE82BD2BA9C8AA00EB9542 /* ViewLayoutTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewLayoutTracker.swift; sourceTree = "<group>"; };
@@ -549,6 +551,7 @@
 				69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */,
 				693E977A2C625208004B1030 /* PostHogPropertiesSanitizer.swift */,
 				69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */,
+				69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -1087,6 +1090,7 @@
 				69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */,
 				69F5183A2BB2BA8300F52C14 /* UIApplicationTracker.swift in Sources */,
 				69F518182BAC80A300F52C14 /* String+Util.swift in Sources */,
+				69ED1A882C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift in Sources */,
 				69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */,
 				69F517E82BAC675800F52C14 /* RRWireframe.swift in Sources */,
 				3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */,

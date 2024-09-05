@@ -211,7 +211,7 @@
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
-                if config.sessionReplayConfig.maskAllImages {
+                if isSwiftUIImageSensitive(view) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
@@ -310,6 +310,10 @@
                 // if there's no text, there's nothing to mask
                 return false
             }
+        }
+
+        private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
+            config.sessionReplayConfig.maskAllImages || view.isNoCapture()
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {

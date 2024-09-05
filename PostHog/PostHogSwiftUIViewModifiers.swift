@@ -28,12 +28,13 @@
     }
 
     public extension View {
-        func postHogScreenView(_ screenName: String,
+        func postHogScreenView(_ screenName: String? = nil,
                                _ properties: [String: Any]? = nil) -> some View
         {
-            modifier(PostHogSwiftUIViewModifier(viewEventName: screenName,
-                                                screenEvent: true,
-                                                properties: properties))
+            let viewEventName = screenName ?? "\(type(of: self))"
+            return modifier(PostHogSwiftUIViewModifier(viewEventName: viewEventName,
+                                                       screenEvent: true,
+                                                       properties: properties))
         }
 
         func postHogViewEvent(_ event: String,

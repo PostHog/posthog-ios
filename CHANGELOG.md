@@ -1,6 +1,6 @@
 ## Next
 
-- chore: add SwiftUI View extensions to capture screen view and views in general (postHogViewEvent, postHogScreenView) ([#178](https://github.com/PostHog/posthog-ios/pull/178))
+- chore: add SwiftUI View extensions to capture screen view and views in general (postHogViewEvent, postHogScreenView) ([#180](https://github.com/PostHog/posthog-ios/pull/180))
 
 ## 3.8.3 - 2024-09-03
 

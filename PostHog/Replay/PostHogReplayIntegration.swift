@@ -24,10 +24,11 @@
         // SwiftUI image types
         // https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app
         // https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application
-        private let swiftUIImageTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
-                                         "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
-                                         "SwiftUI._UIGraphicsView",
+        private let swiftUIImageTypes = ["SwiftUI._UIGraphicsView",
                                          "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
+
+        private let swiftUIGenericTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
+                                           "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView"].compactMap { NSClassFromString($0) }
 
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
@@ -210,7 +211,16 @@
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
-                if isAnyInputSensitive(view) {
+                if config.sessionReplayConfig.maskAllImages {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            // this can be anything, see https://github.com/PostHog/posthog-ios/issues/163
+            // so better to be conservative
+            if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }) {
+                if isTextInputSensitive(view) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }

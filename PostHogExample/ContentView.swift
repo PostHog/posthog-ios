@@ -104,6 +104,7 @@ struct ContentView: View {
                     }
                     .sheet(isPresented: $showingSheet) {
                         ContentView()
+                            .postHogScreenView("ContentViewSheet")
                     }
                     Button("Show redacted view") {
                         showingRedactedSheet.toggle()
@@ -124,7 +125,7 @@ struct ContentView: View {
                     }
                     Button(action: triggerIdentify) {
                         Text("Trigger identify!")
-                    }
+                    }.postHogViewSeen("Trigger identify")
                 }
 
                 Section("Feature flags") {

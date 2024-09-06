@@ -1,5 +1,7 @@
 ## Next
 
+## 3.9.1 - 2024-09-06
+
 - recording: detect swiftui images not too agressively ([#181](https://github.com/PostHog/posthog-ios/pull/181))
 
 ## 3.9.0 - 2024-09-06

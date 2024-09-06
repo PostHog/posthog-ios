@@ -221,8 +221,7 @@
                 }
             }
 
-            // this can be anything, see https://github.com/PostHog/posthog-ios/issues/163
-            // so better to be conservative
+            // this can be anything, so better to be conservative
             if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }) {
                 if isTextInputSensitive(view) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))

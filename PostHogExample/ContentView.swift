@@ -90,102 +90,99 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.white.edgesIgnoringSafeArea(.all)
-            NavigationStack {
-                List {
-                    Section("General") {
-                        NavigationLink {
-                            ContentView()
-                        } label: {
-                            Text("Infinite navigation")
-                        }.accessibilityIdentifier("ph-no-capture")
+        NavigationStack {
+            List {
+                Section("General") {
+                    NavigationLink {
+                        ContentView()
+                    } label: {
+                        Text("Infinite navigation")
+                    }.accessibilityIdentifier("ph-no-capture")
 
-                        Button("Show Sheet") {
-                            showingSheet.toggle()
-                        }
-                        .sheet(isPresented: $showingSheet) {
-                            ContentView()
-                                .postHogScreenView("ContentViewSheet")
-                        }
-                        Button("Show redacted view") {
-                            showingRedactedSheet.toggle()
-                        }
-                        .sheet(isPresented: $showingRedactedSheet) {
-                            RepresentedExampleUIView()
-                        }
-
-                        Text("Sensitive text!!").accessibilityIdentifier("ph-no-capture")
-                        Button(action: incCounter) {
-                            Text(String(counter))
-                        }.accessibilityIdentifier("ph-no-capture-id").accessibilityLabel("ph-no-capture")
-
-                        TextField("Enter your name", text: $name).accessibilityLabel("ph-no-capture")
-                        Text("Hello, \(name)!")
-                        Button(action: triggerAuthentication) {
-                            Text("Trigger fake authentication!")
-                        }
-                        Button(action: triggerIdentify) {
-                            Text("Trigger identify!")
-                        }.postHogViewSeen("Trigger identify")
+                    Button("Show Sheet") {
+                        showingSheet.toggle()
+                    }
+                    .sheet(isPresented: $showingSheet) {
+                        ContentView()
+                            .postHogScreenView("ContentViewSheet")
+                    }
+                    Button("Show redacted view") {
+                        showingRedactedSheet.toggle()
+                    }
+                    .sheet(isPresented: $showingRedactedSheet) {
+                        RepresentedExampleUIView()
                     }
 
-                    Section("Feature flags") {
-                        HStack {
-                            Text("Boolean:")
-                            Spacer()
-                            Text("\(featureFlagsModel.boolValue?.description ?? "unknown")")
-                                .foregroundColor(.secondary)
-                        }
-                        HStack {
-                            Text("String:")
-                            Spacer()
-                            Text("\(featureFlagsModel.stringValue ?? "unknown")")
-                                .foregroundColor(.secondary)
-                        }
+                    Text("Sensitive text!!").accessibilityIdentifier("ph-no-capture")
+                    Button(action: incCounter) {
+                        Text(String(counter))
+                    }.accessibilityIdentifier("ph-no-capture-id").accessibilityLabel("ph-no-capture")
 
-                        HStack {
-                            Text("Payload:")
-                            Spacer()
-                            Text("\(featureFlagsModel.payloadValue?.description ?? "unknown")")
-                                .foregroundColor(.secondary)
-                        }
-                        HStack {
-                            Button(action: triggerFlagReload) {
-                                Text("Reload flags")
-                            }
-                            Spacer()
-                            if featureFlagsModel.isReloading {
-                                ProgressView()
-                            }
-                        }
+                    TextField("Enter your name", text: $name).accessibilityLabel("ph-no-capture")
+                    Text("Hello, \(name)!")
+                    Button(action: triggerAuthentication) {
+                        Text("Trigger fake authentication!")
+                    }
+                    Button(action: triggerIdentify) {
+                        Text("Trigger identify!")
+                    }.postHogViewSeen("Trigger identify")
+                }
+
+                Section("Feature flags") {
+                    HStack {
+                        Text("Boolean:")
+                        Spacer()
+                        Text("\(featureFlagsModel.boolValue?.description ?? "unknown")")
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("String:")
+                        Spacer()
+                        Text("\(featureFlagsModel.stringValue ?? "unknown")")
+                            .foregroundColor(.secondary)
                     }
 
-                    Section("PostHog beers") {
-                        if !api.beers.isEmpty {
-                            ForEach(api.beers) { beer in
-                                HStack(alignment: .center) {
-                                    Text(beer.name)
-                                    Spacer()
-                                    Text("First brewed")
-                                    Text(beer.first_brewed).foregroundColor(Color.gray)
-                                }
-                            }
-                        } else {
-                            HStack {
-                                Text("Loading beers...")
-                                Spacer()
-                                ProgressView()
-                            }
+                    HStack {
+                        Text("Payload:")
+                        Spacer()
+                        Text("\(featureFlagsModel.payloadValue?.description ?? "unknown")")
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Button(action: triggerFlagReload) {
+                            Text("Reload flags")
+                        }
+                        Spacer()
+                        if featureFlagsModel.isReloading {
+                            ProgressView()
                         }
                     }
                 }
-                .navigationTitle("PostHog")
-            }.onAppear {
-                api.listBeers(completion: { beers in
-                    api.beers = beers
-                })
+
+                Section("PostHog beers") {
+                    if !api.beers.isEmpty {
+                        ForEach(api.beers) { beer in
+                            HStack(alignment: .center) {
+                                Text(beer.name)
+                                Spacer()
+                                Text("First brewed")
+                                Text(beer.first_brewed).foregroundColor(Color.gray)
+                            }
+                        }
+                    } else {
+                        HStack {
+                            Text("Loading beers...")
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
             }
+            .navigationTitle("PostHog")
+        }.onAppear {
+            api.listBeers(completion: { beers in
+                api.beers = beers
+            })
         }
     }
 }

@@ -13,11 +13,8 @@ struct PostHogExampleApp: App {
 
     var body: some Scene {
         WindowGroup {
-//            ContentView()
-//                .postHogScreenView() // will infer the class name (ContentView)
-            VStack {
-                Color.white
-            }
+            ContentView()
+                .postHogScreenView() // will infer the class name (ContentView)
         }
     }
 }

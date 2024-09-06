@@ -1,5 +1,7 @@
 ## Next
 
+- recording: detect swiftui images not too agressively ([#181](https://github.com/PostHog/posthog-ios/pull/181))
+
 ## 3.9.0 - 2024-09-06
 
 - chore: add SwiftUI View extensions to capture screen view and views in general (postHogViewEvent, postHogScreenView) ([#180](https://github.com/PostHog/posthog-ios/pull/180))

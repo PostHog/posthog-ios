@@ -24,10 +24,11 @@
         // SwiftUI image types
         // https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app
         // https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application
-        private let swiftUIImageTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
-                                         "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
-                                         "SwiftUI._UIGraphicsView",
+        private let swiftUIImageTypes = ["SwiftUI._UIGraphicsView",
                                          "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
+
+        private let swiftUIGenericTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
+                                           "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView"].compactMap { NSClassFromString($0) }
 
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
@@ -214,7 +215,15 @@
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
-                if isAnyInputSensitive(view) {
+                if isSwiftUIImageSensitive(view) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            // this can be anything, so better to be conservative
+            if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }) {
+                if isTextInputSensitive(view) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
@@ -304,6 +313,15 @@
                 // if there's no text, there's nothing to mask
                 return false
             }
+        }
+
+        private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
+            // the raw type _UIGraphicsView is always something like Color.white or similar
+            // never contains PII and should not be masked
+            let type = type(of: view)
+
+            let rawGraphicsView = String(describing: type) == "_UIGraphicsView"
+            return (config.sessionReplayConfig.maskAllImages || view.isNoCapture()) && !rawGraphicsView
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {

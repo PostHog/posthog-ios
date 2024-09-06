@@ -33,11 +33,11 @@ class PostHogSessionManager {
         }
     }
 
-    func endSession(_ completion: (() -> Void)? = nil) {
+    func endSession(_ completion: () -> Void) {
         sessionLock.withLock {
             sessionId = nil
             sessionLastTimestamp = nil
-            completion?()
+            completion()
         }
     }
 
@@ -45,7 +45,7 @@ class PostHogSessionManager {
         timeNow - sessionLastTimestamp > sessionChangeThreshold
     }
 
-    func resetSessionIfExpired(_ completion: (() -> Void)? = nil) {
+    func resetSessionIfExpired(_ completion: () -> Void) {
         sessionLock.withLock {
             let timeNow = now().timeIntervalSince1970
             if sessionId != nil,
@@ -53,7 +53,7 @@ class PostHogSessionManager {
                isExpired(timeNow, sessionLastTimestamp)
             {
                 sessionId = nil
-                completion?()
+                completion()
             }
         }
     }
@@ -77,7 +77,7 @@ class PostHogSessionManager {
         }
     }
 
-    func rotateSessionIdIfRequired(_ completion: (() -> Void)?) {
+    func rotateSessionIdIfRequired(_ completion: @escaping (() -> Void)) {
         sessionLock.withLock {
             let timeNow = now().timeIntervalSince1970
 

@@ -184,7 +184,7 @@ let maxRetryDelay = 30.0
         }
 
         PostHogSessionManager.shared.startSession {
-            self.resetViewsCallback()
+            self.resetViews()
         }
     }
 
@@ -194,7 +194,7 @@ let maxRetryDelay = 30.0
         }
 
         PostHogSessionManager.shared.endSession {
-            self.resetViewsCallback()
+            self.resetViews()
         }
     }
 
@@ -315,7 +315,7 @@ let maxRetryDelay = 30.0
         storage?.reset()
         flagCallReported.removeAll()
         PostHogSessionManager.shared.endSession {
-            self.resetViewsCallback()
+            self.resetViews()
         }
         PostHogSessionManager.shared.startSession()
 
@@ -323,7 +323,7 @@ let maxRetryDelay = 30.0
         reloadFeatureFlags()
     }
 
-    private func resetViewsCallback() {
+    private func resetViews() {
         #if os(iOS)
             replayIntegration?.resetViews()
         #endif
@@ -484,7 +484,7 @@ let maxRetryDelay = 30.0
         // If events fire in the background after the threshold, they should no longer have a sessionId
         if isInBackground {
             PostHogSessionManager.shared.resetSessionIfExpired {
-                self.resetViewsCallback()
+                self.resetViews()
             }
         }
 
@@ -829,7 +829,7 @@ let maxRetryDelay = 30.0
             flagCallReported.removeAll()
             context = nil
             PostHogSessionManager.shared.endSession {
-                self.resetViewsCallback()
+                self.resetViews()
             }
             unregisterNotifications()
             capturedAppInstalled = false
@@ -965,7 +965,7 @@ let maxRetryDelay = 30.0
 
     @objc func handleAppDidBecomeActive() {
         PostHogSessionManager.shared.rotateSessionIdIfRequired {
-            self.resetViewsCallback()
+            self.resetViews()
         }
 
         isInBackground = false

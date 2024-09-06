@@ -156,35 +156,35 @@
         }
 
         private func findMaskableWidgets(_ view: UIView, _ parent: UIView, _ maskableWidgets: inout [CGRect]) {
-            if let textView = view as? UITextView {
+            if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
                 if isTextViewSensitive(textView) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let textField = view as? UITextField {
+            if let textField = view as? UITextField { // TextField
                 if isTextFieldSensitive(textField) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let image = view as? UIImageView {
+            if let image = view as? UIImageView { // Image, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isImageViewSensitive(image) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let label = view as? UILabel {
+            if let label = view as? UILabel { // Text, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isLabelSensitive(label) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let webView = view as? WKWebView {
+            if let webView = view as? WKWebView { // Link, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 // since we cannot mask the webview content, if masking texts or images are enabled
                 // we mask the whole webview as well
                 if isAnyInputSensitive(webView) {
@@ -193,29 +193,32 @@
                 }
             }
 
-            if let button = view as? UIButton {
+            if let button = view as? UIButton { // Button, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isButtonSensitive(button) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let theSwitch = view as? UISwitch {
+            if let theSwitch = view as? UISwitch { // Toggle (no text, items are just rendered to Text (swiftUIImageTypes))
                 if isSwitchSensitive(theSwitch) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
             }
 
-            if let picker = view as? UIPickerView {
-                if isPickerSensitive(picker) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+            // if its a generic type and has subviews, subviews have to be checked first
+            let hasSubViews = !view.subviews.isEmpty
+
+            if let picker = view as? UIPickerView { // Picker (no source, items are just rendered to Text (swiftUIImageTypes))
+                if isTextInputSensitive(picker), !hasSubViews {
+                    maskableWidgets.append(picker.toAbsoluteRect(parent))
                     return
                 }
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
-                if isSwiftUIImageSensitive(view) {
+                if isSwiftUIImageSensitive(view), !hasSubViews {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
@@ -223,7 +226,7 @@
 
             // this can be anything, so better to be conservative
             if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }) {
-                if isTextInputSensitive(view) {
+                if isTextInputSensitive(view), !hasSubViews {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
@@ -289,10 +292,6 @@
             (isTextInputSensitive(view) || view.isSensitiveText()) && hasText(view.text)
         }
 
-        private func isPickerSensitive(_ view: UIPickerView) -> Bool {
-            isTextInputSensitive(view) && view.dataSource != nil
-        }
-
         private func isSwitchSensitive(_ view: UISwitch) -> Bool {
             var containsText = true
             if #available(iOS 14.0, *) {
@@ -318,6 +317,7 @@
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
             // the raw type _UIGraphicsView is always something like Color.white or similar
             // never contains PII and should not be masked
+            // Button will fall in this case case but Button has subviews
             let type = type(of: view)
 
             let rawGraphicsView = String(describing: type) == "_UIGraphicsView"

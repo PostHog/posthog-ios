@@ -317,7 +317,12 @@
         }
 
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
-            config.sessionReplayConfig.maskAllImages || view.isNoCapture()
+            // the raw type _UIGraphicsView is always something like Color.white or similar
+            // never contains PII and should not be masked
+            let type = type(of: view)
+
+            let rawGraphicsView = String(describing: type) == "_UIGraphicsView"
+            return (config.sessionReplayConfig.maskAllImages || view.isNoCapture()) && !rawGraphicsView
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {

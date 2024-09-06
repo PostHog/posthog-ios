@@ -33,10 +33,11 @@ class PostHogSessionManager {
         }
     }
 
-    func endSession() {
+    func endSession(_ completion: (() -> Void)? = nil) {
         sessionLock.withLock {
             sessionId = nil
             sessionLastTimestamp = nil
+            completion?()
         }
     }
 
@@ -44,7 +45,7 @@ class PostHogSessionManager {
         timeNow - sessionLastTimestamp > sessionChangeThreshold
     }
 
-    func resetSessionIfExpired() {
+    func resetSessionIfExpired(_ completion: (() -> Void)? = nil) {
         sessionLock.withLock {
             let timeNow = now().timeIntervalSince1970
             if sessionId != nil,
@@ -52,39 +53,41 @@ class PostHogSessionManager {
                isExpired(timeNow, sessionLastTimestamp)
             {
                 sessionId = nil
+                completion?()
             }
         }
     }
 
-    private func rotateSession() {
+    private func rotateSession(_ completion: (() -> Void)?) {
         let newSessionId = UUID.v7().uuidString
         let newSessionLastTimestamp = now().timeIntervalSince1970
 
         sessionId = newSessionId
         sessionLastTimestamp = newSessionLastTimestamp
+        completion?()
     }
 
-    func startSession() {
+    func startSession(_ completion: (() -> Void)? = nil) {
         sessionLock.withLock {
             // only start if there is no session
             if sessionId != nil {
                 return
             }
-            rotateSession()
+            rotateSession(completion)
         }
     }
 
-    func rotateSessionIdIfRequired() {
+    func rotateSessionIdIfRequired(_ completion: (() -> Void)?) {
         sessionLock.withLock {
             let timeNow = now().timeIntervalSince1970
 
             guard sessionId != nil, let sessionLastTimestamp = sessionLastTimestamp else {
-                rotateSession()
+                rotateSession(completion)
                 return
             }
 
             if isExpired(timeNow, sessionLastTimestamp) {
-                rotateSession()
+                rotateSession(completion)
             }
         }
     }

@@ -325,7 +325,9 @@ let maxRetryDelay = 30.0
 
     private func resetViews() {
         #if os(iOS)
-            replayIntegration?.resetViews()
+            if config.sessionReplay, featureFlags?.isSessionReplayFlagActive() ?? false {
+                replayIntegration?.resetViews()
+            }
         #endif
     }
 

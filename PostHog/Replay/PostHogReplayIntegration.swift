@@ -73,6 +73,10 @@
             timer = nil
         }
 
+        func resetViews() {
+            windowViews.removeAllObjects()
+        }
+
         private func generateSnapshot(_ view: UIView, _ screenName: String? = nil) {
             var hasChanges = false
 

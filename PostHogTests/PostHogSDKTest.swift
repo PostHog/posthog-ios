@@ -52,7 +52,7 @@ class PostHogSDKTest: QuickSpec {
             now = { Date() }
             server.stop()
             server = nil
-            PostHogSessionManager.shared.endSession()
+            PostHogSessionManager.shared.endSession {}
         }
 
         it("captures the capture event") {

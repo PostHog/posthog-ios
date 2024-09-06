@@ -1,6 +1,7 @@
 ## Next
 
 - chore: add SwiftUI View extensions to capture screen view and views in general (postHogViewEvent, postHogScreenView) ([#180](https://github.com/PostHog/posthog-ios/pull/180))
+- recording: send meta event again if session rotates ([#183](https://github.com/PostHog/posthog-ios/pull/183))
 
 ## 3.8.3 - 2024-09-03
 

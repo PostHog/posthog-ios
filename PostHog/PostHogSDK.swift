@@ -183,7 +183,9 @@ let maxRetryDelay = 30.0
             return
         }
 
-        return PostHogSessionManager.shared.startSession()
+        PostHogSessionManager.shared.startSession {
+            self.resetViews()
+        }
     }
 
     @objc public func endSession() {
@@ -191,7 +193,9 @@ let maxRetryDelay = 30.0
             return
         }
 
-        return PostHogSessionManager.shared.endSession()
+        PostHogSessionManager.shared.endSession {
+            self.resetViews()
+        }
     }
 
     // EVENT CAPTURE
@@ -310,11 +314,21 @@ let maxRetryDelay = 30.0
         // storage also removes all feature flags
         storage?.reset()
         flagCallReported.removeAll()
-        PostHogSessionManager.shared.endSession()
+        PostHogSessionManager.shared.endSession {
+            self.resetViews()
+        }
         PostHogSessionManager.shared.startSession()
 
         // reload flags as anon user
         reloadFeatureFlags()
+    }
+
+    private func resetViews() {
+        #if os(iOS)
+            if config.sessionReplay, featureFlags?.isSessionReplayFlagActive() ?? false {
+                replayIntegration?.resetViews()
+            }
+        #endif
     }
 
     private func getGroups() -> [String: String] {
@@ -471,7 +485,9 @@ let maxRetryDelay = 30.0
 
         // If events fire in the background after the threshold, they should no longer have a sessionId
         if isInBackground {
-            PostHogSessionManager.shared.resetSessionIfExpired()
+            PostHogSessionManager.shared.resetSessionIfExpired {
+                self.resetViews()
+            }
         }
 
         let distinctId = getDistinctId()
@@ -814,7 +830,9 @@ let maxRetryDelay = 30.0
             #endif
             flagCallReported.removeAll()
             context = nil
-            PostHogSessionManager.shared.endSession()
+            PostHogSessionManager.shared.endSession {
+                self.resetViews()
+            }
             unregisterNotifications()
             capturedAppInstalled = false
             appFromBackground = false
@@ -948,7 +966,9 @@ let maxRetryDelay = 30.0
     }
 
     @objc func handleAppDidBecomeActive() {
-        PostHogSessionManager.shared.rotateSessionIdIfRequired()
+        PostHogSessionManager.shared.rotateSessionIdIfRequired {
+            self.resetViews()
+        }
 
         isInBackground = false
         captureAppOpened()

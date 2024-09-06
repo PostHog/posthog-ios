@@ -1,6 +1,6 @@
 ## Next
 
-- recording: background colors in swiftui won't mask the whole screen ([#183](https://github.com/PostHog/posthog-ios/pull/183))
+- recording: background colors in swiftui won't mask the whole screen ([#181](https://github.com/PostHog/posthog-ios/pull/181))
 
 ## 3.9.0 - 2024-09-06
 

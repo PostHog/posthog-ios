@@ -12,11 +12,13 @@ class PostHogStorageManager {
 
     private let anonLock = NSLock()
     private let distinctLock = NSLock()
+    private let identifiedLock = NSLock()
     private let idGen: (UUID) -> UUID
 
     private var distinctId: String?
     private var cachedDistinctId = false
     private var anonymousId: String?
+    private var isIdentifiedValue: Bool?
 
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
@@ -87,6 +89,22 @@ class PostHogStorageManager {
         }
     }
 
+    public func isIdentified() -> Bool {
+        identifiedLock.withLock {
+            if isIdentifiedValue == nil {
+                isIdentifiedValue = storage.getBool(forKey: .isIdentified) ?? (distinctId != anonymousId)
+            }
+        }
+        return isIdentifiedValue ?? false
+    }
+
+    public func setIdentified(_ isIdentified: Bool) {
+        identifiedLock.withLock {
+            isIdentifiedValue = isIdentified
+            storage.setBool(forKey: .isIdentified, contents: isIdentified)
+        }
+    }
+
     public func reset() {
         distinctLock.withLock {
             storage.remove(key: .distinctId)
@@ -96,6 +114,10 @@ class PostHogStorageManager {
         anonLock.withLock {
             storage.remove(key: .anonymousId)
             anonymousId = nil
+        }
+        identifiedLock.withLock {
+            isIdentifiedValue = nil
+            storage.remove(key: .isIdentified)
         }
     }
 }

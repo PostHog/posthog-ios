@@ -92,7 +92,7 @@ class PostHogStorageManager {
     public func isIdentified() -> Bool {
         identifiedLock.withLock {
             if isIdentifiedValue == nil {
-                isIdentifiedValue = storage.getBool(forKey: .isIdentified) ?? (distinctId != anonymousId)
+                isIdentifiedValue = storage.getBool(forKey: .isIdentified) ?? (getDistinctId() != getDistinctId())
             }
         }
         return isIdentifiedValue ?? false
@@ -105,16 +105,27 @@ class PostHogStorageManager {
         }
     }
 
-    public func reset() {
+    public func reset(_ resetStorage: Bool = false) {
+        // resetStorage is only used for testing, when the reset method is called,
+        // the storage is also cleared, so we dont do here to not do it twice.
         distinctLock.withLock {
             distinctId = nil
             cachedDistinctId = false
+            if resetStorage {
+                storage.remove(key: .distinctId)
+            }
         }
         anonLock.withLock {
             anonymousId = nil
+            if resetStorage {
+                storage.remove(key: .anonymousId)
+            }
         }
         identifiedLock.withLock {
             isIdentifiedValue = nil
+            if resetStorage {
+                storage.remove(key: .isIdentified)
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.10.0 - 2024-09-09
+
 - recording: mask swiftui picker if masking enabled ([#184](https://github.com/PostHog/posthog-ios/pull/184))
 - chore: add is identified property ([#186](https://github.com/PostHog/posthog-ios/pull/186))
 - recording: create timers in the main thread since it requires a run loop ([#188](https://github.com/PostHog/posthog-ios/pull/188))

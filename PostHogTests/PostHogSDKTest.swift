@@ -134,6 +134,39 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("does not capture identify event if already identified") {
+            let sut = self.getSut()
+
+            sut.identify("distinctId",
+                         userProperties: ["userProp": "value"],
+                         userPropertiesSetOnce: ["userPropOnce": "value"])
+
+            sut.identify("distinctId",
+                         userProperties: ["userProp2": "value2"],
+                         userPropertiesSetOnce: ["userPropOnce2": "value2"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$identify"
+
+            expect(event.distinctId) == "distinctId"
+            let anonId = sut.getAnonymousId()
+            expect(event.properties["$anon_distinct_id"] as? String) == anonId
+            expect(event.properties["$is_identified"] as? Bool) == true
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["userProp"] as? String) == "value"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["userPropOnce"] as? String) == "value"
+
+            sut.reset()
+            sut.close()
+        }
+
         it("captures an alias event") {
             let sut = self.getSut()
 

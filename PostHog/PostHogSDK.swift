@@ -239,6 +239,24 @@ let maxRetryDelay = 30.0
         return properties
     }
 
+    private func hasPersonProcessing() -> Bool {
+        !(
+            config.personProfiles == .never ||
+                (
+                    config.personProfiles == .identifiedOnly &&
+                        storageManager?.isIdentified() == false
+                )
+        )
+    }
+
+    private func requirePersonProcessing() -> Bool {
+        if config.personProfiles == .never {
+            hedgeLog("personProfiles is set to `never`. This call will be ignored.")
+            return false
+        }
+        return true
+    }
+
     private func buildProperties(distinctId: String,
                                  properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
@@ -276,6 +294,8 @@ let maxRetryDelay = 30.0
             if let isIdentified = storageManager?.isIdentified() {
                 props["$is_identified"] = isIdentified
             }
+
+            props["$process_person_profile"] = hasPersonProcessing()
         }
 
         if let sessionId = PostHogSessionManager.shared.getSessionId() {
@@ -404,6 +424,10 @@ let maxRetryDelay = 30.0
         }
 
         if isOptOutState() {
+            return
+        }
+
+        if !requirePersonProcessing() {
             return
         }
 
@@ -584,6 +608,10 @@ let maxRetryDelay = 30.0
             return
         }
 
+        if !requirePersonProcessing() {
+            return
+        }
+
         guard let queue = queue else {
             return
         }
@@ -677,6 +705,10 @@ let maxRetryDelay = 30.0
         }
 
         if isOptOutState() {
+            return
+        }
+
+        if !requirePersonProcessing() {
             return
         }
 

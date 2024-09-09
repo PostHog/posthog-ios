@@ -272,6 +272,10 @@ let maxRetryDelay = 30.0
                 let mergedGroups = currentGroups.merging(groups ?? [:]) { current, _ in current }
                 props["$groups"] = mergedGroups
             }
+
+            if let isIdentified = storageManager?.isIdentified() {
+                props["$is_identified"] = isIdentified
+            }
         }
 
         if let sessionId = PostHogSessionManager.shared.getSessionId() {
@@ -313,6 +317,7 @@ let maxRetryDelay = 30.0
 
         // storage also removes all feature flags
         storage?.reset()
+        storageManager?.reset()
         flagCallReported.removeAll()
         PostHogSessionManager.shared.endSession {
             self.resetViews()
@@ -393,33 +398,44 @@ let maxRetryDelay = 30.0
             return
         }
 
+        if distinctId.isEmpty {
+            hedgeLog("identify call not allowed, distinctId is invalid: \(distinctId)")
+            return
+        }
+
         if isOptOutState() {
             return
         }
 
-        guard let queue = queue, let sessionManager = storageManager else {
+        guard let queue = queue, let storageManager = storageManager else {
             return
         }
         let oldDistinctId = getDistinctId()
 
-        let properties = buildProperties(distinctId: distinctId, properties: [
-            "distinct_id": distinctId,
-            "$anon_distinct_id": getAnonymousId(),
-        ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
-        let sanitizedProperties = sanitizeProperties(properties)
+        let isIdentified = storageManager.isIdentified()
 
-        queue.add(PostHogEvent(
-            event: "$identify",
-            distinctId: distinctId,
-            properties: sanitizedProperties
-        ))
-
-        if distinctId != oldDistinctId {
+        if distinctId != oldDistinctId, !isIdentified {
             // We keep the AnonymousId to be used by decide calls and identify to link the previousId
-            sessionManager.setAnonymousId(oldDistinctId)
-            sessionManager.setDistinctId(distinctId)
+            storageManager.setAnonymousId(oldDistinctId)
+            storageManager.setDistinctId(distinctId)
+
+            storageManager.setIdentified(true)
+
+            let properties = buildProperties(distinctId: distinctId, properties: [
+                "distinct_id": distinctId,
+                "$anon_distinct_id": oldDistinctId,
+            ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
+            let sanitizedProperties = sanitizeProperties(properties)
+
+            queue.add(PostHogEvent(
+                event: "$identify",
+                distinctId: distinctId,
+                properties: sanitizedProperties
+            ))
 
             reloadFeatureFlags()
+        } else {
+            hedgeLog("already identified with id: \(oldDistinctId)")
         }
     }
 
@@ -682,7 +698,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let featureFlags = featureFlags, let sessionManager = storageManager else {
+        guard let featureFlags = featureFlags, let storageManager = storageManager else {
             return
         }
 
@@ -691,8 +707,8 @@ let maxRetryDelay = 30.0
             groups = getGroups()
         }
         featureFlags.loadFeatureFlags(
-            distinctId: sessionManager.getDistinctId(),
-            anonymousId: sessionManager.getAnonymousId(),
+            distinctId: storageManager.getDistinctId(),
+            anonymousId: storageManager.getAnonymousId(),
             groups: groups ?? [:],
             callback: callback
         )
@@ -819,6 +835,7 @@ let maxRetryDelay = 30.0
             #endif
             queue = nil
             replayQueue = nil
+            storageManager?.reset()
             storageManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil

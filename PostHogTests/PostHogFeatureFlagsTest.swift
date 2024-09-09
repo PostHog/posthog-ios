@@ -177,7 +177,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
 
                 group.wait()
 
-                expect(storage.getDictionary(forKey: .sessionReplay) == nil)
+                expect(storage.getDictionary(forKey: .sessionReplay)) == nil
                 expect(sut.isSessionReplayFlagActive()) == false
 
                 storage.reset()

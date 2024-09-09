@@ -12,11 +12,13 @@ class PostHogStorageManager {
 
     private let anonLock = NSLock()
     private let distinctLock = NSLock()
+    private let identifiedLock = NSLock()
     private let idGen: (UUID) -> UUID
 
     private var distinctId: String?
     private var cachedDistinctId = false
     private var anonymousId: String?
+    private var isIdentifiedValue: Bool?
 
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
@@ -87,15 +89,43 @@ class PostHogStorageManager {
         }
     }
 
-    public func reset() {
+    public func isIdentified() -> Bool {
+        identifiedLock.withLock {
+            if isIdentifiedValue == nil {
+                isIdentifiedValue = storage.getBool(forKey: .isIdentified) ?? (getDistinctId() != getDistinctId())
+            }
+        }
+        return isIdentifiedValue ?? false
+    }
+
+    public func setIdentified(_ isIdentified: Bool) {
+        identifiedLock.withLock {
+            isIdentifiedValue = isIdentified
+            storage.setBool(forKey: .isIdentified, contents: isIdentified)
+        }
+    }
+
+    public func reset(_ resetStorage: Bool = false) {
+        // resetStorage is only used for testing, when the reset method is called,
+        // the storage is also cleared, so we dont do here to not do it twice.
         distinctLock.withLock {
-            storage.remove(key: .distinctId)
             distinctId = nil
             cachedDistinctId = false
+            if resetStorage {
+                storage.remove(key: .distinctId)
+            }
         }
         anonLock.withLock {
-            storage.remove(key: .anonymousId)
             anonymousId = nil
+            if resetStorage {
+                storage.remove(key: .anonymousId)
+            }
+        }
+        identifiedLock.withLock {
+            isIdentifiedValue = nil
+            if resetStorage {
+                storage.remove(key: .isIdentified)
+            }
         }
     }
 }

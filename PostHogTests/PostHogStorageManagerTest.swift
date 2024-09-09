@@ -25,7 +25,7 @@ class PostHogStorageManagerTest: QuickSpec {
             let secondAnonymousId = sut.getAnonymousId()
             expect(secondAnonymousId) == anonymousId
 
-            sut.reset()
+            sut.reset(true)
         }
 
         it("Uses the anonymousId for distinctId if not set") {
@@ -43,7 +43,7 @@ class PostHogStorageManagerTest: QuickSpec {
             expect(newAnonymousId) != newDistinctId
             expect(newDistinctId) == idToSet
 
-            sut.reset()
+            sut.reset(true)
         }
 
         it("Can can accept id customization via config") {
@@ -54,7 +54,7 @@ class PostHogStorageManagerTest: QuickSpec {
             let anonymousId = sut.getAnonymousId()
             expect(anonymousId) == fixedUuid.uuidString
 
-            sut.reset()
+            sut.reset(true)
         }
     }
 }

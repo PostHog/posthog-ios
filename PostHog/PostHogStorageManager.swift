@@ -107,17 +107,14 @@ class PostHogStorageManager {
 
     public func reset() {
         distinctLock.withLock {
-            storage.remove(key: .distinctId)
             distinctId = nil
             cachedDistinctId = false
         }
         anonLock.withLock {
-            storage.remove(key: .anonymousId)
             anonymousId = nil
         }
         identifiedLock.withLock {
             isIdentifiedValue = nil
-            storage.remove(key: .isIdentified)
         }
     }
 }

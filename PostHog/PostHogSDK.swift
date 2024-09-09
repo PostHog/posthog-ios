@@ -317,6 +317,7 @@ let maxRetryDelay = 30.0
 
         // storage also removes all feature flags
         storage?.reset()
+        storageManager?.reset()
         flagCallReported.removeAll()
         PostHogSessionManager.shared.endSession {
             self.resetViews()
@@ -834,6 +835,7 @@ let maxRetryDelay = 30.0
             #endif
             queue = nil
             replayQueue = nil
+            storageManager?.reset()
             storageManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil

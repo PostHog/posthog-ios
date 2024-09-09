@@ -45,11 +45,11 @@
 
         func start() {
             stopTimer()
-            timer = Timer.scheduledTimer(timeInterval: config.sessionReplayConfig.debouncerDelay,
-                                         target: self,
-                                         selector: #selector(snapshot),
-                                         userInfo: nil,
-                                         repeats: true)
+            DispatchQueue.main.async {
+                self.timer = Timer.scheduledTimer(withTimeInterval: self.config.sessionReplayConfig.debouncerDelay, repeats: true, block: { _ in
+                    self.snapshot()
+                })
+            }
             ViewLayoutTracker.swizzleLayoutSubviews()
 
             UIApplicationTracker.swizzleSendEvent()

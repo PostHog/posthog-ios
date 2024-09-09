@@ -162,11 +162,13 @@ class PostHogQueue {
 
         if !disableQueueTimerForTesting {
             timerLock.withLock {
-                timer = Timer.scheduledTimer(withTimeInterval: config.flushIntervalSeconds, repeats: true, block: { _ in
-                    if !self.isFlushing {
-                        self.flush()
-                    }
-                })
+                DispatchQueue.main.async {
+                    self.timer = Timer.scheduledTimer(withTimeInterval: self.config.flushIntervalSeconds, repeats: true, block: { _ in
+                        if !self.isFlushing {
+                            self.flush()
+                        }
+                    })
+                }
             }
         }
     }

@@ -876,6 +876,7 @@ class PostHogSDKTest: QuickSpec {
 
             let events = getBatchedEvents(server)
 
+            // identify, alias and group will be ignored here hence only 1
             expect(events.count) == 1
 
             let event = events.first!

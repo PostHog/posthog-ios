@@ -272,6 +272,10 @@ let maxRetryDelay = 30.0
                 let mergedGroups = currentGroups.merging(groups ?? [:]) { current, _ in current }
                 props["$groups"] = mergedGroups
             }
+
+            if let isIdentified = storageManager?.isIdentified() {
+                props["$is_identified"] = isIdentified
+            }
         }
 
         if let sessionId = PostHogSessionManager.shared.getSessionId() {
@@ -293,10 +297,6 @@ let maxRetryDelay = 30.0
         }
 
         props = props.merging(properties ?? [:]) { current, _ in current }
-
-        if let isIdentified = storageManager?.isIdentified() {
-            props["$is_identified"] = isIdentified
-        }
 
         return props
     }

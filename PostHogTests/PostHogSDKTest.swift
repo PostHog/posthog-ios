@@ -840,26 +840,51 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-//        it("capture sets process person to true if always") {
-//            let sut = self.getSut(personProfiles: .always)
-//
-//            sut.capture("test event",
-//                        properties: ["foo": "bar"],
-//                        userProperties: ["userProp": "value"],
-//                        userPropertiesSetOnce: ["userPropOnce": "value"],
-//                        groups: ["groupProp": "value"])
-//
-//            let events = getBatchedEvents(server)
-//
-//            expect(events.count) == 1
-//
-//            let event = events.first!
-//
-//            expect(event.properties["$process_person_profile"] as? Bool) == true
-//
-//            sut.reset()
-//            sut.close()
-//        }
+        it("capture sets process person to true if always") {
+            let sut = self.getSut(personProfiles: .always)
+
+            sut.capture("test event",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"],
+                        groups: ["groupProp": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == true
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture sets process person to false if never") {
+            let sut = self.getSut(personProfiles: .never)
+
+            sut.identify("distinctId",
+                         userProperties: ["userProp": "value"],
+                         userPropertiesSetOnce: ["userPropOnce": "value"])
+
+            sut.capture("test event",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"],
+                        groups: ["groupProp": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
     }
 }
 

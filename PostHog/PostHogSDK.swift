@@ -423,7 +423,7 @@ let maxRetryDelay = 30.0
 
             let properties = buildProperties(distinctId: distinctId, properties: [
                 "distinct_id": distinctId,
-                "$anon_distinct_id": getAnonymousId(),
+                "$anon_distinct_id": oldDistinctId,
             ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
             let sanitizedProperties = sanitizeProperties(properties)
 

@@ -244,7 +244,8 @@ let maxRetryDelay = 30.0
             config.personProfiles == .never ||
                 (
                     config.personProfiles == .identifiedOnly &&
-                        storageManager?.isIdentified() == false
+                        storageManager?.isIdentified() == false &&
+                        storageManager?.isPersonProcessing() == false
                 )
         )
     }
@@ -254,6 +255,7 @@ let maxRetryDelay = 30.0
             hedgeLog("personProfiles is set to `never`. This call will be ignored.")
             return false
         }
+        storageManager?.setPersonProcessing(true)
         return true
     }
 
@@ -531,6 +533,12 @@ let maxRetryDelay = 30.0
         }
 
         let distinctId = getDistinctId()
+
+        // if the user isn't identified but passed userProperties or userPropertiesSetOnce,
+        // we should still enable person processing since this is intentional
+        if userProperties?.isEmpty == false || userPropertiesSetOnce?.isEmpty == false {
+            requirePersonProcessing()
+        }
 
         let properties = buildProperties(distinctId: distinctId,
                                          properties: sanitizeDicionary(properties),

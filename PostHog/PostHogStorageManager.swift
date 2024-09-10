@@ -13,12 +13,14 @@ class PostHogStorageManager {
     private let anonLock = NSLock()
     private let distinctLock = NSLock()
     private let identifiedLock = NSLock()
+    private let personProcessingLock = NSLock()
     private let idGen: (UUID) -> UUID
 
     private var distinctId: String?
     private var cachedDistinctId = false
     private var anonymousId: String?
     private var isIdentifiedValue: Bool?
+    private var personProcessingEnabled: Bool?
 
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
@@ -105,6 +107,25 @@ class PostHogStorageManager {
         }
     }
 
+    public func isPersonProcessing() -> Bool {
+        personProcessingLock.withLock {
+            if personProcessingEnabled == nil {
+                personProcessingEnabled = storage.getBool(forKey: .personProcessingEnabled) ?? false
+            }
+        }
+        return personProcessingEnabled ?? false
+    }
+
+    public func setPersonProcessing(_ enable: Bool) {
+        personProcessingLock.withLock {
+            // only set if its different to avoid IO since this is called more often
+            if self.personProcessingEnabled != enable {
+                self.personProcessingEnabled = enable
+                storage.setBool(forKey: .personProcessingEnabled, contents: enable)
+            }
+        }
+    }
+
     public func reset(_ resetStorage: Bool = false) {
         // resetStorage is only used for testing, when the reset method is called,
         // the storage is also cleared, so we dont do here to not do it twice.
@@ -125,6 +146,12 @@ class PostHogStorageManager {
             isIdentifiedValue = nil
             if resetStorage {
                 storage.remove(key: .isIdentified)
+            }
+        }
+        personProcessingLock.withLock {
+            personProcessingEnabled = nil
+            if resetStorage {
+                storage.remove(key: .personProcessingEnabled)
             }
         }
     }

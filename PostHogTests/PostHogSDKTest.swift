@@ -17,7 +17,8 @@ class PostHogSDKTest: QuickSpec {
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
                 optOut: Bool = false,
-                propertiesSanitizer: PostHogPropertiesSanitizer? = nil) -> PostHogSDK
+                propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
+                personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -28,6 +29,7 @@ class PostHogSDKTest: QuickSpec {
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
         config.propertiesSanitizer = propertiesSanitizer
+        config.personProfiles = personProfiles
         return PostHogSDK.with(config)
     }
 

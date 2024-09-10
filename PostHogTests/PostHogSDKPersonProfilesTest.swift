@@ -138,6 +138,44 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
             sut.close()
         }
 
+        it("capture sets process person to true if identified only and with alias") {
+            let sut = self.getSut(flushAt: 2)
+
+            sut.alias("distinctId")
+
+            sut.capture("test event")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            let event = events.last!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == true
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture sets process person to true if identified only and with groups") {
+            let sut = self.getSut(flushAt: 2)
+
+            sut.group(type: "theType", key: "theKey")
+
+            sut.capture("test event")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            let event = events.last!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == true
+
+            sut.reset()
+            sut.close()
+        }
+
         it("capture sets process person to true if always") {
             let sut = self.getSut(personProfiles: .always)
 
@@ -155,7 +193,7 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
             sut.close()
         }
 
-        it("capture sets process person to false if never") {
+        it("capture sets process person to false if never and identify called") {
             let sut = self.getSut(personProfiles: .never)
 
             sut.identify("distinctId")
@@ -164,7 +202,47 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
 
             let events = getBatchedEvents(server)
 
-            // identify, alias and group will be ignored here hence only 1
+            // identify will be ignored here hence only 1
+            expect(events.count) == 1
+
+            let event = events.first!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture sets process person to false if never and alias called") {
+            let sut = self.getSut(personProfiles: .never)
+
+            sut.alias("distinctId")
+
+            sut.capture("test event")
+
+            let events = getBatchedEvents(server)
+
+            // alias will be ignored here hence only 1
+            expect(events.count) == 1
+
+            let event = events.first!
+
+            expect(event.properties["$process_person_profile"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture sets process person to false if never and group called") {
+            let sut = self.getSut(personProfiles: .never)
+
+            sut.group(type: "theType", key: "theKey")
+
+            sut.capture("test event")
+
+            let events = getBatchedEvents(server)
+
+            // group will be ignored here hence only 1
             expect(events.count) == 1
 
             let event = events.first!

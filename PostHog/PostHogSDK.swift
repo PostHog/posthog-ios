@@ -536,7 +536,7 @@ let maxRetryDelay = 30.0
 
         // if the user isn't identified but passed userProperties or userPropertiesSetOnce,
         // we should still enable person processing since this is intentional
-        if userProperties?.isEmpty == false || userPropertiesSetOnce?.isEmpty == false {
+        if userProperties?.isEmpty == false || userPropertiesSetOnce?.isEmpty == false || groups?.isEmpty == false {
             requirePersonProcessing()
         }
 

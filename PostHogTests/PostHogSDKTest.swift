@@ -798,10 +798,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.capture("test event",
-                        properties: ["foo": "bar"],
-                        userProperties: ["userProp": "value"],
-                        userPropertiesSetOnce: ["userPropOnce": "value"],
-                        groups: ["groupProp": "value"])
+                        properties: ["foo": "bar"])
 
             let events = getBatchedEvents(server)
 

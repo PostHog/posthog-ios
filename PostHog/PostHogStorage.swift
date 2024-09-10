@@ -34,6 +34,7 @@ class PostHogStorage {
         case optOut = "posthog.optOut"
         case sessionReplay = "posthog.sessionReplay"
         case isIdentified = "posthog.isIdentified"
+        case personProcessingEnabled = "posthog.enabledPersonProcessing"
     }
 
     private let config: PostHogConfig
@@ -141,6 +142,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .optOut))
         deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .isIdentified))
+        deleteSafely(url(forKey: .personProcessingEnabled))
     }
 
     public func remove(key: StorageKey) {

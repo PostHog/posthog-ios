@@ -30,6 +30,8 @@ import Foundation
     /// Hook that allows to sanitize the event properties
     /// The hook is called before the event is cached or sent over the wire
     @objc public var propertiesSanitizer: PostHogPropertiesSanitizer?
+    /// Determines the behavior for processing user profiles.
+    @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
     /// Internal
     var snapshotEndpoint: String = "/s/"

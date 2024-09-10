@@ -1,5 +1,7 @@
 ## Next
 
+- chore: add personProfiles support ([#187](https://github.com/PostHog/posthog-ios/pull/187))
+
 ## 3.10.0 - 2024-09-09
 
 - recording: mask swiftui picker if masking enabled ([#184](https://github.com/PostHog/posthog-ios/pull/184))

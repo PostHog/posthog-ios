@@ -116,12 +116,12 @@ class PostHogStorageManager {
         return personProcessingEnabled ?? false
     }
 
-    public func setPersonProcessing(_ personProcessingEnabled: Bool) {
+    public func setPersonProcessing(_ enable: Bool) {
         personProcessingLock.withLock {
             // only set if its different to avoid IO since this is called more often
-            if self.personProcessingEnabled != personProcessingEnabled {
-                self.personProcessingEnabled = personProcessingEnabled
-                storage.setBool(forKey: .personProcessingEnabled, contents: personProcessingEnabled)
+            if self.personProcessingEnabled != enable {
+                self.personProcessingEnabled = enable
+                storage.setBool(forKey: .personProcessingEnabled, contents: enable)
             }
         }
     }

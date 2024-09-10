@@ -34,7 +34,7 @@ class PostHogStorage {
         case optOut = "posthog.optOut"
         case sessionReplay = "posthog.sessionReplay"
         case isIdentified = "posthog.isIdentified"
-        case personProcessingEnabled = "posthog.personProcessingEnabled"
+        case personProcessingEnabled = "posthog.enabledPersonProcessing"
     }
 
     private let config: PostHogConfig

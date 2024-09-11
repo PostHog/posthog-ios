@@ -10,36 +10,30 @@ import Foundation
 public extension URLSession {
     func postHogData(for request: URLRequest) async throws -> (Data, URLResponse) {
         let before = Date()
-        var currentResponse: URLResponse?
         var after: Date?
         do {
             let (data, response) = try await self.data(for: request)
             after = Date()
-            currentResponse = response
 
             captureData(request: request, response: response, before: before, after: after)
 
             return (data, response)
         } catch {
-            captureData(request: request, response: currentResponse, before: before, after: after)
+            captureData(request: request, response: nil, before: before, after: after)
             throw error
         }
     }
 
     func postHogData(from url: URL) async throws -> (Data, URLResponse) {
         let before = Date()
-        var currentResponse: URLResponse?
-        var after: Date?
         do {
             let (data, response) = try await self.data(from: url)
             let after = Date()
-            currentResponse = response
 
             captureData(request: nil, response: response, before: before, after: after)
 
             return (data, response)
         } catch {
-            captureData(request: nil, response: currentResponse, before: before, after: after)
             throw error
         }
     }

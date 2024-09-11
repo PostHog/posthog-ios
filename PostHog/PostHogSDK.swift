@@ -250,6 +250,7 @@ let maxRetryDelay = 30.0
         )
     }
 
+    @discardableResult
     private func requirePersonProcessing() -> Bool {
         if config.personProfiles == .never {
             hedgeLog("personProfiles is set to `never`. This call will be ignored.")

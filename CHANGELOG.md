@@ -1,5 +1,7 @@
 ## Next
 
+- chore: add Is Emulator support ([#187](https://github.com/PostHog/posthog-ios/pull/187))
+
 ## 3.11.0 - 2024-09-11
 
 - chore: add personProfiles support ([#187](https://github.com/PostHog/posthog-ios/pull/187))

@@ -42,6 +42,12 @@ class PostHogContext {
         properties["$device_manufacturer"] = "Apple"
         properties["$device_model"] = platform()
 
+        #if targetEnvironment(simulator)
+            properties["$is_emulator"] = true
+        #else
+            properties["$is_emulator"] = false
+        #endif
+
         #if os(iOS) || os(tvOS)
             let device = UIDevice.current
             // use https://github.com/devicekit/DeviceKit

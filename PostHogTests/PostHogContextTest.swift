@@ -34,6 +34,7 @@ class PostHogContextTest: QuickSpec {
             expect(context["$app_version"] as? String) != nil
             expect(context["$app_build"] as? String) != nil
             expect(context["$app_namespace"] as? String) == "com.apple.dt.xctest.tool"
+            expect(context["$is_emulator"] as? Bool) != nil
             #if os(iOS) || os(tvOS)
                 expect(context["$device_name"] as? String) != nil
                 expect(context["$os_name"] as? String) != nil

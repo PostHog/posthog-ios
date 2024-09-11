@@ -61,7 +61,7 @@ public extension URLSession {
                 requestsData["responseStatus"] = urlResponse.statusCode
             }
 
-            let payloadData: [String: Any] = ["requests": requestsData]
+            let payloadData: [String: Any] = ["requests": [requestsData]]
             let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
 
             let recordingData: [String: Any] = ["type": 6, "data": pluginData, "timestamp": currentAfter.toMillis()]

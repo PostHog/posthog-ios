@@ -27,8 +27,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.sessionReplayConfig.maskAllImages = true
 
         PostHogSDK.shared.setup(config)
-        PostHogSDK.shared.group(type: "test", key: "value")
-        PostHogSDK.shared.group(type: "test2", key: "value2")
 //        PostHogSDK.shared.debug()
 //        PostHogSDK.shared.capture("App started!")
 //        PostHogSDK.shared.reset()

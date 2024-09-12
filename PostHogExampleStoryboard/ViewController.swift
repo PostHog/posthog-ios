@@ -5,6 +5,7 @@
 //  Created by Manoel Aranda Neto on 21.03.24.
 //
 
+import PostHog
 import UIKit
 import WebKit
 
@@ -25,23 +26,26 @@ class ViewController: UIViewController {
         imageView.accessibilityIdentifier = "ph-no-capture"
         let url = URL(string: "https://1.bp.blogspot.com/-hkNkoCjc5UA/T4JTlCjhhfI/AAAAAAAAB98/XxQwZ-QPkI8/s1600/Free+Google+Wallpapers+3.jpg")!
 
-        let task = URLSession.shared.dataTask(with: url) { data, _, error in
-            if let error = error {
-                print("Error: \(error)")
-                return
-            }
-
-            guard let data = data, let image = UIImage(data: data) else {
-                print("No data or couldn't create image from data")
-                return
-            }
-
-            DispatchQueue.main.async {
-                imageView.image = image
-            }
+//        let task = URLSession.shared.dataTask(with: url) { data, _, error in
+//            if let error = error {
+//                print("Error: \(error)")
+//                return
+//            }
+//
+//            guard let data = data, let image = UIImage(data: data) else {
+//                print("No data or couldn't create image from data")
+//                return
+//            }
+//
+//            DispatchQueue.main.async {
+//                imageView.image = image
+//            }
+//        }
+//
+//        task.resume()
+        Task {
+            await fetch(url: url, imageView: imageView)
         }
-
-        task.resume()
 
         view.addSubview(imageView)
 
@@ -49,5 +53,21 @@ class ViewController: UIViewController {
         textView.text = "test"
 
         view.addSubview(textView)
+    }
+
+    func fetch(url: URL, imageView: UIImageView) async {
+        do {
+            let (data, _) = try await URLSession.shared.postHogData(from: url)
+
+            guard let image = UIImage(data: data) else {
+                print("No data or couldn't create image from data")
+                return
+            }
+            DispatchQueue.main.async {
+                imageView.image = image
+            }
+        } catch {
+            print("error \(error)")
+        }
     }
 }

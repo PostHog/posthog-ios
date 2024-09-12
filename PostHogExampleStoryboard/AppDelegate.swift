@@ -18,7 +18,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
         config.captureApplicationLifecycleEvents = false
-        config.flushAt = 1
+//        config.flushAt = 1
 //        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false

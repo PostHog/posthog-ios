@@ -1,5 +1,7 @@
 ## Next
 
+- recording: network logs not counting the request transferSize but only the response transferSize ([#193](https://github.com/PostHog/posthog-ios/pull/193))
+
 ## 3.12.0 - 2024-09-12
 
 - chore: add Is Emulator support ([#190](https://github.com/PostHog/posthog-ios/pull/190))

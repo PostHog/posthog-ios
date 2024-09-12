@@ -1,6 +1,6 @@
 ## Next
 
-- recording: missing import for url session extensions ([#189](https://github.com/PostHog/posthog-ios/pull/189))
+- recording: missing import for url session extensions ([#194](https://github.com/PostHog/posthog-ios/pull/194))
 
 ## 3.12.0 - 2024-09-12
 

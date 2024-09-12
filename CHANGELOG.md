@@ -1,5 +1,7 @@
 ## Next
 
+- recording: missing startTime for network logs ([#193](https://github.com/PostHog/posthog-ios/pull/193))
+
 ## 3.12.0 - 2024-09-12
 
 - chore: add Is Emulator support ([#190](https://github.com/PostHog/posthog-ios/pull/190))

@@ -8,8 +8,8 @@
 //  Created by Manoel Aranda Neto on 23.10.23.
 //
 
-import Foundation
 #if os(iOS) || os(tvOS)
+    import Foundation
     import UIKit
 
     extension UIViewController {

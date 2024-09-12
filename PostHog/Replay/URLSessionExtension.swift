@@ -1,4 +1,6 @@
 #if os(iOS)
+    import Foundation
+
     public extension URLSession {
         private func getMonotonicTimeInMilliseconds() -> UInt64 {
             // Get the raw mach time

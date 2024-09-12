@@ -1,5 +1,7 @@
 ## Next
 
+## 3.12.1 - 2024-09-12
+
 - recording: missing import for url session extensions ([#194](https://github.com/PostHog/posthog-ios/pull/194))
 - recording: network logs not counting the request transferSize but only the response transferSize ([#193](https://github.com/PostHog/posthog-ios/pull/193))
 

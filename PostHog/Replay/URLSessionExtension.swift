@@ -120,8 +120,13 @@
                                                    "name": request?.url?.absoluteString ?? (response?.url?.absoluteString ?? ""),
                                                    "initiatorType": "fetch",
                                                    "entryType": "resource",
-                                                   "transferSize": Int64(request?.httpBody?.count ?? 0) + (response?.expectedContentLength ?? 0),
                                                    "timestamp": timestamp.toMillis()]
+
+                // the UI special case if the transferSize is 0 as coming from cache
+                let transferSize = Int64(request?.httpBody?.count ?? 0) + (response?.expectedContentLength ?? 0)
+                if transferSize >= 0 {
+                    requestsData["transferSize"] = transferSize
+                }
 
                 if let urlResponse = response as? HTTPURLResponse {
                     requestsData["responseStatus"] = urlResponse.statusCode

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.12.0 - 2024-09-12
+
 - chore: add Is Emulator support ([#190](https://github.com/PostHog/posthog-ios/pull/190))
 - recording: PostHog URLSession extensions for capturing network logs ([#189](https://github.com/PostHog/posthog-ios/pull/189))
 

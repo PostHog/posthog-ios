@@ -54,12 +54,19 @@ class PostHogContextTest: QuickSpec {
                 expect(context["$screen_width"] as? Float) != nil
                 expect(context["$screen_height"] as? Float) != nil
             #endif
-            expect(context["$lib"] as? String) == "posthog-ios"
-            expect(context["$lib_version"] as? String) == postHogVersion
             expect(context["$locale"] as? String) != nil
             expect(context["$timezone"] as? String) != nil
             expect(context["$network_wifi"] as? Bool) != nil
             expect(context["$network_cellular"] as? Bool) != nil
+        }
+
+        it("returns sdk info") {
+            let sut = self.getSut()
+
+            let context = sut.sdkInfo()
+
+            expect(context["$lib"] as? String) == "posthog-ios"
+            expect(context["$lib_version"] as? String) == postHogVersion
         }
     }
 }

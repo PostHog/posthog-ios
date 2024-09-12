@@ -96,8 +96,19 @@ class PostHogContext {
         init() {}
     #endif
 
+    private lazy var theSdkInfo: [String: Any] = {
+        var sdkInfo: [String: Any] = [:]
+        sdkInfo["$lib"] = postHogSdkName
+        sdkInfo["$lib_version"] = postHogVersion
+        return sdkInfo
+    }()
+
     func staticContext() -> [String: Any] {
         theStaticContext
+    }
+
+    func sdkInfo() -> [String: Any] {
+        theSdkInfo
     }
 
     private func platform() -> String {
@@ -121,9 +132,6 @@ class PostHogContext {
                 properties["$screen_height"] = Float(screenFrame.size.height)
             }
         #endif
-
-        properties["$lib"] = postHogSdkName
-        properties["$lib_version"] = postHogVersion
 
         if Locale.current.languageCode != nil {
             properties["$locale"] = Locale.current.languageCode

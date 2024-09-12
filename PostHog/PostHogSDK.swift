@@ -1,4 +1,4 @@
-// swiftlint:disable file_length
+// swiftlint:disable file_length cyclomatic_complexity
 
 //
 //  PostHogSDK.swift
@@ -250,6 +250,7 @@ let maxRetryDelay = 30.0
         )
     }
 
+    @discardableResult
     private func requirePersonProcessing() -> Bool {
         if config.personProfiles == .never {
             hedgeLog("personProfiles is set to `never`. This call will be ignored.")
@@ -300,18 +301,23 @@ let maxRetryDelay = 30.0
             props["$process_person_profile"] = hasPersonProcessing()
         }
 
+        let sdkInfo = context?.sdkInfo()
+        if sdkInfo != nil {
+            props = props.merging(sdkInfo ?? [:]) { current, _ in current }
+        }
+
         if let sessionId = PostHogSessionManager.shared.getSessionId() {
             props["$session_id"] = sessionId
-            // Session replay requires $window_id, so we set as the same as $session_id.
+            // only Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
             #if os(iOS)
-                if config.sessionReplay {
+                if !appendSharedProps, config.sessionReplay {
                     props["$window_id"] = sessionId
                 }
             #endif
         }
 
-        // Replay needs distinct_id also in the props
+        // only Session Replay needs distinct_id also in the props
         // remove after https://github.com/PostHog/posthog/pull/18954 gets merged
         let propDistinctId = props["distinct_id"] as? String
         if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
@@ -554,7 +560,7 @@ let maxRetryDelay = 30.0
             properties: sanitizedProperties
         )
 
-        // Replay has its own queue
+        // Session Replay has its own queue
         if snapshotEvent {
             guard let replayQueue = replayQueue else {
                 return
@@ -1084,4 +1090,4 @@ let maxRetryDelay = 30.0
     #endif
 }
 
-// swiftlint:enable file_length
+// swiftlint:enable file_length cyclomatic_complexity

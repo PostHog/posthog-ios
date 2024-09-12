@@ -1,5 +1,7 @@
 ## Next
 
+- recording: missing import for url session extensions ([#189](https://github.com/PostHog/posthog-ios/pull/189))
+
 ## 3.12.0 - 2024-09-12
 
 - chore: add Is Emulator support ([#190](https://github.com/PostHog/posthog-ios/pull/190))

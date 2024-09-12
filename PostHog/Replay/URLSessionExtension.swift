@@ -115,15 +115,13 @@
             PostHogReplayIntegration.dispatchQueue.async {
                 var snapshotsData: [Any] = []
 
-                let timestampMillis = timestamp.toMillis()
                 var requestsData: [String: Any] = ["duration": currentEnd - start,
                                                    "method": request?.httpMethod ?? "GET",
                                                    "name": request?.url?.absoluteString ?? (response?.url?.absoluteString ?? ""),
                                                    "initiatorType": "fetch",
                                                    "entryType": "resource",
                                                    "transferSize": Int64(request?.httpBody?.count ?? 0) + (response?.expectedContentLength ?? 0),
-                                                   "timestamp": timestampMillis,
-                                                   "startTime": timestampMillis]
+                                                   "timestamp": timestamp.toMillis()]
 
                 if let urlResponse = response as? HTTPURLResponse {
                     requestsData["responseStatus"] = urlResponse.statusCode

@@ -80,8 +80,11 @@
                 sample.httpMethod = request.httpMethod
                 sample.initiatorType = "fetch"
                 sample.duration = (date.toMillis() - sample.timeOrigin.toMillis())
-                if let response = task.response {
-                    sample.decodedBodySize = response.expectedContentLength
+
+                // the UI special case if the transferSize is 0 as coming from cache
+                let transferSize = Int64(request.httpBody?.count ?? 0) + (task.response?.expectedContentLength ?? 0)
+                if transferSize > 0 {
+                    sample.decodedBodySize = transferSize
                 }
 
                 self.finish(task: task, sample: sample)

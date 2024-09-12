@@ -24,8 +24,10 @@
         }
 
         func toDict() -> [String: Any] {
+            let originMillis = timeOrigin.toMillis()
             var dict: [String: Any] = [
-                "timestamp": timeOrigin.toMillis(),
+                "timestamp": originMillis,
+                "startTime": originMillis,
                 "entryType": entryType,
                 "initiatorType": initiatorType,
             ]

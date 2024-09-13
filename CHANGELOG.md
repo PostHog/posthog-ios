@@ -1,6 +1,6 @@
 ## Next
 
-- fix: some public APIs such as unregister weren't checking for isEnabled ([#194](https://github.com/PostHog/posthog-ios/pull/194))
+- fix: some public APIs such as unregister weren't checking for isEnabled ([#196](https://github.com/PostHog/posthog-ios/pull/196))
 
 ## 3.12.1 - 2024-09-12
 

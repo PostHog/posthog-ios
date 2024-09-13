@@ -1,5 +1,7 @@
 ## Next
 
+- fix: some public APIs such as unregister weren't checking for isEnabled ([#194](https://github.com/PostHog/posthog-ios/pull/194))
+
 ## 3.12.1 - 2024-09-12
 
 - recording: missing import for url session extensions ([#194](https://github.com/PostHog/posthog-ios/pull/194))

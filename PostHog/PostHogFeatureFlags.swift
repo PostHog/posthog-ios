@@ -40,8 +40,12 @@ class PostHogFeatureFlags {
             sessionReplay = self.storage.getDictionary(forKey: .sessionReplay) as? [String: Any]
         }
 
-        if sessionReplay != nil {
+        if let sessionReplay = sessionReplay {
             sessionReplayFlagActive = true
+
+            if let endpoint = sessionReplay["endpoint"] as? String {
+                config.snapshotEndpoint = endpoint
+            }
         }
     }
 

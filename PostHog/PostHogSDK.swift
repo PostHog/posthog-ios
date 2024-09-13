@@ -399,6 +399,10 @@ let maxRetryDelay = 30.0
 
     @objc(unregisterProperties:)
     public func unregister(_ key: String) {
+        if !isEnabled() {
+            return
+        }
+
         personPropsLock.withLock {
             var props = getRegisteredProperties()
             props.removeValue(forKey: key)
@@ -1080,12 +1084,20 @@ let maxRetryDelay = 30.0
     }
 
     func isSessionActive() -> Bool {
-        PostHogSessionManager.shared.isSessionActive()
+        if !isEnabled() {
+            return false
+        }
+
+        return PostHogSessionManager.shared.isSessionActive()
     }
 
     #if os(iOS)
         func isSessionReplayActive() -> Bool {
-            config.sessionReplay && isSessionActive() && (featureFlags?.isSessionReplayFlagActive() ?? false)
+            if !isEnabled() {
+                return false
+            }
+
+            return config.sessionReplay && isSessionActive() && (featureFlags?.isSessionReplayFlagActive() ?? false)
         }
     #endif
 }

@@ -7,11 +7,12 @@
 
 import Foundation
 
-class PostHogSessionManager {
-    static let shared = PostHogSessionManager()
+// only for internal use
+@objc public class PostHogSessionManager: NSObject {
+    @objc public static let shared = PostHogSessionManager()
 
     // Private initializer to prevent multiple instances
-    private init() {}
+    override private init() {}
 
     private var sessionId: String?
     private var sessionLastTimestamp: TimeInterval?
@@ -27,7 +28,7 @@ class PostHogSessionManager {
         return tempSessionId
     }
 
-    func setSessionId(sessionId: String) {
+    @objc public func setSessionId(_ sessionId: String) {
         sessionLock.withLock {
             self.sessionId = sessionId
         }

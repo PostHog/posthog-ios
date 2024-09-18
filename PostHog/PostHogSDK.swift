@@ -1092,7 +1092,7 @@ let maxRetryDelay = 30.0
     }
 
     #if os(iOS)
-        func isSessionReplayActive() -> Bool {
+        @objc public func isSessionReplayActive() -> Bool {
             if !isEnabled() {
                 return false
             }

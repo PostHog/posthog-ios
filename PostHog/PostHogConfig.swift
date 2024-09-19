@@ -34,7 +34,8 @@ import Foundation
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
     /// Internal
-    var snapshotEndpoint: String = "/s/"
+    /// Do not modify it, this flag is read and updated by the SDK via feature flags
+    @objc public var snapshotEndpoint: String = "/s/"
 
     /// or EU Host: 'https://eu.i.posthog.com'
     public static let defaultHost: String = "https://us.i.posthog.com"

@@ -113,7 +113,7 @@ struct ContentView: View {
                         RepresentedExampleUIView()
                     }
 
-                    Text("Sensitive text!!").accessibilityIdentifier("ph-no-capture")
+                    Text("Sensitive text!!").postHogMask()
                     Button(action: incCounter) {
                         Text(String(counter))
                     }.accessibilityIdentifier("ph-no-capture-id").accessibilityLabel("ph-no-capture")

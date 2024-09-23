@@ -251,6 +251,12 @@
             var maskableWidgets: [CGRect] = []
             findMaskableWidgets(view, view, &maskableWidgets)
 
+            let manuallyMaskedViews = PostHogScreenshotMasker.shared.getAllMaskedViews()
+
+            for maskedView in manuallyMaskedViews {
+                maskableWidgets.append(maskedView.toAbsoluteRect(view))
+            }
+
             let wireframe = createBasicWireframe(view)
 
             if let image = view.toImage() {

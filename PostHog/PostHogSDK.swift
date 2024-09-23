@@ -36,7 +36,6 @@ let maxRetryDelay = 30.0
     private var replayQueue: PostHogQueue?
     private var api: PostHogApi?
     private var storage: PostHogStorage?
-    private var storageManager: PostHogStorageManager?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
@@ -99,7 +98,7 @@ let maxRetryDelay = 30.0
             let theApi = PostHogApi(config)
             api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
-            storageManager = PostHogStorageManager(config)
+            config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
@@ -159,7 +158,7 @@ let maxRetryDelay = 30.0
             return ""
         }
 
-        return storageManager?.getDistinctId() ?? ""
+        return config.storageManager?.getDistinctId() ?? ""
     }
 
     @objc public func getAnonymousId() -> String {
@@ -167,7 +166,7 @@ let maxRetryDelay = 30.0
             return ""
         }
 
-        return storageManager?.getAnonymousId() ?? ""
+        return config.storageManager?.getAnonymousId() ?? ""
     }
 
     @objc public func getSessionId() -> String? {
@@ -244,8 +243,8 @@ let maxRetryDelay = 30.0
             config.personProfiles == .never ||
                 (
                     config.personProfiles == .identifiedOnly &&
-                        storageManager?.isIdentified() == false &&
-                        storageManager?.isPersonProcessing() == false
+                    config.storageManager?.isIdentified() == false &&
+                    config.storageManager?.isPersonProcessing() == false
                 )
         )
     }
@@ -256,7 +255,7 @@ let maxRetryDelay = 30.0
             hedgeLog("personProfiles is set to `never`. This call will be ignored.")
             return false
         }
-        storageManager?.setPersonProcessing(true)
+        config.storageManager?.setPersonProcessing(true)
         return true
     }
 
@@ -294,7 +293,7 @@ let maxRetryDelay = 30.0
                 props["$groups"] = mergedGroups
             }
 
-            if let isIdentified = storageManager?.isIdentified() {
+            if let isIdentified = config.storageManager?.isIdentified() {
                 props["$is_identified"] = isIdentified
             }
 
@@ -345,7 +344,7 @@ let maxRetryDelay = 30.0
 
         // storage also removes all feature flags
         storage?.reset()
-        storageManager?.reset()
+        config.storageManager?.reset()
         flagCallReported.removeAll()
         PostHogSessionManager.shared.endSession {
             self.resetViews()
@@ -443,7 +442,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue = queue, let storageManager = storageManager else {
+        guard let queue = queue, let storageManager = config.storageManager else {
             return
         }
         let oldDistinctId = getDistinctId()
@@ -748,7 +747,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let featureFlags = featureFlags, let storageManager = storageManager else {
+        guard let featureFlags = featureFlags, let storageManager = config.storageManager else {
             return
         }
 
@@ -885,8 +884,8 @@ let maxRetryDelay = 30.0
             #endif
             queue = nil
             replayQueue = nil
-            storageManager?.reset()
-            storageManager = nil
+            config.storageManager?.reset()
+            config.storageManager = nil
             config = PostHogConfig(apiKey: "")
             api = nil
             featureFlags = nil

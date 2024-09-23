@@ -53,6 +53,8 @@ import Foundation
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false
+    // internal
+    public var storageManager: PostHogStorageManager?
 
     @objc(apiKey:)
     public init(

@@ -243,8 +243,8 @@ let maxRetryDelay = 30.0
             config.personProfiles == .never ||
                 (
                     config.personProfiles == .identifiedOnly &&
-                    config.storageManager?.isIdentified() == false &&
-                    config.storageManager?.isPersonProcessing() == false
+                        config.storageManager?.isIdentified() == false &&
+                        config.storageManager?.isPersonProcessing() == false
                 )
         )
     }

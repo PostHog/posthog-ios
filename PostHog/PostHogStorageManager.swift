@@ -7,7 +7,8 @@
 
 import Foundation
 
-class PostHogStorageManager {
+// Internal class to manage the storage metadata of the PostHog SDK
+public class PostHogStorageManager {
     private let storage: PostHogStorage!
 
     private let anonLock = NSLock()

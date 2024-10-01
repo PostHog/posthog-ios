@@ -1,5 +1,7 @@
 ## Next
 
+- recording: capture network logs from dataTask requests without CompletionHandler ([#196](https://github.com/PostHog/posthog-ios/pull/196))
+
 ## 3.12.5 - 2024-09-24
 
 - no user facing changes

@@ -11,6 +11,8 @@
     class URLSessionInterceptor {
         private let config: PostHogConfig
 
+        private let tasksLock = NSLock()
+
         init(_ config: PostHogConfig) {
             self.config = config
         }
@@ -39,7 +41,10 @@
             let date = Date()
             queue.async {
                 let sample = NetworkSample(timeOrigin: date, url: url.absoluteString)
-                self.samplesByTask[task] = sample
+
+                self.tasksLock.withLock {
+                    self.samplesByTask[task] = sample
+                }
             }
         }
 
@@ -67,6 +72,7 @@
             let date = Date()
 
             queue.async {
+                let sampleTask = self.samplesByTask[task]
                 guard var sample = self.samplesByTask[task] else {
                     return
                 }
@@ -119,11 +125,30 @@
 
             PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
 
-            samplesByTask.removeValue(forKey: task)
+            tasksLock.withLock {
+                samplesByTask.removeValue(forKey: task)
+            }
+        }
+
+        private func finishAll() {
+            var completedTasks: [URLSessionTask: NetworkSample] = [:]
+            tasksLock.withLock {
+                for item in samplesByTask {
+                    if item.key.state == .completed {
+                        completedTasks[item.key] = item.value
+                    }
+                }
+            }
+
+            for item in completedTasks {
+                finish(task: item.key, sample: item.value)
+            }
         }
 
         func stop() {
-            samplesByTask.removeAll()
+            tasksLock.withLock {
+                samplesByTask.removeAll()
+            }
         }
     }
 #endif

@@ -17,6 +17,7 @@
         var httpMethod: String?
         var duration: Int64?
         var decodedBodySize: Int64?
+        var finished: Bool = false
 
         init(timeOrigin: Date, url: String? = nil) {
             self.timeOrigin = timeOrigin

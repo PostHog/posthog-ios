@@ -43,26 +43,16 @@ class ViewController: UIViewController {
 //        }
 //
 //        task.resume()
-//        Task {
-//            await fetch(url: url, imageView: imageView)
-//        }
-//        let task = URLSession.shared.dataTask(with: url)
-//        task.resume()
+        Task {
+            await fetch(url: url, imageView: imageView)
+        }
 
         view.addSubview(imageView)
 
         let textView = UITextView(frame: CGRect(x: 5, y: 105, width: 100, height: 20))
         textView.text = "test"
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(textViewTapped))
-        textView.addGestureRecognizer(tapGesture)
 
         view.addSubview(textView)
-    }
-
-    @objc func textViewTapped() {
-        let url = URL(string: "https://1.bp.blogspot.com/-hkNkoCjc5UA/T4JTlCjhhfI/AAAAAAAAB98/XxQwZ-QPkI8/s1600/Free+Google+Wallpapers+3.jpg")!
-        let task = URLSession.shared.dataTask(with: url)
-        task.resume()
     }
 
     func fetch(url: URL, imageView: UIImageView) async {

@@ -23,7 +23,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         )
 
         PostHogSDK.shared.setup(config)
-        PostHogSDK.shared.startSession()
         PostHogSDK.shared.debug()
         PostHogSDK.shared.capture("Event from CocoaPods example!")
 

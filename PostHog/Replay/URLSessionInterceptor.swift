@@ -71,13 +71,13 @@
                     return
                 }
 
-                self.taskCompleted(task: task, sample: &sample, date: date)
+                self.finish(task: task, sample: &sample, date: date)
 
                 self.finishAll()
             }
         }
 
-        private func taskCompleted(task: URLSessionTask, sample: inout NetworkSample, date: Date? = nil) {
+        private func finish(task: URLSessionTask, sample: inout NetworkSample, date: Date? = nil) {
             // only safe guard, should not happen
             guard let request = task.originalRequest else {
                 tasksLock.withLock {
@@ -149,7 +149,7 @@
 
             for item in completedTasks {
                 var value = item.value
-                taskCompleted(task: item.key, sample: &value)
+                finish(task: item.key, sample: &value)
             }
         }
 

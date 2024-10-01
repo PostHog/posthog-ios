@@ -45,16 +45,9 @@
                 self.tasksLock.withLock {
                     self.samplesByTask[task] = sample
                 }
-            }
-        }
 
-        /// Notifies the `URLSessionTask` data receiving.
-        /// This method should be called as soon as the next chunk of data is received by `URLSessionDataDelegate`.
-        /// - Parameters:
-        ///   - task: task receiving data.
-        ///   - data: next chunk of data delivered to `URLSessionDataDelegate`.
-        func taskReceivedData(task _: URLSessionTask, data _: Data) {
-            // Currently we don't do anything with this
+                self.finishAll()
+            }
         }
 
         /// Notifies the `URLSessionTask` completion.
@@ -66,9 +59,6 @@
                 return
             }
 
-//            guard let request = task.originalRequest else {
-//                return
-//            }
             let date = Date()
 
             queue.async {
@@ -82,10 +72,13 @@
                 }
 
                 self.taskCompleted(task: task, sample: &sample, date: date)
+
+                self.finishAll()
             }
         }
 
         private func taskCompleted(task: URLSessionTask, sample: inout NetworkSample, date: Date? = nil) {
+            // only safe guard, should not happen
             guard let request = task.originalRequest else {
                 tasksLock.withLock {
                     _ = samplesByTask.removeValue(forKey: task)
@@ -128,9 +121,6 @@
         }
 
         private func finish(task: URLSessionTask, sample: NetworkSample) {
-            if !isCaptureNetworkEnabled() {
-                return
-            }
             var snapshotsData: [Any] = []
 
             let requestsData = [sample.toDict()]
@@ -147,7 +137,7 @@
             }
         }
 
-        func finishAll() {
+        private func finishAll() {
             var completedTasks: [URLSessionTask: NetworkSample] = [:]
             tasksLock.withLock {
                 for item in samplesByTask {

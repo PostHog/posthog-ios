@@ -92,9 +92,6 @@
                         var taskReference: URLSessionDataTask?
                         let newCompletionHandler: CompletionHandler = { data, response, error in
                             if let task = taskReference { // sanity check, should always succeed
-                                if let data = data {
-                                    self.interceptor.taskReceivedData(task: task, data: data)
-                                }
                                 self.interceptor.taskCompleted(task: task, error: error)
                             }
                             completionHandler?(data, response, error)
@@ -151,9 +148,6 @@
                         var taskReference: URLSessionDataTask?
                         let newCompletionHandler: CompletionHandler = { data, response, error in
                             if let task = taskReference { // sanity check, should always succeed
-                                if let data = data {
-                                    self.interceptor.taskReceivedData(task: task, data: data)
-                                }
                                 self.interceptor.taskCompleted(task: task, error: error)
                             }
                             completionHandler?(data, response, error)
@@ -204,7 +198,6 @@
                 swizzle(method) { previousImplementation -> Signature in { session, urlRequest -> URLSessionDataTask in
                     let task = previousImplementation(session, Self.selector, urlRequest)
                     self.interceptor.taskCreated(task: task, session: session)
-                    self.interceptor.finishAll()
                     return task
                 }
                 }
@@ -242,7 +235,6 @@
                 swizzle(method) { previousImplementation -> Signature in { session, url -> URLSessionDataTask in
                     let task = previousImplementation(session, Self.selector, url)
                     self.interceptor.taskCreated(task: task, session: session)
-                    self.interceptor.finishAll()
                     return task
                 }
                 }

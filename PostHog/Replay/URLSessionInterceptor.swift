@@ -94,6 +94,7 @@
 
             sample.httpMethod = request.httpMethod
             sample.initiatorType = "fetch"
+            // instrumented requests that dont use the completion handler wont have the duration set
             if let date = date {
                 sample.duration = (date.toMillis() - sample.timeOrigin.toMillis())
             }

@@ -204,6 +204,7 @@
                 swizzle(method) { previousImplementation -> Signature in { session, urlRequest -> URLSessionDataTask in
                     let task = previousImplementation(session, Self.selector, urlRequest)
                     self.interceptor.taskCreated(task: task, session: session)
+                    self.interceptor.finishAll()
                     return task
                 }
                 }
@@ -241,6 +242,7 @@
                 swizzle(method) { previousImplementation -> Signature in { session, url -> URLSessionDataTask in
                     let task = previousImplementation(session, Self.selector, url)
                     self.interceptor.taskCreated(task: task, session: session)
+                    self.interceptor.finishAll()
                     return task
                 }
                 }

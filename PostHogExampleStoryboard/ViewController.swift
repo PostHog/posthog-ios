@@ -43,9 +43,11 @@ class ViewController: UIViewController {
 //        }
 //
 //        task.resume()
-        Task {
-            await fetch(url: url, imageView: imageView)
-        }
+//        Task {
+//            await fetch(url: url, imageView: imageView)
+//        }
+        let task = URLSession.shared.dataTask(with: url)
+        task.resume()
 
         view.addSubview(imageView)
 

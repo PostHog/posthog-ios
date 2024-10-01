@@ -72,8 +72,12 @@
             let date = Date()
 
             queue.async {
+                var sampleTask: NetworkSample?
+                self.tasksLock.withLock {
+                    sampleTask = self.samplesByTask[task]
+                }
                 let sampleTask = self.samplesByTask[task]
-                guard var sample = self.samplesByTask[task] else {
+                guard var sample = sampleTask else {
                     return
                 }
 
@@ -126,11 +130,11 @@
             PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
 
             tasksLock.withLock {
-                samplesByTask.removeValue(forKey: task)
+                let _ = samplesByTask.removeValue(forKey: task)
             }
         }
 
-        private func finishAll() {
+        func finishAll() {
             var completedTasks: [URLSessionTask: NetworkSample] = [:]
             tasksLock.withLock {
                 for item in samplesByTask {

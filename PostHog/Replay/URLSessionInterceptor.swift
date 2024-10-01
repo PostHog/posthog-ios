@@ -76,36 +76,20 @@
                 self.tasksLock.withLock {
                     sampleTask = self.samplesByTask[task]
                 }
-//                guard var sample = sampleTask else {
-//                    return
-//                }
+
                 guard var sample = sampleTask else {
                     return
                 }
-//
-//                let responseStatusCode = self.urlResponseStatusCode(response: task.response)
-//
-//                if responseStatusCode != -1 {
-//                    sample.responseStatus = responseStatusCode
-//                }
-//
-//                sample.httpMethod = request.httpMethod
-//                sample.initiatorType = "fetch"
-//                sample.duration = (date.toMillis() - sample.timeOrigin.toMillis())
-//
-//                // the UI special case if the transferSize is 0 as coming from cache
-//                let transferSize = Int64(request.httpBody?.count ?? 0) + (task.response?.expectedContentLength ?? 0)
-//                if transferSize > 0 {
-//                    sample.decodedBodySize = transferSize
-//                }
-//
-//                self.finish(task: task, sample: sample)
+
                 self.taskCompleted(task: task, sample: &sample, date: date)
             }
         }
 
         private func taskCompleted(task: URLSessionTask, sample: inout NetworkSample, date: Date? = nil) {
             guard let request = task.originalRequest else {
+                tasksLock.withLock {
+                    _ = samplesByTask.removeValue(forKey: task)
+                }
                 return
             }
 
@@ -174,7 +158,6 @@
             }
 
             for item in completedTasks {
-//                finish(task: item.key, sample: item.value)
                 var value = item.value
                 taskCompleted(task: item.key, sample: &value)
             }

@@ -92,9 +92,6 @@
                         var taskReference: URLSessionDataTask?
                         let newCompletionHandler: CompletionHandler = { data, response, error in
                             if let task = taskReference { // sanity check, should always succeed
-                                if let data = data {
-                                    self.interceptor.taskReceivedData(task: task, data: data)
-                                }
                                 self.interceptor.taskCompleted(task: task, error: error)
                             }
                             completionHandler?(data, response, error)
@@ -151,9 +148,6 @@
                         var taskReference: URLSessionDataTask?
                         let newCompletionHandler: CompletionHandler = { data, response, error in
                             if let task = taskReference { // sanity check, should always succeed
-                                if let data = data {
-                                    self.interceptor.taskReceivedData(task: task, data: data)
-                                }
                                 self.interceptor.taskCompleted(task: task, error: error)
                             }
                             completionHandler?(data, response, error)

@@ -11,6 +11,8 @@
     class URLSessionInterceptor {
         private let config: PostHogConfig
 
+        private let tasksLock = NSLock()
+
         init(_ config: PostHogConfig) {
             self.config = config
         }
@@ -39,17 +41,13 @@
             let date = Date()
             queue.async {
                 let sample = NetworkSample(timeOrigin: date, url: url.absoluteString)
-                self.samplesByTask[task] = sample
-            }
-        }
 
-        /// Notifies the `URLSessionTask` data receiving.
-        /// This method should be called as soon as the next chunk of data is received by `URLSessionDataDelegate`.
-        /// - Parameters:
-        ///   - task: task receiving data.
-        ///   - data: next chunk of data delivered to `URLSessionDataDelegate`.
-        func taskReceivedData(task _: URLSessionTask, data _: Data) {
-            // Currently we don't do anything with this
+                self.tasksLock.withLock {
+                    self.samplesByTask[task] = sample
+                }
+
+                self.finishAll()
+            }
         }
 
         /// Notifies the `URLSessionTask` completion.
@@ -61,34 +59,53 @@
                 return
             }
 
-            guard let request = task.originalRequest else {
-                return
-            }
             let date = Date()
 
             queue.async {
-                guard var sample = self.samplesByTask[task] else {
+                var sampleTask: NetworkSample?
+                self.tasksLock.withLock {
+                    sampleTask = self.samplesByTask[task]
+                }
+
+                guard var sample = sampleTask else {
                     return
                 }
 
-                let responseStatusCode = self.urlResponseStatusCode(response: task.response)
+                self.finish(task: task, sample: &sample, date: date)
 
-                if responseStatusCode != -1 {
-                    sample.responseStatus = responseStatusCode
-                }
-
-                sample.httpMethod = request.httpMethod
-                sample.initiatorType = "fetch"
-                sample.duration = (date.toMillis() - sample.timeOrigin.toMillis())
-
-                // the UI special case if the transferSize is 0 as coming from cache
-                let transferSize = Int64(request.httpBody?.count ?? 0) + (task.response?.expectedContentLength ?? 0)
-                if transferSize > 0 {
-                    sample.decodedBodySize = transferSize
-                }
-
-                self.finish(task: task, sample: sample)
+                self.finishAll()
             }
+        }
+
+        private func finish(task: URLSessionTask, sample: inout NetworkSample, date: Date? = nil) {
+            // only safe guard, should not happen
+            guard let request = task.originalRequest else {
+                tasksLock.withLock {
+                    _ = samplesByTask.removeValue(forKey: task)
+                }
+                return
+            }
+
+            let responseStatusCode = urlResponseStatusCode(response: task.response)
+
+            if responseStatusCode != -1 {
+                sample.responseStatus = responseStatusCode
+            }
+
+            sample.httpMethod = request.httpMethod
+            sample.initiatorType = "fetch"
+            // instrumented requests that dont use the completion handler wont have the duration set
+            if let date = date {
+                sample.duration = (date.toMillis() - sample.timeOrigin.toMillis())
+            }
+
+            // the UI special case if the transferSize is 0 as coming from cache
+            let transferSize = Int64(request.httpBody?.count ?? 0) + (task.response?.expectedContentLength ?? 0)
+            if transferSize > 0 {
+                sample.decodedBodySize = transferSize
+            }
+
+            finish(task: task, sample: sample)
         }
 
         // MARK: - Private
@@ -105,9 +122,6 @@
         }
 
         private func finish(task: URLSessionTask, sample: NetworkSample) {
-            if !isCaptureNetworkEnabled() {
-                return
-            }
             var snapshotsData: [Any] = []
 
             let requestsData = [sample.toDict()]
@@ -119,11 +133,31 @@
 
             PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
 
-            samplesByTask.removeValue(forKey: task)
+            tasksLock.withLock {
+                _ = samplesByTask.removeValue(forKey: task)
+            }
+        }
+
+        private func finishAll() {
+            var completedTasks: [URLSessionTask: NetworkSample] = [:]
+            tasksLock.withLock {
+                for item in samplesByTask {
+                    if item.key.state == .completed {
+                        completedTasks[item.key] = item.value
+                    }
+                }
+            }
+
+            for item in completedTasks {
+                var value = item.value
+                finish(task: item.key, sample: &value)
+            }
         }
 
         func stop() {
-            samplesByTask.removeAll()
+            tasksLock.withLock {
+                samplesByTask.removeAll()
+            }
         }
     }
 #endif

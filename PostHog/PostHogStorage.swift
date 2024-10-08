@@ -44,7 +44,7 @@ class PostHogStorage {
     init(_ config: PostHogConfig) {
         self.config = config
 
-        self.appFolderUrl = Self.getAppFolderUrl(from: config)
+        appFolderUrl = Self.getAppFolderUrl(from: config)
 
         createDirectoryAtURLIfNeeded(url: appFolderUrl)
     }

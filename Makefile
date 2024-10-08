@@ -32,13 +32,13 @@ swiftFormat:
 	swiftformat . --swiftversion 5.3
 
 testOniOSSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.0.1' | xcpretty
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=18.0' | xcpretty
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
 test:
-	swift test
+	swift test | xcpretty
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint

@@ -33,6 +33,11 @@ import Foundation
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
+    /// The identifier of the App Group that should be used to store shared analytics data.
+    /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
+    /// Default: nil
+    @objc public var appGroupIdentifier: String?
+
     /// Internal
     /// Do not modify it, this flag is read and updated by the SDK via feature flags
     @objc public var snapshotEndpoint: String = "/s/"

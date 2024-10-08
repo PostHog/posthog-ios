@@ -122,7 +122,7 @@ class PostHogStorage {
     /**
      There are cases where applications using posthog-ios want to share analytics data between host app and an app extension, Widget or App Clip. If there's a defined `appGroupIdentifier` in configuration, we want to use a shared container for storing data so that extensions correcly identify a user (and batch process events)
      */
-    private static func getAppFolderUrl(from configuration: PostHogConfig? = nil) -> URL {
+    private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
         /**
 
          From Apple Docs:
@@ -134,7 +134,7 @@ class PostHogStorage {
           see: https://developer.apple.com/documentation/foundation/filemanager/1412643-containerurl/
           */
         func appGroupContainerUrl() -> URL? {
-            guard let appGroupIdentifier = configuration?.appGroupIdentifier else { return nil }
+            guard let appGroupIdentifier = configuration.appGroupIdentifier else { return nil }
 
             let url = FileManager.default
                 .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?

@@ -12,21 +12,10 @@ import Foundation
 
  posthog-ios stores data either to file or to UserDefaults in order to support tvOS. As recordings won't work on tvOS anyways and we have no tvOS users so far,
  we are opting to only support iOS via File storage.
-
- There are cases where applications using posthog-ios want to share analytics data between host app and an app extension, Widget or App Clip. If there's a defined `appGroupIdentifier` in configuration, we want to use a shared container for storing data so that extensions correcly identify a user (and batch process events)
  */
-func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
-    func applicationSupportDirectoryURL() -> URL {
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
-    }
-
-    func appGroupContainerUrl() -> URL? {
-        guard let appGroupIdentifier = configuration.appGroupIdentifier else { return nil }
-        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
-    }
-
-    return appGroupContainerUrl() ?? applicationSupportDirectoryURL()
+func applicationSupportDirectoryURL() -> URL {
+    let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
 }
 
 class PostHogStorage {
@@ -55,18 +44,9 @@ class PostHogStorage {
     init(_ config: PostHogConfig) {
         self.config = config
 
-        appFolderUrl = getAppFolderUrl(from: config)
+        self.appFolderUrl = Self.getAppFolderUrl(from: config)
 
         createDirectoryAtURLIfNeeded(url: appFolderUrl)
-    }
-
-    private func createDirectoryAtURLIfNeeded(url: URL) {
-        if FileManager.default.fileExists(atPath: url.path) { return }
-        do {
-            try FileManager.default.createDirectory(atPath: url.path, withIntermediateDirectories: true)
-        } catch {
-            hedgeLog("Error creating storage directory: \(error)")
-        }
     }
 
     public func url(forKey key: StorageKey) -> URL {
@@ -137,6 +117,39 @@ class PostHogStorage {
             hedgeLog("Failed to serialize key '\(key)' error: \(error)")
         }
         setData(forKey: key, contents: data)
+    }
+
+    /**
+     There are cases where applications using posthog-ios want to share analytics data between host app and an app extension, Widget or App Clip. If there's a defined `appGroupIdentifier` in configuration, we want to use a shared container for storing data so that extensions correcly identify a user (and batch process events)
+     */
+    private static func getAppFolderUrl(from configuration: PostHogConfig? = nil) -> URL {
+        /**
+
+         From Apple Docs:
+         In iOS, the value is nil when the group identifier is invalid. In macOS, a URL of the expected form is always returned, even if the app group is invalid, so be sure to test that you can access the underlying directory before attempting to use it.
+
+         MacOS: The system also creates the Library/Application Support, Library/Caches, and Library/Preferences subdirectories inside the group directory the first time you use it
+         iOS: The system creates only the Library/Caches subdirectory automatically
+
+          see: https://developer.apple.com/documentation/foundation/filemanager/1412643-containerurl/
+          */
+        func appGroupContainerUrl() -> URL? {
+            guard let appGroupIdentifier = configuration?.appGroupIdentifier else { return nil }
+
+            let url = FileManager.default
+                .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+                .appendingPathComponent("Library/Application Support/")
+                .appendingPathComponent(Bundle.main.bundleIdentifier!)
+
+            if let url {
+                createDirectoryAtURLIfNeeded(url: url)
+                return directoryExists(url) ? url : nil
+            }
+
+            return nil
+        }
+
+        return appGroupContainerUrl() ?? applicationSupportDirectoryURL()
     }
 
     public func reset() {

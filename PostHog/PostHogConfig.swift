@@ -34,7 +34,7 @@ import Foundation
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
     /// The identifier of the App Group that should be used to store shared analytics data.
-    /// Posthog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
+    /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
     /// Default: nil
     @objc public var appGroupIdentifier: String?
 

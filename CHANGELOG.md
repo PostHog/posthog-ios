@@ -1,5 +1,7 @@
 ## Next
 
+## 3.12.7 - 2024-10-09
+
 - add appGroupIdentifier in posthog config ([#207](https://github.com/PostHog/posthog-ios/pull/207))
 
 ## 3.12.6 - 2024-10-02

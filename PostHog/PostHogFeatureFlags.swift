@@ -36,12 +36,14 @@ class PostHogFeatureFlags {
 
     private func preloadSesssionReplayFlag() {
         var sessionReplay: [String: Any]?
+        var featureFlags: [String: Any]?
         featureFlagsLock.withLock {
             sessionReplay = self.storage.getDictionary(forKey: .sessionReplay) as? [String: Any]
+            featureFlags = self.getCachedFeatureFlags()
         }
 
         if let sessionReplay = sessionReplay {
-            sessionReplayFlagActive = true
+            sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
 
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint

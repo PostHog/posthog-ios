@@ -27,38 +27,6 @@
         }
     }
 
-    struct PostHogSensitiveViewWrapperRepresentable: UIViewRepresentable {
-        @Binding var viewWrapper: PostHogSensitiveViewWrapper?
-
-        func makeUIView(context _: Context) -> PostHogSensitiveViewWrapper {
-            let wrapper = PostHogSensitiveViewWrapper()
-            viewWrapper = wrapper
-            return wrapper
-        }
-
-        func updateUIView(_: PostHogSensitiveViewWrapper, context _: Context) {}
-    }
-
-    class PostHogSensitiveViewWrapper: UIView {
-        override func didMoveToSuperview() {
-            super.didMoveToSuperview()
-            if superview != nil {
-                PostHogScreenshotMasker.shared.addView(self)
-            } else {
-                PostHogScreenshotMasker.shared.removeView(self)
-            }
-        }
-    }
-
-    struct PostHogSensitiveModifier: ViewModifier {
-        @State private var viewWrapper: PostHogSensitiveViewWrapper?
-
-        func body(content: Content) -> some View {
-            content
-                .background(PostHogSensitiveViewWrapperRepresentable(viewWrapper: $viewWrapper))
-        }
-    }
-
     public extension View {
         func postHogScreenView(_ screenName: String? = nil,
                                _ properties: [String: Any]? = nil) -> some View
@@ -75,10 +43,6 @@
             modifier(PostHogSwiftUIViewModifier(viewEventName: event,
                                                 screenEvent: false,
                                                 properties: properties))
-        }
-
-        func postHogMask() -> some View {
-            modifier(PostHogSensitiveModifier())
         }
     }
 

@@ -56,16 +56,16 @@ class PostHogFeatureFlags {
            let value = featureFlags[linkedFlag] as? Bool
         {
             recordingActive = value
-        } else if let linkedFlag = sessionRecording["linkedFlag"] as? String,
-                  featureFlags[linkedFlag] != nil
-        {
-            recordingActive = true
         } else if let linkedFlag = sessionRecording["linkedFlag"] as? [String: Any],
                   let flag = linkedFlag["flag"] as? String,
                   let variant = linkedFlag["variant"] as? String,
                   let value = featureFlags[flag] as? String
         {
             recordingActive = value == variant
+        } else if let linkedFlag = sessionRecording["linkedFlag"] as? String,
+                  featureFlags[linkedFlag] != nil
+        {
+            recordingActive = true
         }
 
         return recordingActive

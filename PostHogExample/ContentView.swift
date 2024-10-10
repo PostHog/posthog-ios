@@ -77,7 +77,7 @@ struct ContentView: View {
 
     func triggerIdentify() {
         PostHogSDK.shared.identify(name, userProperties: [
-            "name": name,
+            "name": name
         ])
     }
 
@@ -97,7 +97,8 @@ struct ContentView: View {
                         ContentView()
                     } label: {
                         Text("Infinite navigation")
-                    }.accessibilityIdentifier("ph-no-capture")
+                    }
+                    .postHogMask()
 
                     Button("Show Sheet") {
                         showingSheet.toggle()
@@ -116,9 +117,11 @@ struct ContentView: View {
                     Text("Sensitive text!!").postHogMask()
                     Button(action: incCounter) {
                         Text(String(counter))
-                    }.accessibilityIdentifier("ph-no-capture-id").accessibilityLabel("ph-no-capture")
-
-                    TextField("Enter your name", text: $name).accessibilityLabel("ph-no-capture")
+                    }
+                    .postHogMask()
+                    
+                    TextField("Enter your name", text: $name)
+                        .postHogMask()
                     Text("Hello, \(name)!")
                     Button(action: triggerAuthentication) {
                         Text("Trigger fake authentication!")

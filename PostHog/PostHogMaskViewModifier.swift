@@ -49,7 +49,7 @@
     }
 
     private var phIsManuallyMaskedKey: UInt8 = 0
-    private extension UIView {
+    extension UIView {
         var phIsManuallyMasked: Bool {
             get {
                 objc_getAssociatedObject(self, &phIsManuallyMaskedKey) as? Bool ?? false

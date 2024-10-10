@@ -50,21 +50,25 @@ class PostHogFeatureFlags {
     }
 
     private func isRecordingActive(_ featureFlags: [String: Any], _ sessionRecording: [String: Any]) -> Bool {
-        var recordingActive = false
+        var recordingActive = true
 
+        // check for boolean flags
         if let linkedFlag = sessionRecording["linkedFlag"] as? String,
            let value = featureFlags[linkedFlag] as? Bool
         {
             recordingActive = value
+            // check for specific flag variant
         } else if let linkedFlag = sessionRecording["linkedFlag"] as? [String: Any],
                   let flag = linkedFlag["flag"] as? String,
                   let variant = linkedFlag["variant"] as? String,
                   let value = featureFlags[flag] as? String
         {
             recordingActive = value == variant
+            // check for multi flag variant (any)
         } else if let linkedFlag = sessionRecording["linkedFlag"] as? String,
                   featureFlags[linkedFlag] != nil
         {
+            // always true if the flag exists
             recordingActive = true
         }
 

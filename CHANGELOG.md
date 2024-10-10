@@ -1,4 +1,5 @@
 ## Next
+
 - add `postHogMask` view modifier to manually mask a SwiftUI view ([#202](https://github.com/PostHog/posthog-ios/pull/202))
 
 ## 3.12.7 - 2024-10-09

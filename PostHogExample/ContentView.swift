@@ -77,7 +77,7 @@ struct ContentView: View {
 
     func triggerIdentify() {
         PostHogSDK.shared.identify(name, userProperties: [
-            "name": name
+            "name": name,
         ])
     }
 
@@ -119,7 +119,7 @@ struct ContentView: View {
                         Text(String(counter))
                     }
                     .postHogMask()
-                    
+
                     TextField("Enter your name", text: $name)
                         .postHogMask()
                     Text("Hello, \(name)!")

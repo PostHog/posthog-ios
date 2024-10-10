@@ -71,7 +71,6 @@
 		693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693E977C2C6257F9004B1030 /* ExampleSanitizer.swift */; };
 		6955CB732C517651008EFD8D /* CGSize+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6955CB722C517651008EFD8D /* CGSize+Util.swift */; };
 		69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69779BEB2AE68E6900D7A48E /* UIViewController.swift */; };
-		6984765C2CA1BE50001AA3FD /* PostHogScreenshotMasker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6984765B2CA1BE50001AA3FD /* PostHogScreenshotMasker.swift */; };
 		6992AA832AFE51A000087600 /* PostHogExampleTvOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6992AA822AFE51A000087600 /* PostHogExampleTvOSApp.swift */; };
 		6992AA852AFE51A000087600 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6992AA842AFE51A000087600 /* ContentView.swift */; };
 		6992AA872AFE51A100087600 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6992AA862AFE51A100087600 /* Assets.xcassets */; };
@@ -329,7 +328,6 @@
 		693E977C2C6257F9004B1030 /* ExampleSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleSanitizer.swift; sourceTree = "<group>"; };
 		6955CB722C517651008EFD8D /* CGSize+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGSize+Util.swift"; sourceTree = "<group>"; };
 		69779BEB2AE68E6900D7A48E /* UIViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewController.swift; sourceTree = "<group>"; };
-		6984765B2CA1BE50001AA3FD /* PostHogScreenshotMasker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenshotMasker.swift; sourceTree = "<group>"; };
 		6992AA802AFE51A000087600 /* PostHogExampleTvOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleTvOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6992AA822AFE51A000087600 /* PostHogExampleTvOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleTvOSApp.swift; sourceTree = "<group>"; };
 		6992AA842AFE51A000087600 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -698,7 +696,6 @@
 		69EE82B82BA9C4DA00EB9542 /* Replay */ = {
 			isa = PBXGroup;
 			children = (
-				6984765B2CA1BE50001AA3FD /* PostHogScreenshotMasker.swift */,
 				69EE82B92BA9C50400EB9542 /* PostHogReplayIntegration.swift */,
 				69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */,
 				69EE82BD2BA9C8AA00EB9542 /* ViewLayoutTracker.swift */,
@@ -1104,7 +1101,6 @@
 				69F23A742BB3088E001194F6 /* URLSessionSwizzler.swift in Sources */,
 				69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */,
 				69F5183A2BB2BA8300F52C14 /* UIApplicationTracker.swift in Sources */,
-				6984765C2CA1BE50001AA3FD /* PostHogScreenshotMasker.swift in Sources */,
 				69F518182BAC80A300F52C14 /* String+Util.swift in Sources */,
 				69ED1A882C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift in Sources */,
 				69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */,

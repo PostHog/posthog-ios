@@ -27,8 +27,7 @@
 
     private struct PostHogMaskViewModifier: ViewModifier {
         let enabled: Bool
-        @State private var visible = false
-
+        
         func body(content: Content) -> some View {
             content.background(viewTagger)
         }
@@ -49,7 +48,7 @@
     }
 
     private var phIsManuallyMaskedKey: UInt8 = 0
-    extension UIView {
+        extension UIView {
         var phIsManuallyMasked: Bool {
             get {
                 objc_getAssociatedObject(self, &phIsManuallyMaskedKey) as? Bool ?? false

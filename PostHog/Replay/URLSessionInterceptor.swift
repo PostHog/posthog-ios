@@ -141,10 +141,8 @@
         private func finishAll() {
             var completedTasks: [URLSessionTask: NetworkSample] = [:]
             tasksLock.withLock {
-                for item in samplesByTask {
-                    if item.key.state == .completed {
-                        completedTasks[item.key] = item.value
-                    }
+                for item in samplesByTask where item.key.state == .completed {
+                    completedTasks[item.key] = item.value
                 }
             }
 

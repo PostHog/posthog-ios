@@ -49,6 +49,22 @@ class PostHogFeatureFlags {
         }
     }
 
+    private func isRecordingActive(_ featureFlags: [String: Any], _ sessionRecording: [String: Any]) -> Bool {
+        var recordingActive = false
+
+        if let linkedFlag = sessionRecording["linkedFlag"] as? String,
+           let active = featureFlags[linkedFlag] as? Bool
+        {
+            recordingActive = active
+        } else if let linkedFlag = sessionRecording["linkedFlag"] as? String,
+                  featureFlags[linkedFlag] != nil
+        {
+            recordingActive = true
+        }
+
+        return recordingActive
+    }
+
     func loadFeatureFlags(
         distinctId: String,
         anonymousId: String,
@@ -94,7 +110,7 @@ class PostHogFeatureFlags {
                         if let endpoint = sessionRecording["endpoint"] as? String {
                             self.config.snapshotEndpoint = endpoint
                         }
-                        self.sessionReplayFlagActive = true
+                        self.sessionReplayFlagActive = self.isRecordingActive(featureFlags, sessionRecording)
                         self.storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
                     }
                 #endif

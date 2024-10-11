@@ -207,6 +207,59 @@ class PostHogFeatureFlagsTest: QuickSpec {
 
                 storage.reset()
             }
+
+            it("returns isSessionReplayFlagActive true if bool linked flag is enabled") {
+                let storage = PostHogStorage(self.config)
+
+                let sut = self.getSut(storage: storage)
+
+                expect(sut.isSessionReplayFlagActive()) == false
+
+                let group = DispatchGroup()
+                group.enter()
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    group.leave()
+                })
+
+                group.wait()
+
+                expect(storage.getDictionary(forKey: .sessionReplay)) != nil
+                expect(self.config.snapshotEndpoint) == "/newS/"
+                expect(sut.isSessionReplayFlagActive()) == true
+
+                storage.reset()
+            }
+
+            it("returns isSessionReplayFlagActive false if bool linked flag is disabled") {
+                let storage = PostHogStorage(self.config)
+
+                let sut = self.getSut(storage: storage)
+
+                expect(sut.isSessionReplayFlagActive()) == false
+
+                let group = DispatchGroup()
+                group.enter()
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+                server.replayBoolVariantFlagActive = false
+
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    group.leave()
+                })
+
+                group.wait()
+
+                expect(storage.getDictionary(forKey: .sessionReplay)) != nil
+                expect(self.config.snapshotEndpoint) == "/newS/"
+                expect(sut.isSessionReplayFlagActive()) == false
+
+                storage.reset()
+            }
         #endif
     }
 }

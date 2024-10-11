@@ -120,15 +120,20 @@ class PostHogStorage {
     }
 
     /**
-     There are cases where applications using posthog-ios want to share analytics data between host app and an app extension, Widget or App Clip. If there's a defined `appGroupIdentifier` in configuration, we want to use a shared container for storing data so that extensions correcly identify a user (and batch process events)
+     There are cases where applications using posthog-ios want to share analytics data between host app and
+     an app extension, Widget or App Clip. If there's a defined `appGroupIdentifier` in configuration,
+     we want to use a shared container for storing data so that extensions correcly identify a user (and batch process events)
      */
     private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
         /**
 
          From Apple Docs:
-         In iOS, the value is nil when the group identifier is invalid. In macOS, a URL of the expected form is always returned, even if the app group is invalid, so be sure to test that you can access the underlying directory before attempting to use it.
+         In iOS, the value is nil when the group identifier is invalid. In macOS, a URL of the expected form is always
+         returned, even if the app group is invalid, so be sure to test that you can access the underlying directory
+         before attempting to use it.
 
-         MacOS: The system also creates the Library/Application Support, Library/Caches, and Library/Preferences subdirectories inside the group directory the first time you use it
+         MacOS: The system also creates the Library/Application Support, Library/Caches, and Library/Preferences
+         subdirectories inside the group directory the first time you use it
          iOS: The system creates only the Library/Caches subdirectory automatically
 
           see: https://developer.apple.com/documentation/foundation/filemanager/1412643-containerurl/

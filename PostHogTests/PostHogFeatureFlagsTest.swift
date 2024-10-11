@@ -273,8 +273,9 @@ class PostHogFeatureFlagsTest: QuickSpec {
 
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
+                server.returnReplayWithMultiVariant = true
                 server.replayVariantName = "recording-platform"
-                server.replayVariantValue = ["flag": "recording-platform", "variant": "web"]
+                server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()

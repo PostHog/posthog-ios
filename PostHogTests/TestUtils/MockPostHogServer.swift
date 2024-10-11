@@ -38,6 +38,7 @@ class MockPostHogServer {
     public var return500 = false
     public var returnReplay = false
     public var returnReplayWithVariant = false
+    public var returnReplayWithMultiVariant = false
     public var replayVariantName = "myBooleanRecordingFlag"
     public var replayVariantValue: Any = true
 
@@ -48,7 +49,7 @@ class MockPostHogServer {
                 "string-value": "test",
                 "disabled-flag": false,
                 "number-value": true,
-                "recording-platform": "web",
+                "recording-platform-check": "web",
                 self.replayVariantName: self.replayVariantValue,
             ]
 
@@ -74,7 +75,11 @@ class MockPostHogServer {
                 ]
 
                 if self.returnReplayWithVariant {
-                    sessionRecording["linkedFlag"] = self.replayVariantName
+                    if self.returnReplayWithMultiVariant {
+                        sessionRecording["linkedFlag"] = self.replayVariantValue
+                    } else {
+                        sessionRecording["linkedFlag"] = self.replayVariantName
+                    }
                 }
 
                 obj["sessionRecording"] = sessionRecording

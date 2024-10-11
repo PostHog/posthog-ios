@@ -66,13 +66,12 @@ class PostHogFeatureFlags {
                   let value = featureFlags[flag] as? String
         {
             recordingActive = value == variant
-            // check for multi flag variant (any)
-        } else if let linkedFlag = sessionRecording["linkedFlag"] as? String,
-                  featureFlags[linkedFlag] != nil
-        {
-            // always true if the flag exists
-            recordingActive = true
         }
+        // check for multi flag variant (any)
+        // if let linkedFlag = sessionRecording["linkedFlag"] as? String,
+        //    featureFlags[linkedFlag] != nil
+        // is also a valid check bbut since we cannot check the value of the flag,
+        // we consider session recording is active
 
         return recordingActive
     }

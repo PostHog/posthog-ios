@@ -38,7 +38,8 @@ class MockPostHogServer {
     public var return500 = false
     public var returnReplay = false
     public var returnReplayWithVariant = false
-    public var replayBoolVariantFlagActive = true
+    public var replayVariantName = "myBooleanRecordingFlag"
+    public var replayVariantValue: Any = true
 
     init(port _: Int = 9001) {
         stub(condition: isPath("/decide")) { _ in
@@ -47,7 +48,8 @@ class MockPostHogServer {
                 "string-value": "test",
                 "disabled-flag": false,
                 "number-value": true,
-                "myBooleanRecordingFlag": self.replayBoolVariantFlagActive,
+                "recording-platform": "web",
+                self.replayVariantName: self.replayVariantValue,
             ]
 
             if self.errorsWhileComputingFlags {
@@ -72,7 +74,7 @@ class MockPostHogServer {
                 ]
 
                 if self.returnReplayWithVariant {
-                    sessionRecording["linkedFlag"] = "myBooleanRecordingFlag"
+                    sessionRecording["linkedFlag"] = self.replayVariantName
                 }
 
                 obj["sessionRecording"] = sessionRecording

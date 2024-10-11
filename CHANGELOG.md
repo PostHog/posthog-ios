@@ -2,6 +2,10 @@
 
 - recording: session replay respect feature flag variants ([#209](https://github.com/PostHog/posthog-ios/pull/209))
 
+## 3.12.7 - 2024-10-09
+
+- add appGroupIdentifier in posthog config ([#207](https://github.com/PostHog/posthog-ios/pull/207))
+
 ## 3.12.6 - 2024-10-02
 
 - recording: capture network logs from dataTask requests without CompletionHandler ([#203](https://github.com/PostHog/posthog-ios/pull/203))

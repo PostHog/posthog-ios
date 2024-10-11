@@ -93,5 +93,15 @@ class PostHogStorageTest: QuickSpec {
 
             sut.reset()
         }
+
+        it("falls back to application support directory when app group identifier is not provided") {
+            let config = PostHogConfig(apiKey: "123")
+            config.appGroupIdentifier = nil
+            let sut = PostHogStorage(config)
+            let url = sut.appFolderUrl
+            expect(url).toNot(beNil())
+            expect(url.pathComponents[url.pathComponents.count - 2]) == "Application Support"
+            expect(url.lastPathComponent) == Bundle.main.bundleIdentifier
+        }
     }
 }

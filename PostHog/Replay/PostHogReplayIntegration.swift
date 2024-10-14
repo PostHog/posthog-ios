@@ -97,7 +97,7 @@
 
                 var data: [String: Any] = ["width": width, "height": height]
 
-                if let screenName = screenName {
+                if let screenName {
                     data["href"] = screenName
                 }
 
@@ -232,6 +232,11 @@
                 }
             }
 
+            // manually masked views through view modifier `PostHogMaskViewModifier`
+            if view.phIsManuallyMasked {
+                maskableWidgets.append(view.toAbsoluteRect(parent))
+            }
+
             if !view.subviews.isEmpty {
                 for child in view.subviews {
                     if !child.isVisible() {
@@ -306,11 +311,11 @@
         }
 
         private func hasText(_ text: String?) -> Bool {
-            if let text = text, !text.isEmpty {
-                return true
+            if let text, !text.isEmpty {
+                true
             } else {
                 // if there's no text, there's nothing to mask
-                return false
+                false
             }
         }
 
@@ -529,7 +534,6 @@
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
-
 #endif
 
 // swiftlint:enable cyclomatic_complexity

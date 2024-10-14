@@ -1,5 +1,7 @@
 ## Next
 
+- recording: session replay respect feature flag variants ([#209](https://github.com/PostHog/posthog-ios/pull/209))
+
 ## 3.12.7 - 2024-10-09
 
 - add appGroupIdentifier in posthog config ([#207](https://github.com/PostHog/posthog-ios/pull/207))

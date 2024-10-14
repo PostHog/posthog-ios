@@ -36,17 +36,44 @@ class PostHogFeatureFlags {
 
     private func preloadSesssionReplayFlag() {
         var sessionReplay: [String: Any]?
+        var featureFlags: [String: Any]?
         featureFlagsLock.withLock {
             sessionReplay = self.storage.getDictionary(forKey: .sessionReplay) as? [String: Any]
+            featureFlags = self.getCachedFeatureFlags()
         }
 
         if let sessionReplay = sessionReplay {
-            sessionReplayFlagActive = true
+            sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
 
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint
             }
         }
+    }
+
+    private func isRecordingActive(_ featureFlags: [String: Any], _ sessionRecording: [String: Any]) -> Bool {
+        var recordingActive = true
+
+        // check for boolean flags
+        if let linkedFlag = sessionRecording["linkedFlag"] as? String,
+           let value = featureFlags[linkedFlag] as? Bool
+        {
+            recordingActive = value
+            // check for specific flag variant
+        } else if let linkedFlag = sessionRecording["linkedFlag"] as? [String: Any],
+                  let flag = linkedFlag["flag"] as? String,
+                  let variant = linkedFlag["variant"] as? String,
+                  let value = featureFlags[flag] as? String
+        {
+            recordingActive = value == variant
+        }
+        // check for multi flag variant (any)
+        // if let linkedFlag = sessionRecording["linkedFlag"] as? String,
+        //    featureFlags[linkedFlag] != nil
+        // is also a valid check bbut since we cannot check the value of the flag,
+        // we consider session recording is active
+
+        return recordingActive
     }
 
     func loadFeatureFlags(
@@ -94,7 +121,7 @@ class PostHogFeatureFlags {
                         if let endpoint = sessionRecording["endpoint"] as? String {
                             self.config.snapshotEndpoint = endpoint
                         }
-                        self.sessionReplayFlagActive = true
+                        self.sessionReplayFlagActive = self.isRecordingActive(featureFlags, sessionRecording)
                         self.storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
                     }
                 #endif

@@ -10,8 +10,8 @@
     import SwiftUI
 
     public extension View {
-        func postHogMask(_ value: Bool = true) -> some View {
-            modifier(PostHogMaskViewModifier(enabled: value))
+        func postHogMask(_ isEnabled: Bool = true) -> some View {
+            modifier(PostHogMaskViewModifier(enabled: isEnabled))
         }
     }
 

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.13.0 - 2024-10-14
+
 - recording: session replay respect feature flag variants ([#209](https://github.com/PostHog/posthog-ios/pull/209))
 - add `postHogMask` view modifier to manually mask a SwiftUI view ([#202](https://github.com/PostHog/posthog-ios/pull/202))
 

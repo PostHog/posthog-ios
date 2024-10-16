@@ -1,5 +1,7 @@
 ## Next
 
+- add an optional `distinctId` parameter to the .capture() family of methods
+
 ## 3.13.0 - 2024-10-14
 
 - recording: session replay respect feature flag variants ([#209](https://github.com/PostHog/posthog-ios/pull/209))

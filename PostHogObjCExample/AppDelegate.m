@@ -28,9 +28,31 @@
             object:nil];
 
     PostHogConfig *config = [[PostHogConfig alloc] apiKey:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
-    config.preloadFeatureFlags = NO;
+    config.preloadFeatureFlags = YES;
     [[PostHogSDK shared] debug:YES];
     [[PostHogSDK shared] setup:config];
+    
+    NSString *event = @"theEvent";
+    NSString *distinctId = @"theCustomDistinctId";
+    NSDictionary *properties = @{@"source": @"iOS App", @"state": @"running"};
+    NSDictionary *userProperties = @{@"userAlive": @YES, @"userAge": @50};
+    NSDictionary *userPropertiesSetOnce = @{@"signupDate": @"2024-10-16"};
+    NSDictionary *groups = @{@"groupName": @"developers"};
+
+    [[PostHogSDK shared] captureWithEvent:event
+                               distinctId:distinctId
+                               properties:properties
+                            userProperties:userProperties
+                    userPropertiesSetOnce:userPropertiesSetOnce
+                                   groups:groups
+    ];
+    
+    [[PostHogSDK shared] captureWithEvent:event
+                               properties:properties
+                            userProperties:userProperties
+                    userPropertiesSetOnce:userPropertiesSetOnce
+    ];
+    
 //    NSLog(@"getDistinctId: %@", [[PostHogSDK shared] getDistinctId]);
 //    NSLog(@"getAnonymousId: %@", [[PostHogSDK shared] getAnonymousId]);
 //    
@@ -72,8 +94,8 @@
 //    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props];
 //    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props userProperties:userProps];
 //    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props userProperties:userProps userPropertiesSetOnce:userPropsOnce];
-//    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props userProperties:userProps userPropertiesSetOnce:userPropsOnce groupProperties:groupProps];
-//    
+//    [[PostHogSDK shared] captureWithEvent:@"theEvent" distinctId:@"custom_distinct_id" properties:props userProperties:userProps userPropertiesSetOnce:userPropsOnce groupProperties:groupProps];
+//
 //    [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey"];
 //    [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey" groupProperties:groupProps];
 //    

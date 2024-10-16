@@ -88,6 +88,25 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("captures the capture event with a custom distinctId") {
+            let sut = self.getSut()
+
+            sut.capture("event",
+                        distinctId: "the_custom_distinct_id",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"],
+                        groups: ["groupProp": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first!.distinctId) == "the_custom_distinct_id"
+
+            sut.reset()
+            sut.close()
+        }
+
         it("captures an identify event") {
             let sut = self.getSut()
 

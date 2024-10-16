@@ -88,7 +88,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures the capture event with custom(event,distinctId) overload") {
+        it("captures the capture event with capture(event,distinctId) overload") {
             let sut = self.getSut()
 
                 sut.capture("event1",
@@ -103,7 +103,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures the capture event with custom(event,distinctId, properties) overload") {
+        it("captures the capture event with capture(event,distinctId, properties) overload") {
             let sut = self.getSut()
 
             sut.capture("event",
@@ -119,7 +119,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures the capture event with custom(event,distinctId, properties, userProperties) overload") {
+        it("captures the capture event with capture(event,distinctId, properties, userProperties) overload") {
             let sut = self.getSut()
 
             sut.capture("event",
@@ -136,7 +136,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures the capture event with custom(event,distinctId, properties, userProperties, userPropertiesSetOnce) overload") {
+        it("captures the capture event with capture(event,distinctId, properties, userProperties, userPropertiesSetOnce) overload") {
             let sut = self.getSut()
 
             sut.capture("event",
@@ -154,7 +154,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures the capture event with custom(event,distinctId, properties, userProperties, userPropertiesSetOnce, group) overload") {
+        it("captures the capture event with capture(event,distinctId, properties, userProperties, userPropertiesSetOnce, group) overload") {
             let sut = self.getSut()
 
             sut.capture("event",

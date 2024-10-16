@@ -478,38 +478,28 @@ let maxRetryDelay = 30.0
         capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
-    @objc(captureWithEvent:distinctId:)
+    @objc(captureWithEvent:properties:)
     public func capture(_ event: String,
-                        distinctId: String? = nil)
-    {
-        capture(event, distinctId: distinctId, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
-    }
-
-    @objc(captureWithEvent:distinctId:properties:)
-    public func capture(_ event: String,
-                        distinctId: String? = nil,
                         properties: [String: Any]? = nil)
     {
-        capture(event, distinctId: distinctId, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
+        capture(event, distinctId: nil, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
-    @objc(captureWithEvent:distinctId:properties:userProperties:)
+    @objc(captureWithEvent:properties:userProperties:)
     public func capture(_ event: String,
-                        distinctId: String? = nil,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil)
     {
-        capture(event, distinctId: distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groups: nil)
+        capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groups: nil)
     }
 
-    @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:)
+    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
     public func capture(_ event: String,
-                        distinctId: String? = nil,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil)
     {
-        capture(event, distinctId: distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
+        capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
     }
 
     private func isOptOutState() -> Bool {
@@ -522,7 +512,7 @@ let maxRetryDelay = 30.0
 
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:)
     public func capture(_ event: String,
-                        distinctId distinctIdParam: String? = nil,
+                        distinctId: String? = nil,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil,
@@ -552,7 +542,7 @@ let maxRetryDelay = 30.0
             }
         }
 
-        let distinctId = distinctIdParam ?? getDistinctId()
+        let eventDistinctId = distinctId ?? getDistinctId()
 
         // if the user isn't identified but passed userProperties, userPropertiesSetOnce or groups,
         // we should still enable person processing since this is intentional
@@ -560,7 +550,7 @@ let maxRetryDelay = 30.0
             requirePersonProcessing()
         }
 
-        let properties = buildProperties(distinctId: distinctId,
+        let properties = buildProperties(distinctId: eventDistinctId,
                                          properties: sanitizeDicionary(properties),
                                          userProperties: sanitizeDicionary(userProperties),
                                          userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
@@ -570,7 +560,7 @@ let maxRetryDelay = 30.0
 
         let posthogEvent = PostHogEvent(
             event: event,
-            distinctId: distinctId,
+            distinctId: eventDistinctId,
             properties: sanitizedProperties
         )
 

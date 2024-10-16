@@ -442,7 +442,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue = queue, let storageManager = config.storageManager else {
+        guard let queue, let storageManager = config.storageManager else {
             return
         }
         let oldDistinctId = getDistinctId()
@@ -482,7 +482,7 @@ let maxRetryDelay = 30.0
     public func capture(_ event: String,
                         properties: [String: Any]? = nil)
     {
-        capture(event, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
+        capture(event, distinctId: nil, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
     @objc(captureWithEvent:properties:userProperties:)
@@ -490,7 +490,7 @@ let maxRetryDelay = 30.0
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil)
     {
-        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groups: nil)
+        capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groups: nil)
     }
 
     @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
@@ -499,7 +499,7 @@ let maxRetryDelay = 30.0
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil)
     {
-        capture(event, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
+        capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
     }
 
     private func isOptOutState() -> Bool {
@@ -510,8 +510,9 @@ let maxRetryDelay = 30.0
         return false
     }
 
-    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groups:)
+    @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:)
     public func capture(_ event: String,
+                        distinctId: String? = nil,
                         properties: [String: Any]? = nil,
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil,
@@ -525,7 +526,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue = queue else {
+        guard let queue else {
             return
         }
 
@@ -541,7 +542,7 @@ let maxRetryDelay = 30.0
             }
         }
 
-        let distinctId = getDistinctId()
+        let eventDistinctId = distinctId ?? getDistinctId()
 
         // if the user isn't identified but passed userProperties, userPropertiesSetOnce or groups,
         // we should still enable person processing since this is intentional
@@ -549,7 +550,7 @@ let maxRetryDelay = 30.0
             requirePersonProcessing()
         }
 
-        let properties = buildProperties(distinctId: distinctId,
+        let properties = buildProperties(distinctId: eventDistinctId,
                                          properties: sanitizeDicionary(properties),
                                          userProperties: sanitizeDicionary(userProperties),
                                          userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
@@ -559,13 +560,13 @@ let maxRetryDelay = 30.0
 
         let posthogEvent = PostHogEvent(
             event: event,
-            distinctId: distinctId,
+            distinctId: eventDistinctId,
             properties: sanitizedProperties
         )
 
         // Session Replay has its own queue
         if snapshotEvent {
-            guard let replayQueue = replayQueue else {
+            guard let replayQueue else {
                 return
             }
             replayQueue.add(posthogEvent)
@@ -589,7 +590,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue = queue else {
+        guard let queue else {
             return
         }
 
@@ -629,7 +630,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue = queue else {
+        guard let queue else {
             return
         }
 
@@ -648,7 +649,7 @@ let maxRetryDelay = 30.0
     }
 
     private func groups(_ newGroups: [String: String]) -> [String: String] {
-        guard let storage = storage else {
+        guard let storage else {
             return [:]
         }
 
@@ -684,7 +685,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue = queue else {
+        guard let queue else {
             return
         }
 
@@ -747,7 +748,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let featureFlags = featureFlags, let storageManager = config.storageManager else {
+        guard let featureFlags, let storageManager = config.storageManager else {
             return
         }
 
@@ -768,7 +769,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        guard let featureFlags = featureFlags else {
+        guard let featureFlags else {
             return nil
         }
 
@@ -786,7 +787,7 @@ let maxRetryDelay = 30.0
             return false
         }
 
-        guard let featureFlags = featureFlags else {
+        guard let featureFlags else {
             return false
         }
 
@@ -804,7 +805,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        guard let featureFlags = featureFlags else {
+        guard let featureFlags else {
             return nil
         }
 

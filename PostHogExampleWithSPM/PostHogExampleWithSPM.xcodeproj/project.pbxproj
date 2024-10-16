@@ -12,6 +12,7 @@
 		690FF04A2AE7DB3700A0B06B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 690FF0492AE7DB3700A0B06B /* Assets.xcassets */; };
 		690FF04D2AE7DB3700A0B06B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 690FF04C2AE7DB3700A0B06B /* Preview Assets.xcassets */; };
 		690FF05A2AE7DD7500A0B06B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0592AE7DD7500A0B06B /* AppDelegate.swift */; };
+		DA8D37492CBF99D1005EBD27 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DA8D37482CBF99D1005EBD27 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA8D37492CBF99D1005EBD27 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +89,7 @@
 			);
 			name = PostHogExampleWithSPM;
 			packageProductDependencies = (
+				DA8D37482CBF99D1005EBD27 /* PostHog */,
 			);
 			productName = PostHogExampleWithSPM;
 			productReference = 690FF0422AE7DB3600A0B06B /* PostHogExampleWithSPM.app */;
@@ -117,7 +120,7 @@
 			);
 			mainGroup = 690FF0392AE7DB3600A0B06B;
 			packageReferences = (
-				690FF05B2AE7E03B00A0B06B /* XCLocalSwiftPackageReference ".." */,
+				DA8D37472CBF99D1005EBD27 /* XCLocalSwiftPackageReference "../../posthog-ios" */,
 			);
 			productRefGroup = 690FF0432AE7DB3600A0B06B /* Products */;
 			projectDirPath = "";
@@ -359,11 +362,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		690FF05B2AE7E03B00A0B06B /* XCLocalSwiftPackageReference ".." */ = {
+		DA8D37472CBF99D1005EBD27 /* XCLocalSwiftPackageReference "../../posthog-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ..;
+			relativePath = "../../posthog-ios";
 		};
 /* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DA8D37482CBF99D1005EBD27 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PostHog;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 690FF03A2AE7DB3600A0B06B /* Project object */;
 }

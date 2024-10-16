@@ -91,7 +91,7 @@ class PostHogSDKTest: QuickSpec {
         it("captures the capture event with capture(event,distinctId) overload") {
             let sut = self.getSut()
 
-                sut.capture("event1",
+            sut.capture("event1",
                         distinctId: "the_custom_distinct_id")
 
             let events = getBatchedEvents(server)

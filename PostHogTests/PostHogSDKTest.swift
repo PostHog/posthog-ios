@@ -88,6 +88,91 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("captures the capture event with custom(event,distinctId) overload") {
+            let sut = self.getSut()
+
+                sut.capture("event1",
+                        distinctId: "the_custom_distinct_id")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first!.distinctId) == "the_custom_distinct_id"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("captures the capture event with custom(event,distinctId, properties) overload") {
+            let sut = self.getSut()
+
+            sut.capture("event",
+                        distinctId: "the_custom_distinct_id",
+                        properties: ["foo": "bar"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first!.distinctId) == "the_custom_distinct_id"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("captures the capture event with custom(event,distinctId, properties, userProperties) overload") {
+            let sut = self.getSut()
+
+            sut.capture("event",
+                        distinctId: "the_custom_distinct_id",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first!.distinctId) == "the_custom_distinct_id"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("captures the capture event with custom(event,distinctId, properties, userProperties, userPropertiesSetOnce) overload") {
+            let sut = self.getSut()
+
+            sut.capture("event",
+                        distinctId: "the_custom_distinct_id",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first!.distinctId) == "the_custom_distinct_id"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("captures the capture event with custom(event,distinctId, properties, userProperties, userPropertiesSetOnce, group) overload") {
+            let sut = self.getSut()
+
+            sut.capture("event",
+                        distinctId: "the_custom_distinct_id",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"],
+                        groups: ["groupProp": "value"])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            expect(events.first!.distinctId) == "the_custom_distinct_id"
+
+            sut.reset()
+            sut.close()
+        }
+
         it("captures an identify event") {
             let sut = self.getSut()
 

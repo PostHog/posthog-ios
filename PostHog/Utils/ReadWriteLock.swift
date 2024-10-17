@@ -50,11 +50,13 @@ public final class ReadWriteLock<Value> {
     /// The lock will be acquired once for writing before invoking the closure.
     ///
     /// - Parameter closure: The closure with the mutable value.
+    @discardableResult
     public func mutate<T>(_ closure: (inout Value) -> T) -> T {
         pthread_rwlock_wrlock(&rwlock)
-        let result = closure(&value)
-        pthread_rwlock_unlock(&rwlock)
-        return result
+        defer {
+            pthread_rwlock_unlock(&rwlock)
+        }
+        return closure(&value)
     }
 }
 

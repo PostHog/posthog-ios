@@ -49,6 +49,7 @@ let maxRetryDelay = 30.0
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
+    private var autocaptureIntegration: PostHogAutocaptureIntegration?
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
@@ -102,6 +103,7 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
+            autocaptureIntegration = PostHogAutocaptureIntegration(config)
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()

@@ -200,6 +200,13 @@
 			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
 			remoteInfo = PostHog;
 		};
+		DA8D37282CBEAC03005EBD27 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 228DB9F318BC53F1002BA12A;
+			remoteInfo = PostHogExampleAutocapture;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -376,6 +383,7 @@
 		69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITextInputTraits+Util.swift"; sourceTree = "<group>"; };
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
 		69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIApplicationTracker.swift; sourceTree = "<group>"; };
+		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
 		DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskViewModifier.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -503,6 +511,7 @@
 		3AC745AB296D6FE60025C109 = {
 			isa = PBXGroup;
 			children = (
+				DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */,
 				690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */,
 				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
 				690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */,
@@ -733,6 +742,14 @@
 			path = PostHogExampleStoryboard;
 			sourceTree = "<group>";
 		};
+		DA8D37252CBEAC02005EBD27 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DA8D37292CBEAC03005EBD27 /* PostHogExampleAutocapture.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -940,6 +957,10 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
+					ProductGroup = DA8D37252CBEAC02005EBD27 /* Products */;
+					ProjectRef = DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */;
+				},
+				{
 					ProductGroup = 690FF1742AF3CE8A00A0B06B /* Products */;
 					ProjectRef = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
 				},
@@ -992,6 +1013,13 @@
 			fileType = wrapper.application;
 			path = "PostHogExampleWatchOS Watch App.app";
 			remoteRef = 690FF17A2AF3CE8B00A0B06B /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		DA8D37292CBEAC03005EBD27 /* PostHogExampleAutocapture.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = PostHogExampleAutocapture.app;
+			remoteRef = DA8D37282CBEAC03005EBD27 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */

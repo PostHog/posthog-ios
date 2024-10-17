@@ -475,7 +475,7 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func capture(_ event: String) {
-        capture(event, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
+        capture(event, distinctId: nil, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
     @objc(captureWithEvent:properties:)
@@ -508,6 +508,16 @@ let maxRetryDelay = 30.0
             return true
         }
         return false
+    }
+
+    @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groups:)
+    public func capture(_ event: String,
+                        properties: [String: Any]? = nil,
+                        userProperties: [String: Any]? = nil,
+                        userPropertiesSetOnce: [String: Any]? = nil,
+                        groups: [String: String]? = nil)
+    {
+        capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: groups)
     }
 
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:)

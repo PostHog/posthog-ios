@@ -1,5 +1,7 @@
 ## Next
 
+- add missing capture method for objC with groups overload ([#217](https://github.com/PostHog/posthog-ios/pull/217))
+
 ## 3.13.1 - 2024-10-16
 
 - add optional distinctId parameter to capture methods ([#216](https://github.com/PostHog/posthog-ios/pull/216))

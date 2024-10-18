@@ -1,5 +1,7 @@
 ## Next
 
+## 3.13.2 - 2024-10-18
+
 - add missing capture method for objC with groups overload ([#217](https://github.com/PostHog/posthog-ios/pull/217))
 
 ## 3.13.1 - 2024-10-16

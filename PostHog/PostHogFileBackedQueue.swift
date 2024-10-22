@@ -100,10 +100,14 @@ class PostHogFileBackedQueue {
 
     private func deleteFiles(_ count: Int) {
         for _ in 0 ..< count {
-            if items.isEmpty { return }
-            let removed = items.remove(at: 0) // We always remove from the top of the queue
-
-            deleteSafely(queue.appendingPathComponent(removed))
+            if let removed: String = _items.mutate({ items in
+                if items.isEmpty {
+                    return nil
+                }
+                return items.remove(at: 0) // We always remove from the top of the queue
+            }) {
+                deleteSafely(queue.appendingPathComponent(removed))
+            }
         }
     }
 }

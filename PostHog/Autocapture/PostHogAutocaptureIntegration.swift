@@ -13,8 +13,8 @@
     // TODO: Rage Clicks - possible?
     // TODO: Dead Clicks - possible?
     class PostHogAutocaptureIntegration {
-        struct EventData {
-            struct ViewNode: CustomStringConvertible {
+        struct EventData: Hashable {
+            struct ViewNode: CustomStringConvertible, Hashable {
                 let text: String
                 let targetClass: String
                 let index: Int
@@ -40,6 +40,12 @@
             let targetClass: String
             let accessibilityLabel: String?
             let accessibilityIdentifier: String?
+            // values >0 means that this event will be debounced for `debounceInterval`
+            let debounceInterval: TimeInterval
+            
+            func hash(into hasher: inout Hasher) {
+                hasher.combine(viewHierarchy.map(\.targetClass))
+            }
         }
 
         // static -> won't be added twice
@@ -166,7 +172,8 @@
                     .map { $1.viewNode(index: $0) },
                 targetClass: descriptiveTypeName,
                 accessibilityLabel: accessibilityLabel,
-                accessibilityIdentifier: accessibilityIdentifier
+                accessibilityIdentifier: accessibilityIdentifier,
+                debounceInterval: ph_autocaptureDebounceInterval
             )
         }
     }
@@ -287,12 +294,14 @@
     protocol AutoCapturable {
         var ph_autocaptureText: String? { get }
         var ph_autocaptureEvents: UIControl.Event { get }
+        var ph_autocaptureDebounceInterval: TimeInterval { get }
         func ph_shouldTrack(_ action: Selector, for target: Any?) -> Bool
     }
 
     extension UIView: AutoCapturable {
         @objc var ph_autocaptureEvents: UIControl.Event { .touchUpInside }
         @objc var ph_autocaptureText: String? { nil }
+        @objc var ph_autocaptureDebounceInterval: TimeInterval { 0 }
         @objc func ph_shouldTrack(_: Selector, for _: Any?) -> Bool {
             false // by default views are not tracked. Can be overriden in subclasses
         }
@@ -341,7 +350,9 @@
     }
 
     extension UISlider {
-        override var ph_autocaptureEvents: UIControl.Event { .touchUpInside }
+        override var ph_autocaptureDebounceInterval: TimeInterval { 0.3 }
+        override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
+        override var ph_autocaptureText: String? { "\(value)" }
     }
 
     #if !os(tvOS)

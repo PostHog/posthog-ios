@@ -14,22 +14,33 @@
     // TODO: Dead Clicks - possible?
     class PostHogAutocaptureIntegration {
         struct EventData {
-            enum Source {
-                case notification
-                case actionMethod
-                case gestureRecognizer
+            struct ViewNode: CustomStringConvertible {
+                let text: String
+                let targetClass: String
+                let index: Int
+                let subviewCount: Int
+
+                // Note: For some reason text will not be processed if not present in elements_chain string.
+                // Couldn't pinpoint to exact place `posthog` where we do this
+                var description: String {
+                    "\(targetClass)\(text.isEmpty ? "" : ":text=\"\(text)\"")"
+                }
             }
 
+            enum EventSource {
+                case notification(name: String)
+                case actionMethod(description: String)
+                case gestureRecognizer(description: String)
+            }
+
+            let touchCoordinates: CGPoint?
+            let value: String?
             let screenName: String?
+            let viewHierarchy: [ViewNode]
+            let targetClass: String
             let accessibilityLabel: String?
             let accessibilityIdentifier: String?
-            let targetViewClass: String
-            let targetText: String?
-            let hierarchy: String
-            let touchCoordinates: CGPoint
         }
-
-        let config: PostHogConfig
 
         // static -> won't be added twice
         private static let addNotificationObservers: Void = {
@@ -52,46 +63,40 @@
             )
         }()
 
-        init(_ config: PostHogConfig) {
-            self.config = config
-            Self.setupSwizzlingOnce
-            Self.addNotificationObservers
+        // TODO: Account for multiple instances/processors
+        private(set) weak static var eventProcessor: (any AutocaptureEventProcessing)?
+
+        static func addEventProcessor(_ processor: some AutocaptureEventProcessing) {
+            if eventProcessor == nil {
+                setupSwizzlingOnce
+                addNotificationObservers
+            }
+            eventProcessor = processor
+        }
+
+        static func removeEventProcessor(_: some AutocaptureEventProcessing) {
+            eventProcessor = nil
         }
 
         // `UITextField` or `UITextView` did end editing notification
         @objc static func didEndEditing(_ notification: NSNotification) {
             guard let view = notification.object as? UIView else { return }
-            let source: EventData.Source = .notification
-            // Text fields in SwiftUI are identifiable only after the text field is edited.
-            print("PostHogSDK.shared.capture source: \(source) \(getCaptureDescription(for: view, eventDescription: "didEndEditing")))")
+            eventProcessor?.process(source: .notification(name: "change"), event: view.eventData)
         }
-    }
-
-    private func getCaptureDescription(for element: UIView, eventDescription: String) -> String {
-        var description = ""
-
-        if let targetText = element.eventData.targetText {
-            description = "\"\(targetText)\""
-        } else if let vcName = element.nearestViewController?.descriptiveTypeName {
-            description = "in \(vcName)"
-        }
-
-        return "\(eventDescription) \(element.descriptiveTypeName) \(description)".trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     extension UIApplication {
         @objc func ph_swizzled_uiapplication_sendAction(_ action: Selector, to target: Any?, from sender: Any?, for event: UIEvent?) -> Bool {
             defer {
-                // TODO: Reduce SwiftUI noise by finding the unique view that the action method is attached to.
                 // Currently, the action methods pointing to a SwiftUI target are blocked.
                 let targetClass = String(describing: object_getClassName(target))
                 if targetClass.contains("SwiftUI") {
                     print("PostHogSDK.shared.capture SwiftUI -> \(targetClass)")
                 } else if let control = sender as? UIControl,
                           control.ph_shouldTrack(action, for: target),
-                          let eventDescription = control.event(for: action, to: target)?.description
+                          let eventDescription = control.event(for: action, to: target)?.description(forControl: control)
                 {
-                    print("PostHogSDK.shared.capture \(getCaptureDescription(for: control, eventDescription: eventDescription))")
+                    PostHogAutocaptureIntegration.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: control.eventData)
                 }
             }
 
@@ -119,50 +124,60 @@
                 #endif
             }
 
-            let gestureAction: String?
+            let gestureDescription: String?
             switch self {
             case is UITapGestureRecognizer:
-                gestureAction = "tap"
+                gestureDescription = EventType.kTouch
             case is UISwipeGestureRecognizer:
-                gestureAction = "swipe"
+                gestureDescription = EventType.kSwipe
             case is UIPanGestureRecognizer:
-                gestureAction = "pan"
+                gestureDescription = EventType.kPan
             case is UILongPressGestureRecognizer:
-                gestureAction = "longPress"
+                gestureDescription = EventType.kLongPress
             #if !os(tvOS)
                 case is UIPinchGestureRecognizer:
-                    gestureAction = "pinch"
+                    gestureDescription = EventType.kPinch
                 case is UIRotationGestureRecognizer:
-                    gestureAction = "rotation"
+                    gestureDescription = EventType.kRotation
                 case is UIScreenEdgePanGestureRecognizer:
-                    gestureAction = "screenEdgePan"
+                    gestureDescription = EventType.kPan
             #endif
             default:
-                gestureAction = nil
+                gestureDescription = nil
             }
 
-            guard let gestureAction else { return }
+            guard let gestureDescription else { return }
 
-            print("PostHogSDK.shared.capture -> \(gestureAction) \(descriptiveTypeName) -> \(view.eventData)")
+            PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: gestureDescription), event: view.eventData)
         }
     }
 
     extension UIView {
-        private static let viewHierarchyDelimiter = " → "
-
         var eventData: PostHogAutocaptureIntegration.EventData {
             PostHogAutocaptureIntegration.EventData(
+                touchCoordinates: nil,
+                value: ph_autocaptureText
+                    .map(sanitizeText),
                 screenName: nearestViewController
                     .flatMap(UIViewController.ph_topViewController)
                     .flatMap(UIViewController.getViewControllerName),
+                viewHierarchy: sequence(first: self, next: \.superview)
+                    .enumerated()
+                    .map { $1.viewNode(index: $0) },
+                targetClass: descriptiveTypeName,
                 accessibilityLabel: accessibilityLabel,
-                accessibilityIdentifier: accessibilityIdentifier,
-                targetViewClass: descriptiveTypeName,
-                targetText: sanitizeTitle(ph_autocaptureTitle),
-                hierarchy: sequence(first: self, next: \.superview)
-                    .map(\.descriptiveTypeName)
-                    .joined(separator: UIView.viewHierarchyDelimiter),
-                touchCoordinates: CGPoint.zero // TODO:
+                accessibilityIdentifier: accessibilityIdentifier
+            )
+        }
+    }
+
+    extension UIView {
+        func viewNode(index: Int) -> PostHogAutocaptureIntegration.EventData.ViewNode {
+            PostHogAutocaptureIntegration.EventData.ViewNode(
+                text: ph_autocaptureText.map(sanitizeText) ?? "",
+                targetClass: descriptiveTypeName,
+                index: index,
+                subviewCount: subviews.count
             )
         }
     }
@@ -199,20 +214,36 @@
     }
 
     extension UIControl.Event {
-        var description: String? {
-            if self == .touchUpInside {
-                return "tap"
-            } else if UIControl.Event.allTouchEvents.contains(self) {
-                return "touch"
-            } else if UIControl.Event.allEditingEvents.contains(self) {
-                return "edit"
-            } else if self == .valueChanged {
-                return "valueChange"
-            } else if self == .primaryActionTriggered {
-                return "primaryAction"
-            } else if #available(iOS 14.0, tvOS 14.0, macCatalyst 14.0, *), self == .menuActionTriggered {
-                return "menuAction"
+        func description(forControl control: UIControl) -> String? {
+            if self == .primaryActionTriggered {
+                if control is UIButton {
+                    return EventType.kTouch // UIButton triggers primaryAction with a touch interaction
+                } else if control is UISegmentedControl {
+                    return EventType.kValueChange // UISegmentedControl changes its value
+                } else if control is UITextField {
+                    return EventType.kSubmit // UITextField uses this for submit-like behavior
+                } else if control is UISwitch {
+                    return EventType.kToggle
+                } else if control is UIDatePicker {
+                    return EventType.kValueChange
+                } else if control is UIStepper {
+                    return EventType.kValueChange
+                } else {
+                    return EventType.kPrimaryAction
+                }
             }
+
+            // General event descriptions
+            if UIControl.Event.allTouchEvents.contains(self) {
+                return EventType.kTouch
+            } else if UIControl.Event.allEditingEvents.contains(self) {
+                return EventType.kChange
+            } else if self == .valueChanged {
+                return EventType.kValueChange
+            } else if #available(iOS 14.0, tvOS 14.0, macCatalyst 14.0, *), self == .menuActionTriggered {
+                return EventType.kMenuAction
+            }
+
             return nil
         }
     }
@@ -254,21 +285,21 @@
     }
 
     protocol AutoCapturable {
-        var ph_autocaptureTitle: String? { get }
+        var ph_autocaptureText: String? { get }
         var ph_autocaptureEvents: UIControl.Event { get }
         func ph_shouldTrack(_ action: Selector, for target: Any?) -> Bool
     }
 
     extension UIView: AutoCapturable {
         @objc var ph_autocaptureEvents: UIControl.Event { .touchUpInside }
-        @objc var ph_autocaptureTitle: String? { nil }
+        @objc var ph_autocaptureText: String? { nil }
         @objc func ph_shouldTrack(_: Selector, for _: Any?) -> Bool {
-            false // by default views are not tracked. Can be overwritten in subclasses
+            false // by default views are not tracked. Can be overriden in subclasses
         }
     }
 
     extension UIButton {
-        override var ph_autocaptureTitle: String? { title(for: .normal) ?? title(for: .selected) }
+        override var ph_autocaptureText: String? { title(for: .normal) ?? title(for: .selected) }
     }
 
     extension UIControl {
@@ -279,7 +310,7 @@
 
     extension UISegmentedControl {
         override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
-        override var ph_autocaptureTitle: String? { titleForSegment(at: selectedSegmentIndex) }
+        override var ph_autocaptureText: String? { titleForSegment(at: selectedSegmentIndex) }
     }
 
     extension UIPageControl {
@@ -297,15 +328,20 @@
     }
 
     extension UITextField {
-        override var ph_autocaptureTitle: String? { text ?? attributedText?.string ?? placeholder }
+        override var ph_autocaptureText: String? { text ?? attributedText?.string ?? placeholder }
     }
 
     extension UITextView {
-        override var ph_autocaptureTitle: String? { text ?? attributedText?.string }
+        override var ph_autocaptureText: String? { text ?? attributedText?.string }
     }
 
     extension UIStepper {
         override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
+        override var ph_autocaptureText: String? { "\(value)" }
+    }
+
+    extension UISlider {
+        override var ph_autocaptureEvents: UIControl.Event { .touchUpInside }
     }
 
     #if !os(tvOS)
@@ -314,9 +350,24 @@
         }
     #endif
 
-    private func sanitizeTitle(_ title: String?) -> String? {
-        guard let title else { return nil }
-        return title.replacingOccurrences(of: "[^a-zA-Z0-9]+", with: "-", options: .regularExpression, range: nil)
+    private func sanitizeText(_ title: String) -> String {
+        title.replacingOccurrences(of: "[^a-zA-Z0-9.]+", with: "-", options: .regularExpression, range: nil)
+    }
+
+    enum EventType {
+        static let kValueChange = "value_changed"
+        static let kSubmit = "submit"
+        static let kToggle = "toggle"
+        static let kPrimaryAction = "primary_action"
+        static let kMenuAction = "menu_action"
+        static let kChange = "change"
+
+        static let kTouch = "touch"
+        static let kSwipe = "swipe"
+        static let kPinch = "pinch"
+        static let kPan = "pan"
+        static let kRotation = "rotation"
+        static let kLongPress = "long_press"
     }
 
 #endif

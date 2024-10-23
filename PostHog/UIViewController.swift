@@ -43,13 +43,15 @@
         }
 
         static func getViewControllerName(_ viewController: UIViewController) -> String? {
-            var title: String? = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
-
-            if title?.isEmpty == true {
-                title = viewController.title ?? nil
+            let viewControllerClass = String(describing: type(of: viewController))
+            if let title = viewController.title ??
+                viewController.navigationItem.title ??
+                (viewController.navigationItem.titleView as? UILabel)?.text ??
+                (viewController.navigationItem.titleView as? UILabel)?.attributedText?.string
+            {
+                return "\(title) (\(viewControllerClass))"
             }
-
-            return title
+            return viewControllerClass.replacingOccurrences(of: "ViewController", with: "")
         }
 
         private func captureScreenView(_ window: UIWindow?) {
@@ -61,7 +63,7 @@
 
             let name = UIViewController.getViewControllerName(top)
 
-            if let name = name {
+            if let name {
                 PostHogSDK.shared.screen(name)
             }
         }

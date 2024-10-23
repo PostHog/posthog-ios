@@ -49,8 +49,10 @@ let maxRetryDelay = 30.0
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
-    private var autocaptureIntegration: PostHogAutocaptureIntegration?
 
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        private var autocaptureEventProcessor: PostHogAutocaptureEventProcessor?
+    #endif
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -103,7 +105,7 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
-            autocaptureIntegration = PostHogAutocaptureIntegration(config)
+            autocaptureEventProcessor = PostHogAutocaptureEventProcessor(postHogInstance: self)
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()
@@ -460,7 +462,7 @@ let maxRetryDelay = 30.0
 
             let properties = buildProperties(distinctId: distinctId, properties: [
                 "distinct_id": distinctId,
-                "$anon_distinct_id": oldDistinctId,
+                "$anon_distinct_id": oldDistinctId
             ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
             let sanitizedProperties = sanitizeProperties(properties)
 
@@ -597,7 +599,7 @@ let maxRetryDelay = 30.0
         }
 
         let props = [
-            "$screen_name": screenTitle,
+            "$screen_name": screenTitle
         ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
@@ -607,6 +609,42 @@ let maxRetryDelay = 30.0
 
         queue.add(PostHogEvent(
             event: "$screen",
+            distinctId: distinctId,
+            properties: sanitizedProperties
+        ))
+    }
+
+    func autocapture(
+        eventType: String,
+        elements: [[String: Any]],
+        elementsChain: String,
+        properties: [String: Any]
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        guard let queue else {
+            return
+        }
+
+        let props = [
+            "$event_type": eventType,
+            "$elements": elements,
+            "$elements_chain": elementsChain,
+        ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
+
+        let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let sanitizedProperties = sanitizeProperties(properties)
+
+        queue.add(PostHogEvent(
+            event: "$autocapture",
             distinctId: distinctId,
             properties: sanitizedProperties
         ))
@@ -818,7 +856,7 @@ let maxRetryDelay = 30.0
         if !flagCallReported.contains(flagKey) {
             let properties: [String: Any] = [
                 "$feature_flag": flagKey,
-                "$feature_flag_response": flagValue ?? "",
+                "$feature_flag_response": flagValue ?? ""
             ]
 
             flagCallReported.insert(flagKey)

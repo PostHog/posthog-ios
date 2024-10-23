@@ -24,6 +24,9 @@ import Foundation
     @objc public var preloadFeatureFlags: Bool = true
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
+    @objc public var captureTouches: Bool = true
+    @objc public var captureGestures: Bool = true
+    @objc public var captureEdits: Bool = true
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }

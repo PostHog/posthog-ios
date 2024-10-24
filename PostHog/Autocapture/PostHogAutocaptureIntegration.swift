@@ -13,15 +13,16 @@
     // TODO: Rage Clicks - possible?
     // TODO: Dead Clicks - possible?
     class PostHogAutocaptureIntegration {
-        struct EventData: Hashable {
-            struct ViewNode: CustomStringConvertible, Hashable {
+        struct EventData {
+            struct ViewNode: CustomStringConvertible {
                 let text: String
                 let targetClass: String
                 let index: Int
                 let subviewCount: Int
 
+                // used when building $elements_chain
                 // Note: For some reason text will not be processed if not present in elements_chain string.
-                // Couldn't pinpoint to exact place `posthog` where we do this
+                // Couldn't pinpoint to exact place in `posthog` repo where we check for this though
                 var description: String {
                     "\(targetClass)\(text.isEmpty ? "" : ":text=\"\(text)\"")"
                 }
@@ -42,10 +43,6 @@
             let accessibilityIdentifier: String?
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
-
-            func hash(into hasher: inout Hasher) {
-                hasher.combine(viewHierarchy.map(\.targetClass))
-            }
         }
 
         // static -> won't be added twice
@@ -72,6 +69,12 @@
                 forClass: UIScrollView.self,
                 original: #selector(setter: UIScrollView.contentOffset),
                 new: #selector(UIScrollView.ph_swizzled_setContentOffset_Setter)
+            )
+
+            swizzle(
+                forClass: UIPickerView.self,
+                original: #selector(setter: UIPickerView.delegate),
+                new: #selector(UIPickerView.ph_swizzled_setDelegate)
             )
         }()
 
@@ -137,7 +140,11 @@
             }
 
             // block all gestures for `UISwitch` (already captured via `.valueChanged` action)
-            if String(describing: type(of: view)).contains("UISwitch") {
+            if String(describing: type(of: view)).starts(with: "UISwitch") {
+                return
+            }
+            // ignore gestures in `UIPickerColumnView`
+            if String(describing: type(of: view)) == "UIPickerColumnView" {
                 return
             }
 
@@ -173,8 +180,36 @@
         @objc func ph_swizzled_setContentOffset_Setter(_ contentOffset: CGPoint) {
             // first, call original method
             ph_swizzled_setContentOffset_Setter(contentOffset)
+            
+            // block scrolls on UIPickerTableView. (captured via a forwarding delegate implementation)
+            if String(describing: type(of: self)) == "UIPickerTableView" {
+                return
+            }
 
-            PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: "scroll"), event: eventData)
+            PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kScroll), event: eventData)
+        }
+    }
+
+    extension UIPickerView {
+        @objc func ph_swizzled_setDelegate(_ delegate: (any UIPickerViewDelegate)?) {
+            // If the delegate implements pickerView(_:didSelectRow:inComponent:), swizzle it
+            guard let delegate else {
+                return ph_swizzled_setDelegate(delegate)
+            }
+            guard delegate.responds(to: #selector(UIPickerViewDelegate.pickerView(_:didSelectRow:inComponent:))) else {
+                return ph_swizzled_setDelegate(delegate)
+            }
+
+            let forwardingDelegate = ForwardingDelegateSelector.selectDelegate(for: delegate) { [weak self] in
+                if let data = self?.eventData {
+                    PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kValueChange), event: data)
+                }
+            }
+            
+            // Need to keep a strong reference to keep this forwarding delegate instance alive
+            delegate.phForwardingDelegate = forwardingDelegate
+
+            ph_swizzled_setDelegate(forwardingDelegate)
         }
     }
 
@@ -388,6 +423,21 @@
         override var ph_autocaptureText: String? { "\(isOn)" }
     }
 
+    extension UIPickerView {
+        override var ph_autocaptureText: String? {
+            (0 ..< numberOfComponents).reduce("") { result, component in
+                let selectedRow = selectedRow(inComponent: component)
+                if let title = delegate?.pickerView?(self, titleForRow: selectedRow, forComponent: component) {
+                    return result.isEmpty ? title : "\(result) \(title)"
+                }
+                if let title = delegate?.pickerView?(self, attributedTitleForRow: selectedRow, forComponent: component) {
+                    return result.isEmpty ? title.string : "\(result) \(title.string)"
+                }
+                return result
+            }
+        }
+    }
+
     #if !os(tvOS)
         extension UIDatePicker {
             override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
@@ -410,6 +460,7 @@
         static let kSwipe = "swipe"
         static let kPinch = "pinch"
         static let kPan = "pan"
+        static let kScroll = "scroll"
         static let kRotation = "rotation"
         static let kLongPress = "long_press"
     }

@@ -65,7 +65,7 @@
             swizzle(
                 forClass: UIGestureRecognizer.self,
                 original: #selector(setter: UIGestureRecognizer.state),
-                new: #selector(UIGestureRecognizer.ph_swizzled_uigesturerecognizer_state)
+                new: #selector(UIGestureRecognizer.ph_swizzled_uigesturerecognizer_state_Setter)
             )
 
             swizzle(
@@ -118,13 +118,13 @@
     }
 
     extension UIGestureRecognizer {
-        @objc func ph_swizzled_uigesturerecognizer_state(_ state: UIGestureRecognizer.State) {
+        @objc func ph_swizzled_uigesturerecognizer_state_Setter(_ state: UIGestureRecognizer.State) {
             // first, call original method
-            ph_swizzled_uigesturerecognizer_state(state)
+            ph_swizzled_uigesturerecognizer_state_Setter(state)
 
             guard state == .ended, let view else { return }
 
-            // Block scroll and zoom events for `UIScrollView`.
+            // block scroll and zoom gestures for `UIScrollView`.
             if let scrollView = view as? UIScrollView {
                 if self === scrollView.panGestureRecognizer {
                     return
@@ -134,6 +134,11 @@
                         return
                     }
                 #endif
+            }
+
+            // block all gestures for `UISwitch` (already captured via `.valueChanged` action)
+            if String(describing: type(of: view)).contains("UISwitch") {
+                return
             }
 
             let gestureDescription: String?
@@ -261,6 +266,10 @@
             } else if UIControl.Event.allEditingEvents.contains(self) {
                 return EventType.kChange
             } else if self == .valueChanged {
+                if control is UISwitch {
+                    // toggle better describes a value chagne in a switch control
+                    return EventType.kToggle
+                }
                 return EventType.kValueChange
             } else if #available(iOS 14.0, tvOS 14.0, macCatalyst 14.0, *), self == .menuActionTriggered {
                 return EventType.kMenuAction
@@ -372,6 +381,11 @@
         override var ph_autocaptureDebounceInterval: TimeInterval { 0.3 }
         override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
         override var ph_autocaptureText: String? { "\(value)" }
+    }
+
+    extension UISwitch {
+        @objc override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
+        override var ph_autocaptureText: String? { "\(isOn)" }
     }
 
     #if !os(tvOS)

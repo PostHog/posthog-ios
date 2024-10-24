@@ -42,7 +42,7 @@
             let accessibilityIdentifier: String?
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
-            
+
             func hash(into hasher: inout Hasher) {
                 hasher.combine(viewHierarchy.map(\.targetClass))
             }
@@ -66,6 +66,12 @@
                 forClass: UIGestureRecognizer.self,
                 original: #selector(setter: UIGestureRecognizer.state),
                 new: #selector(UIGestureRecognizer.ph_swizzled_uigesturerecognizer_state)
+            )
+
+            swizzle(
+                forClass: UIScrollView.self,
+                original: #selector(setter: UIScrollView.contentOffset),
+                new: #selector(UIScrollView.ph_swizzled_setContentOffset_Setter)
             )
         }()
 
@@ -155,6 +161,15 @@
             guard let gestureDescription else { return }
 
             PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: gestureDescription), event: view.eventData)
+        }
+    }
+
+    extension UIScrollView {
+        @objc func ph_swizzled_setContentOffset_Setter(_ contentOffset: CGPoint) {
+            // first, call original method
+            ph_swizzled_setContentOffset_Setter(contentOffset)
+
+            PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: "scroll"), event: eventData)
         }
     }
 
@@ -315,6 +330,10 @@
         @objc override func ph_shouldTrack(_ action: Selector, for target: Any?) -> Bool {
             actions(forTarget: target, forControlEvent: ph_autocaptureEvents)?.contains(action.description) ?? false
         }
+    }
+
+    extension UIScrollView {
+        override var ph_autocaptureDebounceInterval: TimeInterval { 0.4 }
     }
 
     extension UISegmentedControl {

@@ -1,5 +1,7 @@
 ## Next
 
+- add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))
+
 ## 3.13.1 - 2024-10-16
 
 - add optional distinctId parameter to capture methods ([#216](https://github.com/PostHog/posthog-ios/pull/216))

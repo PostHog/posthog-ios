@@ -1,29 +1,42 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-The application-specific delegate class.
-*/
+ Abstract:
+ The application-specific delegate class.
+ */
 
 import PostHog
 import UIKit
 
-@UIApplicationMain
+@main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let config = PostHogConfig(
             apiKey: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
         )
-        config.captureScreenViews = false
-        config.captureApplicationLifecycleEvents = false
         config.debug = true
-        config.sendFeatureFlagEvent = false
-        config.sessionReplay = false
+
+        config.autocapture = true
+        config.autocaptureConfig.captureTextEdits = true
+        config.autocaptureConfig.captureGestures = true
+        config.autocaptureConfig.captureControlActions = true
         
+
+        config.captureApplicationLifecycleEvents = true
+        config.sendFeatureFlagEvent = false
+
+        config.sessionReplay = true
+        config.captureScreenViews = true
+        config.sessionReplayConfig.screenshotMode = true
+        config.sessionReplayConfig.maskAllTextInputs = false
+        config.sessionReplayConfig.maskAllImages = false
+
         PostHogSDK.shared.setup(config)
         
+        PostHogSDK.shared.identify("Max Capture")
+        
+        PostHogSDK.shared.close()
+
         return true
     }
-
 }

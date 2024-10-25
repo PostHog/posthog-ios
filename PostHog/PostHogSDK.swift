@@ -105,7 +105,11 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
-            autocaptureEventProcessor = PostHogAutocaptureEventProcessor(postHogInstance: self)
+
+            #if os(iOS) || targetEnvironment(macCatalyst)
+                autocaptureEventProcessor = PostHogAutocaptureEventProcessor(postHogInstance: self, configuration: config)
+            #endif
+
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()
@@ -635,7 +639,7 @@ let maxRetryDelay = 30.0
         let props = [
             "$event_type": eventType,
             "$elements": elements,
-            "$elements_chain": elementsChain,
+            "$elements_chain": elementsChain
         ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
@@ -1138,6 +1142,12 @@ let maxRetryDelay = 30.0
             }
 
             return config.sessionReplay && isSessionActive() && (featureFlags?.isSessionReplayFlagActive() ?? false)
+        }
+    #endif
+
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        @objc public func isAutocaptureActive() -> Bool {
+            isEnabled() && config.autocapture
         }
     #endif
 }

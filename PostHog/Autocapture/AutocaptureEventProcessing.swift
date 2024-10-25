@@ -14,10 +14,12 @@
 
     class PostHogAutocaptureEventProcessor: AutocaptureEventProcessing {
         private weak var postHogInstance: PostHogSDK?
+        private weak var postHogConfig: PostHogConfig?
         private var debounceTimers: [Int: Timer] = [:]
 
-        init(postHogInstance: PostHogSDK) {
+        init(postHogInstance: PostHogSDK, configuration: PostHogConfig) {
             self.postHogInstance = postHogInstance
+            self.postHogConfig = configuration
             PostHogAutocaptureIntegration.addEventProcessor(self)
         }
 
@@ -39,7 +41,9 @@
         func process(source: PostHogAutocaptureIntegration.EventData.EventSource, event: PostHogAutocaptureIntegration.EventData) {
             assert(Thread.isMainThread, "Event captured off main thread")
 
-            let eventHash = event.hashValue
+            guard shouldProcess(source: source) else { return }
+
+            let eventHash = event.viewHierarchy.map(\.targetClass).hashValue
             // debounce frequent UIControl events (e.g., UISlider) to reduce event noise
             if event.debounceInterval > 0 {
                 debounceTimers[eventHash]?.invalidate() // Keep cancelling existing
@@ -104,6 +108,24 @@
                 elementsChain: elementsChain,
                 properties: properties
             )
+        }
+
+        /// Determines whether an autocapture event should be processed based on the event source and the current PostHog configuration.
+        ///
+        /// Note: Not sure if we should be checking feature flags yet here
+        ///
+        /// - Parameter source: source to be processed
+        private func shouldProcess(source: PostHogAutocaptureIntegration.EventData.EventSource) -> Bool {
+            guard let postHogConfig, let postHogInstance, postHogInstance.isAutocaptureActive() else { return false }
+
+            switch source {
+            case .actionMethod:
+                return postHogConfig.autocaptureConfig.captureControlActions
+            case .gestureRecognizer:
+                return postHogConfig.autocaptureConfig.captureGestures
+            case .notification:
+                return postHogConfig.autocaptureConfig.captureTextEdits
+            }
         }
     }
 #endif

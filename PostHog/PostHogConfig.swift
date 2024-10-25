@@ -24,9 +24,6 @@ import Foundation
     @objc public var preloadFeatureFlags: Bool = true
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
-    @objc public var captureTouches: Bool = true
-    @objc public var captureGestures: Bool = true
-    @objc public var captureEdits: Bool = true
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
@@ -58,6 +55,16 @@ import Foundation
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        /// Enable Autocapture for iOS
+        /// Experimental support
+        /// Default: false
+        @objc public var autocapture: Bool = false
+        /// Autocapture configuration
+        /// Experimental support
+        @objc public let autocaptureConfig: PostHogAutocaptureConfig = .init()
+    #endif
+
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false
@@ -69,7 +76,7 @@ import Foundation
         apiKey: String
     ) {
         self.apiKey = apiKey
-        host = URL(string: PostHogConfig.defaultHost)!
+        self.host = URL(string: PostHogConfig.defaultHost)!
     }
 
     @objc(apiKey:host:)

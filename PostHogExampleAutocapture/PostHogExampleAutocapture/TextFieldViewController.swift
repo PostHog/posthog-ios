@@ -1,14 +1,13 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UITextField`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UITextField`.
+ */
 
 import UIKit
 
 class TextFieldViewController: BaseTableViewController {
-    
     // Cell identifier for each text field table view cell.
     enum TextFieldKind: String, CaseIterable {
         case textField
@@ -36,14 +35,14 @@ class TextFieldViewController: BaseTableViewController {
                         cellID: TextFieldKind.searchTextField.rawValue,
                         configHandler: configureSearchTextField)
         ])
-        
+
         if traitCollection.userInterfaceIdiom != .mac {
             testCells.append(contentsOf: [
                 // Show text field with specific kind of keyboard for iOS only.
                 CaseElement(title: NSLocalizedString("SpecificKeyboardTextFieldTitle", comment: ""),
                             cellID: TextFieldKind.specificKeyboardTextField.rawValue,
                             configHandler: configureSpecificKeyboardTextField),
-                
+
                 // Show text field with custom background for iOS only.
                 CaseElement(title: NSLocalizedString("CustomTextFieldTitle", comment: ""),
                             cellID: TextFieldKind.customTextField.rawValue,
@@ -77,32 +76,32 @@ class TextFieldViewController: BaseTableViewController {
         textField.returnKeyType = .done
         textField.clearButtonMode = .always
     }
-    
+
     func configureSearchTextField(_ textField: UITextField) {
         if let searchField = textField as? UISearchTextField {
             searchField.placeholder = NSLocalizedString("Enter search text", comment: "")
             searchField.returnKeyType = .done
             searchField.clearButtonMode = .always
             searchField.allowsDeletingTokens = true
-            
+
             // Setup the left view as a symbol image view.
             let searchIcon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
             searchIcon.tintColor = UIColor.systemGray
             searchField.leftView = searchIcon
             searchField.leftViewMode = .always
-        
+
             let secondToken = UISearchToken(icon: UIImage(systemName: "staroflife"), text: "Token 2")
             searchField.insertToken(secondToken, at: 0)
-            
+
             let firstToken = UISearchToken(icon: UIImage(systemName: "staroflife.fill"), text: "Token 1")
             searchField.insertToken(firstToken, at: 0)
         }
     }
 
-    /**	There are many different types of keyboards that you may choose to use.
-        The different types of keyboards are defined in the `UITextInputTraits` interface.
-        This example shows how to display a keyboard to help enter email addresses.
-    */
+    /** 	There are many different types of keyboards that you may choose to use.
+         The different types of keyboards are defined in the `UITextInputTraits` interface.
+         This example shows how to display a keyboard to help enter email addresses.
+     */
     func configureSpecificKeyboardTextField(_ textField: UITextField) {
         textField.keyboardType = .emailAddress
 
@@ -131,31 +130,30 @@ class TextFieldViewController: BaseTableViewController {
         textField.clearButtonMode = .never
         textField.returnKeyType = .done
     }
-	
+
     // MARK: - Actions
-    
+
     @objc
     func customTextFieldPurpleButtonClicked() {
-        Swift.debugPrint("The custom text field's purple right view button was clicked.")
+        debugPrint("The custom text field's purple right view button was clicked.")
     }
-
 }
 
 // MARK: - UITextFieldDelegate
 
 extension TextFieldViewController: UITextFieldDelegate {
-	func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-		textField.resignFirstResponder()
-		return true
-	}
-	
-    func textFieldDidChangeSelection(_ textField: UITextField) {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+
+    func textFieldDidChangeSelection(_: UITextField) {
         // User changed the text selection.
     }
-    
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+
+    func textField(_: UITextField, shouldChangeCharactersIn _: NSRange, replacementString _: String) -> Bool {
         // Return false to not change text.
-        return true
+        true
     }
 }
 
@@ -163,19 +161,18 @@ extension TextFieldViewController: UITextFieldDelegate {
 class CustomTextField: UITextField {
     let leftMarginPadding: CGFloat = 12
     let rightMarginPadding: CGFloat = 36
-    
+
     override func textRect(forBounds bounds: CGRect) -> CGRect {
         var rect = bounds
         rect.origin.x += leftMarginPadding
         rect.size.width -= rightMarginPadding
         return rect
     }
-    
+
     override func editingRect(forBounds bounds: CGRect) -> CGRect {
         var rect = bounds
         rect.origin.x += leftMarginPadding
         rect.size.width -= rightMarginPadding
         return rect
     }
-    
 }

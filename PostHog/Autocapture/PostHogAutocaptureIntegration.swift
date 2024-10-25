@@ -180,7 +180,7 @@
         @objc func ph_swizzled_setContentOffset_Setter(_ contentOffset: CGPoint) {
             // first, call original method
             ph_swizzled_setContentOffset_Setter(contentOffset)
-            
+
             // block scrolls on UIPickerTableView. (captured via a forwarding delegate implementation)
             if String(describing: type(of: self)) == "UIPickerTableView" {
                 return
@@ -205,7 +205,7 @@
                     PostHogAutocaptureIntegration.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kValueChange), event: data)
                 }
             }
-            
+
             // Need to keep a strong reference to keep this forwarding delegate instance alive
             delegate.phForwardingDelegate = forwardingDelegate
 
@@ -401,6 +401,11 @@
 
     extension UITextField {
         override var ph_autocaptureText: String? { text ?? attributedText?.string ?? placeholder }
+        override func ph_shouldTrack(_: Selector, for _: Any?) -> Bool {
+            // Just making sure that in the future we don't intercept UIControl.Ecent (even though it's not currently emited)
+            // Trakced via `UITextField.textDidEndEditingNotification`
+            false
+        }
     }
 
     extension UITextView {

@@ -35,8 +35,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         PostHogSDK.shared.identify("Max Capture")
         
-        PostHogSDK.shared.close()
-
         return true
     }
 }

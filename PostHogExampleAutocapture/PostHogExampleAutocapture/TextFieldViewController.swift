@@ -139,24 +139,6 @@ class TextFieldViewController: BaseTableViewController {
     }
 }
 
-// MARK: - UITextFieldDelegate
-
-extension TextFieldViewController: UITextFieldDelegate {
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        textField.resignFirstResponder()
-        return true
-    }
-
-    func textFieldDidChangeSelection(_: UITextField) {
-        // User changed the text selection.
-    }
-
-    func textField(_: UITextField, shouldChangeCharactersIn _: NSRange, replacementString _: String) -> Bool {
-        // Return false to not change text.
-        true
-    }
-}
-
 // Custom text field for controlling input text placement.
 class CustomTextField: UITextField {
     let leftMarginPadding: CGFloat = 12

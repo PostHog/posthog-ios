@@ -43,15 +43,13 @@
         }
 
         static func getViewControllerName(_ viewController: UIViewController) -> String? {
-            let viewControllerClass = String(describing: type(of: viewController))
-            if let title = viewController.title ??
-                viewController.navigationItem.title ??
-                (viewController.navigationItem.titleView as? UILabel)?.text ??
-                (viewController.navigationItem.titleView as? UILabel)?.attributedText?.string
-            {
-                return "\(title) (\(viewControllerClass))"
+            var title: String? = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
+
+            if title?.isEmpty == true {
+                title = viewController.title ?? nil
             }
-            return viewControllerClass.replacingOccurrences(of: "ViewController", with: "")
+
+            return title
         }
 
         private func captureScreenView(_ window: UIWindow?) {

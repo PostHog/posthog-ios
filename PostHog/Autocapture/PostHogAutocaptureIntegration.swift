@@ -106,7 +106,7 @@
                 // Currently, the action methods pointing to a SwiftUI target are blocked.
                 let targetClass = String(describing: object_getClassName(target))
                 if targetClass.contains("SwiftUI") {
-                    print("PostHogSDK.shared.capture SwiftUI -> \(targetClass)")
+                    hedgeLog("Action methods on SwiftUI targets are not yet supported.")
                 } else if let control = sender as? UIControl,
                           control.ph_shouldTrack(action, for: target),
                           let eventDescription = control.event(for: action, to: target)?.description(forControl: control)

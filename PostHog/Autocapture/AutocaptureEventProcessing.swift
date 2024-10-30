@@ -39,7 +39,9 @@
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
         func process(source: PostHogAutocaptureIntegration.EventData.EventSource, event: PostHogAutocaptureIntegration.EventData) {
-            assert(Thread.isMainThread, "Event captured off main thread")
+            if !Thread.isMainThread {
+                hedgeLog("Autocapture event processed off main thread. This should not happen.")
+            }
 
             guard shouldProcess(source: source) else { return }
 

@@ -34,6 +34,8 @@
         func stop() {
             if PostHogAutocaptureEventTracker.eventProcessor != nil {
                 PostHogAutocaptureEventTracker.eventProcessor = nil
+                debounceTimers.values.forEach { $0.invalidate() }
+                debounceTimers.removeAll()
                 hedgeLog("Autocapture integration stopped")
             }
         }

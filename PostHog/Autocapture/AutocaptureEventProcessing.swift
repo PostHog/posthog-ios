@@ -2,132 +2,13 @@
 //  AutocaptureEventProcessing.swift
 //  PostHog
 //
-//  Created by Yiannis Josephides on 22/10/2024.
+//  Created by Yiannis Josephides on 30/10/2024.
 //
 
 #if os(iOS) || targetEnvironment(macCatalyst)
-    import UIKit
+    import Foundation
 
     protocol AutocaptureEventProcessing: AnyObject {
-        func process(source: PostHogAutocaptureIntegration.EventData.EventSource, event: PostHogAutocaptureIntegration.EventData)
-    }
-
-    class PostHogAutocaptureEventProcessor: AutocaptureEventProcessing {
-        private weak var postHogInstance: PostHogSDK?
-        private weak var postHogConfig: PostHogConfig?
-        private var debounceTimers: [Int: Timer] = [:]
-
-        init(postHogInstance: PostHogSDK, configuration: PostHogConfig) {
-            self.postHogInstance = postHogInstance
-            self.postHogConfig = configuration
-            PostHogAutocaptureIntegration.addEventProcessor(self)
-        }
-
-        deinit {
-            PostHogAutocaptureIntegration.removeEventProcessor(self)
-        }
-
-        /**
-         Processes an autocapture event, with optional debounce logic for controls that emit frequent events.
-
-         - Parameters:
-            - source: The source of the event (e.g., gesture recognizer, action method, or notification).
-            - event: The autocapture event data, containing properties, screen name, and other metadata.
-
-         If the event has a `debounceInterval` greater than 0, the event is debounced.
-         This is useful for UIControls like `UISlider` that emit frequent value changes, ensuring only the last value is captured.
-         The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
-         */
-        func process(source: PostHogAutocaptureIntegration.EventData.EventSource, event: PostHogAutocaptureIntegration.EventData) {
-            if !Thread.isMainThread {
-                hedgeLog("Autocapture event processed off main thread. This should not happen.")
-            }
-
-            guard shouldProcess(source: source) else { return }
-
-            let eventHash = event.viewHierarchy.map(\.targetClass).hashValue
-            // debounce frequent UIControl events (e.g., UISlider) to reduce event noise
-            if event.debounceInterval > 0 {
-                debounceTimers[eventHash]?.invalidate() // Keep cancelling existing
-                debounceTimers[eventHash] = Timer.scheduledTimer(withTimeInterval: event.debounceInterval, repeats: false) { [weak self] _ in
-                    self?.handleEventProcessing(source: source, event: event)
-                    self?.debounceTimers.removeValue(forKey: eventHash) // Clean up once fired
-                }
-            } else {
-                handleEventProcessing(source: source, event: event)
-            }
-        }
-
-        private static let viewHierarchyDelimiter = ";"
-        /**
-         Handles the processing of autocapture events by extracting event details, building properties, and sending them to PostHog.
-
-         - Parameters:
-            - source: The source of the event, which could be an action method, gesture recognizer, or notification. Associated values are already mapped to `$event_type` earlier in the chain
-            - event: The event data including view hierarchy, screen name, and other metadata.
-
-         This function extracts event details such as the event type, view hierarchy, and touch coordinates.
-         It creates a structured payload with relevant properties (e.g., tag_name, elements, element_chain) and sends it to the associated PostHog instance for further processing.
-         */
-        private func handleEventProcessing(source: PostHogAutocaptureIntegration.EventData.EventSource, event: PostHogAutocaptureIntegration.EventData) {
-            guard let postHogInstance else { return }
-
-            let eventType: String = switch source {
-            case let .actionMethod(description): description
-            case let .gestureRecognizer(description): description
-            case let .notification(name): name
-            }
-
-            var properties: [String: Any] = [:]
-
-            if let screenName = event.screenName {
-                properties["$screen_name"] = event.screenName
-            }
-
-            let elements = event.viewHierarchy.map { node in
-                [
-                    "text": node.text,
-                    "tag_name": node.targetClass, // required
-                    "order": node.index,
-                    "attributes": [ // required
-                        "attr__class": node.targetClass
-                    ]
-                ]
-            }
-
-            let elementsChain = event.viewHierarchy
-                .map(\.description)
-                .joined(separator: Self.viewHierarchyDelimiter)
-
-            if let coordinates = event.touchCoordinates {
-                properties["$touch_x"] = coordinates.x
-                properties["$touch_y"] = coordinates.y
-            }
-
-            postHogInstance.autocapture(
-                eventType: eventType,
-                elements: elements,
-                elementsChain: elementsChain,
-                properties: properties
-            )
-        }
-
-        /// Determines whether an autocapture event should be processed based on the event source and the current PostHog configuration.
-        ///
-        /// Note: Not sure if we should be checking feature flags yet here
-        ///
-        /// - Parameter source: source to be processed
-        private func shouldProcess(source: PostHogAutocaptureIntegration.EventData.EventSource) -> Bool {
-            guard let postHogConfig, let postHogInstance, postHogInstance.isAutocaptureActive() else { return false }
-
-            switch source {
-            case .actionMethod:
-                return postHogConfig.autocaptureConfig.captureControlActions
-            case .gestureRecognizer:
-                return postHogConfig.autocaptureConfig.captureGestures
-            case .notification:
-                return postHogConfig.autocaptureConfig.captureTextEdits
-            }
-        }
+        func process(source: PostHogAutocaptureEventTracker.EventData.EventSource, event: PostHogAutocaptureEventTracker.EventData)
     }
 #endif

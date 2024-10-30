@@ -51,7 +51,7 @@ let maxRetryDelay = 30.0
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
-        private var autocaptureEventProcessor: PostHogAutocaptureEventProcessor?
+        private var autocaptureIntegration: PostHogAutocaptureIntegration?
     #endif
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
@@ -107,7 +107,7 @@ let maxRetryDelay = 30.0
             #endif
 
             #if os(iOS) || targetEnvironment(macCatalyst)
-                autocaptureEventProcessor = PostHogAutocaptureEventProcessor(postHogInstance: self, configuration: config)
+                autocaptureIntegration = PostHogAutocaptureIntegration(config)
             #endif
 
             #if !os(watchOS)
@@ -148,6 +148,12 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 if config.sessionReplay {
                     replayIntegration?.start()
+                }
+            #endif
+
+            #if os(iOS) || targetEnvironment(macCatalyst)
+                if config.autocapture {
+                    autocaptureIntegration?.start()
                 }
             #endif
 
@@ -926,6 +932,10 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 replayIntegration?.stop()
                 replayIntegration = nil
+            #endif
+            #if os(iOS) || targetEnvironment(macCatalyst)
+                autocaptureIntegration?.stop()
+                autocaptureIntegration = nil
             #endif
             queue = nil
             replayQueue = nil

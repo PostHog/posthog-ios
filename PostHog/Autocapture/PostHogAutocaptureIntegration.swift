@@ -449,8 +449,21 @@
         }
     #endif
 
+    // TODO: Filter out or obfuscsate strings that look like sensitive data see: https://github.com/PostHog/posthog-js/blob/0cfffcac9bdf1da3fbb9478c1a51170a325bd57f/src/autocapture-utils.ts#L389
     private func sanitizeText(_ title: String) -> String {
-        title.replacingOccurrences(of: "[^a-zA-Z0-9.]+", with: "-", options: .regularExpression, range: nil)
+        title
+            .trimmingCharacters(in: .whitespacesAndNewlines) // trim
+            .replacingOccurrences( // sequence of spaces, returns and line breaks
+                of: "[ \\r\\n]+",
+                with: " ",
+                options: .regularExpression
+            )
+            .replacingOccurrences( // sanitize zero-width unicode characters
+                of: "[\\u{200B}\\u{200C}\\u{200D}\\u{FEFF}]",
+                with: "",
+                options: .regularExpression
+            )
+            .limit(to: 255)
     }
 
     enum EventType {
@@ -468,6 +481,16 @@
         static let kScroll = "scroll"
         static let kRotation = "rotation"
         static let kLongPress = "long_press"
+    }
+
+    private extension String {
+        func limit(to length: Int) -> String {
+            if length > count {
+                let index = index(startIndex, offsetBy: length)
+                return String(self[..<index]) + "..."
+            }
+            return self
+        }
     }
 
 #endif

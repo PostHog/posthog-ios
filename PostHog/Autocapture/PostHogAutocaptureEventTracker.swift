@@ -105,7 +105,8 @@
 
         // `UITextField` or `UITextView` did end editing notification
         @objc static func didEndEditing(_ notification: NSNotification) {
-            guard let view = notification.object as? UIView else { return }
+            guard let view = notification.object as? UIView, shouldTrack(view) else { return }
+
             eventProcessor?.process(source: .notification(name: "change"), event: view.eventData)
         }
     }
@@ -135,7 +136,7 @@
             // first, call original method
             ph_swizzled_uigesturerecognizer_state_Setter(state)
 
-            guard state == .ended, let view else { return }
+            guard state == .ended, let view, shouldTrack(view) else { return }
 
             // block scroll and zoom gestures for `UIScrollView`.
             if let scrollView = view as? UIScrollView {
@@ -196,7 +197,9 @@
                 return
             }
 
-            PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kScroll), event: eventData)
+            if shouldTrack(self) {
+                PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kScroll), event: eventData)
+            }
         }
     }
 
@@ -382,7 +385,8 @@
 
     extension UIControl {
         @objc override func ph_shouldTrack(_ action: Selector, for target: Any?) -> Bool {
-            actions(forTarget: target, forControlEvent: ph_autocaptureEvents)?.contains(action.description) ?? false
+            guard shouldTrack(self) else { return false }
+            return actions(forTarget: target, forControlEvent: ph_autocaptureEvents)?.contains(action.description) ?? false
         }
     }
 
@@ -420,6 +424,9 @@
 
     extension UITextView {
         override var ph_autocaptureText: String? { text ?? attributedText?.string }
+        override func ph_shouldTrack(_: Selector, for _: Any?) -> Bool {
+            shouldTrack(self)
+        }
     }
 
     extension UIStepper {
@@ -458,6 +465,26 @@
             override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
         }
     #endif
+
+    private func shouldTrack(_ view: UIView) -> Bool {
+        if view.isHidden { return false }
+        if !view.isUserInteractionEnabled { return false }
+        if view.isNoCapture() { return false }
+
+        if let textField = view as? UITextField, textField.isSensitiveText() {
+            return false
+        }
+        if let textView = view as? UITextView, textView.isSensitiveText() {
+            return false
+        }
+
+        // check view hierarchy up
+        if let superview = view.superview {
+            return shouldTrack(superview)
+        }
+
+        return true
+    }
 
     // TODO: Filter out or obfuscsate strings that look like sensitive data see: https://github.com/PostHog/posthog-js/blob/0cfffcac9bdf1da3fbb9478c1a51170a325bd57f/src/autocapture-utils.ts#L389
     private func sanitizeText(_ title: String) -> String {

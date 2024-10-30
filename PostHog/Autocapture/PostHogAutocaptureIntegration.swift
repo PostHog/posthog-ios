@@ -9,7 +9,7 @@
     import UIKit
 
     class PostHogAutocaptureIntegration: AutocaptureEventProcessing {
-        private weak var postHogConfig: PostHogConfig?
+        private let postHogConfig: PostHogConfig
         private var debounceTimers: [Int: Timer] = [:]
 
         init(_ config: PostHogConfig) {
@@ -19,8 +19,7 @@
         deinit {
             stop()
         }
-        
-        
+
         /**
          Activates the autocapture integration by routing events from PostHogAutocaptureEventTracker to this instance.
          */
@@ -28,7 +27,7 @@
             PostHogAutocaptureEventTracker.eventProcessor = self
             hedgeLog("Autocapture integration started")
         }
-        
+
         /**
          Disables the autocapture integration by clearing the PostHogAutocaptureEventTracker routing
          */
@@ -94,15 +93,15 @@
                 properties["$screen_name"] = event.screenName
             }
 
-            let elements = event.viewHierarchy.map { node in
+            let elements = event.viewHierarchy.map { node -> [String: Any] in
                 [
-                    "text": node.text,
+                    "text": postHogConfig.autocaptureConfig.captureValues ? node.text : nil,
                     "tag_name": node.targetClass, // required
                     "order": node.index,
                     "attributes": [ // required
                         "attr__class": node.targetClass
                     ]
-                ]
+                ].compactMapValues { $0 }
             }
 
             let elementsChain = event.viewHierarchy
@@ -128,7 +127,7 @@
         ///
         /// - Parameter source: source to be processed
         private func shouldProcess(source: PostHogAutocaptureEventTracker.EventData.EventSource) -> Bool {
-            guard let postHogConfig, PostHogSDK.shared.isAutocaptureActive() else { return false }
+            guard PostHogSDK.shared.isAutocaptureActive() else { return false }
 
             switch source {
             case .actionMethod:

@@ -1,3 +1,6 @@
+PLATFORM_IOS = iOS Simulator,id=$(call simulator_uuid_for,iOS 18.0,iPhone \d\+ Pro [^M])
+TEST_ITERATIONS = 1
+
 .PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods
 
 build: buildSdk buildExamples
@@ -31,10 +34,10 @@ swiftLint:
 swiftFormat:
 	swiftformat . --swiftversion 5.3
 
-testOniOSSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=18.0' | xcpretty
+test-ios:
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination platform="$(PLATFORM_IOS)" $(if $(filter-out 1,$(TEST_ITERATIONS)), -run-tests-until-failure -test-iterations $(TEST_ITERATIONS)) | xcpretty
 
-testOnMacSimulator:
+test-macos:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
 test:
@@ -51,3 +54,7 @@ bootstrap:
 
 releaseCocoaPods:
 	pod trunk push PostHog.podspec --allow-warnings
+
+define simulator_uuid_for
+$(shell xcrun simctl list devices available '$(1)' | grep '$(2)' | sort -r | head -1 | awk -F '[()]' '{ print $$(NF-3) }')
+endef

@@ -13,11 +13,7 @@
         private var debounceTimers: [Int: Timer] = [:]
 
         init(_ config: PostHogConfig) {
-            self.postHogConfig = config
-        }
-
-        deinit {
-            stop()
+            postHogConfig = config
         }
 
         /**
@@ -51,11 +47,7 @@
          This is useful for UIControls like `UISlider` that emit frequent value changes, ensuring only the last value is captured.
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
-        func process(source: PostHogAutocaptureEventTracker.EventData.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            if !Thread.isMainThread {
-                hedgeLog("Autocapture event processed off main thread. This should not happen.")
-            }
-
+        func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
             guard shouldProcess(source: source) else { return }
 
             let eventHash = event.viewHierarchy.map(\.targetClass).hashValue
@@ -82,7 +74,7 @@
          This function extracts event details such as the event type, view hierarchy, and touch coordinates.
          It creates a structured payload with relevant properties (e.g., tag_name, elements, element_chain) and sends it to the associated PostHog instance for further processing.
          */
-        private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventData.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
+        private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
             let eventType: String = switch source {
             case let .actionMethod(description): description
             case let .gestureRecognizer(description): description
@@ -92,7 +84,7 @@
             var properties: [String: Any] = [:]
 
             if let screenName = event.screenName {
-                properties["$screen_name"] = event.screenName
+                properties["$screen_name"] = screenName
             }
 
             let elements = event.viewHierarchy.map { node -> [String: Any] in
@@ -101,8 +93,8 @@
                     "tag_name": node.targetClass, // required
                     "order": node.index,
                     "attributes": [ // required
-                        "attr__class": node.targetClass
-                    ]
+                        "attr__class": node.targetClass,
+                    ],
                 ].compactMapValues { $0 }
             }
 
@@ -128,7 +120,7 @@
         /// Note: Not sure if we should be checking feature flags yet here
         ///
         /// - Parameter source: source to be processed
-        private func shouldProcess(source: PostHogAutocaptureEventTracker.EventData.EventSource) -> Bool {
+        private func shouldProcess(source: PostHogAutocaptureEventTracker.EventSource) -> Bool {
             guard PostHogSDK.shared.isAutocaptureActive() else { return false }
 
             switch source {

@@ -1,3 +1,5 @@
+// swiftlint:disable cyclomatic_complexity
+
 //
 //  ForwardingPickerViewDelegate.swift
 //  PostHog
@@ -8,6 +10,7 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import Foundation
     import UIKit
+
 
     enum ForwardingDelegateSelector {
         static func selectDelegate(for actualDelegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) -> UIPickerViewDelegate {
@@ -954,3 +957,5 @@
     }
 
 #endif
+
+// swiftlint:enable cyclomatic_complexity

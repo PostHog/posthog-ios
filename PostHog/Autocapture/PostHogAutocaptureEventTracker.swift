@@ -8,29 +8,8 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import UIKit
 
-    // TODO: ph-no-capture
     class PostHogAutocaptureEventTracker {
         struct EventData {
-            struct ViewNode: CustomStringConvertible {
-                let text: String
-                let targetClass: String
-                let index: Int
-                let subviewCount: Int
-
-                // used when building $elements_chain
-                // Note: For some reason text will not be processed if not present in elements_chain string.
-                // Couldn't pinpoint to exact place in `posthog` repo where we check for this though
-                var description: String {
-                    "\(targetClass)\(text.isEmpty ? "" : ":text=\"\(text)\"")"
-                }
-            }
-
-            enum EventSource {
-                case notification(name: String)
-                case actionMethod(description: String)
-                case gestureRecognizer(description: String)
-            }
-
             let touchCoordinates: CGPoint?
             let value: String?
             let screenName: String?
@@ -40,6 +19,26 @@
             let accessibilityIdentifier: String?
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
+        }
+
+        struct ViewNode: CustomStringConvertible {
+            let text: String
+            let targetClass: String
+            let index: Int
+            let subviewCount: Int
+
+            // used when building $elements_chain
+            // Note: For some reason text will not be processed if not present in elements_chain string.
+            // Couldn't pinpoint to exact place in `posthog` repo where we check for this though
+            var description: String {
+                "\(targetClass)\(text.isEmpty ? "" : ":text=\"\(text)\"")"
+            }
+        }
+
+        enum EventSource {
+            case notification(name: String)
+            case actionMethod(description: String)
+            case gestureRecognizer(description: String)
         }
 
         static var eventProcessor: (any AutocaptureEventProcessing)? {
@@ -105,9 +104,9 @@
 
         // `UITextField` or `UITextView` did end editing notification
         @objc static func didEndEditing(_ notification: NSNotification) {
-            guard let view = notification.object as? UIView, shouldTrack(view) else { return }
+            guard let view = notification.object as? UIView, let eventData = view.eventData else { return }
 
-            eventProcessor?.process(source: .notification(name: "change"), event: view.eventData)
+            eventProcessor?.process(source: .notification(name: "change"), event: eventData)
         }
     }
 
@@ -120,9 +119,10 @@
                     hedgeLog("Action methods on SwiftUI targets are not yet supported.")
                 } else if let control = sender as? UIControl,
                           control.ph_shouldTrack(action, for: target),
+                          let eventData = control.eventData,
                           let eventDescription = control.event(for: action, to: target)?.description(forControl: control)
                 {
-                    PostHogAutocaptureEventTracker.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: control.eventData)
+                    PostHogAutocaptureEventTracker.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: eventData)
                 }
             }
 
@@ -183,7 +183,9 @@
 
             guard let gestureDescription else { return }
 
-            PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: gestureDescription), event: view.eventData)
+            if let eventData = view.eventData {
+                PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: gestureDescription), event: eventData)
+            }
         }
     }
 
@@ -197,7 +199,7 @@
                 return
             }
 
-            if shouldTrack(self) {
+            if let eventData {
                 PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kScroll), event: eventData)
             }
         }
@@ -227,8 +229,9 @@
     }
 
     extension UIView {
-        var eventData: PostHogAutocaptureEventTracker.EventData {
-            PostHogAutocaptureEventTracker.EventData(
+        var eventData: PostHogAutocaptureEventTracker.EventData? {
+            guard shouldTrack(self) else { return nil }
+            return PostHogAutocaptureEventTracker.EventData(
                 touchCoordinates: nil,
                 value: ph_autocaptureText
                     .map(sanitizeText),
@@ -247,8 +250,8 @@
     }
 
     extension UIView {
-        func viewNode(index: Int) -> PostHogAutocaptureEventTracker.EventData.ViewNode {
-            PostHogAutocaptureEventTracker.EventData.ViewNode(
+        func viewNode(index: Int) -> PostHogAutocaptureEventTracker.ViewNode {
+            PostHogAutocaptureEventTracker.ViewNode(
                 text: ph_autocaptureText.map(sanitizeText) ?? "",
                 targetClass: descriptiveTypeName,
                 index: index,

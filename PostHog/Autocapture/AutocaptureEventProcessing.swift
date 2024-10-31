@@ -9,6 +9,6 @@
     import Foundation
 
     protocol AutocaptureEventProcessing: AnyObject {
-        func process(source: PostHogAutocaptureEventTracker.EventData.EventSource, event: PostHogAutocaptureEventTracker.EventData)
+        func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData)
     }
 #endif

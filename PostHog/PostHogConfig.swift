@@ -76,7 +76,7 @@ import Foundation
         apiKey: String
     ) {
         self.apiKey = apiKey
-        self.host = URL(string: PostHogConfig.defaultHost)!
+        host = URL(string: PostHogConfig.defaultHost)!
     }
 
     @objc(apiKey:host:)

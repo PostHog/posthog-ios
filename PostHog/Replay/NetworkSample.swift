@@ -27,7 +27,7 @@
             var dict: [String: Any] = [
                 "timestamp": timeOrigin.toMillis(),
                 "entryType": entryType,
-                "initiatorType": initiatorType,
+                "initiatorType": initiatorType
             ]
 
             if let name = name {

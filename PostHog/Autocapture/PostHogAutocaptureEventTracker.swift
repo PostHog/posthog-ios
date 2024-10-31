@@ -93,8 +93,18 @@
         }
 
         private static func registerNotifications() {
-            NotificationCenter.default.addObserver(PostHogAutocaptureEventTracker.self, selector: #selector(didEndEditing), name: UITextField.textDidEndEditingNotification, object: nil)
-            NotificationCenter.default.addObserver(PostHogAutocaptureEventTracker.self, selector: #selector(didEndEditing), name: UITextView.textDidEndEditingNotification, object: nil)
+            NotificationCenter.default.addObserver(
+                PostHogAutocaptureEventTracker.self,
+                selector: #selector(didEndEditing),
+                name: UITextField.textDidEndEditingNotification,
+                object: nil
+            )
+            NotificationCenter.default.addObserver(
+                PostHogAutocaptureEventTracker.self,
+                selector: #selector(didEndEditing),
+                name: UITextView.textDidEndEditingNotification,
+                object: nil
+            )
         }
 
         private static func unregisterNotifications() {
@@ -132,6 +142,7 @@
     }
 
     extension UIGestureRecognizer {
+        // swiftlint:disable:next cyclomatic_complexity
         @objc func ph_swizzled_uigesturerecognizer_state_Setter(_ state: UIGestureRecognizer.State) {
             // first, call original method
             ph_swizzled_uigesturerecognizer_state_Setter(state)
@@ -292,6 +303,7 @@
     }
 
     extension UIControl.Event {
+        // swiftlint:disable:next cyclomatic_complexity
         func description(forControl control: UIControl) -> String? {
             if self == .primaryActionTriggered {
                 if control is UIButton {
@@ -489,7 +501,8 @@
         return true
     }
 
-    // TODO: Filter out or obfuscsate strings that look like sensitive data see: https://github.com/PostHog/posthog-js/blob/0cfffcac9bdf1da3fbb9478c1a51170a325bd57f/src/autocapture-utils.ts#L389
+    // TODO: Filter out or obfuscsate strings that look like sensitive data
+    // see: https://github.com/PostHog/posthog-js/blob/0cfffcac9bdf1da3fbb9478c1a51170a325bd57f/src/autocapture-utils.ts#L389
     private func sanitizeText(_ title: String) -> String {
         title
             .trimmingCharacters(in: .whitespacesAndNewlines) // trim

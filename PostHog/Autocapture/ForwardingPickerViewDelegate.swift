@@ -11,7 +11,6 @@
     import Foundation
     import UIKit
 
-
     enum ForwardingDelegateSelector {
         static func selectDelegate(for actualDelegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) -> UIPickerViewDelegate {
             // Checking if the actual delegate implements specific methods
@@ -124,8 +123,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
     }
 
@@ -135,8 +134,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -156,8 +155,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -178,8 +177,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -198,8 +197,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -218,8 +217,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -238,8 +237,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -262,8 +261,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -294,8 +293,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -318,8 +317,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -342,8 +341,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -366,8 +365,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -390,8 +389,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -414,8 +413,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -438,8 +437,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -462,8 +461,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -486,8 +485,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -514,8 +513,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -542,8 +541,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -570,8 +569,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -598,8 +597,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -626,8 +625,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -654,8 +653,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -682,8 +681,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -710,8 +709,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -738,8 +737,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -766,8 +765,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -798,8 +797,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -830,8 +829,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -862,8 +861,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -894,8 +893,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
@@ -926,8 +925,8 @@
         private var valueChangedCallback: (() -> Void)?
 
         init(delegate: UIPickerViewDelegate?, onValueChanged: @escaping () -> Void) {
-            self.actualDelegate = delegate
-            self.valueChangedCallback = onValueChanged
+            actualDelegate = delegate
+            valueChangedCallback = onValueChanged
         }
 
         func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {

@@ -229,7 +229,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
-                "name": "some-company-name",
+                "name": "some-company-name"
             ])
 
             let events = getBatchedEvents(server)
@@ -514,7 +514,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
-                "name": "some-company-name",
+                "name": "some-company-name"
             ])
 
             let events = getBatchedEvents(server)

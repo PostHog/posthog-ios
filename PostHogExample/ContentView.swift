@@ -77,7 +77,7 @@ struct ContentView: View {
 
     func triggerIdentify() {
         PostHogSDK.shared.identify(name, userProperties: [
-            "name": name,
+            "name": name
         ])
     }
 

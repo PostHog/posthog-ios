@@ -30,7 +30,7 @@ class ExampleUIView: UIView {
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             label.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20)
         ])
     }
 

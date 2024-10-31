@@ -17,7 +17,7 @@
         .namePrefix, .organizationName, .location,
         .fullStreetAddress, .streetAddressLine1,
         .streetAddressLine2, .addressCity, .addressState,
-        .addressCityAndState, .postalCode,
+        .addressCityAndState, .postalCode
     ]
 
     extension UITextInputTraits {

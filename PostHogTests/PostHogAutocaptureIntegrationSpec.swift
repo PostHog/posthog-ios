@@ -70,18 +70,18 @@ import Quick
 
                 it("should respect shouldProcess based on configuration") {
                     let event = createTestEventData()
-                    
+
                     server.start(batchCount: 2)
 
                     integration.process(source: .actionMethod(description: "action"), event: event)
                     integration.process(source: .actionMethod(description: "action"), event: event)
                     integration.process(source: .gestureRecognizer(description: "gesture1"), event: event)
-                    
+
                     let events = getBatchedEvents(server)
-                    
+
                     expect(events.count).to(equal(2))
                 }
-                
+
                 it("should debounce events if debounceInterval is greater than 0") {
                     let debouncedEvent = createTestEventData(debounceInterval: 0.2)
 
@@ -91,15 +91,13 @@ import Quick
                     integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
                     integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
                     integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    
-                    
+
                     PostHogSDK.shared.flush()
-                    
+
                     let debouncedEvents = getBatchedEvents(server)
-                    
+
                     expect(debouncedEvents.count).to(equal(1))
-                    
-                    
+
                     server.start(batchCount: 6)
                     let event = createTestEventData()
                     integration.process(source: .actionMethod(description: "action"), event: event)
@@ -108,14 +106,13 @@ import Quick
                     integration.process(source: .actionMethod(description: "action"), event: event)
                     integration.process(source: .actionMethod(description: "action"), event: event)
                     integration.process(source: .actionMethod(description: "action"), event: event)
-                    
+
                     PostHogSDK.shared.flush()
-                    
+
                     let events = getBatchedEvents(server)
-                    
+
                     expect(events.count).to(equal(6))
                 }
-                                 
             }
         }
     }

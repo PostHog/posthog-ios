@@ -35,12 +35,12 @@ class UUIDTest: QuickSpec {
     override func spec() {
         it("mostSignificantBits") {
             let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
-            expect(uuid.mostSignificantBits) == 112_631_663_430_041_152
+            expect(uuid.mostSignificantBits) == 112631663430041152
         }
 
         it("leastSignificantBits") {
             let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
-            expect(uuid.leastSignificantBits) == -7_503_087_083_654_801_332
+            expect(uuid.leastSignificantBits) == -7503087083654801332
         }
 
         it("test sorted and duplicated") {

@@ -82,7 +82,7 @@ public class PostHogEvent {
             "distinct_id": distinctId,
             "properties": properties,
             "timestamp": toISO8601String(timestamp),
-            "uuid": uuid.uuidString,
+            "uuid": uuid.uuidString
         ]
 
         if let apiKey {

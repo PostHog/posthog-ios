@@ -14,7 +14,6 @@ import UIKit
 #if os(iOS)
     class PostHogAutocaptureEventTrackerSpec: QuickSpec {
         override func spec() {
-
             context("when generating event data") {
                 it("should correctly create event data for UIView") { @MainActor in
                     let view = UIView()

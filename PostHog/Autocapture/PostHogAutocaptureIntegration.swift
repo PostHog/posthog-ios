@@ -68,11 +68,12 @@
          Handles the processing of autocapture events by extracting event details, building properties, and sending them to PostHog.
 
          - Parameters:
-            - source: The source of the event, which could be an action method, gesture recognizer, or notification. Associated values are already mapped to `$event_type` earlier in the chain
+            - source: The source of the event (action method, gesture, or notification). Values are already mapped to `$event_type` earlier in the chain
             - event: The event data including view hierarchy, screen name, and other metadata.
 
          This function extracts event details such as the event type, view hierarchy, and touch coordinates.
-         It creates a structured payload with relevant properties (e.g., tag_name, elements, element_chain) and sends it to the associated PostHog instance for further processing.
+         It creates a structured payload with relevant properties (e.g., tag_name, elements, element_chain) and sends it to the
+         associated PostHog instance for further processing.
          */
         private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
             let eventType: String = switch source {
@@ -93,8 +94,8 @@
                     "tag_name": node.targetClass, // required
                     "order": node.index,
                     "attributes": [ // required
-                        "attr__class": node.targetClass,
-                    ],
+                        "attr__class": node.targetClass
+                    ]
                 ].compactMapValues { $0 }
             }
 

@@ -2,6 +2,14 @@
 
 - add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))
 
+## 3.13.3 - 2024-10-25
+
+- fix race condition in PostHogFileBackedQueue.deleteFiles ([#218](https://github.com/PostHog/posthog-ios/pull/218))
+
+## 3.13.2 - 2024-10-18
+
+- add missing capture method for objC with groups overload ([#217](https://github.com/PostHog/posthog-ios/pull/217))
+
 ## 3.13.1 - 2024-10-16
 
 - add optional distinctId parameter to capture methods ([#216](https://github.com/PostHog/posthog-ios/pull/216))

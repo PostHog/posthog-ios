@@ -1,5 +1,5 @@
-SIMULATOR_IOS_VERSION= $(shell xcrun simctl list | grep ^iOS | ruby -e 'puts /\(([0-9.]+).*\)/.match(STDIN.read.chomp.split("\n").last).to_a[1]')
-SIMULATOR_ID = $(call simulator_uuid_for,$(SIMULATOR_IOS_VERSION),iPhone \d\+) # skip Pro Max
+SIMULATOR_IOS_VERSION = $(shell xcrun simctl list | grep ^iOS | ruby -e 'puts /\(([0-9.]+).*\)/.match(STDIN.read.chomp.split("\n").last).to_a[1]')
+SIMULATOR_ID = $(call udid_for,$(SIMULATOR_IOS_VERSION),iPhone [0-9]+ [^M])
 TEST_ITERATIONS = 1
 
 .PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods
@@ -30,8 +30,8 @@ buildExamples:
 format: swiftLint swiftFormat
 
 print-env: 
-	@echo "Simulator iOS version: $(SIMULATOR_IOS_VERSION)"
-	@echo "Simulator UUID: $(SIMULATOR_ID)"
+	@echo "Simulator iOS version: '$(SIMULATOR_IOS_VERSION)'"
+	@echo "Simulator UUID: '$(SIMULATOR_ID)'"
 	
 swiftLint:
 	swiftlint --fix
@@ -61,6 +61,13 @@ releaseCocoaPods:
 	pod trunk push PostHog.podspec --allow-warnings
 
 
-define simulator_uuid_for
-$(shell xcrun simctl list devices available 'iOS $(1)' | grep '$(2)' | sort -r | head -1 | awk -F '[()]' '{print $$(NF-3)}')
+define udid_for
+$(shell xcrun simctl list --json devices available "$(1)" | jq -r --arg regex "$(2)" '
+  .devices 
+  | to_entries 
+  | map(select(.value | length > 0)) 
+  | map({key: .key, value: (.value | map(select(.name | test($$regex))))}) 
+  | map(select(.value | length > 0)) 
+  | .[0].value[0].udid
+')
 endef

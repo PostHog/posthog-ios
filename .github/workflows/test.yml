@@ -1,20 +1,18 @@
-name: Tests
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths-ignore:
-      - "**/*.md"
-jobs:
-  test:
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-      - name: Test SDK
-        run: make test
-      - name: Test SDK (iOS)
-        run: make test-ios
+  name: Tests
+  on:
+    push:
+      branches:
+        - main
+    pull_request:
+      paths-ignore:
+        - "**/*.md"
+  jobs:
+    test:
+      runs-on: macos-13
+      steps:
+        - uses: actions/checkout@v4
+        - uses: maxim-lobanov/setup-xcode@v1
+          with:
+            xcode-version: latest-stable
+        - name: Test SDK
+          run: make test

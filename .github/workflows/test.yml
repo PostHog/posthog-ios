@@ -16,3 +16,5 @@ jobs:
           xcode-version: latest-stable
       - name: Test SDK
         run: make test
+      - name: Test SDK (iOS)
+        run: make test-ios

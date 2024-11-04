@@ -119,7 +119,6 @@
 		69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */; };
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		69F5183A2BB2BA8300F52C14 /* UIApplicationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */; };
-		DAB80B252CD8D88A009288AF /* Colors.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAB80B242CD8D88A009288AF /* Colors.xcassets */; };
 		DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */; };
 /* End PBXBuildFile section */
 
@@ -377,7 +376,6 @@
 		69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITextInputTraits+Util.swift"; sourceTree = "<group>"; };
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
 		69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIApplicationTracker.swift; sourceTree = "<group>"; };
-		DAB80B242CD8D88A009288AF /* Colors.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Colors.xcassets; sourceTree = "<group>"; };
 		DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskViewModifier.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -731,7 +729,6 @@
 				69F518032BAC768300F52C14 /* Assets.xcassets */,
 				69F518052BAC768300F52C14 /* LaunchScreen.storyboard */,
 				69F518082BAC768300F52C14 /* Info.plist */,
-				DAB80B242CD8D88A009288AF /* Colors.xcassets */,
 			);
 			path = PostHogExampleStoryboard;
 			sourceTree = "<group>";
@@ -1057,7 +1054,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				69F518042BAC768300F52C14 /* Assets.xcassets in Resources */,
-				DAB80B252CD8D88A009288AF /* Colors.xcassets in Resources */,
 				69F518072BAC768300F52C14 /* Base in Resources */,
 				69F518022BAC768100F52C14 /* Base in Resources */,
 			);

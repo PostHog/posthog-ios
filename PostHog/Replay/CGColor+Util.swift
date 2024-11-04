@@ -18,7 +18,8 @@
             guard
                 3 ... 4 ~= numberOfComponents, // check range
                 let components = components, // we now assume it's safe to access `components`
-                    components.count >= 3 else {
+                components.count >= 3
+            else {
                 return nil
             }
 

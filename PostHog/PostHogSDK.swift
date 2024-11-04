@@ -458,7 +458,7 @@ let maxRetryDelay = 30.0
 
             let properties = buildProperties(distinctId: distinctId, properties: [
                 "distinct_id": distinctId,
-                "$anon_distinct_id": oldDistinctId,
+                "$anon_distinct_id": oldDistinctId
             ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
             let sanitizedProperties = sanitizeProperties(properties)
 
@@ -472,6 +472,14 @@ let maxRetryDelay = 30.0
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }
+    }
+
+    private func isOptOutState() -> Bool {
+        if config.optOut {
+            hedgeLog("PostHog is in OptOut state.")
+            return true
+        }
+        return false
     }
 
     @objc public func capture(_ event: String) {
@@ -502,14 +510,6 @@ let maxRetryDelay = 30.0
         capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
     }
 
-    private func isOptOutState() -> Bool {
-        if config.optOut {
-            hedgeLog("PostHog is in OptOut state.")
-            return true
-        }
-        return false
-    }
-
     @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groups:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
@@ -527,6 +527,18 @@ let maxRetryDelay = 30.0
                         userProperties: [String: Any]? = nil,
                         userPropertiesSetOnce: [String: Any]? = nil,
                         groups: [String: String]? = nil)
+    {
+        capture(event, distinctId: distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: groups, timestamp: nil)
+    }
+
+    @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
+    public func capture(_ event: String,
+                        distinctId: String? = nil,
+                        properties: [String: Any]? = nil,
+                        userProperties: [String: Any]? = nil,
+                        userPropertiesSetOnce: [String: Any]? = nil,
+                        groups: [String: String]? = nil,
+                        timestamp: Date? = nil)
     {
         if !isEnabled() {
             return
@@ -552,6 +564,8 @@ let maxRetryDelay = 30.0
             }
         }
 
+        let eventTimestamp = timestamp ?? Date()
+
         let eventDistinctId = distinctId ?? getDistinctId()
 
         // if the user isn't identified but passed userProperties, userPropertiesSetOnce or groups,
@@ -571,7 +585,8 @@ let maxRetryDelay = 30.0
         let posthogEvent = PostHogEvent(
             event: event,
             distinctId: eventDistinctId,
-            properties: sanitizedProperties
+            properties: sanitizedProperties,
+            timestamp: eventTimestamp
         )
 
         // Session Replay has its own queue
@@ -605,7 +620,7 @@ let maxRetryDelay = 30.0
         }
 
         let props = [
-            "$screen_name": screenTitle,
+            "$screen_name": screenTitle
         ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
@@ -826,7 +841,7 @@ let maxRetryDelay = 30.0
         if !flagCallReported.contains(flagKey) {
             let properties: [String: Any] = [
                 "$feature_flag": flagKey,
-                "$feature_flag_response": flagValue ?? "",
+                "$feature_flag_response": flagValue ?? ""
             ]
 
             flagCallReported.insert(flagKey)

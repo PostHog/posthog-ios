@@ -53,64 +53,88 @@
                     userPropertiesSetOnce:userPropertiesSetOnce
     ];
     
-//    NSLog(@"getDistinctId: %@", [[PostHogSDK shared] getDistinctId]);
-//    NSLog(@"getAnonymousId: %@", [[PostHogSDK shared] getAnonymousId]);
-//    
-//    NSMutableDictionary *props = [NSMutableDictionary dictionary];
-//    props[@"state"] = @"running";
-//
-//    NSMutableDictionary *userProps = [NSMutableDictionary dictionary];
-//    userProps[@"userAge"] = @50;
-//    
-//    NSMutableDictionary *userPropsOnce = [NSMutableDictionary dictionary];
-//    userPropsOnce[@"userAlive"] = @YES;
-//    
-//    NSMutableDictionary *groupProps = [NSMutableDictionary dictionary];
-//    groupProps[@"groupName"] = @"theGroup";
-//
-//    NSMutableDictionary *registerProps = [NSMutableDictionary dictionary];
-//    props[@"loggedIn"] = @YES;
-//    [[PostHogSDK shared] registerProperties:registerProps];
-//    [[PostHogSDK shared] unregisterProperties:@"test2"];
-//    
-//    [[PostHogSDK shared] identify:@"my_new_id"];
-//    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" userProperties:userProps];
-//    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" userProperties:userProps userPropertiesSetOnce:userPropsOnce];
-//    
-//    
-//    [[PostHogSDK shared] optIn];
-//    [[PostHogSDK shared] optOut];
-//    NSLog(@"isOptOut: %d", [[PostHogSDK shared] isOptOut]);
-//    NSLog(@"isFeatureEnabled: %d", [[PostHogSDK shared] isFeatureEnabled:@"myFlag"]);
-//    NSLog(@"getFeatureFlag: %@", [[PostHogSDK shared] getFeatureFlag:@"myFlag"]);
-//    NSLog(@"getFeatureFlagPayload: %@", [[PostHogSDK shared] getFeatureFlagPayload:@"myFlag"]);
-//    
-//    [[PostHogSDK shared] reloadFeatureFlags];
-//    [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(){
-//        NSLog(@"called");
-//    }];
-//    
-//    [[PostHogSDK shared] capture:@"theEvent"];
-//    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props];
-//    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props userProperties:userProps];
-//    [[PostHogSDK shared] captureWithEvent:@"theEvent" properties:props userProperties:userProps userPropertiesSetOnce:userPropsOnce];
-//    [[PostHogSDK shared] captureWithEvent:@"theEvent" distinctId:@"custom_distinct_id" properties:props userProperties:userProps userPropertiesSetOnce:userPropsOnce groupProperties:groupProps];
-//
-//    [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey"];
-//    [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey" groupProperties:groupProps];
-//    
-//    [[PostHogSDK shared] alias:@"theAlias"];
-//    
-//    [[PostHogSDK shared] screen:@"theScreen"];
-//    [[PostHogSDK shared] screenWithTitle:@"theScreen" properties:props];
+    NSLog(@"getDistinctId: %@", [[PostHogSDK shared] getDistinctId]);
+    NSLog(@"getAnonymousId: %@", [[PostHogSDK shared] getAnonymousId]);
     
-//    [[PostHogSDK shared] flush];
-//    [[PostHogSDK shared] reset];
-//    [[PostHogSDK shared] close];
+    NSMutableDictionary *props = [NSMutableDictionary dictionary];
+    props[@"state"] = @"running";
 
-//    PostHogSDK *postHog = [PostHogSDK with:config];
-//    
-//    [postHog capture:@"theCapture"];
+    NSMutableDictionary *userProps = [NSMutableDictionary dictionary];
+    userProps[@"userAge"] = @50;
+    
+    NSMutableDictionary *userPropsOnce = [NSMutableDictionary dictionary];
+    userPropsOnce[@"userAlive"] = @YES;
+    
+    NSMutableDictionary *groupProps = [NSMutableDictionary dictionary];
+    groupProps[@"groupName"] = @"theGroup";
+
+    NSMutableDictionary *registerProps = [NSMutableDictionary dictionary];
+    props[@"loggedIn"] = @YES;
+    [[PostHogSDK shared] registerProperties:registerProps];
+    [[PostHogSDK shared] unregisterProperties:@"test2"];
+    
+    [[PostHogSDK shared] identify:@"my_new_id"];
+    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" userProperties:userProps];
+    [[PostHogSDK shared] identifyWithDistinctId:@"my_new_id" userProperties:userProps userPropertiesSetOnce:userPropsOnce];
+    
+    
+    [[PostHogSDK shared] optIn];
+    [[PostHogSDK shared] optOut];
+    NSLog(@"isOptOut: %d", [[PostHogSDK shared] isOptOut]);
+    NSLog(@"isFeatureEnabled: %d", [[PostHogSDK shared] isFeatureEnabled:@"myFlag"]);
+    NSLog(@"getFeatureFlag: %@", [[PostHogSDK shared] getFeatureFlag:@"myFlag"]);
+    NSLog(@"getFeatureFlagPayload: %@", [[PostHogSDK shared] getFeatureFlagPayload:@"myFlag"]);
+    
+    [[PostHogSDK shared] reloadFeatureFlags];
+    [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(){
+        NSLog(@"called");
+    }];
+    
+    [[PostHogSDK shared] capture:@"theEvent"];
+
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                               properties:props];
+
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                               properties:props
+                          userProperties:userProps];
+
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                               properties:props
+                          userProperties:userProps
+                 userPropertiesSetOnce:userPropsOnce];
+
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                              distinctId:@"custom_distinct_id"
+                               properties:props
+                          userProperties:userProps
+                 userPropertiesSetOnce:userPropsOnce
+                                 groups:groupProps];
+
+    [[PostHogSDK shared] captureWithEvent:@"theEvent"
+                              distinctId:@"custom_distinct_id"
+                               properties:props
+                          userProperties:userProps
+                 userPropertiesSetOnce:userPropsOnce
+                                 groups:groupProps
+                              timestamp:[NSDate date]];
+
+
+    [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey"];
+    [[PostHogSDK shared] groupWithType:@"theType" key:@"theKey" groupProperties:groupProps];
+    
+    [[PostHogSDK shared] alias:@"theAlias"];
+    
+    [[PostHogSDK shared] screen:@"theScreen"];
+    [[PostHogSDK shared] screenWithTitle:@"theScreen" properties:props];
+    
+    [[PostHogSDK shared] flush];
+    [[PostHogSDK shared] reset];
+    [[PostHogSDK shared] close];
+
+    PostHogSDK *postHog = [PostHogSDK with:config];
+    
+    [postHog capture:@"theCapture"];
     
     return YES;
 }

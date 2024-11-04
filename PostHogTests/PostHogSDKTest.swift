@@ -229,7 +229,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
-                "name": "some-company-name",
+                "name": "some-company-name"
             ])
 
             let events = getBatchedEvents(server)
@@ -514,7 +514,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
-                "name": "some-company-name",
+                "name": "some-company-name"
             ])
 
             let events = getBatchedEvents(server)
@@ -810,6 +810,41 @@ class PostHogSDKTest: QuickSpec {
             waitDecideRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
+            sut.close()
+        }
+
+        it("captures an event with a custom timestamp") {
+            let sut = self.getSut()
+            let eventDate = Date().addingTimeInterval(-60 * 30) 
+
+            sut.capture("test event",
+                        properties: ["foo": "bar"],
+                        userProperties: ["userProp": "value"],
+                        userPropertiesSetOnce: ["userPropOnce": "value"],
+                        groups: ["groupProp": "value"],
+                        timestamp: eventDate)
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "test event"
+
+            expect(event.properties["foo"] as? String) == "bar"
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["userProp"] as? String) == "value"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["userPropOnce"] as? String) == "value"
+
+            let groupProps = event.properties["$groups"] as? [String: String] ?? [:]
+            expect(groupProps["groupProp"]) == "value"
+            
+            expect(toISO8601String(event.timestamp)).to(equal(toISO8601String(eventDate)))
+
+            sut.reset()
             sut.close()
         }
     }

@@ -47,12 +47,12 @@ class ViewController: UIViewController {
             await fetch(url: url, imageView: imageView)
         }
 
-        view.addSubview(imageView)
+//        view.addSubview(imageView)
 
         let textView = UITextView(frame: CGRect(x: 5, y: 105, width: 100, height: 20))
         textView.text = "test"
 
-        view.addSubview(textView)
+//        view.addSubview(textView)
     }
 
     func fetch(url: URL, imageView: UIImageView) async {

@@ -458,7 +458,7 @@ let maxRetryDelay = 30.0
 
             let properties = buildProperties(distinctId: distinctId, properties: [
                 "distinct_id": distinctId,
-                "$anon_distinct_id": oldDistinctId
+                "$anon_distinct_id": oldDistinctId,
             ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
             let sanitizedProperties = sanitizeProperties(properties)
 
@@ -528,7 +528,13 @@ let maxRetryDelay = 30.0
                         userPropertiesSetOnce: [String: Any]? = nil,
                         groups: [String: String]? = nil)
     {
-        capture(event, distinctId: distinctId, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: groups, timestamp: nil)
+        capture(event,
+                distinctId: distinctId,
+                properties: properties,
+                userProperties: userProperties,
+                userPropertiesSetOnce: userPropertiesSetOnce,
+                groups: groups,
+                timestamp: nil)
     }
 
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
@@ -620,7 +626,7 @@ let maxRetryDelay = 30.0
         }
 
         let props = [
-            "$screen_name": screenTitle
+            "$screen_name": screenTitle,
         ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
@@ -841,7 +847,7 @@ let maxRetryDelay = 30.0
         if !flagCallReported.contains(flagKey) {
             let properties: [String: Any] = [
                 "$feature_flag": flagKey,
-                "$feature_flag_response": flagValue ?? ""
+                "$feature_flag_response": flagValue ?? "",
             ]
 
             flagCallReported.insert(flagKey)

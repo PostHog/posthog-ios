@@ -229,7 +229,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
-                "name": "some-company-name"
+                "name": "some-company-name",
             ])
 
             let events = getBatchedEvents(server)
@@ -514,7 +514,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
-                "name": "some-company-name"
+                "name": "some-company-name",
             ])
 
             let events = getBatchedEvents(server)
@@ -815,7 +815,7 @@ class PostHogSDKTest: QuickSpec {
 
         it("captures an event with a custom timestamp") {
             let sut = self.getSut()
-            let eventDate = Date().addingTimeInterval(-60 * 30) 
+            let eventDate = Date().addingTimeInterval(-60 * 30)
 
             sut.capture("test event",
                         properties: ["foo": "bar"],
@@ -841,7 +841,7 @@ class PostHogSDKTest: QuickSpec {
 
             let groupProps = event.properties["$groups"] as? [String: String] ?? [:]
             expect(groupProps["groupProp"]) == "value"
-            
+
             expect(toISO8601String(event.timestamp)).to(equal(toISO8601String(eventDate)))
 
             sut.reset()

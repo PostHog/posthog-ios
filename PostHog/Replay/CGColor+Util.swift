@@ -12,7 +12,14 @@
 
     extension CGColor {
         func toRGBString() -> String? {
-            guard let components = components, components.count >= 3 else {
+            // see dicussion: https://github.com/PostHog/posthog-ios/issues/226
+            // Allow only CGColors with an intiialized value of `numberOfComponents` with a value in 3...4 range
+            // Loading dynamic colors from storyboard sometimes leads to some random values for numberOfComponents like `105553118884896` which crashes the app
+            guard
+                3 ... 4 ~= numberOfComponents, // check range
+                let components = components, // we now assume it's safe to access `components`
+                components.count >= 3
+            else {
                 return nil
             }
 

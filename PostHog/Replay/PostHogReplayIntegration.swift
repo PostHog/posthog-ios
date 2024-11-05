@@ -274,6 +274,10 @@
                     if !child.isVisible() {
                         continue
                     }
+                    // return early if the view is not visible
+                    if !child.clipsToBounds {
+                        continue
+                    }
 
                     findMaskableWidgets(child, window, &maskableWidgets, &maskChildren)
                 }
@@ -374,16 +378,16 @@
             return (config.sessionReplayConfig.maskAllImages && !isAsset) || view.isNoCapture()
         }
 
-        private func toWireframe(_ window: UIView) -> RRWireframe? {
-            if !window.isVisible() {
+        private func toWireframe(_ view: UIView) -> RRWireframe? {
+            if !view.isVisible() {
                 return nil
             }
 
-            let wireframe = createBasicWireframe(window)
+            let wireframe = createBasicWireframe(view)
 
             let style = RRStyle()
 
-            if let textView = window as? UITextView {
+            if let textView = view as? UITextView {
                 wireframe.type = "text"
                 wireframe.text = isTextViewSensitive(textView) ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
@@ -396,7 +400,7 @@
                 setPadding(textView.textContainerInset, style)
             }
 
-            if let textField = window as? UITextField {
+            if let textField = view as? UITextField {
                 wireframe.type = "input"
                 wireframe.inputType = "text_area"
                 let isSensitive = isTextFieldSensitive(textField)
@@ -416,13 +420,13 @@
                 setAlignment(textField.textAlignment, style)
             }
 
-            if window is UIPickerView {
+            if view is UIPickerView {
                 wireframe.type = "input"
                 wireframe.inputType = "select"
                 // set wireframe.value from selected row
             }
 
-            if let theSwitch = window as? UISwitch {
+            if let theSwitch = view as? UISwitch {
                 wireframe.type = "input"
                 wireframe.inputType = "toggle"
                 wireframe.checked = theSwitch.isOn
@@ -433,7 +437,7 @@
                 }
             }
 
-            if let imageView = window as? UIImageView {
+            if let imageView = view as? UIImageView {
                 wireframe.type = "image"
                 if let image = imageView.image {
                     if !isImageViewSensitive(imageView) {
@@ -442,7 +446,7 @@
                 }
             }
 
-            if let button = window as? UIButton {
+            if let button = view as? UIButton {
                 wireframe.type = "input"
                 wireframe.inputType = "button"
                 wireframe.disabled = !button.isEnabled
@@ -452,7 +456,7 @@
                 }
             }
 
-            if let label = window as? UILabel {
+            if let label = view as? UILabel {
                 wireframe.type = "text"
                 if let text = label.text {
                     wireframe.text = isLabelSensitive(label) ? text.mask() : text
@@ -466,11 +470,11 @@
                 setAlignment(label.textAlignment, style)
             }
 
-            if window is WKWebView {
+            if view is WKWebView {
                 wireframe.type = "web_view"
             }
 
-            if let progressView = window as? UIProgressView {
+            if let progressView = view as? UIProgressView {
                 wireframe.type = "input"
                 wireframe.inputType = "progress"
                 wireframe.value = progressView.progress
@@ -479,7 +483,7 @@
                 style.bar = "horizontal"
             }
 
-            if window is UIActivityIndicatorView {
+            if view is UIActivityIndicatorView {
                 wireframe.type = "input"
                 wireframe.inputType = "progress"
                 style.bar = "circular"
@@ -488,17 +492,17 @@
             // TODO: props: backgroundImage (probably not needed)
             // TODO: componenets: UITabBar, UINavigationBar, UISlider, UIStepper, UIDatePicker
 
-            style.backgroundColor = window.backgroundColor?.toRGBString()
-            let layer = window.layer
+            style.backgroundColor = view.backgroundColor?.toRGBString()
+            let layer = view.layer
             style.borderWidth = Int(layer.borderWidth)
             style.borderRadius = Int(layer.cornerRadius)
             style.borderColor = layer.borderColor?.toRGBString()
 
             wireframe.style = style
 
-            if !window.subviews.isEmpty {
+            if !view.subviews.isEmpty {
                 var childWireframes: [RRWireframe] = []
-                for subview in window.subviews {
+                for subview in view.subviews {
                     if let child = toWireframe(subview) {
                         childWireframes.append(child)
                     }

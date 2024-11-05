@@ -274,10 +274,6 @@
                     if !child.isVisible() {
                         continue
                     }
-                    // return early if the view is not visible
-                    if !child.clipsToBounds {
-                        continue
-                    }
 
                     findMaskableWidgets(child, window, &maskableWidgets, &maskChildren)
                 }

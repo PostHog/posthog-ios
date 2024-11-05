@@ -1,5 +1,7 @@
 ## Next
 
+- recording: fix RN iOS masking ([#209](https://github.com/PostHog/posthog-ios/pull/209))
+
 ## 3.14.0 - 2024-11-05
 
 - add option to pass a custom timestamp when calling capture() ([#228](https://github.com/PostHog/posthog-ios/pull/228))

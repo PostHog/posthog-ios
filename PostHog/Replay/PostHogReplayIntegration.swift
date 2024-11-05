@@ -30,6 +30,9 @@
         private let swiftUIGenericTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
                                            "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView"].compactMap { NSClassFromString($0) }
 
+        private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
+        private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
+
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
 
@@ -97,7 +100,7 @@
 
                 var data: [String: Any] = ["width": width, "height": height]
 
-                if let screenName {
+                if let screenName = screenName {
                     data["href"] = screenName
                 }
 
@@ -155,7 +158,7 @@
             return wireframe
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ parent: UIView, _ maskableWidgets: inout [CGRect]) {
+        private func findMaskableWidgets(_ view: UIView, _ parent: UIView, _ maskableWidgets: inout [CGRect], _ maskChildren: inout Bool) {
             if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
                 if isTextViewSensitive(textView) {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
@@ -170,8 +173,22 @@
                 }
             }
 
+            if let reactNativeTextView = reactNativeTextView {
+                if view.isKind(of: reactNativeTextView), config.sessionReplayConfig.maskAllTextInputs {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
             if let image = view as? UIImageView { // Image, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isImageViewSensitive(image) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    return
+                }
+            }
+
+            if let reactNativeImageView = reactNativeImageView {
+                if view.isKind(of: reactNativeImageView), config.sessionReplayConfig.maskAllImages {
                     maskableWidgets.append(view.toAbsoluteRect(parent))
                     return
                 }
@@ -232,9 +249,18 @@
                 }
             }
 
-            // manually masked views through view modifier `PostHogMaskViewModifier`
-            if view.phIsManuallyMasked {
-                maskableWidgets.append(view.toAbsoluteRect(parent))
+            // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
+            // in such cases
+            if view.isNoCapture() || maskChildren {
+                let viewRect = view.toAbsoluteRect(parent)
+                let parentRect = parent.frame
+
+                // Check if the rectangles do not match
+                if !viewRect.equalTo(parentRect) {
+                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                } else {
+                    maskChildren = true
+                }
             }
 
             if !view.subviews.isEmpty {
@@ -243,9 +269,10 @@
                         continue
                     }
 
-                    findMaskableWidgets(child, parent, &maskableWidgets)
+                    findMaskableWidgets(child, parent, &maskableWidgets, &maskChildren)
                 }
             }
+            maskChildren = false
         }
 
         private func toScreenshotWireframe(_ view: UIView) -> RRWireframe? {
@@ -254,7 +281,8 @@
             }
 
             var maskableWidgets: [CGRect] = []
-            findMaskableWidgets(view, view, &maskableWidgets)
+            var maskChildren = false
+            findMaskableWidgets(view, view, &maskableWidgets, &maskChildren)
 
             let wireframe = createBasicWireframe(view)
 
@@ -311,11 +339,11 @@
         }
 
         private func hasText(_ text: String?) -> Bool {
-            if let text, !text.isEmpty {
-                true
+            if let text = text, !text.isEmpty {
+                return true
             } else {
                 // if there's no text, there's nothing to mask
-                false
+                return false
             }
         }
 
@@ -534,6 +562,7 @@
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
+
 #endif
 
 // swiftlint:enable cyclomatic_complexity

@@ -2,6 +2,11 @@
 
 - add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))
 
+## 3.14.0 - 2024-11-05
+
+- add option to pass a custom timestamp when calling capture() ([#228](https://github.com/PostHog/posthog-ios/pull/228))
+- fix crash when loading dynamic colors from storyboards ([#229](https://github.com/PostHog/posthog-ios/pull/229)) 
+
 ## 3.13.3 - 2024-10-25
 
 - fix race condition in PostHogFileBackedQueue.deleteFiles ([#218](https://github.com/PostHog/posthog-ios/pull/218))

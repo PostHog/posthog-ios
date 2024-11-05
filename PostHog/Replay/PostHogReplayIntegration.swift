@@ -249,6 +249,12 @@
                 }
             }
 
+            // manually masked views through view modifier `PostHogMaskViewModifier`
+            if view.phIsManuallyMasked {
+                maskableWidgets.append(view.toAbsoluteRect(parent))
+                return
+            }
+
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases
             if view.isNoCapture() || maskChildren {

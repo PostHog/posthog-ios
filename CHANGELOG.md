@@ -1,5 +1,6 @@
 ## Next
 
+- fix crash when loading dynamic colors from storyboards ([#229](https://github.com/PostHog/posthog-ios/pull/229)) 
 - add option to pass a custom timestamp when calling capture() ([#228](https://github.com/PostHog/posthog-ios/pull/228))
 
 ## 3.13.3 - 2024-10-25

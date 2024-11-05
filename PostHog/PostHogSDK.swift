@@ -791,7 +791,10 @@ let maxRetryDelay = 30.0
             distinctId: storageManager.getDistinctId(),
             anonymousId: storageManager.getAnonymousId(),
             groups: groups ?? [:],
-            callback: callback
+            callback: {
+                self.flagCallReported.removeAll()
+                callback()
+            }
         )
     }
 

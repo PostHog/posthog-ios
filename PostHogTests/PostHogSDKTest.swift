@@ -847,36 +847,36 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
-        
+
         it("captures $feature_flag_called when feature flag is called") {
             let sut = self.getSut(sendFeatureFlagEvent: true)
             let group = DispatchGroup()
             group.enter()
-            
+
             _ = sut.getFeatureFlag("some_key")
-            
+
             let event = getBatchedEvents(server)
             expect(event.first!.event).to(equal("$feature_flag_called"))
         }
-        
+
         it("captures a second $feature_flag_called when feature flag is called after flags are reloaded") {
             let sut = self.getSut(sendFeatureFlagEvent: true)
             _ = sut.getFeatureFlag("some_key")
-            
+
             let event = getBatchedEvents(server)
             expect(event.first!.event).to(equal("$feature_flag_called"))
-            
+
             server.start()
-            
+
             let group = DispatchGroup()
-            
+
             sut.reloadFeatureFlags {
                 _ = sut.getFeatureFlag("some_key")
                 sut.flush()
             }
-            
+
             let secondEvent = getBatchedEvents(server)
-            
+
             expect(secondEvent.first!.event).to(equal("$feature_flag_called"))
         }
     }

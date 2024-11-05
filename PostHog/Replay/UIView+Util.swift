@@ -59,8 +59,8 @@
         }
 
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason
-        func toAbsoluteRect(_ parent: UIView) -> CGRect {
-            convert(bounds, to: parent)
+        func toAbsoluteRect(_ window: UIWindow) -> CGRect {
+            convert(bounds, to: window)
         }
     }
 #endif

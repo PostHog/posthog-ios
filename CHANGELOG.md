@@ -1,6 +1,6 @@
 ## Next
 
-- fix $feature_flag_called not captued after reloading flags ([#232](https://github.com/PostHog/posthog-ios/pull/232))
+- fix $feature_flag_called not captured after reloading flags ([#232](https://github.com/PostHog/posthog-ios/pull/232))
 
 ## 3.14.1 - 2024-11-05
 

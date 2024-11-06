@@ -859,25 +859,85 @@ class PostHogSDKTest: QuickSpec {
             expect(event.first!.event).to(equal("$feature_flag_called"))
         }
 
-        it("captures a second $feature_flag_called when feature flag is called after flags are reloaded") {
-            let sut = self.getSut(sendFeatureFlagEvent: true)
-            _ = sut.getFeatureFlag("some_key")
-
-            let event = getBatchedEvents(server)
-            expect(event.first!.event).to(equal("$feature_flag_called"))
-
-            server.start()
-
-            let group = DispatchGroup()
+        it("captures a second $feature_flag_called if reloaded flag changed value ") {
+            let sut = self.getSut(
+                preloadFeatureFlags: false,
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
 
             sut.reloadFeatureFlags {
-                _ = sut.getFeatureFlag("some_key")
-                sut.flush()
+                DispatchQueue.main.async {
+                    // this should be captured with value true
+                    _ = sut.getFeatureFlag(server.flagKey)
+                }
+                server.flagValue = false
+                sut.reloadFeatureFlags {
+                    DispatchQueue.main.async {
+                        // this should be captured with value false
+                        _ = sut.getFeatureFlag(server.flagKey)
+                    }
+                }
             }
 
-            let secondEvent = getBatchedEvents(server)
+            let batches = getBatchedEvents(server)
+            expect(batches.count).to(equal(2))
+            expect(batches[0].event).to(equal("$feature_flag_called"))
+            expect(batches[1].event).to(equal("$feature_flag_called"))
+            expect(batches[0].properties["$feature_flag_response"] as? Bool).to(beTrue())
+            expect(batches[1].properties["$feature_flag_response"] as? Bool).to(beFalse())
+        }
 
-            expect(secondEvent.first!.event).to(equal("$feature_flag_called"))
+        it("does not capture a second $feature_flag_called if reloaded flag did not change value ") {
+            let sut = self.getSut(
+                preloadFeatureFlags: false,
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
+
+            sut.reloadFeatureFlags {
+                DispatchQueue.main.async {
+                    // this should be captured
+                    _ = sut.getFeatureFlag(server.flagKey)
+                }
+                sut.reloadFeatureFlags {
+                    DispatchQueue.main.async {
+                        // this should not be captured
+                        _ = sut.getFeatureFlag(server.flagKey)
+                        sut.flush()
+                    }
+                }
+            }
+
+            let batches = getBatchedEvents(server)
+            expect(batches.count).to(equal(1))
+            expect(batches[0].event).to(equal("$feature_flag_called"))
+            expect(batches[0].properties["$feature_flag_response"] as? Bool).to(beTrue())
+        }
+
+        it("does captures a second $feature_flag_called if reloaded flag did not change value, but keys were not preloaded") {
+            let sut = self.getSut(
+                preloadFeatureFlags: false,
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
+
+            // this should capture with value nil
+            _ = sut.getFeatureFlag(server.flagKey)
+
+            sut.reloadFeatureFlags {
+                DispatchQueue.main.async {
+                    // this should capture with value true
+                    _ = sut.getFeatureFlag(server.flagKey)
+                }
+            }
+
+            let batches = getBatchedEvents(server)
+            expect(batches.count).to(equal(2))
+            expect(batches[0].event).to(equal("$feature_flag_called"))
+            expect(batches[1].event).to(equal("$feature_flag_called"))
+            expect(batches[0].properties["$feature_flag_response"] as? Bool).to(beNil())
+            expect(batches[1].properties["$feature_flag_response"] as? Bool).to(beTrue())
         }
     }
 }

@@ -1,8 +1,4 @@
-SIMULATOR_IOS_VERSION = $(shell xcrun simctl list | grep ^iOS | ruby -e 'puts /\(([0-9.]+).*\)/.match(STDIN.read.chomp.split("\n").last).to_a[1]')
-SIMULATOR_ID = $(call udid_for,$(SIMULATOR_IOS_VERSION),iPhone [0-9]+ [^M])
-TEST_ITERATIONS = 1
-
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api
 
 build: buildSdk buildExamples
 
@@ -29,45 +25,38 @@ buildExamples:
 
 format: swiftLint swiftFormat
 
-print-env: 
-	@echo "Simulator iOS version: '$(SIMULATOR_IOS_VERSION)'"
-	@echo "Simulator UUID: '$(SIMULATOR_ID)'"
-	
 swiftLint:
 	swiftlint --fix
 
 swiftFormat:
 	swiftformat . --swiftversion 5.3
 
-test-ios: print-env
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination platform="iOS Simulator,id=$(SIMULATOR_ID)" $(if $(filter-out 1,$(TEST_ITERATIONS)), -run-tests-until-failure -test-iterations $(TEST_ITERATIONS)) | xcpretty
+# use -test-iterations 10 if you want to run the tests multiple times
+# use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
+testOniOSSimulator:
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' | xcpretty
 
-test-macos: 
+testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
-test: 
-	swift test | xcpretty
+test:
+	set -o pipefail && swift test | xcpretty
 
-lint: 
+lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint
 
+# periphery scan --setup
+# TODO: add periphery to the CI/commit prehooks
+api:
+	periphery scan
+
 # requires gem and brew
+# xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
+	brew install peripheryapp/periphery/periphery
 
 releaseCocoaPods:
 	pod trunk push PostHog.podspec --allow-warnings
-
-
-define udid_for
-$(shell xcrun simctl list --json devices available "$(1)" | jq -r --arg regex "$(2)" '
-  .devices 
-  | to_entries 
-  | map(select(.value | length > 0)) 
-  | map({key: .key, value: (.value | map(select(.name | test($$regex))))}) 
-  | map(select(.value | length > 0)) 
-  | .[0].value[0].udid
-')
-endef

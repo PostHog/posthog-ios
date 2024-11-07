@@ -852,7 +852,7 @@ class PostHogSDKTest: QuickSpec {
             context("autocapture") {
                 it("isAutocaptureActive() should be false if disabled by config") {
                     let config = PostHogConfig(apiKey: "1234")
-                    config.autocapture = false
+                    config.captureElementInteractions = false
                     let sut = PostHogSDK.with(config)
 
                     expect(sut.isAutocaptureActive()).to(beFalse())
@@ -860,7 +860,7 @@ class PostHogSDKTest: QuickSpec {
 
                 it("isAutocaptureActive() should be false if SDK is not enabled") {
                     let config = PostHogConfig(apiKey: "1234")
-                    config.autocapture = true
+                    config.captureElementInteractions = true
                     let sut = PostHogSDK.with(config)
                     sut.close()
                     expect(sut.isAutocaptureActive()).to(beFalse())

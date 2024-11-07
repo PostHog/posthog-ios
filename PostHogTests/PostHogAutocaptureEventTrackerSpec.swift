@@ -5,13 +5,13 @@
 //  Created by Yiannis Josephides on 31/10/2024.
 //
 
-import Foundation
-import Nimble
-@testable import PostHog
-import Quick
-import UIKit
-
 #if os(iOS)
+    import Foundation
+    import Nimble
+    @testable import PostHog
+    import Quick
+    import UIKit
+
     class PostHogAutocaptureEventTrackerSpec: QuickSpec {
         override func spec() {
             context("when generating event data") {

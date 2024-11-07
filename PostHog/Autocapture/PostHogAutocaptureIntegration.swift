@@ -48,7 +48,9 @@
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard shouldProcess(source: source) else { return }
+            guard PostHogSDK.shared.isAutocaptureActive() else {
+                return
+            }
 
             let eventHash = event.viewHierarchy.map(\.targetClass).hashValue
             // debounce frequent UIControl events (e.g., UISlider) to reduce event noise
@@ -90,7 +92,7 @@
 
             let elements = event.viewHierarchy.map { node -> [String: Any] in
                 [
-                    "text": postHogConfig.autocaptureConfig.captureValues ? node.text : nil,
+                    "text": node.text,
                     "tag_name": node.targetClass, // required
                     "order": node.index,
                     "attributes": [ // required
@@ -114,24 +116,6 @@
                 elementsChain: elementsChain,
                 properties: properties
             )
-        }
-
-        /// Determines whether an autocapture event should be processed based on the event source and the current PostHog configuration.
-        ///
-        /// Note: Not sure if we should be checking feature flags yet here
-        ///
-        /// - Parameter source: source to be processed
-        private func shouldProcess(source: PostHogAutocaptureEventTracker.EventSource) -> Bool {
-            guard PostHogSDK.shared.isAutocaptureActive() else { return false }
-
-            switch source {
-            case .actionMethod:
-                return postHogConfig.autocaptureConfig.captureControlActions
-            case .gestureRecognizer:
-                return postHogConfig.autocaptureConfig.captureGestures
-            case .notification:
-                return postHogConfig.autocaptureConfig.captureTextEdits
-            }
         }
     }
 #endif

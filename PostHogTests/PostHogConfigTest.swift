@@ -42,36 +42,18 @@ class PostHogConfigTest: QuickSpec {
         }
 
         #if os(iOS)
-            context("when initialized with default values for autocapture") {
+            context("when initialized with default values for captureElementInteractions") {
                 it("should enable autocapture by default") {
                     let sut = PostHogConfig(apiKey: "123")
-                    expect(sut.autocapture).to(beFalse())
-                }
-
-                it("should initialize autocaptureConfig with default values") {
-                    let sut = PostHogConfig(apiKey: "123")
-                    expect(sut.autocaptureConfig.captureGestures).to(beTrue())
-                    expect(sut.autocaptureConfig.captureTextEdits).to(beTrue())
-                    expect(sut.autocaptureConfig.captureControlActions).to(beTrue())
-                    expect(sut.autocaptureConfig.captureValues).to(beTrue())
+                    expect(sut.captureElementInteractions).to(beFalse())
                 }
             }
 
             context("when customized") {
                 it("should allow disabling autocapture") {
                     let config = PostHogConfig(apiKey: "123")
-                    config.autocapture = false
-                    expect(config.autocapture).to(beFalse())
-                }
-
-                it("should allow changing autocaptureConfig properties") {
-                    let sut = PostHogConfig(apiKey: "123")
-                    sut.autocaptureConfig.captureValues = false
-                    sut.autocaptureConfig.captureGestures = false
-                    expect(sut.autocaptureConfig.captureGestures).to(beFalse())
-                    expect(sut.autocaptureConfig.captureTextEdits).to(beTrue())
-                    expect(sut.autocaptureConfig.captureControlActions).to(beTrue())
-                    expect(sut.autocaptureConfig.captureValues).to(beFalse())
+                    config.captureElementInteractions = false
+                    expect(config.captureElementInteractions).to(beFalse())
                 }
             }
         #endif

@@ -18,11 +18,7 @@ import Quick
 
             beforeEach {
                 let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
-                config.autocapture = true
-                config.autocaptureConfig.captureTextEdits = true
-                config.autocaptureConfig.captureValues = true
-                config.autocaptureConfig.captureControlActions = true
-                config.autocaptureConfig.captureGestures = false
+                config.captureElementInteractions = true
                 config.flushIntervalSeconds = 0.2
                 config.maxBatchSize = 1
 

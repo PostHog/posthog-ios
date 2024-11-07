@@ -16,12 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
         config.debug = true
 
-        config.autocapture = true
-        config.autocaptureConfig.captureTextEdits = true
-        config.autocaptureConfig.captureGestures = true
-        config.autocaptureConfig.captureControlActions = true
-        
-
+        config.captureElementInteractions = true
         config.captureApplicationLifecycleEvents = true
         config.sendFeatureFlagEvent = false
 

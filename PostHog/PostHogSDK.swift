@@ -152,7 +152,7 @@ let maxRetryDelay = 30.0
             #endif
 
             #if os(iOS) || targetEnvironment(macCatalyst)
-                if config.autocapture {
+            if config.captureElementInteractions {
                     autocaptureIntegration?.start()
                 }
             #endif
@@ -1188,7 +1188,7 @@ let maxRetryDelay = 30.0
 
     #if os(iOS) || targetEnvironment(macCatalyst)
         @objc public func isAutocaptureActive() -> Bool {
-            isEnabled() && config.autocapture
+            isEnabled() && config.captureElementInteractions
         }
     #endif
 }

@@ -46,6 +46,7 @@ lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint
 
 # requires gem and brew
+# xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
 	gem install xcpretty
 	brew install swiftlint

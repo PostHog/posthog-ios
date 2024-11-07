@@ -10,18 +10,21 @@ import Nimble
 import Quick
 
 @testable import PostHog
+import XCTest
 
 class PostHogSDKTest: QuickSpec {
     func getSut(preloadFeatureFlags: Bool = false,
                 sendFeatureFlagEvent: Bool = false,
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
+                maxBatchSize: Int = 50,
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
         config.flushAt = flushAt
+        config.maxBatchSize = maxBatchSize
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
         config.disableReachabilityForTesting = true
@@ -849,6 +852,52 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reset()
             sut.close()
+        }
+
+        it("captures $feature_flag_called when getFeatureFlag is called") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 1
+            )
+
+            _ = sut.getFeatureFlag("some_key")
+
+            let event = getBatchedEvents(server)
+            expect(event.first!.event).to(equal("$feature_flag_called"))
+        }
+
+        it("does not capture $feature_flag_called when getFeatureFlag is called twice") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
+
+            _ = sut.getFeatureFlag("some_key")
+            _ = sut.getFeatureFlag("some_key")
+            sut.capture("force_batch_flush")
+
+            let event = getBatchedEvents(server)
+            expect(event.count).to(equal(2))
+            expect(event[0].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("force_batch_flush"))
+        }
+
+        it("captures $feature_flag_called when getFeatureFlag called twice after reloading flags") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
+
+            _ = sut.getFeatureFlag("some_key")
+
+            sut.reloadFeatureFlags {
+                _ = sut.getFeatureFlag("some_key")
+            }
+
+            let event = getBatchedEvents(server)
+            expect(event.count).to(equal(2))
+            expect(event[0].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("$feature_flag_called"))
         }
     }
 }

@@ -10,21 +10,18 @@ import Nimble
 import Quick
 
 @testable import PostHog
-import XCTest
 
 class PostHogSDKTest: QuickSpec {
     func getSut(preloadFeatureFlags: Bool = false,
                 sendFeatureFlagEvent: Bool = false,
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
-                maxBatchSize: Int = 50,
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
         config.flushAt = flushAt
-        config.maxBatchSize = maxBatchSize
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
         config.disableReachabilityForTesting = true

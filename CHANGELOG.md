@@ -1,6 +1,11 @@
 ## Next
 
 - add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))
+- fix $feature_flag_called not captured after reloading flags ([#232](https://github.com/PostHog/posthog-ios/pull/232))
+
+## 3.14.1 - 2024-11-05
+
+- recording: fix RN iOS masking ([#230](https://github.com/PostHog/posthog-ios/pull/230))
 
 ## 3.14.0 - 2024-11-05
 

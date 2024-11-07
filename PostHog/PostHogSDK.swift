@@ -30,11 +30,11 @@ let maxRetryDelay = 30.0
     private let setupLock = NSLock()
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
+    private let flagCallReportedLock = NSLock()
     private let personPropsLock = NSLock()
 
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
-    private var api: PostHogApi?
     private var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -49,6 +49,8 @@ let maxRetryDelay = 30.0
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
+    /// Internal, only used for testing
+    var shouldReloadFlagsForTesting = true
 
     #if os(iOS) || targetEnvironment(macCatalyst)
         private var autocaptureIntegration: PostHogAutocaptureIntegration?
@@ -98,9 +100,8 @@ let maxRetryDelay = 30.0
             self.config = config
             let theStorage = PostHogStorage(config)
             storage = theStorage
-            let theApi = PostHogApi(config)
-            api = theApi
-            featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
+            let api = PostHogApi(config)
+            featureFlags = PostHogFeatureFlags(config, theStorage, api)
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
@@ -127,11 +128,11 @@ let maxRetryDelay = 30.0
             }
 
             #if !os(watchOS)
-                queue = PostHogQueue(config, theStorage, theApi, .batch, reachability)
-                replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot, reachability)
+                queue = PostHogQueue(config, theStorage, api, .batch, reachability)
+                replayQueue = PostHogQueue(config, theStorage, api, .snapshot, reachability)
             #else
-                queue = PostHogQueue(config, theStorage, theApi, .batch)
-                replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot)
+                queue = PostHogQueue(config, theStorage, api, .batch)
+                replayQueue = PostHogQueue(config, theStorage, api, .snapshot)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -161,7 +162,7 @@ let maxRetryDelay = 30.0
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
 
-            if config.preloadFeatureFlags {
+            if config.preloadFeatureFlags, shouldReloadFlagsForTesting {
                 reloadFeatureFlags()
             }
         }
@@ -359,14 +360,18 @@ let maxRetryDelay = 30.0
         // storage also removes all feature flags
         storage?.reset()
         config.storageManager?.reset()
-        flagCallReported.removeAll()
+        flagCallReportedLock.withLock {
+            flagCallReported.removeAll()
+        }
         PostHogSessionManager.shared.endSession {
             self.resetViews()
         }
         PostHogSessionManager.shared.startSession()
 
         // reload flags as anon user
-        reloadFeatureFlags()
+        if shouldReloadFlagsForTesting {
+            reloadFeatureFlags()
+        }
     }
 
     private func resetViews() {
@@ -482,7 +487,9 @@ let maxRetryDelay = 30.0
                 properties: sanitizedProperties
             ))
 
-            reloadFeatureFlags()
+            if shouldReloadFlagsForTesting {
+                reloadFeatureFlags()
+            }
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }
@@ -750,7 +757,7 @@ let maxRetryDelay = 30.0
             break
         }
 
-        if shouldReloadFlags {
+        if shouldReloadFlags, shouldReloadFlagsForTesting {
             reloadFeatureFlags()
         }
 
@@ -841,7 +848,12 @@ let maxRetryDelay = 30.0
             distinctId: storageManager.getDistinctId(),
             anonymousId: storageManager.getAnonymousId(),
             groups: groups ?? [:],
-            callback: callback
+            callback: {
+                self.flagCallReportedLock.withLock {
+                    self.flagCallReported.removeAll()
+                }
+                callback()
+            }
         )
     }
 
@@ -894,14 +906,20 @@ let maxRetryDelay = 30.0
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
-        if !flagCallReported.contains(flagKey) {
-            let properties: [String: Any] = [
+        var shouldCapture = false
+
+        flagCallReportedLock.withLock {
+            if !flagCallReported.contains(flagKey) {
+                flagCallReported.insert(flagKey)
+                shouldCapture = true
+            }
+        }
+
+        if shouldCapture {
+            let properties = [
                 "$feature_flag": flagKey,
                 "$feature_flag_response": flagValue ?? ""
             ]
-
-            flagCallReported.insert(flagKey)
-
             capture("$feature_flag_called", properties: properties)
         }
     }
@@ -973,14 +991,15 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset()
             config.storageManager = nil
             config = PostHogConfig(apiKey: "")
-            api = nil
             featureFlags = nil
             storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()
                 reachability = nil
             #endif
-            flagCallReported.removeAll()
+            flagCallReportedLock.withLock {
+                flagCallReported.removeAll()
+            }
             context = nil
             PostHogSessionManager.shared.endSession {
                 self.resetViews()
@@ -990,6 +1009,7 @@ let maxRetryDelay = 30.0
             appFromBackground = false
             isInBackground = false
             toggleHedgeLog(false)
+            shouldReloadFlagsForTesting = true
         }
     }
 

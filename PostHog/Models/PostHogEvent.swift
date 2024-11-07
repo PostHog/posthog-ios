@@ -16,15 +16,6 @@ public class PostHogEvent {
     // Only used for Replay
     public var apiKey: String?
 
-    enum Key: String {
-        case event
-        case distinctId
-        case properties
-        case timestamp
-        case uuid
-        case apiKey
-    }
-
     init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = UUID.v7(), apiKey: String? = nil) {
         self.event = event
         self.distinctId = distinctId

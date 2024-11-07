@@ -109,14 +109,6 @@ import Foundation
             }
         }
 
-        private var isRunningOnDevice: Bool = {
-            #if targetEnvironment(simulator)
-                return false
-            #else
-                return true
-            #endif
-        }()
-
         private(set) var notifierRunning = false
         private let reachabilityRef: SCNetworkReachability
         private let reachabilitySerialQueue: DispatchQueue
@@ -354,10 +346,6 @@ import Foundation
 
         var isDirectFlagSet: Bool {
             contains(.isDirect)
-        }
-
-        var isConnectionRequiredAndTransientFlagSet: Bool {
-            intersection([.connectionRequired, .transientConnection]) == [.connectionRequired, .transientConnection]
         }
 
         var description: String {

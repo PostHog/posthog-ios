@@ -512,6 +512,9 @@ class PostHogSDKTest: QuickSpec {
 
         it("reloadFeatureFlags adds groups if any") {
             let sut = self.getSut()
+            // group reloads flags when there are new groups
+            // but in this case we want to reload manually and assert the response
+            sut.shouldReloadFlagsForTesting = false
 
             sut.group(type: "some-type", key: "some-key", groupProperties: [
                 "name": "some-company-name"
@@ -846,6 +849,52 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reset()
             sut.close()
+        }
+
+        it("captures $feature_flag_called when getFeatureFlag is called") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 1
+            )
+
+            _ = sut.getFeatureFlag("some_key")
+
+            let event = getBatchedEvents(server)
+            expect(event.first!.event).to(equal("$feature_flag_called"))
+        }
+
+        it("does not capture $feature_flag_called when getFeatureFlag is called twice") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
+
+            _ = sut.getFeatureFlag("some_key")
+            _ = sut.getFeatureFlag("some_key")
+            sut.capture("force_batch_flush")
+
+            let event = getBatchedEvents(server)
+            expect(event.count).to(equal(2))
+            expect(event[0].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("force_batch_flush"))
+        }
+
+        it("captures $feature_flag_called when getFeatureFlag called twice after reloading flags") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 2
+            )
+
+            _ = sut.getFeatureFlag("some_key")
+
+            sut.reloadFeatureFlags {
+                _ = sut.getFeatureFlag("some_key")
+            }
+
+            let event = getBatchedEvents(server)
+            expect(event.count).to(equal(2))
+            expect(event[0].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("$feature_flag_called"))
         }
 
         #if os(iOS)

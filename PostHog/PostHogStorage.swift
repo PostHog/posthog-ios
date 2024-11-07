@@ -36,14 +36,10 @@ class PostHogStorage {
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
     }
 
-    private let config: PostHogConfig
-
     // The location for storing data that we always want to keep
     let appFolderUrl: URL
 
     init(_ config: PostHogConfig) {
-        self.config = config
-
         appFolderUrl = Self.getAppFolderUrl(from: config)
 
         createDirectoryAtURLIfNeeded(url: appFolderUrl)

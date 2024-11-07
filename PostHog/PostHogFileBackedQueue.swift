@@ -66,6 +66,7 @@ class PostHogFileBackedQueue {
         }
     }
 
+    /// Internal, used for testing
     func clear() {
         deleteSafely(queue)
         setup(oldQueue: nil)

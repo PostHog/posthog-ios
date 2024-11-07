@@ -17,7 +17,7 @@
 
         private var timer: Timer?
 
-        private let windowViews = NSMapTable<UIView, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
         private let urlInterceptor: URLSessionInterceptor
         private var sessionSwizzler: URLSessionSwizzler?
 
@@ -29,6 +29,9 @@
 
         private let swiftUIGenericTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
                                            "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView"].compactMap { NSClassFromString($0) }
+
+        private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
+        private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
 
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
@@ -78,26 +81,26 @@
             windowViews.removeAllObjects()
         }
 
-        private func generateSnapshot(_ view: UIView, _ screenName: String? = nil) {
+        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil) {
             var hasChanges = false
 
             let timestamp = Date().toMillis()
-            let snapshotStatus = windowViews.object(forKey: view) ?? ViewTreeSnapshotStatus()
+            let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
 
-            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(view) : toWireframe(view) else {
+            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
                 return
             }
 
             var snapshotsData: [Any] = []
 
             if !snapshotStatus.sentMetaEvent {
-                let size = view.bounds.size
+                let size = window.bounds.size
                 let width = Int(size.width)
                 let height = Int(size.height)
 
                 var data: [String: Any] = ["width": width, "height": height]
 
-                if let screenName {
+                if let screenName = screenName {
                     data["href"] = screenName
                 }
 
@@ -108,7 +111,7 @@
             }
 
             if hasChanges {
-                windowViews.setObject(snapshotStatus, forKey: view)
+                windowViews.setObject(snapshotStatus, forKey: window)
             }
 
             // TODO: IncrementalSnapshot, type=2
@@ -143,43 +146,57 @@
             style.paddingLeft = Int(insets.left)
         }
 
-        private func createBasicWireframe(_ view: UIView) -> RRWireframe {
+        private func createBasicWireframe(_ window: UIView) -> RRWireframe {
             let wireframe = RRWireframe()
 
-            wireframe.id = view.hash
-            wireframe.posX = Int(view.frame.origin.x)
-            wireframe.posY = Int(view.frame.origin.y)
-            wireframe.width = Int(view.frame.size.width)
-            wireframe.height = Int(view.frame.size.height)
+            wireframe.id = window.hash
+            wireframe.posX = Int(window.frame.origin.x)
+            wireframe.posY = Int(window.frame.origin.y)
+            wireframe.width = Int(window.frame.size.width)
+            wireframe.height = Int(window.frame.size.height)
 
             return wireframe
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ parent: UIView, _ maskableWidgets: inout [CGRect]) {
+        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect], _ maskChildren: inout Bool) {
             if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
                 if isTextViewSensitive(textView) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
             if let textField = view as? UITextField { // TextField
                 if isTextFieldSensitive(textField) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let reactNativeTextView = reactNativeTextView {
+                if view.isKind(of: reactNativeTextView), config.sessionReplayConfig.maskAllTextInputs {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
             if let image = view as? UIImageView { // Image, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isImageViewSensitive(image) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let reactNativeImageView = reactNativeImageView {
+                if view.isKind(of: reactNativeImageView), config.sessionReplayConfig.maskAllImages {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
             if let label = view as? UILabel { // Text, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isLabelSensitive(label) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
@@ -188,21 +205,21 @@
                 // since we cannot mask the webview content, if masking texts or images are enabled
                 // we mask the whole webview as well
                 if isAnyInputSensitive(webView) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
             if let button = view as? UIButton { // Button, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
                 if isButtonSensitive(button) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
             if let theSwitch = view as? UISwitch { // Toggle (no text, items are just rendered to Text (swiftUIImageTypes))
                 if isSwitchSensitive(theSwitch) {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
@@ -212,14 +229,14 @@
 
             if let picker = view as? UIPickerView { // Picker (no source, items are just rendered to Text (swiftUIImageTypes))
                 if isTextInputSensitive(picker), !hasSubViews {
-                    maskableWidgets.append(picker.toAbsoluteRect(parent))
+                    maskableWidgets.append(picker.toAbsoluteRect(window))
                     return
                 }
             }
 
             if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
                 if isSwiftUIImageSensitive(view), !hasSubViews {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
@@ -227,14 +244,29 @@
             // this can be anything, so better to be conservative
             if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }) {
                 if isTextInputSensitive(view), !hasSubViews {
-                    maskableWidgets.append(view.toAbsoluteRect(parent))
+                    maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
             // manually masked views through view modifier `PostHogMaskViewModifier`
             if view.phIsManuallyMasked {
-                maskableWidgets.append(view.toAbsoluteRect(parent))
+                maskableWidgets.append(view.toAbsoluteRect(window))
+                return
+            }
+
+            // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
+            // in such cases
+            if view.isNoCapture() || maskChildren {
+                let viewRect = view.toAbsoluteRect(window)
+                let windowRect = window.frame
+
+                // Check if the rectangles do not match
+                if !viewRect.equalTo(windowRect) {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                } else {
+                    maskChildren = true
+                }
             }
 
             if !view.subviews.isEmpty {
@@ -243,22 +275,24 @@
                         continue
                     }
 
-                    findMaskableWidgets(child, parent, &maskableWidgets)
+                    findMaskableWidgets(child, window, &maskableWidgets, &maskChildren)
                 }
             }
+            maskChildren = false
         }
 
-        private func toScreenshotWireframe(_ view: UIView) -> RRWireframe? {
-            if !view.isVisible() {
+        private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
+            if !window.isVisible() {
                 return nil
             }
 
             var maskableWidgets: [CGRect] = []
-            findMaskableWidgets(view, view, &maskableWidgets)
+            var maskChildren = false
+            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
 
-            let wireframe = createBasicWireframe(view)
+            let wireframe = createBasicWireframe(window)
 
-            if let image = view.toImage() {
+            if let image = window.toImage() {
                 if !image.size.hasSize() {
                     return nil
                 }
@@ -311,11 +345,11 @@
         }
 
         private func hasText(_ text: String?) -> Bool {
-            if let text, !text.isEmpty {
-                true
+            if let text = text, !text.isEmpty {
+                return true
             } else {
                 // if there's no text, there's nothing to mask
-                false
+                return false
             }
         }
 
@@ -534,6 +568,7 @@
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
+
 #endif
 
 // swiftlint:enable cyclomatic_complexity

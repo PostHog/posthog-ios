@@ -40,7 +40,7 @@ testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
 test:
-	swift test | xcpretty
+	set -o pipefail && swift test | xcpretty
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint

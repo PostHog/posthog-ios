@@ -49,6 +49,8 @@ let maxRetryDelay = 30.0
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
+    /// Internal, only used for testing
+    var shouldReloadFlagsForTesting = true
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
@@ -147,7 +149,7 @@ let maxRetryDelay = 30.0
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
 
-            if config.preloadFeatureFlags {
+            if config.preloadFeatureFlags, shouldReloadFlagsForTesting {
                 reloadFeatureFlags()
             }
         }
@@ -352,7 +354,9 @@ let maxRetryDelay = 30.0
         PostHogSessionManager.shared.startSession()
 
         // reload flags as anon user
-        reloadFeatureFlags()
+        if shouldReloadFlagsForTesting {
+            reloadFeatureFlags()
+        }
     }
 
     private func resetViews() {
@@ -468,7 +472,9 @@ let maxRetryDelay = 30.0
                 properties: sanitizedProperties
             ))
 
-            reloadFeatureFlags()
+            if shouldReloadFlagsForTesting {
+                reloadFeatureFlags()
+            }
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }
@@ -700,7 +706,7 @@ let maxRetryDelay = 30.0
             break
         }
 
-        if shouldReloadFlags {
+        if shouldReloadFlags, shouldReloadFlagsForTesting {
             reloadFeatureFlags()
         }
 
@@ -936,6 +942,7 @@ let maxRetryDelay = 30.0
             appFromBackground = false
             isInBackground = false
             toggleHedgeLog(false)
+            shouldReloadFlagsForTesting = true
         }
     }
 

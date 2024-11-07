@@ -66,7 +66,6 @@ class PostHogQueue {
     #else
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint) {
             self.config = config
-            self.storage = storage
             self.api = api
             self.endpoint = endpoint
 

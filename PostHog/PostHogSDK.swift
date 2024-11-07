@@ -123,8 +123,8 @@ let maxRetryDelay = 30.0
                 queue = PostHogQueue(config, theStorage, api, .batch, reachability)
                 replayQueue = PostHogQueue(config, theStorage, api, .snapshot, reachability)
             #else
-                queue = PostHogQueue(config, theStorage, theApi, .batch)
-                replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot)
+                queue = PostHogQueue(config, theStorage, api, .batch)
+                replayQueue = PostHogQueue(config, theStorage, api, .snapshot)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,

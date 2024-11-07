@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api
 
 build: buildSdk buildExamples
 
@@ -45,12 +45,18 @@ test:
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint
 
+# periphery scan --setup
+# TODO: add periphery to the CI/commit prehooks
+api:
+	periphery scan
+
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
+	brew install peripheryapp/periphery/periphery
 
 releaseCocoaPods:
 	pod trunk push PostHog.podspec --allow-warnings

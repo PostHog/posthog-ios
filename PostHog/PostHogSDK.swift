@@ -35,7 +35,6 @@ let maxRetryDelay = 30.0
 
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
-    private var api: PostHogApi?
     private var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -99,7 +98,6 @@ let maxRetryDelay = 30.0
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let theApi = PostHogApi(config)
-            api = theApi
             featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             #if os(iOS)
@@ -939,7 +937,6 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset()
             config.storageManager = nil
             config = PostHogConfig(apiKey: "")
-            api = nil
             featureFlags = nil
             storage = nil
             #if !os(watchOS)

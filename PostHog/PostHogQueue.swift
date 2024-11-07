@@ -24,7 +24,6 @@ class PostHogQueue {
     }
 
     private let config: PostHogConfig
-    private let storage: PostHogStorage
     private let api: PostHogApi
     private var paused: Bool = false
     private let pausedLock = NSLock()
@@ -41,6 +40,7 @@ class PostHogQueue {
     private let endpoint: PostHogApiEndpoint
     private let dispatchQueue: DispatchQueue
 
+    /// Internal, used for testing
     var depth: Int {
         fileQueue.depth
     }
@@ -50,7 +50,6 @@ class PostHogQueue {
     #if !os(watchOS)
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint, _ reachability: Reachability?) {
             self.config = config
-            self.storage = storage
             self.api = api
             self.reachability = reachability
             self.endpoint = endpoint
@@ -173,6 +172,7 @@ class PostHogQueue {
         }
     }
 
+    /// Internal, used for testing
     func clear() {
         fileQueue.clear()
     }

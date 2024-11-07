@@ -97,8 +97,8 @@ let maxRetryDelay = 30.0
             self.config = config
             let theStorage = PostHogStorage(config)
             storage = theStorage
-            let theApi = PostHogApi(config)
-            featureFlags = PostHogFeatureFlags(config, theStorage, theApi)
+            let api = PostHogApi(config)
+            featureFlags = PostHogFeatureFlags(config, theStorage, api)
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
@@ -120,8 +120,8 @@ let maxRetryDelay = 30.0
             }
 
             #if !os(watchOS)
-                queue = PostHogQueue(config, theStorage, theApi, .batch, reachability)
-                replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot, reachability)
+                queue = PostHogQueue(config, theStorage, api, .batch, reachability)
+                replayQueue = PostHogQueue(config, theStorage, api, .snapshot, reachability)
             #else
                 queue = PostHogQueue(config, theStorage, theApi, .batch)
                 replayQueue = PostHogQueue(config, theStorage, theApi, .snapshot)

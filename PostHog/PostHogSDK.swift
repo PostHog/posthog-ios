@@ -30,7 +30,7 @@ let maxRetryDelay = 30.0
     private let setupLock = NSLock()
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
-    private let featureFlagsLock = NSLock()
+    private let flagCallReportedLock = NSLock()
     private let personPropsLock = NSLock()
 
     private var queue: PostHogQueue?
@@ -346,7 +346,7 @@ let maxRetryDelay = 30.0
         // storage also removes all feature flags
         storage?.reset()
         config.storageManager?.reset()
-        featureFlagsLock.withLock {
+        flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
         PostHogSessionManager.shared.endSession {
@@ -795,7 +795,7 @@ let maxRetryDelay = 30.0
             anonymousId: storageManager.getAnonymousId(),
             groups: groups ?? [:],
             callback: {
-                self.featureFlagsLock.withLock {
+                self.flagCallReportedLock.withLock {
                     self.flagCallReported.removeAll()
                 }
                 callback()
@@ -852,17 +852,21 @@ let maxRetryDelay = 30.0
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
-        featureFlagsLock.withLock {
+        var shouldCapture = false
+
+        flagCallReportedLock.withLock {
             if !flagCallReported.contains(flagKey) {
-                let properties: [String: Any] = [
-                    "$feature_flag": flagKey,
-                    "$feature_flag_response": flagValue ?? "",
-                ]
-
                 flagCallReported.insert(flagKey)
-
-                capture("$feature_flag_called", properties: properties)
+                shouldCapture = true
             }
+        }
+
+        if shouldCapture {
+            let properties = [
+                "$feature_flag": flagKey,
+                "$feature_flag_response": flagValue ?? "",
+            ]
+            capture("$feature_flag_called", properties: properties)
         }
     }
 
@@ -936,7 +940,7 @@ let maxRetryDelay = 30.0
                 self.reachability?.stopNotifier()
                 reachability = nil
             #endif
-            featureFlagsLock.withLock {
+            flagCallReportedLock.withLock {
                 flagCallReported.removeAll()
             }
             context = nil

@@ -852,9 +852,10 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("captures $feature_flag_called when getFeatureFlag is called") {
-            let sut = self.getSut(sendFeatureFlagEvent: true)
-            let group = DispatchGroup()
-            group.enter()
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 1
+            )
 
             _ = sut.getFeatureFlag("some_key")
 

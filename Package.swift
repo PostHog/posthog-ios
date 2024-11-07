@@ -4,6 +4,7 @@ import PackageDescription
 let package = Package(
     name: "PostHog",
     platforms: [
+        // TODO: add  .visionOS(.v1), when SPM is >= 5.9
         .macOS(.v10_15), .iOS(.v13), .tvOS(.v13), .watchOS(.v6),
     ],
     products: [

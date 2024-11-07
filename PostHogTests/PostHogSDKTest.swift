@@ -10,18 +10,21 @@ import Nimble
 import Quick
 
 @testable import PostHog
+import XCTest
 
 class PostHogSDKTest: QuickSpec {
     func getSut(preloadFeatureFlags: Bool = false,
                 sendFeatureFlagEvent: Bool = false,
                 captureApplicationLifecycleEvents: Bool = false,
                 flushAt: Int = 1,
+                maxBatchSize: Int = 50,
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
         config.flushAt = flushAt
+        config.maxBatchSize = maxBatchSize
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
         config.disableReachabilityForTesting = true
@@ -848,7 +851,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures $feature_flag_called when feature flag is called") {
+        it("captures $feature_flag_called when getFeatureFlag is called") {
             let sut = self.getSut(sendFeatureFlagEvent: true)
             let group = DispatchGroup()
             group.enter()
@@ -859,85 +862,38 @@ class PostHogSDKTest: QuickSpec {
             expect(event.first!.event).to(equal("$feature_flag_called"))
         }
 
-        it("captures a second $feature_flag_called if reloaded flag changed value ") {
+        it("does not capture $feature_flag_called when getFeatureFlag is called twice") {
             let sut = self.getSut(
-                preloadFeatureFlags: false,
                 sendFeatureFlagEvent: true,
                 flushAt: 2
             )
 
-            sut.reloadFeatureFlags {
-                DispatchQueue.main.async {
-                    // this should be captured with value true
-                    _ = sut.getFeatureFlag(server.flagKey)
-                }
-                server.flagValue = false
-                sut.reloadFeatureFlags {
-                    DispatchQueue.main.async {
-                        // this should be captured with value false
-                        _ = sut.getFeatureFlag(server.flagKey)
-                    }
-                }
-            }
+            _ = sut.getFeatureFlag("some_key")
+            _ = sut.getFeatureFlag("some_key")
+            sut.capture("force_batch_flush")
 
-            let batches = getBatchedEvents(server)
-            expect(batches.count).to(equal(2))
-            expect(batches[0].event).to(equal("$feature_flag_called"))
-            expect(batches[1].event).to(equal("$feature_flag_called"))
-            expect(batches[0].properties["$feature_flag_response"] as? Bool).to(beTrue())
-            expect(batches[1].properties["$feature_flag_response"] as? Bool).to(beFalse())
+            let event = getBatchedEvents(server)
+            expect(event.count).to(equal(2))
+            expect(event[0].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("force_batch_flush"))
         }
 
-        it("does not capture a second $feature_flag_called if reloaded flag did not change value ") {
+        it("captures $feature_flag_called when getFeatureFlag called twice after reloading flags") {
             let sut = self.getSut(
-                preloadFeatureFlags: false,
                 sendFeatureFlagEvent: true,
                 flushAt: 2
             )
 
-            sut.reloadFeatureFlags {
-                DispatchQueue.main.async {
-                    // this should be captured
-                    _ = sut.getFeatureFlag(server.flagKey)
-                }
-                sut.reloadFeatureFlags {
-                    DispatchQueue.main.async {
-                        // this should not be captured
-                        _ = sut.getFeatureFlag(server.flagKey)
-                        sut.flush()
-                    }
-                }
-            }
-
-            let batches = getBatchedEvents(server)
-            expect(batches.count).to(equal(1))
-            expect(batches[0].event).to(equal("$feature_flag_called"))
-            expect(batches[0].properties["$feature_flag_response"] as? Bool).to(beTrue())
-        }
-
-        it("does captures a second $feature_flag_called if reloaded flag did not change value, but keys were not preloaded") {
-            let sut = self.getSut(
-                preloadFeatureFlags: false,
-                sendFeatureFlagEvent: true,
-                flushAt: 2
-            )
-
-            // this should capture with value nil
-            _ = sut.getFeatureFlag(server.flagKey)
+            _ = sut.getFeatureFlag("some_key")
 
             sut.reloadFeatureFlags {
-                DispatchQueue.main.async {
-                    // this should capture with value true
-                    _ = sut.getFeatureFlag(server.flagKey)
-                }
+                _ = sut.getFeatureFlag("some_key")
             }
 
-            let batches = getBatchedEvents(server)
-            expect(batches.count).to(equal(2))
-            expect(batches[0].event).to(equal("$feature_flag_called"))
-            expect(batches[1].event).to(equal("$feature_flag_called"))
-            expect(batches[0].properties["$feature_flag_response"] as? Bool).to(beNil())
-            expect(batches[1].properties["$feature_flag_response"] as? Bool).to(beTrue())
+            let event = getBatchedEvents(server)
+            expect(event.count).to(equal(2))
+            expect(event[0].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("$feature_flag_called"))
         }
     }
 }

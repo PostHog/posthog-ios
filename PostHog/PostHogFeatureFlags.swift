@@ -80,7 +80,7 @@ class PostHogFeatureFlags {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        callback: @escaping (Set<String>) -> Void
+        callback: @escaping () -> Void
     ) {
         loadingLock.withLock {
             if self.loadingFeatureFlags {
@@ -99,9 +99,9 @@ class PostHogFeatureFlags {
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
 
-                    callback([])
+                    self.notifyAndRelease()
 
-                    return self.notifyAndRelease()
+                    return callback()
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
@@ -127,44 +127,25 @@ class PostHogFeatureFlags {
                 #endif
 
                 self.featureFlagsLock.withLock {
-                    let cachedFeatureFlags = self.getCachedFeatureFlags() ?? [:]
-                    let cachedFeatureFlagsPayloads = self.getCachedFeatureFlagPayload() ?? [:]
-
-                    let newFeatureFlags: [String: Any]
-                    let newFeatureFlagPayloads: [String: Any]
-
                     if errorsWhileComputingFlags {
+                        let cachedFeatureFlags = self.getCachedFeatureFlags() ?? [:]
+                        let cachedFeatureFlagsPayloads = self.getCachedFeatureFlagPayload() ?? [:]
+
+                        let newFeatureFlags = cachedFeatureFlags.merging(featureFlags) { _, new in new }
+                        let newFeatureFlagsPayloads = cachedFeatureFlagsPayloads.merging(featureFlagPayloads) { _, new in new }
+
                         // if not all flags were computed, we upsert flags instead of replacing them
-                        newFeatureFlags = cachedFeatureFlags.merging(featureFlags) { _, new in new }
-                        newFeatureFlagPayloads = cachedFeatureFlagsPayloads.merging(featureFlagPayloads) { _, new in new }
+                        self.setCachedFeatureFlags(newFeatureFlags)
+                        self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                     } else {
-                        newFeatureFlags = featureFlags
-                        newFeatureFlagPayloads = featureFlagPayloads
+                        self.setCachedFeatureFlags(featureFlags)
+                        self.setCachedFeatureFlagPayload(featureFlagPayloads)
                     }
-
-                    self.setCachedFeatureFlags(newFeatureFlags)
-                    self.setCachedFeatureFlagPayload(newFeatureFlagPayloads)
-
-                    // calculate a set of keys that were updated, added or removed
-                    //
-                    // Note: payload changes are not currently tracked, as this update mechanism
-                    //       is primarily used for capturing `$feature_flag_called` events tied to flag values.
-                    let newKeys = Set(newFeatureFlags.keys)
-                    let cachedKeys = Set(cachedFeatureFlags.keys)
-                    let addedKeys = newKeys.subtracting(cachedKeys)
-                    let removedKeys = cachedKeys.subtracting(newKeys)
-                    let updatedKeys = cachedKeys.intersection(newKeys).filter {
-                        if let cached = cachedFeatureFlags[$0], let new = newFeatureFlags[$0] {
-                            return !areEqual(cached, new)
-                        }
-                        return false
-                    }
-                    let allUpdatedKeys = removedKeys.union(addedKeys).union(updatedKeys)
-
-                    callback(allUpdatedKeys)
                 }
 
-                return self.notifyAndRelease()
+                self.notifyAndRelease()
+
+                return callback()
             }
         }
     }
@@ -270,38 +251,4 @@ class PostHogFeatureFlags {
             sessionReplayFlagActive
         }
     #endif
-}
-
-/// Compares two optional `Any` values for equality, best effort
-private func areEqual(_ lhs: Any?, _ rhs: Any?) -> Bool {
-    guard let lhs, let rhs else { return false }
-
-    // assume here that different types cannot be equal
-    guard type(of: lhs) == type(of: rhs) else { return false }
-
-    // AnyHashable is handy here. Most types should conform to this
-    if let lhs = lhs as? AnyHashable, let rhs = rhs as? AnyHashable {
-        return lhs == rhs
-    }
-
-    // Equatable types is a good next candidate
-    if let lhs = lhs as? (any Equatable), let rhs = rhs as? (any Equatable) {
-        return lhs.isEqual(rhs)
-    }
-
-    // Equatable types is a good next candidate
-    if let lhs = lhs as? NSObject, let rhs = rhs as? NSObject {
-        return lhs == rhs
-    }
-
-    return false
-}
-
-private extension Equatable {
-    func isEqual(_ other: any Equatable) -> Bool {
-        guard let other = other as? Self else {
-            return false
-        }
-        return self == other
-    }
 }

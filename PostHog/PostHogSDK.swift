@@ -30,6 +30,7 @@ let maxRetryDelay = 30.0
     private let setupLock = NSLock()
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
+    private let featureFlagsLock = NSLock()
     private let personPropsLock = NSLock()
 
     private var queue: PostHogQueue?
@@ -345,7 +346,9 @@ let maxRetryDelay = 30.0
         // storage also removes all feature flags
         storage?.reset()
         config.storageManager?.reset()
-        flagCallReported.removeAll()
+        featureFlagsLock.withLock {
+            flagCallReported.removeAll()
+        }
         PostHogSessionManager.shared.endSession {
             self.resetViews()
         }
@@ -791,8 +794,10 @@ let maxRetryDelay = 30.0
             distinctId: storageManager.getDistinctId(),
             anonymousId: storageManager.getAnonymousId(),
             groups: groups ?? [:],
-            callback: { updatedKeys in
-                self.flagCallReported.subtract(updatedKeys)
+            callback: {
+                self.featureFlagsLock.withLock {
+                    self.flagCallReported.removeAll()
+                }
                 callback()
             }
         )
@@ -847,15 +852,17 @@ let maxRetryDelay = 30.0
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
-        if !flagCallReported.contains(flagKey) {
-            let properties: [String: Any] = [
-                "$feature_flag": flagKey,
-                "$feature_flag_response": flagValue ?? "",
-            ]
+        featureFlagsLock.withLock {
+            if !flagCallReported.contains(flagKey) {
+                let properties: [String: Any] = [
+                    "$feature_flag": flagKey,
+                    "$feature_flag_response": flagValue ?? "",
+                ]
 
-            flagCallReported.insert(flagKey)
+                flagCallReported.insert(flagKey)
 
-            capture("$feature_flag_called", properties: properties)
+                capture("$feature_flag_called", properties: properties)
+            }
         }
     }
 
@@ -929,7 +936,9 @@ let maxRetryDelay = 30.0
                 self.reachability?.stopNotifier()
                 reachability = nil
             #endif
-            flagCallReported.removeAll()
+            featureFlagsLock.withLock {
+                flagCallReported.removeAll()
+            }
             context = nil
             PostHogSessionManager.shared.endSession {
                 self.resetViews()

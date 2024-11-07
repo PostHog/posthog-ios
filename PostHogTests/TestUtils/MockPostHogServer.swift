@@ -41,13 +41,10 @@ class MockPostHogServer {
     public var returnReplayWithMultiVariant = false
     public var replayVariantName = "myBooleanRecordingFlag"
     public var replayVariantValue: Any = true
-    public var flagKey = "flag-key"
-    public var flagValue: Bool = true
 
     init(port _: Int = 9001) {
         stub(condition: isPath("/decide")) { _ in
             var flags = [
-                self.flagKey: self.flagValue,
                 "bool-value": true,
                 "string-value": "test",
                 "disabled-flag": false,

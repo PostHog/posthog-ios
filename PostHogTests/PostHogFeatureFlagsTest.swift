@@ -35,7 +35,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -49,7 +49,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -63,7 +63,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -77,7 +77,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -91,7 +91,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -105,7 +105,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -117,7 +117,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group = DispatchGroup()
             group.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group.leave()
             })
 
@@ -128,7 +128,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             let group2 = DispatchGroup()
             group2.enter()
 
-            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                 group2.leave()
             })
 
@@ -171,7 +171,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 let group = DispatchGroup()
                 group.enter()
 
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()
                 })
 
@@ -195,7 +195,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
 
                 server.returnReplay = true
 
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()
                 })
 
@@ -221,7 +221,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()
                 })
 
@@ -248,7 +248,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 server.returnReplayWithVariant = true
                 server.replayVariantValue = false
 
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()
                 })
 
@@ -277,7 +277,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()
                 })
 
@@ -306,7 +306,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "mobile"]
 
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()
                 })
 

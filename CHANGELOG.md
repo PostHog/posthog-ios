@@ -1,6 +1,10 @@
 ## Next
 
 - add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))
+
+## 3.14.2 - 2024-11-08
+
+- fix issue with resetting accent color in SwiftUI app ([#238](https://github.com/PostHog/posthog-ios/pull/238)) 
 - fix $feature_flag_called not captured after reloading flags ([#232](https://github.com/PostHog/posthog-ios/pull/232))
 
 ## 3.14.1 - 2024-11-05

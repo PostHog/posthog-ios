@@ -2,7 +2,6 @@
 
 build: buildSdk buildExamples
 
-# set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 buildSdk:
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
@@ -10,10 +9,12 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
+	set -o pipefail && xcrun xcodebuild build -scheme PostHog -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 
 buildExamples:
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
+	set -o pipefail && xcrun xcodebuild build -scheme PostHogExample -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty #ObjC
 	set -o pipefail && xcrun xcodebuild build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
@@ -53,10 +54,18 @@ api:
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
+	gem install cocoapods
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
 
+# download SDKs and runtimes
+# install any simulator(s) missing from runner image
+# release pod
 releaseCocoaPods:
+	# I think we can do without these next 2 steps but let's leave it for now
+	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
+	# install Apple Vision Pro
+	xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "xros2.1"
 	pod trunk push PostHog.podspec --allow-warnings

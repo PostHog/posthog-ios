@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "PostHog"
-  s.version          = "3.14.1"
+  s.version          = "3.14.2"
   s.summary          = "The hassle-free way to add posthog to your iOS app."
 
   s.description      = <<-DESC
@@ -20,6 +20,7 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target = '13.0'
   s.osx.deployment_target = "10.15"
   s.watchos.deployment_target = "6.0"
+  s.visionos.deployment_target = "1.0"
   s.swift_versions = "5.3"
 
   s.frameworks = 'Foundation'

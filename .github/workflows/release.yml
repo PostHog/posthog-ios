@@ -15,7 +15,7 @@ jobs:
 
   release:
     name: Release
-    runs-on: macos-latest
+    runs-on: macos-13
     env:
       COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using Manoel's token for now
 

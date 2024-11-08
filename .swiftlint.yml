@@ -1,6 +1,7 @@
 excluded: # case-sensitive paths to ignore during linting. Takes precedence over `included`
   - PostHogExample
   - PostHogExampleWithSPM
+  - PostHogExampleAutocapture
   - PostHogTests
   - PostHog/Utils/ReadWriteLock.swift
   - PostHog/Utils/Reachability.swift
@@ -18,6 +19,11 @@ line_length: 160
 file_length:
   warning: 1000
   error: 1200
+
+identifier_name:
+  excluded:
+    - id
+    - ^ph_.*$
 
 function_body_length:
   - 1000 # warning

@@ -52,6 +52,9 @@ let maxRetryDelay = 30.0
     /// Internal, only used for testing
     var shouldReloadFlagsForTesting = true
 
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        private var autocaptureIntegration: PostHogAutocaptureIntegration?
+    #endif
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -103,6 +106,11 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 replayIntegration = PostHogReplayIntegration(config)
             #endif
+
+            #if os(iOS) || targetEnvironment(macCatalyst)
+                autocaptureIntegration = PostHogAutocaptureIntegration(config)
+            #endif
+
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()
@@ -141,6 +149,12 @@ let maxRetryDelay = 30.0
             #if os(iOS)
                 if config.sessionReplay {
                     replayIntegration?.start()
+                }
+            #endif
+
+            #if os(iOS) || targetEnvironment(macCatalyst)
+                if config.captureElementInteractions {
+                    autocaptureIntegration?.start()
                 }
             #endif
 
@@ -648,6 +662,42 @@ let maxRetryDelay = 30.0
         ))
     }
 
+    func autocapture(
+        eventType: String,
+        elements: [[String: Any]],
+        elementsChain: String,
+        properties: [String: Any]
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        guard let queue else {
+            return
+        }
+
+        let props = [
+            "$event_type": eventType,
+            "$elements": elements,
+            "$elements_chain": elementsChain,
+        ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
+
+        let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+        let sanitizedProperties = sanitizeProperties(properties)
+
+        queue.add(PostHogEvent(
+            event: "$autocapture",
+            distinctId: distinctId,
+            properties: sanitizedProperties
+        ))
+    }
+
     private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
         if let sanitizer = config.propertiesSanitizer {
             return sanitizer.sanitize(properties)
@@ -932,6 +982,10 @@ let maxRetryDelay = 30.0
                 replayIntegration?.stop()
                 replayIntegration = nil
             #endif
+            #if os(iOS) || targetEnvironment(macCatalyst)
+                autocaptureIntegration?.stop()
+                autocaptureIntegration = nil
+            #endif
             queue = nil
             replayQueue = nil
             config.storageManager?.reset()
@@ -1149,6 +1203,12 @@ let maxRetryDelay = 30.0
             }
 
             return config.sessionReplay && isSessionActive() && (featureFlags?.isSessionReplayFlagActive() ?? false)
+        }
+    #endif
+
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        @objc public func isAutocaptureActive() -> Bool {
+            isEnabled() && config.captureElementInteractions
         }
     #endif
 }

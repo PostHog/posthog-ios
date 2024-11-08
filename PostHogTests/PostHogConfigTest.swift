@@ -40,5 +40,22 @@ class PostHogConfigTest: QuickSpec {
 
             expect(config.host) == URL(string: "localhost:9000")!
         }
+
+        #if os(iOS)
+            context("when initialized with default values for captureElementInteractions") {
+                it("should enable autocapture by default") {
+                    let sut = PostHogConfig(apiKey: "123")
+                    expect(sut.captureElementInteractions).to(beFalse())
+                }
+            }
+
+            context("when customized") {
+                it("should allow disabling autocapture") {
+                    let config = PostHogConfig(apiKey: "123")
+                    config.captureElementInteractions = false
+                    expect(config.captureElementInteractions).to(beFalse())
+                }
+            }
+        #endif
     }
 }

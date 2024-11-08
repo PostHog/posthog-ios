@@ -61,4 +61,5 @@ bootstrap:
 	brew install peripheryapp/periphery/periphery
 
 releaseCocoaPods:
+	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	pod trunk push PostHog.podspec --allow-warnings

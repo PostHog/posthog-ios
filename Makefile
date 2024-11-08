@@ -67,5 +67,5 @@ releaseCocoaPods:
 	# I think we can do without these next 2 steps but let's leave it for now
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
 	# install Apple Vision Pro
-	xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "xros1.0"
+	xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "xros2.1"
 	pod trunk push PostHog.podspec --allow-warnings

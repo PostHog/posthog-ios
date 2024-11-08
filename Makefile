@@ -54,6 +54,7 @@ api:
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'
 bootstrap:
+	gem install cocoapods
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat

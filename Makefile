@@ -60,6 +60,14 @@ bootstrap:
 	brew install swiftformat
 	brew install peripheryapp/periphery/periphery
 
+# download SDKs and runtimes
+# install any simulator(s) missing from runner image
+# release pod
 releaseCocoaPods:
-	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
+	# I think we can do without these next 2 steps but let's leave it for now
+	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
+	# download VisionOS 1.0 Simulator runtime
+	xcodebuild -downloadPlatform VisionOS -buildVersion 1.0
+	# install Apple Vision Pro
+	xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "xros1.0"
 	pod trunk push PostHog.podspec --allow-warnings

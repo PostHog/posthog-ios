@@ -76,7 +76,7 @@ public class PostHogEvent {
             "uuid": uuid.uuidString,
         ]
 
-        if let apiKey = apiKey {
+        if let apiKey {
             json["api_key"] = apiKey
         }
 

@@ -61,7 +61,7 @@
 
             let name = UIViewController.getViewControllerName(top)
 
-            if let name = name {
+            if let name {
                 PostHogSDK.shared.screen(name)
             }
         }

@@ -24,6 +24,12 @@ import Foundation
     @objc public var preloadFeatureFlags: Bool = true
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        /// Enable autocapture for iOS
+        /// Experimental support
+        /// Default: false
+        @objc public var captureElementInteractions: Bool = false
+    #endif
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }

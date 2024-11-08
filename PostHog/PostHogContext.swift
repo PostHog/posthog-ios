@@ -123,8 +123,10 @@ class PostHogContext {
         var properties: [String: Any] = [:]
 
         #if os(iOS) || os(tvOS)
-            properties["$screen_width"] = Float(UIScreen.main.bounds.width)
-            properties["$screen_height"] = Float(UIScreen.main.bounds.height)
+            if let screen = UIApplication.shared.windows.first?.screen {
+                properties["$screen_width"] = Float(screen.bounds.width)
+                properties["$screen_height"] = Float(screen.bounds.height)
+            }
         #elseif os(macOS)
             if let mainScreen = NSScreen.main {
                 let screenFrame = mainScreen.visibleFrame

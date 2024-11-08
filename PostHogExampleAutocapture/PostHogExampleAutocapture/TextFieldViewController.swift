@@ -33,7 +33,7 @@ class TextFieldViewController: BaseTableViewController {
                         configHandler: configureSecureTextField),
             CaseElement(title: NSLocalizedString("SearchTextFieldTitle", comment: ""),
                         cellID: TextFieldKind.searchTextField.rawValue,
-                        configHandler: configureSearchTextField)
+                        configHandler: configureSearchTextField),
         ])
 
         if traitCollection.userInterfaceIdiom != .mac {
@@ -46,7 +46,7 @@ class TextFieldViewController: BaseTableViewController {
                 // Show text field with custom background for iOS only.
                 CaseElement(title: NSLocalizedString("CustomTextFieldTitle", comment: ""),
                             cellID: TextFieldKind.customTextField.rawValue,
-                            configHandler: configureCustomTextField)
+                            configHandler: configureCustomTextField),
             ])
         }
     }

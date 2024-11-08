@@ -1,18 +1,17 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIButton`.
- The buttons are created using storyboards, but each of the system buttons can be created in code by
- using the UIButton.init(type buttonType: UIButtonType) initializer.
- 
- See the UIButton interface for a comprehensive list of the various UIButtonType values.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIButton`.
+  The buttons are created using storyboards, but each of the system buttons can be created in code by
+  using the UIButton.init(type buttonType: UIButtonType) initializer.
+
+  See the UIButton interface for a comprehensive list of the various UIButtonType values.
+ */
 
 import UIKit
 
 class ButtonViewController: BaseTableViewController {
-    
     // Cell identifier for each button table view cell.
     enum ButtonKind: String, CaseIterable {
         case buttonSystem
@@ -38,15 +37,15 @@ class ButtonViewController: BaseTableViewController {
         case buttonUpdateHandler
         case buttonImageUpdateHandler
     }
-    
+
     // MARK: - Properties
 
     // "Add to Cart" Button
     var cartItemCount: Int = 0
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         testCells.append(contentsOf: [
             CaseElement(title: NSLocalizedString("DefaultTitle", comment: ""),
                         cellID: ButtonKind.buttonSystem.rawValue,
@@ -59,10 +58,10 @@ class ButtonViewController: BaseTableViewController {
                         configHandler: configureSystemContactAddButton),
             CaseElement(title: NSLocalizedString("CloseTitle", comment: ""),
                         cellID: ButtonKind.buttonClose.rawValue,
-                        configHandler: configureCloseButton)
+                        configHandler: configureCloseButton),
         ])
-        
-       if #available(iOS 15, *) {
+
+        if #available(iOS 15, *) {
             // These button styles are available on iOS 15 or later.
             testCells.append(contentsOf: [
                 CaseElement(title: NSLocalizedString("GrayTitle", comment: ""),
@@ -79,7 +78,7 @@ class ButtonViewController: BaseTableViewController {
                             configHandler: configureCornerStyleButton),
                 CaseElement(title: NSLocalizedString("ToggleTitle", comment: ""),
                             cellID: ButtonKind.buttonToggle.rawValue,
-                            configHandler: configureToggleButton)
+                            configHandler: configureToggleButton),
             ])
         }
 
@@ -88,7 +87,7 @@ class ButtonViewController: BaseTableViewController {
             testCells.append(contentsOf: [
                 CaseElement(title: NSLocalizedString("ButtonColorTitle", comment: ""),
                             cellID: ButtonKind.buttonTitleColor.rawValue,
-                            configHandler: configureTitleTextButton)
+                            configHandler: configureTitleTextButton),
             ])
         }
 
@@ -101,9 +100,9 @@ class ButtonViewController: BaseTableViewController {
                         configHandler: configureAttributedTextSystemButton),
             CaseElement(title: NSLocalizedString("SymbolTitle", comment: ""),
                         cellID: ButtonKind.buttonSymbol.rawValue,
-                        configHandler: configureSymbolButton)
+                        configHandler: configureSymbolButton),
         ])
-        
+
         if #available(iOS 15, *) {
             // This case uses UIButtonConfiguration which is available on iOS 15 or later.
             if traitCollection.userInterfaceIdiom != .mac {
@@ -111,11 +110,11 @@ class ButtonViewController: BaseTableViewController {
                 testCells.append(contentsOf: [
                     CaseElement(title: NSLocalizedString("LargeSymbolTitle", comment: ""),
                                 cellID: ButtonKind.buttonLargeSymbol.rawValue,
-                                configHandler: configureLargeSymbolButton)
+                                configHandler: configureLargeSymbolButton),
                 ])
             }
         }
-        
+
         if #available(iOS 15, *) {
             testCells.append(contentsOf: [
                 CaseElement(title: NSLocalizedString("StringSymbolTitle", comment: ""),
@@ -124,21 +123,21 @@ class ButtonViewController: BaseTableViewController {
                 CaseElement(title: NSLocalizedString("SymbolStringTitle", comment: ""),
                             cellID: ButtonKind.buttonSymbolText.rawValue,
                             configHandler: configureSymbolTextButton),
-                
+
                 CaseElement(title: NSLocalizedString("BackgroundTitle", comment: ""),
                             cellID: ButtonKind.buttonBackground.rawValue,
                             configHandler: configureBackgroundButton),
-                
+
                 // Multi-title button: title for normal and highlight state, setTitle(.highlighted) is for iOS 15 and later.
                 CaseElement(title: NSLocalizedString("MultiTitleTitle", comment: ""),
                             cellID: ButtonKind.buttonMultiTitle.rawValue,
                             configHandler: configureMultiTitleButton),
-                
+
                 // Various button effects done to the addToCartButton are available only on iOS 15 or later.
                 CaseElement(title: NSLocalizedString("AddToCartTitle", comment: ""),
                             cellID: ButtonKind.addToCartButton.rawValue,
                             configHandler: configureAddToCartButton),
-                
+
                 // UIButtonConfiguration with updateHandlers is available only on iOS 15 or later.
                 CaseElement(title: NSLocalizedString("UpdateActivityHandlerTitle", comment: ""),
                             cellID: ButtonKind.buttonUpdateActivityHandler.rawValue,
@@ -148,9 +147,8 @@ class ButtonViewController: BaseTableViewController {
                             configHandler: configureUpdateHandlerButton),
                 CaseElement(title: NSLocalizedString("UpdateImageHandlerTitle", comment: ""),
                             cellID: ButtonKind.buttonImageUpdateHandler.rawValue,
-                            configHandler: configureUpdateImageHandlerButton)
+                            configHandler: configureUpdateImageHandlerButton),
             ])
         }
     }
-
 }

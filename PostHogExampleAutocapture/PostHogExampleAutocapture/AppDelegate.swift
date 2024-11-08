@@ -27,9 +27,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         config.sessionReplayConfig.maskAllImages = false
 
         PostHogSDK.shared.setup(config)
-        
+
         PostHogSDK.shared.identify("Max Capture")
-        
+
         return true
     }
 }

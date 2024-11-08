@@ -1,14 +1,13 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UISegmentedControl`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UISegmentedControl`.
+ */
 
 import UIKit
 
 class SegmentedControlViewController: BaseTableViewController {
-    
     // Cell identifier for each segmented control table view cell.
     enum SegmentKind: String, CaseIterable {
         case segmentDefault
@@ -17,7 +16,7 @@ class SegmentedControlViewController: BaseTableViewController {
         case segmentCustomBackground
         case segmentAction
     }
-    
+
     // MARK: - View Life Cycle
 
     override func viewDidLoad() {
@@ -35,14 +34,14 @@ class SegmentedControlViewController: BaseTableViewController {
                         configHandler: configureCustomBackgroundSegmentedControl),
             CaseElement(title: NSLocalizedString("ActionBasedTitle", comment: ""),
                         cellID: SegmentKind.segmentAction.rawValue,
-                        configHandler: configureActionBasedSegmentedControl)
+                        configHandler: configureActionBasedSegmentedControl),
         ])
-        if self.traitCollection.userInterfaceIdiom != .mac {
+        if traitCollection.userInterfaceIdiom != .mac {
             // Tinted segmented control is only available on iOS.
             testCells.append(contentsOf: [
                 CaseElement(title: "Tinted",
                             cellID: SegmentKind.segmentTinted.rawValue,
-                            configHandler: configureTintedSegmentedControl)
+                            configHandler: configureTintedSegmentedControl),
             ])
         }
     }
@@ -63,25 +62,25 @@ class SegmentedControlViewController: BaseTableViewController {
 
         segmentedControl.addTarget(self, action: #selector(SegmentedControlViewController.selectedSegmentDidChange(_:)), for: .valueChanged)
     }
-    
+
     func configureCustomSegmentsSegmentedControl(_ segmentedControl: UISegmentedControl) {
         let airplaneImage = UIImage(systemName: "airplane")
         airplaneImage?.accessibilityLabel = NSLocalizedString("Airplane", comment: "")
         segmentedControl.setImage(airplaneImage, forSegmentAt: 0)
-        
+
         let giftImage = UIImage(systemName: "gift")
         giftImage?.accessibilityLabel = NSLocalizedString("Gift", comment: "")
         segmentedControl.setImage(giftImage, forSegmentAt: 1)
-        
+
         let burstImage = UIImage(systemName: "burst")
         burstImage?.accessibilityLabel = NSLocalizedString("Burst", comment: "")
         segmentedControl.setImage(burstImage, forSegmentAt: 2)
-        
+
         segmentedControl.selectedSegmentIndex = 0
 
         segmentedControl.addTarget(self, action: #selector(SegmentedControlViewController.selectedSegmentDidChange(_:)), for: .valueChanged)
     }
-    
+
     // Utility function to resize an image to a particular size.
     func scaledImage(_ image: UIImage, scaledToSize newSize: CGSize) -> UIImage {
         UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
@@ -90,7 +89,7 @@ class SegmentedControlViewController: BaseTableViewController {
         UIGraphicsEndImageContext()
         return newImage
     }
-    
+
     // Configure the segmented control with a background image, dividers, and custom font.
     // The background image first needs to be sized to match the control's size.
     //
@@ -100,20 +99,20 @@ class SegmentedControlViewController: BaseTableViewController {
                                        NSLocalizedString("SearchTitle", comment: ""),
                                        NSLocalizedString("ToolsTitle", comment: "")])
         customBackgroundSegmentedControl.selectedSegmentIndex = 2
-        
+
         // Place this custom segmented control within the placeholder view.
         customBackgroundSegmentedControl.frame.size.width = placeHolderView.frame.size.width
         customBackgroundSegmentedControl.frame.origin.y =
             (placeHolderView.bounds.size.height - customBackgroundSegmentedControl.bounds.size.height) / 2
         placeHolderView.addSubview(customBackgroundSegmentedControl)
-    
+
         // Set the background images for each control state.
         let normalSegmentBackgroundImage = UIImage(named: "background")
         // Size the background image to match the bounds of the segmented control.
         let backgroundImageSize = customBackgroundSegmentedControl.bounds.size
         let newBackgroundImageSize = scaledImage(normalSegmentBackgroundImage!, scaledToSize: backgroundImageSize)
         customBackgroundSegmentedControl.setBackgroundImage(newBackgroundImageSize, for: .normal, barMetrics: .default)
-        
+
         let disabledSegmentBackgroundImage = UIImage(named: "background_disabled")
         customBackgroundSegmentedControl.setBackgroundImage(disabledSegmentBackgroundImage, for: .disabled, barMetrics: .default)
 
@@ -131,13 +130,13 @@ class SegmentedControlViewController: BaseTableViewController {
         let font = UIFont(descriptor: UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body), size: 0)
         let normalTextAttributes = [
             NSAttributedString.Key.foregroundColor: UIColor.systemPurple,
-            NSAttributedString.Key.font: font
+            NSAttributedString.Key.font: font,
         ]
         customBackgroundSegmentedControl.setTitleTextAttributes(normalTextAttributes, for: .normal)
 
         let highlightedTextAttributes = [
             NSAttributedString.Key.foregroundColor: UIColor.systemGreen,
-            NSAttributedString.Key.font: font
+            NSAttributedString.Key.font: font,
         ]
         customBackgroundSegmentedControl.setTitleTextAttributes(highlightedTextAttributes, for: .highlighted)
 
@@ -164,16 +163,16 @@ class SegmentedControlViewController: BaseTableViewController {
             }
         segmentedControl.setAction(thirdAction, forSegmentAt: 2)
     }
-    
+
     // MARK: - Actions
 
     @objc
     func selectedSegmentDidChange(_ segmentedControl: UISegmentedControl) {
         Swift.debugPrint("The selected segment: \(segmentedControl.selectedSegmentIndex).")
     }
-    
+
     // MARK: - UITableViewDataSource
-    
+
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cellTest = testCells[indexPath.section]
         let cell = tableView.dequeueReusableCell(withIdentifier: cellTest.cellID, for: indexPath)
@@ -185,5 +184,4 @@ class SegmentedControlViewController: BaseTableViewController {
         }
         return cell
     }
-
 }

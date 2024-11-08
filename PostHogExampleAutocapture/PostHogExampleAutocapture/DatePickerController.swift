@@ -1,26 +1,26 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIDatePicker`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIDatePicker`.
+ */
 
 import UIKit
 
 class DatePickerController: UIViewController {
     // MARK: - Properties
 
-    @IBOutlet weak var datePicker: UIDatePicker!
-    
-    @IBOutlet weak var dateLabel: UILabel!
-    
+    @IBOutlet var datePicker: UIDatePicker!
+
+    @IBOutlet var dateLabel: UILabel!
+
     // A date formatter to format the `date` property of `datePicker`.
     lazy var dateFormatter: DateFormatter = {
         let dateFormatter = DateFormatter()
-        
+
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
-        
+
         return dateFormatter
     }()
 
@@ -34,7 +34,7 @@ class DatePickerController: UIViewController {
             // use this to reveal the label's full text drawn as a tool tip.
             dateLabel.showsExpansionTextWhenTruncated = true
         }
-        
+
         configureDatePicker()
     }
 
@@ -44,18 +44,18 @@ class DatePickerController: UIViewController {
         datePicker.datePickerMode = .dateAndTime
 
         /** Set min/max date for the date picker. As an example we will limit the date between
-			now and 7 days from now.
-        */
+         now and 7 days from now.
+         */
         let now = Date()
         datePicker.minimumDate = now
 
         // Decide the best date picker style based on the trait collection's vertical size.
         datePicker.preferredDatePickerStyle = traitCollection.verticalSizeClass == .compact ? .compact : .inline
-        
+
         var dateComponents = DateComponents()
         dateComponents.day = 7
 
-		let sevenDaysFromNow = Calendar.current.date(byAdding: .day, value: 7, to: now)
+        let sevenDaysFromNow = Calendar.current.date(byAdding: .day, value: 7, to: now)
         datePicker.maximumDate = sevenDaysFromNow
 
         datePicker.minuteInterval = 2
@@ -70,13 +70,13 @@ class DatePickerController: UIViewController {
         super.traitCollectionDidChange(previousTraitCollection)
         datePicker.preferredDatePickerStyle = traitCollection.verticalSizeClass == .compact ? .compact : .inline
     }
-    
+
     // MARK: - Actions
 
     @objc
     func updateDatePickerLabel() {
         dateLabel.text = dateFormatter.string(from: datePicker.date)
-        
+
         Swift.debugPrint("Chosen date: \(dateFormatter.string(from: datePicker.date))")
     }
 }

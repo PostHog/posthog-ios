@@ -22,7 +22,7 @@ class PostHogApi {
 
         config.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "\(postHogSdkName)/\(postHogVersion)"
+            "User-Agent": "\(postHogSdkName)/\(postHogVersion)",
         ]
 
         return config
@@ -52,7 +52,7 @@ class PostHogApi {
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,
             "batch": events.map { $0.toJSON() },
-            "sent_at": toISO8601String(Date())
+            "sent_at": toISO8601String(Date()),
         ]
 
         var data: Data?
@@ -177,7 +177,7 @@ class PostHogApi {
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
             "$anon_distinct_id": anonymousId,
-            "$groups": groups
+            "$groups": groups,
         ]
 
         var data: Data?

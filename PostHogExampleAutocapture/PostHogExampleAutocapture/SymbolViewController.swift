@@ -1,14 +1,13 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use SF Symbols.
-*/
+ Abstract:
+ A view controller that demonstrates how to use SF Symbols.
+ */
 
 import UIKit
 
 class SymbolViewController: BaseTableViewController {
-    
     // Cell identifier for each SF Symbol table view cell.
     enum SymbolKind: String, CaseIterable {
         case plainSymbol
@@ -18,10 +17,10 @@ class SymbolViewController: BaseTableViewController {
         case paletteColorsSymbol
         case preferringMultiColorSymbol
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         testCells.append(contentsOf: [
             CaseElement(title: NSLocalizedString("PlainSymbolTitle", comment: ""),
                         cellID: SymbolKind.plainSymbol.rawValue,
@@ -31,9 +30,9 @@ class SymbolViewController: BaseTableViewController {
                         configHandler: configureTintedSymbol),
             CaseElement(title: NSLocalizedString("LargeSymbolTitle", comment: ""),
                         cellID: SymbolKind.largeSizeSymbol.rawValue,
-                        configHandler: configureLargeSizeSymbol)
+                        configHandler: configureLargeSizeSymbol),
         ])
-        
+
         if #available(iOS 15, *) {
             // These type SF Sybols, and variants are available on iOS 15, Mac Catalyst 15 or later.
             testCells.append(contentsOf: [
@@ -45,7 +44,7 @@ class SymbolViewController: BaseTableViewController {
                             configHandler: configurePaletteColorsSymbol),
                 CaseElement(title: NSLocalizedString("PreferringMultiColorSymbolTitle", comment: ""),
                             cellID: SymbolKind.preferringMultiColorSymbol.rawValue,
-                            configHandler: configurePreferringMultiColorSymbol)
+                            configHandler: configurePreferringMultiColorSymbol),
             ])
         }
     }
@@ -57,27 +56,27 @@ class SymbolViewController: BaseTableViewController {
         let cell = tableView.dequeueReusableCell(withIdentifier: cellTest.cellID)
         return cell!.contentView.bounds.size.height
     }
-    
+
     // MARK: - Configuration
-    
+
     func configurePlainSymbol(_ imageView: UIImageView) {
         let image = UIImage(systemName: "cloud.sun.rain.fill")
         imageView.image = image
     }
-    
+
     func configureTintedSymbol(_ imageView: UIImageView) {
         let image = UIImage(systemName: "cloud.sun.rain.fill")
         imageView.image = image
         imageView.tintColor = .systemPurple
     }
-    
+
     func configureLargeSizeSymbol(_ imageView: UIImageView) {
         let image = UIImage(systemName: "cloud.sun.rain.fill")
         imageView.image = image
         let symbolConfig = UIImage.SymbolConfiguration(pointSize: 32, weight: .heavy, scale: .large)
         imageView.preferredSymbolConfiguration = symbolConfig
     }
-    
+
     @available(iOS 15.0, *)
     func configureHierarchicalSymbol(_ imageView: UIImageView) {
         let imageConfig = UIImage.SymbolConfiguration(hierarchicalColor: UIColor.systemRed)
@@ -85,7 +84,7 @@ class SymbolViewController: BaseTableViewController {
         imageView.image = hierarchicalSymbol
         imageView.preferredSymbolConfiguration = imageConfig
     }
-    
+
     @available(iOS 15.0, *)
     func configurePaletteColorsSymbol(_ imageView: UIImageView) {
         let palleteSymbolConfig = UIImage.SymbolConfiguration(paletteColors: [UIColor.systemRed, UIColor.systemOrange, UIColor.systemYellow])
@@ -94,7 +93,7 @@ class SymbolViewController: BaseTableViewController {
         imageView.backgroundColor = UIColor.darkText
         imageView.preferredSymbolConfiguration = palleteSymbolConfig
     }
-    
+
     @available(iOS 15.0, *)
     func configurePreferringMultiColorSymbol(_ imageView: UIImageView) {
         let preferredSymbolConfig = UIImage.SymbolConfiguration.preferringMulticolor()
@@ -102,5 +101,4 @@ class SymbolViewController: BaseTableViewController {
         imageView.image = preferredSymbol
         imageView.preferredSymbolConfiguration = preferredSymbolConfig
     }
-    
 }

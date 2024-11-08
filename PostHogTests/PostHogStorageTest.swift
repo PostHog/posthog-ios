@@ -70,7 +70,7 @@ class PostHogStorageTest: QuickSpec {
             let dict = [
                 "san francisco": "tech",
                 "new york": "finance",
-                "paris": "fashion"
+                "paris": "fashion",
             ]
             sut.setDictionary(forKey: .distinctId, contents: dict)
             expect(sut.getDictionary(forKey: .distinctId) as? [String: String]) == dict

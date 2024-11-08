@@ -1,18 +1,18 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use a customized `UIPageControl`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use a customized `UIPageControl`.
+ */
 
 import UIKit
 
 class CustomPageControlViewController: UIViewController {
     // MARK: - Properties
 
-    @IBOutlet weak var pageControl: UIPageControl!
+    @IBOutlet var pageControl: UIPageControl!
 
-    @IBOutlet weak var colorView: UIView!
+    @IBOutlet var colorView: UIView!
 
     // Colors that correspond to the selected page. Used as the background color for `colorView`.
     let colors = [
@@ -29,9 +29,9 @@ class CustomPageControlViewController: UIViewController {
         UIColor.systemGray2,
         UIColor.systemGray3,
         UIColor.systemGray4,
-        UIColor.systemGray5
+        UIColor.systemGray5,
     ]
-    
+
     let images = [
         UIImage(systemName: "square.fill"),
         UIImage(systemName: "square"),
@@ -46,7 +46,7 @@ class CustomPageControlViewController: UIViewController {
         UIImage(systemName: "heart.fill"),
         UIImage(systemName: "heart"),
         UIImage(systemName: "moon"),
-        UIImage(systemName: "moon.fill")
+        UIImage(systemName: "moon.fill"),
     ]
 
     // MARK: - View Life Cycle
@@ -64,12 +64,12 @@ class CustomPageControlViewController: UIViewController {
         // The total number of available pages is based on the number of available colors.
         pageControl.numberOfPages = colors.count
         pageControl.currentPage = 2
-        
+
         pageControl.currentPageIndicatorTintColor = UIColor.systemPurple
 
         // Prominent background style.
         pageControl.backgroundStyle = .prominent
-        
+
         // Set custom indicator images.
         for (index, image) in images.enumerated() {
             pageControl.setIndicatorImage(image, forPage: index)
@@ -79,7 +79,7 @@ class CustomPageControlViewController: UIViewController {
                               action: #selector(PageControlViewController.pageControlValueDidChange),
                               for: .valueChanged)
     }
-    
+
     // MARK: - Actions
 
     @objc

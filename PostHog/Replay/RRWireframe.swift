@@ -76,7 +76,7 @@ class RRWireframe {
             "x": posX,
             "y": posY,
             "width": width,
-            "height": height
+            "height": height,
         ]
 
         if let childWireframes = childWireframes {

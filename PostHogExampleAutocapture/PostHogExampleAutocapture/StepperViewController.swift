@@ -1,21 +1,20 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIStepper`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIStepper`.
+ */
 
 import UIKit
 
 class StepperViewController: BaseTableViewController {
-    
     // Cell identifier for each stepper table view cell.
     enum StepperKind: String, CaseIterable {
         case defaultStepper
         case tintedStepper
         case customStepper
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -28,12 +27,12 @@ class StepperViewController: BaseTableViewController {
                         configHandler: configureTintedStepper),
             CaseElement(title: NSLocalizedString("CustomStepperTitle", comment: ""),
                         cellID: StepperKind.customStepper.rawValue,
-                        configHandler: configureCustomStepper)
+                        configHandler: configureCustomStepper),
         ])
     }
 
     // MARK: - Configuration
-    
+
     func configureDefaultStepper(stepper: UIStepper) {
         // Setup the stepper range 0 to 10, initial value 0, increment/decrement factor of 1.
         stepper.value = 0
@@ -52,7 +51,7 @@ class StepperViewController: BaseTableViewController {
         stepper.minimumValue = 0
         stepper.maximumValue = 20
         stepper.stepValue = 1
-        
+
         stepper.tintColor = UIColor(named: "tinted_stepper_control")!
         stepper.setDecrementImage(stepper.decrementImage(for: .normal), for: .normal)
         stepper.setIncrementImage(stepper.incrementImage(for: .normal), for: .normal)

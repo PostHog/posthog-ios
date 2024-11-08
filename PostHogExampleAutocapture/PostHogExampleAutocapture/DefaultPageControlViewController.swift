@@ -1,18 +1,18 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIPageControl`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIPageControl`.
+ */
 
 import UIKit
 
 class PageControlViewController: UIViewController {
     // MARK: - Properties
 
-    @IBOutlet weak var pageControl: UIPageControl!
+    @IBOutlet var pageControl: UIPageControl!
 
-    @IBOutlet weak var colorView: UIView!
+    @IBOutlet var colorView: UIView!
 
     // Colors that correspond to the selected page. Used as the background color for `colorView`.
     let colors = [
@@ -25,7 +25,7 @@ class PageControlViewController: UIViewController {
         UIColor.systemYellow,
         UIColor.systemIndigo,
         UIColor.systemOrange,
-        UIColor.systemPurple
+        UIColor.systemPurple,
     ]
 
     // MARK: - View Life Cycle
@@ -46,15 +46,15 @@ class PageControlViewController: UIViewController {
 
         pageControl.pageIndicatorTintColor = UIColor.systemGreen
         pageControl.currentPageIndicatorTintColor = UIColor.systemPurple
-        
+
         pageControl.addTarget(self, action: #selector(PageControlViewController.pageControlValueDidChange), for: .valueChanged)
     }
-    
+
     // MARK: - Actions
 
     @objc
     func pageControlValueDidChange() {
-		// Note: gesture swiping between pages is provided by `UIPageViewController` and not `UIPageControl`.
+        // Note: gesture swiping between pages is provided by `UIPageViewController` and not `UIPageControl`.
         Swift.debugPrint("The page control changed its current page to \(pageControl.currentPage).")
 
         colorView.backgroundColor = colors[pageControl.currentPage]

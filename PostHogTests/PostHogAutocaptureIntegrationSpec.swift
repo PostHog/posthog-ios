@@ -120,7 +120,7 @@ import Quick
             value: nil,
             screenName: "TestScreen",
             viewHierarchy: [
-                .init(text: "Test Button", targetClass: "UIButton", index: 0, subviewCount: 0)
+                .init(text: "Test Button", targetClass: "UIButton", index: 0, subviewCount: 0),
             ],
             targetClass: "UIButton",
             accessibilityLabel: nil,

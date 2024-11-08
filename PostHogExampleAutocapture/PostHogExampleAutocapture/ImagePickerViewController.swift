@@ -1,18 +1,18 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIFontPickerViewController`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIFontPickerViewController`.
+ */
 
 import UIKit
 
 class ImagePickerViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-
     // MARK: - Properties
+
     var imagePicker: UIImagePickerController!
     @IBOutlet var imageView: UIImageView!
-    
+
     // MARK: - View Life Cycle
 
     override func viewDidLoad() {
@@ -33,13 +33,13 @@ class ImagePickerViewController: UIViewController, UIImagePickerControllerDelega
     }
 
     // MARK: - UIImagePickerControllerDelegate
-    
+
     func imagePickerController(_ picker: UIImagePickerController,
-                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any])
+    {
         if let image = info[UIImagePickerController.InfoKey.originalImage] as? UIImage {
             imageView.image = image
         }
         picker.dismiss(animated: true, completion: nil)
     }
-    
 }

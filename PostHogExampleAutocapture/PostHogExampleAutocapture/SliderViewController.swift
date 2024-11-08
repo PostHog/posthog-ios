@@ -1,9 +1,9 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UISlider`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UISlider`.
+ */
 
 import UIKit
 
@@ -17,32 +17,32 @@ class SliderViewController: BaseTableViewController {
     }
 
     // MARK: - View Life Cycle
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
         testCells.append(contentsOf: [
             CaseElement(title: NSLocalizedString("DefaultTitle", comment: ""),
                         cellID: SliderKind.sliderDefault.rawValue,
-                        configHandler: configureDefaultSlider)
+                        configHandler: configureDefaultSlider),
         ])
-        
+
         if #available(iOS 15, *) {
             // These cases require iOS 15 or later when running on Mac Catalyst.
             testCells.append(contentsOf: [
                 CaseElement(title: NSLocalizedString("CustomTitle", comment: ""),
                             cellID: SliderKind.sliderCustom.rawValue,
-                            configHandler: configureCustomSlider)
+                            configHandler: configureCustomSlider),
             ])
             testCells.append(contentsOf: [
                 CaseElement(title: NSLocalizedString("MinMaxImagesTitle", comment: ""),
                             cellID: SliderKind.sliderMaxMinImage.rawValue,
-                            configHandler: configureMinMaxImageSlider)
+                            configHandler: configureMinMaxImageSlider),
             ])
             testCells.append(contentsOf: [
                 CaseElement(title: NSLocalizedString("TintedTitle", comment: ""),
                             cellID: SliderKind.sliderTinted.rawValue,
-                            configHandler: configureTintedSlider)
+                            configHandler: configureTintedSlider),
             ])
         }
     }
@@ -61,31 +61,31 @@ class SliderViewController: BaseTableViewController {
     @available(iOS 15.0, *)
     func configureTintedSlider(slider: UISlider) {
         /** To keep the look the same betwen iOS and macOS:
-            For minimumTrackTintColor, maximumTrackTintColor to work in Mac Catalyst, use UIBehavioralStyle as ".pad",
-            Available in macOS 12 or later (Mac Catalyst 15.0 or later).
-            Use this for controls that need to look the same between iOS and macOS.
-        */
+             For minimumTrackTintColor, maximumTrackTintColor to work in Mac Catalyst, use UIBehavioralStyle as ".pad",
+             Available in macOS 12 or later (Mac Catalyst 15.0 or later).
+             Use this for controls that need to look the same between iOS and macOS.
+         */
         if traitCollection.userInterfaceIdiom == .mac {
             slider.preferredBehavioralStyle = .pad
         }
 
         slider.minimumTrackTintColor = UIColor.systemBlue
         slider.maximumTrackTintColor = UIColor.systemPurple
-        
+
         slider.addTarget(self, action: #selector(SliderViewController.sliderValueDidChange(_:)), for: .valueChanged)
     }
 
     @available(iOS 15.0, *)
     func configureCustomSlider(slider: UISlider) {
         /** To keep the look the same betwen iOS and macOS:
-            For setMinimumTrackImage, setMaximumTrackImage, setThumbImage to work in Mac Catalyst, use UIBehavioralStyle as ".pad",
-            Available in macOS 12 or later (Mac Catalyst 15.0 or later).
-            Use this for controls that need to look the same between iOS and macOS.
-        */
+             For setMinimumTrackImage, setMaximumTrackImage, setThumbImage to work in Mac Catalyst, use UIBehavioralStyle as ".pad",
+             Available in macOS 12 or later (Mac Catalyst 15.0 or later).
+             Use this for controls that need to look the same between iOS and macOS.
+         */
         if traitCollection.userInterfaceIdiom == .mac {
             slider.preferredBehavioralStyle = .pad
         }
-        
+
         let leftTrackImage = UIImage(named: "slider_blue_track")
         slider.setMinimumTrackImage(leftTrackImage, for: .normal)
 
@@ -103,7 +103,7 @@ class SliderViewController: BaseTableViewController {
         }
         let thumbImage = UIImage(systemName: "circle.fill", withConfiguration: thumbImageConfig)
         slider.setThumbImage(thumbImage, for: .normal)
-        
+
         let thumbImageHighlighted = UIImage(systemName: "circle", withConfiguration: thumbImageConfig)
         slider.setThumbImage(thumbImageHighlighted, for: .highlighted)
 
@@ -115,25 +115,25 @@ class SliderViewController: BaseTableViewController {
 
         slider.addTarget(self, action: #selector(SliderViewController.sliderValueDidChange(_:)), for: .valueChanged)
     }
-    
+
     func configureMinMaxImageSlider(slider: UISlider) {
         /** To keep the look the same betwen iOS and macOS:
-            For setMinimumValueImage, setMaximumValueImage to work in Mac Catalyst, use UIBehavioralStyle as ".pad",
-            Available in macOS 12 or later (Mac Catalyst 15.0 or later).
-            Use this for controls that need to look the same between iOS and macOS.
-        */
+             For setMinimumValueImage, setMaximumValueImage to work in Mac Catalyst, use UIBehavioralStyle as ".pad",
+             Available in macOS 12 or later (Mac Catalyst 15.0 or later).
+             Use this for controls that need to look the same between iOS and macOS.
+         */
         if #available(iOS 15, *) {
             if traitCollection.userInterfaceIdiom == .mac {
                 slider.preferredBehavioralStyle = .pad
             }
         }
-        
+
         slider.minimumValueImage = UIImage(systemName: "tortoise")
         slider.maximumValueImage = UIImage(systemName: "hare")
-        
+
         slider.addTarget(self, action: #selector(SliderViewController.sliderValueDidChange(_:)), for: .valueChanged)
     }
-    
+
     // MARK: - Actions
 
     @objc
@@ -141,5 +141,4 @@ class SliderViewController: BaseTableViewController {
         let formattedValue = String(format: "%.2f", slider.value)
         Swift.debugPrint("Slider changed its value: \(formattedValue)")
     }
-
 }

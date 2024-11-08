@@ -50,7 +50,7 @@ class MockPostHogServer {
                 "disabled-flag": false,
                 "number-value": true,
                 "recording-platform-check": "web",
-                self.replayVariantName: self.replayVariantValue
+                self.replayVariantName: self.replayVariantValue,
             ]
 
             if self.errorsWhileComputingFlags {
@@ -64,14 +64,14 @@ class MockPostHogServer {
                     "payload-bool": "true",
                     "number-value": "2",
                     "payload-string": "\"string-value\"",
-                    "payload-json": "{ \"foo\": \"bar\" }"
+                    "payload-json": "{ \"foo\": \"bar\" }",
                 ],
-                "errorsWhileComputingFlags": self.errorsWhileComputingFlags
+                "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
             ]
 
             if self.returnReplay {
                 var sessionRecording: [String: Any] = [
-                    "endpoint": "/newS/"
+                    "endpoint": "/newS/",
                 ]
 
                 if self.returnReplayWithVariant {

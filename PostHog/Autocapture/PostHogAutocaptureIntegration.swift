@@ -96,8 +96,8 @@
                     "tag_name": node.targetClass, // required
                     "order": node.index,
                     "attributes": [ // required
-                        "attr__class": node.targetClass
-                    ]
+                        "attr__class": node.targetClass,
+                    ],
                 ].compactMapValues { $0 }
             }
 

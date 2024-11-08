@@ -1,14 +1,13 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIActivityIndicatorView`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIActivityIndicatorView`.
+ */
 
 import UIKit
 
 class ActivityIndicatorViewController: BaseTableViewController {
-    
     // Cell identifier for each activity indicator table view cell.
     enum ActivityIndicatorKind: String, CaseIterable {
         case mediumIndicator
@@ -16,7 +15,7 @@ class ActivityIndicatorViewController: BaseTableViewController {
         case mediumTintedIndicator
         case largeTintedIndicator
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -26,9 +25,9 @@ class ActivityIndicatorViewController: BaseTableViewController {
                         configHandler: configureMediumActivityIndicatorView),
             CaseElement(title: NSLocalizedString("LargeIndicatorTitle", comment: ""),
                         cellID: ActivityIndicatorKind.largeIndicator.rawValue,
-                        configHandler: configureLargeActivityIndicatorView)
+                        configHandler: configureLargeActivityIndicatorView),
         ])
-        
+
         if traitCollection.userInterfaceIdiom != .mac {
             // Tinted activity indicators available only on iOS.
             testCells.append(contentsOf: [
@@ -37,21 +36,21 @@ class ActivityIndicatorViewController: BaseTableViewController {
                             configHandler: configureMediumTintedActivityIndicatorView),
                 CaseElement(title: NSLocalizedString("LargeTintedIndicatorTitle", comment: ""),
                             cellID: ActivityIndicatorKind.largeTintedIndicator.rawValue,
-                            configHandler: configureLargeTintedActivityIndicatorView)
+                            configHandler: configureLargeTintedActivityIndicatorView),
             ])
         }
     }
-    
+
     // MARK: - Configuration
-    
+
     func configureMediumActivityIndicatorView(_ activityIndicator: UIActivityIndicatorView) {
         activityIndicator.style = UIActivityIndicatorView.Style.medium
         activityIndicator.hidesWhenStopped = true
-        
+
         activityIndicator.startAnimating()
         // When the activity is done, be sure to use UIActivityIndicatorView.stopAnimating().
     }
-    
+
     func configureLargeActivityIndicatorView(_ activityIndicator: UIActivityIndicatorView) {
         activityIndicator.style = UIActivityIndicatorView.Style.large
         activityIndicator.hidesWhenStopped = true
@@ -59,7 +58,7 @@ class ActivityIndicatorViewController: BaseTableViewController {
         activityIndicator.startAnimating()
         // When the activity is done, be sure to use UIActivityIndicatorView.stopAnimating().
     }
-    
+
     func configureMediumTintedActivityIndicatorView(_ activityIndicator: UIActivityIndicatorView) {
         activityIndicator.style = UIActivityIndicatorView.Style.medium
         activityIndicator.hidesWhenStopped = true
@@ -68,7 +67,7 @@ class ActivityIndicatorViewController: BaseTableViewController {
         activityIndicator.startAnimating()
         // When the activity is done, be sure to use UIActivityIndicatorView.stopAnimating().
     }
-    
+
     func configureLargeTintedActivityIndicatorView(_ activityIndicator: UIActivityIndicatorView) {
         activityIndicator.style = UIActivityIndicatorView.Style.large
         activityIndicator.hidesWhenStopped = true
@@ -77,5 +76,4 @@ class ActivityIndicatorViewController: BaseTableViewController {
         activityIndicator.startAnimating()
         // When the activity is done, be sure to use UIActivityIndicatorView.stopAnimating().
     }
-    
 }

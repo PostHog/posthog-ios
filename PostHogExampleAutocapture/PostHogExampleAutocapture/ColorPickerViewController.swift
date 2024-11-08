@@ -1,24 +1,23 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to use `UIColorPickerViewController`.
-*/
+ Abstract:
+ A view controller that demonstrates how to use `UIColorPickerViewController`.
+ */
 
 import UIKit
 
 class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDelegate {
-
     // MARK: - Properties
 
     var colorWell: UIColorWell!
     var colorPicker: UIColorPickerViewController!
-    
+
     @IBOutlet var pickerButton: UIButton! // UIButton to present the picker.
     @IBOutlet var pickerWellView: UIView! // UIView placeholder to hold the UIColorWell.
-    
+
     @IBOutlet var colorView: UIView!
-        
+
     // MARK: - View Life Cycle
 
     override func viewDidLoad() {
@@ -26,24 +25,23 @@ class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDe
 
         configureColorPicker()
         configureColorWell()
-        
+
         // For iOS, the picker button in the main view is not used, the color picker is presented from the navigation bar.
         if navigationController?.traitCollection.userInterfaceIdiom != .mac {
             pickerButton.isHidden = true
         }
     }
-    
+
     // MARK: - UIColorWell
-    
+
     // Update the color view from the color well chosen action.
     func colorWellHandler(action: UIAction) {
         if let colorWell = action.sender as? UIColorWell {
             colorView.backgroundColor = colorWell.selectedColor
         }
     }
-    
+
     func configureColorWell() {
-        
         /** Note: Both color well and picker buttons achieve the same thing, presenting the color picker.
             But one presents it with a color well control, the other by a bar button item.
          */
@@ -71,7 +69,7 @@ class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDe
         colorPicker.selectedColor = UIColor.blue
         colorPicker.delegate = self
     }
-    
+
     // Present the color picker from the UIBarButtonItem, iOS only.
     // This will present it as a popover (preferred), or for compact mode as a modal sheet.
     @IBAction func presentColorPickerByBarButton(_ sender: UIBarButtonItem) {
@@ -80,7 +78,7 @@ class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDe
         popover.barButtonItem = sender
         present(colorPicker, animated: true, completion: nil)
     }
-    
+
     // Present the color picker from the UIButton, Mac Catalyst only.
     // This will present it as a popover (preferred), or for compact mode as a modal sheet.
     @IBAction func presentColorPickerByButton(_ sender: UIButton) {
@@ -90,16 +88,16 @@ class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDe
             present(colorPicker, animated: true, completion: nil)
         }
     }
-    
+
     // MARK: - UIColorPickerViewControllerDelegate
-    
+
     // Color returned from the color picker via UIBarButtonItem - iOS 15.0
     @available(iOS 15.0, *)
-    func colorPickerViewController(_ viewController: UIColorPickerViewController, didSelect color: UIColor, continuously: Bool) {
+    func colorPickerViewController(_ viewController: UIColorPickerViewController, didSelect _: UIColor, continuously: Bool) {
         // User has chosen a color.
         let chosenColor = viewController.selectedColor
         colorView.backgroundColor = chosenColor
-        
+
         // Dismiss the color picker if the conditions are right:
         // 1) User is not doing a continous pick (tap and drag across multiple colors).
         // 2) Picker is presented on a non-compact device.
@@ -122,7 +120,7 @@ class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDe
         // User has chosen a color.
         let chosenColor = viewController.selectedColor
         colorView.backgroundColor = chosenColor
-        
+
         // Use the following check to determine how the color picker was presented (modal or popover).
         // For popover, we want to dismiss it when a color is locked.
         // For modal, the picker has a close button.
@@ -133,12 +131,11 @@ class ColorPickerViewController: UIViewController, UIColorPickerViewControllerDe
             })
         }
     }
-    
-    func colorPickerViewControllerDidFinish(_ viewController: UIColorPickerViewController) {
-        /** In presentations (except popovers) the color picker shows a close button. If the close button is tapped,
-            the view controller is dismissed and `colorPickerViewControllerDidFinish:` is called. Can be used to
-            animate alongside the dismissal.
-        */
-    }
 
+    func colorPickerViewControllerDidFinish(_: UIColorPickerViewController) {
+        /** In presentations (except popovers) the color picker shows a close button. If the close button is tapped,
+             the view controller is dismissed and `colorPickerViewControllerDidFinish:` is called. Can be used to
+             animate alongside the dismissal.
+         */
+    }
 }

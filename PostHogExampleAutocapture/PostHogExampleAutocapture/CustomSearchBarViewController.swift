@@ -1,19 +1,19 @@
 /*
-See LICENSE folder for this sample’s licensing information.
+ See LICENSE folder for this sample’s licensing information.
 
-Abstract:
-A view controller that demonstrates how to customize a `UISearchBar`.
-*/
+ Abstract:
+ A view controller that demonstrates how to customize a `UISearchBar`.
+ */
 
 import UIKit
 
 class CustomSearchBarViewController: UIViewController {
     // MARK: - Properties
 
-    @IBOutlet weak var searchBar: UISearchBar!
+    @IBOutlet var searchBar: UISearchBar!
 
     // MARK: - View Life Cycle
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -21,7 +21,7 @@ class CustomSearchBarViewController: UIViewController {
     }
 
     // MARK: - Configuration
-    
+
     func configureSearchBar() {
         searchBar.showsCancelButton = true
         searchBar.showsBookmarkButton = true
@@ -42,20 +42,19 @@ class CustomSearchBarViewController: UIViewController {
 // MARK: - UISearchBarDelegate
 
 extension CustomSearchBarViewController: UISearchBarDelegate {
-	func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         Swift.debugPrint("The custom search bar keyboard \"Search\" button was tapped.")
-		
-		searchBar.resignFirstResponder()
-	}
-	
-	func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+
+        searchBar.resignFirstResponder()
+    }
+
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
         Swift.debugPrint("The custom search bar \"Cancel\" button was tapped.")
-		
-		searchBar.resignFirstResponder()
-	}
-	
-	func searchBarBookmarkButtonClicked(_ searchBar: UISearchBar) {
+
+        searchBar.resignFirstResponder()
+    }
+
+    func searchBarBookmarkButtonClicked(_: UISearchBar) {
         Swift.debugPrint("The custom \"bookmark button\" inside the search bar was tapped.")
-	}
-	
+    }
 }

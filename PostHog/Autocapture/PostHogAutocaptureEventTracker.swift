@@ -288,7 +288,7 @@
                 .editingChanged,
                 .editingDidEnd,
                 .editingDidEndOnExit,
-                .primaryActionTriggered
+                .primaryActionTriggered,
             ]
 
             if #available(iOS 14.0, tvOS 14.0, macCatalyst 14.0, *) {

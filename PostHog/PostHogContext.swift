@@ -11,6 +11,8 @@ import Foundation
     import UIKit
 #elseif os(macOS)
     import AppKit
+#elseif os(watchOS)
+    import WatchKit
 #endif
 
 class PostHogContext {
@@ -24,16 +26,16 @@ class PostHogContext {
                 return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
             #elseif os(macOS)
                 return NSScreen.main?.visibleFrame.size
+            #elseif os(watchOS)
+                return WKInterfaceDevice.current().screenBounds.size
+            #else
+                return nil
             #endif
         }
 
-        #if os(iOS) || os(tvOS) || os(macOS)
-            return Thread.isMainThread
-                ? getWindowSize()
-                : DispatchQueue.main.sync { getWindowSize() }
-        #else
-            return nil
-        #endif
+        return Thread.isMainThread
+            ? getWindowSize()
+            : DispatchQueue.main.sync { getWindowSize() }
     }
 
     private lazy var theStaticContext: [String: Any] = {

@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 11/11/2024.
 //
 
-#if canImport(UIKit)
+#if os(iOS) || os(tvOS)
     import UIKit
 
     extension UIApplication {
@@ -17,7 +17,7 @@
                     !checkForegrounded || $0.activationState == .foregroundActive
                 }
 
-            if #available(iOS 15.0, *) {
+            if #available(iOS 15.0, tvOS 15.0, *) {
                 // attempt to retrieve directly from UIWindowScene
                 if let keyWindow = windowScenes.compactMap(\.keyWindow).first {
                     return keyWindow

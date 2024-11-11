@@ -30,5 +30,4 @@
                 .first(where: { $0.isKeyWindow })
         }
     }
-
 #endif

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.15.0 - 2024-11-11
+
 - add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))
 
 ## 3.14.2 - 2024-11-08

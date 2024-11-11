@@ -24,6 +24,15 @@
                 }
             }
 
+            // fall bar to UIWindowSceneDelegate
+            for scene in UIApplication.shared.connectedScenes where scene.activationState == .foregroundActive {
+                let windowScene = scene as? UIWindowScene
+                let sceneDelegate = windowScene?.delegate as? UIWindowSceneDelegate
+                if let target = sceneDelegate, let window = target.window {
+                    return window
+                }
+            }
+
             // fall back to iterating for `isKeyWindow`
             return windowScenes
                 .flatMap(\.windows)

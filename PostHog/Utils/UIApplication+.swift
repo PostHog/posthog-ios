@@ -9,12 +9,12 @@
     import UIKit
 
     extension UIApplication {
-        static func getCurrentWindow(checkForegrounded: Bool = false) -> UIWindow? {
+        static func getCurrentWindow(filterForegrounded: Bool = true) -> UIWindow? {
             let windowScenes = UIApplication.shared
                 .connectedScenes
                 .compactMap { $0 as? UIWindowScene }
                 .filter {
-                    !checkForegrounded || $0.activationState == .foregroundActive
+                    !filterForegrounded || $0.activationState == .foregroundActive
                 }
 
             if #available(iOS 15.0, tvOS 15.0, *) {

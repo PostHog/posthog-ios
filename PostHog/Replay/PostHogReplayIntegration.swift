@@ -519,7 +519,7 @@
             }
             ViewLayoutTracker.clear()
 
-            guard let window = UIApplication.getCurrentWindow(checkForegrounded: true) else {
+            guard let window = UIApplication.getCurrentWindow() else {
                 return
             }
 

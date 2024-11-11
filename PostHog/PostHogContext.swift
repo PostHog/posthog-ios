@@ -21,17 +21,19 @@ class PostHogContext {
     private var screenSize: CGSize? {
         let getWindowSize: () -> CGSize? = {
             #if os(iOS) || os(tvOS)
-                return UIApplication.getCurrentWindow()?.bounds.size
+                return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
             #elseif os(macOS)
                 return NSScreen.main?.visibleFrame.size
-            #else
-                return nil
             #endif
         }
 
-        return Thread.isMainThread
-            ? getWindowSize()
-            : DispatchQueue.main.sync { getWindowSize() }
+        #if os(iOS) || os(tvOS) || os(macOS)
+            return Thread.isMainThread
+                ? getWindowSize()
+                : DispatchQueue.main.sync { getWindowSize() }
+        #else
+            return nil
+        #endif
     }
 
     private lazy var theStaticContext: [String: Any] = {

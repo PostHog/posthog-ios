@@ -342,17 +342,8 @@
         }
     }
 
-    extension UIApplication {
-        static var ph_currentWindow: UIWindow? {
-            Array(UIApplication.shared.connectedScenes)
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap(\.windows)
-                .first { $0.windowLevel != .statusBar }
-        }
-    }
-
     extension UIViewController {
-        class func ph_topViewController(base: UIViewController? = UIApplication.ph_currentWindow?.rootViewController) -> UIViewController? {
+        class func ph_topViewController(base: UIViewController? = UIApplication.getCurrentWindow()?.rootViewController) -> UIViewController? {
             if let nav = base as? UINavigationController {
                 return ph_topViewController(base: nav.visibleViewController)
 

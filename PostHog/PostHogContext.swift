@@ -18,6 +18,22 @@ class PostHogContext {
         private let reachability: Reachability?
     #endif
 
+    private var screenSize: CGSize? {
+        let getWindowSize: () -> CGSize? = {
+            #if os(iOS) || os(tvOS)
+                return UIApplication.getCurrentWindow()?.bounds.size
+            #elseif os(macOS)
+                return NSScreen.main?.visibleFrame.size
+            #else
+                return nil
+            #endif
+        }
+
+        return Thread.isMainThread
+            ? getWindowSize()
+            : DispatchQueue.main.sync { getWindowSize() }
+    }
+
     private lazy var theStaticContext: [String: Any] = {
         // Properties that do not change over the lifecycle of an application
         var properties: [String: Any] = [:]
@@ -122,18 +138,10 @@ class PostHogContext {
     func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        #if os(iOS) || os(tvOS)
-            if let screen = UIApplication.shared.windows.first?.screen {
-                properties["$screen_width"] = Float(screen.bounds.width)
-                properties["$screen_height"] = Float(screen.bounds.height)
-            }
-        #elseif os(macOS)
-            if let mainScreen = NSScreen.main {
-                let screenFrame = mainScreen.visibleFrame
-                properties["$screen_width"] = Float(screenFrame.size.width)
-                properties["$screen_height"] = Float(screenFrame.size.height)
-            }
-        #endif
+        if let screenSize {
+            properties["$screen_width"] = Float(screenSize.width)
+            properties["$screen_height"] = Float(screenSize.height)
+        }
 
         if Locale.current.languageCode != nil {
             properties["$locale"] = Locale.current.languageCode

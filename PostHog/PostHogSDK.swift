@@ -468,7 +468,10 @@ let maxRetryDelay = 30.0
 
         let isIdentified = storageManager.isIdentified()
 
-        if distinctId != oldDistinctId, !isIdentified {
+        let hasDistinctIdChanges = distinctId != oldDistinctId && !isIdentified
+        let hasUserPropertyChanges = !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true)
+
+        if hasDistinctIdChanges {
             // We keep the AnonymousId to be used by decide calls and identify to link the previousId
             storageManager.setAnonymousId(oldDistinctId)
             storageManager.setDistinctId(distinctId)
@@ -490,6 +493,11 @@ let maxRetryDelay = 30.0
             if shouldReloadFlagsForTesting {
                 reloadFeatureFlags()
             }
+        } else if hasUserPropertyChanges {
+            capture("$set",
+                    distinctId: distinctId,
+                    userProperties: userProperties,
+                    userPropertiesSetOnce: userPropertiesSetOnce)
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }

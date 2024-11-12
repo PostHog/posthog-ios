@@ -492,6 +492,8 @@ let maxRetryDelay = 30.0
             if shouldReloadFlagsForTesting {
                 reloadFeatureFlags()
             }
+            // we need to make sure the user props update is for the same user
+            // otherwise they have to reset and identify again
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
             capture("$set",
                     distinctId: distinctId,

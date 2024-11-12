@@ -44,7 +44,7 @@
             guard event.type == .touches else {
                 return
             }
-            guard let window = PostHogReplayIntegration.getCurrentWindow() else {
+            guard let window = UIApplication.getCurrentWindow() else {
                 return
             }
             guard let touches = event.touches(for: window) else {

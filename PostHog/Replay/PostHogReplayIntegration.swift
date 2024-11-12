@@ -509,30 +509,6 @@
             return wireframe
         }
 
-        static func getCurrentWindow() -> UIWindow? {
-            // TODO: support multi windows
-
-            // UIApplication.shared.windows is deprecated
-            for scene in UIApplication.shared.connectedScenes {
-                if scene is UIWindowScene,
-                   scene.activationState == .foregroundActive,
-                   let windowScene = scene as? UIWindowScene
-                {
-                    if #available(iOS 15.0, *) {
-                        if let keyWindow = windowScene.keyWindow {
-                            return keyWindow
-                        }
-                    }
-
-                    for window in windowScene.windows where window.isKeyWindow {
-                        return window
-                    }
-                }
-            }
-
-            return nil
-        }
-
         @objc private func snapshot() {
             if !PostHogSDK.shared.isSessionReplayActive() {
                 return
@@ -543,7 +519,7 @@
             }
             ViewLayoutTracker.clear()
 
-            guard let window = PostHogReplayIntegration.getCurrentWindow() else {
+            guard let window = UIApplication.getCurrentWindow() else {
                 return
             }
 

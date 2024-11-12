@@ -156,7 +156,43 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("does not capture identify event if already identified") {
-            let sut = self.getSut()
+            let sut = self.getSut(
+                flushAt: 2
+            )
+
+            sut.identify("distinctId",
+                         userProperties: ["userProp": "value"],
+                         userPropertiesSetOnce: ["userPropOnce": "value"])
+
+            sut.identify("distinctId")
+            sut.capture("satisfy_queue")
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            expect(events[0].event) == "$identify"
+            expect(events[1].event) == "satisfy_queue"
+
+            expect(events[0].distinctId) == "distinctId"
+            let anonId = sut.getAnonymousId()
+            expect(events[0].properties["$anon_distinct_id"] as? String) == anonId
+            expect(events[0].properties["$is_identified"] as? Bool) == true
+
+            let set = events[0].properties["$set"] as? [String: Any] ?? [:]
+            expect(set["userProp"] as? String) == "value"
+
+            let setOnce = events[0].properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["userPropOnce"] as? String) == "value"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("capture an identify event if already identified but user properties are set") {
+            let sut = self.getSut(
+                flushAt: 2
+            )
 
             sut.identify("distinctId",
                          userProperties: ["userProp": "value"],
@@ -168,21 +204,29 @@ class PostHogSDKTest: QuickSpec {
 
             let events = getBatchedEvents(server)
 
-            expect(events.count) == 1
+            expect(events.count) == 2
 
-            let event = events.first!
-            expect(event.event) == "$identify"
+            expect(events[0].event) == "$identify"
+            expect(events[1].event) == "$set"
 
-            expect(event.distinctId) == "distinctId"
+            expect(events[0].distinctId) == "distinctId"
+            expect(events[1].distinctId) == events[0].distinctId
+
             let anonId = sut.getAnonymousId()
-            expect(event.properties["$anon_distinct_id"] as? String) == anonId
-            expect(event.properties["$is_identified"] as? Bool) == true
+            expect(events[0].properties["$anon_distinct_id"] as? String) == anonId
+            expect(events[0].properties["$is_identified"] as? Bool) == true
 
-            let set = event.properties["$set"] as? [String: Any] ?? [:]
-            expect(set["userProp"] as? String) == "value"
+            let set0 = events[0].properties["$set"] as? [String: Any] ?? [:]
+            expect(set0["userProp"] as? String) == "value"
 
-            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
-            expect(setOnce["userPropOnce"] as? String) == "value"
+            let set1 = events[1].properties["$set"] as? [String: Any] ?? [:]
+            expect(set1["userProp2"] as? String) == "value2"
+
+            let setOnce0 = events[0].properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce0["userPropOnce"] as? String) == "value"
+
+            let setOnce1 = events[1].properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce1["userPropOnce2"] as? String) == "value2"
 
             sut.reset()
             sut.close()

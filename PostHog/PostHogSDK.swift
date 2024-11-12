@@ -495,7 +495,7 @@ let maxRetryDelay = 30.0
                     distinctId: distinctId,
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
-                    
+
             // Note we don't reload flags on property changes as these get processed async
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")

@@ -23,12 +23,12 @@
                     if let keyWindow = scene.keyWindow {
                         return keyWindow
                     }
-                }
-
-                // check scene.windows.isKeyWindow
-                for window in scene.windows {
-                    if window.isKeyWindow {
-                        return window
+                } else {
+                    // check scene.windows.isKeyWindow
+                    for window in scene.windows {
+                        if window.isKeyWindow {
+                            return window
+                        }
                     }
                 }
 

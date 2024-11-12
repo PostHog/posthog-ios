@@ -17,26 +17,29 @@
                     !filterForegrounded || $0.activationState == .foregroundActive
                 }
 
-            if #available(iOS 15.0, tvOS 15.0, *) {
+            for scene in windowScenes {
                 // attempt to retrieve directly from UIWindowScene
-                if let keyWindow = windowScenes.compactMap(\.keyWindow).first {
-                    return keyWindow
+                if #available(iOS 15.0, tvOS 15.0, *) {
+                    if let keyWindow = scene.keyWindow {
+                        return keyWindow
+                    }
                 }
-            }
 
-            // fall bar to UIWindowSceneDelegate
-            for scene in UIApplication.shared.connectedScenes where scene.activationState == .foregroundActive {
-                let windowScene = scene as? UIWindowScene
-                let sceneDelegate = windowScene?.delegate as? UIWindowSceneDelegate
+                // check scene.windows.isKeyWindow
+                for window in scene.windows {
+                    if window.isKeyWindow {
+                        return window
+                    }
+                }
+
+                // check scene.delegate.window property
+                let sceneDelegate = scene.delegate as? UIWindowSceneDelegate
                 if let target = sceneDelegate, let window = target.window {
                     return window
                 }
             }
 
-            // fall back to iterating for `isKeyWindow`
-            return windowScenes
-                .flatMap(\.windows)
-                .first(where: { $0.isKeyWindow })
+            return nil
         }
     }
 #endif

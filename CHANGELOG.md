@@ -1,5 +1,7 @@
 ## Next
 
+- fix: allow changing person properties after identify ([#249](https://github.com/PostHog/posthog-ios/pull/249))
+
 ## 3.15.0 - 2024-11-11
 
 - add autocapture support for UIKit ([#224](https://github.com/PostHog/posthog-ios/pull/224))

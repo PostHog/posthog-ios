@@ -468,10 +468,7 @@ let maxRetryDelay = 30.0
 
         let isIdentified = storageManager.isIdentified()
 
-        let hasDistinctIdChanges = distinctId != oldDistinctId && !isIdentified
-        let hasUserPropertyChanges = !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true)
-
-        if hasDistinctIdChanges {
+        if distinctId != oldDistinctId && !isIdentified {
             // We keep the AnonymousId to be used by decide calls and identify to link the previousId
             storageManager.setAnonymousId(oldDistinctId)
             storageManager.setDistinctId(distinctId)
@@ -493,7 +490,7 @@ let maxRetryDelay = 30.0
             if shouldReloadFlagsForTesting {
                 reloadFeatureFlags()
             }
-        } else if hasUserPropertyChanges {
+        } else if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
             capture("$set",
                     distinctId: distinctId,
                     userProperties: userProperties,

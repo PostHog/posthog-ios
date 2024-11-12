@@ -29,17 +29,9 @@
             // if a view is being dismissed, this will return nil
             if let root = viewIfLoaded?.window?.rootViewController {
                 return root
-            } else {
-                // preferred way to get active controller in ios 13+
-                for scene in UIApplication.shared.connectedScenes where scene.activationState == .foregroundActive {
-                    let windowScene = scene as? UIWindowScene
-                    let sceneDelegate = windowScene?.delegate as? UIWindowSceneDelegate
-                    if let target = sceneDelegate, let window = target.window {
-                        return window?.rootViewController
-                    }
-                }
             }
-            return nil
+            // TODO: handle container controllers (see ph_topViewController)
+            return UIApplication.getCurrentWindow()?.rootViewController
         }
 
         static func getViewControllerName(_ viewController: UIViewController) -> String? {

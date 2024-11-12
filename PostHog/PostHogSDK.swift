@@ -468,37 +468,44 @@ let maxRetryDelay = 30.0
 
         let isIdentified = storageManager.isIdentified()
 
-        if distinctId != oldDistinctId && !isIdentified {
-            // We keep the AnonymousId to be used by decide calls and identify to link the previousId
-            storageManager.setAnonymousId(oldDistinctId)
-            storageManager.setDistinctId(distinctId)
+        // if identified -> distinctId == oldDistinctId
+        // if !identified -> distinctId != oldDistinctId
+        if (distinctId == oldDistinctId) == isIdentified {
+            if !isIdentified {
+                // We keep the AnonymousId to be used by decide calls and identify to link the previousId
+                storageManager.setAnonymousId(oldDistinctId)
+                storageManager.setDistinctId(distinctId)
 
-            storageManager.setIdentified(true)
+                storageManager.setIdentified(true)
 
-            let properties = buildProperties(distinctId: distinctId, properties: [
-                "distinct_id": distinctId,
-                "$anon_distinct_id": oldDistinctId,
-            ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
-            let sanitizedProperties = sanitizeProperties(properties)
+                let properties = buildProperties(distinctId: distinctId, properties: [
+                    "distinct_id": distinctId,
+                    "$anon_distinct_id": oldDistinctId,
+                ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
+                let sanitizedProperties = sanitizeProperties(properties)
 
-            queue.add(PostHogEvent(
-                event: "$identify",
-                distinctId: distinctId,
-                properties: sanitizedProperties
-            ))
-
-            if shouldReloadFlagsForTesting {
-                reloadFeatureFlags()
-            }
-        } else if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-            capture("$set",
+                queue.add(PostHogEvent(
+                    event: "$identify",
                     distinctId: distinctId,
-                    userProperties: userProperties,
-                    userPropertiesSetOnce: userPropertiesSetOnce)
+                    properties: sanitizedProperties
+                ))
 
-            // Note we don't reload flags on property changes as these get processed async
+                if shouldReloadFlagsForTesting {
+                    reloadFeatureFlags()
+                }
+            } else if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+                capture("$set",
+                        distinctId: distinctId,
+                        userProperties: userProperties,
+                        userPropertiesSetOnce: userPropertiesSetOnce)
+
+                // Note we don't reload flags on property changes as these get processed async
+            } else {
+                hedgeLog("already identified with id: \(oldDistinctId)")
+            }
+
         } else {
-            hedgeLog("already identified with id: \(oldDistinctId)")
+            hedgeLog("identified with a different id: \(oldDistinctId). Consider calling reset() before identifying as a new user")
         }
     }
 

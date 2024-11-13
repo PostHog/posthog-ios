@@ -1,5 +1,7 @@
 ## Next
 
+- fix: allow changing person properties after identify ([#249](https://github.com/PostHog/posthog-ios/pull/249))
+
 ## 3.15.1 - 2024-11-12
 
 - fix: accessing UI APIs off main thread to get screen size ([#247](https://github.com/PostHog/posthog-ios/pull/247))

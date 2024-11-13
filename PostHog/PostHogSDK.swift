@@ -468,7 +468,9 @@ let maxRetryDelay = 30.0
 
         let isIdentified = storageManager.isIdentified()
 
-        if distinctId != oldDistinctId, !isIdentified {
+        let hasDifferentDistinctId = distinctId != oldDistinctId
+
+        if hasDifferentDistinctId, !isIdentified {
             // We keep the AnonymousId to be used by decide calls and identify to link the previousId
             storageManager.setAnonymousId(oldDistinctId)
             storageManager.setDistinctId(distinctId)
@@ -490,6 +492,16 @@ let maxRetryDelay = 30.0
             if shouldReloadFlagsForTesting {
                 reloadFeatureFlags()
             }
+            // we need to make sure the user props update is for the same user
+            // otherwise they have to reset and identify again
+        } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+            capture("$set",
+                    distinctId: distinctId,
+                    userProperties: userProperties,
+                    userPropertiesSetOnce: userPropertiesSetOnce)
+
+            // Note we don't reload flags on property changes as these get processed async
+
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }

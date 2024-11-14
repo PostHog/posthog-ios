@@ -26,6 +26,7 @@
                 } else {
                     // check scene.windows.isKeyWindow
                     for window in scene.windows {
+                        // swiftlint:disable:next for_where
                         if window.isKeyWindow {
                             return window
                         }

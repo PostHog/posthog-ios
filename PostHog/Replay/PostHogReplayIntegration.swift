@@ -146,14 +146,19 @@
             style.paddingLeft = Int(insets.left)
         }
 
-        private func createBasicWireframe(_ window: UIView) -> RRWireframe {
+        private func createBasicWireframe(_ view: UIView) -> RRWireframe {
             let wireframe = RRWireframe()
 
-            wireframe.id = window.hash
-            wireframe.posX = Int(window.frame.origin.x)
-            wireframe.posY = Int(window.frame.origin.y)
-            wireframe.width = Int(window.frame.size.width)
-            wireframe.height = Int(window.frame.size.height)
+            // since FE will render each node of the wireframe with position: fixed
+            // we need to convert bounds to global screen coordinates
+            // otherwise each view of depth > 1 will likely have an origin of 0,0 (which is the local origin)
+            let frame = view.toAbsoluteRect(view.window)
+
+            wireframe.id = view.hash
+            wireframe.posX = Int(frame.origin.x)
+            wireframe.posY = Int(frame.origin.y)
+            wireframe.width = Int(frame.size.width)
+            wireframe.height = Int(frame.size.height)
 
             return wireframe
         }
@@ -380,8 +385,8 @@
             }
 
             let wireframe = createBasicWireframe(view)
-
             let style = RRStyle()
+            var skipChildren = false
 
             if let textView = view as? UITextView {
                 wireframe.type = "text"
@@ -447,8 +452,14 @@
                 wireframe.inputType = "button"
                 wireframe.disabled = !button.isEnabled
 
+                // UIButton has a UILabel subview that displays the button's text
+                // We want to skip visiting children if button is sensitive
+                // Otherwise, we capture the button's title through its child UILabel
                 if let text = button.titleLabel?.text {
-                    wireframe.value = isButtonSensitive(button) ? text.mask() : text
+                    if isButtonSensitive(button) {
+                        skipChildren = true
+                        wireframe.value = text.mask()
+                    }
                 }
             }
 
@@ -496,7 +507,7 @@
 
             wireframe.style = style
 
-            if !view.subviews.isEmpty {
+            if !view.subviews.isEmpty, !skipChildren {
                 var childWireframes: [RRWireframe] = []
                 for subview in view.subviews {
                     if let child = toWireframe(subview) {

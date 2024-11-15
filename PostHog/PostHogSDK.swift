@@ -144,7 +144,7 @@ let maxRetryDelay = 30.0
 
             registerNotifications()
             captureScreenViews()
-            
+
             // postHogSdkName will be set to eg posthog-react-native if not
             isiOSNativeSdk = postHogSdkName == postHogiOSSdkName
 

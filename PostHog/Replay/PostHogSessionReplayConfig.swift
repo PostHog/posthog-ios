@@ -8,7 +8,7 @@
     import Foundation
 
     @objc(PostHogSessionReplayConfig) public class PostHogSessionReplayConfig: NSObject {
-        /// Enable masking of all text input fields
+        /// Enable masking of all text and text input fields
         /// Experimental support
         /// Default: true
         @objc public var maskAllTextInputs: Bool = true

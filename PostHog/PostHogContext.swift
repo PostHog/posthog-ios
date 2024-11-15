@@ -156,10 +156,12 @@ class PostHogContext {
 
     private func registerNotifications() {
         #if os(iOS) || os(tvOS)
-            NotificationCenter.default.addObserver(self,
-                                                   selector: #selector(cacheScreenSize),
-                                                   name: UIDevice.orientationDidChangeNotification,
-                                                   object: nil)
+            #if os(iOS)
+                NotificationCenter.default.addObserver(self,
+                                                       selector: #selector(cacheScreenSize),
+                                                       name: UIDevice.orientationDidChangeNotification,
+                                                       object: nil)
+            #endif
             NotificationCenter.default.addObserver(self,
                                                    selector: #selector(cacheScreenSize),
                                                    name: UIWindow.didBecomeKeyNotification,
@@ -192,12 +194,15 @@ class PostHogContext {
 
     private func unregisterNotifications() {
         #if os(iOS) || os(tvOS)
-            NotificationCenter.default.removeObserver(self,
-                                                      name: UIDevice.orientationDidChangeNotification,
-                                                      object: nil)
+            #if os(iOS)
+                NotificationCenter.default.removeObserver(self,
+                                                          name: UIDevice.orientationDidChangeNotification,
+                                                          object: nil)
+            #endif
             NotificationCenter.default.removeObserver(self,
                                                       name: UIWindow.didBecomeKeyNotification,
                                                       object: nil)
+
         #elseif os(macOS)
             NotificationCenter.default.removeObserver(self,
                                                       name: NSWindow.didBecomeKeyNotification,

@@ -506,7 +506,7 @@
             if !view.subviews.isEmpty {
                 var childWireframes: [RRWireframe] = []
                 for subview in view.subviews {
-                    if let child = toWireframe(subview, isParentSensitive: isSensitive) {
+                    if let child = toWireframe(subview, isParentSensitive: isSensitive || isParentSensitive) {
                         childWireframes.append(child)
                     }
                 }

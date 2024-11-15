@@ -1,6 +1,6 @@
 ## Next
 
-- recording: do not rotate the session id for hybrid SDKs ([#249](https://github.com/PostHog/posthog-ios/pull/249))
+- recording: do not rotate the session id for hybrid SDKs ([#253](https://github.com/PostHog/posthog-ios/pull/253))
 
 ## 3.15.2 - 2024-11-13
 

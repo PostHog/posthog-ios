@@ -1,5 +1,7 @@
 ## Next
 
+- fix: reading screen size could sometimes lead to a deadlock ([#252](https://github.com/PostHog/posthog-ios/pull/252))
+
 ## 3.15.2 - 2024-11-13
 
 - fix: allow changing person properties after identify ([#249](https://github.com/PostHog/posthog-ios/pull/249))

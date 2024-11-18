@@ -46,7 +46,6 @@ let maxRetryDelay = 30.0
     private var capturedAppInstalled = false
     private var appFromBackground = false
     private var isInBackground = false
-    private var isiOSNativeSdk = true
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
@@ -144,9 +143,6 @@ let maxRetryDelay = 30.0
 
             registerNotifications()
             captureScreenViews()
-
-            // postHogSdkName will be set to eg posthog-react-native if not
-            isiOSNativeSdk = postHogSdkName == postHogiOSSdkName
 
             PostHogSessionManager.shared.startSession()
 
@@ -601,8 +597,7 @@ let maxRetryDelay = 30.0
         }
 
         // If events fire in the background after the threshold, they should no longer have a sessionId
-        // for hybrid SDKs, the session is handled by the hybrid SDK
-        if isInBackground, isiOSNativeSdk {
+        if isInBackground {
             PostHogSessionManager.shared.resetSessionIfExpired {
                 self.resetViews()
             }
@@ -1155,11 +1150,8 @@ let maxRetryDelay = 30.0
     }
 
     @objc func handleAppDidBecomeActive() {
-        // for hybrid SDKs, the session is handled by the hybrid SDK
-        if isiOSNativeSdk {
-            PostHogSessionManager.shared.rotateSessionIdIfRequired {
-                self.resetViews()
-            }
+        PostHogSessionManager.shared.rotateSessionIdIfRequired {
+            self.resetViews()
         }
 
         isInBackground = false
@@ -1196,10 +1188,7 @@ let maxRetryDelay = 30.0
     @objc func handleAppDidEnterBackground() {
         captureAppBackgrounded()
 
-        // for hybrid SDKs, the session is handled by the hybrid SDK
-        if isiOSNativeSdk {
-            PostHogSessionManager.shared.updateSessionLastTime()
-        }
+        PostHogSessionManager.shared.updateSessionLastTime()
 
         isInBackground = true
     }

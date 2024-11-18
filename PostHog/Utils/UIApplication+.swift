@@ -25,10 +25,8 @@
                     }
                 } else {
                     // check scene.windows.isKeyWindow
-                    for window in scene.windows {
-                        if window.isKeyWindow {
-                            return window
-                        }
+                    for window in scene.windows where window.isKeyWindow {
+                        return window
                     }
                 }
 

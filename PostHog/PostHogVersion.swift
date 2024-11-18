@@ -11,5 +11,6 @@ import Foundation
 // This property is internal only
 public var postHogVersion = "3.15.2"
 
+public let postHogiOSSdkName = "posthog-ios"
 // This property is internal only
-public var postHogSdkName = "posthog-ios"
+public var postHogSdkName = postHogiOSSdkName

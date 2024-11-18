@@ -379,19 +379,18 @@
             return (config.sessionReplayConfig.maskAllImages && !isAsset) || view.isNoCapture()
         }
 
-        private func toWireframe(_ view: UIView, isParentSensitive: Bool = false) -> RRWireframe? {
+        private func toWireframe(_ view: UIView) -> RRWireframe? {
             if !view.isVisible() {
                 return nil
             }
 
             let wireframe = createBasicWireframe(view)
+
             let style = RRStyle()
-            var isSensitive = false
 
             if let textView = view as? UITextView {
-                isSensitive = isTextViewSensitive(textView)
                 wireframe.type = "text"
-                wireframe.text = isSensitive || isParentSensitive ? textView.text.mask() : textView.text
+                wireframe.text = isTextViewSensitive(textView) ? textView.text.mask() : textView.text
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
@@ -403,14 +402,14 @@
             }
 
             if let textField = view as? UITextField {
-                isSensitive = isTextFieldSensitive(textField)
                 wireframe.type = "input"
                 wireframe.inputType = "text_area"
+                let isSensitive = isTextFieldSensitive(textField)
                 if let text = textField.text {
-                    wireframe.value = isSensitive || isParentSensitive ? text.mask() : text
+                    wireframe.value = isSensitive ? text.mask() : text
                 } else {
                     if let text = textField.placeholder {
-                        wireframe.value = isSensitive || isParentSensitive ? text.mask() : text
+                        wireframe.value = isSensitive ? text.mask() : text
                     }
                 }
                 wireframe.disabled = !textField.isEnabled
@@ -429,40 +428,41 @@
             }
 
             if let theSwitch = view as? UISwitch {
-                isSensitive = isSwitchSensitive(theSwitch)
                 wireframe.type = "input"
                 wireframe.inputType = "toggle"
                 wireframe.checked = theSwitch.isOn
                 if #available(iOS 14.0, *) {
                     if let text = theSwitch.title {
-                        wireframe.label = isSensitive || isParentSensitive ? text.mask() : text
+                        wireframe.label = isSwitchSensitive(theSwitch) ? text.mask() : text
                     }
                 }
             }
 
             if let imageView = view as? UIImageView {
-                isSensitive = isImageViewSensitive(imageView)
                 wireframe.type = "image"
                 if let image = imageView.image {
-                    if !isSensitive, !isParentSensitive {
+                    if !isImageViewSensitive(imageView) {
                         wireframe.image = image
                     }
                 }
             }
 
             if let button = view as? UIButton {
-                isSensitive = isButtonSensitive(button)
                 wireframe.type = "input"
                 wireframe.inputType = "button"
                 wireframe.disabled = !button.isEnabled
-                // we don't need a wireframe.value here. Text will be captured by child UILabel
+
+                if let text = button.titleLabel?.text {
+                    // NOTE: this will create a ghosting effect since text will also be captured in child UILabel
+                    //       We also may be masking this UIButton but child UILabel may remain unmasked
+                    wireframe.value = isButtonSensitive(button) ? text.mask() : text
+                }
             }
 
             if let label = view as? UILabel {
-                isSensitive = isLabelSensitive(label)
                 wireframe.type = "text"
                 if let text = label.text {
-                    wireframe.text = isSensitive || isParentSensitive ? text.mask() : text
+                    wireframe.text = isLabelSensitive(label) ? text.mask() : text
                 }
                 wireframe.disabled = !label.isEnabled
                 style.color = label.textColor?.toRGBString()
@@ -506,7 +506,7 @@
             if !view.subviews.isEmpty {
                 var childWireframes: [RRWireframe] = []
                 for subview in view.subviews {
-                    if let child = toWireframe(subview, isParentSensitive: isSensitive || isParentSensitive) {
+                    if let child = toWireframe(subview) {
                         childWireframes.append(child)
                     }
                 }

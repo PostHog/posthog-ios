@@ -13,6 +13,8 @@ import Foundation
     import UIKit
 #elseif os(macOS)
     import AppKit
+#elseif os(watchOS)
+    import WatchKit
 #endif
 
 let retryDelay = 5.0

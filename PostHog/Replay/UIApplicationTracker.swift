@@ -51,9 +51,16 @@
                 return
             }
 
-            PostHogReplayIntegration.dispatchQueue.async {
+            // capture necessary touch information on the main thread before performing any asynchronous operations
+            // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
+            // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
+            let touchInfo = touches.map {
+                (phase: $0.phase, location: $0.location(in: window))
+            }
+
+            PostHogReplayIntegration.dispatchQueue.async { [touchInfo] in
                 var snapshotsData: [Any] = []
-                for touch in touches {
+                for touch in touchInfo {
                     let phase = touch.phase
 
                     let type: Int
@@ -65,8 +72,13 @@
                         continue
                     }
 
-                    let posX = Int(touch.location(in: window).x)
-                    let posY = Int(touch.location(in: window).y)
+                    // we keep a failsafe here just in case, but this will likely never be triggered
+                    guard touch.location != .zero else {
+                        continue
+                    }
+
+                    let posX = Int(touch.location.x)
+                    let posY = Int(touch.location.y)
 
                     // if the id is 0, BE transformer will set it to the virtual bodyId
                     let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]

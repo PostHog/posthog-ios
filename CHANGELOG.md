@@ -2,6 +2,11 @@
 
 - fix: reading screen size could sometimes lead to a deadlock ([#252](https://github.com/PostHog/posthog-ios/pull/252))
 
+## 3.15.3 - 2024-11-18
+
+- fix: mangled wireframe layouts ([#250](https://github.com/PostHog/posthog-ios/pull/250))
+- recording: do not rotate the session id for hybrid SDKs ([#253](https://github.com/PostHog/posthog-ios/pull/253))
+
 ## 3.15.2 - 2024-11-13
 
 - fix: allow changing person properties after identify ([#249](https://github.com/PostHog/posthog-ios/pull/249))

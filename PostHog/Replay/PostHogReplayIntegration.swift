@@ -146,14 +146,19 @@
             style.paddingLeft = Int(insets.left)
         }
 
-        private func createBasicWireframe(_ window: UIView) -> RRWireframe {
+        private func createBasicWireframe(_ view: UIView) -> RRWireframe {
             let wireframe = RRWireframe()
 
-            wireframe.id = window.hash
-            wireframe.posX = Int(window.frame.origin.x)
-            wireframe.posY = Int(window.frame.origin.y)
-            wireframe.width = Int(window.frame.size.width)
-            wireframe.height = Int(window.frame.size.height)
+            // since FE will render each node of the wireframe with position: fixed
+            // we need to convert bounds to global screen coordinates
+            // otherwise each view of depth > 1 will likely have an origin of 0,0 (which is the local origin)
+            let frame = view.toAbsoluteRect(view.window)
+
+            wireframe.id = view.hash
+            wireframe.posX = Int(frame.origin.x)
+            wireframe.posY = Int(frame.origin.y)
+            wireframe.width = Int(frame.size.width)
+            wireframe.height = Int(frame.size.height)
 
             return wireframe
         }
@@ -448,6 +453,8 @@
                 wireframe.disabled = !button.isEnabled
 
                 if let text = button.titleLabel?.text {
+                    // NOTE: this will create a ghosting effect since text will also be captured in child UILabel
+                    //       We also may be masking this UIButton but child UILabel may remain unmasked
                     wireframe.value = isButtonSensitive(button) ? text.mask() : text
                 }
             }

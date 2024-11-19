@@ -1,6 +1,7 @@
 ## Next
 
 - fix: reading screen size could sometimes lead to a deadlock ([#252](https://github.com/PostHog/posthog-ios/pull/252))
+- fix: avoid zero touch locations ([#256](https://github.com/PostHog/posthog-ios/pull/256))
 
 ## 3.15.3 - 2024-11-18
 

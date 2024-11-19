@@ -100,6 +100,34 @@ struct ContentView: View {
                     }
                     .postHogMask()
 
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Text("Remote Image")
+                            AsyncImage(
+                                url: URL(string: "https://res.cloudinary.com/dmukukwp6/image/upload/v1710055416/posthog.com/contents/images/media/social-media-headers/hogs/professor_hog.png"),
+                                content: { image in
+                                    image
+                                        .renderingMode(.original)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                },
+                                placeholder: {
+                                    Color.gray
+                                }
+                            )
+                            .frame(width: 60, height: 60)
+                        }
+                        Spacer()
+                        VStack {
+                            Text("Static Image")
+                            Image(.maxStatic)
+                                .resizable()
+                                .frame(width: 60, height: 60)
+                        }
+                        Spacer()
+                    }
+
                     Button("Show Sheet") {
                         showingSheet.toggle()
                     }

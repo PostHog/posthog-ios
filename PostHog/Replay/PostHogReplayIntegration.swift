@@ -21,14 +21,64 @@
         private let urlInterceptor: URLSessionInterceptor
         private var sessionSwizzler: URLSessionSwizzler?
 
-        // SwiftUI image types
-        // https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app
-        // https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application
-        private let swiftUIImageTypes = ["SwiftUI._UIGraphicsView",
-                                         "SwiftUI.ImageLayer"].compactMap { NSClassFromString($0) }
+        /**
+         ### Mapping of SwiftUI Views to UIKit
 
-        private let swiftUIGenericTypes = ["_TtCOCV7SwiftUI11DisplayList11ViewUpdater8Platform13CGDrawingView",
-                                           "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView"].compactMap { NSClassFromString($0) }
+         This section summarizes findings on how SwiftUI views map to UIKit components
+
+         #### Image-Based Views
+         - **`AsyncImage` and `Image`**
+           - Both views have a `CALayer` of type `SwiftUI.ImageLayer`.
+           - The associated `UIView` is of type `SwiftUI._UIGraphicsView`.
+
+         #### Graphic-based Views
+         - **`Color`, `Divider`, `Gradient` etc
+         - These are backed by `SwiftUI._UIGraphicsView` but have a different layer type than images
+
+         #### Text-Based Views
+         - **`Text`, `Button`, and `TextEditor`**
+           - These views are backed by a `UIView` of type `SwiftUI.CGDrawingView`, which is a subclass of `SwiftUI._UIGraphicsView`.
+           - CoreGraphics (`CG`) is used for rendering text content directly, making it challenging to access the value programmatically.
+
+         #### UIKit-Mapped Views
+         - **Views Hosted by `UIViewRepresentable`**
+           - Some SwiftUI views map directly to UIKit classes or to a subclass:
+             - **Control Images** (e.g., in `Picker` drop-downs) may map to `UIImageView`.
+             - **Buttons** map to `SwiftUI.UIKitIconPreferringButton` (a subclass of `UIButton`).
+             - **Toggle** maps to `UISwitch` (the toggle itself, excluding its label).
+             - **Picker** with wheel style maps to `UIPickerView`. Other styles use combinations of image-based and text-based views.
+
+         #### Layout and Structure Views
+         - **`Spacer`, `VStack`, `HStack`, `ZStack`, and Lazy Stacks**
+           - These views do not correspond to specific a `UIView`. Instead, they translate directly into layout constraints.
+
+         #### List-Based Views
+         - **`List` and Scrollable Container Views**
+           - Backed by a subclass of `UICollectionView`
+
+         #### Other SwiftUI Views
+           - Most other SwiftUI views are *compositions* of the views described above
+
+         SwiftUI Image Types:
+           - [StackOverflow: Subviews of a Window or View in SwiftUI](https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app)
+           - [StackOverflow: Detect SwiftUI Usage Programmatically](https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application)
+         */
+
+        /// `AsyncImage` and `Image`
+        private let swiftUIImageLayerTypes = [
+            "SwiftUI.ImageLayer",
+        ].compactMap(NSClassFromString)
+
+        /// `Text`, `Button`, `TextEditor` views
+        private let swiftUITextBasedViewTypes = [
+            "SwiftUI.CGDrawingView", // Text, Button
+            "SwiftUI.TextEditorTextView", // TextEditor
+            "SwiftUI.VerticalTextView", // TextField, vertical axis
+        ].compactMap(NSClassFromString)
+
+        private let swiftUIGenericTypes = [
+            "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
+        ].compactMap(NSClassFromString)
 
         private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
         private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
@@ -171,7 +221,8 @@
                 }
             }
 
-            if let textField = view as? UITextField { // TextField
+            /// SwiftUI: `TextField`, `SecureField` will land here
+            if let textField = view as? UITextField {
                 if isTextFieldSensitive(textField) {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
@@ -185,7 +236,8 @@
                 }
             }
 
-            if let image = view as? UIImageView { // Image, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
+            /// SwiftUI: Some control images like the ones in `Picker` view may land here
+            if let image = view as? UIImageView {
                 if isImageViewSensitive(image) {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
@@ -215,14 +267,16 @@
                 }
             }
 
-            if let button = view as? UIButton { // Button, this code might never be reachable in SwiftUI, see swiftUIImageTypes instead
+            /// SwiftUI: `SwiftUI.UIKitIconPreferringButton` and other subclasses will land here
+            if let button = view as? UIButton {
                 if isButtonSensitive(button) {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
-            if let theSwitch = view as? UISwitch { // Toggle (no text, items are just rendered to Text (swiftUIImageTypes))
+            /// SwiftUI: `Toggle` (no text, labels are just rendered to Text (swiftUIImageTypes))
+            if let theSwitch = view as? UISwitch {
                 if isSwitchSensitive(theSwitch) {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
@@ -232,14 +286,24 @@
             // if its a generic type and has subviews, subviews have to be checked first
             let hasSubViews = !view.subviews.isEmpty
 
-            if let picker = view as? UIPickerView { // Picker (no source, items are just rendered to Text (swiftUIImageTypes))
+            /// SwiftUI: `Picker` with .pickerStyle(.wheel) will land here
+            if let picker = view as? UIPickerView {
                 if isTextInputSensitive(picker), !hasSubViews {
                     maskableWidgets.append(picker.toAbsoluteRect(window))
                     return
                 }
             }
 
-            if swiftUIImageTypes.contains(where: { view.isKind(of: $0) }) {
+            /// SwiftUI: Text based views like `Text`, `Button`, `TextEditor`
+            if swiftUITextBasedViewTypes.contains(where: view.isKind(of:)) {
+                if isTextInputSensitive(view), !hasSubViews {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            /// SwiftUI: Image based views like `Image`, `AsyncImage`. (Note: We check the layer type here)
+            if swiftUIImageLayerTypes.contains(where: view.layer.isKind(of:)) {
                 if isSwiftUIImageSensitive(view), !hasSubViews {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
@@ -359,13 +423,9 @@
         }
 
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
-            // the raw type _UIGraphicsView is always something like Color.white or similar
-            // never contains PII and should not be masked
-            // Button will fall in this case case but Button has subviews
-            let type = type(of: view)
-
-            let rawGraphicsView = String(describing: type) == "_UIGraphicsView"
-            return (config.sessionReplayConfig.maskAllImages || view.isNoCapture()) && !rawGraphicsView
+            // No way of checking if this is an asset image or not
+            // No way of checking if there's actual content in the image or not
+            config.sessionReplayConfig.maskAllImages || view.isNoCapture()
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {

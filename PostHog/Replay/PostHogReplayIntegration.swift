@@ -77,7 +77,7 @@
         ].compactMap(NSClassFromString)
 
         private let swiftUIGenericTypes = [
-            "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView"
+            "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
         ].compactMap(NSClassFromString)
 
         private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")

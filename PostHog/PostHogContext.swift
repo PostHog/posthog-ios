@@ -16,27 +16,12 @@ import Foundation
 #endif
 
 class PostHogContext {
+    @ReadWriteLock
+    private var screenSize: CGSize?
+
     #if !os(watchOS)
         private let reachability: Reachability?
     #endif
-
-    private var screenSize: CGSize? {
-        let getWindowSize: () -> CGSize? = {
-            #if os(iOS) || os(tvOS)
-                return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
-            #elseif os(macOS)
-                return NSScreen.main?.visibleFrame.size
-            #elseif os(watchOS)
-                return WKInterfaceDevice.current().screenBounds.size
-            #else
-                return nil
-            #endif
-        }
-
-        return Thread.isMainThread
-            ? getWindowSize()
-            : DispatchQueue.main.sync { getWindowSize() }
-    }
 
     private lazy var theStaticContext: [String: Any] = {
         // Properties that do not change over the lifecycle of an application
@@ -111,10 +96,27 @@ class PostHogContext {
     #if !os(watchOS)
         init(_ reachability: Reachability?) {
             self.reachability = reachability
+            registerNotifications()
         }
     #else
-        init() {}
+        init() {
+            if #available(watchOS 7.0, *) {
+                registerNotifications()
+            } else {
+                onShouldUpdateScreenSize()
+            }
+        }
     #endif
+
+    deinit {
+        #if !os(watchOS)
+            unregisterNotifications()
+        #else
+            if #available(watchOS 7.0, *) {
+                unregisterNotifications()
+            }
+        #endif
+    }
 
     private lazy var theSdkInfo: [String: Any] = {
         var sdkInfo: [String: Any] = [:]
@@ -160,5 +162,116 @@ class PostHogContext {
         #endif
 
         return properties
+    }
+
+    private func registerNotifications() {
+        #if os(iOS) || os(tvOS)
+            #if os(iOS)
+                NotificationCenter.default.addObserver(self,
+                                                       selector: #selector(onOrientationDidChange),
+                                                       name: UIDevice.orientationDidChangeNotification,
+                                                       object: nil)
+            #endif
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(onShouldUpdateScreenSize),
+                                                   name: UIWindow.didBecomeKeyNotification,
+                                                   object: nil)
+        #elseif os(macOS)
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(onShouldUpdateScreenSize),
+                                                   name: NSWindow.didBecomeKeyNotification,
+                                                   object: nil)
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(onShouldUpdateScreenSize),
+                                                   name: NSWindow.didChangeScreenNotification,
+                                                   object: nil)
+            NotificationCenter.default.addObserver(self,
+                                                   selector: #selector(onShouldUpdateScreenSize),
+                                                   name: NSApplication.didBecomeActiveNotification,
+                                                   object: nil)
+        #elseif os(watchOS)
+            if #available(watchOS 7.0, *) {
+                NotificationCenter.default.addObserver(self,
+                                                       selector: #selector(onShouldUpdateScreenSize),
+                                                       name: WKApplication.didBecomeActiveNotification,
+                                                       object: nil)
+            }
+        #endif
+    }
+
+    private func unregisterNotifications() {
+        #if os(iOS) || os(tvOS)
+            #if os(iOS)
+                NotificationCenter.default.removeObserver(self,
+                                                          name: UIDevice.orientationDidChangeNotification,
+                                                          object: nil)
+            #endif
+            NotificationCenter.default.removeObserver(self,
+                                                      name: UIWindow.didBecomeKeyNotification,
+                                                      object: nil)
+
+        #elseif os(macOS)
+            NotificationCenter.default.removeObserver(self,
+                                                      name: NSWindow.didBecomeKeyNotification,
+                                                      object: nil)
+            NotificationCenter.default.removeObserver(self,
+                                                      name: NSWindow.didChangeScreenNotification,
+                                                      object: nil)
+            NotificationCenter.default.removeObserver(self,
+                                                      name: NSApplication.didBecomeActiveNotification,
+                                                      object: nil)
+        #elseif os(watchOS)
+            if #available(watchOS 7.0, *) {
+                NotificationCenter.default.removeObserver(self,
+                                                          name: WKApplication.didBecomeActiveNotification,
+                                                          object: nil)
+            }
+        #endif
+    }
+
+    /// Retrieves the current screen size of the application window based on platform
+    private func getScreenSize() -> CGSize? {
+        #if os(iOS) || os(tvOS)
+            return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
+        #elseif os(macOS)
+            // NSScreen.frame represents the full screen rectangle and includes any space occupied by menu, dock or camera bezel
+            return NSApplication.shared.windows.first { $0.isKeyWindow }?.screen?.frame.size
+        #elseif os(watchOS)
+            return WKInterfaceDevice.current().screenBounds.size
+        #else
+            return nil
+        #endif
+    }
+
+    #if os(iOS)
+        // Special treatment for `orientationDidChangeNotification` since the notification seems to be _sometimes_ called early, before screen bounds are flipped
+        @objc private func onOrientationDidChange() {
+            updateScreenSize {
+                self.getScreenSize().map { size in
+                    // manually set width and height based on device orientation. (Needed for fast orientation changes)
+                    if UIDevice.current.orientation.isLandscape {
+                        CGSize(width: max(size.width, size.height), height: min(size.height, size.width))
+                    } else {
+                        CGSize(width: min(size.width, size.height), height: max(size.height, size.width))
+                    }
+                }
+            }
+        }
+    #endif
+
+    @objc private func onShouldUpdateScreenSize() {
+        updateScreenSize(getScreenSize)
+    }
+
+    private func updateScreenSize(_ getSize: @escaping () -> CGSize?) {
+        let block = {
+            self.screenSize = getSize()
+        }
+        // ensure block is executed on `main` since closure accesses non thread-safe UI objects like UIApplication
+        if Thread.isMainThread {
+            block()
+        } else {
+            DispatchQueue.main.async(execute: block)
+        }
     }
 }

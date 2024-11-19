@@ -1,5 +1,7 @@
 ## Next
 
+- fix: reading screen size could sometimes lead to a deadlock ([#252](https://github.com/PostHog/posthog-ios/pull/252))
+
 ## 3.15.3 - 2024-11-18
 
 - fix: mangled wireframe layouts ([#250](https://github.com/PostHog/posthog-ios/pull/250))

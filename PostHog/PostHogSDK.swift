@@ -1049,10 +1049,6 @@ let maxRetryDelay = 30.0
                 NotificationCenter.default.removeObserver(self,
                                                           name: WKApplication.didBecomeActiveNotification,
                                                           object: nil)
-            } else {
-                NotificationCenter.default.removeObserver(self,
-                                                          name: .init("UIApplicationDidBecomeActiveNotification"),
-                                                          object: nil)
             }
         #endif
     }

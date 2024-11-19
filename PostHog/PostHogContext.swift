@@ -100,12 +100,22 @@ class PostHogContext {
         }
     #else
         init() {
-            registerNotifications()
+            if #available(watchOS 7.0, *) {
+                registerNotifications()
+            } else {
+                onShouldUpdateScreenSize()
+            }
         }
     #endif
 
     deinit {
-        unregisterNotifications()
+        #if !os(watchOS)
+            unregisterNotifications()
+        #else
+            if #available(watchOS 7.0, *) {
+                unregisterNotifications()
+            }
+        #endif
     }
 
     private lazy var theSdkInfo: [String: Any] = {
@@ -185,11 +195,6 @@ class PostHogContext {
                                                        selector: #selector(onShouldUpdateScreenSize),
                                                        name: WKApplication.didBecomeActiveNotification,
                                                        object: nil)
-            } else {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(onShouldUpdateScreenSize),
-                                                       name: .init("UIApplicationDidBecomeActiveNotification"),
-                                                       object: nil)
             }
         #endif
     }
@@ -219,10 +224,6 @@ class PostHogContext {
             if #available(watchOS 7.0, *) {
                 NotificationCenter.default.removeObserver(self,
                                                           name: WKApplication.didBecomeActiveNotification,
-                                                          object: nil)
-            } else {
-                NotificationCenter.default.removeObserver(self,
-                                                          name: .init("UIApplicationDidBecomeActiveNotification"),
                                                           object: nil)
             }
         #endif

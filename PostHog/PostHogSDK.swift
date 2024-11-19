@@ -13,6 +13,8 @@ import Foundation
     import UIKit
 #elseif os(macOS)
     import AppKit
+#elseif os(watchOS)
+    import WatchKit
 #endif
 
 let retryDelay = 5.0
@@ -1042,6 +1044,12 @@ let maxRetryDelay = 30.0
             defaultCenter.removeObserver(self, name: NSApplication.didFinishLaunchingNotification, object: nil)
             defaultCenter.removeObserver(self, name: NSApplication.didResignActiveNotification, object: nil)
             defaultCenter.removeObserver(self, name: NSApplication.didBecomeActiveNotification, object: nil)
+        #elseif os(watchOS)
+            if #available(watchOS 7.0, *) {
+                NotificationCenter.default.removeObserver(self,
+                                                          name: WKApplication.didBecomeActiveNotification,
+                                                          object: nil)
+            }
         #endif
     }
 
@@ -1075,6 +1083,18 @@ let maxRetryDelay = 30.0
                                       selector: #selector(handleAppDidBecomeActive),
                                       name: NSApplication.didBecomeActiveNotification,
                                       object: nil)
+        #elseif os(watchOS)
+            if #available(watchOS 7.0, *) {
+                NotificationCenter.default.addObserver(self,
+                                                       selector: #selector(handleAppDidBecomeActive),
+                                                       name: WKApplication.didBecomeActiveNotification,
+                                                       object: nil)
+            } else {
+                NotificationCenter.default.addObserver(self,
+                                                       selector: #selector(handleAppDidBecomeActive),
+                                                       name: .init("UIApplicationDidBecomeActiveNotification"),
+                                                       object: nil)
+            }
         #endif
     }
 

@@ -1,6 +1,6 @@
 ## Next
 
-- fix: properly mask SwiftUI Text (and text-based views) ([#276](https://github.com/PostHog/posthog-ios/pull/257))
+- fix: properly mask SwiftUI Text (and text-based views) ([#257](https://github.com/PostHog/posthog-ios/pull/257))
 
 ## 3.15.4 - 2024-11-19
 

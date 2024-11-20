@@ -1,5 +1,7 @@
 ## Next
 
+- fix: read accessibilityLabel from parent's view to avoid performance hit on RN ([#259](https://github.com/PostHog/posthog-ios/pull/259))
+
 ## 3.15.5 - 2024-11-19
 
 - fix: properly mask SwiftUI Text (and text-based views) ([#257](https://github.com/PostHog/posthog-ios/pull/257))

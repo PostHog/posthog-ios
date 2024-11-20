@@ -22,7 +22,9 @@
             if let identifier = accessibilityIdentifier {
                 isNoCapture = checkLabel(identifier)
             }
-            if let label = accessibilityLabel, !isNoCapture {
+            // read accessibilityLabel from the parent's view to skip the RCTRecursiveAccessibilityLabel on RN which is slow and may cause an endless loop
+            // see https://github.com/facebook/react-native/issues/33084
+            if let label = super.accessibilityLabel, !isNoCapture {
                 isNoCapture = checkLabel(label)
             }
 

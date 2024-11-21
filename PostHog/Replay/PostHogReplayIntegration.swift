@@ -18,8 +18,8 @@
         private var timer: Timer?
 
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
-        private let urlInterceptor: URLSessionInterceptor
-        private var sessionSwizzler: URLSessionSwizzler?
+//        private let urlInterceptor: URLSessionInterceptor
+//        private var sessionSwizzler: URLSessionSwizzler?
 
         /**
          ### Mapping of SwiftUI Views to UIKit
@@ -88,12 +88,12 @@
 
         init(_ config: PostHogConfig) {
             self.config = config
-            urlInterceptor = URLSessionInterceptor(self.config)
-            do {
-                try sessionSwizzler = URLSessionSwizzler(interceptor: urlInterceptor)
-            } catch {
-                hedgeLog("Error trying to Swizzle URLSession: \(error)")
-            }
+//            urlInterceptor = URLSessionInterceptor(self.config)
+//            do {
+//                try sessionSwizzler = URLSessionSwizzler(interceptor: urlInterceptor)
+//            } catch {
+//                hedgeLog("Error trying to Swizzle URLSession: \(error)")
+//            }
         }
 
         func start() {
@@ -108,7 +108,8 @@
             UIApplicationTracker.swizzleSendEvent()
 
             if config.sessionReplayConfig.captureNetworkTelemetry {
-                sessionSwizzler?.swizzle()
+//                sessionSwizzler?.swizzle()
+                PostHogNetworkCaptureIntegration.setupNetworkCapture()
             }
         }
 
@@ -118,8 +119,8 @@
             windowViews.removeAllObjects()
             UIApplicationTracker.unswizzleSendEvent()
 
-            sessionSwizzler?.unswizzle()
-            urlInterceptor.stop()
+            // sessionSwizzler?.unswizzle()
+            // urlInterceptor.stop()
         }
 
         private func stopTimer() {
@@ -574,6 +575,10 @@
             }
 
             return wireframe
+        }
+
+        private func isCaptureNetworkEnabled() -> Bool {
+            config.sessionReplayConfig.captureNetworkTelemetry && PostHogSDK.shared.isSessionReplayActive()
         }
 
         @objc private func snapshot() {

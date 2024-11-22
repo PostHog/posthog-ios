@@ -476,7 +476,7 @@
             }
 
             if config.sessionReplayConfig.maskAllImages {
-                // asset images are probable not sensitive
+                // asset images are probably not sensitive
                 return !isAssetsImage(image)
             }
 

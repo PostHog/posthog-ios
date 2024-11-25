@@ -287,7 +287,7 @@
             }
 
             // detect any views that don't belong to the current process (likely system views)
-            if config.sessionReplayConfig.maskSandboxedViews,
+            if config.sessionReplayConfig.maskAllSandboxedViews,
                let systemSandboxedView,
                view.isKind(of: systemSandboxedView)
             {

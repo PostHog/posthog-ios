@@ -22,7 +22,7 @@
         /// These may include UIImagePickerController, PHPickerViewController and CNContactPickerViewController
         /// Experimental support
         /// Default: true
-        @objc public var maskSandboxedViews: Bool = true
+        @objc public var maskAllSandboxedViews: Bool = true
 
         /// Enable masking of images that likely originated from user's photo library
         /// Experimental support (UIKit only)

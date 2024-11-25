@@ -84,7 +84,7 @@
         private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
         private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
         // These are usually views that don't belong to the current process and are most likely sensitive
-        private let systemRemoteView: AnyClass? = NSClassFromString("_UIRemoteView")
+        private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
 
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
@@ -286,25 +286,13 @@
                 }
             }
 
-            // if view in photo library picker controller, always mask the whole view
-            if let pickerViewController = view.nearestViewController as? UIImagePickerController {
-                maskableWidgets.append(pickerViewController.view.toAbsoluteRect(window))
-                return
-            }
-
-            if #available(iOS 14, *) {
-                if let pickerViewController = view.nearestViewController as? PHPickerViewController {
-                    maskableWidgets.append(pickerViewController.view.toAbsoluteRect(window))
-                    return
-                }
-            }
-
             // detect any views that don't belong to the current process (likely system views)
-            if let systemRemoteView {
-                if view.isKind(of: systemRemoteView) {
-                    maskableWidgets.append(view.toAbsoluteRect(window))
-                    return
-                }
+            if config.sessionReplayConfig.maskSandboxedViews,
+               let systemSandboxedView,
+               view.isKind(of: systemSandboxedView)
+            {
+                maskableWidgets.append(view.toAbsoluteRect(window))
+                return
             }
 
             // if its a generic type and has subviews, subviews have to be checked first
@@ -407,6 +395,10 @@
         // Photo library images have a UUID identifier as _assetName (e.g 64EF5A48-2E96-4AB2-A79B-AAB7E9116E3D)
         // SF symbol and bundle images have the actual symbol name as _assetName (e.g chevron.backward)
         private func isPhotoLibraryImage(_ image: UIImage) -> Bool {
+            guard config.sessionReplayConfig.maskPhotoLibraryImages else {
+                return false
+            }
+
             guard let assetName = image.imageAsset?.value(forKey: "_assetName") as? String else {
                 return false
             }

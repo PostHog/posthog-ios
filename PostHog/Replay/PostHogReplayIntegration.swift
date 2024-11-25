@@ -8,6 +8,7 @@
 //
 #if os(iOS)
     import Foundation
+    import PhotosUI
     import SwiftUI
     import UIKit
     import WebKit
@@ -82,6 +83,8 @@
 
         private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
         private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
+        // These are usually views that don't belong to the current process and are most likely sensitive
+        private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
 
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
@@ -283,6 +286,15 @@
                 }
             }
 
+            // detect any views that don't belong to the current process (likely system views)
+            if config.sessionReplayConfig.maskAllSandboxedViews,
+               let systemSandboxedView,
+               view.isKind(of: systemSandboxedView)
+            {
+                maskableWidgets.append(view.toAbsoluteRect(window))
+                return
+            }
+
             // if its a generic type and has subviews, subviews have to be checked first
             let hasSubViews = !view.subviews.isEmpty
 
@@ -380,6 +392,24 @@
             image.imageAsset?.value(forKey: "_containingBundle") != nil
         }
 
+        // Photo library images have a UUID identifier as _assetName (e.g 64EF5A48-2E96-4AB2-A79B-AAB7E9116E3D)
+        // SF symbol and bundle images have the actual symbol name as _assetName (e.g chevron.backward)
+        private func isPhotoLibraryImage(_ image: UIImage) -> Bool {
+            guard config.sessionReplayConfig.maskPhotoLibraryImages else {
+                return false
+            }
+
+            guard let assetName = image.imageAsset?.value(forKey: "_assetName") as? String else {
+                return false
+            }
+
+            if assetName.isEmpty { return false }
+            if image.isSymbolImage { return false }
+            if isAssetsImage(image) { return false }
+
+            return true
+        }
+
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
             isTextInputSensitive(view) || config.sessionReplayConfig.maskAllImages
         }
@@ -429,14 +459,21 @@
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
-            var isAsset = false
-            if let image = view.image {
-                isAsset = isAssetsImage(image)
-            } else {
-                // if there's no image, there's nothing to mask
-                return false
+            // if there's no image, there's nothing to mask
+            guard let image = view.image else { return false }
+
+            // sensitive, regardless
+            if view.isNoCapture() {
+                return true
             }
-            return (config.sessionReplayConfig.maskAllImages && !isAsset) || view.isNoCapture()
+
+            if config.sessionReplayConfig.maskAllImages {
+                // asset images are probably not sensitive
+                return !isAssetsImage(image)
+            }
+
+            // try to detect user photo images
+            return isPhotoLibraryImage(image)
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {

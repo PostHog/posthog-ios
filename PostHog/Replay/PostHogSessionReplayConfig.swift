@@ -18,6 +18,17 @@
         /// Default: true
         @objc public var maskAllImages: Bool = true
 
+        /// Enable masking of all sandboxed system views
+        /// These may include UIImagePickerController, PHPickerViewController and CNContactPickerViewController
+        /// Experimental support
+        /// Default: true
+        @objc public var maskAllSandboxedViews: Bool = true
+
+        /// Enable masking of images that likely originated from user's photo library
+        /// Experimental support (UIKit only)
+        /// Default: true
+        @objc public var maskPhotoLibraryImages: Bool = true
+
         /// Enable capturing network telemetry
         /// Experimental support
         /// Default: true

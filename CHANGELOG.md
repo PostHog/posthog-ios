@@ -3,7 +3,12 @@
 ## 3.15.7 - 2024-11-25
 
 - fix: detect and mask out system photo library and user photos ([#261](https://github.com/PostHog/posthog-ios/pull/261))
-
+    - This can be disabled through the following `sessionReplayConfig` options: 
+    
+    ```swift
+    config.sessionReplayConfig.maskAllSandboxedViews = false
+    config.sessionReplayConfig.maskPhotoLibraryImages = false
+    ```
 ## 3.15.6 - 2024-11-20
 
 - fix: read accessibilityLabel from parent's view to avoid performance hit on RN ([#259](https://github.com/PostHog/posthog-ios/pull/259))

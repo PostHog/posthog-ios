@@ -367,6 +367,11 @@
                 return nil
             }
 
+            // this will bail on interactive animations (e.g edge slide)
+            if isAnimatingTransition(window) {
+                return nil
+            }
+
             var maskableWidgets: [CGRect] = []
             var maskChildren = false
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
@@ -384,6 +389,22 @@
             }
             wireframe.type = "screenshot"
             return wireframe
+        }
+
+        /// Check if window's root view controller is animating a transition
+        private func isAnimatingTransition(_ window: UIWindow) -> Bool {
+            guard let viewController = window.rootViewController else { return false }
+
+            return isAnimatingTransition(viewController)
+        }
+
+        // Recursively check if a view controller (or any of its children) is currently animating a transition
+        // During a transition, a UIViewControllerTransitionCoordinator is assigned to a UIViewController which controls the overall transition
+        private func isAnimatingTransition(_ viewController: UIViewController) -> Bool {
+            if let isAnimated = viewController.transitionCoordinator?.isAnimated {
+                return isAnimated
+            }
+            return viewController.children.contains(where: isAnimatingTransition)
         }
 
         private func isAssetsImage(_ image: UIImage) -> Bool {

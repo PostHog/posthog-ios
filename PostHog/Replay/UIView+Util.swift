@@ -54,7 +54,11 @@
             let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
 
             let image = renderer.image { _ in
-                drawHierarchy(in: bounds, afterScreenUpdates: false)
+                // true for afterScreenUpdates so that we capture view *after* any pending animations are committed
+                // As a side effect, we need to pause view tracker temporarily to avoid recursive calls since this option will cause subviews to layout, which will then trigger another capture
+                ViewLayoutTracker.paused = true
+                drawHierarchy(in: bounds, afterScreenUpdates: true)
+                ViewLayoutTracker.paused = false
             }
 
             return image

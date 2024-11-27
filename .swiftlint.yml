@@ -15,7 +15,10 @@ disabled_rules:
   - trailing_comma
   - opening_brace
 
-line_length: 160
+line_length: 
+  warning: 160
+  ignores_comments: true
+
 file_length:
   warning: 1000
   error: 1200

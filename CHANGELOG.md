@@ -1,5 +1,7 @@
 ## Next
 
+- fix: skip capturing a snapshot during view controller transitions ([#265](https://github.com/PostHog/posthog-ios/pull/265))
+
 ## 3.15.7 - 2024-11-25
 
 - fix: detect and mask out system photo library and user photos ([#261](https://github.com/PostHog/posthog-ios/pull/261))

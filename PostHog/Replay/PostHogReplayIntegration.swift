@@ -96,14 +96,22 @@
             }
         }
 
+        private func isNotFlutter() -> Bool {
+            postHogSdkName != "posthog-flutter"
+        }
+
         func start() {
             stopTimer()
-            DispatchQueue.main.async {
-                self.timer = Timer.scheduledTimer(withTimeInterval: self.config.sessionReplayConfig.debouncerDelay, repeats: true, block: { _ in
-                    self.snapshot()
-                })
+
+            // flutter captures snapshots, so we don't need to capture them here
+            if isNotFlutter() {
+                DispatchQueue.main.async {
+                    self.timer = Timer.scheduledTimer(withTimeInterval: self.config.sessionReplayConfig.debouncerDelay, repeats: true, block: { _ in
+                        self.snapshot()
+                    })
+                }
+                ViewLayoutTracker.swizzleLayoutSubviews()
             }
-            ViewLayoutTracker.swizzleLayoutSubviews()
 
             UIApplicationTracker.swizzleSendEvent()
 

@@ -1,5 +1,7 @@
 ## Next
 
+- no user facing changes
+
 ## 3.15.6 - 2024-11-20
 
 - fix: read accessibilityLabel from parent's view to avoid performance hit on RN ([#259](https://github.com/PostHog/posthog-ios/pull/259))

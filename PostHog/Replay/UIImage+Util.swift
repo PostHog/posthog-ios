@@ -9,7 +9,7 @@
     import Foundation
     import UIKit
 
-    public extension UIImage {
+    extension UIImage {
         func toBase64(_ compressionQuality: CGFloat = 0.3) -> String? {
             let jpegData = jpegData(compressionQuality: compressionQuality)
             let base64 = jpegData?.base64EncodedString()
@@ -20,5 +20,9 @@
 
             return nil
         }
+    }
+
+    public func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? {
+        image.toBase64(compressionQuality)
     }
 #endif

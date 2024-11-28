@@ -7,8 +7,12 @@
 
 import Foundation
 
-public extension Date {
+extension Date {
     func toMillis() -> Int64 {
         Int64(timeIntervalSince1970 * 1000)
     }
+}
+
+public func dateToMillis(_ date: Date) -> Int64 {
+    date.toMillis()
 }

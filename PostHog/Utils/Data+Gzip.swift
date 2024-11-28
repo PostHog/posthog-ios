@@ -134,7 +134,7 @@ private extension GzipError.Kind {
     }
 }
 
-public extension Data {
+extension Data {
     /// Whether the receiver is compressed in gzip format.
     var isGzipped: Bool {
         starts(with: [0x1F, 0x8B]) // check magic number

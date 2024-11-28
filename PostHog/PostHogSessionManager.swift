@@ -46,14 +46,13 @@ import Foundation
         timeNow - sessionLastTimestamp > sessionChangeThreshold
     }
 
-    private func isiOSNativeSdk() -> Bool {
-        // postHogSdkName will be set to eg posthog-react-native if not
-        postHogSdkName == postHogiOSSdkName
+    private func isNotReactNative() -> Bool {
+        // for the RN SDK, the session is handled by the RN SDK itself
+        postHogSdkName != "posthog-react-native"
     }
 
     func resetSessionIfExpired(_ completion: () -> Void) {
-        // for hybrid SDKs, the session is handled by the hybrid SDK
-        guard isiOSNativeSdk() else {
+        guard isNotReactNative() else {
             return
         }
 
@@ -89,8 +88,7 @@ import Foundation
     }
 
     func rotateSessionIdIfRequired(_ completion: @escaping (() -> Void)) {
-        // for hybrid SDKs, the session is handled by the hybrid SDK
-        guard isiOSNativeSdk() else {
+        guard isNotReactNative() else {
             return
         }
 
@@ -109,8 +107,7 @@ import Foundation
     }
 
     func updateSessionLastTime() {
-        // for hybrid SDKs, the session is handled by the hybrid SDK
-        guard isiOSNativeSdk() else {
+        guard isNotReactNative() else {
             return
         }
 

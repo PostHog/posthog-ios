@@ -12,3 +12,7 @@ extension Date {
         Int64(timeIntervalSince1970 * 1000)
     }
 }
+
+public func dateToMillis(_ date: Date) -> Int64 {
+    date.toMillis()
+}

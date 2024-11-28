@@ -10,7 +10,7 @@
 
 import Foundation
 
-public extension UUID {
+extension UUID {
     static func v7() -> Self {
         TimeBasedEpochGenerator.shared.v7()
     }

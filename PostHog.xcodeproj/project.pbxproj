@@ -87,6 +87,7 @@
 		6999919A2AFE1BAB000DCB78 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699991992AFE1BAB000DCB78 /* AppDelegate.swift */; };
 		699C5FE62C20178E007DB818 /* UUIDUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699C5FE52C20178E007DB818 /* UUIDUtils.swift */; };
 		699C5FEF2C20242A007DB818 /* UUIDTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699C5FEE2C20242A007DB818 /* UUIDTest.swift */; };
+		69B7F60C2CF7703400A48BCC /* UIImage+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B7F6062CF7702D00A48BCC /* UIImage+Util.swift */; };
 		69BA38D72B888E8500AA69D6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 69BA38D62B888E8500AA69D6 /* PrivacyInfo.xcprivacy */; };
 		69ED1A5C2C7F15F300FE7A91 /* PostHogSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */; };
 		69ED1A882C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */; };
@@ -358,6 +359,7 @@
 		699991992AFE1BAB000DCB78 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		699C5FE52C20178E007DB818 /* UUIDUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UUIDUtils.swift; sourceTree = "<group>"; };
 		699C5FEE2C20242A007DB818 /* UUIDTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UUIDTest.swift; sourceTree = "<group>"; };
+		69B7F6062CF7702D00A48BCC /* UIImage+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Util.swift"; sourceTree = "<group>"; };
 		69BA38D62B888E8500AA69D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManager.swift; sourceTree = "<group>"; };
 		69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwiftUIViewModifiers.swift; sourceTree = "<group>"; };
@@ -723,6 +725,7 @@
 		69EE82B82BA9C4DA00EB9542 /* Replay */ = {
 			isa = PBXGroup;
 			children = (
+				69B7F6062CF7702D00A48BCC /* UIImage+Util.swift */,
 				69EE82B92BA9C50400EB9542 /* PostHogReplayIntegration.swift */,
 				69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */,
 				69EE82BD2BA9C8AA00EB9542 /* ViewLayoutTracker.swift */,
@@ -1185,6 +1188,7 @@
 				69ED1A9F2C8F451B00FE7A91 /* PostHogPersonProfiles.swift in Sources */,
 				69EE82BA2BA9C50400EB9542 /* PostHogReplayIntegration.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
+				69B7F60C2CF7703400A48BCC /* UIImage+Util.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */,
 				699C5FE62C20178E007DB818 /* UUIDUtils.swift in Sources */,
 				690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */,

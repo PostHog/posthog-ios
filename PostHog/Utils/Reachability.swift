@@ -41,7 +41,7 @@ import Foundation
     @available(*, unavailable, renamed: "Notification.Name.reachabilityChanged")
     public let ReachabilityChangedNotification = NSNotification.Name("ReachabilityChangedNotification")
 
-    public extension Notification.Name {
+    extension Notification.Name {
         static let reachabilityChanged = Notification.Name("reachabilityChanged")
     }
 
@@ -162,7 +162,7 @@ import Foundation
         }
     }
 
-    public extension Reachability {
+    extension Reachability {
         // MARK: - *** Notifier methods ***
 
         func startNotifier() throws {

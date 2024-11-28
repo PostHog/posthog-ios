@@ -38,17 +38,6 @@ class RRWireframe {
     var parentId: Int?
 
     #if os(iOS)
-        private func imageToBase64(_ image: UIImage) -> String? {
-            let jpegData = image.jpegData(compressionQuality: 0.3)
-            let base64 = jpegData?.base64EncodedString()
-
-            if let base64 = base64 {
-                return "data:image/jpeg;base64,\(base64)"
-            }
-
-            return nil
-        }
-
         private func maskImage() -> UIImage? {
             if let image = image {
                 // the scale also affects the image size/resolution, from usually 100kb to 15kb each
@@ -106,9 +95,9 @@ class RRWireframe {
         #if os(iOS)
             if let image = image {
                 if let maskedImage = maskImage() {
-                    base64 = imageToBase64(maskedImage)
+                    base64 = maskedImage.toBase64()
                 } else {
-                    base64 = imageToBase64(image)
+                    base64 = image.toBase64()
                 }
             }
         #endif

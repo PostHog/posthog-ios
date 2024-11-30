@@ -406,22 +406,41 @@
             image.imageAsset?.value(forKey: "_containingBundle") != nil
         }
 
-        // Photo library images have a UUID identifier as _assetName (e.g 64EF5A48-2E96-4AB2-A79B-AAB7E9116E3D)
-        // SF symbol and bundle images have the actual symbol name as _assetName (e.g chevron.backward)
-        private func isPhotoLibraryImage(_ image: UIImage) -> Bool {
-            guard config.sessionReplayConfig.maskPhotoLibraryImages else {
-                return false
+        private func isAnimatedImageView(_ view: UIImageView) -> Bool {
+            !(view.animationImages?.isEmpty ?? true)
+        }
+
+        private func containsHumanFaces(caLayer layer: CALayer) -> Bool {
+            if let content = layer.contents, CFGetTypeID(content as CFTypeRef) == CGImage.typeID {
+                // force-casting is safe here because of CFTypeID check above
+                return containsHumanFaces(cgImage: content as! CGImage)
+            }
+            return false
+        }
+
+        private func containsHumanFaces(image: UIImage) -> Bool {
+            guard let cgImage = image.cgImage else { return false }
+            return containsHumanFaces(cgImage: cgImage)
+        }
+
+        private func containsHumanFaces(cgImage: CGImage) -> Bool {
+            let detectAndCache: () -> Bool = {
+                var faceDetected = false
+                let ciImage = CIImage(cgImage: cgImage)
+                faceDetected = !CGImage.humanFaceDetector.features(in: ciImage).isEmpty
+                cgImage.ph_human_face_detected = faceDetected
+                return faceDetected
             }
 
-            guard let assetName = image.imageAsset?.value(forKey: "_assetName") as? String else {
-                return false
-            }
+            return cgImage.ph_human_face_detected ?? detectAndCache()
+        }
 
-            if assetName.isEmpty { return false }
-            if image.isSymbolImage { return false }
-            if isAssetsImage(image) { return false }
-
-            return true
+        private func isSystemImageView(_ view: UIImageView) -> Bool {
+            // Came across some system image views like <_UICutoutShadowView> that were masked
+            // with maskAllImages options (e.g in this case this was a blurred background view of a UIPickerView)
+            // Let’s be prudent and add a general check on internal classes starting with _UI.
+            // We may need to be more explicit in the future
+            String(describing: view).starts(with: "<_UI")
         }
 
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
@@ -467,9 +486,17 @@
         }
 
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
-            // No way of checking if this is an asset image or not
-            // No way of checking if there's actual content in the image or not
-            config.sessionReplayConfig.maskAllImages || view.isNoCapture()
+            // sensitive, regardless
+            if view.isNoCapture() {
+                return true
+            }
+
+            // detect human faces
+            if config.sessionReplayConfig.maskImagesWithHumanFaces, containsHumanFaces(caLayer: view.layer) {
+                return true
+            }
+
+            return config.sessionReplayConfig.maskAllImages
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
@@ -481,13 +508,32 @@
                 return true
             }
 
-            if config.sessionReplayConfig.maskAllImages {
-                // asset images are probably not sensitive
-                return !isAssetsImage(image)
+            // system images are likely not sensitive
+            if isSystemImageView(view) {
+                return false
             }
 
-            // try to detect user photo images
-            return isPhotoLibraryImage(image)
+            // symbol images are probably not sensitive
+            if image.isSymbolImage {
+                return false
+            }
+
+            // an animated image view (e.g spinner view) is most likely not a sensitive asset
+            if isAnimatedImageView(view) {
+                return false
+            }
+
+            // detect human faces
+            if config.sessionReplayConfig.maskImagesWithHumanFaces, containsHumanFaces(image: image) {
+                return true
+            }
+
+            // asset images are probably not sensitive (unless they contain a face)
+            if isAssetsImage(image) {
+                return false
+            }
+
+            return config.sessionReplayConfig.maskAllImages
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -662,7 +708,6 @@
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
-
 #endif
 
 // swiftlint:enable cyclomatic_complexity

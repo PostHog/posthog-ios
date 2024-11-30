@@ -24,10 +24,10 @@
         /// Default: true
         @objc public var maskAllSandboxedViews: Bool = true
 
-        /// Enable masking of images that likely originated from user's photo library
-        /// Experimental support (UIKit only)
+        /// Enable masking of images that may contain human faces
+        /// Experimental support
         /// Default: true
-        @objc public var maskPhotoLibraryImages: Bool = true
+        @objc public var maskImagesWithHumanFaces: Bool = true
 
         /// Enable capturing network telemetry
         /// Experimental support

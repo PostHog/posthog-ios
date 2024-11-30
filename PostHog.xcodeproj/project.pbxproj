@@ -128,6 +128,7 @@
 		DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */; };
 		DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */; };
 		DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */; };
+		DAF42BC72CFB13DC00BCEB60 /* CGImage+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF42BC12CFB13D900BCEB60 /* CGImage+Util.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -401,6 +402,7 @@
 		DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForwardingPickerViewDelegate.swift; sourceTree = "<group>"; };
 		DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegrationSpec.swift; sourceTree = "<group>"; };
 		DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskViewModifier.swift; sourceTree = "<group>"; };
+		DAF42BC12CFB13D900BCEB60 /* CGImage+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGImage+Util.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -725,6 +727,7 @@
 		69EE82B82BA9C4DA00EB9542 /* Replay */ = {
 			isa = PBXGroup;
 			children = (
+				DAF42BC12CFB13D900BCEB60 /* CGImage+Util.swift */,
 				69B7F6062CF7702D00A48BCC /* UIImage+Util.swift */,
 				69EE82B92BA9C50400EB9542 /* PostHogReplayIntegration.swift */,
 				69EE82BB2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift */,
@@ -1195,6 +1198,7 @@
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,
 				3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */,
 				69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */,
+				DAF42BC72CFB13DC00BCEB60 /* CGImage+Util.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

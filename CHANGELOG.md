@@ -1,5 +1,8 @@
 ## Next
 
+- fix: remove photo library detection since it's not really possible ([#267](https://github.com/PostHog/posthog-ios/pull/267))
+- feat: add human face detection in images ([#267](https://github.com/PostHog/posthog-ios/pull/267))
+
 ## 3.15.9 - 2024-11-28
 
 - fix: skip capturing a snapshot during view controller transitions ([#265](https://github.com/PostHog/posthog-ios/pull/265))

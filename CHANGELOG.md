@@ -1,5 +1,7 @@
 ## Next
 
+- fix: deprecated now unused configuration maskPhotoLibraryImages. ([#268](https://github.com/PostHog/posthog-ios/pull/268))
+
 ## 3.15.9 - 2024-11-28
 
 - fix: skip capturing a snapshot during view controller transitions ([#265](https://github.com/PostHog/posthog-ios/pull/265))

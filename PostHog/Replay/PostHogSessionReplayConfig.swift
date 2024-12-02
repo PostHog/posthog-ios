@@ -29,7 +29,7 @@
         /// Default: true
         ///
         /// - Note: Deprecated
-        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To manually mask user photos, use the `ph-no-capture` attribute or appropriate view modifiers in your app.")
+        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To manually mask user photos, use `ph-no-capture` accessibility label or an appropriate view modifier in your app.")
         @objc public var maskPhotoLibraryImages: Bool = true
 
         /// Enable capturing network telemetry

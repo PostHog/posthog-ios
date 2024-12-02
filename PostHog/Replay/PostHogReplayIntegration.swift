@@ -467,6 +467,11 @@
             if isAssetsImage(image) {
                 return false
             }
+            
+            // symbols are probably not sensitive
+            if image.isSymbolImage {
+                return false
+            }
 
             return config.sessionReplayConfig.maskAllImages
         }

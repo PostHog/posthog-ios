@@ -29,7 +29,7 @@
         /// Default: true
         ///
         /// - Note: Deprecated
-        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To manually mask user photos, use `ph-no-capture` accessibility label or an appropriate view modifier in your app.")
+        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
         @objc public var maskPhotoLibraryImages: Bool = true
 
         /// Enable capturing network telemetry

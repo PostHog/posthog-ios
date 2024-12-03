@@ -83,7 +83,6 @@
             if let presented = controller?.presentedViewController {
                 return findVisibleViewController(presented)
             }
-
             return controller
         }
     }

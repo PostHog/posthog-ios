@@ -1,5 +1,7 @@
 ## Next
 
+- fix: ignore autocapture events from keyboard window ([#269](https://github.com/PostHog/posthog-ios/pull/269))
+
 ## 3.16.0 - 2024-12-03
 
 - fix: deprecate `maskPhotoLibraryImages` due to unintended masking issues ([#268](https://github.com/PostHog/posthog-ios/pull/268))

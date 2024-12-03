@@ -1,5 +1,7 @@
 ## Next
 
+## 3.16.0 - 2024-12-03
+
 - fix: deprecate `maskPhotoLibraryImages` due to unintended masking issues ([#268](https://github.com/PostHog/posthog-ios/pull/268))
 
 ## 3.15.9 - 2024-11-28

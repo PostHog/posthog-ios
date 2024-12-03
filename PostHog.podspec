@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "PostHog"
-  s.version          = "3.15.9"
+  s.version          = "3.16.0"
   s.summary          = "The hassle-free way to add posthog to your iOS app."
 
   s.description      = <<-DESC

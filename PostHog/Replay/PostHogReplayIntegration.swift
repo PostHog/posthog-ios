@@ -406,24 +406,6 @@
             image.imageAsset?.value(forKey: "_containingBundle") != nil
         }
 
-        // Photo library images have a UUID identifier as _assetName (e.g 64EF5A48-2E96-4AB2-A79B-AAB7E9116E3D)
-        // SF symbol and bundle images have the actual symbol name as _assetName (e.g chevron.backward)
-        private func isPhotoLibraryImage(_ image: UIImage) -> Bool {
-            guard config.sessionReplayConfig.maskPhotoLibraryImages else {
-                return false
-            }
-
-            guard let assetName = image.imageAsset?.value(forKey: "_assetName") as? String else {
-                return false
-            }
-
-            if assetName.isEmpty { return false }
-            if image.isSymbolImage { return false }
-            if isAssetsImage(image) { return false }
-
-            return true
-        }
-
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
             isTextInputSensitive(view) || config.sessionReplayConfig.maskAllImages
         }
@@ -481,13 +463,17 @@
                 return true
             }
 
-            if config.sessionReplayConfig.maskAllImages {
-                // asset images are probably not sensitive
-                return !isAssetsImage(image)
+            // asset images are probably not sensitive
+            if isAssetsImage(image) {
+                return false
             }
 
-            // try to detect user photo images
-            return isPhotoLibraryImage(image)
+            // symbols are probably not sensitive
+            if image.isSymbolImage {
+                return false
+            }
+
+            return config.sessionReplayConfig.maskAllImages
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {

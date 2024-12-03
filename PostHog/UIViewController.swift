@@ -16,12 +16,12 @@
         static func swizzleScreenView() {
             swizzle(forClass: UIViewController.self,
                     original: #selector(UIViewController.viewDidAppear(_:)),
-                    new: #selector(UIViewController.viewDidApperOverride))
+                    new: #selector(UIViewController.viewDidAppearOverride))
         }
 
         static func unswizzleScreenView() {
             swizzle(forClass: UIViewController.self,
-                    original: #selector(UIViewController.viewDidApperOverride),
+                    original: #selector(UIViewController.viewDidAppearOverride),
                     new: #selector(UIViewController.viewDidAppear(_:)))
         }
 
@@ -58,11 +58,17 @@
             }
         }
 
-        @objc func viewDidApperOverride(animated: Bool) {
+        @objc func viewDidAppearOverride(animated: Bool) {
+            // ignore views from keyboard window
+            // these may include: UIInputWindowController, _UICursorAccessoryViewController, UICompatibilityInputViewController,UIKeyboardHiddenViewController_Autofill and others
+            if let window = viewIfLoaded?.window, window.isKeyboardWindow {
+                return
+            }
+
             captureScreenView(viewIfLoaded?.window)
             // it looks like we're calling ourselves, but we're actually
             // calling the original implementation of viewDidAppear since it's been swizzled.
-            viewDidApperOverride(animated: animated)
+            viewDidAppearOverride(animated: animated)
         }
 
         private func findVisibleViewController(_ controller: UIViewController?) -> UIViewController? {
@@ -77,6 +83,7 @@
             if let presented = controller?.presentedViewController {
                 return findVisibleViewController(presented)
             }
+
             return controller
         }
     }

@@ -205,6 +205,23 @@
             // first, call original method
             ph_swizzled_setContentOffset_Setter(contentOffset)
 
+            guard shouldTrack(self) else {
+                return
+            }
+
+            // ignore all keyboard events
+            if let window, window.isKeyboardWindow {
+                return
+            }
+
+            // nothing changed
+            guard
+                self.contentOffset.x.distance(to: contentOffset.x) > 0 ||
+                self.contentOffset.y.distance(to: contentOffset.y) > 0
+            else {
+                return
+            }
+
             // block scrolls on UIPickerTableView. (captured via a forwarding delegate implementation)
             if String(describing: type(of: self)) == "UIPickerTableView" {
                 return
@@ -476,6 +493,7 @@
         if view.isHidden { return false }
         if !view.isUserInteractionEnabled { return false }
         if view.isNoCapture() { return false }
+        if view.window?.isKeyboardWindow == true { return false }
 
         if let textField = view as? UITextField, textField.isSensitiveText() {
             return false

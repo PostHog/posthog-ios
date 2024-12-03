@@ -15,9 +15,13 @@ disabled_rules:
   - trailing_comma
   - opening_brace
 
-line_length: 
+line_length:
   warning: 160
   ignores_comments: true
+  excluded_lines_patterns: [
+    # long deprecation messages
+    \@available(.*/*deprecated.*) 
+  ]
 
 file_length:
   warning: 1000

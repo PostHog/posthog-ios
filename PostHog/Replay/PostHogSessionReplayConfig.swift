@@ -26,8 +26,11 @@
 
         /// Enable masking of images that likely originated from user's photo library
         /// Experimental support (UIKit only)
-        /// Default: true
-        @objc public var maskPhotoLibraryImages: Bool = true
+        /// Default: false
+        ///
+        /// - Note: Deprecated
+        @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
+        @objc public var maskPhotoLibraryImages: Bool = false
 
         /// Enable capturing network telemetry
         /// Experimental support

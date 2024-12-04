@@ -3,17 +3,14 @@
     import UIKit
 
     enum ViewLayoutTracker {
-        static var paused = false
         private(set) static var hasChanges = false
         private static var hasSwizzled = false
 
         static func viewDidLayout(view _: UIView) {
-            guard !paused else { return }
             hasChanges = true
         }
 
         static func clear() {
-            guard !paused else { return }
             hasChanges = false
         }
 

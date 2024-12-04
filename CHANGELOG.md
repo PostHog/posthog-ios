@@ -1,5 +1,7 @@
 ## Next
 
+- fix: screen flicker when capturing a screenshot when a sensitive text field is on screen ([#270](https://github.com/PostHog/posthog-ios/pull/270))
+
 ## 3.16.0 - 2024-12-03
 
 - fix: deprecate `maskPhotoLibraryImages` due to unintended masking issues ([#268](https://github.com/PostHog/posthog-ios/pull/268))

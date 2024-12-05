@@ -21,7 +21,7 @@
         struct Element {
             let text: String
             let targetClass: String
-            let baseClasses: String
+            let baseClass: String?
             let label: String?
 
             var elementsChainEntry: String {
@@ -30,10 +30,10 @@
                 if !text.isEmpty {
                     attributes.append("text=\(text.quoted)")
                 }
-                if !baseClasses.isEmpty {
-                    attributes.append("attr__class=\(baseClasses.quoted)")
+                if let baseClass, !baseClass.isEmpty {
+                    attributes.append("attr__class=\(baseClass.quoted)")
                 }
-                if let label = label, !label.isEmpty {
+                if let label, !label.isEmpty {
                     attributes.append("attr_id=\(label.quoted)")
                 }
 
@@ -271,7 +271,7 @@
             PostHogAutocaptureEventTracker.Element(
                 text: ph_autocaptureText.map(sanitizeText) ?? "",
                 targetClass: descriptiveTypeName,
-                baseClasses: baseTypeNames,
+                baseClass: baseTypeName,
                 label: postHogLabel
             )
         }
@@ -378,26 +378,28 @@
         return typeName
     }
 
+    // common base types in UIKit that should not be captured
+    private let excludedBaseTypes: [AnyClass] = [
+        NSObject.self,
+        UIResponder.self,
+        UIControl.self,
+        UIView.self,
+        UIScrollView.self,
+    ]
+
     extension NSObject {
         var descriptiveTypeName: String {
             typeName(of: type(of: self))
         }
 
-        var baseTypeNames: String {
-            var baseTypes: [String] = []
-            var previousType: AnyClass = type(of: self)
-
-            // traverse the inheritance tree
-            while let superclass = previousType.superclass() {
-                // NSObject or UIResponder are base types for almost all UIKit and not really helpful here
-                if superclass == NSObject.self || superclass == UIResponder.self {
-                    return baseTypes.joined(separator: " ")
-                }
-                previousType = superclass
-                baseTypes.append(typeName(of: superclass))
+        var baseTypeName: String? {
+            guard
+                let superclass = type(of: self).superclass(),
+                !excludedBaseTypes.contains(where: { $0 == superclass })
+            else {
+                return nil
             }
-
-            return baseTypes.joined(separator: " ")
+            return typeName(of: superclass)
         }
     }
 

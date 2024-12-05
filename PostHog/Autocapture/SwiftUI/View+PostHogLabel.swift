@@ -130,8 +130,8 @@
 
     private extension UIView {
         func siblings() -> [UIView] {
-            superview?.subviews.reduce(into: []) { r, c in
-                if c !== self { r.append(c) }
+            superview?.subviews.reduce(into: []) { result, current in
+                if current !== self { result.append(current) }
             } ?? []
         }
 

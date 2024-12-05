@@ -405,7 +405,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        let sanitizedProps = sanitizeDicionary(properties)
+        let sanitizedProps = sanitizeDictionary(properties)
         if sanitizedProps == nil {
             return
         }
@@ -482,7 +482,7 @@ let maxRetryDelay = 30.0
             let properties = buildProperties(distinctId: distinctId, properties: [
                 "distinct_id": distinctId,
                 "$anon_distinct_id": oldDistinctId,
-            ], userProperties: sanitizeDicionary(userProperties), userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce))
+            ], userProperties: sanitizeDictionary(userProperties), userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce))
             let sanitizedProperties = sanitizeProperties(properties)
 
             queue.add(PostHogEvent(
@@ -616,9 +616,9 @@ let maxRetryDelay = 30.0
         }
 
         let properties = buildProperties(distinctId: eventDistinctId,
-                                         properties: sanitizeDicionary(properties),
-                                         userProperties: sanitizeDicionary(userProperties),
-                                         userPropertiesSetOnce: sanitizeDicionary(userPropertiesSetOnce),
+                                         properties: sanitizeDictionary(properties),
+                                         userProperties: sanitizeDictionary(userProperties),
+                                         userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce),
                                          groups: groups,
                                          appendSharedProps: !snapshotEvent)
         let sanitizedProperties = sanitizeProperties(properties)
@@ -662,7 +662,7 @@ let maxRetryDelay = 30.0
 
         let props = [
             "$screen_name": screenTitle,
-        ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
+        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
 
@@ -678,7 +678,6 @@ let maxRetryDelay = 30.0
 
     func autocapture(
         eventType: String,
-        elements: [[String: Any]],
         elementsChain: String,
         properties: [String: Any]
     ) {
@@ -696,9 +695,8 @@ let maxRetryDelay = 30.0
 
         let props = [
             "$event_type": eventType,
-            "$elements": elements,
             "$elements_chain": elementsChain,
-        ].merging(sanitizeDicionary(properties) ?? [:]) { prop, _ in prop }
+        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
 
         let distinctId = getDistinctId()
 
@@ -794,7 +792,7 @@ let maxRetryDelay = 30.0
         var props: [String: Any] = ["$group_type": type,
                                     "$group_key": key]
 
-        let groupProps = sanitizeDicionary(groupProperties)
+        let groupProps = sanitizeDictionary(groupProperties)
 
         if groupProps != nil {
             props["$group_set"] = groupProps
@@ -834,7 +832,7 @@ let maxRetryDelay = 30.0
 
         _ = groups([type: key])
 
-        groupIdentify(type: type, key: key, groupProperties: sanitizeDicionary(groupProperties))
+        groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties))
     }
 
     // FEATURE FLAGS

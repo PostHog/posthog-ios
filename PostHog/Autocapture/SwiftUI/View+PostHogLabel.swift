@@ -71,9 +71,6 @@
         override func layoutSubviews() {
             super.didMoveToWindow()
 
-            superview?.postHogNoCapture = true
-            postHogNoCapture = true
-
             // try to find a "taggable" cousin view in hierarchy
             //
             // ### Why cousin view?

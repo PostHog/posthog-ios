@@ -1236,6 +1236,10 @@ let maxRetryDelay = 30.0
 
             return config.sessionReplay && isSessionActive() && (featureFlags?.isSessionReplayFlagActive() ?? false)
         }
+
+        @objc public func isCaptureNetworkTelemetryEnabled() -> Bool {
+            config.sessionReplay && config.sessionReplayConfig.captureNetworkTelemetry
+        }
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)

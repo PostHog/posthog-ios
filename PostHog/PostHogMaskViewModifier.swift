@@ -41,15 +41,23 @@
     }
 
     private class PostHogMaskViewTaggerView: UIView {
-        override func didMoveToSuperview() {
-            super.didMoveToSuperview()
+        weak private var maskedView: UIView?
+        override func layoutSubviews() {
+            super.layoutSubviews()
             // ### Why grandparent view?
             //
             // Because of SwiftUI-to-UIKit view bridging:
             //     OriginalView (SwiftUI) <- we tag here
             //       L PostHogMaskViewTagger (ViewRepresentable)
             //           L PostHogMaskViewTaggerView (UIView) <- we are here
+            maskedView = superview?.superview
             superview?.superview?.postHogNoCapture = true
+        }
+        
+        override func removeFromSuperview() {
+            super.removeFromSuperview()
+            maskedView?.postHogNoCapture = false
+            maskedView = nil
         }
     }
 

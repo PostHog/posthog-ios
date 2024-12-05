@@ -64,7 +64,8 @@
 
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
+            self.label = nil
+            super.init(frame: .zero)
         }
 
         override func layoutSubviews() {

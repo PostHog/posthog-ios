@@ -38,12 +38,19 @@
 
         func body(content: Content) -> some View {
             content
-                .background(PostHogLabelViewTagger(label: label))
+                .background(viewTagger)
+        }
+
+        @ViewBuilder
+        private var viewTagger: some View {
+            if let label {
+                PostHogLabelViewTagger(label: label)
+            }
         }
     }
 
     private struct PostHogLabelViewTagger: UIViewRepresentable {
-        let label: String?
+        let label: String
 
         func makeUIView(context _: Context) -> PostHogLabelTaggerView {
             PostHogLabelTaggerView(label: label)
@@ -55,16 +62,17 @@
     }
 
     private class PostHogLabelTaggerView: UIView {
-        private let label: String?
+        private let label: String
+        weak var taggedView: UIView?
 
-        init(label: String?) {
+        init(label: String) {
             self.label = label
             super.init(frame: .zero)
         }
 
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
-            self.label = nil
+            label = ""
             super.init(frame: .zero)
         }
 
@@ -84,6 +92,7 @@
             //           L PostHogLabelTaggerView (UIView) <- we are here
             //
             if let view = findCousinView(of: PostHogSwiftUITaggable.self) {
+                taggedView = view
                 view.postHogLabel = label
             } else {
                 // just tag grandparent view
@@ -95,8 +104,16 @@
                 //       L PostHogLabelViewTagger (ViewRepresentable)
                 //           L PostHogLabelTaggerView (UIView) <- we are here
                 //
+                taggedView = superview?.superview
                 superview?.superview?.postHogLabel = label
             }
+        }
+
+        override func removeFromSuperview() {
+            super.removeFromSuperview()
+            // remove custom label when removed from hierarchy
+            taggedView?.postHogLabel = nil
+            taggedView = nil
         }
 
         private func findCousinView<T>(of _: T.Type) -> T? {

@@ -41,7 +41,7 @@
     }
 
     private class PostHogMaskViewTaggerView: UIView {
-        weak private var maskedView: UIView?
+        private weak var maskedView: UIView?
         override func layoutSubviews() {
             super.layoutSubviews()
             // ### Why grandparent view?
@@ -53,7 +53,7 @@
             maskedView = superview?.superview
             superview?.superview?.postHogNoCapture = true
         }
-        
+
         override func removeFromSuperview() {
             super.removeFromSuperview()
             maskedView?.postHogNoCapture = false

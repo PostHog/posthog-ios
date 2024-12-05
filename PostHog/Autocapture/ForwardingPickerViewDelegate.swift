@@ -9,7 +9,7 @@
     import UIKit
 
     final class ForwardingPickerViewDelegate: NSObject, UIPickerViewDelegate, UIPickerViewDataSource {
-        // this needs to be week since `actualDelegate` will hold a strong reference to `ForwardingPickerViewDelegate`
+        // this needs to be weak since `actualDelegate` will hold a strong reference to `ForwardingPickerViewDelegate`
         weak var actualDelegate: UIPickerViewDelegate?
         private var valueChangedCallback: (() -> Void)?
 

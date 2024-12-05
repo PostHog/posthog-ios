@@ -61,11 +61,10 @@
         @objc func viewDidAppearOverride(animated: Bool) {
             // ignore views from keyboard window
             // these may include: UIInputWindowController, _UICursorAccessoryViewController, UICompatibilityInputViewController,UIKeyboardHiddenViewController_Autofill and others
-            if let window = viewIfLoaded?.window, window.isKeyboardWindow {
-                return
+            if let window = viewIfLoaded?.window, !window.isKeyboardWindow {
+                captureScreenView(window)
             }
 
-            captureScreenView(viewIfLoaded?.window)
             // it looks like we're calling ourselves, but we're actually
             // calling the original implementation of viewDidAppear since it's been swizzled.
             viewDidAppearOverride(animated: animated)

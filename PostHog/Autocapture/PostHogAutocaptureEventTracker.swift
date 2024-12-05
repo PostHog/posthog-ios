@@ -201,9 +201,9 @@
     }
 
     extension UIScrollView {
-        @objc func ph_swizzled_setContentOffset_Setter(_ contentOffset: CGPoint) {
+        @objc func ph_swizzled_setContentOffset_Setter(_ newContentOffset: CGPoint) {
             // first, call original method
-            ph_swizzled_setContentOffset_Setter(contentOffset)
+            ph_swizzled_setContentOffset_Setter(newContentOffset)
 
             guard shouldTrack(self) else {
                 return
@@ -214,11 +214,8 @@
                 return
             }
 
-            // nothing changed
-            guard
-                self.contentOffset.x.distance(to: contentOffset.x) > 0 ||
-                self.contentOffset.y.distance(to: contentOffset.y) > 0
-            else {
+            // scrollview did not scroll (contentOffset didn't change)
+            guard contentOffset != newContentOffset else {
                 return
             }
 

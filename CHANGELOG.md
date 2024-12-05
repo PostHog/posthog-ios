@@ -1,5 +1,7 @@
 ## Next
 
+## 3.16.2 - 2024-12-05
+
 - fix: ignore autocapture events from keyboard window ([#269](https://github.com/PostHog/posthog-ios/pull/269))
 
 ## 3.16.1 - 2024-12-04

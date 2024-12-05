@@ -30,6 +30,8 @@ file_length:
 identifier_name:
   excluded:
     - id
+    - c
+    - r
     - ^ph_.*$
 
 function_body_length:

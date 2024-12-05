@@ -1,5 +1,7 @@
 ## Next
 
+- feat: ability to add a custom label to autocapture elements ([#271](https://github.com/PostHog/posthog-ios/pull/271))
+
 ## 3.16.1 - 2024-12-04
 
 - fix: screen flicker when capturing a screenshot when a sensitive text field is on screen ([#270](https://github.com/PostHog/posthog-ios/pull/270))

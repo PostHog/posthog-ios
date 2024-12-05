@@ -7,7 +7,7 @@
 
 import Foundation
 
-public func sanitizeDicionary(_ dict: [String: Any]?) -> [String: Any]? {
+public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     if dict == nil || dict!.isEmpty {
         return nil
     }

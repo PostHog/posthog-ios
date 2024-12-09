@@ -207,9 +207,23 @@
     }
 
     extension UIScrollView {
-        @objc func ph_swizzled_setContentOffset_Setter(_ contentOffset: CGPoint) {
+        @objc func ph_swizzled_setContentOffset_Setter(_ newContentOffset: CGPoint) {
             // first, call original method
-            ph_swizzled_setContentOffset_Setter(contentOffset)
+            ph_swizzled_setContentOffset_Setter(newContentOffset)
+
+            guard shouldTrack(self) else {
+                return
+            }
+
+            // ignore all keyboard events
+            if let window, window.isKeyboardWindow {
+                return
+            }
+
+            // scrollview did not scroll (contentOffset didn't change)
+            guard contentOffset != newContentOffset else {
+                return
+            }
 
             // block scrolls on UIPickerTableView. (captured via a forwarding delegate implementation)
             if String(describing: type(of: self)) == "UIPickerTableView" {
@@ -510,6 +524,7 @@
         if view.isHidden { return false }
         if !view.isUserInteractionEnabled { return false }
         if view.isNoCapture() { return false }
+        if view.window?.isKeyboardWindow == true { return false }
 
         if let textField = view as? UITextField, textField.isSensitiveText() {
             return false

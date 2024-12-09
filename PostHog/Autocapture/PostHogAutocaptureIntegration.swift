@@ -8,6 +8,8 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import UIKit
 
+    private let elementsChainDelimiter = ";"
+
     class PostHogAutocaptureIntegration: AutocaptureEventProcessing {
         private let postHogConfig: PostHogConfig
         private var debounceTimers: [Int: Timer] = [:]
@@ -65,7 +67,6 @@
             }
         }
 
-        private static let viewHierarchyDelimiter = ";"
         /**
          Handles the processing of autocapture events by extracting event details, building properties, and sending them to PostHog.
 
@@ -90,20 +91,9 @@
                 properties["$screen_name"] = screenName
             }
 
-            let elements = event.viewHierarchy.map { node -> [String: Any] in
-                [
-                    "text": node.text,
-                    "tag_name": node.targetClass, // required
-                    "order": node.index,
-                    "attributes": [ // required
-                        "attr__class": node.targetClass,
-                    ],
-                ].compactMapValues { $0 }
-            }
-
             let elementsChain = event.viewHierarchy
-                .map(\.description)
-                .joined(separator: PostHogAutocaptureIntegration.viewHierarchyDelimiter)
+                .map(\.elementsChainEntry)
+                .joined(separator: elementsChainDelimiter)
 
             if let coordinates = event.touchCoordinates {
                 properties["$touch_x"] = coordinates.x
@@ -112,7 +102,6 @@
 
             PostHogSDK.shared.autocapture(
                 eventType: eventType,
-                elements: elements,
                 elementsChain: elementsChain,
                 properties: properties
             )

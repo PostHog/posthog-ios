@@ -13,25 +13,31 @@
             let touchCoordinates: CGPoint?
             let value: String?
             let screenName: String?
-            let viewHierarchy: [ViewNode]
-            let targetClass: String
-            let accessibilityLabel: String?
-            let accessibilityIdentifier: String?
+            let viewHierarchy: [Element]
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
         }
 
-        struct ViewNode: CustomStringConvertible {
+        struct Element {
             let text: String
             let targetClass: String
-            let index: Int
-            let subviewCount: Int
+            let baseClass: String?
+            let label: String?
 
-            // used when building $elements_chain
-            // Note: For some reason text will not be processed if not present in elements_chain string.
-            // Couldn't pinpoint to exact place in `posthog` repo where we check for this though
-            var description: String {
-                "\(targetClass)\(text.isEmpty ? "" : ":text=\"\(text)\"")"
+            var elementsChainEntry: String {
+                var attributes = [String]()
+
+                if !text.isEmpty {
+                    attributes.append("text=\(text.quoted)")
+                }
+                if let baseClass, !baseClass.isEmpty {
+                    attributes.append("attr__class=\(baseClass.quoted)")
+                }
+                if let label, !label.isEmpty {
+                    attributes.append("attr_id=\(label.quoted)")
+                }
+
+                return attributes.isEmpty ? targetClass : "\(targetClass):\(attributes.joined())"
             }
         }
 
@@ -232,23 +238,27 @@
 
     extension UIPickerView {
         @objc func ph_swizzled_setDelegate(_ delegate: (any UIPickerViewDelegate)?) {
-            // If the delegate implements pickerView(_:didSelectRow:inComponent:), swizzle it
             guard let delegate else {
+                // this just removes the delegate
                 return ph_swizzled_setDelegate(delegate)
             }
+
+            // if delegate doesn't respond to this selector, then we can't intercept selection changes
             guard delegate.responds(to: #selector(UIPickerViewDelegate.pickerView(_:didSelectRow:inComponent:))) else {
                 return ph_swizzled_setDelegate(delegate)
             }
 
-            let forwardingDelegate = ForwardingDelegateSelector.selectDelegate(for: delegate) { [weak self] in
+            // wrap in a forwarding delegate so we can intercept calls
+            let forwardingDelegate = ForwardingPickerViewDelegate(delegate: delegate) { [weak self] in
                 if let data = self?.eventData {
                     PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: EventType.kValueChange), event: data)
                 }
             }
 
             // Need to keep a strong reference to keep this forwarding delegate instance alive
-            delegate.phForwardingDelegate = forwardingDelegate
+            delegate.ph_forwardingDelegate = forwardingDelegate
 
+            // call original setter
             ph_swizzled_setDelegate(forwardingDelegate)
         }
     }
@@ -264,23 +274,19 @@
                     .flatMap(UIViewController.ph_topViewController)
                     .flatMap(UIViewController.getViewControllerName),
                 viewHierarchy: sequence(first: self, next: \.superview)
-                    .enumerated()
-                    .map { $1.viewNode(index: $0) },
-                targetClass: descriptiveTypeName,
-                accessibilityLabel: accessibilityLabel,
-                accessibilityIdentifier: accessibilityIdentifier,
+                    .map(\.toElement),
                 debounceInterval: ph_autocaptureDebounceInterval
             )
         }
     }
 
-    extension UIView {
-        func viewNode(index: Int) -> PostHogAutocaptureEventTracker.ViewNode {
-            PostHogAutocaptureEventTracker.ViewNode(
+    private extension UIView {
+        var toElement: PostHogAutocaptureEventTracker.Element {
+            PostHogAutocaptureEventTracker.Element(
                 text: ph_autocaptureText.map(sanitizeText) ?? "",
                 targetClass: descriptiveTypeName,
-                index: index,
-                subviewCount: subviews.count
+                baseClass: baseTypeName,
+                label: postHogLabel
             )
         }
     }
@@ -377,9 +383,37 @@
         }
     }
 
+    private func typeName(of type: AnyClass) -> String {
+        let typeName = String(describing: type)
+        if let match = typeName.range(of: "^[^<]+", options: .regularExpression) {
+            // Extracts everything before the first '<' to deal with generics
+            return String(typeName[match])
+        }
+        return typeName
+    }
+
+    // common base types in UIKit that should not be captured
+    private let excludedBaseTypes: [AnyClass] = [
+        NSObject.self,
+        UIResponder.self,
+        UIControl.self,
+        UIView.self,
+        UIScrollView.self,
+    ]
+
     extension NSObject {
         var descriptiveTypeName: String {
-            String(describing: type(of: self))
+            typeName(of: type(of: self))
+        }
+
+        var baseTypeName: String? {
+            guard
+                let superclass = type(of: self).superclass(),
+                !excludedBaseTypes.contains(where: { $0 == superclass })
+            else {
+                return nil
+            }
+            return typeName(of: superclass)
         }
     }
 
@@ -395,7 +429,7 @@
         @objc var ph_autocaptureText: String? { nil }
         @objc var ph_autocaptureDebounceInterval: TimeInterval { 0 }
         @objc func ph_shouldTrack(_: Selector, for _: Any?) -> Bool {
-            false // by default views are not tracked. Can be overriden in subclasses
+            false // by default views are not tracked. Can be overridden in subclasses
         }
     }
 
@@ -507,7 +541,7 @@
         return true
     }
 
-    // TODO: Filter out or obfuscsate strings that look like sensitive data
+    // TODO: Filter out or obfuscate strings that look like sensitive data
     // see: https://github.com/PostHog/posthog-js/blob/0cfffcac9bdf1da3fbb9478c1a51170a325bd57f/src/autocapture-utils.ts#L389
     private func sanitizeText(_ title: String) -> String {
         title
@@ -542,6 +576,8 @@
         static let kLongPress = "long_press"
     }
 
+    // MARK: - Helpers
+
     private extension String {
         func limit(to length: Int) -> String {
             if count > length {
@@ -549,6 +585,10 @@
                 return String(self[..<index]) + "..."
             }
             return self
+        }
+
+        var quoted: String {
+            "\"\(self)\""
         }
     }
 

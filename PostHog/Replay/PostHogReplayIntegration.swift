@@ -339,7 +339,7 @@
             }
 
             // manually masked views through view modifier `PostHogMaskViewModifier`
-            if view.phIsManuallyMasked {
+            if view.postHogNoCapture {
                 maskableWidgets.append(view.toAbsoluteRect(window))
                 return
             }

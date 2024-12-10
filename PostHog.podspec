@@ -29,4 +29,11 @@ Pod::Spec.new do |s|
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}'
   ]
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
+
+  s.pod_target_xcconfig = {
+    'USER_HEADER_SEARCH_PATHS' => '$(PODS_ROOT)/vendor/libwebp/src'
+  }
+  unless ENV['PLATFORM_NAME'] == 'visionos'
+    s.vendored_libraries = 'vendor/libwebp/libwebp.a'
+  end
 end

@@ -1,5 +1,7 @@
 ## Next
 
+- feat: change screenshot encoding format from JPEG to WebP ([#273](https://github.com/PostHog/posthog-ios/pull/273))
+
 ## 3.16.2 - 2024-12-05
 
 - fix: ignore autocapture events from keyboard window ([#269](https://github.com/PostHog/posthog-ios/pull/269))

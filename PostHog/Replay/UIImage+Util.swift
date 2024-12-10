@@ -11,18 +11,46 @@
 
     extension UIImage {
         func toBase64(_ compressionQuality: CGFloat = 0.3) -> String? {
-            let jpegData = jpegData(compressionQuality: compressionQuality)
-            let base64 = jpegData?.base64EncodedString()
+            toWebPBase64(compressionQuality) ?? toJpegBase64(compressionQuality)
+        }
 
-            if let base64 = base64 {
-                return "data:image/jpeg;base64,\(base64)"
+        private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {
+            webpData(
+                compressionQuality: compressionQuality,
+                options: [
+                    .alphaQuality(0), // lowest (smallest size)
+                    .filterSharpness(3), // [0 = off .. 7 = least sharp]
+                    .filterStrength(100), // [0 = off .. 100 = strongest]
+                    .filterType(1), // 0 = simple, 1 = strong
+                    .method(5), // (0=fast, 6=slower-better)
+                    .threadLevel(true), // use multi-threaded encoding
+                ]
+            ).map { data in
+                print("WebP Size: \(data.sizeInKB())")
+                return "data:image/webp;base64,\(data.base64EncodedString())"
             }
+        }
 
-            return nil
+        private func toJpegBase64(_ compressionQuality: CGFloat) -> String? {
+            jpegData(compressionQuality: compressionQuality).map { data in
+                print("Jpeg Size: \(data.sizeInKB())")
+                return "data:image/jpeg;base64,\(data.base64EncodedString())"
+            }
         }
     }
 
     public func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? {
         image.toBase64(compressionQuality)
+    }
+
+    extension Data {
+        func sizeInKB() -> String {
+            let bcf = ByteCountFormatter()
+            bcf.allowedUnits = [.useAll]
+            bcf.formattingContext = .standalone
+            bcf.includesActualByteCount = true
+            bcf.countStyle = .binary
+            return bcf.string(fromByteCount: Int64(count))
+        }
     }
 #endif

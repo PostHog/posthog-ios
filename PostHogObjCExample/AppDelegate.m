@@ -6,7 +6,7 @@
 //
 
 #import "AppDelegate.h"
-#import <PostHog/PostHog.h>
+@import PostHog;
 
 @interface AppDelegate ()
 

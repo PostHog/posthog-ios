@@ -41,27 +41,30 @@
     }
 
     private class PostHogMaskViewTaggerView: UIView {
-        override func didMoveToSuperview() {
-            super.didMoveToSuperview()
-            superview?.phIsManuallyMasked = true
+        private weak var maskedView: UIView?
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            // ### Why grandparent view?
+            //
+            // Because of SwiftUI-to-UIKit view bridging:
+            //     OriginalView (SwiftUI) <- we tag here
+            //       L PostHogMaskViewTagger (ViewRepresentable)
+            //           L PostHogMaskViewTaggerView (UIView) <- we are here
+            maskedView = superview?.superview
+            superview?.superview?.postHogNoCapture = true
+        }
+
+        override func removeFromSuperview() {
+            super.removeFromSuperview()
+            maskedView?.postHogNoCapture = false
+            maskedView = nil
         }
     }
 
-    private var phIsManuallyMaskedKey: UInt8 = 0
     extension UIView {
-        var phIsManuallyMasked: Bool {
-            get {
-                objc_getAssociatedObject(self, &phIsManuallyMaskedKey) as? Bool ?? false
-            }
-
-            set {
-                objc_setAssociatedObject(
-                    self,
-                    &phIsManuallyMaskedKey,
-                    newValue as Bool?,
-                    .OBJC_ASSOCIATION_RETAIN_NONATOMIC
-                )
-            }
+        var postHogNoCapture: Bool {
+            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoCapture) as? Bool ?? false }
+            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoCapture, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         }
     }
 #endif

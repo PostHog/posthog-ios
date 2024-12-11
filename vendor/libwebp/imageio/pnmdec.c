@@ -9,7 +9,7 @@
 //
 // (limited) PNM decoder
 
-#include "./pnmdec.h"
+#include "pnmdec.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -17,8 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "webp/encode.h"
-#include "./imageio_util.h"
+#include "encode.h"
+#include "imageio_util.h"
 
 #if defined(_MSC_VER) && _MSC_VER < 1900
 #define snprintf _snprintf

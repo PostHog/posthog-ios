@@ -9,10 +9,10 @@
 //
 // Windows Imaging Component (WIC) decode.
 
-#include "./wicdec.h"
+#include "wicdec.h"
 
 #ifdef HAVE_CONFIG_H
-#include "webp/config.h"
+#include "config.h"
 #endif
 
 #include <assert.h>
@@ -33,10 +33,10 @@
 #include <windows.h>
 #include <wincodec.h>
 
-#include "../examples/unicode.h"
-#include "./imageio_util.h"
-#include "./metadata.h"
-#include "webp/encode.h"
+#include "unicode.h"
+#include "imageio_util.h"
+#include "metadata.h"
+#include "encode.h"
 
 #define IFS(fn)                                                     \
   do {                                                              \

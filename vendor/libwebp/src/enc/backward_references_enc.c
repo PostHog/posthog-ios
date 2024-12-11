@@ -10,18 +10,18 @@
 // Author: Jyrki Alakuijala (jyrki@google.com)
 //
 
-#include "src/enc/backward_references_enc.h"
+#include "backward_references_enc.h"
 
 #include <assert.h>
 
-#include "src/dsp/dsp.h"
-#include "src/dsp/lossless.h"
-#include "src/dsp/lossless_common.h"
-#include "src/enc/histogram_enc.h"
-#include "src/enc/vp8i_enc.h"
-#include "src/utils/color_cache_utils.h"
-#include "src/utils/utils.h"
-#include "src/webp/encode.h"
+#include "dsp.h"
+#include "lossless.h"
+#include "lossless_common.h"
+#include "histogram_enc.h"
+#include "vp8i_enc.h"
+#include "color_cache_utils.h"
+#include "utils.h"
+#include "encode.h"
 
 #define MIN_BLOCK_SIZE 256  // minimum block size for backward references
 

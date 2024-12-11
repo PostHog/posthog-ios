@@ -26,31 +26,18 @@
                     .threadLevel(true), // use multi-threaded encoding
                 ]
             ).map { data in
-                print("WebP Size: \(data.sizeInKB())")
-                return "data:image/webp;base64,\(data.base64EncodedString())"
+                "data:image/webp;base64,\(data.base64EncodedString())"
             }
         }
 
         private func toJpegBase64(_ compressionQuality: CGFloat) -> String? {
             jpegData(compressionQuality: compressionQuality).map { data in
-                print("Jpeg Size: \(data.sizeInKB())")
-                return "data:image/jpeg;base64,\(data.base64EncodedString())"
+                "data:image/jpeg;base64,\(data.base64EncodedString())"
             }
         }
     }
 
     public func imageToBase64(_ image: UIImage, _ compressionQuality: CGFloat = 0.3) -> String? {
         image.toBase64(compressionQuality)
-    }
-
-    extension Data {
-        func sizeInKB() -> String {
-            let bcf = ByteCountFormatter()
-            bcf.allowedUnits = [.useAll]
-            bcf.formattingContext = .standalone
-            bcf.includesActualByteCount = true
-            bcf.countStyle = .binary
-            return bcf.string(fromByteCount: Int64(count))
-        }
     }
 #endif

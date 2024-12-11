@@ -13,16 +13,16 @@
 //          Jyrki Alakuijala (jyrki@google.com)
 //          Urvang Joshi (urvang@google.com)
 
-#include "src/dsp/dsp.h"
+#include "dsp.h"
 
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
-#include "src/dec/vp8li_dec.h"
-#include "src/utils/endian_inl_utils.h"
-#include "src/dsp/lossless.h"
-#include "src/dsp/lossless_common.h"
-#include "src/dsp/yuv.h"
+#include "vp8li_dec.h"
+#include "endian_inl_utils.h"
+#include "lossless.h"
+#include "lossless_common.h"
+#include "yuv.h"
 
 // lookup table for small values of log2(int) * (1 << LOG_2_PRECISION_BITS).
 // Obtained in Python with:

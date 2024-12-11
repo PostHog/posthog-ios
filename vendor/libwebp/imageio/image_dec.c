@@ -9,7 +9,7 @@
 //
 // Generic image-type guessing.
 
-#include "./image_dec.h"
+#include "image_dec.h"
 
 const char* WebPGetEnabledInputFileFormats(void) {
   return "WebP"

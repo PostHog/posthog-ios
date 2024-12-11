@@ -9,7 +9,7 @@
 //
 // Save image
 
-#include "./image_enc.h"
+#include "image_enc.h"
 
 #include <assert.h>
 #include <string.h>
@@ -34,8 +34,8 @@
 #include <wincodec.h>
 #endif
 
-#include "./imageio_util.h"
-#include "../examples/unicode.h"
+#include "imageio_util.h"
+#include "unicode.h"
 
 //------------------------------------------------------------------------------
 // PNG

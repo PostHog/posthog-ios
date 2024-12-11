@@ -13,9 +13,9 @@
 
 #include <assert.h>
 
-#include "src/dsp/dsp.h"
-#include "src/dec/vp8i_dec.h"
-#include "src/utils/utils.h"
+#include "dsp.h"
+#include "vp8i_dec.h"
+#include "utils.h"
 
 //------------------------------------------------------------------------------
 

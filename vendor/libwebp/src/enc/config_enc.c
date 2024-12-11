@@ -12,10 +12,10 @@
 // Author: Skal (pascal.massimino@gmail.com)
 
 #ifdef HAVE_CONFIG_H
-#include "src/webp/config.h"
+#include "config.h"
 #endif
 
-#include "src/webp/encode.h"
+#include "encode.h"
 
 //------------------------------------------------------------------------------
 // WebPConfig

@@ -15,15 +15,15 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "sharpyuv/sharpyuv.h"
-#include "sharpyuv/sharpyuv_csp.h"
-#include "src/enc/vp8i_enc.h"
-#include "src/utils/random_utils.h"
-#include "src/utils/utils.h"
-#include "src/dsp/dsp.h"
-#include "src/dsp/lossless.h"
-#include "src/dsp/yuv.h"
-#include "src/dsp/cpu.h"
+#include "sharpyuv.h"
+#include "sharpyuv_csp.h"
+#include "vp8i_enc.h"
+#include "random_utils.h"
+#include "utils.h"
+#include "dsp.h"
+#include "lossless.h"
+#include "yuv.h"
+#include "cpu.h"
 
 #if defined(WEBP_USE_THREAD) && !defined(_WIN32)
 #include <pthread.h>

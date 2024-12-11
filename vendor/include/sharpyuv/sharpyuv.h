@@ -1,1 +1,0 @@
-../../libwebp/sharpyuv/sharpyuv.h

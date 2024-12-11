@@ -1220,7 +1220,7 @@ adab8ce0 Implement a cruncher for lossless at method 6.
 f7682189 yuv: rationalize the C/SSE2 function naming
 52245424 NEON implementation of some Sharp-YUV420 functions
 690efd82 Avoid several backward reference copies.
-4bb1f607 src/dec/vp8_dec.h, cosmetics: fix comments
+4bb1f607 vp8_dec.h, cosmetics: fix comments
 285748be cmake: build/install webpinfo
 78fd199c backward_references_enc.c: clear -Wshadow warnings
 ae836410 WebPLog2FloorC: clear -Wshadow warning
@@ -1507,7 +1507,7 @@ aaf2a6a6 systematically call WebPDemuxReleaseIterator() on dec->prev_iter_
 20ef9915 Merge "imageio_util: add ImgIoUtilCheckSizeArgumentsOverflow"
 bc86b7a8 imageio_util: add ImgIoUtilCheckSizeArgumentsOverflow
 806f6279 gif2webp: fix crash with NULL extension data
-68ae5b67 Add libwebp/src/mux/animi.h
+68ae5b67 Add libwebp/animi.h
 28ce3043 Remove some errors when compiling the code as C++.
 b34abcb8 Favor keeping the areas locally similar in spatial prediction mode selection
 ba843a92 fix some SSIM calculations
@@ -2352,7 +2352,7 @@ f8740f0d dsp: s/USE_INTRINSICS/WEBP_USE_INTRINSICS/
 ce73abe0 Merge "introduce a separate WebPRescalerDspInit to initialize pointers"
 ab66beca introduce a separate WebPRescalerDspInit to initialize pointers
 205c7f26 fix handling of zero-sized partition #0 corner case
-cbcdd5ff Merge "move rescaler functions to rescaler* files in src/dsp/"
+cbcdd5ff Merge "move rescaler functions to rescaler* files in "
 bf586e88 Merge changes I230b3532,Idf3057a7
 6dc79dc2 Merge "anim_encode: fix type conversion warnings"
 11fce25a Merge "dec_neon: remove returns from void functions"
@@ -2362,7 +2362,7 @@ c4e63f99 Makefile.vc: add gif2webp target
 e7c5954c dec_neon: remove returns from void functions
 f79c163b anim_encode: fix type conversion warnings
 0f54f1ec Remove gif2webp_util which is no longer needed.
-cbcbedd0 move rescaler functions to rescaler* files in src/dsp/
+cbcbedd0 move rescaler functions to rescaler* files in 
 ac79ed19 webpmux: remove experimental fragment handling
 e8694d4d mux: remove experimental FRGM parsing
 9e92b6ea AnimEncoder API: Optimize single-frame animated images
@@ -2727,9 +2727,9 @@ bbe32df1 add alpha dithering for lossy
 24e30805 Add an interface abstraction to the WebP worker thread implementation
 d6cd6358 Merge "fix orig_rect==NULL case"
 2bfd1ffa fix orig_rect==NULL case
-059e21c1 Merge "configure: move config.h to src/webp/config.h"
+059e21c1 Merge "configure: move config.h to config.h"
 f05fe006 properly report back encoding error code in WebPFrameCacheAddFrame()
-32b31379 configure: move config.h to src/webp/config.h
+32b31379 configure: move config.h to config.h
 90090d99 Merge changes I7c675e51,I84f7d785
 ae7661b3 makefiles: define WEBP_HAVE_AVX2 when appropriate
 69fce2ea remove the special casing for res->first in VP8SetResidualCoeffs
@@ -3726,7 +3726,7 @@ d3dace2f cosmetics: jpegdec
 63aba3ae cwebp: add metadata framework
 931bd516 lossless bitstream: block size bits correction
 e4fc4c1c lossless bitstream: block size bits correction
-d65ec678 fix build, move token.c to src/enc/
+d65ec678 fix build, move token.c to 
 657f5c91 move token buffer to its own file (token.c)
 c34a3758 introduce GetLargeValue() to slim-fast GetCoeffs().
 d5838cd5 faster non-transposing SSE2 4x4 FTransform
@@ -3838,7 +3838,7 @@ a6ae04d4 VP8LAllocateHistogramSet: fix overflow in size calculation
 a792b913 fix the -g/O3 discrepancy for 32bit compile
 73ba4357 Merge "detect and merge similar segments"
 fee66275 detect and merge similar segments
-0c44f415 src/webp/*.h: don't forward declare enums in C++
+0c44f415 *.h: don't forward declare enums in C++
 d7a5ac86 vwebp: use demux interface
 931e0ea1 Merge "replace 'typedef struct {} X;" by "typedef struct X X; struct X {};""
 8f216f7e remove cases of equal comparison for qsort()
@@ -4432,11 +4432,11 @@ b309a6f9 fix Mach-O shared library build
 241ddd38 doc: delete mux container pdf
 8b1ba272 doc: update VP8 decode guide link
 7e4371c5 WebPMuxCreate: fix unchecked malloc
-eb425586 Merge "have makefile.unix clean up src/webp/*~ too"
+eb425586 Merge "have makefile.unix clean up *~ too"
 a85c3631 Merge "correct EncodeAlpha documentation"
 a33842fd Merge "Update webp container spec with alpha filter options."
 8d6490da Incremental support for some of the mux APIs.
-b8375abd have makefile.unix clean up src/webp/*~ too
+b8375abd have makefile.unix clean up *~ too
 b5855fc7 correct EncodeAlpha documentation
 dba37fea Update webp container spec with alpha filter options.
 2e74ec8b fix compile under MINGW

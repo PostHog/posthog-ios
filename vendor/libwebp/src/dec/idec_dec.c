@@ -15,12 +15,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "src/dec/alphai_dec.h"
-#include "src/dec/webpi_dec.h"
-#include "src/dec/vp8_dec.h"
-#include "src/dec/vp8i_dec.h"
-#include "src/utils/utils.h"
-#include "src/webp/decode.h"
+#include "alphai_dec.h"
+#include "webpi_dec.h"
+#include "vp8_dec.h"
+#include "vp8i_dec.h"
+#include "utils.h"
+#include "decode.h"
 
 // In append mode, buffer allocations increase as multiples of this value.
 // Needs to be a power of 2.

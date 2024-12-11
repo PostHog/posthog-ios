@@ -9,7 +9,7 @@
 //
 // PNG decode.
 
-#include "./pngdec.h"
+#include "pngdec.h"
 
 #ifdef HAVE_CONFIG_H
 #include "webp/config.h"
@@ -26,9 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "webp/encode.h"
-#include "./imageio_util.h"
-#include "./metadata.h"
+#include "encode.h"
+#include "imageio_util.h"
+#include "metadata.h"
 
 #define LOCAL_PNG_VERSION ((PNG_LIBPNG_VER_MAJOR << 8) | PNG_LIBPNG_VER_MINOR)
 #define LOCAL_PNG_PREREQ(maj, min) \

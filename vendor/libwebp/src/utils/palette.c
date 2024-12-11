@@ -11,16 +11,16 @@
 //
 // Author: Vincent Rabaud (vrabaud@google.com)
 
-#include "src/utils/palette.h"
+#include "palette.h"
 
 #include <assert.h>
 #include <stdlib.h>
 
-#include "src/dsp/lossless_common.h"
-#include "src/utils/color_cache_utils.h"
-#include "src/utils/utils.h"
-#include "src/webp/encode.h"
-#include "src/webp/format_constants.h"
+#include "lossless_common.h"
+#include "color_cache_utils.h"
+#include "utils.h"
+#include "encode.h"
+#include "format_constants.h"
 
 // -----------------------------------------------------------------------------
 

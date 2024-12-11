@@ -258,7 +258,7 @@ endforeach()
 
 # Generate the config.h file.
 configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/config.h.in
-               ${CMAKE_CURRENT_BINARY_DIR}/src/webp/config.h @ONLY)
+               ${CMAKE_CURRENT_BINARY_DIR}/config.h @ONLY)
 add_definitions(-DHAVE_CONFIG_H)
 
 # Set the version numbers.
@@ -383,8 +383,8 @@ target_include_directories(
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 set_target_properties(
   webpdecoder
-  PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/webp/decode.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/types.h")
+  PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/decode.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/types.h")
 
 configure_pkg_config("src/libwebpdecoder.pc")
 
@@ -414,9 +414,9 @@ target_include_directories(
          $<INSTALL_INTERFACE:include>)
 set_target_properties(
   webp
-  PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/webp/decode.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/encode.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/types.h")
+  PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/decode.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/encode.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/types.h")
 
 # Make sure the OBJECT libraries are built with position independent code (it is
 # not ON by default).
@@ -434,10 +434,10 @@ set_target_properties(
   webpdemux
   PROPERTIES
     PUBLIC_HEADER
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/webp/decode.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/demux.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/mux_types.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/types.h")
+    "${CMAKE_CURRENT_SOURCE_DIR}/decode.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/demux.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/mux_types.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/types.h")
 
 configure_pkg_config("src/demux/libwebpdemux.pc")
 
@@ -548,15 +548,15 @@ if(WEBP_BUILD_LIBWEBPMUX)
   target_link_libraries(libwebpmux webp)
   target_include_directories(libwebpmux PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
                                                 ${CMAKE_CURRENT_SOURCE_DIR})
-  set_version(src/mux/Makefile.am libwebpmux webpmux)
+  set_version(Makefile.am libwebpmux webpmux)
   set_target_properties(
     libwebpmux
-    PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/webp/mux.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/mux_types.h;\
-${CMAKE_CURRENT_SOURCE_DIR}/src/webp/types.h;")
+    PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/mux.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/mux_types.h;\
+${CMAKE_CURRENT_SOURCE_DIR}/types.h;")
   set_target_properties(libwebpmux PROPERTIES OUTPUT_NAME webpmux)
   list(APPEND INSTALLED_LIBRARIES libwebpmux)
-  configure_pkg_config("src/mux/libwebpmux.pc")
+  configure_pkg_config("libwebpmux.pc")
 endif()
 
 if(WEBP_BUILD_GIF2WEBP)

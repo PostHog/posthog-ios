@@ -753,15 +753,15 @@ dnl =========================
 dnl Add an empty webp_libname_prefix variable for use in *.pc.in.
 AC_SUBST([webp_libname_prefix])
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADERS([src/webp/config.h])
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile man/Makefile \
                  examples/Makefile extras/Makefile imageio/Makefile \
                  sharpyuv/Makefile sharpyuv/libsharpyuv.pc \
-                 src/dec/Makefile src/enc/Makefile src/dsp/Makefile \
-                 src/demux/Makefile src/mux/Makefile \
-                 src/utils/Makefile \
+                 Makefile Makefile Makefile \
+                 src/demux/Makefile Makefile \
+                 Makefile \
                  src/libwebp.pc src/libwebpdecoder.pc \
-                 src/demux/libwebpdemux.pc src/mux/libwebpmux.pc])
+                 src/demux/libwebpdemux.pc libwebpmux.pc])
 
 dnl fix exports from MinGW builds
 AC_CONFIG_COMMANDS_POST([$SED -i 's/-DDLL_EXPORT/-DWEBP_DLL/' config.status])

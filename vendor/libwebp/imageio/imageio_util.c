@@ -10,7 +10,7 @@
 //  Utility functions used by the image decoders.
 //
 
-#include "./imageio_util.h"
+#include "imageio_util.h"
 
 #if defined(_WIN32)
 #include <fcntl.h>   // for _O_BINARY
@@ -18,7 +18,7 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
-#include "../examples/unicode.h"
+#include "unicode.h"
 
 // -----------------------------------------------------------------------------
 // File I/O

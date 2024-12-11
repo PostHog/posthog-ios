@@ -15,14 +15,14 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "src/dec/alphai_dec.h"
-#include "src/dec/vp8li_dec.h"
-#include "src/dsp/dsp.h"
-#include "src/dsp/lossless.h"
-#include "src/dsp/lossless_common.h"
-#include "src/utils/huffman_utils.h"
-#include "src/utils/utils.h"
-#include "src/webp/format_constants.h"
+#include "alphai_dec.h"
+#include "vp8li_dec.h"
+#include "dsp.h"
+#include "lossless.h"
+#include "lossless_common.h"
+#include "huffman_utils.h"
+#include "utils.h"
+#include "format_constants.h"
 
 #define NUM_ARGB_CACHE_ROWS          16
 

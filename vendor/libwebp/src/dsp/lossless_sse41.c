@@ -9,13 +9,13 @@
 //
 // SSE41 variant of methods for lossless decoder
 
-#include "src/dsp/dsp.h"
+#include "dsp.h"
 
 #if defined(WEBP_USE_SSE41)
 
-#include "src/dsp/common_sse41.h"
-#include "src/dsp/lossless.h"
-#include "src/dsp/lossless_common.h"
+#include "common_sse41.h"
+#include "lossless.h"
+#include "lossless_common.h"
 
 //------------------------------------------------------------------------------
 // Color-space conversion functions

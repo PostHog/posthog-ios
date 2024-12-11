@@ -153,20 +153,20 @@ for PLATFORM in ${PLATFORMS}; do
 done
 
 echo "LIBLIST = ${LIBLIST}"
-cp -a ${SRCDIR}/src/webp/{decode,encode,types}.h ${TARGETDIR}/Headers/
+cp -a ${SRCDIR}/{decode,encode,types}.h ${TARGETDIR}/Headers/
 ${LIPO} -create ${LIBLIST} -output ${TARGETDIR}/WebP
 
 echo "DECLIBLIST = ${DECLIBLIST}"
-cp -a ${SRCDIR}/src/webp/{decode,types}.h ${DECTARGETDIR}/Headers/
+cp -a ${SRCDIR}/{decode,types}.h ${DECTARGETDIR}/Headers/
 ${LIPO} -create ${DECLIBLIST} -output ${DECTARGETDIR}/WebPDecoder
 
 echo "MUXLIBLIST = ${MUXLIBLIST}"
-cp -a ${SRCDIR}/src/webp/{types,mux,mux_types}.h \
+cp -a ${SRCDIR}/{types,mux,mux_types}.h \
     ${MUXTARGETDIR}/Headers/
 ${LIPO} -create ${MUXLIBLIST} -output ${MUXTARGETDIR}/WebPMux
 
 echo "DEMUXLIBLIST = ${DEMUXLIBLIST}"
-cp -a ${SRCDIR}/src/webp/{decode,types,mux_types,demux}.h \
+cp -a ${SRCDIR}/{decode,types,mux_types,demux}.h \
     ${DEMUXTARGETDIR}/Headers/
 ${LIPO} -create ${DEMUXLIBLIST} -output ${DEMUXTARGETDIR}/WebPDemux
 

@@ -253,7 +253,7 @@ model {
       sources {
         c {
           source {
-            srcDir "src/mux/"
+            srcDir ""
             include "anim_encode.c"
             include "muxedit.c"
             include "muxinternal.c"

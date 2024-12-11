@@ -10,12 +10,12 @@
 //  Metadata types and functions.
 //
 
-#include "./metadata.h"
+#include "metadata.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-#include "webp/types.h"
+#include "types.h"
 
 void MetadataInit(Metadata* const metadata) {
   if (metadata == NULL) return;

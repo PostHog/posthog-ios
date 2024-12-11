@@ -16,13 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>  // for abs()
 
-#include "src/mux/animi.h"
-#include "src/utils/utils.h"
-#include "src/webp/decode.h"
-#include "src/webp/encode.h"
-#include "src/webp/format_constants.h"
-#include "src/webp/mux.h"
-#include "src/webp/types.h"
+#include "animi.h"
+#include "utils.h"
+#include "decode.h"
+#include "encode.h"
+#include "format_constants.h"
+#include "mux.h"
+#include "types.h"
 
 #if defined(_MSC_VER) && _MSC_VER < 1900
 #define snprintf _snprintf

@@ -9,10 +9,10 @@
 //
 // TIFF decode.
 
-#include "./tiffdec.h"
+#include "tiffdec.h"
 
 #ifdef HAVE_CONFIG_H
-#include "webp/config.h"
+#include "config.h"
 #endif
 
 #include <limits.h>
@@ -22,9 +22,9 @@
 #ifdef WEBP_HAVE_TIFF
 #include <tiffio.h>
 
-#include "webp/encode.h"
-#include "./imageio_util.h"
-#include "./metadata.h"
+#include "encode.h"
+#include "imageio_util.h"
+#include "metadata.h"
 
 static const struct {
   ttag_t tag;

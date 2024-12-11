@@ -9,10 +9,10 @@
 //
 // JPEG decode.
 
-#include "./jpegdec.h"
+#include "jpegdec.h"
 
 #ifdef HAVE_CONFIG_H
-#include "webp/config.h"
+#include "config.h"
 #endif
 
 #include <stdio.h>
@@ -24,9 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "webp/encode.h"
-#include "./imageio_util.h"
-#include "./metadata.h"
+#include "encode.h"
+#include "imageio_util.h"
+#include "metadata.h"
 
 // -----------------------------------------------------------------------------
 // Metadata processing

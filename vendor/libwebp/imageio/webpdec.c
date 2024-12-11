@@ -13,18 +13,18 @@
 #include "webp/config.h"
 #endif
 
-#include "./webpdec.h"
+#include "webpdec.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "webp/decode.h"
-#include "webp/demux.h"
-#include "webp/encode.h"
-#include "../examples/unicode.h"
-#include "./imageio_util.h"
-#include "./metadata.h"
+#include "decode.h"
+#include "demux.h"
+#include "encode.h"
+#include "unicode.h"
+#include "imageio_util.h"
+#include "metadata.h"
 
 //------------------------------------------------------------------------------
 // WebP decoding

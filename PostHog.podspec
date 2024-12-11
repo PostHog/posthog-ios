@@ -26,14 +26,13 @@ Pod::Spec.new do |s|
   s.frameworks = 'Foundation'
 
   s.source_files = [
-    'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}'
+    'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
+     'vendor/**/*.{h,c}'
   ]
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
 
-  s.pod_target_xcconfig = {
-    'USER_HEADER_SEARCH_PATHS' => '$(PODS_ROOT)/vendor/libwebp/src'
-  }
-  unless ENV['PLATFORM_NAME'] == 'visionos'
-    s.vendored_libraries = 'vendor/libwebp/libwebp.a'
-  end
+  s.preserve_path = 'vendor/libwebp/sharpyuv/*.{h,c}', 'vendor/libwebp/src/*.{h,c}', 'vendor/include/*.h'
+  s.public_header_files = 'vendor/include/*.h'
+  
+  s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }  
 end

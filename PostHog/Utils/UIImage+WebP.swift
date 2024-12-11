@@ -10,7 +10,9 @@
     import Accelerate
     import CoreGraphics
     import Foundation
-    import libwebp
+    #if canImport(libwebp)
+        import libwebp
+    #endif
     import UIKit
 
     extension UIImage {

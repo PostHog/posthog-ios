@@ -5,7 +5,6 @@
 //  Created by Ben White on 10.01.23.
 //
 
-
 #import <Foundation/Foundation.h>
 
 //! Project version number for PostHog.

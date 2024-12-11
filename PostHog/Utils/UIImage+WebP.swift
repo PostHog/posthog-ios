@@ -11,6 +11,7 @@
     import CoreGraphics
     import Foundation
     #if canImport(libwebp)
+        // SPM package is linked via a lib since mix-code is not yet supported
         import libwebp
     #endif
     import UIKit

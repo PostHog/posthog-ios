@@ -16,8 +16,6 @@
 
 #include <assert.h>
 #include <stdlib.h>
-//#include "vp8i_dec.h"
-//#include "vp8li_dec.h"
 #include "mux.h"
 
 #ifdef __cplusplus

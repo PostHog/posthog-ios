@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 09/12/2024.
 //
 
-#if canImport(UIKit)
+#if canImport(UIKit) || targetEnvironment(macCatalyst)
     import Foundation
     import Nimble
     @testable import PostHog

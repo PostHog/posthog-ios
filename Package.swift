@@ -33,10 +33,10 @@ let package = Package(
         ),
         .target(
             name: "libwebp",
-            path: "vendor",
-            sources: ["libwebp/src", "libwebp/include"],
+            path: "vendor/libwebp",
+            sources: ["src", "include"],
             cSettings: [
-                .headerSearchPath("libwebp/include"),
+                .headerSearchPath("include"),
             ]
         ),
         .testTarget(

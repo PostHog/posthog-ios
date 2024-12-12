@@ -111,6 +111,9 @@
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		69F5183A2BB2BA8300F52C14 /* UIApplicationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */; };
 		DA0CA6F12CFF6B6300AF9500 /* UIWindow+.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0CA6F02CFF6B6300AF9500 /* UIWindow+.swift */; };
+		DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */; };
+		DA1044892D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */; };
+		DA1044902D0B1D4300C4ACF3 /* AssociatedKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */; };
 		DA26419C2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */; };
 		DA5AA7192CE245D2004EFB99 /* UIApplication+.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5AA7132CE245CD004EFB99 /* UIApplication+.swift */; };
 		DA5B85882CD21CBB00686389 /* AutocaptureEventProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */; };
@@ -433,6 +436,9 @@
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
 		69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIApplicationTracker.swift; sourceTree = "<group>"; };
 		DA0CA6F02CFF6B6300AF9500 /* UIWindow+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIWindow+.swift"; sourceTree = "<group>"; };
+		DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogLabel.swift"; sourceTree = "<group>"; };
+		DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+PostHogLabel.swift"; sourceTree = "<group>"; };
+		DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssociatedKeys.swift; sourceTree = "<group>"; };
 		DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTracker.swift; sourceTree = "<group>"; };
 		DA5AA7132CE245CD004EFB99 /* UIApplication+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+.swift"; sourceTree = "<group>"; };
 		DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocaptureEventProcessing.swift; sourceTree = "<group>"; };
@@ -680,6 +686,7 @@
 				699C5FE52C20178E007DB818 /* UUIDUtils.swift */,
 				690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */,
 				DAF95F502D072F04001E82BB /* UIImage+WebP.swift */,
+				DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -926,9 +933,19 @@
 			path = PostHogExampleStoryboard;
 			sourceTree = "<group>";
 		};
+		DA1044862D0B1D2D00C4ACF3 /* SwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */,
+			);
+			path = SwiftUI;
+			sourceTree = "<group>";
+		};
 		DA26419B2CC0499300CB427B /* Autocapture */ = {
 			isa = PBXGroup;
 			children = (
+				DA1044862D0B1D2D00C4ACF3 /* SwiftUI */,
+				DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */,
 				DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */,
 				DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */,
 				DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */,
@@ -1626,6 +1643,8 @@
 				DAB0714C2D09A81F005B1C9B /* ssim.c in Sources */,
 				DAB0714E2D09A81F005B1C9B /* cost_neon.c in Sources */,
 				DAB0714F2D09A81F005B1C9B /* muxinternal.c in Sources */,
+				DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */,
+				DA1044892D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift in Sources */,
 				DAB071502D09A81F005B1C9B /* dec_clip_tables.c in Sources */,
 				DAB071532D09A81F005B1C9B /* filters.c in Sources */,
 				DAB071572D09A81F005B1C9B /* enc_neon.c in Sources */,
@@ -1653,6 +1672,7 @@
 				69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */,
 				69EE82BC2BA9C53000EB9542 /* PostHogSessionReplayConfig.swift in Sources */,
 				DA5AA7192CE245D2004EFB99 /* UIApplication+.swift in Sources */,
+				DA1044902D0B1D4300C4ACF3 /* AssociatedKeys.swift in Sources */,
 				69EE82CE2BAAC76000EB9542 /* ViewTreeSnapshotStatus.swift in Sources */,
 				69ED1AD42C90A0F100FE7A91 /* URLSessionExtension.swift in Sources */,
 				69ED1A9F2C8F451B00FE7A91 /* PostHogPersonProfiles.swift in Sources */,

@@ -92,7 +92,6 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
-                
                 Section("General") {
                     NavigationLink {
                         ContentView()

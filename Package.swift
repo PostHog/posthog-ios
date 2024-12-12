@@ -34,9 +34,9 @@ let package = Package(
         .target(
             name: "libwebp",
             path: "vendor",
-            sources: ["libwebp/src", "libwebp/sharpyuv", "include"],
+            sources: ["libwebp/src", "libwebp/include"],
             cSettings: [
-                .headerSearchPath("include"),
+                .headerSearchPath("libwebp/include"),
             ]
         ),
         .testTarget(

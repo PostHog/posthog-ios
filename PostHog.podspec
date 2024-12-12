@@ -27,12 +27,7 @@ Pod::Spec.new do |s|
 
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
-    'vendor/**/*.{h,c}'
+    'vendor/libwebp/**/*.{h,c}'
   ]
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
-
-  s.preserve_path = 'vendor/libwebp/sharpyuv/*.{h,c}', 'vendor/libwebp/src/*.{h,c}', 'vendor/include/*.h'
-  s.public_header_files = 'vendor/include/*.h'
-  
-  s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }  
 end

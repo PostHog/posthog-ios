@@ -122,56 +122,56 @@
 		DA71854D2D07E11200396388 /* input_1.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185422D07E11200396388 /* input_1.png */; };
 		DA787DAF2D0A3CDD00F81F6A /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA787DB02D0A3CDD00F81F6A /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		DA787DBF2D0ACEF100F81F6A /* sharpyuv_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DA787DB92D0ACEF100F81F6A /* sharpyuv_neon.c */; };
-		DA787DC02D0ACEF100F81F6A /* sharpyuv_csp.c in Sources */ = {isa = PBXBuildFile; fileRef = DA787DB62D0ACEF100F81F6A /* sharpyuv_csp.c */; };
-		DA787DC12D0ACEF100F81F6A /* sharpyuv.c in Sources */ = {isa = PBXBuildFile; fileRef = DA787DB42D0ACEF100F81F6A /* sharpyuv.c */; };
-		DA787DC22D0ACEF100F81F6A /* sharpyuv_dsp.c in Sources */ = {isa = PBXBuildFile; fileRef = DA787DB72D0ACEF100F81F6A /* sharpyuv_dsp.c */; };
-		DA787DC42D0ACF2B00F81F6A /* sharpyuv_gamma.c in Sources */ = {isa = PBXBuildFile; fileRef = DA787DC32D0ACF2B00F81F6A /* sharpyuv_gamma.c */; };
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
 		DAAB2E8F2D081FF0009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E8E2D081FF0009AA3A3 /* PostHog */; };
 		DAAB2E912D081FFA009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E902D081FFA009AA3A3 /* PostHog */; };
 		DAAB2E932D082003009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E922D082003009AA3A3 /* PostHog */; };
 		DAAB2E9B2D08223F009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E9A2D08223F009AA3A3 /* PostHog */; };
-		DAAC94D12D0AE93A006A9B6E /* sharpyuv_cpu.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94D02D0AE93A006A9B6E /* sharpyuv_cpu.h */; };
-		DAAC94D32D0AE94B006A9B6E /* sharpyuv_cpu.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D22D0AE94B006A9B6E /* sharpyuv_cpu.c */; };
+		DAAC94DB2D0B0455006A9B6E /* sharpyuv_csp.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D62D0B0455006A9B6E /* sharpyuv_csp.c */; };
+		DAAC94DC2D0B0455006A9B6E /* sharpyuv.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D42D0B0455006A9B6E /* sharpyuv.c */; };
+		DAAC94DD2D0B0455006A9B6E /* sharpyuv_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D92D0B0455006A9B6E /* sharpyuv_neon.c */; };
+		DAAC94DE2D0B0455006A9B6E /* sharpyuv_cpu.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D52D0B0455006A9B6E /* sharpyuv_cpu.c */; };
+		DAAC94DF2D0B0455006A9B6E /* sharpyuv_dsp.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D72D0B0455006A9B6E /* sharpyuv_dsp.c */; };
+		DAAC94E02D0B0455006A9B6E /* sharpyuv_gamma.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D82D0B0455006A9B6E /* sharpyuv_gamma.c */; };
+		DAAC95082D0B0467006A9B6E /* vp8li_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95052D0B0467006A9B6E /* vp8li_enc.h */; };
+		DAAC95092D0B0467006A9B6E /* color_cache_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E42D0B0467006A9B6E /* color_cache_utils.h */; };
+		DAAC950A2D0B0467006A9B6E /* lossless.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F02D0B0467006A9B6E /* lossless.h */; };
+		DAAC950B2D0B0467006A9B6E /* neon.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F52D0B0467006A9B6E /* neon.h */; };
+		DAAC950C2D0B0467006A9B6E /* quant_levels_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F82D0B0467006A9B6E /* quant_levels_utils.h */; };
+		DAAC950D2D0B0467006A9B6E /* dsp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E92D0B0467006A9B6E /* dsp.h */; };
+		DAAC950E2D0B0467006A9B6E /* vp8i_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95042D0B0467006A9B6E /* vp8i_enc.h */; };
+		DAAC950F2D0B0467006A9B6E /* endian_inl_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94EB2D0B0467006A9B6E /* endian_inl_utils.h */; };
+		DAAC95102D0B0467006A9B6E /* mux_types.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F32D0B0467006A9B6E /* mux_types.h */; };
+		DAAC95112D0B0467006A9B6E /* yuv.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95062D0B0467006A9B6E /* yuv.h */; };
+		DAAC95122D0B0467006A9B6E /* rescaler_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FA2D0B0467006A9B6E /* rescaler_utils.h */; };
+		DAAC95132D0B0467006A9B6E /* palette.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F62D0B0467006A9B6E /* palette.h */; };
+		DAAC95142D0B0467006A9B6E /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95022D0B0467006A9B6E /* utils.h */; };
+		DAAC95152D0B0467006A9B6E /* sharpyuv_cpu.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FC2D0B0467006A9B6E /* sharpyuv_cpu.h */; };
+		DAAC95162D0B0467006A9B6E /* cpu.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E72D0B0467006A9B6E /* cpu.h */; };
+		DAAC95172D0B0467006A9B6E /* filters_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94EC2D0B0467006A9B6E /* filters_utils.h */; };
+		DAAC95182D0B0467006A9B6E /* format_constants.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94ED2D0B0467006A9B6E /* format_constants.h */; };
+		DAAC95192D0B0467006A9B6E /* sharpyuv_dsp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FE2D0B0467006A9B6E /* sharpyuv_dsp.h */; };
+		DAAC951A2D0B0467006A9B6E /* common_dec.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E52D0B0467006A9B6E /* common_dec.h */; };
+		DAAC951B2D0B0467006A9B6E /* huffman_encode_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94EF2D0B0467006A9B6E /* huffman_encode_utils.h */; };
+		DAAC951C2D0B0467006A9B6E /* bit_reader_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E22D0B0467006A9B6E /* bit_reader_utils.h */; };
+		DAAC951D2D0B0467006A9B6E /* encode.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94EA2D0B0467006A9B6E /* encode.h */; };
+		DAAC951E2D0B0467006A9B6E /* random_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F92D0B0467006A9B6E /* random_utils.h */; };
+		DAAC951F2D0B0467006A9B6E /* vp8_dec.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95032D0B0467006A9B6E /* vp8_dec.h */; };
+		DAAC95202D0B0467006A9B6E /* backward_references_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E12D0B0467006A9B6E /* backward_references_enc.h */; };
+		DAAC95212D0B0467006A9B6E /* histogram_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94EE2D0B0467006A9B6E /* histogram_enc.h */; };
+		DAAC95222D0B0467006A9B6E /* cost_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E62D0B0467006A9B6E /* cost_enc.h */; };
+		DAAC95232D0B0467006A9B6E /* types.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95012D0B0467006A9B6E /* types.h */; };
+		DAAC95242D0B0467006A9B6E /* decode.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E82D0B0467006A9B6E /* decode.h */; };
+		DAAC95252D0B0467006A9B6E /* thread_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC95002D0B0467006A9B6E /* thread_utils.h */; };
+		DAAC95262D0B0467006A9B6E /* mux.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F22D0B0467006A9B6E /* mux.h */; };
+		DAAC95272D0B0467006A9B6E /* bit_writer_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94E32D0B0467006A9B6E /* bit_writer_utils.h */; };
+		DAAC95282D0B0467006A9B6E /* lossless_common.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F12D0B0467006A9B6E /* lossless_common.h */; };
+		DAAC95292D0B0467006A9B6E /* quant.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F72D0B0467006A9B6E /* quant.h */; };
+		DAAC952A2D0B0467006A9B6E /* muxi.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94F42D0B0467006A9B6E /* muxi.h */; };
+		DAAC952B2D0B0467006A9B6E /* sharpyuv_csp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FD2D0B0467006A9B6E /* sharpyuv_csp.h */; };
+		DAAC952C2D0B0467006A9B6E /* sharpyuv_gamma.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FF2D0B0467006A9B6E /* sharpyuv_gamma.h */; };
+		DAAC952D2D0B0467006A9B6E /* sharpyuv.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FB2D0B0467006A9B6E /* sharpyuv.h */; };
 		DAB06F9F2D09A744005B1C9B /* PostHog-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06F9D2D09A744005B1C9B /* PostHog-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB0709C2D09A81F005B1C9B /* huffman_encode_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FB72D09A81F005B1C9B /* huffman_encode_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB0709E2D09A81F005B1C9B /* rescaler_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD02D09A81F005B1C9B /* rescaler_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070A02D09A81F005B1C9B /* filters_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FB32D09A81F005B1C9B /* filters_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070A12D09A81F005B1C9B /* bit_writer_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FA62D09A81F005B1C9B /* bit_writer_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070A22D09A81F005B1C9B /* quant_levels_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FCE2D09A81F005B1C9B /* quant_levels_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070A42D09A81F005B1C9B /* endian_inl_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FB12D09A81F005B1C9B /* endian_inl_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070A52D09A81F005B1C9B /* thread_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD72D09A81F005B1C9B /* thread_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070AB2D09A81F005B1C9B /* sharpyuv.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD12D09A81F005B1C9B /* sharpyuv.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070AC2D09A81F005B1C9B /* sharpyuv_gamma.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD52D09A81F005B1C9B /* sharpyuv_gamma.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070AE2D09A81F005B1C9B /* encode.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FB02D09A81F005B1C9B /* encode.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070B02D09A81F005B1C9B /* sharpyuv_dsp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD42D09A81F005B1C9B /* sharpyuv_dsp.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070B12D09A81F005B1C9B /* random_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FCF2D09A81F005B1C9B /* random_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070B22D09A81F005B1C9B /* histogram_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FB62D09A81F005B1C9B /* histogram_enc.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070B62D09A81F005B1C9B /* muxi.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC72D09A81F005B1C9B /* muxi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070BA2D09A81F005B1C9B /* yuv.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FE62D09A81F005B1C9B /* yuv.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070BC2D09A81F005B1C9B /* bit_reader_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FA52D09A81F005B1C9B /* bit_reader_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070BE2D09A81F005B1C9B /* common_dec.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FA82D09A81F005B1C9B /* common_dec.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070BF2D09A81F005B1C9B /* backward_references_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FA32D09A81F005B1C9B /* backward_references_enc.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070C02D09A81F005B1C9B /* quant.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FCC2D09A81F005B1C9B /* quant.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070C32D09A81F005B1C9B /* format_constants.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FB42D09A81F005B1C9B /* format_constants.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070C42D09A81F005B1C9B /* cpu.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FAC2D09A81F005B1C9B /* cpu.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070C52D09A81F005B1C9B /* palette.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC92D09A81F005B1C9B /* palette.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070C82D09A81F005B1C9B /* cost_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FAB2D09A81F005B1C9B /* cost_enc.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070CA2D09A81F005B1C9B /* sharpyuv_csp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD32D09A81F005B1C9B /* sharpyuv_csp.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070CB2D09A81F005B1C9B /* vp8_dec.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FDD2D09A81F005B1C9B /* vp8_dec.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070CD2D09A81F005B1C9B /* dsp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FAF2D09A81F005B1C9B /* dsp.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070CF2D09A81F005B1C9B /* types.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FD92D09A81F005B1C9B /* types.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070D02D09A81F005B1C9B /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FDC2D09A81F005B1C9B /* utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070D22D09A81F005B1C9B /* vp8li_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FE12D09A81F005B1C9B /* vp8li_enc.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070D52D09A81F005B1C9B /* mux.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC52D09A81F005B1C9B /* mux.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070D72D09A81F005B1C9B /* neon.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC82D09A81F005B1C9B /* neon.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070D82D09A81F005B1C9B /* lossless_common.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC12D09A81F005B1C9B /* lossless_common.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070D92D09A81F005B1C9B /* color_cache_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FA72D09A81F005B1C9B /* color_cache_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070DB2D09A81F005B1C9B /* decode.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FAD2D09A81F005B1C9B /* decode.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070DC2D09A81F005B1C9B /* vp8i_enc.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FDF2D09A81F005B1C9B /* vp8i_enc.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070E12D09A81F005B1C9B /* mux_types.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC62D09A81F005B1C9B /* mux_types.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB070E22D09A81F005B1C9B /* lossless.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06FC02D09A81F005B1C9B /* lossless.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DAB071062D09A81F005B1C9B /* random_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = DAB070782D09A81F005B1C9B /* random_utils.c */; };
 		DAB071082D09A81F005B1C9B /* alpha_processing.c in Sources */ = {isa = PBXBuildFile; fileRef = DAB0700F2D09A81F005B1C9B /* alpha_processing.c */; };
 		DAB071092D09A81F005B1C9B /* dec_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DAB0701F2D09A81F005B1C9B /* dec_neon.c */; };
@@ -442,54 +442,54 @@
 		DA7185452D07E11200396388 /* output_1.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = output_1.webp; sourceTree = "<group>"; };
 		DA7185462D07E11200396388 /* output_2.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = output_2.webp; sourceTree = "<group>"; };
 		DA7185472D07E11200396388 /* output_3.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = output_3.webp; sourceTree = "<group>"; };
-		DA787DB42D0ACEF100F81F6A /* sharpyuv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv.c; sourceTree = "<group>"; };
-		DA787DB62D0ACEF100F81F6A /* sharpyuv_csp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_csp.c; sourceTree = "<group>"; };
-		DA787DB72D0ACEF100F81F6A /* sharpyuv_dsp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_dsp.c; sourceTree = "<group>"; };
-		DA787DB92D0ACEF100F81F6A /* sharpyuv_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_neon.c; sourceTree = "<group>"; };
-		DA787DC32D0ACF2B00F81F6A /* sharpyuv_gamma.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_gamma.c; sourceTree = "<group>"; };
 		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
 		DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTrackerSpec.swift; sourceTree = "<group>"; };
-		DAAC94D02D0AE93A006A9B6E /* sharpyuv_cpu.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_cpu.h; sourceTree = "<group>"; };
-		DAAC94D22D0AE94B006A9B6E /* sharpyuv_cpu.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_cpu.c; sourceTree = "<group>"; };
+		DAAC94D42D0B0455006A9B6E /* sharpyuv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv.c; sourceTree = "<group>"; };
+		DAAC94D52D0B0455006A9B6E /* sharpyuv_cpu.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_cpu.c; sourceTree = "<group>"; };
+		DAAC94D62D0B0455006A9B6E /* sharpyuv_csp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_csp.c; sourceTree = "<group>"; };
+		DAAC94D72D0B0455006A9B6E /* sharpyuv_dsp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_dsp.c; sourceTree = "<group>"; };
+		DAAC94D82D0B0455006A9B6E /* sharpyuv_gamma.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_gamma.c; sourceTree = "<group>"; };
+		DAAC94D92D0B0455006A9B6E /* sharpyuv_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sharpyuv_neon.c; sourceTree = "<group>"; };
+		DAAC94E12D0B0467006A9B6E /* backward_references_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = backward_references_enc.h; sourceTree = "<group>"; };
+		DAAC94E22D0B0467006A9B6E /* bit_reader_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bit_reader_utils.h; sourceTree = "<group>"; };
+		DAAC94E32D0B0467006A9B6E /* bit_writer_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bit_writer_utils.h; sourceTree = "<group>"; };
+		DAAC94E42D0B0467006A9B6E /* color_cache_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = color_cache_utils.h; sourceTree = "<group>"; };
+		DAAC94E52D0B0467006A9B6E /* common_dec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = common_dec.h; sourceTree = "<group>"; };
+		DAAC94E62D0B0467006A9B6E /* cost_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cost_enc.h; sourceTree = "<group>"; };
+		DAAC94E72D0B0467006A9B6E /* cpu.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cpu.h; sourceTree = "<group>"; };
+		DAAC94E82D0B0467006A9B6E /* decode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = decode.h; sourceTree = "<group>"; };
+		DAAC94E92D0B0467006A9B6E /* dsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dsp.h; sourceTree = "<group>"; };
+		DAAC94EA2D0B0467006A9B6E /* encode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = encode.h; sourceTree = "<group>"; };
+		DAAC94EB2D0B0467006A9B6E /* endian_inl_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = endian_inl_utils.h; sourceTree = "<group>"; };
+		DAAC94EC2D0B0467006A9B6E /* filters_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = filters_utils.h; sourceTree = "<group>"; };
+		DAAC94ED2D0B0467006A9B6E /* format_constants.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = format_constants.h; sourceTree = "<group>"; };
+		DAAC94EE2D0B0467006A9B6E /* histogram_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = histogram_enc.h; sourceTree = "<group>"; };
+		DAAC94EF2D0B0467006A9B6E /* huffman_encode_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = huffman_encode_utils.h; sourceTree = "<group>"; };
+		DAAC94F02D0B0467006A9B6E /* lossless.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lossless.h; sourceTree = "<group>"; };
+		DAAC94F12D0B0467006A9B6E /* lossless_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lossless_common.h; sourceTree = "<group>"; };
+		DAAC94F22D0B0467006A9B6E /* mux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mux.h; sourceTree = "<group>"; };
+		DAAC94F32D0B0467006A9B6E /* mux_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mux_types.h; sourceTree = "<group>"; };
+		DAAC94F42D0B0467006A9B6E /* muxi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = muxi.h; sourceTree = "<group>"; };
+		DAAC94F52D0B0467006A9B6E /* neon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = neon.h; sourceTree = "<group>"; };
+		DAAC94F62D0B0467006A9B6E /* palette.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = palette.h; sourceTree = "<group>"; };
+		DAAC94F72D0B0467006A9B6E /* quant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = quant.h; sourceTree = "<group>"; };
+		DAAC94F82D0B0467006A9B6E /* quant_levels_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = quant_levels_utils.h; sourceTree = "<group>"; };
+		DAAC94F92D0B0467006A9B6E /* random_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = random_utils.h; sourceTree = "<group>"; };
+		DAAC94FA2D0B0467006A9B6E /* rescaler_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rescaler_utils.h; sourceTree = "<group>"; };
+		DAAC94FB2D0B0467006A9B6E /* sharpyuv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv.h; sourceTree = "<group>"; };
+		DAAC94FC2D0B0467006A9B6E /* sharpyuv_cpu.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_cpu.h; sourceTree = "<group>"; };
+		DAAC94FD2D0B0467006A9B6E /* sharpyuv_csp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_csp.h; sourceTree = "<group>"; };
+		DAAC94FE2D0B0467006A9B6E /* sharpyuv_dsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_dsp.h; sourceTree = "<group>"; };
+		DAAC94FF2D0B0467006A9B6E /* sharpyuv_gamma.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_gamma.h; sourceTree = "<group>"; };
+		DAAC95002D0B0467006A9B6E /* thread_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thread_utils.h; sourceTree = "<group>"; };
+		DAAC95012D0B0467006A9B6E /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
+		DAAC95022D0B0467006A9B6E /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		DAAC95032D0B0467006A9B6E /* vp8_dec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8_dec.h; sourceTree = "<group>"; };
+		DAAC95042D0B0467006A9B6E /* vp8i_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8i_enc.h; sourceTree = "<group>"; };
+		DAAC95052D0B0467006A9B6E /* vp8li_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8li_enc.h; sourceTree = "<group>"; };
+		DAAC95062D0B0467006A9B6E /* yuv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = yuv.h; sourceTree = "<group>"; };
 		DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = PostHog.modulemap; sourceTree = "<group>"; };
 		DAB06F9D2D09A744005B1C9B /* PostHog-umbrella.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHog-umbrella.h"; sourceTree = "<group>"; };
-		DAB06FA32D09A81F005B1C9B /* backward_references_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = backward_references_enc.h; sourceTree = "<group>"; };
-		DAB06FA52D09A81F005B1C9B /* bit_reader_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bit_reader_utils.h; sourceTree = "<group>"; };
-		DAB06FA62D09A81F005B1C9B /* bit_writer_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bit_writer_utils.h; sourceTree = "<group>"; };
-		DAB06FA72D09A81F005B1C9B /* color_cache_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = color_cache_utils.h; sourceTree = "<group>"; };
-		DAB06FA82D09A81F005B1C9B /* common_dec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = common_dec.h; sourceTree = "<group>"; };
-		DAB06FAB2D09A81F005B1C9B /* cost_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cost_enc.h; sourceTree = "<group>"; };
-		DAB06FAC2D09A81F005B1C9B /* cpu.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cpu.h; sourceTree = "<group>"; };
-		DAB06FAD2D09A81F005B1C9B /* decode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = decode.h; sourceTree = "<group>"; };
-		DAB06FAF2D09A81F005B1C9B /* dsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dsp.h; sourceTree = "<group>"; };
-		DAB06FB02D09A81F005B1C9B /* encode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = encode.h; sourceTree = "<group>"; };
-		DAB06FB12D09A81F005B1C9B /* endian_inl_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = endian_inl_utils.h; sourceTree = "<group>"; };
-		DAB06FB32D09A81F005B1C9B /* filters_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = filters_utils.h; sourceTree = "<group>"; };
-		DAB06FB42D09A81F005B1C9B /* format_constants.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = format_constants.h; sourceTree = "<group>"; };
-		DAB06FB62D09A81F005B1C9B /* histogram_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = histogram_enc.h; sourceTree = "<group>"; };
-		DAB06FB72D09A81F005B1C9B /* huffman_encode_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = huffman_encode_utils.h; sourceTree = "<group>"; };
-		DAB06FC02D09A81F005B1C9B /* lossless.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lossless.h; sourceTree = "<group>"; };
-		DAB06FC12D09A81F005B1C9B /* lossless_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lossless_common.h; sourceTree = "<group>"; };
-		DAB06FC52D09A81F005B1C9B /* mux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mux.h; sourceTree = "<group>"; };
-		DAB06FC62D09A81F005B1C9B /* mux_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mux_types.h; sourceTree = "<group>"; };
-		DAB06FC72D09A81F005B1C9B /* muxi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = muxi.h; sourceTree = "<group>"; };
-		DAB06FC82D09A81F005B1C9B /* neon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = neon.h; sourceTree = "<group>"; };
-		DAB06FC92D09A81F005B1C9B /* palette.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = palette.h; sourceTree = "<group>"; };
-		DAB06FCC2D09A81F005B1C9B /* quant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = quant.h; sourceTree = "<group>"; };
-		DAB06FCE2D09A81F005B1C9B /* quant_levels_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = quant_levels_utils.h; sourceTree = "<group>"; };
-		DAB06FCF2D09A81F005B1C9B /* random_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = random_utils.h; sourceTree = "<group>"; };
-		DAB06FD02D09A81F005B1C9B /* rescaler_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rescaler_utils.h; sourceTree = "<group>"; };
-		DAB06FD12D09A81F005B1C9B /* sharpyuv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv.h; sourceTree = "<group>"; };
-		DAB06FD32D09A81F005B1C9B /* sharpyuv_csp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_csp.h; sourceTree = "<group>"; };
-		DAB06FD42D09A81F005B1C9B /* sharpyuv_dsp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_dsp.h; sourceTree = "<group>"; };
-		DAB06FD52D09A81F005B1C9B /* sharpyuv_gamma.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sharpyuv_gamma.h; sourceTree = "<group>"; };
-		DAB06FD72D09A81F005B1C9B /* thread_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thread_utils.h; sourceTree = "<group>"; };
-		DAB06FD92D09A81F005B1C9B /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
-		DAB06FDC2D09A81F005B1C9B /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
-		DAB06FDD2D09A81F005B1C9B /* vp8_dec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8_dec.h; sourceTree = "<group>"; };
-		DAB06FDF2D09A81F005B1C9B /* vp8i_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8i_enc.h; sourceTree = "<group>"; };
-		DAB06FE12D09A81F005B1C9B /* vp8li_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8li_enc.h; sourceTree = "<group>"; };
-		DAB06FE62D09A81F005B1C9B /* yuv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = yuv.h; sourceTree = "<group>"; };
 		DAB0700F2D09A81F005B1C9B /* alpha_processing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing.c; sourceTree = "<group>"; };
 		DAB070112D09A81F005B1C9B /* alpha_processing_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing_neon.c; sourceTree = "<group>"; };
 		DAB070142D09A81F005B1C9B /* cost.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cost.c; sourceTree = "<group>"; };
@@ -937,25 +937,70 @@
 			path = Autocapture;
 			sourceTree = "<group>";
 		};
-		DA787DBB2D0ACEF100F81F6A /* sharpyuv */ = {
-			isa = PBXGroup;
-			children = (
-				DA787DB42D0ACEF100F81F6A /* sharpyuv.c */,
-				DAAC94D22D0AE94B006A9B6E /* sharpyuv_cpu.c */,
-				DA787DB62D0ACEF100F81F6A /* sharpyuv_csp.c */,
-				DA787DB72D0ACEF100F81F6A /* sharpyuv_dsp.c */,
-				DA787DB92D0ACEF100F81F6A /* sharpyuv_neon.c */,
-				DA787DC32D0ACF2B00F81F6A /* sharpyuv_gamma.c */,
-			);
-			path = sharpyuv;
-			sourceTree = "<group>";
-		};
 		DA8D37252CBEAC02005EBD27 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				DA8D37292CBEAC03005EBD27 /* PostHogExampleAutocapture.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DAAC94DA2D0B0455006A9B6E /* sharpyuv */ = {
+			isa = PBXGroup;
+			children = (
+				DAAC94D42D0B0455006A9B6E /* sharpyuv.c */,
+				DAAC94D52D0B0455006A9B6E /* sharpyuv_cpu.c */,
+				DAAC94D62D0B0455006A9B6E /* sharpyuv_csp.c */,
+				DAAC94D72D0B0455006A9B6E /* sharpyuv_dsp.c */,
+				DAAC94D82D0B0455006A9B6E /* sharpyuv_gamma.c */,
+				DAAC94D92D0B0455006A9B6E /* sharpyuv_neon.c */,
+			);
+			path = sharpyuv;
+			sourceTree = "<group>";
+		};
+		DAAC95072D0B0467006A9B6E /* include */ = {
+			isa = PBXGroup;
+			children = (
+				DAAC94E12D0B0467006A9B6E /* backward_references_enc.h */,
+				DAAC94E22D0B0467006A9B6E /* bit_reader_utils.h */,
+				DAAC94E32D0B0467006A9B6E /* bit_writer_utils.h */,
+				DAAC94E42D0B0467006A9B6E /* color_cache_utils.h */,
+				DAAC94E52D0B0467006A9B6E /* common_dec.h */,
+				DAAC94E62D0B0467006A9B6E /* cost_enc.h */,
+				DAAC94E72D0B0467006A9B6E /* cpu.h */,
+				DAAC94E82D0B0467006A9B6E /* decode.h */,
+				DAAC94E92D0B0467006A9B6E /* dsp.h */,
+				DAAC94EA2D0B0467006A9B6E /* encode.h */,
+				DAAC94EB2D0B0467006A9B6E /* endian_inl_utils.h */,
+				DAAC94EC2D0B0467006A9B6E /* filters_utils.h */,
+				DAAC94ED2D0B0467006A9B6E /* format_constants.h */,
+				DAAC94EE2D0B0467006A9B6E /* histogram_enc.h */,
+				DAAC94EF2D0B0467006A9B6E /* huffman_encode_utils.h */,
+				DAAC94F02D0B0467006A9B6E /* lossless.h */,
+				DAAC94F12D0B0467006A9B6E /* lossless_common.h */,
+				DAAC94F22D0B0467006A9B6E /* mux.h */,
+				DAAC94F32D0B0467006A9B6E /* mux_types.h */,
+				DAAC94F42D0B0467006A9B6E /* muxi.h */,
+				DAAC94F52D0B0467006A9B6E /* neon.h */,
+				DAAC94F62D0B0467006A9B6E /* palette.h */,
+				DAAC94F72D0B0467006A9B6E /* quant.h */,
+				DAAC94F82D0B0467006A9B6E /* quant_levels_utils.h */,
+				DAAC94F92D0B0467006A9B6E /* random_utils.h */,
+				DAAC94FA2D0B0467006A9B6E /* rescaler_utils.h */,
+				DAAC94FB2D0B0467006A9B6E /* sharpyuv.h */,
+				DAAC94FC2D0B0467006A9B6E /* sharpyuv_cpu.h */,
+				DAAC94FD2D0B0467006A9B6E /* sharpyuv_csp.h */,
+				DAAC94FE2D0B0467006A9B6E /* sharpyuv_dsp.h */,
+				DAAC94FF2D0B0467006A9B6E /* sharpyuv_gamma.h */,
+				DAAC95002D0B0467006A9B6E /* thread_utils.h */,
+				DAAC95012D0B0467006A9B6E /* types.h */,
+				DAAC95022D0B0467006A9B6E /* utils.h */,
+				DAAC95032D0B0467006A9B6E /* vp8_dec.h */,
+				DAAC95042D0B0467006A9B6E /* vp8i_enc.h */,
+				DAAC95052D0B0467006A9B6E /* vp8li_enc.h */,
+				DAAC95062D0B0467006A9B6E /* yuv.h */,
+			);
+			path = include;
 			sourceTree = "<group>";
 		};
 		DAB06F9E2D09A744005B1C9B /* Support Files */ = {
@@ -965,51 +1010,6 @@
 				DAB06F9D2D09A744005B1C9B /* PostHog-umbrella.h */,
 			);
 			path = "Support Files";
-			sourceTree = "<group>";
-		};
-		DAB06FE72D09A81F005B1C9B /* include */ = {
-			isa = PBXGroup;
-			children = (
-				DAB06FA32D09A81F005B1C9B /* backward_references_enc.h */,
-				DAB06FA52D09A81F005B1C9B /* bit_reader_utils.h */,
-				DAB06FA62D09A81F005B1C9B /* bit_writer_utils.h */,
-				DAB06FA72D09A81F005B1C9B /* color_cache_utils.h */,
-				DAB06FA82D09A81F005B1C9B /* common_dec.h */,
-				DAB06FAB2D09A81F005B1C9B /* cost_enc.h */,
-				DAB06FAC2D09A81F005B1C9B /* cpu.h */,
-				DAB06FAD2D09A81F005B1C9B /* decode.h */,
-				DAB06FAF2D09A81F005B1C9B /* dsp.h */,
-				DAB06FB02D09A81F005B1C9B /* encode.h */,
-				DAB06FB12D09A81F005B1C9B /* endian_inl_utils.h */,
-				DAB06FB32D09A81F005B1C9B /* filters_utils.h */,
-				DAB06FB42D09A81F005B1C9B /* format_constants.h */,
-				DAB06FB62D09A81F005B1C9B /* histogram_enc.h */,
-				DAB06FB72D09A81F005B1C9B /* huffman_encode_utils.h */,
-				DAB06FC02D09A81F005B1C9B /* lossless.h */,
-				DAB06FC12D09A81F005B1C9B /* lossless_common.h */,
-				DAB06FC52D09A81F005B1C9B /* mux.h */,
-				DAB06FC62D09A81F005B1C9B /* mux_types.h */,
-				DAB06FC72D09A81F005B1C9B /* muxi.h */,
-				DAB06FC82D09A81F005B1C9B /* neon.h */,
-				DAB06FC92D09A81F005B1C9B /* palette.h */,
-				DAB06FCC2D09A81F005B1C9B /* quant.h */,
-				DAB06FCE2D09A81F005B1C9B /* quant_levels_utils.h */,
-				DAB06FCF2D09A81F005B1C9B /* random_utils.h */,
-				DAB06FD02D09A81F005B1C9B /* rescaler_utils.h */,
-				DAB06FD12D09A81F005B1C9B /* sharpyuv.h */,
-				DAAC94D02D0AE93A006A9B6E /* sharpyuv_cpu.h */,
-				DAB06FD32D09A81F005B1C9B /* sharpyuv_csp.h */,
-				DAB06FD42D09A81F005B1C9B /* sharpyuv_dsp.h */,
-				DAB06FD52D09A81F005B1C9B /* sharpyuv_gamma.h */,
-				DAB06FD72D09A81F005B1C9B /* thread_utils.h */,
-				DAB06FD92D09A81F005B1C9B /* types.h */,
-				DAB06FDC2D09A81F005B1C9B /* utils.h */,
-				DAB06FDD2D09A81F005B1C9B /* vp8_dec.h */,
-				DAB06FDF2D09A81F005B1C9B /* vp8i_enc.h */,
-				DAB06FE12D09A81F005B1C9B /* vp8li_enc.h */,
-				DAB06FE62D09A81F005B1C9B /* yuv.h */,
-			);
-			path = include;
 			sourceTree = "<group>";
 		};
 		DAB0704F2D09A81F005B1C9B /* dsp */ = {
@@ -1109,6 +1109,7 @@
 				DAB070672D09A81F005B1C9B /* enc */,
 				DAB0706E2D09A81F005B1C9B /* mux */,
 				DAB0707C2D09A81F005B1C9B /* utils */,
+				DAAC94DA2D0B0455006A9B6E /* sharpyuv */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -1116,8 +1117,8 @@
 		DAB0709A2D09A81F005B1C9B /* libwebp */ = {
 			isa = PBXGroup;
 			children = (
-				DA787DBB2D0ACEF100F81F6A /* sharpyuv */,
 				DAB070822D09A81F005B1C9B /* src */,
+				DAAC95072D0B0467006A9B6E /* include */,
 			);
 			path = libwebp;
 			sourceTree = "<group>";
@@ -1125,7 +1126,6 @@
 		DAB0709B2D09A81F005B1C9B /* vendor */ = {
 			isa = PBXGroup;
 			children = (
-				DAB06FE72D09A81F005B1C9B /* include */,
 				DAB0709A2D09A81F005B1C9B /* libwebp */,
 			);
 			path = vendor;
@@ -1151,45 +1151,45 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DAAC95082D0B0467006A9B6E /* vp8li_enc.h in Headers */,
+				DAAC95092D0B0467006A9B6E /* color_cache_utils.h in Headers */,
+				DAAC950A2D0B0467006A9B6E /* lossless.h in Headers */,
+				DAAC950B2D0B0467006A9B6E /* neon.h in Headers */,
+				DAAC950C2D0B0467006A9B6E /* quant_levels_utils.h in Headers */,
+				DAAC950D2D0B0467006A9B6E /* dsp.h in Headers */,
+				DAAC950E2D0B0467006A9B6E /* vp8i_enc.h in Headers */,
+				DAAC950F2D0B0467006A9B6E /* endian_inl_utils.h in Headers */,
+				DAAC95102D0B0467006A9B6E /* mux_types.h in Headers */,
+				DAAC95112D0B0467006A9B6E /* yuv.h in Headers */,
+				DAAC95122D0B0467006A9B6E /* rescaler_utils.h in Headers */,
+				DAAC95132D0B0467006A9B6E /* palette.h in Headers */,
+				DAAC95142D0B0467006A9B6E /* utils.h in Headers */,
+				DAAC95152D0B0467006A9B6E /* sharpyuv_cpu.h in Headers */,
+				DAAC95162D0B0467006A9B6E /* cpu.h in Headers */,
+				DAAC95172D0B0467006A9B6E /* filters_utils.h in Headers */,
+				DAAC95182D0B0467006A9B6E /* format_constants.h in Headers */,
+				DAAC95192D0B0467006A9B6E /* sharpyuv_dsp.h in Headers */,
+				DAAC951A2D0B0467006A9B6E /* common_dec.h in Headers */,
+				DAAC951B2D0B0467006A9B6E /* huffman_encode_utils.h in Headers */,
+				DAAC951C2D0B0467006A9B6E /* bit_reader_utils.h in Headers */,
+				DAAC951D2D0B0467006A9B6E /* encode.h in Headers */,
+				DAAC951E2D0B0467006A9B6E /* random_utils.h in Headers */,
+				DAAC951F2D0B0467006A9B6E /* vp8_dec.h in Headers */,
+				DAAC95202D0B0467006A9B6E /* backward_references_enc.h in Headers */,
+				DAAC95212D0B0467006A9B6E /* histogram_enc.h in Headers */,
+				DAAC95222D0B0467006A9B6E /* cost_enc.h in Headers */,
+				DAAC95232D0B0467006A9B6E /* types.h in Headers */,
+				DAAC95242D0B0467006A9B6E /* decode.h in Headers */,
+				DAAC95252D0B0467006A9B6E /* thread_utils.h in Headers */,
+				DAAC95262D0B0467006A9B6E /* mux.h in Headers */,
+				DAAC95272D0B0467006A9B6E /* bit_writer_utils.h in Headers */,
+				DAAC95282D0B0467006A9B6E /* lossless_common.h in Headers */,
+				DAAC95292D0B0467006A9B6E /* quant.h in Headers */,
+				DAAC952A2D0B0467006A9B6E /* muxi.h in Headers */,
+				DAAC952B2D0B0467006A9B6E /* sharpyuv_csp.h in Headers */,
+				DAAC952C2D0B0467006A9B6E /* sharpyuv_gamma.h in Headers */,
+				DAAC952D2D0B0467006A9B6E /* sharpyuv.h in Headers */,
 				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
-				DAB0709C2D09A81F005B1C9B /* huffman_encode_utils.h in Headers */,
-				DAB0709E2D09A81F005B1C9B /* rescaler_utils.h in Headers */,
-				DAB070A02D09A81F005B1C9B /* filters_utils.h in Headers */,
-				DAB070A12D09A81F005B1C9B /* bit_writer_utils.h in Headers */,
-				DAB070A22D09A81F005B1C9B /* quant_levels_utils.h in Headers */,
-				DAB070A42D09A81F005B1C9B /* endian_inl_utils.h in Headers */,
-				DAB070A52D09A81F005B1C9B /* thread_utils.h in Headers */,
-				DAB070AB2D09A81F005B1C9B /* sharpyuv.h in Headers */,
-				DAB070AC2D09A81F005B1C9B /* sharpyuv_gamma.h in Headers */,
-				DAB070AE2D09A81F005B1C9B /* encode.h in Headers */,
-				DAB070B02D09A81F005B1C9B /* sharpyuv_dsp.h in Headers */,
-				DAB070B12D09A81F005B1C9B /* random_utils.h in Headers */,
-				DAB070B22D09A81F005B1C9B /* histogram_enc.h in Headers */,
-				DAB070B62D09A81F005B1C9B /* muxi.h in Headers */,
-				DAB070BA2D09A81F005B1C9B /* yuv.h in Headers */,
-				DAB070BC2D09A81F005B1C9B /* bit_reader_utils.h in Headers */,
-				DAB070BE2D09A81F005B1C9B /* common_dec.h in Headers */,
-				DAB070BF2D09A81F005B1C9B /* backward_references_enc.h in Headers */,
-				DAB070C02D09A81F005B1C9B /* quant.h in Headers */,
-				DAB070C32D09A81F005B1C9B /* format_constants.h in Headers */,
-				DAAC94D12D0AE93A006A9B6E /* sharpyuv_cpu.h in Headers */,
-				DAB070C42D09A81F005B1C9B /* cpu.h in Headers */,
-				DAB070C52D09A81F005B1C9B /* palette.h in Headers */,
-				DAB070C82D09A81F005B1C9B /* cost_enc.h in Headers */,
-				DAB070CA2D09A81F005B1C9B /* sharpyuv_csp.h in Headers */,
-				DAB070CB2D09A81F005B1C9B /* vp8_dec.h in Headers */,
-				DAB070CD2D09A81F005B1C9B /* dsp.h in Headers */,
-				DAB070CF2D09A81F005B1C9B /* types.h in Headers */,
-				DAB070D02D09A81F005B1C9B /* utils.h in Headers */,
-				DAB070D22D09A81F005B1C9B /* vp8li_enc.h in Headers */,
-				DAB070D52D09A81F005B1C9B /* mux.h in Headers */,
-				DAB070D72D09A81F005B1C9B /* neon.h in Headers */,
-				DAB070D82D09A81F005B1C9B /* lossless_common.h in Headers */,
-				DAB070D92D09A81F005B1C9B /* color_cache_utils.h in Headers */,
-				DAB070DB2D09A81F005B1C9B /* decode.h in Headers */,
-				DAB070DC2D09A81F005B1C9B /* vp8i_enc.h in Headers */,
-				DAB070E12D09A81F005B1C9B /* mux_types.h in Headers */,
-				DAB070E22D09A81F005B1C9B /* lossless.h in Headers */,
 				DAB06F9F2D09A744005B1C9B /* PostHog-umbrella.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1553,7 +1553,6 @@
 				69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */,
 				69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */,
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
-				DAAC94D32D0AE94B006A9B6E /* sharpyuv_cpu.c in Sources */,
 				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
 				DAC699D62CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift in Sources */,
 				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,
@@ -1578,6 +1577,12 @@
 				69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */,
+				DAAC94DB2D0B0455006A9B6E /* sharpyuv_csp.c in Sources */,
+				DAAC94DC2D0B0455006A9B6E /* sharpyuv.c in Sources */,
+				DAAC94DD2D0B0455006A9B6E /* sharpyuv_neon.c in Sources */,
+				DAAC94DE2D0B0455006A9B6E /* sharpyuv_cpu.c in Sources */,
+				DAAC94DF2D0B0455006A9B6E /* sharpyuv_dsp.c in Sources */,
+				DAAC94E02D0B0455006A9B6E /* sharpyuv_gamma.c in Sources */,
 				DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */,
 				690FF0C52AEFAE8200A0B06B /* PostHogLegacyQueue.swift in Sources */,
 				3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */,
@@ -1615,10 +1620,6 @@
 				DAB071402D09A81F005B1C9B /* alpha_processing_neon.c in Sources */,
 				DAB071412D09A81F005B1C9B /* picture_psnr_enc.c in Sources */,
 				DAB071452D09A81F005B1C9B /* predictor_enc.c in Sources */,
-				DA787DBF2D0ACEF100F81F6A /* sharpyuv_neon.c in Sources */,
-				DA787DC02D0ACEF100F81F6A /* sharpyuv_csp.c in Sources */,
-				DA787DC12D0ACEF100F81F6A /* sharpyuv.c in Sources */,
-				DA787DC22D0ACEF100F81F6A /* sharpyuv_dsp.c in Sources */,
 				DAB071462D09A81F005B1C9B /* vp8l_enc.c in Sources */,
 				DAB071492D09A81F005B1C9B /* alpha_enc.c in Sources */,
 				DAB0714B2D09A81F005B1C9B /* filters_neon.c in Sources */,
@@ -1629,7 +1630,6 @@
 				DAB071532D09A81F005B1C9B /* filters.c in Sources */,
 				DAB071572D09A81F005B1C9B /* enc_neon.c in Sources */,
 				DAB0715D2D09A81F005B1C9B /* cpu.c in Sources */,
-				DA787DC42D0ACF2B00F81F6A /* sharpyuv_gamma.c in Sources */,
 				DAB071602D09A81F005B1C9B /* picture_tools_enc.c in Sources */,
 				DAB071682D09A81F005B1C9B /* lossless_enc_neon.c in Sources */,
 				DAB071692D09A81F005B1C9B /* cost.c in Sources */,

@@ -18,7 +18,6 @@
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
-#include "vp8li_dec.h"
 #include "endian_inl_utils.h"
 #include "lossless.h"
 #include "lossless_common.h"

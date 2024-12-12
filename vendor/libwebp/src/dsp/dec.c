@@ -14,7 +14,6 @@
 #include <assert.h>
 
 #include "dsp.h"
-#include "vp8i_dec.h"
 #include "utils.h"
 
 //------------------------------------------------------------------------------
@@ -250,8 +249,6 @@ static void DC16NoTopLeft_C(uint8_t* dst) {  // DC with no top and left samples
 }
 #endif  // !WEBP_NEON_OMIT_C_CODE
 
-VP8PredFunc VP8PredLuma16[NUM_B_DC_MODES];
-
 //------------------------------------------------------------------------------
 // 4x4
 
@@ -419,8 +416,6 @@ static void HD4_C(uint8_t* dst) {  // Horizontal-Down
 #undef AVG3
 #undef AVG2
 
-VP8PredFunc VP8PredLuma4[NUM_BMODES];
-
 //------------------------------------------------------------------------------
 // Chroma
 
@@ -479,8 +474,6 @@ static void DC8uvNoTopLeft_C(uint8_t* dst) {    // DC with nothing
   Put8x8uv(0x80, dst);
 }
 #endif  // !WEBP_NEON_OMIT_C_CODE
-
-VP8PredFunc VP8PredChroma8[NUM_B_DC_MODES];
 
 //------------------------------------------------------------------------------
 // Edge filtering functions
@@ -760,54 +753,10 @@ WEBP_DSP_INIT_FUNC(VP8DspInit) {
   VP8TransformUV = TransformUV_C;
   VP8TransformDCUV = TransformDCUV_C;
 
-#if !WEBP_NEON_OMIT_C_CODE
-  VP8VFilter16 = VFilter16_C;
-  VP8VFilter16i = VFilter16i_C;
-  VP8HFilter16 = HFilter16_C;
-  VP8VFilter8 = VFilter8_C;
-  VP8VFilter8i = VFilter8i_C;
-  VP8SimpleVFilter16 = SimpleVFilter16_C;
-  VP8SimpleHFilter16 = SimpleHFilter16_C;
-  VP8SimpleVFilter16i = SimpleVFilter16i_C;
-  VP8SimpleHFilter16i = SimpleHFilter16i_C;
-#endif
-
 #if !WEBP_NEON_OMIT_C_CODE || WEBP_NEON_WORK_AROUND_GCC
   VP8HFilter16i = HFilter16i_C;
   VP8HFilter8 = HFilter8_C;
   VP8HFilter8i = HFilter8i_C;
-#endif
-
-#if !WEBP_NEON_OMIT_C_CODE
-  VP8PredLuma4[0] = DC4_C;
-  VP8PredLuma4[1] = TM4_C;
-  VP8PredLuma4[2] = VE4_C;
-  VP8PredLuma4[4] = RD4_C;
-  VP8PredLuma4[6] = LD4_C;
-#endif
-
-  VP8PredLuma4[3] = HE4_C;
-  VP8PredLuma4[5] = VR4_C;
-  VP8PredLuma4[7] = VL4_C;
-  VP8PredLuma4[8] = HD4_C;
-  VP8PredLuma4[9] = HU4_C;
-
-#if !WEBP_NEON_OMIT_C_CODE
-  VP8PredLuma16[0] = DC16_C;
-  VP8PredLuma16[1] = TM16_C;
-  VP8PredLuma16[2] = VE16_C;
-  VP8PredLuma16[3] = HE16_C;
-  VP8PredLuma16[4] = DC16NoTop_C;
-  VP8PredLuma16[5] = DC16NoLeft_C;
-  VP8PredLuma16[6] = DC16NoTopLeft_C;
-
-  VP8PredChroma8[0] = DC8uv_C;
-  VP8PredChroma8[1] = TM8uv_C;
-  VP8PredChroma8[2] = VE8uv_C;
-  VP8PredChroma8[3] = HE8uv_C;
-  VP8PredChroma8[4] = DC8uvNoTop_C;
-  VP8PredChroma8[5] = DC8uvNoLeft_C;
-  VP8PredChroma8[6] = DC8uvNoTopLeft_C;
 #endif
 
   VP8DitherCombine8x8 = DitherCombine8x8_C;
@@ -866,29 +815,5 @@ WEBP_DSP_INIT_FUNC(VP8DspInit) {
   assert(VP8SimpleHFilter16 != NULL);
   assert(VP8SimpleVFilter16i != NULL);
   assert(VP8SimpleHFilter16i != NULL);
-  assert(VP8PredLuma4[0] != NULL);
-  assert(VP8PredLuma4[1] != NULL);
-  assert(VP8PredLuma4[2] != NULL);
-  assert(VP8PredLuma4[3] != NULL);
-  assert(VP8PredLuma4[4] != NULL);
-  assert(VP8PredLuma4[5] != NULL);
-  assert(VP8PredLuma4[6] != NULL);
-  assert(VP8PredLuma4[7] != NULL);
-  assert(VP8PredLuma4[8] != NULL);
-  assert(VP8PredLuma4[9] != NULL);
-  assert(VP8PredLuma16[0] != NULL);
-  assert(VP8PredLuma16[1] != NULL);
-  assert(VP8PredLuma16[2] != NULL);
-  assert(VP8PredLuma16[3] != NULL);
-  assert(VP8PredLuma16[4] != NULL);
-  assert(VP8PredLuma16[5] != NULL);
-  assert(VP8PredLuma16[6] != NULL);
-  assert(VP8PredChroma8[0] != NULL);
-  assert(VP8PredChroma8[1] != NULL);
-  assert(VP8PredChroma8[2] != NULL);
-  assert(VP8PredChroma8[3] != NULL);
-  assert(VP8PredChroma8[4] != NULL);
-  assert(VP8PredChroma8[5] != NULL);
-  assert(VP8PredChroma8[6] != NULL);
   assert(VP8DitherCombine8x8 != NULL);
 }

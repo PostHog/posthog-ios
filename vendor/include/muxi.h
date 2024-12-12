@@ -16,8 +16,8 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include "vp8i_dec.h"
-#include "vp8li_dec.h"
+//#include "vp8i_dec.h"
+//#include "vp8li_dec.h"
 #include "mux.h"
 
 #ifdef __cplusplus
@@ -99,7 +99,7 @@ typedef struct {
   uint32_t      size;
 } ChunkInfo;
 
-extern const ChunkInfo kChunks[IDX_LAST_CHUNK];
+//extern const ChunkInfo kChunks[IDX_LAST_CHUNK];
 
 //------------------------------------------------------------------------------
 // Chunk object management.
@@ -111,10 +111,10 @@ void ChunkInit(WebPChunk* const chunk);
 CHUNK_INDEX ChunkGetIndexFromTag(uint32_t tag);
 
 // Get chunk id from chunk tag. Returns WEBP_CHUNK_UNKNOWN if not found.
-WebPChunkId ChunkGetIdFromTag(uint32_t tag);
+//WebPChunkId ChunkGetIdFromTag(uint32_t tag);
 
 // Convert a fourcc string to a tag.
-uint32_t ChunkGetTagFromFourCC(const char fourcc[4]);
+//uint32_t ChunkGetTagFromFourCC(const char fourcc[4]);
 
 // Get chunk index from fourcc. Returns IDX_UNKNOWN if given fourcc is unknown.
 CHUNK_INDEX ChunkGetIndexFromFourCC(const char fourcc[4]);
@@ -146,16 +146,16 @@ WebPChunk* ChunkDelete(WebPChunk* const chunk);
 void ChunkListDelete(WebPChunk** const chunk_list);
 
 // Returns size of the chunk including chunk header and padding byte (if any).
-static WEBP_INLINE size_t SizeWithPadding(size_t chunk_size) {
-  assert(chunk_size <= MAX_CHUNK_PAYLOAD);
-  return CHUNK_HEADER_SIZE + ((chunk_size + 1) & ~1U);
-}
+//static WEBP_INLINE size_t SizeWithPadding(size_t chunk_size) {
+//  assert(chunk_size <= MAX_CHUNK_PAYLOAD);
+//  return CHUNK_HEADER_SIZE + ((chunk_size + 1) & ~1U);
+//}
 
 // Size of a chunk including header and padding.
-static WEBP_INLINE size_t ChunkDiskSize(const WebPChunk* chunk) {
-  const size_t data_size = chunk->data_.size;
-  return SizeWithPadding(data_size);
-}
+//static WEBP_INLINE size_t ChunkDiskSize(const WebPChunk* chunk) {
+//  const size_t data_size = chunk->data_.size;
+//  return SizeWithPadding(data_size);
+//}
 
 // Total size of a list of chunks.
 size_t ChunkListDiskSize(const WebPChunk* chunk_list);
@@ -178,7 +178,7 @@ WebPMuxImage* MuxImageDelete(WebPMuxImage* const wpi);
 
 // Count number of images matching the given tag id in the 'wpi_list'.
 // If id == WEBP_CHUNK_NIL, all images will be matched.
-int MuxImageCount(const WebPMuxImage* wpi_list, WebPChunkId id);
+//int MuxImageCount(const WebPMuxImage* wpi_list, WebPChunkId id);
 
 // Update width/height/has_alpha info from chunks within wpi.
 // Also remove ALPH chunk if not needed.
@@ -198,7 +198,7 @@ static WEBP_INLINE int IsWPI(WebPChunkId id) {
 WebPMuxError MuxImagePush(const WebPMuxImage* wpi, WebPMuxImage** wpi_list);
 
 // Delete nth image in the image list.
-WebPMuxError MuxImageDeleteNth(WebPMuxImage** wpi_list, uint32_t nth);
+//WebPMuxError MuxImageDeleteNth(WebPMuxImage** wpi_list, uint32_t nth);
 
 // Get nth image in the image list.
 WebPMuxError MuxImageGetNth(const WebPMuxImage** wpi_list, uint32_t nth,

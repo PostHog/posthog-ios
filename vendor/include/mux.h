@@ -369,8 +369,8 @@ WEBP_EXTERN WebPMuxError WebPMuxGetCanvasSize(const WebPMux* mux,
 //   WEBP_MUX_INVALID_ARGUMENT - if mux or flags is NULL.
 //   WEBP_MUX_BAD_DATA - if VP8X/VP8/VP8L chunk or canvas size is invalid.
 //   WEBP_MUX_OK - on success.
-WEBP_EXTERN WebPMuxError WebPMuxGetFeatures(const WebPMux* mux,
-                                            uint32_t* flags);
+//WEBP_EXTERN WebPMuxError WebPMuxGetFeatures(const WebPMux* mux,
+//                                            uint32_t* flags);
 
 // Gets number of chunks with the given 'id' in the mux object.
 // Parameters:

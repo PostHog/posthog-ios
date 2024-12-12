@@ -17,7 +17,6 @@
 #if defined(WEBP_USE_NEON)
 
 #include "neon.h"
-#include "vp8i_dec.h"
 
 //------------------------------------------------------------------------------
 // NxM Loading functions
@@ -1639,28 +1638,6 @@ WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitNEON(void) {
   VP8SimpleHFilter16 = SimpleHFilter16_NEON;
   VP8SimpleVFilter16i = SimpleVFilter16i_NEON;
   VP8SimpleHFilter16i = SimpleHFilter16i_NEON;
-
-  VP8PredLuma4[0] = DC4_NEON;
-  VP8PredLuma4[1] = TM4_NEON;
-  VP8PredLuma4[2] = VE4_NEON;
-  VP8PredLuma4[4] = RD4_NEON;
-  VP8PredLuma4[6] = LD4_NEON;
-
-  VP8PredLuma16[0] = DC16TopLeft_NEON;
-  VP8PredLuma16[1] = TM16_NEON;
-  VP8PredLuma16[2] = VE16_NEON;
-  VP8PredLuma16[3] = HE16_NEON;
-  VP8PredLuma16[4] = DC16NoTop_NEON;
-  VP8PredLuma16[5] = DC16NoLeft_NEON;
-  VP8PredLuma16[6] = DC16NoTopLeft_NEON;
-
-  VP8PredChroma8[0] = DC8uv_NEON;
-  VP8PredChroma8[1] = TM8uv_NEON;
-  VP8PredChroma8[2] = VE8uv_NEON;
-  VP8PredChroma8[3] = HE8uv_NEON;
-  VP8PredChroma8[4] = DC8uvNoTop_NEON;
-  VP8PredChroma8[5] = DC8uvNoLeft_NEON;
-  VP8PredChroma8[6] = DC8uvNoTopLeft_NEON;
 }
 
 #else  // !WEBP_USE_NEON

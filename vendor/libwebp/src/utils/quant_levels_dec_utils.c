@@ -14,8 +14,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "quant_levels_dec_utils.h"
-
 #include <string.h>   // for memset
 
 #include "utils.h"

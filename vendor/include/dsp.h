@@ -228,9 +228,9 @@ extern VP8WHT VP8TransformWHT;
 // *dst is the destination block, with stride BPS. Boundary samples are
 // assumed accessible when needed.
 typedef void (*VP8PredFunc)(uint8_t* dst);
-extern VP8PredFunc VP8PredLuma16[/* NUM_B_DC_MODES */];
-extern VP8PredFunc VP8PredChroma8[/* NUM_B_DC_MODES */];
-extern VP8PredFunc VP8PredLuma4[/* NUM_BMODES */];
+//extern VP8PredFunc VP8PredLuma16[/* NUM_B_DC_MODES */];
+//extern VP8PredFunc VP8PredChroma8[/* NUM_B_DC_MODES */];
+//extern VP8PredFunc VP8PredLuma4[/* NUM_BMODES */];
 
 // clipping tables (for filtering)
 extern const int8_t* const VP8ksclip1;  // clips [-1020, 1020] to [-128, 127]

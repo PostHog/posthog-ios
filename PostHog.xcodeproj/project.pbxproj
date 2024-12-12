@@ -19,7 +19,6 @@
 		3AA34CFE296D951B003398F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34CFD296D951B003398F4 /* Assets.xcassets */; };
 		3AA34D01296D951B003398F4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34D00296D951B003398F4 /* Preview Assets.xcassets */; };
 		3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34D16296D9993003398F4 /* AppDelegate.swift */; };
-		3AC745C0296D6FE60025C109 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		3AC745C6296D6FE60025C109 /* PostHog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AC745B8296D6FE60025C109 /* PostHog.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB2B2991320300AFFC18 /* Api.swift */; };
 		3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB322991388500AFFC18 /* PostHogQueue.swift */; };
@@ -151,6 +150,8 @@
 		DA71854B2D07E11200396388 /* output_3.webp in Resources */ = {isa = PBXBuildFile; fileRef = DA7185472D07E11200396388 /* output_3.webp */; };
 		DA71854C2D07E11200396388 /* output_2.webp in Resources */ = {isa = PBXBuildFile; fileRef = DA7185462D07E11200396388 /* output_2.webp */; };
 		DA71854D2D07E11200396388 /* input_1.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185422D07E11200396388 /* input_1.png */; };
+		DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		DA929C092D0B3A1D0018369C /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
 		DAAB2E8F2D081FF0009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E8E2D081FF0009AA3A3 /* PostHog */; };
 		DAAB2E912D081FFA009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E902D081FFA009AA3A3 /* PostHog */; };
@@ -278,13 +279,6 @@
 			remoteGlobalIDString = 3AA34CF6296D951A003398F4;
 			remoteInfo = PostHogExample;
 		};
-		3AC745C1296D6FE60025C109 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
-			remoteInfo = PostHog;
-		};
 		690FF0332AE7C5BB00A0B06B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */;
@@ -327,6 +321,13 @@
 			remoteGlobalIDString = 228DB9F318BC53F1002BA12A;
 			remoteInfo = PostHogExampleAutocapture;
 		};
+		DA929C0A2D0B3A1D0018369C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -337,6 +338,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				DA1044D52D0B34F200C4ACF3 /* PostHog.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA929C0C2D0B3A1D0018369C /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				DA929C092D0B3A1D0018369C /* PostHog.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -637,10 +649,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */,
+				DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */,
 				690FF0ED2AEFF23300A0B06B /* Nimble in Frameworks */,
 				690FF0EF2AEFF23D00A0B06B /* OHHTTPStubsSwift in Frameworks */,
 				690FF0EB2AEFF22F00A0B06B /* Quick in Frameworks */,
-				3AC745C0296D6FE60025C109 /* PostHog.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1341,12 +1353,13 @@
 				3AC745BB296D6FE60025C109 /* Sources */,
 				3AC745BC296D6FE60025C109 /* Frameworks */,
 				3AC745BD296D6FE60025C109 /* Resources */,
+				DA929C0C2D0B3A1D0018369C /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				3AC745C2296D6FE60025C109 /* PBXTargetDependency */,
 				3AA34D06296D9523003398F4 /* PBXTargetDependency */,
+				DA929C0B2D0B3A1D0018369C /* PBXTargetDependency */,
 			);
 			name = PostHogTests;
 			packageProductDependencies = (
@@ -1862,15 +1875,15 @@
 			target = 3AA34CF6296D951A003398F4 /* PostHogExample */;
 			targetProxy = 3AA34D05296D9523003398F4 /* PBXContainerItemProxy */;
 		};
-		3AC745C2296D6FE60025C109 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 3AC745B4296D6FE60025C109 /* PostHog */;
-			targetProxy = 3AC745C1296D6FE60025C109 /* PBXContainerItemProxy */;
-		};
 		DA1044D72D0B34F200C4ACF3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = DA1044D62D0B34F200C4ACF3 /* PBXContainerItemProxy */;
+		};
+		DA929C0B2D0B3A1D0018369C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = DA929C0A2D0B3A1D0018369C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -2202,7 +2215,6 @@
 		3AC745CD296D6FE60025C109 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
@@ -2234,7 +2246,6 @@
 		3AC745CE296D6FE60025C109 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;

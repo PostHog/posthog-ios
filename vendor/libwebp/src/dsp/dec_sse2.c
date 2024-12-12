@@ -1198,6 +1198,28 @@ WEBP_TSAN_IGNORE_FUNCTION void VP8DspInitSSE2(void) {
   VP8SimpleHFilter16 = SimpleHFilter16_SSE2;
   VP8SimpleVFilter16i = SimpleVFilter16i_SSE2;
   VP8SimpleHFilter16i = SimpleHFilter16i_SSE2;
+
+  VP8PredLuma4[1] = TM4_SSE2;
+  VP8PredLuma4[2] = VE4_SSE2;
+  VP8PredLuma4[4] = RD4_SSE2;
+  VP8PredLuma4[5] = VR4_SSE2;
+  VP8PredLuma4[6] = LD4_SSE2;
+  VP8PredLuma4[7] = VL4_SSE2;
+
+  VP8PredLuma16[0] = DC16_SSE2;
+  VP8PredLuma16[1] = TM16_SSE2;
+  VP8PredLuma16[2] = VE16_SSE2;
+  VP8PredLuma16[3] = HE16_SSE2;
+  VP8PredLuma16[4] = DC16NoTop_SSE2;
+  VP8PredLuma16[5] = DC16NoLeft_SSE2;
+  VP8PredLuma16[6] = DC16NoTopLeft_SSE2;
+
+  VP8PredChroma8[0] = DC8uv_SSE2;
+  VP8PredChroma8[1] = TM8uv_SSE2;
+  VP8PredChroma8[2] = VE8uv_SSE2;
+  VP8PredChroma8[4] = DC8uvNoTop_SSE2;
+  VP8PredChroma8[5] = DC8uvNoLeft_SSE2;
+  VP8PredChroma8[6] = DC8uvNoTopLeft_SSE2;
 }
 
 #else  // !WEBP_USE_SSE2

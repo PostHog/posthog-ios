@@ -21,7 +21,7 @@ let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
-public class PostHogSDK: NSObject {
+@objc public class PostHogSDK: NSObject {
     private var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {

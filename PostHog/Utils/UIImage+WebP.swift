@@ -77,7 +77,10 @@
             }
             defer { dest.data?.deallocate() }
 
-            let rgba = dest.data! // byte array
+            guard let rgba = dest.data else { // byte array
+                hedgeLog("Could not get rgba byte array from destination format")
+                return nil
+            }
             let bytesPerRow = dest.rowBytes
 
             let quality = Float(compressionQuality * 100) // WebP quality is 0-100

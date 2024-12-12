@@ -136,6 +136,7 @@
             return webpData
         }
 
+        // swiftlint:disable:next cyclomatic_complexity
         private func setWebPOptions(
             config: UnsafeMutablePointer<WebPConfig>,
             options: [WebPOption]

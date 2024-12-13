@@ -23,7 +23,7 @@
          - Parameters:
          - compressionQuality: desired compression quality [0...1] (0=max/lowest quality, 1=low/high quality) - Clamped to range
          - options: list of [WebPOption]
-         - Returns: A data object containing the JPEG data, or nil if there’s a problem generating the data.
+         - Returns: A data object containing the WebP data, or nil if there’s a problem generating the data.
          */
         func webpData(compressionQuality: CGFloat, options: [WebPOption] = []) -> Data? {
             // Early exit if image is missing

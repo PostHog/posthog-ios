@@ -131,7 +131,14 @@
             let data: [String: Any] = ["type": 6, "data": pluginData, "timestamp": sample.timeOrigin.toMillis()]
             snapshotsData.append(data)
 
-            PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+            PostHogSDK.shared.capture(
+                "$snapshot",
+                properties: [
+                    "$snapshot_source": "mobile",
+                    "$snapshot_data": snapshotsData
+                ],
+                timestamp: sample.timeOrigin
+            )
 
             tasksLock.withLock {
                 _ = samplesByTask.removeValue(forKey: task)

@@ -87,7 +87,14 @@
                     snapshotsData.append(data)
                 }
                 if !snapshotsData.isEmpty {
-                    PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+                    PostHogSDK.shared.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                        ],
+                        timestamp: date
+                    )
                 }
             }
         }

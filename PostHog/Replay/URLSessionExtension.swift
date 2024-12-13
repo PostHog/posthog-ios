@@ -140,7 +140,13 @@
                 let recordingData: [String: Any] = ["type": 6, "data": pluginData, "timestamp": timestamp.toMillis()]
                 snapshotsData.append(recordingData)
 
-                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+                PostHogSDK.shared.capture(
+                    "$snapshot",
+                    properties:
+                    ["$snapshot_source": "mobile",
+                     "$snapshot_data": snapshotsData],
+                    timestamp: timestamp
+                )
             }
         }
     }

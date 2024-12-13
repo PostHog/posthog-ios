@@ -145,7 +145,8 @@
         private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil) {
             var hasChanges = false
 
-            let timestamp = Date().toMillis()
+            let timestampDate = Date()
+            let timestamp = timestampDate.toMillis()
             let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
 
             guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
@@ -185,7 +186,14 @@
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
-                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+                PostHogSDK.shared.capture(
+                    "$snapshot",
+                    properties: [
+                        "$snapshot_source": "mobile",
+                        "$snapshot_data": snapshotsData,
+                    ],
+                    timestamp: timestampDate
+                )
             }
         }
 

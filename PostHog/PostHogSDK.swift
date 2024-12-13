@@ -46,6 +46,7 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
+    private var didRegisterNotifications = false
     private var appFromBackground = false
     private var isInBackground = false
     #if os(iOS)
@@ -1032,6 +1033,8 @@ let maxRetryDelay = 30.0
     }
 
     private func unregisterNotifications() {
+        didRegisterNotifications = false
+
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -1052,6 +1055,9 @@ let maxRetryDelay = 30.0
     }
 
     private func registerNotifications() {
+        guard !didRegisterNotifications else { return }
+        didRegisterNotifications = true
+
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)

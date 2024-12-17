@@ -144,6 +144,8 @@
 		DA26419C2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */; };
 		DA5AA7192CE245D2004EFB99 /* UIApplication+.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5AA7132CE245CD004EFB99 /* UIApplication+.swift */; };
 		DA5B85882CD21CBB00686389 /* AutocaptureEventProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */; };
+		DA6B7C0B2D118C4E0024419F /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		DA6B7C0C2D118C4E0024419F /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA7185482D07E11200396388 /* input_3.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185442D07E11200396388 /* input_3.png */; };
 		DA7185492D07E11200396388 /* input_2.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185432D07E11200396388 /* input_2.png */; };
 		DA71854A2D07E11200396388 /* output_1.webp in Resources */ = {isa = PBXBuildFile; fileRef = DA7185452D07E11200396388 /* output_1.webp */; };
@@ -155,7 +157,6 @@
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
 		DAAB2E8F2D081FF0009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E8E2D081FF0009AA3A3 /* PostHog */; };
 		DAAB2E912D081FFA009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E902D081FFA009AA3A3 /* PostHog */; };
-		DAAB2E9B2D08223F009AA3A3 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAAB2E9A2D08223F009AA3A3 /* PostHog */; };
 		DAAC94DB2D0B0455006A9B6E /* sharpyuv_csp.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D62D0B0455006A9B6E /* sharpyuv_csp.c */; };
 		DAAC94DC2D0B0455006A9B6E /* sharpyuv.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D42D0B0455006A9B6E /* sharpyuv.c */; };
 		DAAC94DD2D0B0455006A9B6E /* sharpyuv_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DAAC94D92D0B0455006A9B6E /* sharpyuv_neon.c */; };
@@ -200,7 +201,6 @@
 		DAAC952B2D0B0467006A9B6E /* sharpyuv_csp.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FD2D0B0467006A9B6E /* sharpyuv_csp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DAAC952C2D0B0467006A9B6E /* sharpyuv_gamma.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FF2D0B0467006A9B6E /* sharpyuv_gamma.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DAAC952D2D0B0467006A9B6E /* sharpyuv.h in Headers */ = {isa = PBXBuildFile; fileRef = DAAC94FB2D0B0467006A9B6E /* sharpyuv.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		DAB06F9F2D09A744005B1C9B /* PostHog-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB06F9D2D09A744005B1C9B /* PostHog-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DAB071062D09A81F005B1C9B /* random_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = DAB070782D09A81F005B1C9B /* random_utils.c */; };
 		DAB071082D09A81F005B1C9B /* alpha_processing.c in Sources */ = {isa = PBXBuildFile; fileRef = DAB0700F2D09A81F005B1C9B /* alpha_processing.c */; };
 		DAB071092D09A81F005B1C9B /* dec_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DAB0701F2D09A81F005B1C9B /* dec_neon.c */; };
@@ -314,6 +314,13 @@
 			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
 			remoteInfo = PostHog;
 		};
+		DA6B7C0D2D118C4E0024419F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
 		DA8D37282CBEAC03005EBD27 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */;
@@ -338,6 +345,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				DA1044D52D0B34F200C4ACF3 /* PostHog.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA6B7C0F2D118C4E0024419F /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				DA6B7C0C2D118C4E0024419F /* PostHog.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -557,7 +575,6 @@
 		DAAC95052D0B0467006A9B6E /* vp8li_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vp8li_enc.h; sourceTree = "<group>"; };
 		DAAC95062D0B0467006A9B6E /* yuv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = yuv.h; sourceTree = "<group>"; };
 		DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = PostHog.modulemap; sourceTree = "<group>"; };
-		DAB06F9D2D09A744005B1C9B /* PostHog-umbrella.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHog-umbrella.h"; sourceTree = "<group>"; };
 		DAB0700F2D09A81F005B1C9B /* alpha_processing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing.c; sourceTree = "<group>"; };
 		DAB070112D09A81F005B1C9B /* alpha_processing_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing_neon.c; sourceTree = "<group>"; };
 		DAB070142D09A81F005B1C9B /* cost.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cost.c; sourceTree = "<group>"; };
@@ -660,7 +677,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DAAB2E9B2D08223F009AA3A3 /* PostHog in Frameworks */,
+				DA6B7C0B2D118C4E0024419F /* PostHog.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -770,7 +787,6 @@
 				69F517F92BAC768100F52C14 /* PostHogExampleStoryboard */,
 				DAB0709B2D09A81F005B1C9B /* vendor */,
 				3AC745B6296D6FE60025C109 /* Products */,
-				DAB06F9E2D09A744005B1C9B /* Support Files */,
 				69261D152AD92D6C00232EC7 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -792,11 +808,12 @@
 		3AC745B7296D6FE60025C109 /* PostHog */ = {
 			isa = PBXGroup;
 			children = (
+				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
+				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				DA26419B2CC0499300CB427B /* Autocapture */,
 				69EE82B82BA9C4DA00EB9542 /* Replay */,
 				69BA38E62B893F2200AA69D6 /* Resources */,
 				69779BED2AE6B29E00D7A48E /* Models */,
-				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				3AA4C09B2988315D006C4731 /* Utils */,
 				3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */,
 				3AE3FB322991388500AFFC18 /* PostHogQueue.swift */,
@@ -1089,15 +1106,6 @@
 			path = include;
 			sourceTree = "<group>";
 		};
-		DAB06F9E2D09A744005B1C9B /* Support Files */ = {
-			isa = PBXGroup;
-			children = (
-				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
-				DAB06F9D2D09A744005B1C9B /* PostHog-umbrella.h */,
-			);
-			path = "Support Files";
-			sourceTree = "<group>";
-		};
 		DAB0704F2D09A81F005B1C9B /* dsp */ = {
 			isa = PBXGroup;
 			children = (
@@ -1300,7 +1308,6 @@
 				DAAC952D2D0B0467006A9B6E /* sharpyuv.h in Headers */,
 				DA1044C72D0B2C5900C4ACF3 /* webpi_dec.h in Headers */,
 				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
-				DAB06F9F2D09A744005B1C9B /* PostHog-umbrella.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1379,10 +1386,12 @@
 				69278D2E2AE6BC7100BB541A /* Sources */,
 				69278D2F2AE6BC7100BB541A /* Frameworks */,
 				69278D302AE6BC7100BB541A /* Resources */,
+				DA6B7C0F2D118C4E0024419F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DA6B7C0E2D118C4E0024419F /* PBXTargetDependency */,
 			);
 			name = PostHogObjCExample;
 			productName = PostHogObjCExample;
@@ -1880,6 +1889,11 @@
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = DA1044D62D0B34F200C4ACF3 /* PBXContainerItemProxy */;
 		};
+		DA6B7C0E2D118C4E0024419F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = DA6B7C0D2D118C4E0024419F /* PBXContainerItemProxy */;
+		};
 		DA929C0B2D0B3A1D0018369C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
@@ -2150,7 +2164,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
-				MODULEMAP_FILE = "Support Files/PostHog.modulemap";
+				MODULEMAP_FILE = PostHog/PostHog.modulemap;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
@@ -2194,7 +2208,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
-				MODULEMAP_FILE = "Support Files/PostHog.modulemap";
+				MODULEMAP_FILE = PostHog/PostHog.modulemap;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
@@ -2655,14 +2669,6 @@
 				minimumVersion = 12.0.0;
 			};
 		};
-		DAAB2E992D08223F009AA3A3 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/postHog/posthog-ios";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 3.16.2;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2698,11 +2704,6 @@
 		DAAB2E902D081FFA009AA3A3 /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = DAF95F572D072F97001E82BB /* XCLocalSwiftPackageReference "../posthog-ios" */;
-			productName = PostHog;
-		};
-		DAAB2E9A2D08223F009AA3A3 /* PostHog */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = DAAB2E992D08223F009AA3A3 /* XCRemoteSwiftPackageReference "posthog-ios" */;
 			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */

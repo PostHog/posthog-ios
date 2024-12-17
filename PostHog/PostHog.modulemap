@@ -1,5 +1,5 @@
 framework module PostHog {
-  umbrella header "PostHog-umbrella.h"
+  umbrella header "PostHog.h"
 
   export *
   module * { export * }

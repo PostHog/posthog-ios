@@ -90,7 +90,7 @@
                 hedgeLog("Error initializing WebPPicture")
                 return nil
             }
-            
+
             withUnsafeMutablePointer(to: &writer) { writerPointer in
                 picture.use_argb = 1 // Lossy encoding uses YUV for internal bitstream
                 picture.width = Int32(width)

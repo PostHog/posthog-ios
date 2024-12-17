@@ -19,6 +19,7 @@
 #include "config.h"
 #endif
 
+#include <stdbool.h>
 #include "types.h"
 #include <stdio.h>
 
@@ -47,7 +48,7 @@ extern "C" {
  * @param file The source file where the assertion failed.
  * @param line The line number where the assertion failed.
  */
-static inline void posthog_ASSERT(int condition, const char *file, int line) {
+static inline void posthog_ASSERT(bool condition, const char *file, int line) {
     if (!condition) {
         fprintf(stderr, "[PostHog] Warning: Assertion failed at %s:%d\n", file, line);
     }
@@ -56,7 +57,7 @@ static inline void posthog_ASSERT(int condition, const char *file, int line) {
 /**
  * Macro to capture FILE and LINE for `posthog_ASSERT`.
  */
-#define ASSERT(condition) posthog_ASSERT((condition), __FILE__, __LINE__)
+#define ASSERT(condition) posthog_ASSERT((condition) ? true : false, __FILE__, __LINE__)
 
 
 static WEBP_INLINE int CheckSizeOverflow(uint64_t size) {

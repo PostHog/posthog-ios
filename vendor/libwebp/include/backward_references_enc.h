@@ -10,6 +10,7 @@
 // Author: Jyrki Alakuijala (jyrki@google.com)
 //
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_ENC_BACKWARD_REFERENCES_ENC_H_
 #define WEBP_ENC_BACKWARD_REFERENCES_ENC_H_
 

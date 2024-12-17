@@ -240,62 +240,6 @@ WebPMuxImage* MuxImageRelease(WebPMuxImage* const wpi) {
 }
 
 //------------------------------------------------------------------------------
-// MuxImage search methods.
-
-// Get a reference to appropriate chunk list within an image given chunk tag.
-static WebPChunk** GetChunkListFromId(const WebPMuxImage* const wpi,
-                                      WebPChunkId id) {
-  ASSERT(wpi != NULL);
-  switch (id) {
-    case WEBP_CHUNK_ANMF:  return (WebPChunk**)&wpi->header_;
-    case WEBP_CHUNK_ALPHA: return (WebPChunk**)&wpi->alpha_;
-    case WEBP_CHUNK_IMAGE: return (WebPChunk**)&wpi->img_;
-    default: return NULL;
-  }
-}
-
-//int MuxImageCount(const WebPMuxImage* wpi_list, WebPChunkId id) {
-//  int count = 0;
-//  const WebPMuxImage* current;
-//  for (current = wpi_list; current != NULL; current = current->next_) {
-//    if (id == WEBP_CHUNK_NIL) {
-//      ++count;  // Special case: count all images.
-//    } else {
-//      const WebPChunk* const wpi_chunk = *GetChunkListFromId(current, id);
-//      if (wpi_chunk != NULL) {
-//        const WebPChunkId wpi_chunk_id = ChunkGetIdFromTag(wpi_chunk->tag_);
-//        if (wpi_chunk_id == id) ++count;  // Count images with a matching 'id'.
-//      }
-//    }
-//  }
-//  return count;
-//}
-
-// Outputs a pointer to 'prev_wpi->next_',
-//   where 'prev_wpi' is the pointer to the image at position (nth - 1).
-// Returns true if nth image was found.
-//static int SearchImageToGetOrDelete(WebPMuxImage** wpi_list, uint32_t nth,
-//                                    WebPMuxImage*** const location) {
-//  uint32_t count = 0;
-//  ASSERT(wpi_list);
-//  *location = wpi_list;
-//
-//  if (nth == 0) {
-//    nth = MuxImageCount(*wpi_list, WEBP_CHUNK_NIL);
-//    if (nth == 0) return 0;  // Not found.
-//  }
-//
-//  while (*wpi_list != NULL) {
-//    WebPMuxImage* const cur_wpi = *wpi_list;
-//    ++count;
-//    if (count == nth) return 1;  // Found.
-//    wpi_list = &cur_wpi->next_;
-//    *location = wpi_list;
-//  }
-//  return 0;  // Not found.
-//}
-
-//------------------------------------------------------------------------------
 // MuxImage writer methods.
 
 WebPMuxError MuxImagePush(const WebPMuxImage* wpi, WebPMuxImage** wpi_list) {
@@ -351,10 +295,6 @@ WebPChunk** MuxGetChunkListFromId(const WebPMux* mux, WebPChunkId id) {
     case WEBP_CHUNK_XMP:     return (WebPChunk**)&mux->xmp_;
     default:                 return (WebPChunk**)&mux->unknown_;
   }
-}
-
-static int IsNotCompatible(int feature, int num_items) {
-  return (feature != 0) != (num_items > 0);
 }
 
 //------------------------------------------------------------------------------

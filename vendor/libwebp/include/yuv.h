@@ -32,6 +32,7 @@
 
 // Author: Skal (pascal.massimino@gmail.com)
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_DSP_YUV_H_
 #define WEBP_DSP_YUV_H_
 

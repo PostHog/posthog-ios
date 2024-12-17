@@ -13,6 +13,7 @@
 //          Jyrki Alakuijala (jyrki@google.com)
 //          Vincent Rabaud (vrabaud@google.com)
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_DSP_LOSSLESS_COMMON_H_
 #define WEBP_DSP_LOSSLESS_COMMON_H_
 

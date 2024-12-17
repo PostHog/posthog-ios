@@ -9,6 +9,7 @@
 //
 //  NEON common code.
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_DSP_NEON_H_
 #define WEBP_DSP_NEON_H_
 

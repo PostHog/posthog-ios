@@ -229,13 +229,6 @@ static WEBP_INLINE int ColorTransformDelta(int8_t color_pred,
   return ((int)color_pred * color) >> 5;
 }
 
-static WEBP_INLINE void ColorCodeToMultipliers(uint32_t color_code,
-                                               VP8LMultipliers* const m) {
-  m->green_to_red_  = (color_code >>  0) & 0xff;
-  m->green_to_blue_ = (color_code >>  8) & 0xff;
-  m->red_to_blue_   = (color_code >> 16) & 0xff;
-}
-
 void VP8LTransformColorInverse_C(const VP8LMultipliers* const m,
                                  const uint32_t* src, int num_pixels,
                                  uint32_t* dst) {

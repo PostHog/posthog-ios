@@ -12,6 +12,7 @@
 // Authors: Jyrki Alakuijala (jyrki@google.com)
 //          Urvang Joshi (urvang@google.com)
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_UTILS_COLOR_CACHE_UTILS_H_
 #define WEBP_UTILS_COLOR_CACHE_UTILS_H_
 

@@ -12,6 +12,7 @@
 // Authors: Urvang (urvang@google.com)
 //          Vikas (vikasa@google.com)
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_WEBP_MUX_H_
 #define WEBP_WEBP_MUX_H_
 

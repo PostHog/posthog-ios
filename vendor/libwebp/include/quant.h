@@ -7,6 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_DSP_QUANT_H_
 #define WEBP_DSP_QUANT_H_
 

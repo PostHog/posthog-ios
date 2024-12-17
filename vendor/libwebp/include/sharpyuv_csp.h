@@ -9,6 +9,7 @@
 //
 // Colorspace utilities.
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_SHARPYUV_SHARPYUV_CSP_H_
 #define WEBP_SHARPYUV_SHARPYUV_CSP_H_
 

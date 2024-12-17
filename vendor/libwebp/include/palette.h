@@ -11,6 +11,7 @@
 //
 // Author: Vincent Rabaud (vrabaud@google.com)
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_UTILS_PALETTE_H_
 #define WEBP_UTILS_PALETTE_H_
 

@@ -34,21 +34,3 @@
   } while (0)
 
 #undef SWITCH_ID_LIST
-
-//------------------------------------------------------------------------------
-// Get API(s).
-
-// Count number of chunks matching 'tag' in the 'chunk_list'.
-// If tag == NIL_TAG, any tag will be matched.
-static int CountChunks(const WebPChunk* const chunk_list, uint32_t tag) {
-  int count = 0;
-  const WebPChunk* current;
-  for (current = chunk_list; current != NULL; current = current->next_) {
-    if (tag == NIL_TAG || current->tag_ == tag) {
-      count++;  // Count chunks whose tags match.
-    }
-  }
-  return count;
-}
-
-//------------------------------------------------------------------------------

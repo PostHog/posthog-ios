@@ -1427,8 +1427,8 @@ static void HE8uv_NEON(uint8_t* dst) {    // horizontal
 }
 
 static WEBP_INLINE void DC8_NEON(uint8_t* dst, int do_top, int do_left) {
-  uint16x8_t sum_top;
-  uint16x8_t sum_left;
+  uint16x8_t sum_top = vdupq_n_u16(0);;
+  uint16x8_t sum_left = vdupq_n_u16(0);;
   uint8x8_t dc0;
 
   if (do_top) {
@@ -1510,8 +1510,8 @@ static void HE16_NEON(uint8_t* dst) {     // horizontal
 }
 
 static WEBP_INLINE void DC16_NEON(uint8_t* dst, int do_top, int do_left) {
-  uint16x8_t sum_top;
-  uint16x8_t sum_left;
+  uint16x8_t sum_top = vdupq_n_u16(0);
+  uint16x8_t sum_left = vdupq_n_u16(0);
   uint8x8_t dc0;
 
   if (do_top) {

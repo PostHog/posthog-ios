@@ -11,6 +11,7 @@
 //
 // Author: Urvang (urvang@google.com)
 
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #ifndef WEBP_MUX_MUXI_H_
 #define WEBP_MUX_MUXI_H_
 

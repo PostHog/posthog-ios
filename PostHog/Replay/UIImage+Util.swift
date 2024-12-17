@@ -15,17 +15,7 @@
         }
 
         private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {
-            webpData(
-                compressionQuality: compressionQuality,
-                options: [
-                    .alphaQuality(0), // lowest (smallest size)
-                    .filterSharpness(3), // [0 = off .. 7 = least sharp]
-                    .filterStrength(100), // [0 = off .. 100 = strongest]
-                    .filterType(1), // 0 = simple, 1 = strong
-                    .method(5), // (0=fast, 6=slower-better)
-                    .threadLevel(true), // use multi-threaded encoding
-                ]
-            ).map { data in
+            webpData(compressionQuality: compressionQuality).map { data in
                 "data:image/webp;base64,\(data.base64EncodedString())"
             }
         }

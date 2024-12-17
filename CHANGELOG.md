@@ -1,5 +1,7 @@
 ## Next
 
+- feat: change screenshot encoding format from JPEG to WebP ([#273](https://github.com/PostHog/posthog-ios/pull/273))
+
 ## 3.17.0 - 2024-12-10
 
 - feat: ability to add a custom label to autocapture elements ([#271](https://github.com/PostHog/posthog-ios/pull/271))

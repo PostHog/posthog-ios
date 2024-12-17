@@ -11,14 +11,19 @@
 
     extension UIImage {
         func toBase64(_ compressionQuality: CGFloat = 0.3) -> String? {
-            let jpegData = jpegData(compressionQuality: compressionQuality)
-            let base64 = jpegData?.base64EncodedString()
+            toWebPBase64(compressionQuality) ?? toJpegBase64(compressionQuality)
+        }
 
-            if let base64 = base64 {
-                return "data:image/jpeg;base64,\(base64)"
+        private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {
+            webpData(compressionQuality: compressionQuality).map { data in
+                "data:image/webp;base64,\(data.base64EncodedString())"
             }
+        }
 
-            return nil
+        private func toJpegBase64(_ compressionQuality: CGFloat) -> String? {
+            jpegData(compressionQuality: compressionQuality).map { data in
+                "data:image/jpeg;base64,\(data.base64EncodedString())"
+            }
         }
     }
 

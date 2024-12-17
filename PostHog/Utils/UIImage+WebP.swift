@@ -21,7 +21,7 @@
          Returns a data object that contains the image in WebP format.
 
          - Parameters:
-         - compressionQuality: desired compression quality [0...1] (0=max/lowest quality, 1=low/high quality) - Clamped to range
+         - compressionQuality: desired compression quality [0...1] (0=max/lowest quality, 1=low/high quality)
          - options: list of [WebPOption]
          - Returns: A data object containing the WebP data, or nil if there’s a problem generating the data.
          */
@@ -30,9 +30,6 @@
             guard let cgImage = cgImage else {
                 return nil
             }
-
-            // clamp compressionQuality to the valid range [0.0, 1.0]
-            let compressionQuality = min(max(compressionQuality, 0.0), 1.0)
 
             // validate dimensions
             let width = Int(cgImage.width)

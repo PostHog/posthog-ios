@@ -13,7 +13,7 @@
 
 #include "sharpyuv_dsp.h"
 
-#include <assert.h>
+#include "utils.h"
 #include <stdlib.h>
 
 #include "sharpyuv_cpu.h"
@@ -98,7 +98,7 @@ void SharpYuvInitDsp(void) {
   }
 #endif  // WEBP_HAVE_NEON
 
-  assert(SharpYuvUpdateY != NULL);
-  assert(SharpYuvUpdateRGB != NULL);
-  assert(SharpYuvFilterRow != NULL);
+  ASSERT(SharpYuvUpdateY != NULL);
+  ASSERT(SharpYuvUpdateRGB != NULL);
+  ASSERT(SharpYuvFilterRow != NULL);
 }

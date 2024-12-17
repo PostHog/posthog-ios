@@ -342,7 +342,7 @@ static int GetResidualCost_C(int ctx0, const VP8Residual* const res) {
   // Last coefficient is always non-zero
   {
     const int v = abs(res->coeffs[n]);
-    assert(v != 0);
+    ASSERT(v != 0);
     cost += VP8LevelCost(t, v);
     if (n < 15) {
       const int b = VP8EncBands[n + 1];
@@ -358,7 +358,7 @@ static void SetResidualCoeffs_C(const int16_t* WEBP_RESTRICT const coeffs,
                                 VP8Residual* WEBP_RESTRICT const res) {
   int n;
   res->last = -1;
-  assert(res->first == 0 || coeffs[0] == 0);
+  ASSERT(res->first == 0 || coeffs[0] == 0);
   for (n = 15; n >= 0; --n) {
     if (coeffs[n]) {
       res->last = n;

@@ -12,7 +12,7 @@
 // Author: Urvang (urvang@google.com)
 
 #include "dsp.h"
-#include <assert.h>
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,12 +21,12 @@
 
 #define DCHECK(in, out)                                                        \
   do {                                                                         \
-    assert((in) != NULL);                                                      \
-    assert((out) != NULL);                                                     \
-    assert((in) != (out));                                                     \
-    assert(width > 0);                                                         \
-    assert(height > 0);                                                        \
-    assert(stride >= width);                                                   \
+    ASSERT((in) != NULL);                                                      \
+    ASSERT((out) != NULL);                                                     \
+    ASSERT((in) != (out));                                                     \
+    ASSERT(width > 0);                                                         \
+    ASSERT(height > 0);                                                        \
+    ASSERT(stride >= width);                                                   \
   } while (0)
 
 #if !WEBP_NEON_OMIT_C_CODE
@@ -255,11 +255,11 @@ WEBP_DSP_INIT_FUNC(VP8FiltersInit) {
   }
 #endif
 
-  assert(WebPUnfilters[WEBP_FILTER_NONE] != NULL);
-  assert(WebPUnfilters[WEBP_FILTER_HORIZONTAL] != NULL);
-  assert(WebPUnfilters[WEBP_FILTER_VERTICAL] != NULL);
-  assert(WebPUnfilters[WEBP_FILTER_GRADIENT] != NULL);
-  assert(WebPFilters[WEBP_FILTER_HORIZONTAL] != NULL);
-  assert(WebPFilters[WEBP_FILTER_VERTICAL] != NULL);
-  assert(WebPFilters[WEBP_FILTER_GRADIENT] != NULL);
+  ASSERT(WebPUnfilters[WEBP_FILTER_NONE] != NULL);
+  ASSERT(WebPUnfilters[WEBP_FILTER_HORIZONTAL] != NULL);
+  ASSERT(WebPUnfilters[WEBP_FILTER_VERTICAL] != NULL);
+  ASSERT(WebPUnfilters[WEBP_FILTER_GRADIENT] != NULL);
+  ASSERT(WebPFilters[WEBP_FILTER_HORIZONTAL] != NULL);
+  ASSERT(WebPFilters[WEBP_FILTER_VERTICAL] != NULL);
+  ASSERT(WebPFilters[WEBP_FILTER_GRADIENT] != NULL);
 }

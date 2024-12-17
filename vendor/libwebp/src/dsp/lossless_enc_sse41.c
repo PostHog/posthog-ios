@@ -14,7 +14,6 @@
 #include "dsp.h"
 
 #if defined(WEBP_USE_SSE41)
-#include <assert.h>
 #include <smmintrin.h>
 #include "lossless.h"
 
@@ -30,7 +29,7 @@ static WEBP_INLINE uint32_t HorizontalSum_SSE41(__m128i cost) {
 static uint32_t ExtraCost_SSE41(const uint32_t* const a, int length) {
   int i;
   __m128i cost = _mm_set_epi32(2 * a[7], 2 * a[6], a[5], a[4]);
-  assert(length % 8 == 0);
+  ASSERT(length % 8 == 0);
 
   for (i = 8; i + 8 <= length; i += 8) {
     const int j = (i - 2) >> 1;
@@ -50,7 +49,7 @@ static uint32_t ExtraCostCombined_SSE41(const uint32_t* WEBP_RESTRICT const a,
   int i;
   __m128i cost = _mm_add_epi32(_mm_set_epi32(2 * a[7], 2 * a[6], a[5], a[4]),
                                _mm_set_epi32(2 * b[7], 2 * b[6], b[5], b[4]));
-  assert(length % 8 == 0);
+  ASSERT(length % 8 == 0);
 
   for (i = 8; i + 8 <= length; i += 8) {
     const int j = (i - 2) >> 1;

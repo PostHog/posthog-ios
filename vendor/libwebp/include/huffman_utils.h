@@ -14,7 +14,6 @@
 #ifndef WEBP_UTILS_HUFFMAN_UTILS_H_
 #define WEBP_UTILS_HUFFMAN_UTILS_H_
 
-#include <assert.h>
 #include "format_constants.h"
 #include "types.h"
 

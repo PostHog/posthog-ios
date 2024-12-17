@@ -16,7 +16,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -90,8 +89,8 @@ static int TBufferNewPage(VP8TBuffer* const b) {
 static WEBP_INLINE uint32_t AddToken(VP8TBuffer* const b, uint32_t bit,
                                      uint32_t proba_idx,
                                      proba_t* const stats) {
-  assert(proba_idx < FIXED_PROBA_BIT);
-  assert(bit <= 1);
+  ASSERT(proba_idx < FIXED_PROBA_BIT);
+  ASSERT(bit <= 1);
   if (b->left_ > 0 || TBufferNewPage(b)) {
     const int slot = --b->left_;
     b->tokens_[slot] = (bit << 15) | proba_idx;
@@ -102,8 +101,8 @@ static WEBP_INLINE uint32_t AddToken(VP8TBuffer* const b, uint32_t bit,
 
 static WEBP_INLINE void AddConstantToken(VP8TBuffer* const b,
                                          uint32_t bit, uint32_t proba) {
-  assert(proba < 256);
-  assert(bit <= 1);
+  ASSERT(proba < 256);
+  ASSERT(bit <= 1);
   if (b->left_ > 0 || TBufferNewPage(b)) {
     const int slot = --b->left_;
     b->tokens_[slot] = (bit << 15) | FIXED_PROBA_BIT | proba;
@@ -200,7 +199,7 @@ int VP8RecordCoeffTokens(int ctx, const struct VP8Residual* const res,
 int VP8EmitTokens(VP8TBuffer* const b, VP8BitWriter* const bw,
                   const uint8_t* const probas, int final_pass) {
   const VP8Tokens* p = b->pages_;
-  assert(!b->error_);
+  ASSERT(!b->error_);
   while (p != NULL) {
     const VP8Tokens* const next = p->next_;
     const int N = (next == NULL) ? b->left_ : 0;
@@ -226,7 +225,7 @@ int VP8EmitTokens(VP8TBuffer* const b, VP8BitWriter* const bw,
 size_t VP8EstimateTokenSize(VP8TBuffer* const b, const uint8_t* const probas) {
   size_t size = 0;
   const VP8Tokens* p = b->pages_;
-  assert(!b->error_);
+  ASSERT(!b->error_);
   while (p != NULL) {
     const VP8Tokens* const next = p->next_;
     const int N = (next == NULL) ? b->left_ : 0;

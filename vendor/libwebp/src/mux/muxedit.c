@@ -12,7 +12,6 @@
 // Authors: Urvang (urvang@google.com)
 //          Vikas (vikasa@google.com)
 
-#include <assert.h>
 #include "muxi.h"
 #include "utils.h"
 
@@ -20,7 +19,7 @@
 // Life of a mux object.
 
 static void MuxInit(WebPMux* const mux) {
-  assert(mux != NULL);
+  ASSERT(mux != NULL);
   memset(mux, 0, sizeof(*mux));
   mux->canvas_width_ = 0;     // just to be explicit
   mux->canvas_height_ = 0;
@@ -44,7 +43,7 @@ static void DeleteAllImages(WebPMuxImage** const wpi_list) {
 }
 
 static void MuxRelease(WebPMux* const mux) {
-  assert(mux != NULL);
+  ASSERT(mux != NULL);
   DeleteAllImages(&mux->images_);
   ChunkListDelete(&mux->vp8x_);
   ChunkListDelete(&mux->iccp_);
@@ -82,7 +81,7 @@ static WebPMuxError MuxSet(WebPMux* const mux, uint32_t tag,
   WebPChunk chunk;
   WebPMuxError err = WEBP_MUX_NOT_FOUND;
   const CHUNK_INDEX idx = ChunkGetIndexFromTag(tag);
-  assert(mux != NULL);
+  ASSERT(mux != NULL);
 
   ChunkInit(&chunk);
   SWITCH_ID_LIST(IDX_VP8X,    &mux->vp8x_);
@@ -97,7 +96,7 @@ static WebPMuxError MuxSet(WebPMux* const mux, uint32_t tag,
 
 static WebPMuxError DeleteChunks(WebPChunk** chunk_list, uint32_t tag) {
   WebPMuxError err = WEBP_MUX_NOT_FOUND;
-  assert(chunk_list);
+  ASSERT(chunk_list);
   while (*chunk_list) {
     WebPChunk* const chunk = *chunk_list;
     if (chunk->tag_ == tag) {

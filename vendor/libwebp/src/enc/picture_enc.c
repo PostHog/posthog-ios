@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
 

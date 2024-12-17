@@ -16,7 +16,7 @@
 
 #if defined(WEBP_USE_NEON)
 
-#include <assert.h>
+#include "utils.h"
 #include <arm_neon.h>
 #include <string.h>
 #include "neon.h"
@@ -218,7 +218,7 @@ static void FUNC_NAME(const uint8_t* WEBP_RESTRICT top_y,                      \
   const int16x8_t B_Rounder = vdupq_n_s16(-17685);                             \
                                                                                \
   /* Treat the first pixel in regular way */                                   \
-  assert(top_y != NULL);                                                       \
+  ASSERT(top_y != NULL);                                                       \
   {                                                                            \
     const int u0 = (top_u[0] + u_diag) >> 1;                                   \
     const int v0 = (top_v[0] + v_diag) >> 1;                                   \

@@ -12,7 +12,6 @@
 // Authors: Urvang (urvang@google.com)
 //          Vikas (vikasa@google.com)
 
-#include <assert.h>
 #include "muxi.h"
 #include "utils.h"
 
@@ -43,7 +42,7 @@ int WebPGetMuxVersion(void) {
 // Life of a chunk object.
 
 void ChunkInit(WebPChunk* const chunk) {
-  assert(chunk);
+  ASSERT(chunk);
   memset(chunk, 0, sizeof(*chunk));
   chunk->tag_ = NIL_TAG;
 }
@@ -139,7 +138,7 @@ WebPMuxError ChunkSetHead(WebPChunk* const chunk,
                           WebPChunk** const chunk_list) {
   WebPChunk* new_chunk;
 
-  assert(chunk_list != NULL);
+  ASSERT(chunk_list != NULL);
   if (*chunk_list != NULL) {
     return WEBP_MUX_NOT_FOUND;
   }
@@ -156,7 +155,7 @@ WebPMuxError ChunkSetHead(WebPChunk* const chunk,
 WebPMuxError ChunkAppend(WebPChunk* const chunk,
                          WebPChunk*** const chunk_list) {
   WebPMuxError err;
-  assert(chunk_list != NULL && *chunk_list != NULL);
+  ASSERT(chunk_list != NULL && *chunk_list != NULL);
 
   if (**chunk_list == NULL) {
     err = ChunkSetHead(chunk, *chunk_list);
@@ -189,11 +188,11 @@ void ChunkListDelete(WebPChunk** const chunk_list) {
 
 //static uint8_t* ChunkEmit(const WebPChunk* const chunk, uint8_t* dst) {
 //  const size_t chunk_size = chunk->data_.size;
-//  assert(chunk);
-//  assert(chunk->tag_ != NIL_TAG);
+//  ASSERT(chunk);
+//  ASSERT(chunk->tag_ != NIL_TAG);
 //  PutLE32(dst + 0, chunk->tag_);
 //  PutLE32(dst + TAG_SIZE, (uint32_t)chunk_size);
-//  assert(chunk_size == (uint32_t)chunk_size);
+//  ASSERT(chunk_size == (uint32_t)chunk_size);
 //  memcpy(dst + CHUNK_HEADER_SIZE, chunk->data_.bytes, chunk_size);
 //  if (chunk_size & 1)
 //    dst[CHUNK_HEADER_SIZE + chunk_size] = 0;  // Add padding.
@@ -221,7 +220,7 @@ void ChunkListDelete(WebPChunk** const chunk_list) {
 // Life of a MuxImage object.
 
 void MuxImageInit(WebPMuxImage* const wpi) {
-  assert(wpi);
+  ASSERT(wpi);
   memset(wpi, 0, sizeof(*wpi));
 }
 
@@ -246,7 +245,7 @@ WebPMuxImage* MuxImageRelease(WebPMuxImage* const wpi) {
 // Get a reference to appropriate chunk list within an image given chunk tag.
 static WebPChunk** GetChunkListFromId(const WebPMuxImage* const wpi,
                                       WebPChunkId id) {
-  assert(wpi != NULL);
+  ASSERT(wpi != NULL);
   switch (id) {
     case WEBP_CHUNK_ANMF:  return (WebPChunk**)&wpi->header_;
     case WEBP_CHUNK_ALPHA: return (WebPChunk**)&wpi->alpha_;
@@ -278,7 +277,7 @@ static WebPChunk** GetChunkListFromId(const WebPMuxImage* const wpi,
 //static int SearchImageToGetOrDelete(WebPMuxImage** wpi_list, uint32_t nth,
 //                                    WebPMuxImage*** const location) {
 //  uint32_t count = 0;
-//  assert(wpi_list);
+//  ASSERT(wpi_list);
 //  *location = wpi_list;
 //
 //  if (nth == 0) {
@@ -343,7 +342,7 @@ int MuxHasAlpha(const WebPMuxImage* images) {
 }
 
 WebPChunk** MuxGetChunkListFromId(const WebPMux* mux, WebPChunkId id) {
-  assert(mux != NULL);
+  ASSERT(mux != NULL);
   switch (id) {
     case WEBP_CHUNK_VP8X:    return (WebPChunk**)&mux->vp8x_;
     case WEBP_CHUNK_ICCP:    return (WebPChunk**)&mux->iccp_;

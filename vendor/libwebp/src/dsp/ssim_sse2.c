@@ -15,7 +15,6 @@
 
 #if defined(WEBP_USE_SSE2)
 
-#include <assert.h>
 #include <emmintrin.h>
 
 #include "common_sse2.h"
@@ -129,7 +128,7 @@ static double SSIMGet_SSE2(const uint8_t* src1, int stride1,
   __m128i xm = zero, ym = zero;                // 16b accums
   __m128i xxm = zero, yym = zero, xym = zero;  // 32b accum
   const __m128i Wx = _mm_loadu_si128((const __m128i*)kWeight);
-  assert(2 * VP8_SSIM_KERNEL + 1 == 7);
+  ASSERT(2 * VP8_SSIM_KERNEL + 1 == 7);
   ACCUMULATE_ROW(1);
   ACCUMULATE_ROW(2);
   ACCUMULATE_ROW(3);

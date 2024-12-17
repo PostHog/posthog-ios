@@ -11,7 +11,6 @@
 //
 // Author: somnath@google.com (Somnath Banerjee)
 
-#include <assert.h>
 #include "vp8i_enc.h"
 #include "dsp.h"
 
@@ -58,7 +57,7 @@ static const uint8_t kLevelsFromDelta[8][MAX_DELTA_SIZE] = {
 
 int VP8FilterStrengthFromDelta(int sharpness, int delta) {
   const int pos = (delta < MAX_DELTA_SIZE) ? delta : MAX_DELTA_SIZE - 1;
-  assert(sharpness >= 0 && sharpness <= 7);
+  ASSERT(sharpness >= 0 && sharpness <= 7);
   return kLevelsFromDelta[sharpness][pos];
 }
 

@@ -13,7 +13,6 @@
 
 #include "encode.h"
 
-#include <assert.h>
 #include <stdlib.h>
 
 #include "vp8i_enc.h"
@@ -29,7 +28,7 @@
 // into 'dst'. Mark 'dst' as not owning any memory.
 static void PictureGrabSpecs(const WebPPicture* const src,
                              WebPPicture* const dst) {
-  assert(src != NULL && dst != NULL);
+  ASSERT(src != NULL && dst != NULL);
   *dst = *src;
   WebPPictureResetBuffers(dst);
 }
@@ -192,7 +191,7 @@ static int RescalePlane(const uint8_t* src,
 }
 
 static void AlphaMultiplyARGB(WebPPicture* const pic, int inverse) {
-  assert(pic->argb != NULL);
+  ASSERT(pic->argb != NULL);
   WebPMultARGBRows((uint8_t*)pic->argb, pic->argb_stride * sizeof(*pic->argb),
                    pic->width, pic->height, inverse);
 }

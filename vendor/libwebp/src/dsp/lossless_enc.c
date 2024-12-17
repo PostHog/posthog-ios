@@ -15,7 +15,6 @@
 
 #include "dsp.h"
 
-#include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 #include "endian_inl_utils.h"
@@ -246,7 +245,7 @@ const uint8_t kPrefixEncodeExtraBitsValue[PREFIX_LOOKUP_IDX_MAX] = {
 };
 
 static uint64_t FastSLog2Slow_C(uint32_t v) {
-  assert(v >= LOG_LOOKUP_IDX_MAX);
+  ASSERT(v >= LOG_LOOKUP_IDX_MAX);
   if (v < APPROX_LOG_WITH_CORRECTION_MAX) {
     const uint64_t orig_v = v;
     uint64_t correction;
@@ -278,7 +277,7 @@ static uint64_t FastSLog2Slow_C(uint32_t v) {
 }
 
 static uint32_t FastLog2Slow_C(uint32_t v) {
-  assert(v >= LOG_LOOKUP_IDX_MAX);
+  ASSERT(v >= LOG_LOOKUP_IDX_MAX);
   if (v < APPROX_LOG_WITH_CORRECTION_MAX) {
     const uint32_t orig_v = v;
     uint32_t log_2;
@@ -572,7 +571,7 @@ void VP8LBundleColorMap_C(const uint8_t* WEBP_RESTRICT const row,
 static uint32_t ExtraCost_C(const uint32_t* population, int length) {
   int i;
   uint32_t cost = population[4] + population[5];
-  assert(length % 2 == 0);
+  ASSERT(length % 2 == 0);
   for (i = 2; i < length / 2 - 1; ++i) {
     cost += i * (population[2 * i + 2] + population[2 * i + 3]);
   }
@@ -584,7 +583,7 @@ static uint32_t ExtraCostCombined_C(const uint32_t* WEBP_RESTRICT X,
                                     int length) {
   int i;
   uint32_t cost = X[4] + Y[4] + X[5] + Y[5];
-  assert(length % 2 == 0);
+  ASSERT(length % 2 == 0);
   for (i = 2; i < length / 2 - 1; ++i) {
     const int xy0 = X[2 * i + 2] + Y[2 * i + 2];
     const int xy1 = X[2 * i + 3] + Y[2 * i + 3];
@@ -637,7 +636,7 @@ void VP8LHistogramAdd(const VP8LHistogram* WEBP_RESTRICT const a,
                       VP8LHistogram* WEBP_RESTRICT const out) {
   int i;
   const int literal_size = VP8LHistogramNumCodes(a->palette_code_bits_);
-  assert(a->palette_code_bits_ == b->palette_code_bits_);
+  ASSERT(a->palette_code_bits_ == b->palette_code_bits_);
 
   if (b != out) {
     ADD(0, literal_, literal_size);
@@ -685,7 +684,7 @@ static void PredictorSub##PREDICTOR_I##_C(const uint32_t* in,              \
                                           int num_pixels,                  \
                                           uint32_t* WEBP_RESTRICT out) {   \
   int x;                                                                   \
-  assert(upper != NULL);                                                   \
+  ASSERT(upper != NULL);                                                   \
   for (x = 0; x < num_pixels; ++x) {                                       \
     const uint32_t pred =                                                  \
         VP8LPredictor##PREDICTOR_I##_C(&in[x - 1], upper + x);             \
@@ -842,54 +841,54 @@ WEBP_DSP_INIT_FUNC(VP8LEncDspInit) {
   }
 #endif
 
-  assert(VP8LSubtractGreenFromBlueAndRed != NULL);
-  assert(VP8LTransformColor != NULL);
-  assert(VP8LCollectColorBlueTransforms != NULL);
-  assert(VP8LCollectColorRedTransforms != NULL);
-  assert(VP8LFastLog2Slow != NULL);
-  assert(VP8LFastSLog2Slow != NULL);
-  assert(VP8LExtraCost != NULL);
-  assert(VP8LExtraCostCombined != NULL);
-  assert(VP8LCombinedShannonEntropy != NULL);
-  assert(VP8LShannonEntropy != NULL);
-  assert(VP8LGetEntropyUnrefined != NULL);
-  assert(VP8LGetCombinedEntropyUnrefined != NULL);
-  assert(VP8LAddVector != NULL);
-  assert(VP8LAddVectorEq != NULL);
-  assert(VP8LVectorMismatch != NULL);
-  assert(VP8LBundleColorMap != NULL);
-  assert(VP8LPredictorsSub[0] != NULL);
-  assert(VP8LPredictorsSub[1] != NULL);
-  assert(VP8LPredictorsSub[2] != NULL);
-  assert(VP8LPredictorsSub[3] != NULL);
-  assert(VP8LPredictorsSub[4] != NULL);
-  assert(VP8LPredictorsSub[5] != NULL);
-  assert(VP8LPredictorsSub[6] != NULL);
-  assert(VP8LPredictorsSub[7] != NULL);
-  assert(VP8LPredictorsSub[8] != NULL);
-  assert(VP8LPredictorsSub[9] != NULL);
-  assert(VP8LPredictorsSub[10] != NULL);
-  assert(VP8LPredictorsSub[11] != NULL);
-  assert(VP8LPredictorsSub[12] != NULL);
-  assert(VP8LPredictorsSub[13] != NULL);
-  assert(VP8LPredictorsSub[14] != NULL);
-  assert(VP8LPredictorsSub[15] != NULL);
-  assert(VP8LPredictorsSub_C[0] != NULL);
-  assert(VP8LPredictorsSub_C[1] != NULL);
-  assert(VP8LPredictorsSub_C[2] != NULL);
-  assert(VP8LPredictorsSub_C[3] != NULL);
-  assert(VP8LPredictorsSub_C[4] != NULL);
-  assert(VP8LPredictorsSub_C[5] != NULL);
-  assert(VP8LPredictorsSub_C[6] != NULL);
-  assert(VP8LPredictorsSub_C[7] != NULL);
-  assert(VP8LPredictorsSub_C[8] != NULL);
-  assert(VP8LPredictorsSub_C[9] != NULL);
-  assert(VP8LPredictorsSub_C[10] != NULL);
-  assert(VP8LPredictorsSub_C[11] != NULL);
-  assert(VP8LPredictorsSub_C[12] != NULL);
-  assert(VP8LPredictorsSub_C[13] != NULL);
-  assert(VP8LPredictorsSub_C[14] != NULL);
-  assert(VP8LPredictorsSub_C[15] != NULL);
+  ASSERT(VP8LSubtractGreenFromBlueAndRed != NULL);
+  ASSERT(VP8LTransformColor != NULL);
+  ASSERT(VP8LCollectColorBlueTransforms != NULL);
+  ASSERT(VP8LCollectColorRedTransforms != NULL);
+  ASSERT(VP8LFastLog2Slow != NULL);
+  ASSERT(VP8LFastSLog2Slow != NULL);
+  ASSERT(VP8LExtraCost != NULL);
+  ASSERT(VP8LExtraCostCombined != NULL);
+  ASSERT(VP8LCombinedShannonEntropy != NULL);
+  ASSERT(VP8LShannonEntropy != NULL);
+  ASSERT(VP8LGetEntropyUnrefined != NULL);
+  ASSERT(VP8LGetCombinedEntropyUnrefined != NULL);
+  ASSERT(VP8LAddVector != NULL);
+  ASSERT(VP8LAddVectorEq != NULL);
+  ASSERT(VP8LVectorMismatch != NULL);
+  ASSERT(VP8LBundleColorMap != NULL);
+  ASSERT(VP8LPredictorsSub[0] != NULL);
+  ASSERT(VP8LPredictorsSub[1] != NULL);
+  ASSERT(VP8LPredictorsSub[2] != NULL);
+  ASSERT(VP8LPredictorsSub[3] != NULL);
+  ASSERT(VP8LPredictorsSub[4] != NULL);
+  ASSERT(VP8LPredictorsSub[5] != NULL);
+  ASSERT(VP8LPredictorsSub[6] != NULL);
+  ASSERT(VP8LPredictorsSub[7] != NULL);
+  ASSERT(VP8LPredictorsSub[8] != NULL);
+  ASSERT(VP8LPredictorsSub[9] != NULL);
+  ASSERT(VP8LPredictorsSub[10] != NULL);
+  ASSERT(VP8LPredictorsSub[11] != NULL);
+  ASSERT(VP8LPredictorsSub[12] != NULL);
+  ASSERT(VP8LPredictorsSub[13] != NULL);
+  ASSERT(VP8LPredictorsSub[14] != NULL);
+  ASSERT(VP8LPredictorsSub[15] != NULL);
+  ASSERT(VP8LPredictorsSub_C[0] != NULL);
+  ASSERT(VP8LPredictorsSub_C[1] != NULL);
+  ASSERT(VP8LPredictorsSub_C[2] != NULL);
+  ASSERT(VP8LPredictorsSub_C[3] != NULL);
+  ASSERT(VP8LPredictorsSub_C[4] != NULL);
+  ASSERT(VP8LPredictorsSub_C[5] != NULL);
+  ASSERT(VP8LPredictorsSub_C[6] != NULL);
+  ASSERT(VP8LPredictorsSub_C[7] != NULL);
+  ASSERT(VP8LPredictorsSub_C[8] != NULL);
+  ASSERT(VP8LPredictorsSub_C[9] != NULL);
+  ASSERT(VP8LPredictorsSub_C[10] != NULL);
+  ASSERT(VP8LPredictorsSub_C[11] != NULL);
+  ASSERT(VP8LPredictorsSub_C[12] != NULL);
+  ASSERT(VP8LPredictorsSub_C[13] != NULL);
+  ASSERT(VP8LPredictorsSub_C[14] != NULL);
+  ASSERT(VP8LPredictorsSub_C[15] != NULL);
 }
 
 //------------------------------------------------------------------------------

@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <math.h>
 #include <stdlib.h>  // for abs()
 
@@ -414,7 +413,7 @@ void VP8SetSegmentParams(VP8Encoder* const enc, float quality) {
     const double expn = 1. - amp * enc->dqm_[i].alpha_;
     const double c = pow(c_base, expn);
     const int q = (int)(127. * (1. - c));
-    assert(expn > 0.);
+    ASSERT(expn > 0.);
     enc->dqm_[i].quant_ = clip(q, 0, 127);
   }
 
@@ -809,8 +808,8 @@ static int ReconstructIntra16(VP8EncIterator* WEBP_RESTRICT const it,
       // b) finding 'last' non-zero coeffs in SetResidualCoeffs() is simplified.
       tmp[n][0] = tmp[n + 1][0] = 0;
       nz |= VP8EncQuantize2Blocks(tmp[n], rd->y_ac_levels[n], &dqm->y1_) << n;
-      assert(rd->y_ac_levels[n + 0][0] == 0);
-      assert(rd->y_ac_levels[n + 1][0] == 0);
+      ASSERT(rd->y_ac_levels[n + 0][0] == 0);
+      ASSERT(rd->y_ac_levels[n + 1][0] == 0);
     }
   }
 
@@ -901,7 +900,7 @@ static void CorrectDCValues(const VP8EncIterator* WEBP_RESTRICT const it,
     err3 = QuantizeSingle(&c[3][0], mtx);
     // error 'err' is bounded by mtx->q_[0] which is 132 at max. Hence
     // err >> DSCALE will fit in an int8_t type if DSCALE>=1.
-    assert(abs(err1) <= 127 && abs(err2) <= 127 && abs(err3) <= 127);
+    ASSERT(abs(err1) <= 127 && abs(err2) <= 127 && abs(err3) <= 127);
     rd->derr[ch][0] = (int8_t)err1;
     rd->derr[ch][1] = (int8_t)err2;
     rd->derr[ch][2] = (int8_t)err3;

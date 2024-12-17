@@ -11,8 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
-
 #include "dsp.h"
 #include "vp8i_dec.h"
 #include "utils.h"
@@ -848,47 +846,47 @@ WEBP_DSP_INIT_FUNC(VP8DspInit) {
   }
 #endif
 
-  assert(VP8TransformWHT != NULL);
-  assert(VP8Transform != NULL);
-  assert(VP8TransformDC != NULL);
-  assert(VP8TransformAC3 != NULL);
-  assert(VP8TransformUV != NULL);
-  assert(VP8TransformDCUV != NULL);
-  assert(VP8VFilter16 != NULL);
-  assert(VP8HFilter16 != NULL);
-  assert(VP8VFilter8 != NULL);
-  assert(VP8HFilter8 != NULL);
-  assert(VP8VFilter16i != NULL);
-  assert(VP8HFilter16i != NULL);
-  assert(VP8VFilter8i != NULL);
-  assert(VP8HFilter8i != NULL);
-  assert(VP8SimpleVFilter16 != NULL);
-  assert(VP8SimpleHFilter16 != NULL);
-  assert(VP8SimpleVFilter16i != NULL);
-  assert(VP8SimpleHFilter16i != NULL);
-  assert(VP8PredLuma4[0] != NULL);
-  assert(VP8PredLuma4[1] != NULL);
-  assert(VP8PredLuma4[2] != NULL);
-  assert(VP8PredLuma4[3] != NULL);
-  assert(VP8PredLuma4[4] != NULL);
-  assert(VP8PredLuma4[5] != NULL);
-  assert(VP8PredLuma4[6] != NULL);
-  assert(VP8PredLuma4[7] != NULL);
-  assert(VP8PredLuma4[8] != NULL);
-  assert(VP8PredLuma4[9] != NULL);
-  assert(VP8PredLuma16[0] != NULL);
-  assert(VP8PredLuma16[1] != NULL);
-  assert(VP8PredLuma16[2] != NULL);
-  assert(VP8PredLuma16[3] != NULL);
-  assert(VP8PredLuma16[4] != NULL);
-  assert(VP8PredLuma16[5] != NULL);
-  assert(VP8PredLuma16[6] != NULL);
-  assert(VP8PredChroma8[0] != NULL);
-  assert(VP8PredChroma8[1] != NULL);
-  assert(VP8PredChroma8[2] != NULL);
-  assert(VP8PredChroma8[3] != NULL);
-  assert(VP8PredChroma8[4] != NULL);
-  assert(VP8PredChroma8[5] != NULL);
-  assert(VP8PredChroma8[6] != NULL);
-  assert(VP8DitherCombine8x8 != NULL);
+  ASSERT(VP8TransformWHT != NULL);
+  ASSERT(VP8Transform != NULL);
+  ASSERT(VP8TransformDC != NULL);
+  ASSERT(VP8TransformAC3 != NULL);
+  ASSERT(VP8TransformUV != NULL);
+  ASSERT(VP8TransformDCUV != NULL);
+  ASSERT(VP8VFilter16 != NULL);
+  ASSERT(VP8HFilter16 != NULL);
+  ASSERT(VP8VFilter8 != NULL);
+  ASSERT(VP8HFilter8 != NULL);
+  ASSERT(VP8VFilter16i != NULL);
+  ASSERT(VP8HFilter16i != NULL);
+  ASSERT(VP8VFilter8i != NULL);
+  ASSERT(VP8HFilter8i != NULL);
+  ASSERT(VP8SimpleVFilter16 != NULL);
+  ASSERT(VP8SimpleHFilter16 != NULL);
+  ASSERT(VP8SimpleVFilter16i != NULL);
+  ASSERT(VP8SimpleHFilter16i != NULL);
+  ASSERT(VP8PredLuma4[0] != NULL);
+  ASSERT(VP8PredLuma4[1] != NULL);
+  ASSERT(VP8PredLuma4[2] != NULL);
+  ASSERT(VP8PredLuma4[3] != NULL);
+  ASSERT(VP8PredLuma4[4] != NULL);
+  ASSERT(VP8PredLuma4[5] != NULL);
+  ASSERT(VP8PredLuma4[6] != NULL);
+  ASSERT(VP8PredLuma4[7] != NULL);
+  ASSERT(VP8PredLuma4[8] != NULL);
+  ASSERT(VP8PredLuma4[9] != NULL);
+  ASSERT(VP8PredLuma16[0] != NULL);
+  ASSERT(VP8PredLuma16[1] != NULL);
+  ASSERT(VP8PredLuma16[2] != NULL);
+  ASSERT(VP8PredLuma16[3] != NULL);
+  ASSERT(VP8PredLuma16[4] != NULL);
+  ASSERT(VP8PredLuma16[5] != NULL);
+  ASSERT(VP8PredLuma16[6] != NULL);
+  ASSERT(VP8PredChroma8[0] != NULL);
+  ASSERT(VP8PredChroma8[1] != NULL);
+  ASSERT(VP8PredChroma8[2] != NULL);
+  ASSERT(VP8PredChroma8[3] != NULL);
+  ASSERT(VP8PredChroma8[4] != NULL);
+  ASSERT(VP8PredChroma8[5] != NULL);
+  ASSERT(VP8PredChroma8[6] != NULL);
+  ASSERT(VP8DitherCombine8x8 != NULL);
 }

@@ -15,7 +15,6 @@
 
 #if defined(WEBP_USE_NEON)
 
-#include <assert.h>
 #include <stdlib.h>
 
 #include "neon.h"

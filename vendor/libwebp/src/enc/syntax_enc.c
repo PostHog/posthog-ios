@@ -11,8 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
-
 #include "utils.h"
 #include "format_constants.h"  // RIFF constants
 #include "mux_types.h"         // ALPHA_FLAG
@@ -40,7 +38,7 @@ static WebPEncodingError PutRIFFHeader(const VP8Encoder* const enc,
   uint8_t riff[RIFF_HEADER_SIZE] = {
     'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'
   };
-  assert(riff_size == (uint32_t)riff_size);
+  ASSERT(riff_size == (uint32_t)riff_size);
   PutLE32(riff + TAG_SIZE, (uint32_t)riff_size);
   if (!pic->writer(riff, sizeof(riff), pic)) {
     return VP8_ENC_ERROR_BAD_WRITE;
@@ -55,9 +53,9 @@ static WebPEncodingError PutVP8XHeader(const VP8Encoder* const enc) {
   };
   uint32_t flags = 0;
 
-  assert(IsVP8XNeeded(enc));
-  assert(pic->width >= 1 && pic->height >= 1);
-  assert(pic->width <= MAX_CANVAS_SIZE && pic->height <= MAX_CANVAS_SIZE);
+  ASSERT(IsVP8XNeeded(enc));
+  ASSERT(pic->width >= 1 && pic->height >= 1);
+  ASSERT(pic->width <= MAX_CANVAS_SIZE && pic->height <= MAX_CANVAS_SIZE);
 
   if (enc->has_alpha_) {
     flags |= ALPHA_FLAG;
@@ -79,7 +77,7 @@ static WebPEncodingError PutAlphaChunk(const VP8Encoder* const enc) {
     'A', 'L', 'P', 'H'
   };
 
-  assert(enc->has_alpha_);
+  ASSERT(enc->has_alpha_);
 
   // Alpha chunk header.
   PutLE32(alpha_chunk_hdr + TAG_SIZE, enc->alpha_data_size_);
@@ -104,7 +102,7 @@ static WebPEncodingError PutVP8Header(const WebPPicture* const pic,
   uint8_t vp8_chunk_hdr[CHUNK_HEADER_SIZE] = {
     'V', 'P', '8', ' '
   };
-  assert(vp8_size == (uint32_t)vp8_size);
+  ASSERT(vp8_size == (uint32_t)vp8_size);
   PutLE32(vp8_chunk_hdr + TAG_SIZE, (uint32_t)vp8_size);
   if (!pic->writer(vp8_chunk_hdr, sizeof(vp8_chunk_hdr), pic)) {
     return VP8_ENC_ERROR_BAD_WRITE;

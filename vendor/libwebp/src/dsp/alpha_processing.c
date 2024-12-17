@@ -11,7 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
+#include "utils.h"
 #include "dsp.h"
 
 // Tables can be faster on some platform but incur some extra binary size (~2k).
@@ -28,7 +28,7 @@
 
 static uint32_t Mult(uint8_t x, uint32_t mult) {
   const uint32_t v = (x * mult + HALF) >> MFIX;
-  assert(v <= 255);  // <- 24bit precision is enough to ensure that.
+  ASSERT(v <= 255);  // <- 24bit precision is enough to ensure that.
   return v;
 }
 
@@ -478,19 +478,19 @@ WEBP_DSP_INIT_FUNC(WebPInitAlphaProcessing) {
   }
 #endif
 
-  assert(WebPMultARGBRow != NULL);
-  assert(WebPMultRow != NULL);
-  assert(WebPApplyAlphaMultiply != NULL);
-  assert(WebPApplyAlphaMultiply4444 != NULL);
-  assert(WebPDispatchAlpha != NULL);
-  assert(WebPDispatchAlphaToGreen != NULL);
-  assert(WebPExtractAlpha != NULL);
-  assert(WebPExtractGreen != NULL);
+  ASSERT(WebPMultARGBRow != NULL);
+  ASSERT(WebPMultRow != NULL);
+  ASSERT(WebPApplyAlphaMultiply != NULL);
+  ASSERT(WebPApplyAlphaMultiply4444 != NULL);
+  ASSERT(WebPDispatchAlpha != NULL);
+  ASSERT(WebPDispatchAlphaToGreen != NULL);
+  ASSERT(WebPExtractAlpha != NULL);
+  ASSERT(WebPExtractGreen != NULL);
 #ifdef WORDS_BIGENDIAN
-  assert(WebPPackARGB != NULL);
+  ASSERT(WebPPackARGB != NULL);
 #endif
-  assert(WebPPackRGB != NULL);
-  assert(WebPHasAlpha8b != NULL);
-  assert(WebPHasAlpha32b != NULL);
-  assert(WebPAlphaReplace != NULL);
+  ASSERT(WebPPackRGB != NULL);
+  ASSERT(WebPHasAlpha8b != NULL);
+  ASSERT(WebPHasAlpha32b != NULL);
+  ASSERT(WebPAlphaReplace != NULL);
 }

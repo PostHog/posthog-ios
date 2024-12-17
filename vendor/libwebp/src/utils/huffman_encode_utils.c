@@ -11,7 +11,6 @@
 //
 // Entropy encoding (Huffman) for webp lossless.
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "huffman_encode_utils.h"
@@ -127,7 +126,7 @@ static int CompareHuffmanTrees(const void* ptr1, const void* ptr2) {
   } else if (t1->total_count_ < t2->total_count_) {
     return 1;
   } else {
-    assert(t1->value_ != t2->value_);
+    ASSERT(t1->value_ != t2->value_);
     return (t1->value_ < t2->value_) ? -1 : 1;
   }
 }
@@ -187,7 +186,7 @@ static void GenerateOptimalTree(const uint32_t* const histogram,
   // second iteration of this loop.
   // If we actually start running inside this loop a lot, we would perhaps
   // be better off with the Katajainen algorithm.
-  assert(tree_size_orig <= (1 << (tree_depth_limit - 1)));
+  ASSERT(tree_size_orig <= (1 << (tree_depth_limit - 1)));
   for (count_min = 1; ; count_min *= 2) {
     int tree_size = tree_size_orig;
     // We need to pack the Huffman tree in tree_depth_limit bits.
@@ -261,7 +260,7 @@ static void GenerateOptimalTree(const uint32_t* const histogram,
 static HuffmanTreeToken* CodeRepeatedValues(int repetitions,
                                             HuffmanTreeToken* tokens,
                                             int value, int prev_value) {
-  assert(value <= MAX_ALLOWED_CODE_LENGTH);
+  ASSERT(value <= MAX_ALLOWED_CODE_LENGTH);
   if (value != prev_value) {
     tokens->code = value;
     tokens->extra_bits = 0;
@@ -330,7 +329,7 @@ int VP8LCreateCompressedHuffmanTree(const HuffmanTreeCode* const tree,
   const int depth_size = tree->num_symbols;
   int prev_value = 8;  // 8 is the initial value for rle.
   int i = 0;
-  assert(tokens != NULL);
+  ASSERT(tokens != NULL);
   while (i < depth_size) {
     const int value = tree->code_lengths[i];
     int k = i + 1;
@@ -344,7 +343,7 @@ int VP8LCreateCompressedHuffmanTree(const HuffmanTreeCode* const tree,
       prev_value = value;
     }
     i += runs;
-    assert(tokens <= ending_token);
+    ASSERT(tokens <= ending_token);
   }
   (void)ending_token;    // suppress 'unused variable' warning
   return (int)(tokens - starting_token);
@@ -378,11 +377,11 @@ static void ConvertBitDepthsToSymbols(HuffmanTreeCode* const tree) {
   uint32_t next_code[MAX_ALLOWED_CODE_LENGTH + 1];
   int depth_count[MAX_ALLOWED_CODE_LENGTH + 1] = { 0 };
 
-  assert(tree != NULL);
+  ASSERT(tree != NULL);
   len = tree->num_symbols;
   for (i = 0; i < len; ++i) {
     const int code_length = tree->code_lengths[i];
-    assert(code_length <= MAX_ALLOWED_CODE_LENGTH);
+    ASSERT(code_length <= MAX_ALLOWED_CODE_LENGTH);
     ++depth_count[code_length];
   }
   depth_count[0] = 0;  // ignore unused symbol

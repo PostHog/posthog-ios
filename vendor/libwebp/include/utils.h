@@ -19,9 +19,8 @@
 #include "config.h"
 #endif
 
-#include <assert.h>
-
 #include "types.h"
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +38,26 @@ extern "C" {
 #define WEBP_MAX_ALLOCABLE_MEMORY ((1ULL << 31) - (1 << 16))
 #endif
 #endif  // WEBP_MAX_ALLOCABLE_MEMORY
+
+/**
+ * Custom assert function.
+ * If the condition fails, it prints the file and line number to stderr.
+ *
+ * @param condition The condition to evaluate.
+ * @param file The source file where the assertion failed.
+ * @param line The line number where the assertion failed.
+ */
+static inline void posthog_ASSERT(int condition, const char *file, int line) {
+    if (!condition) {
+        fprintf(stderr, "[PostHog] Warning: Assertion failed at %s:%d\n", file, line);
+    }
+}
+
+/**
+ * Macro to capture FILE and LINE for `posthog_ASSERT`.
+ */
+#define ASSERT(condition) posthog_ASSERT((condition), __FILE__, __LINE__)
+
 
 static WEBP_INLINE int CheckSizeOverflow(uint64_t size) {
   return size == (size_t)size;
@@ -103,13 +122,13 @@ static WEBP_INLINE uint32_t GetLE32(const uint8_t* const data) {
 
 // Store 16, 24 or 32 bits in little-endian order.
 static WEBP_INLINE void PutLE16(uint8_t* const data, int val) {
-  assert(val < (1 << 16));
+  ASSERT(val < (1 << 16));
   data[0] = (val >> 0) & 0xff;
   data[1] = (val >> 8) & 0xff;
 }
 
 static WEBP_INLINE void PutLE24(uint8_t* const data, int val) {
-  assert(val < (1 << 24));
+  ASSERT(val < (1 << 24));
   PutLE16(data, val & 0xffff);
   data[2] = (val >> 16) & 0xff;
 }

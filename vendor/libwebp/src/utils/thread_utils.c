@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <string.h>   // for memset()
 #include "thread_utils.h"
 #include "utils.h"
@@ -269,7 +268,7 @@ static int Sync(WebPWorker* const worker) {
 #ifdef WEBP_USE_THREAD
   ChangeState(worker, OK);
 #endif
-  assert(worker->status_ <= OK);
+  ASSERT(worker->status_ <= OK);
   return !worker->had_error;
 }
 
@@ -309,7 +308,7 @@ static int Reset(WebPWorker* const worker) {
   } else if (worker->status_ > OK) {
     ok = Sync(worker);
   }
-  assert(!ok || (worker->status_ == OK));
+  ASSERT(!ok || (worker->status_ == OK));
   return ok;
 }
 
@@ -340,9 +339,9 @@ static void End(WebPWorker* const worker) {
   }
 #else
   worker->status_ = NOT_OK;
-  assert(worker->impl_ == NULL);
+  ASSERT(worker->impl_ == NULL);
 #endif
-  assert(worker->status_ == NOT_OK);
+  ASSERT(worker->status_ == NOT_OK);
 }
 
 //------------------------------------------------------------------------------

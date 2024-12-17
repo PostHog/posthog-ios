@@ -129,7 +129,7 @@ static int FinalizeSkipProba(VP8Encoder* const enc) {
 // Collect statistics and deduce probabilities for next coding pass.
 // Return the total bit-cost for coding the probability updates.
 static int CalcTokenProba(int nb, int total) {
-  assert(nb <= total);
+  ASSERT(nb <= total);
   return nb ? (255 - nb * 255 / total) : 255;
 }
 
@@ -799,11 +799,11 @@ int VP8EncTokenLoop(VP8Encoder* const enc) {
 
   if (max_count < MIN_COUNT) max_count = MIN_COUNT;
 
-  assert(enc->num_parts_ == 1);
-  assert(enc->use_tokens_);
-  assert(proba->use_skip_proba_ == 0);
-  assert(rd_opt >= RD_OPT_BASIC);   // otherwise, token-buffer won't be useful
-  assert(num_pass_left > 0);
+  ASSERT(enc->num_parts_ == 1);
+  ASSERT(enc->use_tokens_);
+  ASSERT(proba->use_skip_proba_ == 0);
+  ASSERT(rd_opt >= RD_OPT_BASIC);   // otherwise, token-buffer won't be useful
+  ASSERT(num_pass_left > 0);
 
   while (ok && num_pass_left-- > 0) {
     const int is_last_pass = (fabs(stats.dq) <= DQ_LIMIT) ||

@@ -11,7 +11,7 @@
 
 #include "sharpyuv_csp.h"
 
-#include <assert.h>
+#include "utils.h"
 #include <math.h>
 #include <stddef.h>
 
@@ -33,7 +33,7 @@ void SharpYuvComputeConversionMatrix(const SharpYuvColorSpace* yuv_color_space,
   float scale_u = cb;
   float scale_v = cr;
   float add_uv = (float)(128 << shift);
-  assert(yuv_color_space->bit_depth >= 8);
+  ASSERT(yuv_color_space->bit_depth >= 8);
 
   if (yuv_color_space->range == kSharpYuvRangeLimited) {
     scale_y *= (219 << shift) / denom;

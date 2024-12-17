@@ -12,8 +12,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
-
+#include "utils.h"
 #include "quant_levels_utils.h"
 
 #define NUM_SYMBOLS     256
@@ -68,8 +67,8 @@ int QuantizeLevels(uint8_t* const data, int width, int height,
   // Fixed values. Won't be changed.
   q_level[min_s] = 0;
   q_level[max_s] = num_levels - 1;
-  assert(inv_q_level[0] == min_s);
-  assert(inv_q_level[num_levels - 1] == max_s);
+  ASSERT(inv_q_level[0] == min_s);
+  ASSERT(inv_q_level[num_levels - 1] == max_s);
 
   // k-Means iterations.
   for (iter = 0; iter < MAX_ITER; ++iter) {

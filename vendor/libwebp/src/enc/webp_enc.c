@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -226,7 +225,7 @@ static VP8Encoder* InitVP8Encoder(const WebPConfig* const config,
   mem += 2 * top_stride;
   enc->top_derr_ = top_derr_size ? (DError*)mem : NULL;
   mem += top_derr_size;
-  assert(mem <= (uint8_t*)enc + size);
+  ASSERT(mem <= (uint8_t*)enc + size);
 
   enc->config_ = config;
   enc->profile_ = use_filter ? ((config->filter_type == 1) ? 0 : 1) : 2;
@@ -305,8 +304,8 @@ static void StoreStats(VP8Encoder* const enc) {
 
 int WebPEncodingSetError(const WebPPicture* const pic,
                          WebPEncodingError error) {
-  assert((int)error < VP8_ENC_ERROR_LAST);
-  assert((int)error >= VP8_ENC_OK);
+  ASSERT((int)error < VP8_ENC_ERROR_LAST);
+  ASSERT((int)error >= VP8_ENC_OK);
   // The oldest error reported takes precedence over the new one.
   if (pic->error_code == VP8_ENC_OK) {
     ((WebPPicture*)pic)->error_code = error;

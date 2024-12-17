@@ -12,8 +12,7 @@
 // Author: Skal (pascal.massimino@gmail.com)
 
 #include "yuv.h"
-
-#include <assert.h>
+#include "utils.h"
 #include <stdlib.h>
 
 //-----------------------------------------------------------------------------
@@ -249,9 +248,9 @@ WEBP_DSP_INIT_FUNC(WebPInitConvertARGBToYUV) {
   }
 #endif  // WEBP_HAVE_NEON
 
-  assert(WebPConvertARGBToY != NULL);
-  assert(WebPConvertARGBToUV != NULL);
-  assert(WebPConvertRGB24ToY != NULL);
-  assert(WebPConvertBGR24ToY != NULL);
-  assert(WebPConvertRGBA32ToUV != NULL);
+  ASSERT(WebPConvertARGBToY != NULL);
+  ASSERT(WebPConvertARGBToUV != NULL);
+  ASSERT(WebPConvertRGB24ToY != NULL);
+  ASSERT(WebPConvertBGR24ToY != NULL);
+  ASSERT(WebPConvertRGBA32ToUV != NULL);
 }

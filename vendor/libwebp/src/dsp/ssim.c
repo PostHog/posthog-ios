@@ -11,7 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
+#include "utils.h"
 #include <stdlib.h>  // for abs()
 
 #include "dsp.h"
@@ -46,7 +46,7 @@ static WEBP_INLINE double SSIMCalculation(
     const uint64_t fnum = (2 * xmym + C1) * num_S;
     const uint64_t fden = (xmxm + ymym + C1) * den_S;
     const double r = (double)fnum / fden;
-    assert(r >= 0. && r <= 1.0);
+    ASSERT(r >= 0. && r <= 1.0);
     return r;
   }
   return 1.;   // area is too dark to contribute meaningfully
@@ -118,7 +118,7 @@ static uint32_t AccumulateSSE_C(const uint8_t* src1,
                                 const uint8_t* src2, int len) {
   int i;
   uint32_t sse2 = 0;
-  assert(len <= 65535);  // to ensure that accumulation fits within uint32_t
+  ASSERT(len <= 65535);  // to ensure that accumulation fits within uint32_t
   for (i = 0; i < len; ++i) {
     const int32_t diff = src1[i] - src2[i];
     sse2 += diff * diff;

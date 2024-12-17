@@ -13,7 +13,7 @@
 
 #include "sharpyuv.h"
 
-#include <assert.h>
+#include "utils.h"
 #include <limits.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -129,7 +129,7 @@ static void UpdateChroma(const fixed_y_t* src1, const fixed_y_t* src2,
 
 static void StoreGray(const fixed_y_t* rgb, fixed_y_t* y, int w) {
   int i = 0;
-  assert(w > 0);
+  ASSERT(w > 0);
   do {
     y[i] = RGBToGray(rgb[0 * w + i], rgb[1 * w + i], rgb[2 * w + i]);
   } while (++i < w);
@@ -332,8 +332,8 @@ static int DoSharpArgbToYuv(const uint8_t* r_ptr, const uint8_t* g_ptr,
   fixed_t* target_uv = target_uv_base;
   const uint64_t diff_y_threshold = (uint64_t)(3.0 * w * h);
   int ok;
-  assert(w > 0);
-  assert(h > 0);
+  ASSERT(w > 0);
+  ASSERT(h > 0);
 
   if (best_y_base == NULL || best_uv_base == NULL ||
       target_y_base == NULL || target_uv_base == NULL ||

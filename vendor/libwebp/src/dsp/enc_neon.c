@@ -15,8 +15,6 @@
 
 #if defined(WEBP_USE_NEON)
 
-#include <assert.h>
-
 #include "neon.h"
 #include "vp8i_enc.h"
 
@@ -862,7 +860,7 @@ static int16x8_t Quantize_NEON(int16_t* WEBP_RESTRICT const in,
   const int16x8_t c3 = vsubq_s16(c2, sign);                  // restore sign
   const int16x8_t c4 = vmulq_s16(c3, vreinterpretq_s16_u16(q));
   vst1q_s16(in + offset, c4);
-  assert(QFIX == 17);  // this function can't work as is if QFIX != 16+1
+  ASSERT(QFIX == 17);  // this function can't work as is if QFIX != 16+1
   return c3;
 }
 

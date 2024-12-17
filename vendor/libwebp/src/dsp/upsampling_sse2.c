@@ -15,7 +15,6 @@
 
 #if defined(WEBP_USE_SSE2)
 
-#include <assert.h>
 #include <emmintrin.h>
 #include <string.h>
 #include "yuv.h"
@@ -129,7 +128,7 @@ static void FUNC_NAME(const uint8_t* WEBP_RESTRICT top_y,                      \
   uint8_t* const r_u = (uint8_t*)((uintptr_t)(uv_buf + 15) & ~(uintptr_t)15);  \
   uint8_t* const r_v = r_u + 32;                                               \
                                                                                \
-  assert(top_y != NULL);                                                       \
+  ASSERT(top_y != NULL);                                                       \
   {   /* Treat the first pixel in regular way */                               \
     const int u_diag = ((top_u[0] + cur_u[0]) >> 1) + 1;                       \
     const int v_diag = ((top_v[0] + cur_v[0]) >> 1) + 1;                       \
@@ -154,7 +153,7 @@ static void FUNC_NAME(const uint8_t* WEBP_RESTRICT top_y,                      \
     uint8_t* const tmp_bottom_dst = tmp_top_dst + 4 * 32;                      \
     uint8_t* const tmp_top = tmp_bottom_dst + 4 * 32;                          \
     uint8_t* const tmp_bottom = (bottom_y == NULL) ? NULL : tmp_top + 32;      \
-    assert(left_over > 0);                                                     \
+    ASSERT(left_over > 0);                                                     \
     UPSAMPLE_LAST_BLOCK(top_u + uv_pos, cur_u + uv_pos, left_over, r_u);       \
     UPSAMPLE_LAST_BLOCK(top_v + uv_pos, cur_v + uv_pos, left_over, r_v);       \
     memcpy(tmp_top, top_y + pos, len - pos);                                   \

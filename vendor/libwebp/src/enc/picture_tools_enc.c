@@ -11,8 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
-
 #include "vp8i_enc.h"
 #include "yuv.h"
 

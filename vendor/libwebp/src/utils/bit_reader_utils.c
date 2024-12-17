@@ -101,7 +101,7 @@ static void PrintBitTraces(void) {
   for (i = 0; i < last_label; ++i) {
     const int skip = 16 - (int)strlen(kLabels[i].label);
     const int value = (kLabels[i].size + scale - 1) / scale;
-    assert(skip > 0);
+    ASSERT(skip > 0);
     printf("%s \%*s: %6d %s   \t[%5.2f%%] [count: %7d]\n",
            kLabels[i].label, skip, "", value, units,
            100.f * kLabels[i].size / total,

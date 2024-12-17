@@ -14,7 +14,6 @@
 // Author: Jyrki Alakuijala (jyrki@google.com)
 // Converted to C by Aleksander Kramarz (akramarz@google.com)
 
-#include <assert.h>
 #include <stdlib.h>
 
 #include "lossless_common.h"
@@ -31,7 +30,7 @@
 static uint32_t FindClosestDiscretized(uint32_t a, int bits) {
   const uint32_t mask = (1u << bits) - 1;
   const uint32_t biased = a + (mask >> 1) + ((a >> bits) & 1);
-  assert(bits > 0);
+  ASSERT(bits > 0);
   if (biased > 0xff) return 0xff;
   return biased & ~mask;
 }
@@ -116,9 +115,9 @@ int VP8ApplyNearLossless(const WebPPicture* const picture, int quality,
   uint32_t* const copy_buffer =
       (uint32_t*)WebPSafeMalloc(xsize * 3, sizeof(*copy_buffer));
   const int limit_bits = VP8LNearLosslessBits(quality);
-  assert(argb_dst != NULL);
-  assert(limit_bits > 0);
-  assert(limit_bits <= MAX_LIMIT_BITS);
+  ASSERT(argb_dst != NULL);
+  ASSERT(limit_bits > 0);
+  ASSERT(limit_bits <= MAX_LIMIT_BITS);
   if (copy_buffer == NULL) {
     return 0;
   }

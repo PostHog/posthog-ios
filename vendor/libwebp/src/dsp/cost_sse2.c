@@ -37,7 +37,7 @@ static void SetResidualCoeffs_SSE2(const int16_t* WEBP_RESTRICT const coeffs,
   const uint32_t mask = 0x0000ffffu ^ (uint32_t)_mm_movemask_epi8(m1);
   // The position of the most significant non-zero bit indicates the position of
   // the last non-zero value.
-  assert(res->first == 0 || coeffs[0] == 0);
+  ASSERT(res->first == 0 || coeffs[0] == 0);
   res->last = mask ? BitsLog2Floor(mask) : -1;
   res->coeffs = coeffs;
 }
@@ -90,7 +90,7 @@ static int GetResidualCost_SSE2(int ctx0, const VP8Residual* const res) {
   {
     const int level = levels[n];
     const int flevel = abs_levels[n];
-    assert(flevel != 0);
+    ASSERT(flevel != 0);
     cost += VP8LevelFixedCosts[flevel] + t[level];
     if (n < 15) {
       const int b = VP8EncBands[n + 1];

@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -82,7 +81,7 @@ static int EncodeLossless(const uint8_t* const data, int width, int height,
   // lossless quality to trigger the cruncher.
   config.quality =
       (use_quality_100 && effort_level == 6) ? 100 : 8.f * effort_level;
-  assert(config.quality >= 0 && config.quality <= 100.f);
+  ASSERT(config.quality >= 0 && config.quality <= 100.f);
 
   ok = VP8LEncodeStream(&config, &picture, bw);
   WebPPictureFree(&picture);
@@ -118,11 +117,11 @@ static int EncodeAlphaInternal(const uint8_t* const data, int width, int height,
   size_t output_size = 0;
   VP8LBitWriter tmp_bw;
 
-  assert((uint64_t)data_size == (uint64_t)width * height);  // as per spec
-  assert(filter >= 0 && filter < WEBP_FILTER_LAST);
-  assert(method >= ALPHA_NO_COMPRESSION);
-  assert(method <= ALPHA_LOSSLESS_COMPRESSION);
-  assert(sizeof(header) == ALPHA_HEADER_LEN);
+  ASSERT((uint64_t)data_size == (uint64_t)width * height);  // as per spec
+  ASSERT(filter >= 0 && filter < WEBP_FILTER_LAST);
+  ASSERT(method >= ALPHA_NO_COMPRESSION);
+  ASSERT(method <= ALPHA_LOSSLESS_COMPRESSION);
+  ASSERT(sizeof(header) == ALPHA_HEADER_LEN);
 
   filter_func = WebPFilters[filter];
   if (filter_func != NULL) {
@@ -309,12 +308,12 @@ static int EncodeAlpha(VP8Encoder* const enc,
   const int reduce_levels = (quality < 100);
 
   // quick correctness checks
-  assert((uint64_t)data_size == (uint64_t)width * height);  // as per spec
-  assert(enc != NULL && pic != NULL && pic->a != NULL);
-  assert(output != NULL && output_size != NULL);
-  assert(width > 0 && height > 0);
-  assert(pic->a_stride >= width);
-  assert(filter >= WEBP_FILTER_NONE && filter <= WEBP_FILTER_FAST);
+  ASSERT((uint64_t)data_size == (uint64_t)width * height);  // as per spec
+  ASSERT(enc != NULL && pic != NULL && pic->a != NULL);
+  ASSERT(output != NULL && output_size != NULL);
+  ASSERT(width > 0 && height > 0);
+  ASSERT(pic->a_stride >= width);
+  ASSERT(filter >= WEBP_FILTER_NONE && filter <= WEBP_FILTER_FAST);
 
   if (quality < 0 || quality > 100) {
     return WebPEncodingSetError(pic, VP8_ENC_ERROR_INVALID_CONFIGURATION);

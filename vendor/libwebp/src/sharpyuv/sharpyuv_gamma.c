@@ -11,7 +11,7 @@
 
 #include "sharpyuv_gamma.h"
 
-#include <assert.h>
+#include "utils.h"
 #include <float.h>
 #include <math.h>
 
@@ -31,7 +31,7 @@ static const double kGammaF = 1. / 0.45;
 
 static volatile int kGammaTablesSOk = 0;
 void SharpYuvInitGammaTables(void) {
-  assert(GAMMA_TO_LINEAR_BITS <= 16);
+  ASSERT(GAMMA_TO_LINEAR_BITS <= 16);
   if (!kGammaTablesSOk) {
     int v;
     const double a = 0.09929682680944;
@@ -357,7 +357,7 @@ uint32_t SharpYuvGammaToLinear(uint16_t v, int bit_depth,
       linear = ToLinearHlg(v_float);
       break;
     default:
-      assert(0);
+      ASSERT(0);
       linear = 0;
       break;
   }
@@ -411,7 +411,7 @@ uint16_t SharpYuvLinearToGamma(uint32_t v, int bit_depth,
       linear = FromLinearHlg(v_float);
       break;
     default:
-      assert(0);
+      ASSERT(0);
       linear = 0;
       break;
   }

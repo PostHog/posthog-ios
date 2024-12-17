@@ -14,7 +14,6 @@
 #include "dsp.h"
 
 #if defined(WEBP_USE_SSE2)
-#include <assert.h>
 #include <stdlib.h>  // for abs()
 #include <emmintrin.h>
 

@@ -15,7 +15,7 @@
 
 #if defined(WEBP_USE_NEON)
 
-#include <assert.h>
+#include "utils.h"
 #include "neon.h"
 
 //------------------------------------------------------------------------------
@@ -23,12 +23,12 @@
 
 #define DCHECK(in, out)                                                        \
   do {                                                                         \
-    assert((in) != NULL);                                                      \
-    assert((out) != NULL);                                                     \
-    assert((in) != (out));                                                     \
-    assert(width > 0);                                                         \
-    assert(height > 0);                                                        \
-    assert(stride >= width);                                                   \
+    ASSERT((in) != NULL);                                                      \
+    ASSERT((out) != NULL);                                                     \
+    ASSERT((in) != (out));                                                     \
+    ASSERT(width > 0);                                                         \
+    ASSERT(height > 0);                                                        \
+    ASSERT(stride >= width);                                                   \
   } while (0)
 
 // load eight u8 and widen to s16
@@ -47,7 +47,7 @@
 static void PredictLine_NEON(const uint8_t* src, const uint8_t* pred,
                              uint8_t* WEBP_RESTRICT dst, int length) {
   int i;
-  assert(length >= 0);
+  ASSERT(length >= 0);
   for (i = 0; i + 16 <= length; i += 16) {
     const uint8x16_t A = vld1q_u8(&src[i]);
     const uint8x16_t B = vld1q_u8(&pred[i]);
@@ -214,7 +214,7 @@ static void VerticalUnfilter_NEON(const uint8_t* prev, const uint8_t* in,
     HorizontalUnfilter_NEON(NULL, in, out, width);
   } else {
     int i;
-    assert(width >= 0);
+    ASSERT(width >= 0);
     for (i = 0; i + 16 <= width; i += 16) {
       const uint8x16_t A = vld1q_u8(&in[i]);
       const uint8x16_t B = vld1q_u8(&prev[i]);

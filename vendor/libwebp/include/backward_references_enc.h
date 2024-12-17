@@ -13,9 +13,9 @@
 #ifndef WEBP_ENC_BACKWARD_REFERENCES_ENC_H_
 #define WEBP_ENC_BACKWARD_REFERENCES_ENC_H_
 
-#include <assert.h>
 #include <stdlib.h>
 #include "types.h"
+#include "utils.h"
 #include "encode.h"
 #include "format_constants.h"
 
@@ -54,8 +54,8 @@ static WEBP_INLINE PixOrCopy PixOrCopyCreateCopy(uint32_t distance,
 
 static WEBP_INLINE PixOrCopy PixOrCopyCreateCacheIdx(int idx) {
   PixOrCopy retval;
-  assert(idx >= 0);
-  assert(idx < (1 << MAX_COLOR_CACHE_BITS));
+  ASSERT(idx >= 0);
+  ASSERT(idx < (1 << MAX_COLOR_CACHE_BITS));
   retval.mode = kCacheIdx;
   retval.argb_or_distance = idx;
   retval.len = 1;
@@ -84,7 +84,7 @@ static WEBP_INLINE int PixOrCopyIsCopy(const PixOrCopy* const p) {
 
 static WEBP_INLINE uint32_t PixOrCopyLiteral(const PixOrCopy* const p,
                                              int component) {
-  assert(p->mode == kLiteral);
+  ASSERT(p->mode == kLiteral);
   return (p->argb_or_distance >> (component * 8)) & 0xff;
 }
 
@@ -93,13 +93,13 @@ static WEBP_INLINE uint32_t PixOrCopyLength(const PixOrCopy* const p) {
 }
 
 static WEBP_INLINE uint32_t PixOrCopyCacheIdx(const PixOrCopy* const p) {
-  assert(p->mode == kCacheIdx);
-  assert(p->argb_or_distance < (1U << MAX_COLOR_CACHE_BITS));
+  ASSERT(p->mode == kCacheIdx);
+  ASSERT(p->argb_or_distance < (1U << MAX_COLOR_CACHE_BITS));
   return p->argb_or_distance;
 }
 
 static WEBP_INLINE uint32_t PixOrCopyDistance(const PixOrCopy* const p) {
-  assert(p->mode == kCopy);
+  ASSERT(p->mode == kCopy);
   return p->argb_or_distance;
 }
 
@@ -203,8 +203,8 @@ static WEBP_INLINE int VP8LRefsCursorOk(const VP8LRefsCursor* const c) {
 void VP8LRefsCursorNextBlock(VP8LRefsCursor* const c);
 // Move to next position, or NULL. Should not be called if !VP8LRefsCursorOk().
 static WEBP_INLINE void VP8LRefsCursorNext(VP8LRefsCursor* const c) {
-  assert(c != NULL);
-  assert(VP8LRefsCursorOk(c));
+  ASSERT(c != NULL);
+  ASSERT(VP8LRefsCursorOk(c));
   if (++c->cur_pos == c->last_pos_) VP8LRefsCursorNextBlock(c);
 }
 

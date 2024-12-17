@@ -13,8 +13,7 @@
 
 #include "dsp.h"
 #include "yuv.h"
-
-#include <assert.h>
+#include "utils.h"
 
 //------------------------------------------------------------------------------
 // Fancy upsampler
@@ -47,7 +46,7 @@ static void FUNC_NAME(const uint8_t* WEBP_RESTRICT top_y,                      \
   const int last_pixel_pair = (len - 1) >> 1;                                  \
   uint32_t tl_uv = LOAD_UV(top_u[0], top_v[0]);   /* top-left sample */        \
   uint32_t l_uv  = LOAD_UV(cur_u[0], cur_v[0]);   /* left-sample */            \
-  assert(top_y != NULL);                                                       \
+  ASSERT(top_y != NULL);                                                       \
   {                                                                            \
     const uint32_t uv0 = (3 * tl_uv + l_uv + 0x00020002u) >> 2;                \
     FUNC(top_y[0], uv0 & 0xff, (uv0 >> 16), top_dst);                          \
@@ -120,7 +119,7 @@ static void EmptyUpsampleFunc(const uint8_t* top_y, const uint8_t* bottom_y,
   (void)top_dst;
   (void)bottom_dst;
   (void)len;
-  assert(0);   // COLORSPACE SUPPORT NOT COMPILED
+  ASSERT(0);   // COLORSPACE SUPPORT NOT COMPILED
 }
 #define UpsampleArgbLinePair_C EmptyUpsampleFunc
 #define UpsampleRgbLinePair_C EmptyUpsampleFunc
@@ -150,7 +149,7 @@ static void FUNC_NAME(const uint8_t* WEBP_RESTRICT top_y,                      \
                       uint8_t* WEBP_RESTRICT bot_dst, int len) {               \
   const int half_len = len >> 1;                                               \
   int x;                                                                       \
-  assert(top_dst != NULL);                                                     \
+  ASSERT(top_dst != NULL);                                                     \
   {                                                                            \
     for (x = 0; x < half_len; ++x) {                                           \
       FUNC(top_y[2 * x + 0], top_u[x], top_v[x], top_dst + 8 * x + 0);         \
@@ -320,18 +319,18 @@ WEBP_DSP_INIT_FUNC(WebPInitUpsamplers) {
   }
 #endif
 
-  assert(WebPUpsamplers[MODE_RGBA] != NULL);
-  assert(WebPUpsamplers[MODE_BGRA] != NULL);
-  assert(WebPUpsamplers[MODE_rgbA] != NULL);
-  assert(WebPUpsamplers[MODE_bgrA] != NULL);
+  ASSERT(WebPUpsamplers[MODE_RGBA] != NULL);
+  ASSERT(WebPUpsamplers[MODE_BGRA] != NULL);
+  ASSERT(WebPUpsamplers[MODE_rgbA] != NULL);
+  ASSERT(WebPUpsamplers[MODE_bgrA] != NULL);
 #if !defined(WEBP_REDUCE_CSP) || !WEBP_NEON_OMIT_C_CODE
-  assert(WebPUpsamplers[MODE_RGB] != NULL);
-  assert(WebPUpsamplers[MODE_BGR] != NULL);
-  assert(WebPUpsamplers[MODE_ARGB] != NULL);
-  assert(WebPUpsamplers[MODE_RGBA_4444] != NULL);
-  assert(WebPUpsamplers[MODE_RGB_565] != NULL);
-  assert(WebPUpsamplers[MODE_Argb] != NULL);
-  assert(WebPUpsamplers[MODE_rgbA_4444] != NULL);
+  ASSERT(WebPUpsamplers[MODE_RGB] != NULL);
+  ASSERT(WebPUpsamplers[MODE_BGR] != NULL);
+  ASSERT(WebPUpsamplers[MODE_ARGB] != NULL);
+  ASSERT(WebPUpsamplers[MODE_RGBA_4444] != NULL);
+  ASSERT(WebPUpsamplers[MODE_RGB_565] != NULL);
+  ASSERT(WebPUpsamplers[MODE_Argb] != NULL);
+  ASSERT(WebPUpsamplers[MODE_rgbA_4444] != NULL);
 #endif
 
 #endif  // FANCY_UPSAMPLING

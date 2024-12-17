@@ -15,7 +15,7 @@
 #ifndef WEBP_UTILS_BIT_READER_UTILS_H_
 #define WEBP_UTILS_BIT_READER_UTILS_H_
 
-#include <assert.h>
+#include "utils.h"
 #ifdef _MSC_VER
 #include <stdlib.h>  // _byteswap_ulong
 #endif
@@ -171,7 +171,7 @@ static WEBP_INLINE uint32_t VP8LPrefetchBits(VP8LBitReader* const br) {
 // Returns true if there was an attempt at reading bit past the end of
 // the buffer. Doesn't set br->eos_ flag.
 static WEBP_INLINE int VP8LIsEndOfStream(const VP8LBitReader* const br) {
-  assert(br->pos_ <= br->len_);
+  ASSERT(br->pos_ <= br->len_);
   return br->eos_ || ((br->pos_ == br->len_) && (br->bit_pos_ > VP8L_LBITS));
 }
 

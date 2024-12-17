@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <stdlib.h>  // for abs()
 
 #include "dsp.h"
@@ -846,24 +845,24 @@ WEBP_DSP_INIT_FUNC(VP8EncDspInit) {
   }
 #endif
 
-  assert(VP8ITransform != NULL);
-  assert(VP8FTransform != NULL);
-  assert(VP8FTransformWHT != NULL);
-  assert(VP8TDisto4x4 != NULL);
-  assert(VP8TDisto16x16 != NULL);
-  assert(VP8CollectHistogram != NULL);
-  assert(VP8SSE16x16 != NULL);
-  assert(VP8SSE16x8 != NULL);
-  assert(VP8SSE8x8 != NULL);
-  assert(VP8SSE4x4 != NULL);
-  assert(VP8EncQuantizeBlock != NULL);
-  assert(VP8EncQuantize2Blocks != NULL);
-  assert(VP8FTransform2 != NULL);
-  assert(VP8EncPredLuma4 != NULL);
-  assert(VP8EncPredLuma16 != NULL);
-  assert(VP8EncPredChroma8 != NULL);
-  assert(VP8Mean16x4 != NULL);
-  assert(VP8EncQuantizeBlockWHT != NULL);
-  assert(VP8Copy4x4 != NULL);
-  assert(VP8Copy16x8 != NULL);
+  ASSERT(VP8ITransform != NULL);
+  ASSERT(VP8FTransform != NULL);
+  ASSERT(VP8FTransformWHT != NULL);
+  ASSERT(VP8TDisto4x4 != NULL);
+  ASSERT(VP8TDisto16x16 != NULL);
+  ASSERT(VP8CollectHistogram != NULL);
+  ASSERT(VP8SSE16x16 != NULL);
+  ASSERT(VP8SSE16x8 != NULL);
+  ASSERT(VP8SSE8x8 != NULL);
+  ASSERT(VP8SSE4x4 != NULL);
+  ASSERT(VP8EncQuantizeBlock != NULL);
+  ASSERT(VP8EncQuantize2Blocks != NULL);
+  ASSERT(VP8FTransform2 != NULL);
+  ASSERT(VP8EncPredLuma4 != NULL);
+  ASSERT(VP8EncPredLuma16 != NULL);
+  ASSERT(VP8EncPredChroma8 != NULL);
+  ASSERT(VP8Mean16x4 != NULL);
+  ASSERT(VP8EncQuantizeBlockWHT != NULL);
+  ASSERT(VP8Copy4x4 != NULL);
+  ASSERT(VP8Copy16x8 != NULL);
 }

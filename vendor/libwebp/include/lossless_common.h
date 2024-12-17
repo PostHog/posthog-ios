@@ -198,7 +198,7 @@ uint32_t VP8LSubPixels(uint32_t a, uint32_t b) {
 static void PREDICTOR_ADD(const uint32_t* in, const uint32_t* upper,     \
                           int num_pixels, uint32_t* WEBP_RESTRICT out) { \
   int x;                                                                 \
-  assert(upper != NULL);                                                 \
+  ASSERT(upper != NULL);                                                 \
   for (x = 0; x < num_pixels; ++x) {                                     \
     const uint32_t pred = (PREDICTOR)(&out[x - 1], upper + x);           \
     out[x] = VP8LAddPixels(in[x], pred);                                 \

@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,8 +84,8 @@ int WebPRescalerInit(WebPRescaler* const rescaler,
 int WebPRescalerGetScaledDimensions(int src_width, int src_height,
                                     int* const scaled_width,
                                     int* const scaled_height) {
-  assert(scaled_width != NULL);
-  assert(scaled_height != NULL);
+  ASSERT(scaled_width != NULL);
+  ASSERT(scaled_height != NULL);
   {
     int width = *scaled_width;
     int height = *scaled_height;

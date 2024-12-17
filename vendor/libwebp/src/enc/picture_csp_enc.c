@@ -11,7 +11,6 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include <assert.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -126,7 +125,7 @@ static WEBP_INLINE int Interpolate(int v) {
   const int v0 = kLinearToGammaTab[tab_pos];
   const int v1 = kLinearToGammaTab[tab_pos + 1];
   const int y = v1 * x + v0 * ((kGammaTabScale << 2) - x);   // interpolate
-  assert(tab_pos + 1 < GAMMA_TAB_SIZE + 1);
+  ASSERT(tab_pos + 1 < GAMMA_TAB_SIZE + 1);
   return y;
 }
 
@@ -365,9 +364,9 @@ static WEBP_INLINE int LinearToGammaWeighted(const uint8_t* src,
       a_ptr[step] * GammaToLinear(src[step]) +
       a_ptr[rgb_stride] * GammaToLinear(src[rgb_stride]) +
       a_ptr[rgb_stride + step] * GammaToLinear(src[rgb_stride + step]);
-  assert(total_a > 0 && total_a <= 4 * 0xff);
+  ASSERT(total_a > 0 && total_a <= 4 * 0xff);
 #if defined(USE_INVERSE_ALPHA_TABLE)
-  assert((uint64_t)sum * kInvAlpha[total_a] < ((uint64_t)1 << 32));
+  ASSERT((uint64_t)sum * kInvAlpha[total_a] < ((uint64_t)1 << 32));
 #endif
   return LinearToGamma(DIVIDE_BY_ALPHA(sum, total_a), 0);
 }
@@ -499,9 +498,9 @@ static int ImportYUVAFromRGBA(const uint8_t* r_ptr,
     return 0;
   }
   if (has_alpha) {
-    assert(step == 4);
+    ASSERT(step == 4);
 #if defined(USE_GAMMA_COMPRESSION) && defined(USE_INVERSE_ALPHA_TABLE)
-    assert(kAlphaFix + GAMMA_FIX <= 31);
+    ASSERT(kAlphaFix + GAMMA_FIX <= 31);
 #endif
   }
 
@@ -756,7 +755,7 @@ static int Import(WebPPicture* const picture,
     // dst[] byte order is {a,r,g,b} for big-endian, {b,g,r,a} for little endian
     uint32_t* dst = picture->argb;
     const int do_copy = (ALPHA_OFFSET == 3) && swap_rb;
-    assert(step == 4);
+    ASSERT(step == 4);
     if (do_copy) {
       for (y = 0; y < height; ++y) {
         memcpy(dst, rgb, width * 4);
@@ -782,7 +781,7 @@ static int Import(WebPPicture* const picture,
     }
   } else {
     uint32_t* dst = picture->argb;
-    assert(step >= 3);
+    ASSERT(step >= 3);
     for (y = 0; y < height; ++y) {
       WebPPackRGB(r_ptr, g_ptr, b_ptr, width, step, dst);
       r_ptr += rgb_stride;

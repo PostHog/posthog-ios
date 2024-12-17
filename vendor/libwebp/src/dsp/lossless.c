@@ -15,7 +15,6 @@
 
 #include "dsp.h"
 
-#include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 #include "endian_inl_utils.h"
@@ -435,7 +434,7 @@ void VP8LConvertFromBGRA(const uint32_t* const in_data, int num_pixels,
       VP8LConvertBGRAToRGB565(in_data, num_pixels, rgba);
       break;
     default:
-      assert(0);          // Code flow should not reach here.
+      ASSERT(0);          // Code flow should not reach here.
   }
 }
 
@@ -534,13 +533,13 @@ WEBP_DSP_INIT_FUNC(VP8LDspInit) {
   }
 #endif
 
-  assert(VP8LAddGreenToBlueAndRed != NULL);
-  assert(VP8LTransformColorInverse != NULL);
-  assert(VP8LConvertBGRAToRGBA != NULL);
-  assert(VP8LConvertBGRAToRGB != NULL);
-  assert(VP8LConvertBGRAToBGR != NULL);
-  assert(VP8LConvertBGRAToRGBA4444 != NULL);
-  assert(VP8LConvertBGRAToRGB565 != NULL);
+  ASSERT(VP8LAddGreenToBlueAndRed != NULL);
+  ASSERT(VP8LTransformColorInverse != NULL);
+  ASSERT(VP8LConvertBGRAToRGBA != NULL);
+  ASSERT(VP8LConvertBGRAToRGB != NULL);
+  ASSERT(VP8LConvertBGRAToBGR != NULL);
+  ASSERT(VP8LConvertBGRAToRGBA4444 != NULL);
+  ASSERT(VP8LConvertBGRAToRGB565 != NULL);
 }
 #undef COPY_PREDICTOR_ARRAY
 

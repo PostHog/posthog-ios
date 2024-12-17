@@ -195,7 +195,7 @@ void* WebPSafeMalloc(uint64_t nmemb, size_t size) {
   void* ptr;
   Increment(&num_malloc_calls);
   if (!CheckSizeArgumentsOverflow(nmemb, size)) return NULL;
-  assert(nmemb * size > 0);
+  ASSERT(nmemb * size > 0);
   ptr = malloc((size_t)(nmemb * size));
   AddMem(ptr, (size_t)(nmemb * size));
   return ptr;
@@ -205,7 +205,7 @@ void* WebPSafeCalloc(uint64_t nmemb, size_t size) {
   void* ptr;
   Increment(&num_calloc_calls);
   if (!CheckSizeArgumentsOverflow(nmemb, size)) return NULL;
-  assert(nmemb * size > 0);
+  ASSERT(nmemb * size > 0);
   ptr = calloc((size_t)nmemb, size);
   AddMem(ptr, (size_t)(nmemb * size));
   return ptr;
@@ -233,8 +233,8 @@ void WebPFree(void* ptr) {
 
 void WebPCopyPlane(const uint8_t* src, int src_stride,
                    uint8_t* dst, int dst_stride, int width, int height) {
-  assert(src != NULL && dst != NULL);
-  assert(abs(src_stride) >= width && abs(dst_stride) >= width);
+  ASSERT(src != NULL && dst != NULL);
+  ASSERT(abs(src_stride) >= width && abs(dst_stride) >= width);
   while (height-- > 0) {
     memcpy(dst, src, width);
     src += src_stride;
@@ -243,9 +243,9 @@ void WebPCopyPlane(const uint8_t* src, int src_stride,
 }
 
 void WebPCopyPixels(const WebPPicture* const src, WebPPicture* const dst) {
-  assert(src != NULL && dst != NULL);
-  assert(src->width == dst->width && src->height == dst->height);
-  assert(src->use_argb && dst->use_argb);
+  ASSERT(src != NULL && dst != NULL);
+  ASSERT(src->width == dst->width && src->height == dst->height);
+  ASSERT(src->use_argb && dst->use_argb);
   WebPCopyPlane((uint8_t*)src->argb, 4 * src->argb_stride, (uint8_t*)dst->argb,
                 4 * dst->argb_stride, 4 * src->width, src->height);
 }

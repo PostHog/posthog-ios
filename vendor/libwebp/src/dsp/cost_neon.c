@@ -93,7 +93,7 @@ static int GetResidualCost_NEON(int ctx0, const VP8Residual* const res) {
   {
     const int level = levels[n];
     const int flevel = abs_levels[n];
-    assert(flevel != 0);
+    ASSERT(flevel != 0);
     cost += VP8LevelFixedCosts[flevel] + t[level];
     if (n < 15) {
       const int b = VP8EncBands[n + 1];

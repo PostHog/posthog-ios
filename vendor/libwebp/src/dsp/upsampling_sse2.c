@@ -15,6 +15,7 @@
 
 #if defined(WEBP_USE_SSE2)
 
+#include <utils.h>
 #include <emmintrin.h>
 #include <string.h>
 #include "yuv.h"

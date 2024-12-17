@@ -15,6 +15,7 @@
 
 #if defined(WEBP_USE_SSE41)
 
+#include <utils.h>
 #include <smmintrin.h>
 #include <string.h>
 #include "yuv.h"

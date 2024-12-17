@@ -15,6 +15,7 @@
 
 #if defined(WEBP_USE_SSE2)
 
+#include <utils.h>
 #include <emmintrin.h>
 
 #include "common_sse2.h"

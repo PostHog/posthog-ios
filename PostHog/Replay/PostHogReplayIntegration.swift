@@ -443,9 +443,9 @@
         private func isTextFieldSensitive(_ view: UITextField) -> Bool {
             (isTextInputSensitive(view) || view.isSensitiveText()) && (hasText(view.text) || hasText(view.placeholder))
         }
-        
+
         private func isSwiftUILayerSafe(_ layer: CALayer) -> Bool {
-            swiftUISafeLayerTypes.contains(where: {layer.isKind(of: $0)})
+            swiftUISafeLayerTypes.contains(where: { layer.isKind(of: $0) })
         }
 
         private func hasText(_ text: String?) -> Bool {

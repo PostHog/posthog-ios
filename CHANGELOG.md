@@ -1,5 +1,7 @@
 ## Next
 
+## 3.17.1 - 2024-12-18
+
 - fix: avoid masking SwiftUI Gradient views ([#275](https://github.com/PostHog/posthog-ios/pull/275))
 
 ## 3.17.0 - 2024-12-10

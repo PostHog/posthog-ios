@@ -1,5 +1,7 @@
 ## Next
 
+- fix: avoid masking SwiftUI Gradient views ([#275](https://github.com/PostHog/posthog-ios/pull/275))
+
 ## 3.17.0 - 2024-12-10
 
 - feat: ability to add a custom label to autocapture elements ([#271](https://github.com/PostHog/posthog-ios/pull/271))

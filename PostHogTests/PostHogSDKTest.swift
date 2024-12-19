@@ -999,7 +999,3 @@ class PostHogSDKTest: QuickSpec {
         #endif
     }
 }
-
-private class MockDate {
-    var date = Date()
-}

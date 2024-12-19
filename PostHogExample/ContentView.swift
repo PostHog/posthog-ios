@@ -66,6 +66,7 @@ struct ContentView: View {
     @State private var name: String = "Max"
     @State private var showingSheet = false
     @State private var showingRedactedSheet = false
+    @State private var refreshStatusID = UUID()
     @StateObject var api = Api()
 
     @StateObject var signInViewModel = SignInViewModel()
@@ -92,6 +93,32 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Manual Session Recording Control") {
+                    Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .multilineTextAlignment(.leading)
+                        .id(refreshStatusID)
+
+                    Button("Stop") {
+                        PostHogSDK.shared.stopSessionRecording()
+                        DispatchQueue.main.async {
+                            refreshStatusID = UUID()
+                        }
+                    }
+                    Button("Resume") {
+                        PostHogSDK.shared.startSessionRecording()
+                        DispatchQueue.main.async {
+                            refreshStatusID = UUID()
+                        }
+                    }
+                    Button("Start New Session") {
+                        PostHogSDK.shared.startSessionRecording(resumeCurrent: false)
+                        DispatchQueue.main.async {
+                            refreshStatusID = UUID()
+                        }
+                    }
+                }
                 Section("General") {
                     NavigationLink {
                         ContentView()
@@ -215,6 +242,10 @@ struct ContentView: View {
                 api.beers = beers
             })
         }
+    }
+
+    private var sessionRecordingStatus: String {
+        PostHogSDK.shared.isSessionReplayActive() ? "🟢" : "🔴"
     }
 }
 

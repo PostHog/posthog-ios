@@ -12,3 +12,9 @@ extension String {
         String(repeating: "*", count: count)
     }
 }
+
+extension Optional where Wrapped == String {
+    var isNilOrEmpty: Bool {
+        (self ?? "").isEmpty
+    }
+}

@@ -120,11 +120,13 @@ import Quick
             value: nil,
             screenName: "TestScreen",
             viewHierarchy: [
-                .init(text: "Test Button", targetClass: "UIButton", index: 0, subviewCount: 0),
+                .init(
+                    text: "Test Button",
+                    targetClass: "UIButton",
+                    baseClass: "UIControl",
+                    label: nil
+                ),
             ],
-            targetClass: "UIButton",
-            accessibilityLabel: nil,
-            accessibilityIdentifier: nil,
             debounceInterval: debounceInterval
         )
     }

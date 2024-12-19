@@ -19,7 +19,6 @@
                     let view = UIView()
                     let eventData = view.eventData!
 
-                    expect(eventData.targetClass).to(equal("UIView"))
                     expect(eventData.viewHierarchy.count).to(equal(1))
                 }
 
@@ -29,7 +28,6 @@
                     superview.addSubview(button)
                     let eventData = button.eventData!
 
-                    expect(eventData.targetClass).to(equal("UIButton"))
                     expect(eventData.viewHierarchy.count).to(equal(2))
                     expect(eventData.screenName).to(beNil())
                 }

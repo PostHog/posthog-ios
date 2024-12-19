@@ -29,6 +29,7 @@
 
     PostHogConfig *config = [[PostHogConfig alloc] apiKey:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
     config.preloadFeatureFlags = YES;
+    config.sessionReplayConfig.startMode = PostHogSessionReplayStartModeManual;
     [[PostHogSDK shared] debug:YES];
     [[PostHogSDK shared] setup:config];
     
@@ -135,6 +136,11 @@
     PostHogSDK *postHog = [PostHogSDK with:config];
     
     [postHog capture:@"theCapture"];
+    
+    [[PostHogSDK shared] startSessionRecording];
+    [[PostHogSDK shared] stopSessionRecording];
+    [[PostHogSDK shared] startSessionRecordingWithResumeCurrent:TRUE];
+    [[PostHogSDK shared] stopSessionRecording];
     
     return YES;
 }

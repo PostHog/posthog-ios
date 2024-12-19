@@ -254,7 +254,3 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
         }
     }
 }
-
-private class MockDate {
-    var date = Date()
-}

@@ -68,7 +68,7 @@
         private static func unswizzle() {
             guard hasSwizzled else { return }
             hasSwizzled = false
-            swizzleMethods() // swizzling again will excahnge implementations back to original
+            swizzleMethods() // swizzling again will exchange implementations back to original
             unregisterNotifications()
         }
 

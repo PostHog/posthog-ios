@@ -29,8 +29,8 @@
                 return
             }
             swizzle(forClass: UIView.self,
-                    original: #selector(UIView.layoutSubviewsOverride),
-                    new: #selector(UIView.layoutSubviews))
+                    original: #selector(UIView.layoutSubviews),
+                    new: #selector(UIView.layoutSubviewsOverride))
             hasSwizzled = false
         }
     }

@@ -15,7 +15,12 @@ import Foundation
  */
 func applicationSupportDirectoryURL() -> URL {
     let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
+    #if canImport(XCTest) // only visible to test targets
+        return url.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.posthog.test")
+    #else
+        // TODO: Should we be using a fallback temp directory instead of force unwrapping here?
+        return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
+    #endif
 }
 
 class PostHogStorage {

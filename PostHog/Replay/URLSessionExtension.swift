@@ -107,12 +107,17 @@
         // MARK: Private methods
 
         private func captureData(request: URLRequest? = nil, response: URLResponse? = nil, timestamp: Date, start: UInt64, end: UInt64? = nil) {
-            // we dont check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
+            // we don't check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
             // has to be called manually anyway
             if !PostHogSDK.shared.isSessionReplayActive() {
                 return
             }
             let currentEnd = end ?? getMonotonicTimeInMilliseconds()
+
+            // always make sure we have a fresh session id as early as possible
+            guard let sessionId: String = PostHogSessionManager.shared.getSessionId(at: timestamp) else {
+                return
+            }
 
             PostHogReplayIntegration.dispatchQueue.async {
                 var snapshotsData: [Any] = []
@@ -142,9 +147,11 @@
 
                 PostHogSDK.shared.capture(
                     "$snapshot",
-                    properties:
-                    ["$snapshot_source": "mobile",
-                     "$snapshot_data": snapshotsData],
+                    properties: [
+                        "$snapshot_source": "mobile",
+                        "$snapshot_data": snapshotsData,
+                        "$session_id": sessionId,
+                    ],
                     timestamp: timestamp
                 )
             }

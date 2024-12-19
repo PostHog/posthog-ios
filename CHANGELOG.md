@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add postHogNoMask() SwiftUI view modifier to explicitly mark any View as non-maskable ([#277](https://github.com/PostHog/posthog-ios/pull/277))
+
 ## 3.17.1 - 2024-12-18
 
 - fix: avoid masking SwiftUI Gradient views ([#275](https://github.com/PostHog/posthog-ios/pull/275))

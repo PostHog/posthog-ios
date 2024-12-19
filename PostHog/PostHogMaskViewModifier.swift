@@ -10,6 +10,31 @@
     import SwiftUI
 
     public extension View {
+        /**
+         Marks a SwiftUI View to be masked in PostHog session replay recordings.
+
+         There are cases where PostHog SDK will unintentionally mask some SwiftUI views.
+
+         Because of the nature of how we intercept SwiftUI view hierarchy (and how it maps to UIKit),
+         we can't always be 100% confident that a view should be masked and may accidentally mark a
+         sensitive view as non-sensitive instead.
+
+         Use this modifier to explicitly mask sensitive views in session replay recordings.
+
+         For example:
+         ```swift
+         // This view will be masked in recordings
+         SensitiveDataView()
+            .postHogMask()
+
+         // Conditionally mask based on a flag
+         SensitiveDataView()
+            .postHogMask(shouldMask)
+         ```
+
+         - Parameter isEnabled: Whether masking should be enabled. Defaults to true.
+         - Returns: A modified view that will be masked in session replay recordings when enabled
+         */
         func postHogMask(_ isEnabled: Bool = true) -> some View {
             modifier(PostHogMaskViewModifier(enabled: isEnabled))
         }

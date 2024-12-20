@@ -853,7 +853,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3AC745C9296D6FE60025C109 /* Build configuration list for PBXNativeTarget "PostHog" */;
 			buildPhases = (
-				DAB565E02D155AD10088F720 /* SwiftLint */,
 				3AC745B0296D6FE60025C109 /* Headers */,
 				3AC745B1296D6FE60025C109 /* Sources */,
 				3AC745B2296D6FE60025C109 /* Frameworks */,
@@ -1155,28 +1154,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		DAB565E02D155AD10088F720 /* SwiftLint */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = SwiftLint;
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if which swiftlint >/dev/null; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		3AA34CF3296D951A003398F4 /* Sources */ = {

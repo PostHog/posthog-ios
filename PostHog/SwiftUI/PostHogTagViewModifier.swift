@@ -54,7 +54,7 @@
         3. System renders SwiftUI view hierarchy in UIKit
         4. Find the common ancestor of the PostHogTagAnchorView and PostHogTagView (e.g _UIHostingView)
         5. Retrieve all of the descendants of common ancestor that are between PostHogTagView and PostHogTagAnchorView (excluding tagged views)
-     
+
         This logic is implemented in the `getTargetViews` function, which is called from PostHogTagView.
 
       ```
@@ -215,7 +215,7 @@
         let id: UUID
         var handler: (() -> Void)?
 
-        fileprivate init(
+        init(
             id: UUID,
             handler: ((PostHogTagViewController) -> Void)?
         ) {
@@ -332,7 +332,7 @@
      - children: A function that takes an element and returns a sequence of its children.
      - Returns: An AnySequence that iterates over all elements and their children.
      */
-    fileprivate func recursiveSequence<S: Sequence>(_ sequence: S, children: @escaping (S.Element) -> S) -> AnySequence<S.Element> {
+    private func recursiveSequence<S: Sequence>(_ sequence: S, children: @escaping (S.Element) -> S) -> AnySequence<S.Element> {
         AnySequence {
             var mainIterator = sequence.makeIterator()
             // Current iterator, or `nil` if all sequences are exhausted:
@@ -354,7 +354,7 @@
     /**
      Boxing a weak reference to a reference type.
      */
-    fileprivate final class Weak<T: AnyObject> {
+    final class Weak<T: AnyObject> {
         weak var value: T?
 
         public init(_ wrappedValue: T? = nil) {

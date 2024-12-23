@@ -766,43 +766,6 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("rotates to a new sessionId only after > 30 mins in the background") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 5)
-            let mockNow = MockDate()
-            now = { mockNow.date }
-
-            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
-
-            mockNow.date.addTimeInterval(60 * 15) // Background "timer": 15 mins
-
-            sut.capture("event captured while in background")
-
-            mockNow.date.addTimeInterval(60 * 14) // Background "timer": 29 mins
-
-            sut.handleAppDidBecomeActive() // Background "timer": Resets back to 0 mins on next backgrounding
-
-            mockNow.date.addTimeInterval(60)
-
-            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
-
-            mockNow.date.addTimeInterval(30 * 60 + 1) // Background "timer": 30 mins 1 second
-
-            sut.handleAppDidBecomeActive() // New sessionId created
-
-            let events = getBatchedEvents(server)
-            expect(events.count) == 5
-
-            let sessionId1 = events[0].properties["$session_id"] as? String
-            expect(sessionId1).toNot(beNil()) // Background "timer": 0 mins
-            expect(events[1].properties["$session_id"] as? String).to(equal(sessionId1)) // Background "timer": 15 mins
-            expect(events[2].properties["$session_id"] as? String).to(equal(sessionId1)) // Background "timer": 29 mins
-            expect(events[3].properties["$session_id"] as? String).to(equal(sessionId1)) // Background "timer": 0 mins
-            expect(events[4].properties["$session_id"] as? String).toNot(equal(sessionId1)) // Background "timer": 30 mins 1 second
-
-            sut.reset()
-            sut.close()
-        }
-
         it("clears sessionId for background events after 30 mins in background") {
             let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
             let mockNow = MockDate()

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.17.2 - 2024-12-23
+
 - fix: ignore additional keyboard windows for $screen event ([#279](https://github.com/PostHog/posthog-ios/pull/279))
 
 ## 3.17.1 - 2024-12-18

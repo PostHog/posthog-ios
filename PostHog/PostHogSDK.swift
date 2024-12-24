@@ -149,8 +149,8 @@ let maxRetryDelay = 30.0
             PostHogSessionManager.shared.startSession()
 
             #if os(iOS)
-                if config.sessionReplay, config.sessionReplayConfig.startMode == .automatic {
-                    startSessionRecording()
+                if config.sessionReplay {
+                    replayIntegration?.start()
                 }
             #endif
 
@@ -334,7 +334,7 @@ let maxRetryDelay = 30.0
             // only Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
             #if os(iOS)
-                if !appendSharedProps, config.sessionReplay {
+                if !appendSharedProps, isSessionReplayActive() {
                     props["$window_id"] = sessionId
                 }
             #endif
@@ -1031,12 +1031,17 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            guard let replayIntegration, !replayIntegration.isActive() else {
+            guard let replayIntegration else {
                 return
             }
 
-            guard config.sessionReplay else {
-                return hedgeLog("Could not resume recording. Session replay is disabled in config.")
+            if resumeCurrent, replayIntegration.isActive() {
+                // nothing to resume, already active
+                return
+            }
+
+            guard let featureFlags, featureFlags.isSessionReplayFlagActive() else {
+                return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
             }
 
             let sessionId = resumeCurrent
@@ -1264,14 +1269,13 @@ let maxRetryDelay = 30.0
                 return false
             }
 
-            guard let replayIntegration else {
+            guard let replayIntegration, let featureFlags else {
                 return false
             }
 
-            return config.sessionReplay
+            return replayIntegration.isActive()
                 && !PostHogSessionManager.shared.getSessionId(readOnly: true).isNilOrEmpty
-                && replayIntegration.isActive()
-                && (featureFlags?.isSessionReplayFlagActive() ?? false)
+                && featureFlags.isSessionReplayFlagActive()
         }
     #endif
 

@@ -50,18 +50,6 @@
         /// Defaults to 1s
         @objc public var debouncerDelay: TimeInterval = 1.0
 
-        /// Whether to start session replay automatically or manually during the SDK setup
-        /// Options are:
-        /// - .automatic: Start session replay automatically during the SDK setup
-        /// - .manual: Start/Stop session replay manually by calling `startSessionReplay()` and `stopSessionReplay()`
-        /// Default is .automatic
-        @objc public var startMode: PostHogSessionReplayStartMode = .automatic
-
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
-    }
-
-    @objc(PostHogSessionReplayStartMode) public enum PostHogSessionReplayStartMode: Int32 {
-        case automatic
-        case manual
     }
 #endif

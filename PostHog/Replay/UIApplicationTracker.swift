@@ -53,7 +53,7 @@
             }
 
             // always make sure we have a fresh session id as early as possible
-            guard let sessionId: String = PostHogSessionManager.shared.getSessionId(at: date) else {
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
                 return
             }
 

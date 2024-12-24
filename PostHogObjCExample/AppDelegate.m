@@ -29,7 +29,6 @@
 
     PostHogConfig *config = [[PostHogConfig alloc] apiKey:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
     config.preloadFeatureFlags = YES;
-    config.sessionReplayConfig.startMode = PostHogSessionReplayStartModeManual;
     [[PostHogSDK shared] debug:YES];
     [[PostHogSDK shared] setup:config];
     

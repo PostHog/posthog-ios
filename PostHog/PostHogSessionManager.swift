@@ -40,7 +40,7 @@ import Foundation
     // 24 hours in seconds
     private let sessionMaxLengthThreshold: TimeInterval = 24 * 60 * 60
     // Called when session id is cleared or changes
-    var onSessionIDChanged: () -> Void = {}
+    var onSessionIdChanged: () -> Void = {}
 
     @objc public func setSessionId(_ sessionId: String) {
         setSessionIdInternal(sessionId, reason: .customSessionId)
@@ -177,7 +177,7 @@ import Foundation
             self.sessionActivityTimestamp = newTimestamp
         }
 
-        onSessionIDChanged()
+        onSessionIdChanged()
 
         if let sessionId {
             hedgeLog("New session id created \(sessionId) (\(reason))")

@@ -106,7 +106,7 @@
         func start() {
             stopTimer()
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
-            PostHogSessionManager.shared.onSessionIDChanged = resetViews
+            PostHogSessionManager.shared.onSessionIdChanged = resetViews
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
@@ -128,7 +128,7 @@
         func stop() {
             stopTimer()
             resetViews()
-            PostHogSessionManager.shared.onSessionIDChanged = {}
+            PostHogSessionManager.shared.onSessionIdChanged = {}
 
             ViewLayoutTracker.unSwizzleLayoutSubviews()
             UIApplicationTracker.unswizzleSendEvent()
@@ -157,7 +157,7 @@
             let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
 
             // always make sure we have a fresh session id as early as possible
-            guard let sessionId: String = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
                 return
             }
 

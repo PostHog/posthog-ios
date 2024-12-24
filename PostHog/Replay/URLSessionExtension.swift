@@ -115,7 +115,7 @@
             let currentEnd = end ?? getMonotonicTimeInMilliseconds()
 
             // always make sure we have a fresh session id as early as possible
-            guard let sessionId: String = PostHogSessionManager.shared.getSessionId(at: timestamp) else {
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestamp) else {
                 return
             }
 

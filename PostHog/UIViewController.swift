@@ -60,7 +60,6 @@
 
         @objc func viewDidAppearOverride(animated: Bool) {
             // ignore views from keyboard window
-            // these may include: UIInputWindowController, _UICursorAccessoryViewController, UICompatibilityInputViewController,UIKeyboardHiddenViewController_Autofill and others
             if let window = viewIfLoaded?.window, !window.isKeyboardWindow {
                 captureScreenView(window)
             }

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.18.0 - 2024-12-27
+
 - feat: add `postHogNoMask` SwiftUI view modifier to explicitly mark any View as non-maskable ([#277](https://github.com/PostHog/posthog-ios/pull/277))
 
 ## 3.17.2 - 2024-12-23

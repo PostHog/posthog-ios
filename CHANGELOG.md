@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add `postHogNoMask` SwiftUI view modifier to explicitly mark any View as non-maskable ([#277](https://github.com/PostHog/posthog-ios/pull/277))
+
 ## 3.17.2 - 2024-12-23
 
 - fix: ignore additional keyboard windows for $screen event ([#279](https://github.com/PostHog/posthog-ios/pull/279))

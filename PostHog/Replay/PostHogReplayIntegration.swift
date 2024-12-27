@@ -230,6 +230,11 @@
         }
 
         private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect], _ maskChildren: inout Bool) {
+            // User explicitly marked this view (and its subviews) as non-maskable through `.postHogNoMask()` view modifier
+            if view.postHogNoMask {
+                return
+            }
+
             if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
                 if isTextViewSensitive(textView) {
                     maskableWidgets.append(view.toAbsoluteRect(window))
@@ -343,7 +348,7 @@
                 }
             }
 
-            // manually masked views through view modifier `PostHogMaskViewModifier`
+            // manually masked views through `.postHogMask()` view modifier
             if view.postHogNoCapture {
                 maskableWidgets.append(view.toAbsoluteRect(window))
                 return

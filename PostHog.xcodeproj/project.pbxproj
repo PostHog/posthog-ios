@@ -126,6 +126,8 @@
 		DA5AA7192CE245D2004EFB99 /* UIApplication+.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5AA7132CE245CD004EFB99 /* UIApplication+.swift */; };
 		DA5B85882CD21CBB00686389 /* AutocaptureEventProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */; };
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
+		DAB565CA2D142F8F0088F720 /* PostHogNoMaskViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */; };
+		DAB565DF2D14C5660088F720 /* PostHogTagViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB565DE2D14C55C0088F720 /* PostHogTagViewModifier.swift */; };
 		DAC699D62CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */; };
 		DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */; };
 		DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */; };
@@ -403,6 +405,8 @@
 		DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocaptureEventProcessing.swift; sourceTree = "<group>"; };
 		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
 		DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTrackerSpec.swift; sourceTree = "<group>"; };
+		DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogNoMaskViewModifier.swift; sourceTree = "<group>"; };
+		DAB565DE2D14C55C0088F720 /* PostHogTagViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogTagViewModifier.swift; sourceTree = "<group>"; };
 		DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegration.swift; sourceTree = "<group>"; };
 		DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForwardingPickerViewDelegate.swift; sourceTree = "<group>"; };
 		DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegrationSpec.swift; sourceTree = "<group>"; };
@@ -596,9 +600,8 @@
 				69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */,
 				693E977A2C625208004B1030 /* PostHogPropertiesSanitizer.swift */,
 				69ED1A5B2C7F15F300FE7A91 /* PostHogSessionManager.swift */,
-				DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */,
-				69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */,
 				69ED1A9E2C8F451B00FE7A91 /* PostHogPersonProfiles.swift */,
+				DAB565D82D14C51E0088F720 /* SwiftUI */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -792,6 +795,17 @@
 				DA8D37292CBEAC03005EBD27 /* PostHogExampleAutocapture.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DAB565D82D14C51E0088F720 /* SwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				DAB565DE2D14C55C0088F720 /* PostHogTagViewModifier.swift */,
+				DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */,
+				69ED1A872C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift */,
+				DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */,
+			);
+			path = SwiftUI;
 			sourceTree = "<group>";
 		};
 		DAD76A222D006BF7003E1A43 /* SwiftUI */ = {
@@ -1161,6 +1175,7 @@
 				690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */,
 				69EE82BE2BA9C8AA00EB9542 /* ViewLayoutTracker.swift in Sources */,
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
+				DAB565DF2D14C5660088F720 /* PostHogTagViewModifier.swift in Sources */,
 				6955CB732C517651008EFD8D /* CGSize+Util.swift in Sources */,
 				69F517EA2BAC684F00F52C14 /* RRStyle.swift in Sources */,
 				DA0CA6F12CFF6B6300AF9500 /* UIWindow+.swift in Sources */,
@@ -1213,6 +1228,7 @@
 				69EE82BA2BA9C50400EB9542 /* PostHogReplayIntegration.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
 				69B7F60C2CF7703400A48BCC /* UIImage+Util.swift in Sources */,
+				DAB565CA2D142F8F0088F720 /* PostHogNoMaskViewModifier.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogFeatureFlags.swift in Sources */,
 				699C5FE62C20178E007DB818 /* UUIDUtils.swift in Sources */,
 				690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */,

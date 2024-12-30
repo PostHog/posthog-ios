@@ -152,16 +152,18 @@
         private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil) {
             var hasChanges = false
 
-            let timestampDate = Date()
-            let timestamp = timestampDate.toMillis()
-            let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
-
-            // always make sure we have a fresh session id as early as possible
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
+            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
                 return
             }
 
-            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+            // capture timestamp after snapshot was taken
+            let timestampDate = Date()
+            let timestamp = timestampDate.toMillis()
+
+            let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
+
+            // always make sure we have a fresh session id at correct timestamp
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
                 return
             }
 

@@ -1,5 +1,7 @@
 ## Next
 
+- feat: ability to manually start and stop session recordings ([#276](https://github.com/PostHog/posthog-ios/pull/276))
+
 ## 3.17.0 - 2024-12-10
 
 - feat: ability to add a custom label to autocapture elements ([#271](https://github.com/PostHog/posthog-ios/pull/271))

@@ -38,9 +38,18 @@
                 return
             }
 
-            let date = Date()
+            let date = now()
+
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+                return
+            }
+
             queue.async {
-                let sample = NetworkSample(timeOrigin: date, url: url.absoluteString)
+                let sample = NetworkSample(
+                    sessionId: sessionId,
+                    timeOrigin: date,
+                    url: url.absoluteString
+                )
 
                 self.tasksLock.withLock {
                     self.samplesByTask[task] = sample
@@ -124,11 +133,6 @@
         private func finish(task: URLSessionTask, sample: NetworkSample) {
             let timestamp = sample.timeOrigin
 
-            // always make sure we have a fresh session id as early as possible
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestamp) else {
-                return
-            }
-
             var snapshotsData: [Any] = []
 
             let requestsData = [sample.toDict()]
@@ -147,7 +151,7 @@
                 properties: [
                     "$snapshot_source": "mobile",
                     "$snapshot_data": snapshotsData,
-                    "$session_id": sessionId,
+                    "$session_id": sample.sessionId,
                 ],
                 timestamp: sample.timeOrigin
             )

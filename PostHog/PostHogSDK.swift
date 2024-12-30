@@ -608,6 +608,14 @@ let maxRetryDelay = 30.0
                                          timestamp: timestamp)
         let sanitizedProperties = sanitizeProperties(properties)
 
+        // if this is a $snapshot event and $session_id is missing, don't process then event
+        if isSnapshotEvent, sanitizedProperties["$session_id"] == nil {
+            return
+        }
+
+        // Session Replay has its own queue
+        let targetQueue = isSnapshotEvent ? replayQueue : queue
+
         let posthogEvent = PostHogEvent(
             event: event,
             distinctId: eventDistinctId,
@@ -615,16 +623,7 @@ let maxRetryDelay = 30.0
             timestamp: eventTimestamp
         )
 
-        // Session Replay has its own queue
-        if isSnapshotEvent {
-            guard let replayQueue else {
-                return
-            }
-            replayQueue.add(posthogEvent)
-            return
-        }
-
-        queue.add(posthogEvent)
+        targetQueue?.add(posthogEvent)
     }
 
     @objc public func screen(_ screenTitle: String) {

@@ -43,7 +43,7 @@ import Foundation
     var onSessionIdChanged: () -> Void = {}
 
     @objc public func setSessionId(_ sessionId: String) {
-        setSessionIdInternal(sessionId, reason: .customSessionId)
+        setSessionIdInternal(sessionId, at: now(), reason: .customSessionId)
     }
 
     private func isNotReactNative() -> Bool {
@@ -74,7 +74,7 @@ import Foundation
         at timeNow: Date = now(),
         readOnly: Bool = false
     ) -> String? {
-        let timeNow = timeNow.timeIntervalSince1970
+        let timestamp = timeNow.timeIntervalSince1970
         let (currentSessionId, lastActive, sessionStart, isBackgrounded) = sessionLock.withLock {
             (sessionId, sessionActivityTimestamp, sessionStartTimestamp, isAppInBackground)
         }
@@ -86,33 +86,33 @@ import Foundation
 
         // Create a new session id if empty
         if currentSessionId.isNilOrEmpty, !isBackgrounded {
-            return rotateSession(force: true, reason: .sessionIdEmpty)
+            return rotateSession(force: true, at: timeNow, reason: .sessionIdEmpty)
         }
 
         // Check if session has passed maximum inactivity length
-        if let lastActive, isExpired(timeNow, lastActive, sessionActivityThreshold) {
+        if let lastActive, isExpired(timestamp, lastActive, sessionActivityThreshold) {
             return isBackgrounded
                 ? clearSession(reason: .sessionTimeout)
-                : rotateSession(reason: .sessionTimeout)
+                : rotateSession(at: timeNow, reason: .sessionTimeout)
         }
 
         // Check if session has passed maximum session length
-        if let sessionStart, isExpired(timeNow, sessionStart, sessionMaxLengthThreshold) {
+        if let sessionStart, isExpired(timestamp, sessionStart, sessionMaxLengthThreshold) {
             return isBackgrounded
                 ? clearSession(reason: .sessionPastMaximumLength)
-                : rotateSession(reason: .sessionPastMaximumLength)
+                : rotateSession(at: timeNow, reason: .sessionPastMaximumLength)
         }
 
         return currentSessionId
     }
 
     func getNextSessionId() -> String? {
-        rotateSession(force: true, reason: .sessionStart)
+        rotateSession(force: true, at: now(), reason: .sessionStart)
     }
 
     /// Creates a new session id and sets timestamps
     func startSession(_ completion: (() -> Void)? = nil) {
-        rotateSession(force: true, reason: .sessionStart)
+        rotateSession(force: true, at: now(), reason: .sessionStart)
         completion?()
     }
 
@@ -124,7 +124,7 @@ import Foundation
 
     /// Resets current session id and timestamps
     func resetSession() {
-        rotateSession(force: true, reason: .sessionReset)
+        rotateSession(force: true, at: now(), reason: .sessionReset)
     }
 
     /// Call this method to mark any user activity on this session
@@ -149,7 +149,7 @@ import Foundation
      - reason: The underlying reason behind this session ID rotation
      - Returns: a new session id
      */
-    @discardableResult private func rotateSession(force: Bool = false, reason: SessionIDChangeReason) -> String? {
+    @discardableResult private func rotateSession(force: Bool = false, at timestamp: Date, reason: SessionIDChangeReason) -> String? {
         // only rotate when session is empty
         if !force {
             let currentSessionId = sessionLock.withLock { sessionId }
@@ -159,22 +159,22 @@ import Foundation
         }
 
         let newSessionId = UUID.v7().uuidString
-        setSessionIdInternal(newSessionId, reason: reason)
+        setSessionIdInternal(newSessionId, at: timestamp, reason: reason)
         return newSessionId
     }
 
     @discardableResult private func clearSession(reason: SessionIDChangeReason) -> String? {
-        setSessionIdInternal(nil, reason: reason)
+        setSessionIdInternal(nil, at: nil, reason: reason)
         return nil
     }
 
-    private func setSessionIdInternal(_ sessionId: String?, reason: SessionIDChangeReason) {
-        let newTimestamp = sessionId != nil ? now().timeIntervalSince1970 : nil
+    private func setSessionIdInternal(_ sessionId: String?, at timestamp: Date?, reason: SessionIDChangeReason) {
+        let timestamp = timestamp?.timeIntervalSince1970
 
         sessionLock.withLock {
             self.sessionId = sessionId
-            self.sessionStartTimestamp = newTimestamp
-            self.sessionActivityTimestamp = newTimestamp
+            self.sessionStartTimestamp = timestamp
+            self.sessionActivityTimestamp = timestamp
         }
 
         onSessionIdChanged()

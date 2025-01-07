@@ -2,6 +2,18 @@
 
 - feat: ability to manually start and stop session recordings ([#276](https://github.com/PostHog/posthog-ios/pull/276))
 
+## 3.18.0 - 2024-12-27
+
+- feat: add `postHogNoMask` SwiftUI view modifier to explicitly mark any View as non-maskable ([#277](https://github.com/PostHog/posthog-ios/pull/277))
+
+## 3.17.2 - 2024-12-23
+
+- fix: ignore additional keyboard windows for $screen event ([#279](https://github.com/PostHog/posthog-ios/pull/279))
+
+## 3.17.1 - 2024-12-18
+
+- fix: avoid masking SwiftUI Gradient views ([#275](https://github.com/PostHog/posthog-ios/pull/275))
+
 ## 3.17.0 - 2024-12-10
 
 - feat: ability to add a custom label to autocapture elements ([#271](https://github.com/PostHog/posthog-ios/pull/271))

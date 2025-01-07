@@ -86,6 +86,11 @@
         // These are usually views that don't belong to the current process and are most likely sensitive
         private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
 
+        // These layer types should be safe to ignore while masking
+        private let swiftUISafeLayerTypes: [AnyClass] = [
+            "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
+        ].compactMap(NSClassFromString)
+
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
 
@@ -248,6 +253,11 @@
         }
 
         private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect], _ maskChildren: inout Bool) {
+            // User explicitly marked this view (and its subviews) as non-maskable through `.postHogNoMask()` view modifier
+            if view.postHogNoMask {
+                return
+            }
+
             if let textView = view as? UITextView { // TextEditor, SwiftUI.TextEditorTextView, SwiftUI.UIKitTextView
                 if isTextViewSensitive(textView) {
                     maskableWidgets.append(view.toAbsoluteRect(window))
@@ -354,14 +364,14 @@
             }
 
             // this can be anything, so better to be conservative
-            if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }) {
+            if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }), !isSwiftUILayerSafe(view.layer) {
                 if isTextInputSensitive(view), !hasSubViews {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
             }
 
-            // manually masked views through view modifier `PostHogMaskViewModifier`
+            // manually masked views through `.postHogMask()` view modifier
             if view.postHogNoCapture {
                 maskableWidgets.append(view.toAbsoluteRect(window))
                 return
@@ -460,6 +470,10 @@
 
         private func isTextFieldSensitive(_ view: UITextField) -> Bool {
             (isTextInputSensitive(view) || view.isSensitiveText()) && (hasText(view.text) || hasText(view.placeholder))
+        }
+
+        private func isSwiftUILayerSafe(_ layer: CALayer) -> Bool {
+            swiftUISafeLayerTypes.contains(where: { layer.isKind(of: $0) })
         }
 
         private func hasText(_ text: String?) -> Bool {

@@ -1112,7 +1112,6 @@
 			path = SwiftUI;
 			sourceTree = "<group>";
 		};
-		DAD76A222D006BF7003E1A43 /* SwiftUI */ = {
 		DAAC94DA2D0B0455006A9B6E /* sharpyuv */ = {
 			isa = PBXGroup;
 			children = (

@@ -9,25 +9,15 @@
     import Foundation
     import SwiftUI
 
-    struct PostHogSwiftUIViewModifier: ViewModifier {
-        let viewEventName: String
-
-        let screenEvent: Bool
-
-        let properties: [String: Any]?
-
-        func body(content: Content) -> some View {
-            content.onAppear {
-                if screenEvent {
-                    PostHogSDK.shared.screen(viewEventName, properties: properties)
-                } else {
-                    PostHogSDK.shared.capture(viewEventName, properties: properties)
-                }
-            }
-        }
-    }
-
     public extension View {
+        /**
+         Marks a SwiftUI View to be tracked as a $screen event in PostHog when onAppear is called.
+
+         - Parameters:
+         - screenName: The name of the screen. Defaults to the type of the view.
+         - properties: Additional properties to be tracked with the screen.
+         - Returns: A modified view that will be tracked as a screen in PostHog.
+         */
         func postHogScreenView(_ screenName: String? = nil,
                                _ properties: [String: Any]? = nil) -> some View
         {
@@ -43,6 +33,24 @@
             modifier(PostHogSwiftUIViewModifier(viewEventName: event,
                                                 screenEvent: false,
                                                 properties: properties))
+        }
+    }
+
+    private struct PostHogSwiftUIViewModifier: ViewModifier {
+        let viewEventName: String
+
+        let screenEvent: Bool
+
+        let properties: [String: Any]?
+
+        func body(content: Content) -> some View {
+            content.onAppear {
+                if screenEvent {
+                    PostHogSDK.shared.screen(viewEventName, properties: properties)
+                } else {
+                    PostHogSDK.shared.capture(viewEventName, properties: properties)
+                }
+            }
         }
     }
 

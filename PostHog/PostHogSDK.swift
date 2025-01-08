@@ -1021,7 +1021,7 @@ let maxRetryDelay = 30.0
         /**
          Starts session recording.
          This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
-         
+
          - Parameter resumeCurrent:
             Whether to resume recording of current session (true) or start a new session (false).
          */
@@ -1058,7 +1058,7 @@ let maxRetryDelay = 30.0
 
         /**
          Stops the current session recording if one is in progress.
-         
+
          This method will have no effect if PostHog is not enabled
          */
         @objc public func stopSessionRecording() {

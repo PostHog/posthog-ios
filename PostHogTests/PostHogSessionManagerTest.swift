@@ -334,10 +334,9 @@ enum PostHogSessionManagerTests {
             #expect(sut.didBecomeActiveCallbacks.isEmpty)
         }
     }
-    
+
     @Suite("Test React Native session management")
     struct ReactNativeTests {
-        
         let mockAppLifecycle: MockApplicationLifecyclePublisher
 
         init() {
@@ -383,7 +382,7 @@ enum PostHogSessionManagerTests {
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
             PostHogSessionManager.shared.setSessionId(rnSessionId)
-            
+
             // app foregrounded
             mockAppLifecycle.simulateAppDidBecomeActive()
 
@@ -411,7 +410,7 @@ enum PostHogSessionManagerTests {
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
             PostHogSessionManager.shared.setSessionId(rnSessionId)
-            
+
             // app foregrounded
             mockAppLifecycle.simulateAppDidBecomeActive()
 
@@ -437,7 +436,7 @@ enum PostHogSessionManagerTests {
 
             #expect(newSessionId == rnSessionId)
         }
-        
+
         @Test("Session id is NOT cleared when startSession() is called")
         func testSessionNotRotatedWhenStartSessionCalled() throws {
             let mockNow = MockDate()
@@ -446,18 +445,18 @@ enum PostHogSessionManagerTests {
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
             PostHogSessionManager.shared.setSessionId(rnSessionId)
-            
+
             var newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             PostHogSessionManager.shared.startSession()
-            
+
             newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
-        
+
         @Test("Session id is NOT cleared when endSession() is called")
         func testSessionNotRotatedWhenEndSessionCalled() throws {
             let mockNow = MockDate()
@@ -466,18 +465,18 @@ enum PostHogSessionManagerTests {
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
             PostHogSessionManager.shared.setSessionId(rnSessionId)
-            
+
             var newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             PostHogSessionManager.shared.endSession()
-            
+
             newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
-        
+
         @Test("Session id is NOT rotated when resetSession() is called")
         func testSessionNotRotatedWhenResetSessionCalled() throws {
             let mockNow = MockDate()
@@ -486,13 +485,13 @@ enum PostHogSessionManagerTests {
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
             PostHogSessionManager.shared.setSessionId(rnSessionId)
-            
+
             var newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             PostHogSessionManager.shared.resetSession()
-            
+
             newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)

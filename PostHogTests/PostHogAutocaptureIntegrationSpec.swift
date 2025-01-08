@@ -123,8 +123,8 @@ import Quick
                 .init(
                     text: "Test Button",
                     targetClass: "UIButton",
-                    baseClass: nil,
-                    label: "Custom label"
+                    baseClass: "UIControl",
+                    label: nil
                 ),
             ],
             debounceInterval: debounceInterval

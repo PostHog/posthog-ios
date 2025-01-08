@@ -38,9 +38,18 @@
                 return
             }
 
-            let date = Date()
+            let date = now()
+
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+                return
+            }
+
             queue.async {
-                let sample = NetworkSample(timeOrigin: date, url: url.absoluteString)
+                let sample = NetworkSample(
+                    sessionId: sessionId,
+                    timeOrigin: date,
+                    url: url.absoluteString
+                )
 
                 self.tasksLock.withLock {
                     self.samplesByTask[task] = sample
@@ -122,16 +131,30 @@
         }
 
         private func finish(task: URLSessionTask, sample: NetworkSample) {
+            let timestamp = sample.timeOrigin
+
             var snapshotsData: [Any] = []
 
             let requestsData = [sample.toDict()]
             let payloadData: [String: Any] = ["requests": requestsData]
             let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
 
-            let data: [String: Any] = ["type": 6, "data": pluginData, "timestamp": sample.timeOrigin.toMillis()]
+            let data: [String: Any] = [
+                "type": 6,
+                "data": pluginData,
+                "timestamp": timestamp.toMillis(),
+            ]
             snapshotsData.append(data)
 
-            PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+            PostHogSDK.shared.capture(
+                "$snapshot",
+                properties: [
+                    "$snapshot_source": "mobile",
+                    "$snapshot_data": snapshotsData,
+                    "$session_id": sample.sessionId,
+                ],
+                timestamp: sample.timeOrigin
+            )
 
             tasksLock.withLock {
                 _ = samplesByTask.removeValue(forKey: task)

@@ -25,13 +25,24 @@
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
             var endMillis: UInt64?
+            let sessionId = PostHogSessionManager.shared.getSessionId(at: timestamp)
             do {
                 let (data, response) = try await action()
                 endMillis = getMonotonicTimeInMilliseconds()
-                captureData(request: request, response: response, timestamp: timestamp, start: startMillis, end: endMillis)
+                captureData(request: request,
+                            response: response,
+                            sessionId: sessionId,
+                            timestamp: timestamp,
+                            start: startMillis,
+                            end: endMillis)
                 return (data, response)
             } catch {
-                captureData(request: request, response: nil, timestamp: timestamp, start: startMillis, end: endMillis)
+                captureData(request: request,
+                            response: nil,
+                            sessionId: sessionId,
+                            timestamp: timestamp,
+                            start: startMillis,
+                            end: endMillis)
                 throw error
             }
         }
@@ -42,13 +53,24 @@
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
             var endMillis: UInt64?
+            let sessionId = PostHogSessionManager.shared.getSessionId(at: timestamp)
             do {
                 let (url, response) = try await action()
                 endMillis = getMonotonicTimeInMilliseconds()
-                captureData(request: request, response: response, timestamp: timestamp, start: startMillis, end: endMillis)
+                captureData(request: request,
+                            response: response,
+                            sessionId: sessionId,
+                            timestamp: timestamp,
+                            start: startMillis,
+                            end: endMillis)
                 return (url, response)
             } catch {
-                captureData(request: request, response: nil, timestamp: timestamp, start: startMillis, end: endMillis)
+                captureData(request: request,
+                            response: nil,
+                            sessionId: sessionId,
+                            timestamp: timestamp,
+                            start: startMillis,
+                            end: endMillis)
                 throw error
             }
         }
@@ -106,10 +128,17 @@
 
         // MARK: Private methods
 
-        private func captureData(request: URLRequest? = nil, response: URLResponse? = nil, timestamp: Date, start: UInt64, end: UInt64? = nil) {
-            // we dont check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
+        private func captureData(
+            request: URLRequest? = nil,
+            response: URLResponse? = nil,
+            sessionId: String?,
+            timestamp: Date,
+            start: UInt64,
+            end: UInt64? = nil
+        ) {
+            // we don't check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
             // has to be called manually anyway
-            if !PostHogSDK.shared.isSessionReplayActive() {
+            guard let sessionId, PostHogSDK.shared.isSessionReplayActive() else {
                 return
             }
             let currentEnd = end ?? getMonotonicTimeInMilliseconds()
@@ -140,7 +169,15 @@
                 let recordingData: [String: Any] = ["type": 6, "data": pluginData, "timestamp": timestamp.toMillis()]
                 snapshotsData.append(recordingData)
 
-                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+                PostHogSDK.shared.capture(
+                    "$snapshot",
+                    properties: [
+                        "$snapshot_source": "mobile",
+                        "$snapshot_data": snapshotsData,
+                        "$session_id": sessionId,
+                    ],
+                    timestamp: timestamp
+                )
             }
         }
     }

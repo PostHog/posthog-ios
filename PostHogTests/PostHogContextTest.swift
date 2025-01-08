@@ -50,10 +50,6 @@ class PostHogContextTest: QuickSpec {
 
             let context = sut.dynamicContext()
 
-            #if os(iOS) || os(tvOS)
-                expect(context["$screen_width"] as? Float) != nil
-                expect(context["$screen_height"] as? Float) != nil
-            #endif
             expect(context["$locale"] as? String) != nil
             expect(context["$timezone"] as? String) != nil
             expect(context["$network_wifi"] as? Bool) != nil

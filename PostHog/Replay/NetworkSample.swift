@@ -9,6 +9,7 @@
     import Foundation
 
     struct NetworkSample {
+        let sessionId: String
         let timeOrigin: Date
         let entryType = "resource"
         var name: String?
@@ -18,8 +19,9 @@
         var duration: Int64?
         var decodedBodySize: Int64?
 
-        init(timeOrigin: Date, url: String? = nil) {
+        init(sessionId: String, timeOrigin: Date, url: String? = nil) {
             self.timeOrigin = timeOrigin
+            self.sessionId = sessionId
             name = url
         }
 

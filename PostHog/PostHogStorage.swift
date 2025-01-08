@@ -15,7 +15,11 @@ import Foundation
  */
 func applicationSupportDirectoryURL() -> URL {
     let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
+    #if canImport(XCTest) // only visible to test targets
+        return url.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.posthog.test")
+    #else
+        return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
+    #endif
 }
 
 class PostHogStorage {

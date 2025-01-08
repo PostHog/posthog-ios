@@ -13,7 +13,7 @@ import Foundation
  The queue uses File persistence. This allows us to
  1. Only send events when we have a network connection
  2. Ensure that we can survive app closing or offline situations
- 3. Not hold too much in mempory
+ 3. Not hold too much in memory
 
  */
 

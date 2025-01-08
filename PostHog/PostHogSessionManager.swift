@@ -197,7 +197,6 @@ import Foundation
 
     var didBecomeActiveToken: RegistrationToken?
     var didEnterBackgroundToken: RegistrationToken?
-    var didFinishLaunchingToken: RegistrationToken?
 
     private func registerNotifications() {
         let lifecyclePublisher = DI.main.appLifecyclePublisher
@@ -212,10 +211,6 @@ import Foundation
             // we consider backgrounding the app an activity on the current session
             touchSession()
             self.isAppInBackground = true
-        }
-        didFinishLaunchingToken = lifecyclePublisher.onDidFinishLaunching { [weak self] in
-            guard let self, isAppInBackground else { return }
-            self.isAppInBackground = false
         }
     }
 

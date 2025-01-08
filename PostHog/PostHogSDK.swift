@@ -975,7 +975,7 @@ let maxRetryDelay = 30.0
             queue?.stop()
             replayQueue?.stop()
             #if os(iOS)
-                stopSessionRecording()
+                replayIntegration?.stop()
                 replayIntegration = nil
             #endif
             #if os(iOS) || targetEnvironment(macCatalyst)
@@ -1008,10 +1008,10 @@ let maxRetryDelay = 30.0
     #if os(iOS)
         /**
          Starts session recording.
-         This method will have no effect if PostHog is not enabled or if session replay integration is not available.
+         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
 
          ## Note:
-         - This will resume the current session or create a new one if it doesn't exist
+         - Calling this method will resume the current session or create a new one if it doesn't exist
          */
         @objc(startSessionRecording)
         public func startSessionRecording() {
@@ -1020,7 +1020,8 @@ let maxRetryDelay = 30.0
 
         /**
          Starts session recording.
-         This method will have no effect if PostHog is not enabled or if session replay integration is not available.
+         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
+         
          - Parameter resumeCurrent:
             Whether to resume recording of current session (true) or start a new session (false).
          */
@@ -1057,7 +1058,8 @@ let maxRetryDelay = 30.0
 
         /**
          Stops the current session recording if one is in progress.
-         This method will have no effect if PostHog is not enabled or if session replay integration is not available.
+         
+         This method will have no effect if PostHog is not enabled
          */
         @objc public func stopSessionRecording() {
             if !isEnabled() {

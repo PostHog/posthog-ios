@@ -107,31 +107,40 @@ import Foundation
     }
 
     func getNextSessionId() -> String? {
-        rotateSession(force: true, at: now(), reason: .sessionStart)
+        // if this is RN, return the current session id
+        guard isNotReactNative() else {
+            return sessionLock.withLock { sessionId }
+        }
+
+        return rotateSession(force: true, at: now(), reason: .sessionStart)
     }
 
     /// Creates a new session id and sets timestamps
     func startSession(_ completion: (() -> Void)? = nil) {
+        guard isNotReactNative() else { return }
+
         rotateSession(force: true, at: now(), reason: .sessionStart)
         completion?()
     }
 
     /// Clears current session id and timestamps
     func endSession(_ completion: (() -> Void)? = nil) {
+        guard isNotReactNative() else { return }
+
         clearSession(reason: .sessionEnd)
         completion?()
     }
 
     /// Resets current session id and timestamps
     func resetSession() {
+        guard isNotReactNative() else { return }
+
         rotateSession(force: true, at: now(), reason: .sessionReset)
     }
 
     /// Call this method to mark any user activity on this session
     func touchSession() {
-        guard isNotReactNative() else {
-            return
-        }
+        guard isNotReactNative() else { return }
 
         let timestamp = now().timeIntervalSince1970
         sessionLock.withLock {

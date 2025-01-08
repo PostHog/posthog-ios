@@ -175,7 +175,7 @@ enum PostHogSessionManagerTests {
             }
 
             // open app
-            mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
 
             // some activity
             PostHogSessionManager.shared.touchSession()
@@ -209,6 +209,7 @@ enum PostHogSessionManagerTests {
 
             // open app
             mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
 
             // some activity
             PostHogSessionManager.shared.touchSession()
@@ -247,6 +248,7 @@ enum PostHogSessionManagerTests {
 
             // open app
             mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
 
             // activity
             PostHogSessionManager.shared.touchSession()

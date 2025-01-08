@@ -1,6 +1,7 @@
 ## Next
 
 - feat: ability to manually start and stop session recordings ([#276](https://github.com/PostHog/posthog-ios/pull/276))
+- feat: change screenshot encoding format from JPEG to WebP ([#273](https://github.com/PostHog/posthog-ios/pull/273))
 
 ## 3.18.0 - 2024-12-27
 

@@ -1,5 +1,7 @@
 ## Next
 
+- feat: change screenshot encoding format from JPEG to WebP ([#273](https://github.com/PostHog/posthog-ios/pull/273))
+
 ## 3.18.0 - 2024-12-27
 
 - feat: add `postHogNoMask` SwiftUI view modifier to explicitly mark any View as non-maskable ([#277](https://github.com/PostHog/posthog-ios/pull/277))

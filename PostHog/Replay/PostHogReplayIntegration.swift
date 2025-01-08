@@ -110,6 +110,8 @@
 
         func start() {
             stopTimer()
+            // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
+            PostHogSessionManager.shared.onSessionIdChanged = resetViews
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
@@ -130,12 +132,17 @@
 
         func stop() {
             stopTimer()
-            ViewLayoutTracker.unSwizzleLayoutSubviews()
-            windowViews.removeAllObjects()
-            UIApplicationTracker.unswizzleSendEvent()
+            resetViews()
+            PostHogSessionManager.shared.onSessionIdChanged = {}
 
+            ViewLayoutTracker.unSwizzleLayoutSubviews()
+            UIApplicationTracker.unswizzleSendEvent()
             sessionSwizzler?.unswizzle()
             urlInterceptor.stop()
+        }
+
+        func isActive() -> Bool {
+            timer != nil
         }
 
         private func stopTimer() {
@@ -143,17 +150,25 @@
             timer = nil
         }
 
-        func resetViews() {
+        private func resetViews() {
             windowViews.removeAllObjects()
         }
 
         private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil) {
             var hasChanges = false
 
-            let timestamp = Date().toMillis()
+            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+                return
+            }
+
+            // capture timestamp after snapshot was taken
+            let timestampDate = Date()
+            let timestamp = timestampDate.toMillis()
+
             let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
 
-            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+            // always make sure we have a fresh session id at correct timestamp
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
                 return
             }
 
@@ -190,7 +205,15 @@
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
-                PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+                PostHogSDK.shared.capture(
+                    "$snapshot",
+                    properties: [
+                        "$snapshot_source": "mobile",
+                        "$snapshot_data": snapshotsData,
+                        "$session_id": sessionId,
+                    ],
+                    timestamp: timestampDate
+                )
             }
         }
 

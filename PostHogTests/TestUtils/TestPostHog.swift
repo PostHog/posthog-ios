@@ -44,3 +44,7 @@ func getDecideRequest(_ server: MockPostHogServer) -> [[String: Any]] {
 
     return requests
 }
+
+final class MockDate {
+    var date = Date()
+}

@@ -46,8 +46,8 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
+    private var didRegisterNotifications = false
     private var appFromBackground = false
-    private var isInBackground = false
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
@@ -191,7 +191,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        return PostHogSessionManager.shared.getSessionId()
+        return PostHogSessionManager.shared.getSessionId(readOnly: true)
     }
 
     @objc public func startSession() {
@@ -199,9 +199,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        PostHogSessionManager.shared.startSession {
-            self.resetViews()
-        }
+        PostHogSessionManager.shared.startSession()
     }
 
     @objc public func endSession() {
@@ -209,9 +207,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        PostHogSessionManager.shared.endSession {
-            self.resetViews()
-        }
+        PostHogSessionManager.shared.endSession()
     }
 
     // EVENT CAPTURE
@@ -281,7 +277,8 @@ let maxRetryDelay = 30.0
                                  userProperties: [String: Any]? = nil,
                                  userPropertiesSetOnce: [String: Any]? = nil,
                                  groups: [String: String]? = nil,
-                                 appendSharedProps: Bool = true) -> [String: Any]
+                                 appendSharedProps: Bool = true,
+                                 timestamp: Date? = nil) -> [String: Any]
     {
         var props: [String: Any] = [:]
 
@@ -322,19 +319,29 @@ let maxRetryDelay = 30.0
             props = props.merging(sdkInfo ?? [:]) { current, _ in current }
         }
 
-        if let sessionId = PostHogSessionManager.shared.getSessionId() {
-            props["$session_id"] = sessionId
+        // use existing session id if already present in props
+        // for session replay, we attach the session id on the event as early as possible to avoid sending snapshots to a wrong session
+        // if not present, get a current or new session id at event timestamp
+        let propSessionId = props["$session_id"] as? String
+        let sessionId: String? = propSessionId.isNilOrEmpty
+            ? PostHogSessionManager.shared.getSessionId(at: timestamp ?? now())
+            : propSessionId
+
+        if let sessionId {
+            if propSessionId.isNilOrEmpty {
+                props["$session_id"] = sessionId
+            }
             // only Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
             #if os(iOS)
-                if !appendSharedProps, config.sessionReplay {
+                if !appendSharedProps, isSessionReplayActive() {
                     props["$window_id"] = sessionId
                 }
             #endif
         }
 
         // only Session Replay needs distinct_id also in the props
-        // remove after https://github.com/PostHog/posthog/pull/18954 gets merged
+        // remove after https://github.com/PostHog/posthog/issues/23275 gets merged
         let propDistinctId = props["distinct_id"] as? String
         if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
             props["distinct_id"] = distinctId
@@ -365,23 +372,12 @@ let maxRetryDelay = 30.0
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
-        PostHogSessionManager.shared.endSession {
-            self.resetViews()
-        }
-        PostHogSessionManager.shared.startSession()
+        PostHogSessionManager.shared.resetSession()
 
         // reload flags as anon user
         if shouldReloadFlagsForTesting {
             reloadFeatureFlags()
         }
-    }
-
-    private func resetViews() {
-        #if os(iOS)
-            if config.sessionReplay, featureFlags?.isSessionReplayFlagActive() ?? false {
-                replayIntegration?.resetViews()
-            }
-        #endif
     }
 
     private func getGroups() -> [String: String] {
@@ -593,20 +589,8 @@ let maxRetryDelay = 30.0
             return
         }
 
-        var snapshotEvent = false
-        if event == "$snapshot" {
-            snapshotEvent = true
-        }
-
-        // If events fire in the background after the threshold, they should no longer have a sessionId
-        if isInBackground {
-            PostHogSessionManager.shared.resetSessionIfExpired {
-                self.resetViews()
-            }
-        }
-
-        let eventTimestamp = timestamp ?? Date()
-
+        let isSnapshotEvent = event == "$snapshot"
+        let eventTimestamp = timestamp ?? now()
         let eventDistinctId = distinctId ?? getDistinctId()
 
         // if the user isn't identified but passed userProperties, userPropertiesSetOnce or groups,
@@ -620,8 +604,17 @@ let maxRetryDelay = 30.0
                                          userProperties: sanitizeDictionary(userProperties),
                                          userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce),
                                          groups: groups,
-                                         appendSharedProps: !snapshotEvent)
+                                         appendSharedProps: !isSnapshotEvent,
+                                         timestamp: timestamp)
         let sanitizedProperties = sanitizeProperties(properties)
+
+        // if this is a $snapshot event and $session_id is missing, don't process then event
+        if isSnapshotEvent, sanitizedProperties["$session_id"] == nil {
+            return
+        }
+
+        // Session Replay has its own queue
+        let targetQueue = isSnapshotEvent ? replayQueue : queue
 
         let posthogEvent = PostHogEvent(
             event: event,
@@ -630,16 +623,7 @@ let maxRetryDelay = 30.0
             timestamp: eventTimestamp
         )
 
-        // Session Replay has its own queue
-        if snapshotEvent {
-            guard let replayQueue else {
-                return
-            }
-            replayQueue.add(posthogEvent)
-            return
-        }
-
-        queue.add(posthogEvent)
+        targetQueue?.add(posthogEvent)
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -1013,17 +997,83 @@ let maxRetryDelay = 30.0
                 flagCallReported.removeAll()
             }
             context = nil
-            PostHogSessionManager.shared.endSession {
-                self.resetViews()
-            }
+            PostHogSessionManager.shared.endSession()
             unregisterNotifications()
             capturedAppInstalled = false
-            appFromBackground = false
-            isInBackground = false
             toggleHedgeLog(false)
             shouldReloadFlagsForTesting = true
         }
     }
+
+    #if os(iOS)
+        /**
+         Starts session recording.
+         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
+
+         ## Note:
+         - Calling this method will resume the current session or create a new one if it doesn't exist
+         */
+        @objc(startSessionRecording)
+        public func startSessionRecording() {
+            startSessionRecording(resumeCurrent: true)
+        }
+
+        /**
+         Starts session recording.
+         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
+
+         - Parameter resumeCurrent:
+            Whether to resume recording of current session (true) or start a new session (false).
+         */
+        @objc(startSessionRecordingWithResumeCurrent:)
+        public func startSessionRecording(resumeCurrent: Bool) {
+            if !isEnabled() {
+                return
+            }
+
+            guard let replayIntegration else {
+                return
+            }
+
+            if resumeCurrent, replayIntegration.isActive() {
+                // nothing to resume, already active
+                return
+            }
+
+            guard let featureFlags, featureFlags.isSessionReplayFlagActive() else {
+                return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
+            }
+
+            let sessionId = resumeCurrent
+                ? PostHogSessionManager.shared.getSessionId()
+                : PostHogSessionManager.shared.getNextSessionId()
+
+            guard let sessionId else {
+                return hedgeLog("Could not start recording. Missing session id.")
+            }
+
+            replayIntegration.start()
+            hedgeLog("Session replay recording started. Session id is \(sessionId)")
+        }
+
+        /**
+         Stops the current session recording if one is in progress.
+
+         This method will have no effect if PostHog is not enabled
+         */
+        @objc public func stopSessionRecording() {
+            if !isEnabled() {
+                return
+            }
+
+            guard let replayIntegration, replayIntegration.isActive() else {
+                return
+            }
+
+            replayIntegration.stop()
+            hedgeLog("Session replay recording stopped.")
+        }
+    #endif
 
     @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
         let postHog = PostHogSDK(config)
@@ -1032,6 +1082,8 @@ let maxRetryDelay = 30.0
     }
 
     private func unregisterNotifications() {
+        didRegisterNotifications = false
+
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -1052,6 +1104,9 @@ let maxRetryDelay = 30.0
     }
 
     private func registerNotifications() {
+        guard !didRegisterNotifications else { return }
+        didRegisterNotifications = true
+
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -1168,11 +1223,6 @@ let maxRetryDelay = 30.0
     }
 
     @objc func handleAppDidBecomeActive() {
-        PostHogSessionManager.shared.rotateSessionIdIfRequired {
-            self.resetViews()
-        }
-
-        isInBackground = false
         captureAppOpened()
     }
 
@@ -1205,10 +1255,6 @@ let maxRetryDelay = 30.0
 
     @objc func handleAppDidEnterBackground() {
         captureAppBackgrounded()
-
-        PostHogSessionManager.shared.updateSessionLastTime()
-
-        isInBackground = true
     }
 
     private func captureAppBackgrounded() {
@@ -1218,21 +1264,19 @@ let maxRetryDelay = 30.0
         capture("Application Backgrounded")
     }
 
-    func isSessionActive() -> Bool {
-        if !isEnabled() {
-            return false
-        }
-
-        return PostHogSessionManager.shared.isSessionActive()
-    }
-
     #if os(iOS)
         @objc public func isSessionReplayActive() -> Bool {
             if !isEnabled() {
                 return false
             }
 
-            return config.sessionReplay && isSessionActive() && (featureFlags?.isSessionReplayFlagActive() ?? false)
+            guard let replayIntegration, let featureFlags else {
+                return false
+            }
+
+            return replayIntegration.isActive()
+                && !PostHogSessionManager.shared.getSessionId(readOnly: true).isNilOrEmpty
+                && featureFlags.isSessionReplayFlagActive()
         }
     #endif
 

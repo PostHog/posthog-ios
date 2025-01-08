@@ -136,6 +136,11 @@
     
     [postHog capture:@"theCapture"];
     
+    [[PostHogSDK shared] startSessionRecording];
+    [[PostHogSDK shared] stopSessionRecording];
+    [[PostHogSDK shared] startSessionRecordingWithResumeCurrent:TRUE];
+    [[PostHogSDK shared] stopSessionRecording];
+    
     return YES;
 }
 

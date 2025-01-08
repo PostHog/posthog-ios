@@ -28,9 +28,10 @@
                 return
             }
 
+            // swizzling twice will exchange implementations back to original
             swizzle(forClass: UIApplication.self,
-                    original: #selector(UIApplication.sendEventOverride),
-                    new: #selector(UIApplication.sendEvent(_:)))
+                    original: #selector(UIApplication.sendEvent(_:)),
+                    new: #selector(UIApplication.sendEventOverride))
             hasSwizzled = false
         }
     }
@@ -48,6 +49,11 @@
                 return
             }
             guard let touches = event.touches(for: window) else {
+                return
+            }
+
+            // always make sure we have a fresh session id as early as possible
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
                 return
             }
 
@@ -87,7 +93,15 @@
                     snapshotsData.append(data)
                 }
                 if !snapshotsData.isEmpty {
-                    PostHogSDK.shared.capture("$snapshot", properties: ["$snapshot_source": "mobile", "$snapshot_data": snapshotsData])
+                    PostHogSDK.shared.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: date
+                    )
                 }
             }
         }
@@ -96,8 +110,10 @@
             // touch.timestamp is since boot time so we need to get the current time, best effort
             let date = Date()
             captureEvent(event, date: date)
-
             sendEventOverride(event)
+            // update "last active" session
+            // we want to keep track of the idle time, so we need to maintain a timestamp on the last interactions of the user with the app. UIEvents are a good place to do so since it means that the user is actively interacting with the app (e.g not just noise background activity)
+            PostHogSessionManager.shared.touchSession()
         }
     }
 #endif

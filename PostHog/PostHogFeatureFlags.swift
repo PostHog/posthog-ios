@@ -31,10 +31,10 @@ class PostHogFeatureFlags {
         self.storage = storage
         self.api = api
 
-        preloadSesssionReplayFlag()
+        preloadSessionReplayFlag()
     }
 
-    private func preloadSesssionReplayFlag() {
+    private func preloadSessionReplayFlag() {
         var sessionReplay: [String: Any]?
         var featureFlags: [String: Any]?
         featureFlagsLock.withLock {
@@ -70,7 +70,7 @@ class PostHogFeatureFlags {
         // check for multi flag variant (any)
         // if let linkedFlag = sessionRecording["linkedFlag"] as? String,
         //    featureFlags[linkedFlag] != nil
-        // is also a valid check bbut since we cannot check the value of the flag,
+        // is also a valid check but since we cannot check the value of the flag,
         // we consider session recording is active
 
         return recordingActive
@@ -117,7 +117,7 @@ class PostHogFeatureFlags {
                     } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
                         // keeps the value from config.sessionReplay since having sessionRecording
                         // means its enabled on the project settings, but its only enabled
-                        // when local config.sessionReplay is also enabled
+                        // when local replay integration is enabled/active
                         if let endpoint = sessionRecording["endpoint"] as? String {
                             self.config.snapshotEndpoint = endpoint
                         }
@@ -242,7 +242,7 @@ class PostHogFeatureFlags {
             hedgeLog("Error parsing the object \(String(describing: value)): \(error)")
         }
 
-        // fallbak to original value if not possible to serialize
+        // fallback to original value if not possible to serialize
         return value
     }
 

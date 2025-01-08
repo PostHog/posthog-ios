@@ -26,7 +26,8 @@ Pod::Spec.new do |s|
   s.frameworks = 'Foundation'
 
   s.source_files = [
-    'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}'
+    'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
+    'vendor/libwebp/**/*.{h,c}'
   ]
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
 end

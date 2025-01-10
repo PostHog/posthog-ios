@@ -19,10 +19,36 @@ buildExamples:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
-	cd PostHogExampleWithPods && pod install
-	cd ..
-	set -o pipefail && xcrun xcodebuild clean build -workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace -scheme PostHogExampleWithPods -destination generic/platform=ios | xcpretty #CocoaPods
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
+
+	## Build with dynamic framework
+	cd PostHogExampleWithPods && \
+		pod install && \
+		cd .. && \
+		xcrun xcodebuild clean build \
+			-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+			-scheme PostHogExampleWithPods \
+			-destination generic/platform=ios | xcpretty
+
+	## Build with static library
+	cd PostHogExampleWithPods && \
+		cp Podfile{,.backup} && \
+		cp Podfile.static Podfile && \
+		cp PostHogExampleWithPods.xcodeproj/project.pbxproj{,.backup} && \
+		sed -i '' '/use_frameworks!/d' Podfile && \
+		pod install && \
+		cd .. && \
+		xcrun xcodebuild clean build \
+			-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+			-scheme PostHogExampleWithPods \
+			-destination generic/platform=ios | xcpretty
+
+	## Restore original files
+	cd PostHogExampleWithPods && \
+		mv Podfile{.backup,} && \
+		pod install && \
+		mv PostHogExampleWithPods.xcodeproj/project.pbxproj{.backup,}
+		
 
 format: swiftLint swiftFormat
 

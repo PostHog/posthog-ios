@@ -13,6 +13,10 @@ let package = Package(
             name: "PostHog",
             targets: ["PostHog"]
         ),
+        .library(
+            name: "phlibwebp",
+            targets: ["phlibwebp"]
+        ),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -25,18 +29,18 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "PostHog",
-            dependencies: ["libwebp"],
+            dependencies: ["phlibwebp"],
             path: "PostHog",
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy"),
             ]
         ),
         .target(
-            name: "libwebp",
+            name: "phlibwebp",
             path: "vendor/libwebp",
-            sources: ["src", "include"],
+            publicHeadersPath: ".",
             cSettings: [
-                .headerSearchPath("include"),
+                .headerSearchPath("."),
             ]
         ),
         .testTarget(

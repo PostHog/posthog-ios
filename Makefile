@@ -35,7 +35,6 @@ buildExamples:
 		cp Podfile{,.backup} && \
 		cp Podfile.static Podfile && \
 		cp PostHogExampleWithPods.xcodeproj/project.pbxproj{,.backup} && \
-		sed -i '' '/use_frameworks!/d' Podfile && \
 		pod install && \
 		cd .. && \
 		xcrun xcodebuild clean build \

@@ -1,0 +1,5 @@
+platform :ios, '16.0'
+
+target 'PostHogExampleWithPods' do
+  pod 'PostHog', :path => '../'
+end

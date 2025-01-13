@@ -1,5 +1,7 @@
 ## Next
 
+- fix: RN Expo builds failing ([#281](https://github.com/PostHog/posthog-ios/pull/281))
+
 ## 3.19.0 - 2025-01-08
 
 - feat: ability to manually start and stop session recordings ([#276](https://github.com/PostHog/posthog-ios/pull/276))

@@ -98,6 +98,14 @@ class MockPostHogServer {
             }
         }
 
+        stub(condition: isPath("/array/test_api_key/config")) { _ in
+            let bundle = Bundle(for: type(of: self))
+            if let fixturePath = bundle.path(forResource: "fixture_remote_config", ofType: "json") {
+                return HTTPStubsResponse(fileAtPath: fixturePath, statusCode: 200, headers: nil)
+            }
+            return HTTPStubsResponse(jsonObject: ["hasFeatureFlags": true], statusCode: 200, headers: nil)
+        }
+
         HTTPStubs.onStubActivation { request, _, _ in
             if request.url?.path == "/batch" {
                 self.trackBatchRequest(request)

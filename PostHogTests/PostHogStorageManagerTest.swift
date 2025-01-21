@@ -12,7 +12,7 @@ import Quick
 
 class PostHogStorageManagerTest: QuickSpec {
     func getSut() -> PostHogStorageManager {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(apiKey: testAPIKey)
         return PostHogStorageManager(config)
     }
 
@@ -47,7 +47,7 @@ class PostHogStorageManagerTest: QuickSpec {
         }
 
         it("Can can accept id customization via config") {
-            let config = PostHogConfig(apiKey: "123")
+            let config = PostHogConfig(apiKey: testAPIKey)
             let fixedUuid = UUID.v7()
             config.getAnonymousId = { _ in fixedUuid }
             let sut = PostHogStorageManager(config)

@@ -981,7 +981,6 @@ let maxRetryDelay = 30.0
             unregisterNotifications()
             capturedAppInstalled = false
             toggleHedgeLog(false)
-            // shouldReloadFlagsForTesting = true
         }
     }
 

@@ -595,7 +595,6 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
             // group reloads flags when there are new groups
             // but in this case we want to reload manually and assert the response
-            // sut.shouldReloadFlagsForTesting = false
             sut.remoteConfig?.canReloadFlagsForTesting = false
             sut.group(type: "some-type", key: "some-key", groupProperties: [
                 "name": "some-company-name",

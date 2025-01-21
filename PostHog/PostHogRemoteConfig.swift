@@ -8,6 +8,8 @@
 import Foundation
 
 class PostHogRemoteConfig {
+    private let hasFeatureFlagsKey = "hasFeatureFlags"
+    
     private let config: PostHogConfig
     private let storage: PostHogStorage
     private let api: PostHogApi
@@ -22,6 +24,7 @@ class PostHogRemoteConfig {
     private let loadingRemoteConfigLock = NSLock()
     private var loadingRemoteConfig = false
     private var remoteConfig: [String: Any]?
+    private var hasFeatureFlags: Bool?
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
 
@@ -167,11 +170,7 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping () -> Void
     ) {
-        let hasFeatureFlags = remoteConfigLock.withLock {
-            self.remoteConfig?["hasFeatureFlags"] as? Bool
-        }
-
-        if hasFeatureFlags == nil {
+        if remoteConfigLock.withLock({ hasFeatureFlags == nil }) {
             // not cached or fetched yet
             reloadRemoteConfig {
                 self.loadFeatureFlagsInternal(
@@ -197,11 +196,7 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping () -> Void
     ) {
-        let hasFeatureFlags = remoteConfigLock.withLock {
-            self.remoteConfig?["hasFeatureFlags"] as? Bool
-        }
-
-        guard hasFeatureFlags == true else {
+        guard remoteConfigLock.withLock({ hasFeatureFlags == true }) else {
             hedgeLog("Remote config reported no feature flags. Skipping")
             return
         }
@@ -398,15 +393,18 @@ class PostHogRemoteConfig {
     }
 
     private func onRemoteConfig(_ remoteConfig: [String: Any]) {
+        let hasFeatureFlags = remoteConfig[hasFeatureFlagsKey] as? Bool
+
         // cache config
         remoteConfigLock.withLock {
             self.remoteConfig = remoteConfig
+            self.hasFeatureFlags = hasFeatureFlags
             storage.setDictionary(forKey: .remoteConfig, contents: remoteConfig)
         }
+
         // reload feature flags if not previously loaded
         let cachedFeatureFlags = featureFlagsLock.withLock { self.featureFlags }
-        let hasFeatureFlags = remoteConfig["hasFeatureFlags"] as? Bool == true
-        if hasFeatureFlags, cachedFeatureFlags == nil {
+        if hasFeatureFlags == true, cachedFeatureFlags == nil {
             reloadFeatureFlags()
         }
 

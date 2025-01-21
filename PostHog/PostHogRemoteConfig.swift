@@ -48,7 +48,7 @@ class PostHogRemoteConfig {
 
     private func preloadRemoteConfig() {
         remoteConfigLock.withLock {
-            self.remoteConfig = getCachedRemoteConfig()
+            _ = getCachedRemoteConfig()
         }
 
         // may have already beed fetched from `loadFeatureFlags` call
@@ -63,7 +63,7 @@ class PostHogRemoteConfig {
 
     private func preloadFeatureFlags() {
         featureFlagsLock.withLock {
-            self.featureFlags = getCachedFeatureFlags()
+            _ = getCachedFeatureFlags()
         }
 
         if config.preloadFeatureFlags {

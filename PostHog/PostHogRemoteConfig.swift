@@ -9,7 +9,7 @@ import Foundation
 
 class PostHogRemoteConfig {
     private let hasFeatureFlagsKey = "hasFeatureFlags"
-    
+
     private let config: PostHogConfig
     private let storage: PostHogStorage
     private let api: PostHogApi

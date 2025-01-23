@@ -12,7 +12,7 @@
     import Foundation
     #if canImport(phlibwebp)
         // SPM package is linked via a lib since mix-code is not yet supported
-        import phlibwebp
+        internal import phlibwebp
     #endif
     import UIKit
 

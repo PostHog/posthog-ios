@@ -68,4 +68,16 @@ final class MockDate {
     var date = Date()
 }
 
+extension Bundle {
+    static var test: Bundle {
+        #if SWIFT_PACKAGE
+            return .module
+        #else
+            return .init(for: BundleLocator.self)
+        #endif
+    }
+}
+
+final class BundleLocator {}
+
 let testAPIKey = "test_api_key"

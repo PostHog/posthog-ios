@@ -284,15 +284,10 @@ extension PostHogApi {
     static var jsonDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-            guard let date = dateFormatter.date(from: dateString) else {
+            guard let date = apiDateFormatter.date(from: dateString) else {
                 throw DecodingError.dataCorruptedError(
                     in: container, debugDescription: "Invalid date format"
                 )

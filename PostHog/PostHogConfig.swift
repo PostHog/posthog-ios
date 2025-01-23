@@ -61,6 +61,13 @@ import Foundation
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
+    #if os(iOS)
+        /// Enable mobile surveys
+        /// Experimental support
+        /// Default: false
+        @objc public var surveysEnabled: Bool = false
+    #endif
+
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false

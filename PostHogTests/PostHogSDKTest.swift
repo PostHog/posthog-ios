@@ -20,7 +20,7 @@ class PostHogSDKTest: QuickSpec {
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
-        let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -595,11 +595,11 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
             // group reloads flags when there are new groups
             // but in this case we want to reload manually and assert the response
-            sut.shouldReloadFlagsForTesting = false
-
+            sut.remoteConfig?.canReloadFlagsForTesting = false
             sut.group(type: "some-type", key: "some-key", groupProperties: [
                 "name": "some-company-name",
             ])
+            sut.remoteConfig?.canReloadFlagsForTesting = true
 
             let events = getBatchedEvents(server)
 
@@ -944,7 +944,7 @@ class PostHogSDKTest: QuickSpec {
         #if os(iOS)
             context("autocapture") {
                 it("isAutocaptureActive() should be false if disabled by config") {
-                    let config = PostHogConfig(apiKey: "1234")
+                    let config = PostHogConfig(apiKey: testAPIKey)
                     config.captureElementInteractions = false
                     let sut = PostHogSDK.with(config)
 
@@ -952,7 +952,7 @@ class PostHogSDKTest: QuickSpec {
                 }
 
                 it("isAutocaptureActive() should be false if SDK is not enabled") {
-                    let config = PostHogConfig(apiKey: "1234")
+                    let config = PostHogConfig(apiKey: testAPIKey)
                     config.captureElementInteractions = true
                     let sut = PostHogSDK.with(config)
                     sut.close()

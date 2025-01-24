@@ -1814,9 +1814,6 @@
 				DAA5EE2D2D43605000D437E0 /* fixture_survey_basic.json in Resources */,
 				DAA5EE2E2D43605000D437E0 /* fixture_survey_branching_response_based.json in Resources */,
 				DA71854D2D07E11200396388 /* input_1.png in Resources */,
-				DAA5EDAD2D41AC4A00D437E0 /* fixture_survey_branching.json in Resources */,
-				DAA5EDAE2D41AC4A00D437E0 /* fixture_survey_question_types.json in Resources */,
-				DAA5EDAF2D41AC4A00D437E0 /* fixture_survey_basic.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

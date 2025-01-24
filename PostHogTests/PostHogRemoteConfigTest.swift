@@ -161,10 +161,11 @@ enum PostHogRemoteConfigTest {
             #expect(sut.isFeatureEnabled("new-flag") == true)
             #expect(sut.isFeatureEnabled("bool-value") == true)
         }
-
+        
         @Test("clears feature flags when quota limited")
         func clearsFeatureFlagsWhenQuotaLimited() async {
-            let sut = getSut()
+            let sut = self.getSut()
+            
 
             // First load some feature flags normally
             await withCheckedContinuation { continuation in
@@ -415,12 +416,13 @@ enum PostHogRemoteConfigTest {
                 #expect(config.snapshotEndpoint == "/newS/")
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
-
+            
             @Test("returns isSessionReplayFlagActive false if bool linked flag is missing")
             func returnsIsSessionReplayFlagActiveFalseIfBoolLinkedFlagIsMissing() async {
-                let storage = PostHogStorage(config)
+                
+                let storage = PostHogStorage(self.config)
 
-                let sut = getSut(storage: storage)
+                let sut = self.getSut(storage: storage)
 
                 #expect(sut.isSessionReplayFlagActive() == false)
 
@@ -436,10 +438,11 @@ enum PostHogRemoteConfigTest {
                 }
 
                 #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(self.config.snapshotEndpoint == "/newS/")
                 #expect(sut.isSessionReplayFlagActive() == false)
 
                 storage.reset()
+                
             }
         }
     #endif

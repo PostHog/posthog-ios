@@ -22,7 +22,7 @@ let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {
-    private var config: PostHogConfig
+    private(set) var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
         self.config = config
@@ -45,16 +45,11 @@ let maxRetryDelay = 30.0
     private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
-    private var capturedAppInstalled = false
-    private var didRegisterNotifications = false
-    private var appFromBackground = false
-    #if os(iOS)
-        private var replayIntegration: PostHogReplayIntegration?
-    #endif
+    private var installedIntegrations: [PostHogIntegration] = []
 
-    #if os(iOS) || targetEnvironment(macCatalyst)
-        private var autocaptureIntegration: PostHogAutocaptureIntegration?
-    #endif
+    /// Internal, only used for testing
+    var shouldReloadFlagsForTesting = true
+
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -72,6 +67,8 @@ let maxRetryDelay = 30.0
         #if !os(watchOS)
             self.reachability?.stopNotifier()
         #endif
+
+        uninstallIntegrations()
     }
 
     @objc public func debug(_ enabled: Bool = true) {
@@ -103,16 +100,8 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
-            #if os(iOS)
-                replayIntegration = PostHogReplayIntegration(config)
-            #endif
-
             remoteConfig = PostHogRemoteConfig(config, theStorage, api)
-
-            #if os(iOS) || targetEnvironment(macCatalyst)
-                autocaptureIntegration = PostHogAutocaptureIntegration(config)
-            #endif
-
+            
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()
@@ -143,22 +132,9 @@ let maxRetryDelay = 30.0
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
-            registerNotifications()
-            captureScreenViews()
-
             PostHogSessionManager.shared.startSession()
 
-            #if os(iOS)
-                if config.sessionReplay {
-                    replayIntegration?.start()
-                }
-            #endif
-
-            #if os(iOS) || targetEnvironment(macCatalyst)
-                if config.captureElementInteractions {
-                    autocaptureIntegration?.start()
-                }
-            #endif
+            installIntegrations()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -946,22 +922,9 @@ let maxRetryDelay = 30.0
             enabled = false
             PostHogSDK.apiKeys.remove(config.apiKey)
 
-            if config.captureScreenViews {
-                #if os(iOS) || os(tvOS)
-                    UIViewController.unswizzleScreenView()
-                #endif
-            }
-
             queue?.stop()
             replayQueue?.stop()
-            #if os(iOS)
-                replayIntegration?.stop()
-                replayIntegration = nil
-            #endif
-            #if os(iOS) || targetEnvironment(macCatalyst)
-                autocaptureIntegration?.stop()
-                autocaptureIntegration = nil
-            #endif
+
             queue = nil
             replayQueue = nil
             config.storageManager?.reset()
@@ -978,9 +941,10 @@ let maxRetryDelay = 30.0
             }
             context = nil
             PostHogSessionManager.shared.endSession()
-            unregisterNotifications()
-            capturedAppInstalled = false
             toggleHedgeLog(false)
+            shouldReloadFlagsForTesting = true
+
+            uninstallIntegrations()
         }
     }
 
@@ -1009,6 +973,10 @@ let maxRetryDelay = 30.0
             if !isEnabled() {
                 return
             }
+
+            let replayIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogReplayIntegration
+            }.first
 
             guard let replayIntegration else {
                 return
@@ -1045,6 +1013,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            let replayIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogReplayIntegration
+            }.first
+
             guard let replayIntegration, replayIntegration.isActive() else {
                 return
             }
@@ -1060,195 +1032,17 @@ let maxRetryDelay = 30.0
         return postHog
     }
 
-    private func unregisterNotifications() {
-        didRegisterNotifications = false
-
-        let defaultCenter = NotificationCenter.default
-
-        #if os(iOS) || os(tvOS)
-            defaultCenter.removeObserver(self, name: UIApplication.didFinishLaunchingNotification, object: nil)
-            defaultCenter.removeObserver(self, name: UIApplication.didEnterBackgroundNotification, object: nil)
-            defaultCenter.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
-        #elseif os(macOS)
-            defaultCenter.removeObserver(self, name: NSApplication.didFinishLaunchingNotification, object: nil)
-            defaultCenter.removeObserver(self, name: NSApplication.didResignActiveNotification, object: nil)
-            defaultCenter.removeObserver(self, name: NSApplication.didBecomeActiveNotification, object: nil)
-        #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                NotificationCenter.default.removeObserver(self,
-                                                          name: WKApplication.didBecomeActiveNotification,
-                                                          object: nil)
-            }
-        #endif
-    }
-
-    private func registerNotifications() {
-        guard !didRegisterNotifications else { return }
-        didRegisterNotifications = true
-
-        let defaultCenter = NotificationCenter.default
-
-        #if os(iOS) || os(tvOS)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppDidFinishLaunching),
-                                      name: UIApplication.didFinishLaunchingNotification,
-                                      object: nil)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppDidEnterBackground),
-                                      name: UIApplication.didEnterBackgroundNotification,
-                                      object: nil)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppDidBecomeActive),
-                                      name: UIApplication.didBecomeActiveNotification,
-                                      object: nil)
-        #elseif os(macOS)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppDidFinishLaunching),
-                                      name: NSApplication.didFinishLaunchingNotification,
-                                      object: nil)
-            // macOS does not have didEnterBackgroundNotification, so we use didResignActiveNotification
-            defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppDidEnterBackground),
-                                      name: NSApplication.didResignActiveNotification,
-                                      object: nil)
-            defaultCenter.addObserver(self,
-                                      selector: #selector(handleAppDidBecomeActive),
-                                      name: NSApplication.didBecomeActiveNotification,
-                                      object: nil)
-        #elseif os(watchOS)
-            if #available(watchOS 7.0, *) {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(handleAppDidBecomeActive),
-                                                       name: WKApplication.didBecomeActiveNotification,
-                                                       object: nil)
-            } else {
-                NotificationCenter.default.addObserver(self,
-                                                       selector: #selector(handleAppDidBecomeActive),
-                                                       name: .init("UIApplicationDidBecomeActiveNotification"),
-                                                       object: nil)
-            }
-        #endif
-    }
-
-    private func captureScreenViews() {
-        if config.captureScreenViews {
-            #if os(iOS) || os(tvOS)
-                UIViewController.swizzleScreenView()
-            #endif
-        }
-    }
-
-    @objc func handleAppDidFinishLaunching() {
-        captureAppInstallLifecycle()
-    }
-
-    private func captureAppInstallLifecycle() {
-        if !config.captureApplicationLifecycleEvents {
-            return
-        }
-
-        let bundle = Bundle.main
-
-        let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
-        let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
-
-        // capture app installed/updated
-        if !capturedAppInstalled {
-            let userDefaults = UserDefaults.standard
-
-            let previousVersion = userDefaults.string(forKey: "PHGVersionKey")
-            let previousVersionCode = userDefaults.string(forKey: "PHGBuildKeyV2")
-
-            var props: [String: Any] = [:]
-            var event: String
-            if previousVersionCode == nil {
-                // installed
-                event = "Application Installed"
-            } else {
-                event = "Application Updated"
-
-                // Do not send version updates if its the same
-                if previousVersionCode == versionCode {
-                    return
-                }
-
-                if previousVersion != nil {
-                    props["previous_version"] = previousVersion
-                }
-                props["previous_build"] = previousVersionCode
-            }
-
-            var syncDefaults = false
-            if versionName != nil {
-                props["version"] = versionName
-                userDefaults.setValue(versionName, forKey: "PHGVersionKey")
-                syncDefaults = true
-            }
-
-            if versionCode != nil {
-                props["build"] = versionCode
-                userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
-                syncDefaults = true
-            }
-
-            if syncDefaults {
-                userDefaults.synchronize()
-            }
-
-            capture(event, properties: props)
-
-            capturedAppInstalled = true
-        }
-    }
-
-    @objc func handleAppDidBecomeActive() {
-        captureAppOpened()
-    }
-
-    private func captureAppOpened() {
-        if !config.captureApplicationLifecycleEvents {
-            return
-        }
-
-        var props: [String: Any] = [:]
-        props["from_background"] = appFromBackground
-
-        if !appFromBackground {
-            let bundle = Bundle.main
-
-            let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
-            let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
-
-            if versionName != nil {
-                props["version"] = versionName
-            }
-            if versionCode != nil {
-                props["build"] = versionCode
-            }
-
-            appFromBackground = true
-        }
-
-        capture("Application Opened", properties: props)
-    }
-
-    @objc func handleAppDidEnterBackground() {
-        captureAppBackgrounded()
-    }
-
-    private func captureAppBackgrounded() {
-        if !config.captureApplicationLifecycleEvents {
-            return
-        }
-        capture("Application Backgrounded")
-    }
-
     #if os(iOS)
         @objc public func isSessionReplayActive() -> Bool {
             if !isEnabled() {
                 return false
             }
 
+            let replayIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogReplayIntegration
+            }.first
+
+            
             guard let replayIntegration, let remoteConfig else {
                 return false
             }
@@ -1264,6 +1058,63 @@ let maxRetryDelay = 30.0
             isEnabled() && config.captureElementInteractions
         }
     #endif
+
+    private func installIntegrations() {
+        let integrations = config.getIntegrations()
+        var installed: [PostHogIntegration] = []
+
+        for integration in integrations {
+            do {
+                try integration.install(self)
+                installed.append(integration)
+                hedgeLog("Integration \(type(of: integration)) installed")
+            } catch {
+                hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
+            }
+        }
+
+        installedIntegrations = installed
+    }
+
+    private func uninstallIntegrations() {
+        for integration in installedIntegrations {
+            integration.uninstall(self)
+            hedgeLog("Integration \(type(of: integration)) uninstalled")
+        }
+        installedIntegrations = []
+    }
 }
+
+#if TESTING
+    extension PostHogSDK {
+        #if os(iOS) || targetEnvironment(macCatalyst)
+            func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
+                installedIntegrations.compactMap {
+                    $0 as? PostHogAutocaptureIntegration
+                }.first
+            }
+        #endif
+
+        #if os(iOS)
+            func getReplayIntegration() -> PostHogReplayIntegration? {
+                installedIntegrations.compactMap {
+                    $0 as? PostHogReplayIntegration
+                }.first
+            }
+        #endif
+
+        func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
+            installedIntegrations.compactMap {
+                $0 as? PostHogAppLifeCycleIntegration
+            }.first
+        }
+
+        func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
+            installedIntegrations.compactMap {
+                $0 as? PostHogScreenViewIntegration
+            }.first
+        }
+    }
+#endif
 
 // swiftlint:enable file_length cyclomatic_complexity

@@ -13,8 +13,8 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "./color_cache_utils.h"
-#include "./utils.h"
+#include "./ph_color_cache_utils.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 // VP8LColorCache.

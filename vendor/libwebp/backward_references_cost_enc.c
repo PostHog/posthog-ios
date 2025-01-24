@@ -16,11 +16,11 @@
 
 #include <string.h>
 
-#include "./lossless_common.h"
-#include "./backward_references_enc.h"
-#include "./histogram_enc.h"
-#include "./color_cache_utils.h"
-#include "./utils.h"
+#include "./ph_lossless_common.h"
+#include "./ph_backward_references_enc.h"
+#include "./ph_histogram_enc.h"
+#include "./ph_color_cache_utils.h"
+#include "./ph_utils.h"
 
 #define VALUES_IN_BYTE 256
 

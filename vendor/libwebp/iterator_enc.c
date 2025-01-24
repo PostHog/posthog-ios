@@ -13,8 +13,8 @@
 
 #include <string.h>
 
-#include "./cpu.h"
-#include "./vp8i_enc.h"
+#include "./ph_cpu.h"
+#include "./ph_vp8i_enc.h"
 
 //------------------------------------------------------------------------------
 // VP8Iterator

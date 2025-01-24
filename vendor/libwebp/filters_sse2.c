@@ -11,11 +11,11 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE2)
 
-#include <utils.h>
+#include "./ph_utils.h"
 #include <emmintrin.h>
 #include <stdlib.h>
 #include <string.h>

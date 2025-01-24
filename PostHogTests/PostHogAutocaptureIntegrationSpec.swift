@@ -15,6 +15,7 @@ import Quick
         override func spec() {
             var server: MockPostHogServer!
             var integration: PostHogAutocaptureIntegration!
+            var posthog: PostHogSDK!
 
             beforeEach {
                 let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
@@ -25,9 +26,9 @@ import Quick
                 server = MockPostHogServer()
                 server.start()
 
-                PostHogSDK.shared.setup(config)
+                posthog = PostHogSDK.with(config)
 
-                integration = PostHogAutocaptureIntegration(config)
+                integration = posthog.getAutocaptureIntegration()
                 integration.start()
             }
 
@@ -36,7 +37,7 @@ import Quick
                 server = nil
                 integration.stop()
                 PostHogSessionManager.shared.endSession {}
-                PostHogSDK.shared.close()
+                posthog.close()
                 deleteSafely(applicationSupportDirectoryURL())
             }
 
@@ -88,7 +89,7 @@ import Quick
                     integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
                     integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
 
-                    PostHogSDK.shared.flush()
+                    posthog.flush()
 
                     let debouncedEvents = getBatchedEvents(server)
 
@@ -103,7 +104,7 @@ import Quick
                     integration.process(source: .actionMethod(description: "action"), event: event)
                     integration.process(source: .actionMethod(description: "action"), event: event)
 
-                    PostHogSDK.shared.flush()
+                    posthog.flush()
 
                     let events = getBatchedEvents(server)
 

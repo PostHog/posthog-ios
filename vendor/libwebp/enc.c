@@ -13,8 +13,8 @@
 
 #include <stdlib.h>  // for abs()
 
-#include "./dsp.h"
-#include "./vp8i_enc.h"
+#include "./ph_dsp.h"
+#include "./ph_vp8i_enc.h"
 
 static WEBP_INLINE uint8_t clip_8b(int v) {
   return (!(v & ~0xff)) ? v : (v < 0) ? 0 : 255;

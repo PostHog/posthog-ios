@@ -159,6 +159,38 @@ enum PostHogRemoteConfigTest {
             #expect(sut.isFeatureEnabled("new-flag") == true)
             #expect(sut.isFeatureEnabled("bool-value") == true)
         }
+        
+        @Test("clears feature flags when quota limited")
+        func clearsFeatureFlagsWhenQuotaLimited() async {
+            let sut = self.getSut()
+            
+
+            // First load some feature flags normally
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    continuation.resume()
+                })
+            }
+            
+
+            // Verify flags are loaded
+            #expect(sut.isFeatureEnabled("bool-value") == true)
+            #expect(sut.getFeatureFlag("string-value") as? String == "test")
+
+            // Now set the server to return quota limited response
+            server.quotaLimitFeatureFlags = true
+
+            // Load flags again, this time with quota limiting
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    continuation.resume()
+                })
+            }
+
+            // Verify flags are cleared
+            #expect(sut.isFeatureEnabled("bool-value") == false)
+            #expect(sut.getFeatureFlag("string-value") == nil)
+        }
     }
 
     @Suite("Test remote config loading")
@@ -379,6 +411,34 @@ enum PostHogRemoteConfigTest {
                 #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
                 #expect(config.snapshotEndpoint == "/newS/")
                 #expect(sut.isSessionReplayFlagActive() == false)
+            }
+            
+            @Test("returns isSessionReplayFlagActive false if bool linked flag is missing")
+            func returnsIsSessionReplayFlagActiveFalseIfBoolLinkedFlagIsMissing() async {
+                
+                let storage = PostHogStorage(self.config)
+
+                let sut = self.getSut(storage: storage)
+
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+                server.replayVariantName = "some-missing-flag"
+                server.flagsSkipReplayVariantName = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                        continuation.resume()
+                    })
+                }
+
+                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
+                #expect(self.config.snapshotEndpoint == "/newS/")
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                storage.reset()
+                
             }
         }
     #endif

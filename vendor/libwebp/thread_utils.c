@@ -12,8 +12,8 @@
 // Author: Skal (pascal.massimino@gmail.com)
 
 #include <string.h>   // for memset()
-#include "./thread_utils.h"
-#include "./utils.h"
+#include "./ph_thread_utils.h"
+#include "./ph_utils.h"
 
 #ifdef WEBP_USE_THREAD
 

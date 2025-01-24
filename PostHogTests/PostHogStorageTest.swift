@@ -6,102 +6,181 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogStorageTest: QuickSpec {
-    func getSut() -> PostHogStorage {
-        let config = PostHogConfig(apiKey: "123")
-        return PostHogStorage(config)
+@Suite("PostHogStorage Tests", .serialized)
+class PostHogStorageTest {
+    func getSut(config: PostHogConfig = PostHogConfig(apiKey: "123")) -> PostHogStorage {
+        PostHogStorage(config)
     }
 
-    override func spec() {
-        it("returns the support dir URL") {
-            let url = applicationSupportDirectoryURL()
-            expect(url).toNot(beNil())
-            expect(url.pathComponents[url.pathComponents.count - 2]) == "Application Support"
-            expect(url.lastPathComponent) == Bundle.main.bundleIdentifier
+    @Test("returns the application support dir URL")
+    func returnsTheApplicationSupportDirURL() {
+        let url = applicationSupportDirectoryURL()
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier]
+        let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+        #expect(actualSuffix == expectedSuffix)
+    }
+
+    @Test("returns the app group container dir URL")
+    func returnsTheAppGroupContainerDirURL() {
+        let config = PostHogConfig(apiKey: "123")
+        config.appGroupIdentifier = "some_identifier"
+        let url = appGroupContainerUrl(config: config)!
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier]
+        let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+        #expect(actualSuffix == expectedSuffix)
+
+        let groupContainerComponent = url.pathComponents[url.pathComponents.count - 5]
+        #expect(["Group Containers", "AppGroup"].contains(groupContainerComponent))
+    }
+
+    @Test("creates a folder if none exists")
+    func createsFolderIfNoneExists() throws {
+        let fileManager = FileManager.default
+
+        // Initialize storage which should create directory structure
+        let sut = getSut()
+
+        // Validate that folder structure was created
+        #expect(fileManager.fileExists(atPath: sut.appFolderUrl.path))
+
+        try? fileManager.removeItem(at: sut.appFolderUrl)
+
+        // Clean up
+        sut.reset()
+    }
+
+    @Test("Persists and loads string")
+    func persistsAndLoadsString() {
+        let sut = getSut()
+
+        let str = "san francisco"
+        sut.setString(forKey: .distinctId, contents: str)
+
+        #expect(sut.getString(forKey: .distinctId) == str)
+
+        sut.remove(key: .distinctId)
+        #expect(sut.getString(forKey: .distinctId) == nil)
+
+        sut.reset()
+    }
+
+    @Test("Persists and loads bool")
+    func persistsAndLoadsBool() {
+        let sut = getSut()
+
+        sut.setBool(forKey: .optOut, contents: true)
+
+        #expect(sut.getBool(forKey: .optOut) == true)
+
+        sut.remove(key: .optOut)
+        #expect(sut.getString(forKey: .optOut) == nil)
+
+        sut.reset()
+    }
+
+    @Test("Persists and loads dictionary")
+    func persistsAndLoadsDictionary() {
+        let sut = getSut()
+
+        let dict = [
+            "san francisco": "tech",
+            "new york": "finance",
+            "paris": "fashion",
+        ]
+        sut.setDictionary(forKey: .distinctId, contents: dict)
+        #expect(sut.getDictionary(forKey: .distinctId) as? [String: String] == dict)
+
+        sut.remove(key: .distinctId)
+        #expect(sut.getDictionary(forKey: .distinctId) == nil)
+
+        sut.reset()
+    }
+
+    @Test("Saves file to disk and removes from disk")
+    func savesFileToDiskAndRemovesFromDisk() throws {
+        let sut = getSut()
+
+        let url = sut.url(forKey: .distinctId)
+        let isUrlReachable: () -> Bool = {
+            (try? url.checkResourceIsReachable()) ?? false
         }
 
-        it("creates folder if none exists") {
-            let url = applicationSupportDirectoryURL()
-            try? FileManager.default.removeItem(at: url)
+        #expect(isUrlReachable() == false)
 
-            expect(FileManager.default.fileExists(atPath: url.path)) == false
+        sut.setString(forKey: .distinctId, contents: "sloth")
+        #expect(isUrlReachable() == true)
 
-            let sut = self.getSut()
+        sut.remove(key: .distinctId)
+        #expect(isUrlReachable() == false)
 
-            expect(FileManager.default.fileExists(atPath: sut.appFolderUrl.path)) == true
+        sut.reset()
+    }
 
-            sut.reset()
-        }
+    @Test("writes to disk in an api key folder under application support directory")
+    func writesToDiskInAnApiKeyFolderUnderApplicationSupportDirectory() {
+        let config = PostHogConfig(apiKey: "test_key")
+        let sut = PostHogStorage(config)
+        let url = sut.appFolderUrl
 
-        it("persists and loads string") {
-            let sut = self.getSut()
+        sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-            let str = "san francisco"
-            sut.setString(forKey: .distinctId, contents: str)
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_key"]
+        let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+        #expect(expectedSuffix == actualSuffix)
 
-            expect(sut.getString(forKey: .distinctId)) == str
+        let fileManager = FileManager.default
+        let fileUrl = url.appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)
+        #expect(fileManager.fileExists(atPath: fileUrl.path))
 
-            sut.remove(key: .distinctId)
-            expect(sut.getString(forKey: .distinctId)).to(beNil())
+        sut.remove(key: .distinctId)
+        #expect(fileManager.fileExists(atPath: fileUrl.path) == false)
 
-            sut.reset()
-        }
+        sut.reset()
+    }
 
-        it("persists and loads bool") {
-            let sut = self.getSut()
+    @Test("writes to disk in an api key folder under a group container directory")
+    func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
+        let config = PostHogConfig(apiKey: "test_key")
+        config.appGroupIdentifier = "group.com.posthog.test"
+        let sut = PostHogStorage(config)
+        let url = sut.appFolderUrl
 
-            sut.setBool(forKey: .optOut, contents: true)
+        sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-            expect(sut.getBool(forKey: .optOut)) == true
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_key"]
+        let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+        #expect(expectedSuffix == actualSuffix)
 
-            sut.remove(key: .optOut)
-            expect(sut.getString(forKey: .optOut)).to(beNil())
+        let groupContainerComponent = url.pathComponents[url.pathComponents.count - 6]
+        #expect(["Group Containers", "AppGroup"].contains(groupContainerComponent))
 
-            sut.reset()
-        }
+        let fileManager = FileManager.default
+        let fileUrl = url.appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)
+        #expect(fileManager.fileExists(atPath: fileUrl.path))
 
-        it("persists and loads dictionary") {
-            let sut = self.getSut()
+        sut.remove(key: .distinctId)
+        #expect(fileManager.fileExists(atPath: fileUrl.path) == false)
 
-            let dict = [
-                "san francisco": "tech",
-                "new york": "finance",
-                "paris": "fashion",
-            ]
-            sut.setDictionary(forKey: .distinctId, contents: dict)
-            expect(sut.getDictionary(forKey: .distinctId) as? [String: String]) == dict
+        sut.reset()
+    }
 
-            sut.remove(key: .distinctId)
-            expect(sut.getDictionary(forKey: .distinctId)).to(beNil())
+    @Test("falls back to application support directory when app group identifier is not provided")
+    func fallsBackToApplicationSupportDirectoryWhenAppGroupIdentifierIsNotProvided() {
+        let config = PostHogConfig(apiKey: "123")
+        config.appGroupIdentifier = nil
+        let sut = PostHogStorage(config)
+        let url = sut.appFolderUrl
 
-            sut.reset()
-        }
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "123"]
+        let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+        #expect(expectedSuffix == actualSuffix)
 
-        it("saves file to disk and removes from disk") {
-            let sut = self.getSut()
+        let groupContainerComponent = url.pathComponents[url.pathComponents.count - 6]
+        #expect(!["Group Containers", "AppGroup"].contains(groupContainerComponent))
 
-            let url = sut.url(forKey: .distinctId)
-            expect(try? url.checkResourceIsReachable()).to(beNil())
-            sut.setString(forKey: .distinctId, contents: "sloth")
-            expect(try! url.checkResourceIsReachable()) == true
-            sut.remove(key: .distinctId)
-            expect(try? url.checkResourceIsReachable()).to(beNil())
-
-            sut.reset()
-        }
-
-        it("falls back to application support directory when app group identifier is not provided") {
-            let config = PostHogConfig(apiKey: "123")
-            config.appGroupIdentifier = nil
-            let sut = PostHogStorage(config)
-            let url = sut.appFolderUrl
-            expect(url).toNot(beNil())
-            expect(url.pathComponents[url.pathComponents.count - 2]) == "Application Support"
-            expect(url.lastPathComponent) == Bundle.main.bundleIdentifier
-        }
+        sut.reset()
     }
 }

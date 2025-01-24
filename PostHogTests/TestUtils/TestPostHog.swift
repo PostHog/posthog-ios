@@ -64,6 +64,7 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
     }
 }
 
+
 final class MockDate {
     var date = Date()
 }
@@ -78,6 +79,10 @@ extension Bundle {
     }
 }
 
+let testBundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
+
+
 final class BundleLocator {}
 
 let testAPIKey = "test_api_key"
+

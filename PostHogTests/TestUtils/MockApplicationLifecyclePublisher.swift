@@ -2,7 +2,7 @@
 //  MockApplicationLifecyclePublisher.swift
 //  PostHog
 //
-//  Created by Yiannis Josephides on 20/01/2025.
+//  Created by Ioannis Josephides on 21/02/2025.
 //
 
 import Foundation
@@ -10,14 +10,14 @@ import Foundation
 
 final class MockApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
     func simulateAppDidEnterBackground() {
-        didEnterBackgroundCallbacks.values.forEach { $0() }
+        didEnterBackgroundHandlers.forEach { $0() }
     }
 
     func simulateAppDidBecomeActive() {
-        didBecomeActiveCallbacks.values.forEach { $0() }
+        didBecomeActiveHandlers.forEach { $0() }
     }
 
     func simulateAppDidFinishLaunching() {
-        didFinishLaunchingCallbacks.values.forEach { $0() }
+        didFinishLaunchingHandlers.forEach { $0() }
     }
 }

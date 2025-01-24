@@ -9,12 +9,12 @@
     import Foundation
 
     class URLSessionInterceptor {
-        private let config: PostHogConfig
+        private weak var postHog: PostHogSDK?
 
         private let tasksLock = NSLock()
 
-        init(_ config: PostHogConfig) {
-            self.config = config
+        init(_ postHog: PostHogSDK) {
+            self.postHog = postHog
         }
 
         /// An internal queue for synchronising the access to `samplesByTask`.
@@ -127,34 +127,37 @@
         }
 
         private func isCaptureNetworkEnabled() -> Bool {
-            config.sessionReplayConfig.captureNetworkTelemetry && PostHogSDK.shared.isSessionReplayActive()
+            guard let postHog else { return false }
+            return postHog.config.sessionReplayConfig.captureNetworkTelemetry && postHog.isSessionReplayActive()
         }
 
         private func finish(task: URLSessionTask, sample: NetworkSample) {
-            let timestamp = sample.timeOrigin
+            if let postHog {
+                let timestamp = sample.timeOrigin
 
-            var snapshotsData: [Any] = []
+                var snapshotsData: [Any] = []
 
-            let requestsData = [sample.toDict()]
-            let payloadData: [String: Any] = ["requests": requestsData]
-            let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
+                let requestsData = [sample.toDict()]
+                let payloadData: [String: Any] = ["requests": requestsData]
+                let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
 
-            let data: [String: Any] = [
-                "type": 6,
-                "data": pluginData,
-                "timestamp": timestamp.toMillis(),
-            ]
-            snapshotsData.append(data)
+                let data: [String: Any] = [
+                    "type": 6,
+                    "data": pluginData,
+                    "timestamp": timestamp.toMillis(),
+                ]
+                snapshotsData.append(data)
 
-            PostHogSDK.shared.capture(
-                "$snapshot",
-                properties: [
-                    "$snapshot_source": "mobile",
-                    "$snapshot_data": snapshotsData,
-                    "$session_id": sample.sessionId,
-                ],
-                timestamp: sample.timeOrigin
-            )
+                postHog.capture(
+                    "$snapshot",
+                    properties: [
+                        "$snapshot_source": "mobile",
+                        "$snapshot_data": snapshotsData,
+                        "$session_id": sample.sessionId,
+                    ],
+                    timestamp: sample.timeOrigin
+                )
+            }
 
             tasksLock.withLock {
                 _ = samplesByTask.removeValue(forKey: task)

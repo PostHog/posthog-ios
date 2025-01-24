@@ -1,0 +1,16 @@
+{
+    "id": "01947134-8a35-0000-549a-193b86fa2e44",
+    "name": "Specific Question Branching Survey",
+    "type": "popover",
+    "questions": [
+        {
+            "type": "single_choice",
+            "choices": ["Yes", "No"],
+            "question": "First question",
+            "branching": {
+                "type": "specific_question",
+                "index": 2
+            }
+        }
+    ]
+}

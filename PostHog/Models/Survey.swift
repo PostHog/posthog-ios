@@ -66,12 +66,12 @@ protocol SurveyQuestionProperties {
 }
 
 /// Represents different types of survey questions with their associated data
-enum SurveyQuestion: Decodable {
+enum SurveyQuestion: SurveyQuestionProperties, Decodable {
     case basic(BasicSurveyQuestion)
     case link(LinkSurveyQuestion)
     case rating(RatingSurveyQuestion)
-    case multipleChoice(MultipleSurveyQuestion)
     case singleChoice(MultipleSurveyQuestion)
+    case multipleChoice(MultipleSurveyQuestion)
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -84,10 +84,48 @@ enum SurveyQuestion: Decodable {
             self = try .link(LinkSurveyQuestion(from: decoder))
         case .rating:
             self = try .rating(RatingSurveyQuestion(from: decoder))
-        case .multipleChoice:
-            self = try .multipleChoice(MultipleSurveyQuestion(from: decoder))
         case .singleChoice:
             self = try .singleChoice(MultipleSurveyQuestion(from: decoder))
+        case .multipleChoice:
+            self = try .multipleChoice(MultipleSurveyQuestion(from: decoder))
+        }
+    }
+
+    var question: String {
+        wrappedQuestion.question
+    }
+
+    var description: String? {
+        wrappedQuestion.description
+    }
+
+    var descriptionContentType: SurveyTextContentType? {
+        wrappedQuestion.descriptionContentType
+    }
+
+    var optional: Bool? {
+        wrappedQuestion.optional
+    }
+
+    var buttonText: String? {
+        wrappedQuestion.buttonText
+    }
+
+    var originalQuestionIndex: Int? {
+        wrappedQuestion.originalQuestionIndex
+    }
+
+    var branching: SurveyQuestionBranching? {
+        wrappedQuestion.branching
+    }
+
+    private var wrappedQuestion: SurveyQuestionProperties {
+        switch self {
+        case let .basic(question): question
+        case let .link(question): question
+        case let .rating(question): question
+        case let .singleChoice(question): question
+        case let .multipleChoice(question): question
         }
     }
 

@@ -1,0 +1,23 @@
+{
+    "id": "01947134-8a35-0000-549a-193b86fa2e44",
+    "name": "Likert Scale Branching Survey",
+    "type": "popover",
+    "questions": [
+        {
+            "type": "rating",
+            "scale": 10,
+            "lowerBoundLabel": "Unlikely",
+            "upperBoundLabel": "Very likely",
+            "display": "emoji",
+            "question": "How happy are you?",
+            "branching": {
+                "type": "response_based",
+                "responseValues": {
+                    "negative": 1,
+                    "neutral": 2,
+                    "positive": 3
+                }
+            }
+        }
+    ]
+}

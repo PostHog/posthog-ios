@@ -1,0 +1,17 @@
+{
+    "id": "01947134-8a35-0000-549a-193b86fa2e44",
+    "name": "NPS Survey",
+    "type": "popover",
+    "questions": [
+        {
+            "type": "rating",
+            "scale": 10,
+            "display": "number",
+            "question": "How likely are you to recommend us to a friend?",
+            "lowerBoundLabel": "Unlikely",
+            "upperBoundLabel": "Very likely",
+            "originalQuestionIndex": 0,
+            "descriptionContentType": "text"
+        }
+    ]
+}

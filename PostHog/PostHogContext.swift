@@ -56,28 +56,59 @@ class PostHogContext {
         #if os(iOS) || os(tvOS)
             let device = UIDevice.current
             // use https://github.com/devicekit/DeviceKit
-            properties["$device_name"] = device.model
-            properties["$os_name"] = device.systemName
-            properties["$os_version"] = device.systemVersion
+            let processInfo = ProcessInfo.processInfo
 
-            var deviceType: String?
-            switch device.userInterfaceIdiom {
-            case UIUserInterfaceIdiom.phone:
-                deviceType = "Mobile"
-            case UIUserInterfaceIdiom.pad:
-                deviceType = "Tablet"
-            case UIUserInterfaceIdiom.tv:
-                deviceType = "TV"
-            case UIUserInterfaceIdiom.carPlay:
-                deviceType = "CarPlay"
-            case UIUserInterfaceIdiom.mac:
-                deviceType = "Desktop"
-            default:
-                deviceType = nil
+            properties["$device_name"] = device.model
+
+            // iOS app running in compatibility mode (Designed for iPad/iPhone)
+            var isiOSAppOnMac = false
+            if #available(iOS 14.0, *) {
+                isiOSAppOnMac = processInfo.isiOSAppOnMac
             }
-            if deviceType != nil {
-                properties["$device_type"] = deviceType
+
+            // iPad app running on Mac Catalyst
+            #if targetEnvironment(macCatalyst)
+                let isMacCatalystApp = true
+            #else
+                let isMacCatalystApp = false
+            #endif
+
+            if isMacCatalystApp || isiOSAppOnMac {
+                let underlyingOS = device.systemName
+                let underlyingOSVersion = device.systemVersion
+                let macOSVersion = processInfo.operatingSystemVersionString
+                // e.g macOS Version 15.1.1 (Build 24B91) / iPadOS 18.1
+                properties["$os_version"] = "macOS \(macOSVersion) / \(underlyingOS) \(underlyingOSVersion)"
+                properties["$os_name"] = isMacCatalystApp
+                    ? "macOS (Mac Catalyst)"
+                    : "macOS (iOS running on Mac)"
+                // device.userInterfaceIdiom reports .pad here, so we use a static value instead
+                properties["$device_type"] = "Desktop"
+            } else {
+                // use https://github.com/devicekit/DeviceKit
+                properties["$os_name"] = device.systemName
+                properties["$os_version"] = device.systemVersion
+
+                var deviceType: String?
+                switch device.userInterfaceIdiom {
+                case UIUserInterfaceIdiom.phone:
+                    deviceType = "Mobile"
+                case UIUserInterfaceIdiom.pad:
+                    deviceType = "Tablet"
+                case UIUserInterfaceIdiom.tv:
+                    deviceType = "TV"
+                case UIUserInterfaceIdiom.carPlay:
+                    deviceType = "CarPlay"
+                case UIUserInterfaceIdiom.mac:
+                    deviceType = "Desktop"
+                default:
+                    deviceType = nil
+                }
+                if deviceType != nil {
+                    properties["$device_type"] = deviceType
+                }
             }
+
         #elseif os(macOS)
             let deviceName = Host.current().localizedName
             if (deviceName?.isEmpty) != nil {
@@ -134,10 +165,25 @@ class PostHogContext {
     }
 
     private func platform() -> String {
+        var sysctlName = "hw.machine"
+
+        // In case of mac catalyst or iOS running on mac:
+        // - "hw.machine" returns underlying iPad/iPhone model
+        // - "hw.model" returns mac model
+        #if targetEnvironment(macCatalyst)
+            sysctlName = "hw.model"
+        #else
+            if #available(iOS 14.0, *) {
+                if ProcessInfo.processInfo.isiOSAppOnMac {
+                    sysctlName = "hw.model"
+                }
+            }
+        #endif
+
         var size = 0
-        sysctlbyname("hw.machine", nil, &size, nil, 0)
+        sysctlbyname(sysctlName, nil, &size, nil, 0)
         var machine = [CChar](repeating: 0, count: size)
-        sysctlbyname("hw.machine", &machine, &size, nil, 0)
+        sysctlbyname(sysctlName, &machine, &size, nil, 0)
         return String(cString: machine)
     }
 

@@ -172,7 +172,7 @@ class PostHogContext {
         // - "hw.model" returns mac model
         #if targetEnvironment(macCatalyst)
             sysctlName = "hw.model"
-        #else
+        #elseif os(iOS)
             if #available(iOS 14.0, *) {
                 if ProcessInfo.processInfo.isiOSAppOnMac {
                     sysctlName = "hw.model"

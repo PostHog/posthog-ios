@@ -1,5 +1,7 @@
 ## Next
 
+- chore: Session Replay GA ([#286](https://github.com/PostHog/posthog-ios/pull/286))
+
 ## 3.19.1 - 2025-01-13
 
 - fix: RN Expo builds failing ([#281](https://github.com/PostHog/posthog-ios/pull/281))

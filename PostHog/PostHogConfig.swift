@@ -53,11 +53,9 @@ import Foundation
 
     #if os(iOS)
         /// Enable Recording of Session Replays for iOS
-        /// Experimental support
         /// Default: false
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration
-        /// Experimental support
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 

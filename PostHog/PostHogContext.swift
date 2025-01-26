@@ -62,9 +62,12 @@ class PostHogContext {
 
             // iOS app running in compatibility mode (Designed for iPad/iPhone)
             var isiOSAppOnMac = false
-            if #available(iOS 14.0, *) {
-                isiOSAppOnMac = processInfo.isiOSAppOnMac
-            }
+
+            #if os(iOS)
+                if #available(iOS 14.0, *) {
+                    isiOSAppOnMac = processInfo.isiOSAppOnMac
+                }
+            #endif
 
             // iPad app running on Mac Catalyst
             #if targetEnvironment(macCatalyst)

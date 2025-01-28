@@ -13,10 +13,6 @@ let package = Package(
             name: "PostHog",
             targets: ["PostHog"]
         ),
-        .library(
-            name: "phlibwebp",
-            targets: ["phlibwebp"]
-        ),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.

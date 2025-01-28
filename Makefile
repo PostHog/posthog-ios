@@ -11,8 +11,13 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 
-buildExamples:
-	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
+buildExamples: \
+	buildExamplesPlatforms \
+	buildExampleXCFramework \
+	buildExamplePodsDynamic \
+	buildExamplePodsStatic \
+
+buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty #ObjC
@@ -21,33 +26,35 @@ buildExamples:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
 
-	## Build with dynamic framework
-	cd PostHogExampleWithPods && \
-		pod install && \
-		cd .. && \
-		xcrun xcodebuild clean build \
-			-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-			-scheme PostHogExampleWithPods \
-			-destination generic/platform=ios | xcpretty
+buildExamplePodsDynamic:
+	cd PostHogExampleWithPods && pod install && cd .. && \
+	set -o pipefail && xcrun xcodebuild clean build \
+		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+		-scheme PostHogExampleWithPods \
+		-destination generic/platform=ios | xcpretty
 
-	## Build with static library
+buildExamplePodsStatic:
 	cd PostHogExampleWithPods && \
-		cp Podfile{,.backup} && \
-		cp Podfile.static Podfile && \
-		cp PostHogExampleWithPods.xcodeproj/project.pbxproj{,.backup} && \
-		pod install && \
-		cd .. && \
-		xcrun xcodebuild clean build \
-			-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-			-scheme PostHogExampleWithPods \
-			-destination generic/platform=ios | xcpretty
+	cp Podfile{,.backup} && \
+	cp Podfile.static Podfile && \
+	cp PostHogExampleWithPods.xcodeproj/project.pbxproj{,.backup} && \
+	pod install && \
+	cd .. && \
+	set -o pipefail && xcrun xcodebuild clean build \
+		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+		-scheme PostHogExampleWithPods \
+		-destination generic/platform=ios | xcpretty && \
+	cd PostHogExampleWithPods && \
+	mv Podfile{.backup,} && \
+	pod install && \
+	mv PostHogExampleWithPods.xcodeproj/project.pbxproj{.backup,}
 
-	## Restore original files
-	cd PostHogExampleWithPods && \
-		mv Podfile{.backup,} && \
-		pod install && \
-		mv PostHogExampleWithPods.xcodeproj/project.pbxproj{.backup,}
-		
+buildExampleXCFramework:
+	./PostHogExampleExternalSDK/build_xcframework.sh
+	set -o pipefail && xcrun xcodebuild clean build \
+		-project ./PostHogExampleExternalSDK/SDKClient/PostHogExampleExternalSDKClient.xcodeproj \
+		-scheme ExternalSDKClient \
+		-destination "generic/platform=iOS Simulator" | xcpretty
 
 format: swiftLint swiftFormat
 

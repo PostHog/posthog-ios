@@ -94,11 +94,12 @@ bootstrap:
 	brew install peripheryapp/periphery/periphery
 
 # download SDKs and runtimes
-# install any simulator(s) missing from runner image
+# create Apple Vision Pro simulator if missing
 # release pod
 releaseCocoaPods:
-	# I think we can do without these next 2 steps but let's leave it for now
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
-	# install Apple Vision Pro
-	xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "xros2.2"
+	@if ! xcrun simctl list devices | grep -q "Apple Vision Pro"; then \
+		LATEST_RUNTIME=$$(xcrun simctl list runtimes | grep "com.apple.CoreSimulator.SimRuntime.xrOS" | sort -r | head -n 1 | awk '{print $$NF}') && \
+		xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "$$LATEST_RUNTIME"; \
+	fi
 	pod trunk push PostHog.podspec --allow-warnings

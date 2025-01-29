@@ -8,9 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		DA5CC5B62D43C54C0060722B /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DA5CC5B52D43C54C0060722B /* PostHog */; };
-		DA5DBDDB2D43DDEA0077B419 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DA5DBDDA2D43DDEA0077B419 /* PostHog */; };
 		DAA5EE002D42761F00D437E0 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAA5EDFF2D42761F00D437E0 /* PostHog */; };
 		DAA5EE662D4376EB00D437E0 /* ExternalSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5EE652D4376E600D437E0 /* ExternalSDK.swift */; };
+		DAEA51302D4A1047007B75AB /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAEA512F2D4A1047007B75AB /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,7 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DA5DBDDB2D43DDEA0077B419 /* PostHog in Frameworks */,
+				DAEA51302D4A1047007B75AB /* PostHog in Frameworks */,
 				DAA5EE002D42761F00D437E0 /* PostHog in Frameworks */,
 				DA5CC5B62D43C54C0060722B /* PostHog in Frameworks */,
 			);
@@ -103,7 +103,7 @@
 			packageProductDependencies = (
 				DAA5EDFF2D42761F00D437E0 /* PostHog */,
 				DA5CC5B52D43C54C0060722B /* PostHog */,
-				DA5DBDDA2D43DDEA0077B419 /* PostHog */,
+				DAEA512F2D4A1047007B75AB /* PostHog */,
 			);
 			productName = TestBuildIssues;
 			productReference = DAA5EDF12D42761400D437E0 /* ExternalSDK.framework */;
@@ -133,7 +133,7 @@
 			mainGroup = DAA5EDE72D42761400D437E0;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				DA5DBDD92D43DDEA0077B419 /* XCRemoteSwiftPackageReference "posthog-ios" */,
+				DAEA512E2D4A1047007B75AB /* XCLocalSwiftPackageReference "../../posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DAA5EDF22D42761400D437E0 /* Products */;
@@ -392,28 +392,23 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		DA5DBDD92D43DDEA0077B419 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/postHog/posthog-ios";
-			requirement = {
-				branch = "fix/internal-phlibwebp";
-				kind = branch;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		DAEA512E2D4A1047007B75AB /* XCLocalSwiftPackageReference "../../posthog-ios" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../posthog-ios";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		DA5CC5B52D43C54C0060722B /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PostHog;
 		};
-		DA5DBDDA2D43DDEA0077B419 /* PostHog */ = {
+		DAA5EDFF2D42761F00D437E0 /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = DA5DBDD92D43DDEA0077B419 /* XCRemoteSwiftPackageReference "posthog-ios" */;
 			productName = PostHog;
 		};
-		DAA5EDFF2D42761F00D437E0 /* PostHog */ = {
+		DAEA512F2D4A1047007B75AB /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PostHog;
 		};

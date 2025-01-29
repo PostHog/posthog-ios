@@ -53,44 +53,54 @@ class PostHogContext {
             properties["$is_emulator"] = false
         #endif
 
+        // iOS app running in compatibility mode (Designed for iPad/iPhone)
+        var isiOSAppOnMac = false
+        #if os(iOS)
+            if #available(iOS 14.0, *) {
+                isiOSAppOnMac = ProcessInfo.processInfo.isiOSAppOnMac
+            }
+        #endif
+
+        // iPad app running on Mac Catalyst
+        #if targetEnvironment(macCatalyst)
+            let isMacCatalystApp = true
+        #else
+            let isMacCatalystApp = false
+        #endif
+
+        properties["$is_ios_running_on_mac"] = isiOSAppOnMac
+        properties["$is_mac_catalyst_app"] = isMacCatalystApp
+
         #if os(iOS) || os(tvOS)
             let device = UIDevice.current
             // use https://github.com/devicekit/DeviceKit
             let processInfo = ProcessInfo.processInfo
 
-            properties["$device_name"] = device.model
-
-            // iOS app running in compatibility mode (Designed for iPad/iPhone)
-            var isiOSAppOnMac = false
-
-            #if os(iOS)
-                if #available(iOS 14.0, *) {
-                    isiOSAppOnMac = processInfo.isiOSAppOnMac
-                }
-            #endif
-
-            // iPad app running on Mac Catalyst
-            #if targetEnvironment(macCatalyst)
-                let isMacCatalystApp = true
-            #else
-                let isMacCatalystApp = false
-            #endif
-
             if isMacCatalystApp || isiOSAppOnMac {
                 let underlyingOS = device.systemName
                 let underlyingOSVersion = device.systemVersion
                 let macOSVersion = processInfo.operatingSystemVersionString
-                // e.g macOS Version 15.1.1 (Build 24B91) / iPadOS 18.1
-                properties["$os_version"] = "macOS \(macOSVersion) / \(underlyingOS) \(underlyingOSVersion)"
-                properties["$os_name"] = isMacCatalystApp
-                    ? "macOS (Mac Catalyst)"
-                    : "macOS (iOS running on Mac)"
+
+                if isMacCatalystApp {
+                    let processInfo = ProcessInfo.processInfo
+                    properties["$os_name"] = "macOS \(processInfo.operatingSystemVersionString)" // eg Version 14.2.1 (Build 23C71)
+                    let osVersion = processInfo.operatingSystemVersion
+                    properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+                } else {
+                    properties["$os_name"] = device.systemName
+                    properties["$os_version"] = device.systemVersion
+                }
                 // device.userInterfaceIdiom reports .pad here, so we use a static value instead
+                // - For an app deployable on iPad, the idiom type is always .pad (instead of .mac)
+                // 
+                // Source: https://developer.apple.com/documentation/apple-silicon/adapting-ios-code-to-run-in-the-macos-environment#Handle-unknown-device-types-gracefully
                 properties["$device_type"] = "Desktop"
+                properties["$device_name"] = processInfo.hostName
             } else {
                 // use https://github.com/devicekit/DeviceKit
                 properties["$os_name"] = device.systemName
                 properties["$os_version"] = device.systemVersion
+                properties["$device_name"] = device.model
 
                 var deviceType: String?
                 switch device.userInterfaceIdiom {
@@ -111,7 +121,6 @@ class PostHogContext {
                     properties["$device_type"] = deviceType
                 }
             }
-
         #elseif os(macOS)
             let deviceName = Host.current().localizedName
             if (deviceName?.isEmpty) != nil {

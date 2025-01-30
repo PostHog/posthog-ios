@@ -22,6 +22,7 @@ enum PostHogApiTests {
 
         deinit {
             server.stop()
+            server = nil
         }
 
         func getApiResponse<T>(

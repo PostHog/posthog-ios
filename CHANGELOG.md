@@ -2,7 +2,7 @@
 
 - fix: custom hosts with a path ([#290](https://github.com/PostHog/posthog-ios/pull/290))
 
-## 3.19.2 - 2025-01-29
+## 3.19.2 - 2025-01-30
 
 - fix: XCFramework builds failing ([#288](https://github.com/PostHog/posthog-ios/pull/288))
 - chore: Session Replay GA ([#286](https://github.com/PostHog/posthog-ios/pull/286))

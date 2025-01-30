@@ -42,8 +42,8 @@ class MockPostHogServer {
     public var replayVariantName = "myBooleanRecordingFlag"
     public var replayVariantValue: Any = true
 
-    init(port _: Int = 9001) {
-        stub(condition: isPath("/decide")) { _ in
+    init() {
+        stub(condition: pathEndsWith("/decide")) { _ in
             var flags = [
                 "bool-value": true,
                 "string-value": "test",
@@ -90,7 +90,15 @@ class MockPostHogServer {
             return HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
         }
 
-        stub(condition: isPath("/batch")) { _ in
+        stub(condition: pathEndsWith("/batch")) { _ in
+            if self.return500 {
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            } else {
+                HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+        }
+
+        stub(condition: pathEndsWith("/s")) { _ in
             if self.return500 {
                 HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             } else {
@@ -99,9 +107,9 @@ class MockPostHogServer {
         }
 
         HTTPStubs.onStubActivation { request, _, _ in
-            if request.url?.path == "/batch" {
+            if request.url?.lastPathComponent == "batch" {
                 self.trackBatchRequest(request)
-            } else if request.url?.path == "/decide" {
+            } else if request.url?.lastPathComponent == "decide" {
                 self.trackDecide(request)
             }
         }

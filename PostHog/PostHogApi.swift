@@ -28,15 +28,33 @@ class PostHogApi {
         return config
     }
 
-    private func getURL(_ url: URL) -> URLRequest {
+    private func getURLRequest(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = defaultTimeout
         return request
     }
 
+    private func getEndpointURL(
+        _ endpoint: String,
+        queryItems: URLQueryItem...,
+        relativeTo baseUrl: URL
+    ) -> URL? {
+        guard var components = URLComponents(
+            url: baseUrl,
+            resolvingAgainstBaseURL: true
+        ) else {
+            return nil
+        }
+        let path = "\(components.path)/\(endpoint)"
+            .replacingOccurrences(of: "/+", with: "/", options: .regularExpression)
+        components.path = path
+        components.queryItems = queryItems
+        return components.url
+    }
+
     func batch(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
-        guard let url = URL(string: "batch", relativeTo: config.host) else {
+        guard let url = getEndpointURL("/batch", relativeTo: config.host) else {
             hedgeLog("Malformed batch URL error.")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
@@ -47,7 +65,7 @@ class PostHogApi {
         headers["Content-Encoding"] = "gzip"
         config.httpAdditionalHeaders = headers
 
-        let request = getURL(url)
+        let request = getURLRequest(url)
 
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,
@@ -93,7 +111,7 @@ class PostHogApi {
     }
 
     func snapshot(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
-        guard let url = URL(string: config.snapshotEndpoint, relativeTo: config.host) else {
+        guard let url = getEndpointURL(config.snapshotEndpoint, relativeTo: config.host) else {
             hedgeLog("Malformed snapshot URL error.")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
@@ -108,7 +126,7 @@ class PostHogApi {
         headers["Content-Encoding"] = "gzip"
         config.httpAdditionalHeaders = headers
 
-        let request = getURL(url)
+        let request = getURLRequest(url)
 
         let toSend = events.map { $0.toJSON() }
 
@@ -160,18 +178,18 @@ class PostHogApi {
         groups: [String: String],
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {
-        var urlComps = URLComponents()
-        urlComps.path = "/decide"
-        urlComps.queryItems = [URLQueryItem(name: "v", value: "3")]
-
-        guard let url = urlComps.url(relativeTo: config.host) else {
+        guard let url = getEndpointURL(
+            "/decide",
+            queryItems: URLQueryItem(name: "v", value: "3"),
+            relativeTo: config.host
+        ) else {
             hedgeLog("Malformed decide URL error.")
             return completion(nil, nil)
         }
 
         let config = sessionConfig()
 
-        let request = getURL(url)
+        let request = getURLRequest(url)
 
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,

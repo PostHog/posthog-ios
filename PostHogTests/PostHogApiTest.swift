@@ -73,6 +73,7 @@ enum PostHogApiTests {
                 sut.batch(events: [], completion: completion)
             }
 
+            #expect(resp.error == nil)
             #expect(resp.statusCode == 200)
         }
 

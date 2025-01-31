@@ -82,18 +82,22 @@ class PostHogContext {
                 let macOSVersion = processInfo.operatingSystemVersionString
 
                 if isMacCatalystApp {
-                    let processInfo = ProcessInfo.processInfo
-                    properties["$os_name"] = "macOS \(processInfo.operatingSystemVersionString)" // eg Version 14.2.1 (Build 23C71)
-                    let osVersion = processInfo.operatingSystemVersion
+                    let osVersion = ProcessInfo.processInfo.operatingSystemVersion
                     properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
                 } else {
-                    properties["$os_name"] = device.systemName
-                    properties["$os_version"] = device.systemVersion
+                    let osVersionString = processInfo.operatingSystemVersionString
+                    if let versionRange = osVersionString.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                        properties["$os_version"] = osVersionString[versionRange]
+                    } else {
+                        // fallback to full version string in case formatting changes
+                        properties["$os_version"] = osVersionString
+                    }
                 }
                 // device.userInterfaceIdiom reports .pad here, so we use a static value instead
                 // - For an app deployable on iPad, the idiom type is always .pad (instead of .mac)
-                // 
+                //
                 // Source: https://developer.apple.com/documentation/apple-silicon/adapting-ios-code-to-run-in-the-macos-environment#Handle-unknown-device-types-gracefully
+                properties["$os_name"] = "macOS"
                 properties["$device_type"] = "Desktop"
                 properties["$device_name"] = processInfo.hostName
             } else {
@@ -127,7 +131,7 @@ class PostHogContext {
                 properties["$device_name"] = deviceName
             }
             let processInfo = ProcessInfo.processInfo
-            properties["$os_name"] = "macOS \(processInfo.operatingSystemVersionString)" // eg Version 14.2.1 (Build 23C71)
+            properties["$os_name"] = "macOS"
             let osVersion = processInfo.operatingSystemVersion
             properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
             properties["$device_type"] = "Desktop"

@@ -34,60 +34,78 @@ enum PostHogApiTests {
                 }
             }
         }
+
+        func testSnapshotEndpoint(forHost host: String) async throws {
+            let sut = getSut(host: host)
+            let resp = await getApiResponse { completion in
+                sut.snapshot(events: [], completion: completion)
+            }
+
+            #expect(resp.error == nil)
+            #expect(resp.statusCode == 200)
+        }
+
+        func testDecideEndpoint(forHost host: String) async throws {
+            let sut = getSut(host: host)
+            let resp = await getApiResponse { completion in
+                sut.decide(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
+                    completion(data)
+                }
+            }
+
+            #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+        }
+
+        func testBatchEndpoint(forHost host: String) async throws {
+            let sut = getSut(host: host)
+            let resp = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+
+            #expect(resp.error == nil)
+            #expect(resp.statusCode == 200)
+        }
+
+        func getSut(host: String) -> PostHogApi {
+            PostHogApi(PostHogConfig(apiKey: "123", host: host))
+        }
     }
 
     @Suite("Test batch endpoint with different host paths")
     class TestBatchEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
-            }
-
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+            try await testBatchEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func testHostWithNoPathAndTrailingSlash() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
-            }
-
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+            try await testBatchEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func testHostWithPath() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/api/v1")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
-            }
-
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+            try await testBatchEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func testHostWithPathAndTrailingSlash() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/api/v1/")
-            let sut = PostHogApi(config)
+            try await testBatchEndpoint(forHost: "http://localhost/api/v1/")
+        }
+        
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testBatchEndpoint(forHost: "http://localhost:9000")
+        }
 
-            let resp = await getApiResponse { completion in
-                sut.batch(events: [], completion: completion)
-            }
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
 
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 
@@ -95,54 +113,37 @@ enum PostHogApiTests {
     class TestSnapshotEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.snapshot(events: [], completion: completion)
-            }
-
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+            try await testSnapshotEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func testHostWithNoPathAndTrailingSlash() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.snapshot(events: [], completion: completion)
-            }
-
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+            try await testSnapshotEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func testHostWithPath() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/api/v1")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.snapshot(events: [], completion: completion)
-            }
-
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+            try await testSnapshotEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func testHostWithPathAndTrailingSlash() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/api/v1/")
-            let sut = PostHogApi(config)
+            try await testSnapshotEndpoint(forHost: "http://localhost/api/v1/")
+        }
 
-            let resp = await getApiResponse { completion in
-                sut.snapshot(events: [], completion: completion)
-            }
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testSnapshotEndpoint(forHost: "http://localhost:9000")
+        }
 
-            #expect(resp.error == nil)
-            #expect(resp.statusCode == 200)
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testSnapshotEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testSnapshotEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 
@@ -150,58 +151,37 @@ enum PostHogApiTests {
     class TestDecideEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.decide(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
-                    completion(data)
-                }
-            }
-
-            #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+            try await testDecideEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func testHostWithNoPathAndTrailingSlash() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.decide(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
-                    completion(data)
-                }
-            }
-
-            #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+            try await testDecideEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func testHostWithPath() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/api/v1")
-            let sut = PostHogApi(config)
-
-            let resp = await getApiResponse { completion in
-                sut.decide(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
-                    completion(data)
-                }
-            }
-
-            #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+            try await testDecideEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func testHostWithPathAndTrailingSlash() async throws {
-            let config = PostHogConfig(apiKey: "test_key", host: "http://localhost/api/v1/")
-            let sut = PostHogApi(config)
+            try await testDecideEndpoint(forHost: "http://localhost/api/v1/")
+        }
 
-            let resp = await getApiResponse { completion in
-                sut.decide(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
-                    completion(data)
-                }
-            }
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testDecideEndpoint(forHost: "http://localhost:9000")
+        }
 
-            #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testDecideEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testDecideEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 }

@@ -92,7 +92,7 @@ enum PostHogApiTests {
         func testHostWithPathAndTrailingSlash() async throws {
             try await testBatchEndpoint(forHost: "http://localhost/api/v1/")
         }
-        
+
         @Test("with host containing port number")
         func testHostWithPortNumber() async throws {
             try await testBatchEndpoint(forHost: "http://localhost:9000")

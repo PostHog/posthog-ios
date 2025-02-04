@@ -1,5 +1,7 @@
 ## Next
 
+## 3.19.3 - 2025-02-04
+
 - fix: custom hosts with a path ([#290](https://github.com/PostHog/posthog-ios/pull/290))
 - fix: identify macOS when running Mac Catalyst or iOS on Mac ([#287](https://github.com/PostHog/posthog-ios/pull/287))
 

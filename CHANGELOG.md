@@ -1,5 +1,7 @@
 ## Next
 
+- fix: identify macOS when running Mac Catalyst or iOS on Mac ([#287](https://github.com/PostHog/posthog-ios/pull/287))
+
 ## 3.19.2 - 2025-01-30
 
 - fix: XCFramework builds failing ([#288](https://github.com/PostHog/posthog-ios/pull/288))

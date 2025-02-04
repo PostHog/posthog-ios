@@ -12,7 +12,7 @@ import Testing
 import XCTest
 
 @Suite(.serialized)
-enum PostHogSessionManagerTests {
+enum PostHogSessionManagerTest {
     @Suite("Test session id rotation logic")
     struct SessionRotation {
         let mockAppLifecycle: MockApplicationLifecyclePublisher

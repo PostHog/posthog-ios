@@ -45,6 +45,18 @@ func getDecideRequest(_ server: MockPostHogServer) -> [[String: Any]] {
     return requests
 }
 
+extension Bundle {
+    static var test: Bundle {
+        #if SWIFT_PACKAGE
+            return .module
+        #else
+            return .init(for: BundleLocator.self)
+        #endif
+    }
+}
+
+final class BundleLocator {}
+
 final class MockDate {
     var date = Date()
 }

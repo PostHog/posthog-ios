@@ -176,8 +176,8 @@
 
             if !snapshotStatus.sentMetaEvent {
                 let size = window.bounds.size
-                let width = Int(size.width)
-                let height = Int(size.height)
+                let width = size.width.toInt()
+                let height = size.height.toInt()
 
                 var data: [String: Any] = ["width": width, "height": height]
 
@@ -229,10 +229,10 @@
         }
 
         private func setPadding(_ insets: UIEdgeInsets, _ style: RRStyle) {
-            style.paddingTop = Int(insets.top)
-            style.paddingRight = Int(insets.right)
-            style.paddingBottom = Int(insets.bottom)
-            style.paddingLeft = Int(insets.left)
+            style.paddingTop = insets.top.toInt()
+            style.paddingRight = insets.right.toInt()
+            style.paddingBottom = insets.bottom.toInt()
+            style.paddingLeft = insets.left.toInt()
         }
 
         private func createBasicWireframe(_ view: UIView) -> RRWireframe {
@@ -244,10 +244,10 @@
             let frame = view.toAbsoluteRect(view.window)
 
             wireframe.id = view.hash
-            wireframe.posX = Int(frame.origin.x)
-            wireframe.posY = Int(frame.origin.y)
-            wireframe.width = Int(frame.size.width)
-            wireframe.height = Int(frame.size.height)
+            wireframe.posX = frame.origin.x.toInt()
+            wireframe.posY = frame.origin.y.toInt()
+            wireframe.width = frame.size.width.toInt()
+            wireframe.height = frame.size.height.toInt()
 
             return wireframe
         }
@@ -528,8 +528,8 @@
                 wireframe.disabled = !textView.isEditable
                 style.color = textView.textColor?.toRGBString()
                 style.fontFamily = textView.font?.familyName
-                if let fontSize = textView.font?.pointSize {
-                    style.fontSize = Int(fontSize)
+                if let fontSize = textView.font?.pointSize.toInt() {
+                    style.fontSize = fontSize
                 }
                 setAlignment(textView.textAlignment, style)
                 setPadding(textView.textContainerInset, style)
@@ -549,8 +549,8 @@
                 wireframe.disabled = !textField.isEnabled
                 style.color = textField.textColor?.toRGBString()
                 style.fontFamily = textField.font?.familyName
-                if let fontSize = textField.font?.pointSize {
-                    style.fontSize = Int(fontSize)
+                if let fontSize = textField.font?.pointSize.toInt() {
+                    style.fontSize = fontSize
                 }
                 setAlignment(textField.textAlignment, style)
             }
@@ -601,8 +601,8 @@
                 wireframe.disabled = !label.isEnabled
                 style.color = label.textColor?.toRGBString()
                 style.fontFamily = label.font?.familyName
-                if let fontSize = label.font?.pointSize {
-                    style.fontSize = Int(fontSize)
+                if let fontSize = label.font?.pointSize.toInt() {
+                    style.fontSize = fontSize
                 }
                 setAlignment(label.textAlignment, style)
             }
@@ -631,8 +631,8 @@
 
             style.backgroundColor = view.backgroundColor?.toRGBString()
             let layer = view.layer
-            style.borderWidth = Int(layer.borderWidth)
-            style.borderRadius = Int(layer.cornerRadius)
+            style.borderWidth = layer.borderWidth.toInt()
+            style.borderRadius = layer.cornerRadius.toInt()
             style.borderColor = layer.borderColor?.toRGBString()
 
             wireframe.style = style

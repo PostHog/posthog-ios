@@ -1,5 +1,7 @@
 ## Next
 
+- fix: occasional crash when converting to Int in session replay wireframe ([#294](https://github.com/PostHog/posthog-ios/pull/294))
+
 ## 3.19.3 - 2025-02-04
 
 - fix: custom hosts with a path ([#290](https://github.com/PostHog/posthog-ios/pull/290))

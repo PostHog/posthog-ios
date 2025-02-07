@@ -83,8 +83,8 @@
                         continue
                     }
 
-                    let posX = Int(touch.location.x)
-                    let posY = Int(touch.location.y)
+                    let posX = touch.location.x.toInt()
+                    let posY = touch.location.y.toInt()
 
                     // if the id is 0, BE transformer will set it to the virtual bodyId
                     let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]

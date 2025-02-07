@@ -1,4 +1,4 @@
-// swiftlint:disable file_length cyclomatic_complexity
+// swiftlint:disable file_length cyclomatic_complexity type_body_length
 
 //
 //  PostHogSDK.swift
@@ -1303,13 +1303,15 @@ let maxRetryDelay = 30.0
             isEnabled() && config.captureElementInteractions
         }
     #endif
-    
-    static func clearInstanceKeysForTesting() {
-        instancesLock.withLock {
-            PostHogSDK.instances.removeAll()
+
+    #if TESTING
+        /// Internal, only used for testing
+        static func clearInstanceKeysForTesting() {
+            instancesLock.withLock {
+                PostHogSDK.instances.removeAll()
+            }
         }
-        
-    }
+    #endif
 }
 
-// swiftlint:enable file_length cyclomatic_complexity
+// swiftlint:enable file_length cyclomatic_complexity type_body_length

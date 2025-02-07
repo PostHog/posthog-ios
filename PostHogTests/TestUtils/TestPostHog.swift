@@ -55,6 +55,8 @@ extension Bundle {
     }
 }
 
+let testBundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
+
 final class BundleLocator {}
 
 final class MockDate {

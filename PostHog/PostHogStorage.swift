@@ -15,16 +15,54 @@ import Foundation
  */
 func applicationSupportDirectoryURL() -> URL {
     let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+
     #if canImport(XCTest) // only visible to test targets
-        return url.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.posthog.test")
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
     #else
-        return url.appendingPathComponent(Bundle.main.bundleIdentifier!)
+        let bundleIdentifier = Bundle.main.bundleIdentifier!
     #endif
+
+    return url.appendingPathComponent(bundleIdentifier)
+}
+
+/**
+
+ From Apple Docs:
+ In iOS, the value is nil when the group identifier is invalid. In macOS, a URL of the expected form is always
+ returned, even if the app group is invalid, so be sure to test that you can access the underlying directory
+ before attempting to use it.
+
+ MacOS: The system also creates the Library/Application Support, Library/Caches, and Library/Preferences
+ subdirectories inside the group directory the first time you use it
+ iOS: The system creates only the Library/Caches subdirectory automatically
+
+  see: https://developer.apple.com/documentation/foundation/filemanager/1412643-containerurl/
+  */
+func appGroupContainerUrl(config: PostHogConfig) -> URL? {
+    guard let appGroupIdentifier = config.appGroupIdentifier else { return nil }
+
+    #if canImport(XCTest) // only visible to test targets
+        let bundleIdentifier = "com.posthog.test"
+    #else
+        let bundleIdentifier = Bundle.main.bundleIdentifier!
+    #endif
+
+    let url = FileManager.default
+        .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+        .appendingPathComponent("Library/Application Support/")
+        .appendingPathComponent(bundleIdentifier)
+
+    if let url {
+        createDirectoryAtURLIfNeeded(url: url)
+        return directoryExists(url) ? url : nil
+    }
+
+    return nil
 }
 
 class PostHogStorage {
     // when adding or removing items here, make sure to update the reset method
-    enum StorageKey: String {
+    enum StorageKey: String, CaseIterable {
         case distinctId = "posthog.distinctId"
         case anonymousId = "posthog.anonymousId"
         case queue = "posthog.queueFolder" // NOTE: This is different to posthog-ios v2
@@ -122,39 +160,51 @@ class PostHogStorage {
     /**
      There are cases where applications using posthog-ios want to share analytics data between host app and
      an app extension, Widget or App Clip. If there's a defined `appGroupIdentifier` in configuration,
-     we want to use a shared container for storing data so that extensions correcly identify a user (and batch process events)
+     we want to use a shared container for storing data so that extensions correctly identify a user (and batch process events)
      */
+    private static func getBaseAppFolderUrl(from configuration: PostHogConfig) -> URL {
+        appGroupContainerUrl(config: configuration) ?? applicationSupportDirectoryURL()
+    }
+
+    private static func migrateItem(at sourceUrl: URL, to destinationUrl: URL, fileManager: FileManager) throws {
+        guard fileManager.fileExists(atPath: sourceUrl.path) else { return }
+        // Copy file or directory over (if it doesn't exist)
+        if !fileManager.fileExists(atPath: destinationUrl.path) {
+            try fileManager.copyItem(at: sourceUrl, to: destinationUrl)
+        }
+    }
+
     private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
-        /**
+        let apiDir = getBaseAppFolderUrl(from: configuration)
+            .appendingPathComponent(configuration.apiKey)
 
-         From Apple Docs:
-         In iOS, the value is nil when the group identifier is invalid. In macOS, a URL of the expected form is always
-         returned, even if the app group is invalid, so be sure to test that you can access the underlying directory
-         before attempting to use it.
+        createDirectoryAtURLIfNeeded(url: apiDir)
 
-         MacOS: The system also creates the Library/Application Support, Library/Caches, and Library/Preferences
-         subdirectories inside the group directory the first time you use it
-         iOS: The system creates only the Library/Caches subdirectory automatically
+        // Migrate data from legacy location if it exists
+        let legacyUrl = getBaseAppFolderUrl(from: configuration)
+        if directoryExists(legacyUrl) {
+            do {
+                let fileManager = FileManager.default
 
-          see: https://developer.apple.com/documentation/foundation/filemanager/1412643-containerurl/
-          */
-        func appGroupContainerUrl() -> URL? {
-            guard let appGroupIdentifier = configuration.appGroupIdentifier else { return nil }
+                // Migrate old files that correspond to StorageKey values
+                for storageKey in StorageKey.allCases {
+                    let legacyFileUrl = legacyUrl.appendingPathComponent(storageKey.rawValue)
+                    let newFileUrl = apiDir.appendingPathComponent(storageKey.rawValue)
 
-            let url = FileManager.default
-                .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
-                .appendingPathComponent("Library/Application Support/")
-                .appendingPathComponent(Bundle.main.bundleIdentifier!)
+                    // Migrate the item and its contents if it exists
+                    try migrateItem(at: legacyFileUrl, to: newFileUrl, fileManager: fileManager)
 
-            if let url {
-                createDirectoryAtURLIfNeeded(url: url)
-                return directoryExists(url) ? url : nil
+                    // Remove the legacy item after successful migration
+                    if fileManager.fileExists(atPath: legacyFileUrl.path) {
+                        try fileManager.removeItem(at: legacyFileUrl)
+                    }
+                }
+            } catch {
+                hedgeLog("Error during storage migration: \(error)")
             }
-
-            return nil
         }
 
-        return appGroupContainerUrl() ?? applicationSupportDirectoryURL()
+        return apiDir
     }
 
     public func reset() {

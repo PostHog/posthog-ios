@@ -12,11 +12,10 @@ import Testing
 
 @Suite("PostHogSDK instance creation", .serialized)
 class PostHogSDKInstanceTest {
-    
     init() {
         PostHogSDK.clearInstanceKeysForTesting()
     }
-    
+
     @Test("When creating an instance with the same API key, the same instance is returned")
     func whenCreatingAnInstanceWithTheSameAPIKeyTheSameInstanceIsReturned() {
         let apiKey = "tc1_same_key_1"
@@ -67,7 +66,6 @@ class PostHogSDKInstanceTest {
 
         let instance2 = PostHogSDK.with(PostHogConfig(apiKey: apiKey))
         let instance2Identifier = ObjectIdentifier(instance2)
-        
 
         #expect(instance1Identifier != instance2Identifier)
     }
@@ -76,15 +74,18 @@ class PostHogSDKInstanceTest {
     func whenCreatingAnInstanceWithTheSameAPIKeyWillNotCrashTheApp() {
         let apiKey = "tc5_same_key_1"
         let iterationCount = 1_000
+        let strongReferenceInstance = PostHogSDK.with(PostHogConfig(apiKey: apiKey))
         var instances = [PostHogSDK?](repeating: nil, count: iterationCount)
+        let config = PostHogConfig(apiKey: apiKey)
 
         DispatchQueue.concurrentPerform(iterations: iterationCount) { index in
-            instances[index] = PostHogSDK.with(PostHogConfig(apiKey: apiKey))
+            instances[index] = PostHogSDK.with(config)
         }
 
+        #expect(instances.allSatisfy { $0 !== nil })
+
         // All instances should reference the same object
-        let uniqueInstances = Set(instances.compactMap { ObjectIdentifier($0!) })
-        #expect(uniqueInstances.count == 1)
+        #expect(instances.allSatisfy { $0 === strongReferenceInstance })
     }
 
     @Test("Creating an instance with a different key concurrently, won't crash the app")

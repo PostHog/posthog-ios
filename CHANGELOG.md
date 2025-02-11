@@ -1,5 +1,7 @@
 ## Next
 
+- fix: flutter session recordings not working ([#297](https://github.com/PostHog/posthog-ios/pull/297))
+
 ## 3.19.4 - 2025-02-07
 
 - fix: occasional crash when converting to Int in session replay wireframe ([#294](https://github.com/PostHog/posthog-ios/pull/294))

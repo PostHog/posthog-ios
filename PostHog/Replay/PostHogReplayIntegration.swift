@@ -17,6 +17,7 @@
         private let config: PostHogConfig
 
         private var timer: Timer?
+        private var isEnabled: Bool = false
 
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
         private let urlInterceptor: URLSessionInterceptor
@@ -105,10 +106,12 @@
         }
 
         private func isNotFlutter() -> Bool {
+            // for the Flutter SDK, screen recordings are managed by Flutter SDK itself
             postHogSdkName != "posthog-flutter"
         }
 
         func start() {
+            isEnabled = true
             stopTimer()
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
             PostHogSessionManager.shared.onSessionIdChanged = resetViews
@@ -131,6 +134,7 @@
         }
 
         func stop() {
+            isEnabled = false
             stopTimer()
             resetViews()
             PostHogSessionManager.shared.onSessionIdChanged = {}
@@ -142,7 +146,7 @@
         }
 
         func isActive() -> Bool {
-            timer != nil
+            isEnabled
         }
 
         private func stopTimer() {

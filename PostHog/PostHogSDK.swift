@@ -22,7 +22,7 @@ let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 @objc public class PostHogSDK: NSObject {
-    private var config: PostHogConfig
+    private(set) var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
         self.config = config
@@ -75,6 +75,14 @@ let maxRetryDelay = 30.0
         #if !os(watchOS)
             self.reachability?.stopNotifier()
         #endif
+
+        // release any integrations
+        #if os(iOS)
+            replayIntegration?.uninstall(self)
+        #endif
+        #if os(iOS) || targetEnvironment(macCatalyst)
+            autocaptureIntegration?.uninstall(self)
+        #endif
     }
 
     @objc public func debug(_ enabled: Bool = true) {
@@ -117,11 +125,11 @@ let maxRetryDelay = 30.0
             featureFlags = PostHogFeatureFlags(config, theStorage, api)
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             #if os(iOS)
-                replayIntegration = PostHogReplayIntegration(config)
+                replayIntegration = PostHogReplayIntegration(self)
             #endif
 
             #if os(iOS) || targetEnvironment(macCatalyst)
-                autocaptureIntegration = PostHogAutocaptureIntegration(config)
+                autocaptureIntegration = PostHogAutocaptureIntegration(self)
             #endif
 
             #if !os(watchOS)
@@ -986,10 +994,12 @@ let maxRetryDelay = 30.0
             replayQueue?.stop()
             #if os(iOS)
                 replayIntegration?.stop()
+                replayIntegration?.uninstall(self)
                 replayIntegration = nil
             #endif
             #if os(iOS) || targetEnvironment(macCatalyst)
                 autocaptureIntegration?.stop()
+                autocaptureIntegration?.uninstall(self)
                 autocaptureIntegration = nil
             #endif
             queue = nil

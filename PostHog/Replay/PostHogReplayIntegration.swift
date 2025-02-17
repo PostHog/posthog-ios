@@ -92,6 +92,10 @@
             "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
         ].compactMap(NSClassFromString)
 
+        private let swiftUIIgnoreTypes: [AnyClass] = [
+            "SwiftUI._UIInheritedView", // .clipShape or .clipped will add this to view hierarchy
+        ].compactMap(NSClassFromString)
+
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
 
@@ -376,7 +380,7 @@
             }
 
             // manually masked views through `.postHogMask()` view modifier
-            if view.postHogNoCapture {
+            if view.postHogNoCapture, !swiftUIIgnoreTypes.contains(where: view.isKind(of:)) {
                 maskableWidgets.append(view.toAbsoluteRect(window))
                 return
             }

@@ -264,7 +264,7 @@
         }
     }
 
-    private extension UIView {
+    extension UIView {
         var postHogController: PostHogTagViewController? {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phController) as? PostHogTagViewController }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phController, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }

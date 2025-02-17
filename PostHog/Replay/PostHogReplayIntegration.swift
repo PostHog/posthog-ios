@@ -397,6 +397,9 @@
 
             if !view.subviews.isEmpty {
                 for child in view.subviews {
+                    if !isVisibleToUser(child) {
+                        continue
+                    }
                     if !child.isVisible() {
                         continue
                     }
@@ -405,6 +408,36 @@
                 }
             }
             maskChildren = false
+        }
+
+        private func isVisibleToUser(_ targetView: UIView) -> Bool {
+            let window = UIApplication.getCurrentWindow()
+
+            if targetView is UIWindow {
+                return targetView == window
+            }
+
+            let globalFrame = targetView.toAbsoluteRect(window)
+            // If any of these points are visible to the user, we'll mask this view
+            let testPoints: [CGPoint] = [
+                CGPoint(x: globalFrame.midX, y: globalFrame.midY), // center
+                CGPoint(x: globalFrame.minX, y: globalFrame.minY), // top-left
+                CGPoint(x: globalFrame.maxX, y: globalFrame.minY), // top-right
+                CGPoint(x: globalFrame.minX, y: globalFrame.maxY), // bottom-left
+                CGPoint(x: globalFrame.maxX, y: globalFrame.maxY), // bottom-right
+            ]
+
+            let isVisibleAt: (CGPoint) -> Bool = { point in
+                guard let hitView = window?.hitTest(point, with: nil) else {
+                    return true
+                }
+                if hitView.isHidden || hitView.alpha < 1 || hitView.backgroundColor?.alpha() ?? 0 < 1.0 {
+                    return true
+                }
+                return targetView == hitView || targetView.descendants.contains(hitView)
+            }
+
+            return testPoints.reduce(false) { $0 || isVisibleAt($1) }
         }
 
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
@@ -689,6 +722,15 @@
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
+
+    extension UIColor {
+        /// Checks if the color is fully transparent (alpha == 0)
+        func alpha() -> CGFloat {
+            var alpha: CGFloat = 0
+            getRed(nil, green: nil, blue: nil, alpha: &alpha)
+            return alpha
+        }
+    }
 
 #endif
 

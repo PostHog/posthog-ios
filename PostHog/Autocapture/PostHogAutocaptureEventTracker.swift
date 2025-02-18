@@ -450,7 +450,13 @@
 
     extension UISegmentedControl {
         override var ph_autocaptureEvents: UIControl.Event { .valueChanged }
-        override var ph_autocaptureText: String? { titleForSegment(at: selectedSegmentIndex) }
+        override var ph_autocaptureText: String? {
+            // -1 if no segment is selected
+            if (0 ..< numberOfSegments) ~= selectedSegmentIndex {
+                return titleForSegment(at: selectedSegmentIndex)
+            }
+            return nil
+        }
     }
 
     extension UIPageControl {
@@ -471,7 +477,7 @@
         override var ph_autocaptureText: String? { text ?? attributedText?.string ?? placeholder }
         override func ph_shouldTrack(_: Selector, for _: Any?) -> Bool {
             // Just making sure that in the future we don't intercept UIControl.Ecent (even though it's not currently emited)
-            // Trakced via `UITextField.textDidEndEditingNotification`
+            // Tracked via `UITextField.textDidEndEditingNotification`
             false
         }
     }
@@ -502,13 +508,18 @@
     extension UIPickerView {
         override var ph_autocaptureText: String? {
             (0 ..< numberOfComponents).reduce("") { result, component in
+                // -1 if no row is selected
                 let selectedRow = selectedRow(inComponent: component)
-                if let title = delegate?.pickerView?(self, titleForRow: selectedRow, forComponent: component) {
-                    return result.isEmpty ? title : "\(result) \(title)"
+                let rowCount = numberOfRows(inComponent: component)
+
+                if (0 ..< rowCount) ~= selectedRow {
+                    if let title = delegate?.pickerView?(self, titleForRow: selectedRow, forComponent: component) {
+                        return result.isEmpty ? title : "\(result) \(title)"
+                    } else if let title = delegate?.pickerView?(self, attributedTitleForRow: selectedRow, forComponent: component) {
+                        return result.isEmpty ? title.string : "\(result) \(title.string)"
+                    }
                 }
-                if let title = delegate?.pickerView?(self, attributedTitleForRow: selectedRow, forComponent: component) {
-                    return result.isEmpty ? title.string : "\(result) \(title.string)"
-                }
+
                 return result
             }
         }

@@ -14,10 +14,10 @@
 #include <string.h>
 #include <math.h>
 
-#include "./cost_enc.h"
-#include "./vp8i_enc.h"
-#include "./dsp.h"
-#include "./format_constants.h"  // RIFF constants
+#include "./ph_cost_enc.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_dsp.h"
+#include "./ph_format_constants.h"  // RIFF constants
 
 #define SEGMENT_VISU 0
 #define DEBUG_SEARCH 0    // useful to track search convergence

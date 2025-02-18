@@ -7,7 +7,7 @@
 // be found in the AUTHORS file in the root of the source tree.
 // -----------------------------------------------------------------------------
 //
-#include "./sharpyuv_cpu.h"
+#include "./ph_sharpyuv_cpu.h"
 
 // Include src/dsp/cpu.c to create SharpYuvGetCPUInfo from VP8GetCPUInfo. The
 // function pointer is renamed in sharpyuv_cpu.h.

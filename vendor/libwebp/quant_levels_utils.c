@@ -12,8 +12,8 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./utils.h"
-#include "./quant_levels_utils.h"
+#include "./ph_utils.h"
+#include "./ph_quant_levels_utils.h"
 
 #define NUM_SYMBOLS     256
 

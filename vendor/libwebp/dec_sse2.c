@@ -12,7 +12,7 @@
 // Author: somnath@google.com (Somnath Banerjee)
 //         cduvivier@google.com (Christian Duvivier)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE2)
 
@@ -23,8 +23,8 @@
 #endif
 
 #include <emmintrin.h>
-#include "./common_sse2.h"
-#include "./utils.h"
+#include "./ph_common_sse2.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 // Transforms (Paragraph 14.4)

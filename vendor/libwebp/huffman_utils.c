@@ -13,8 +13,8 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "./utils.h"
-#include "./format_constants.h"
+#include "./ph_utils.h"
+#include "./ph_format_constants.h"
 
 // Huffman data read via DecodeImageStream is represented in two (red and green)
 // bytes.

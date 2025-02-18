@@ -11,13 +11,13 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./yuv.h"
+#include "./ph_yuv.h"
 
 #if defined(WEBP_USE_NEON)
 
 #include <stdlib.h>
 
-#include "./neon.h"
+#include "./ph_neon.h"
 
 //-----------------------------------------------------------------------------
 

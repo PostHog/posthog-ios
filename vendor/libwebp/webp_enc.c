@@ -15,10 +15,10 @@
 #include <string.h>
 #include <math.h>
 
-#include "./cost_enc.h"
-#include "./vp8i_enc.h"
-#include "./vp8li_enc.h"
-#include "./utils.h"
+#include "./ph_cost_enc.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_vp8li_enc.h"
+#include "./ph_utils.h"
 
 // #define PRINT_MEMORY_INFO
 

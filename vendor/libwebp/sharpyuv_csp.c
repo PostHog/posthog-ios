@@ -9,9 +9,9 @@
 //
 // Colorspace utilities.
 
-#include "./sharpyuv_csp.h"
+#include "./ph_sharpyuv_csp.h"
 
-#include "./utils.h"
+#include "./ph_utils.h"
 #include <math.h>
 #include <stddef.h>
 

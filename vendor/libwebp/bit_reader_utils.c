@@ -12,11 +12,11 @@
 // Author: Skal (pascal.massimino@gmail.com)
 
 #ifdef HAVE_CONFIG_H
-#include "./config.h"
+#include "./ph_config.h"
 #endif
 
-#include "./cpu.h"
-#include "./utils.h"
+#include "./ph_cpu.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 // VP8BitReader

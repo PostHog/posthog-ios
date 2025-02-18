@@ -14,9 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./vp8i_enc.h"
-#include "./cost_enc.h"
-#include "./utils.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_cost_enc.h"
+#include "./ph_utils.h"
 
 #define MAX_ITERS_K_MEANS  6
 

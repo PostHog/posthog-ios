@@ -11,18 +11,18 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./sharpyuv.h"
+#include "./ph_sharpyuv.h"
 
-#include "./utils.h"
+#include "./ph_utils.h"
 #include <limits.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "./types.h"
-#include "./sharpyuv_cpu.h"
-#include "./sharpyuv_dsp.h"
-#include "./sharpyuv_gamma.h"
+#include "./ph_types.h"
+#include "./ph_sharpyuv_cpu.h"
+#include "./ph_sharpyuv_dsp.h"
+#include "./ph_sharpyuv_gamma.h"
 
 //------------------------------------------------------------------------------
 

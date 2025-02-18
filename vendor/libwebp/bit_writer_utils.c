@@ -15,9 +15,9 @@
 #include <string.h>   // for memcpy()
 #include <stdlib.h>
 
-#include "./bit_writer_utils.h"
-#include "./endian_inl_utils.h"
-#include "./utils.h"
+#include "./ph_bit_writer_utils.h"
+#include "./ph_endian_inl_utils.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 // VP8BitWriter

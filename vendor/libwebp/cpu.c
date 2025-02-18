@@ -11,7 +11,7 @@
 //
 // Author: Christian Duvivier (cduvivier@google.com)
 
-#include "./cpu.h"
+#include "./ph_cpu.h"
 
 #if defined(WEBP_HAVE_NEON_RTCD)
 #include <stdio.h>

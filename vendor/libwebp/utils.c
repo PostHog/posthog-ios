@@ -11,13 +11,13 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./utils.h"
+#include "./ph_utils.h"
 
 #include <stdlib.h>
 #include <string.h>  // for memcpy()
 
-#include "./palette.h"
-#include "./encode.h"
+#include "./ph_palette.h"
+#include "./ph_encode.h"
 
 // If PRINT_MEM_INFO is defined, extra info (like total memory used, number of
 // alloc/free etc) is printed. For debugging/tuning purpose only (it's slow,

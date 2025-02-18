@@ -14,8 +14,8 @@
 #include <limits.h>
 #include <stdlib.h>
 
-#include "./vp8i_enc.h"
-#include "./utils.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 // WebPPicture

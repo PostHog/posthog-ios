@@ -1,5 +1,7 @@
 ## Next
 
+- fix: crash on autocapture when a segmented control has not selection ([#304](https://github.com/PostHog/posthog-ios/pull/304))
+
 ## 3.19.5 - 2025-02-11
 
 - fix: flutter session recordings not working ([#297](https://github.com/PostHog/posthog-ios/pull/297))

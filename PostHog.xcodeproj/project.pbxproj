@@ -131,6 +131,7 @@
 		DA6B7C0B2D118C4E0024419F /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA6B7C0C2D118C4E0024419F /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DA6F24822D4A6CA100CA2777 /* PostHogApiTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */; };
+		DA703C0A2D6606EA0069097B /* PostHogIntegrationInstallationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */; };
 		DA7185482D07E11200396388 /* input_3.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185442D07E11200396388 /* input_3.png */; };
 		DA7185492D07E11200396388 /* input_2.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185432D07E11200396388 /* input_2.png */; };
 		DA71854A2D07E11200396388 /* output_1.webp in Resources */ = {isa = PBXBuildFile; fileRef = DA7185452D07E11200396388 /* output_1.webp */; };
@@ -571,6 +572,7 @@
 		DA5AA7132CE245CD004EFB99 /* UIApplication+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+.swift"; sourceTree = "<group>"; };
 		DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocaptureEventProcessing.swift; sourceTree = "<group>"; };
 		DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApiTest.swift; sourceTree = "<group>"; };
+		DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogIntegrationInstallationTest.swift; sourceTree = "<group>"; };
 		DA7185422D07E11200396388 /* input_1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = input_1.png; sourceTree = "<group>"; };
 		DA7185432D07E11200396388 /* input_2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = input_2.png; sourceTree = "<group>"; };
 		DA7185442D07E11200396388 /* input_3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = input_3.png; sourceTree = "<group>"; };
@@ -931,6 +933,7 @@
 				DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */,
 				3A62646829C9E37A007E8C07 /* TestUtils */,
 				3AE3FB4A2993A68500AFFC18 /* PostHogStorageTest.swift */,
+				DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */,
 				DA0C944A2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift */,
 				3A62647029CAF67B007E8C07 /* PostHogStorageManagerTest.swift */,
 				690FF0BA2AEF8B8200A0B06B /* PostHogContextTest.swift */,
@@ -1884,6 +1887,7 @@
 				690FF0BB2AEF8B8200A0B06B /* PostHogContextTest.swift in Sources */,
 				690FF0E32AEFD12900A0B06B /* PostHogConfigTest.swift in Sources */,
 				DAF79A2A2D1309C00078A3C9 /* TestError.swift in Sources */,
+				DA703C0A2D6606EA0069097B /* PostHogIntegrationInstallationTest.swift in Sources */,
 				3A62647129CAF67B007E8C07 /* PostHogStorageManagerTest.swift in Sources */,
 				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,
 				690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */,
@@ -2769,7 +2773,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
 				SUPPORTS_MACCATALYST = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "TESTING DEBUG";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";

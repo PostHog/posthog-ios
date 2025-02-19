@@ -1304,6 +1304,12 @@ let maxRetryDelay = 30.0
                 autocaptureIntegration
             }
         #endif
+
+        #if os(iOS)
+            func getReplayIntegration() -> PostHogReplayIntegration? {
+                replayIntegration
+            }
+        #endif
     }
 #endif
 

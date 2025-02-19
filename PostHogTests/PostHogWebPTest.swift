@@ -16,7 +16,7 @@
     class PostHogWebPTest: QuickSpec {
         override func spec() {
             it("correctly encodes WebP image with -q 0.80") {
-                let bundle = Bundle.test
+                let bundle = Bundle(for: type(of: self))
                 let originalPath = bundle.path(forResource: "input_1", ofType: "png")
                 let originalData = try! Data(contentsOf: URL(fileURLWithPath: originalPath!))
                 let originalImage = UIImage(data: originalData)!
@@ -34,7 +34,7 @@
             }
 
             it("correctly encodes WebP image with -q 0.30") {
-                let bundle = Bundle.test
+                let bundle = Bundle(for: type(of: self))
                 let originalPath = bundle.path(forResource: "input_2", ofType: "png")
                 let originalData = try! Data(contentsOf: URL(fileURLWithPath: originalPath!))
                 let originalImage = UIImage(data: originalData)!
@@ -49,7 +49,7 @@
             }
 
             it("correctly encodes WebP image with alpha") {
-                let bundle = Bundle.test
+                let bundle = Bundle(for: type(of: self))
                 let originalPath = bundle.path(forResource: "input_3", ofType: "png")
                 let originalData = try! Data(contentsOf: URL(fileURLWithPath: originalPath!))
                 let originalImage = UIImage(data: originalData)!

@@ -1,4 +1,4 @@
-// swiftlint:disable file_length cyclomatic_complexity type_body_length
+// swiftlint:disable file_length cyclomatic_complexity
 
 //
 //  PostHogSDK.swift
@@ -44,8 +44,7 @@ let maxRetryDelay = 30.0
     private var flagCallReported = Set<String>()
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
-    private static let instancesLock = NSLock()
-    private static var instances: [String: Weak<PostHogSDK>] = [:]
+    private static var apiKeys = Set<String>()
     private var capturedAppInstalled = false
     private var didRegisterNotifications = false
     private var appFromBackground = false
@@ -94,27 +93,17 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func setup(_ config: PostHogConfig) {
-        PostHogSDK.instancesLock.withLock {
-            if let instance = PostHogSDK.instances[config.apiKey]?.value {
-                if instance !== self {
-                    PostHogSDK.instances[config.apiKey] = Weak(self)
-                }
-            } else {
-                PostHogSDK.instances[config.apiKey] = Weak(self)
-            }
-
-            // cleanup
-            let emptyKeys = PostHogSDK.instances.filter { $0.value.value == nil }.map(\.key)
-            for emptyKey in emptyKeys {
-                PostHogSDK.instances.removeValue(forKey: emptyKey)
-            }
-        }
-
         setupLock.withLock {
             toggleHedgeLog(config.debug)
             if enabled {
                 hedgeLog("Setup called despite already being setup!")
                 return
+            }
+
+            if PostHogSDK.apiKeys.contains(config.apiKey) {
+                hedgeLog("API Key: \(config.apiKey) already has a PostHog instance.")
+            } else {
+                PostHogSDK.apiKeys.insert(config.apiKey)
             }
 
             enabled = true
@@ -983,6 +972,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
+            PostHogSDK.apiKeys.remove(config.apiKey)
 
             if config.captureScreenViews {
                 #if os(iOS) || os(tvOS)
@@ -1096,17 +1086,9 @@ let maxRetryDelay = 30.0
     #endif
 
     @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
-        let theInstance: PostHogSDK = {
-            if let instance = instancesLock.withLock({ PostHogSDK.instances[config.apiKey]?.value }) {
-                hedgeLog("API Key: Using existing instance for \(config.apiKey)")
-                return instance
-            } else {
-                return PostHogSDK(config)
-            }
-        }()
-
-        theInstance.setup(config)
-        return theInstance
+        let postHog = PostHogSDK(config)
+        postHog.setup(config)
+        return postHog
     }
 
     private func unregisterNotifications() {
@@ -1313,15 +1295,6 @@ let maxRetryDelay = 30.0
             isEnabled() && config.captureElementInteractions
         }
     #endif
-
-    #if TESTING
-        /// Internal, only used for testing
-        static func clearInstanceKeysForTesting() {
-            instancesLock.withLock {
-                PostHogSDK.instances.removeAll()
-            }
-        }
-    #endif
 }
 
-// swiftlint:enable file_length cyclomatic_complexity type_body_length
+// swiftlint:enable file_length cyclomatic_complexity

@@ -18,27 +18,27 @@
         private var debounceTimers: [Int: Timer] = [:]
 
         init?(_ posthog: PostHogSDK) {
-            Self.integrationInstalledLock.lock()
-            defer { Self.integrationInstalledLock.unlock() }
-
-            if Self.integrationInstalled {
-                hedgeLog("Autocapture integration already installed to another PostHogSDK instance.")
-                return nil
+            let wasInstalled = Self.integrationInstalledLock.withLock {
+                if Self.integrationInstalled {
+                    hedgeLog("Autocapture integration already installed to another PostHogSDK instance.")
+                    return true
+                }
+                Self.integrationInstalled = true
+                return false
             }
-
-            Self.integrationInstalled = true
-
+            
+            guard !wasInstalled else { return nil }
+            
             postHogInstance = posthog
         }
 
         func uninstall(_ posthog: PostHogSDK) {
-            Self.integrationInstalledLock.lock()
-            defer { Self.integrationInstalledLock.unlock() }
-
             // uninstall only for integration instance
             if postHogInstance === posthog {
                 postHogInstance = nil
-                Self.integrationInstalled = false
+                Self.integrationInstalledLock.withLock {
+                    Self.integrationInstalled = false                    
+                }
             }
         }
 

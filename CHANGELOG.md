@@ -1,5 +1,19 @@
 ## Next
 
+- fix: recordings not always properly masked during screen transitions ([#306](https://github.com/PostHog/posthog-ios/pull/306))
+
+## 3.19.6 - 2025-02-18
+
+- fix: crash on autocapture when a segmented control has not selection ([#304](https://github.com/PostHog/posthog-ios/pull/304))
+
+## 3.19.5 - 2025-02-11
+
+- fix: flutter session recordings not working ([#297](https://github.com/PostHog/posthog-ios/pull/297))
+
+## 3.19.4 - 2025-02-07
+
+- fix: occasional crash when converting to Int in session replay wireframe ([#294](https://github.com/PostHog/posthog-ios/pull/294))
+
 ## 3.19.3 - 2025-02-04
 
 - fix: custom hosts with a path ([#290](https://github.com/PostHog/posthog-ios/pull/290))

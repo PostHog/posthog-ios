@@ -11,16 +11,16 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "encode.h"
+#include "./ph_encode.h"
 
 #if !(defined(WEBP_DISABLE_STATS) || defined(WEBP_REDUCE_SIZE))
 
 #include <math.h>
 #include <stdlib.h>
 
-#include "./dsp.h"
-#include "./vp8i_enc.h"
-#include "./utils.h"
+#include "./ph_dsp.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_utils.h"
 
 typedef double (*AccumulateFunc)(const uint8_t* src, int src_stride,
                                  const uint8_t* ref, int ref_stride,

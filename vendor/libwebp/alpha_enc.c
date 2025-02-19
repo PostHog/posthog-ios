@@ -14,13 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./vp8i_enc.h"
-#include "./dsp.h"
-#include "./filters_utils.h"
-#include "./quant_levels_utils.h"
-#include "./utils.h"
-#include "./encode.h"
-#include "./format_constants.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_dsp.h"
+#include "./ph_filters_utils.h"
+#include "./ph_quant_levels_utils.h"
+#include "./ph_utils.h"
+#include "./ph_encode.h"
+#include "./ph_format_constants.h"
 
 // -----------------------------------------------------------------------------
 // Encodes the given alpha data via specified compression method 'method'.
@@ -45,7 +45,7 @@
 //           invalid quality or method, or
 //           memory allocation for the compressed data fails.
 
-#include "./vp8li_enc.h"
+#include "./ph_vp8li_enc.h"
 
 static int EncodeLossless(const uint8_t* const data, int width, int height,
                           int effort_level,  // in [0..6] range

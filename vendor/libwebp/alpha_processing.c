@@ -11,8 +11,8 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./utils.h"
-#include "./dsp.h"
+#include "./ph_utils.h"
+#include "./ph_dsp.h"
 
 // Tables can be faster on some platform but incur some extra binary size (~2k).
 #if !defined(USE_TABLES_FOR_ALPHA_MULT)

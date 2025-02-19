@@ -11,13 +11,13 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE2)
 #include <emmintrin.h>
-#include "./lossless.h"
-#include "./common_sse2.h"
-#include "./lossless_common.h"
+#include "./ph_lossless.h"
+#include "./ph_common_sse2.h"
+#include "./ph_lossless_common.h"
 
 // For sign-extended multiplying constants, pre-shifted by 5:
 #define CST_5b(X)  (((int16_t)((uint16_t)(X) << 8)) >> 5)

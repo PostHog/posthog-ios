@@ -11,9 +11,9 @@
 //
 // Author: somnath@google.com (Somnath Banerjee)
 
-#include "./dsp.h"
-#include "./yuv.h"
-#include "./utils.h"
+#include "./ph_dsp.h"
+#include "./ph_yuv.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 // Fancy upsampler

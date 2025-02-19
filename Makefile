@@ -14,8 +14,12 @@ buildSdk:
 buildExamples: \
 	buildExamplesPlatforms \
 	buildExampleXCFramework \
-	buildExamplePodsDynamic \
-	buildExamplePodsStatic \
+	buildExamplePods \
+
+buildExamplePods: \
+	buildExamplePodsStaticLib \
+	buildExamplePodsStaticFramework \
+	buildExamplePodsDynamicFramework \
 
 buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
@@ -27,28 +31,29 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
 
-buildExamplePodsDynamic:
-	cd PostHogExampleWithPods && pod install && cd .. && \
+buildExamplePodsDynamicFramework:
+	cd PostHogExampleWithPods && \
+	USE_FRAMEWORKS=dynamic pod install && cd .. && \
 	set -o pipefail && xcrun xcodebuild clean build \
 		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
 		-scheme PostHogExampleWithPods \
 		-destination generic/platform=ios | xcpretty
 
-buildExamplePodsStatic:
+buildExamplePodsStaticFramework:
 	cd PostHogExampleWithPods && \
-	cp Podfile{,.backup} && \
-	cp Podfile.static Podfile && \
-	cp PostHogExampleWithPods.xcodeproj/project.pbxproj{,.backup} && \
-	pod install && \
-	cd .. && \
+	USE_FRAMEWORKS=static pod install && cd .. && \
 	set -o pipefail && xcrun xcodebuild clean build \
 		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
 		-scheme PostHogExampleWithPods \
-		-destination generic/platform=ios | xcpretty && \
+		-destination generic/platform=ios | xcpretty
+
+buildExamplePodsStaticLib: 
 	cd PostHogExampleWithPods && \
-	mv Podfile{.backup,} && \
-	pod install && \
-	mv PostHogExampleWithPods.xcodeproj/project.pbxproj{.backup,}
+	pod install && cd .. && \
+	set -o pipefail && xcrun xcodebuild clean build \
+		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+		-scheme PostHogExampleWithPods \
+		-destination generic/platform=ios | xcpretty
 
 buildExampleXCFramework:
 	./PostHogExampleExternalSDK/build_xcframework.sh

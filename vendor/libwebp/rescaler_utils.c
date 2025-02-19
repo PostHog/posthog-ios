@@ -14,9 +14,9 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include "./dsp.h"
-#include "./rescaler_utils.h"
-#include "./utils.h"
+#include "./ph_dsp.h"
+#include "./ph_rescaler_utils.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 

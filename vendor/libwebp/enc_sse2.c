@@ -11,15 +11,15 @@
 //
 // Author: Christian Duvivier (cduvivier@google.com)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE2)
 #include <stdlib.h>  // for abs()
 #include <emmintrin.h>
 
-#include "./common_sse2.h"
-#include "./cost_enc.h"
-#include "./vp8i_enc.h"
+#include "./ph_common_sse2.h"
+#include "./ph_cost_enc.h"
+#include "./ph_vp8i_enc.h"
 
 //------------------------------------------------------------------------------
 // Transforms (Paragraph 14.4)

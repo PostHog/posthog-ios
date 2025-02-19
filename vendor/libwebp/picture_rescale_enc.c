@@ -11,15 +11,15 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./encode.h"
+#include "./ph_encode.h"
 
 #include <stdlib.h>
 
-#include "./vp8i_enc.h"
+#include "./ph_vp8i_enc.h"
 
 #if !defined(WEBP_REDUCE_SIZE)
-#include "./rescaler_utils.h"
-#include "./utils.h"
+#include "./ph_rescaler_utils.h"
+#include "./ph_utils.h"
 #endif  // !defined(WEBP_REDUCE_SIZE)
 
 #define HALVE(x) (((x) + 1) >> 1)

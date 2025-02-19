@@ -1,7 +1,13 @@
 platform :ios, '16.0'
 
-use_frameworks!
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod as #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+else 
+  Pod::UI.puts "Configuring Pod as static library".green
+end
 
 target 'PostHogExampleWithPods' do
-  pod 'PostHog', :path => '../'
+  pod 'PostHog', :git => '../'
 end

@@ -11,8 +11,8 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./yuv.h"
-#include "./utils.h"
+#include "./ph_yuv.h"
+#include "./ph_utils.h"
 #include <stdlib.h>
 
 //-----------------------------------------------------------------------------

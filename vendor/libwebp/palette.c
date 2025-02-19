@@ -11,15 +11,15 @@
 //
 // Author: Vincent Rabaud (vrabaud@google.com)
 
-#include "./palette.h"
+#include "./ph_palette.h"
 
 #include <stdlib.h>
 
-#include "./lossless_common.h"
-#include "./color_cache_utils.h"
-#include "./utils.h"
-#include "./encode.h"
-#include "./format_constants.h"
+#include "./ph_lossless_common.h"
+#include "./ph_color_cache_utils.h"
+#include "./ph_utils.h"
+#include "./ph_encode.h"
+#include "./ph_format_constants.h"
 
 // -----------------------------------------------------------------------------
 

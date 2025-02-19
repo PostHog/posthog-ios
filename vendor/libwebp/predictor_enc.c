@@ -17,14 +17,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./lossless.h"
-#include "./lossless_common.h"
-#include "./vp8i_enc.h"
-#include "./vp8li_enc.h"
-#include "./utils.h"
-#include "./encode.h"
-#include "./format_constants.h"
-#include "./types.h"
+#include "./ph_lossless.h"
+#include "./ph_lossless_common.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_vp8li_enc.h"
+#include "./ph_utils.h"
+#include "./ph_encode.h"
+#include "./ph_format_constants.h"
+#include "./ph_types.h"
 
 #define HISTO_SIZE (4 * 256)
 static const int64_t kSpatialPredictorBias = 15ll << LOG_2_PRECISION_BITS;

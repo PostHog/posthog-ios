@@ -12,8 +12,8 @@
 // Authors: Urvang (urvang@google.com)
 //          Vikas (vikasa@google.com)
 
-#include "./muxi.h"
-#include "./utils.h"
+#include "./ph_muxi.h"
+#include "./ph_utils.h"
 
 #define UNDEFINED_CHUNK_SIZE ((uint32_t)(-1))
 

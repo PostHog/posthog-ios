@@ -12,17 +12,17 @@ import Testing
 class PostHogIntegrationInstallationTest {
     var firstInstance: PostHogSDK!
     var secondInstance: PostHogSDK!
-    
+
     init() {
         firstInstance = PostHogSDK.with(PostHogConfig(apiKey: "123"))
         secondInstance = PostHogSDK.with(PostHogConfig(apiKey: "1234"))
     }
-    
+
     deinit {
         firstInstance.close()
         secondInstance.close()
     }
-    
+
     #if os(iOS)
         @Test("replay integration installed only once, on first instance")
         func replayIntegrationInstalledOnce() {

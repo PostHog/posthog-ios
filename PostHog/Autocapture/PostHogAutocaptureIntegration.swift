@@ -26,9 +26,9 @@
                 Self.integrationInstalled = true
                 return false
             }
-            
+
             guard !wasInstalled else { return nil }
-            
+
             postHogInstance = posthog
         }
 
@@ -37,7 +37,7 @@
             if postHogInstance === posthog {
                 postHogInstance = nil
                 Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false                    
+                    Self.integrationInstalled = false
                 }
             }
         }

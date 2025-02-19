@@ -15,12 +15,7 @@ import Foundation
  */
 func applicationSupportDirectoryURL() -> URL {
     let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-
-    #if canImport(XCTest) // only visible to test targets
-        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
-    #else
-        let bundleIdentifier = Bundle.main.bundleIdentifier!
-    #endif
+    let bundleIdentifier = getBundleIdentifier()
 
     return url.appendingPathComponent(bundleIdentifier)
 }
@@ -41,11 +36,7 @@ func applicationSupportDirectoryURL() -> URL {
 func appGroupContainerUrl(config: PostHogConfig) -> URL? {
     guard let appGroupIdentifier = config.appGroupIdentifier else { return nil }
 
-    #if canImport(XCTest) // only visible to test targets
-        let bundleIdentifier = "com.posthog.test"
-    #else
-        let bundleIdentifier = Bundle.main.bundleIdentifier!
-    #endif
+    let bundleIdentifier = getBundleIdentifier()
 
     let url = FileManager.default
         .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
@@ -58,6 +49,14 @@ func appGroupContainerUrl(config: PostHogConfig) -> URL? {
     }
 
     return nil
+}
+
+func getBundleIdentifier() -> String {
+    #if TESTING // only visible to test targets
+        return Bundle.main.bundleIdentifier ?? "com.posthog.test"
+    #else
+        return Bundle.main.bundleIdentifier!
+    #endif
 }
 
 class PostHogStorage {

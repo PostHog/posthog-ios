@@ -84,7 +84,8 @@ class PostHogStorage {
     init(_ config: PostHogConfig) {
         appFolderUrl = Self.getAppFolderUrl(from: config)
 
-        createDirectoryAtURLIfNeeded(url: appFolderUrl)
+        // migrate legacy storage if needed
+        Self.migrateLegacyStorage(from: config, to: appFolderUrl)
     }
 
     public func url(forKey key: StorageKey) -> URL {
@@ -174,23 +175,17 @@ class PostHogStorage {
         }
     }
 
-    private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
-        let apiDir = getBaseAppFolderUrl(from: configuration)
-            .appendingPathComponent(configuration.apiKey)
-
-        createDirectoryAtURLIfNeeded(url: apiDir)
-
-        // Migrate data from legacy location if it exists
+    private static func migrateLegacyStorage(from configuration: PostHogConfig, to apiDir: URL) {
         let legacyUrl = getBaseAppFolderUrl(from: configuration)
         if directoryExists(legacyUrl) {
-            do {
-                let fileManager = FileManager.default
+            let fileManager = FileManager.default
 
-                // Migrate old files that correspond to StorageKey values
-                for storageKey in StorageKey.allCases {
-                    let legacyFileUrl = legacyUrl.appendingPathComponent(storageKey.rawValue)
-                    let newFileUrl = apiDir.appendingPathComponent(storageKey.rawValue)
+            // Migrate old files that correspond to StorageKey values
+            for storageKey in StorageKey.allCases {
+                let legacyFileUrl = legacyUrl.appendingPathComponent(storageKey.rawValue)
+                let newFileUrl = apiDir.appendingPathComponent(storageKey.rawValue)
 
+                do {
                     // Migrate the item and its contents if it exists
                     try migrateItem(at: legacyFileUrl, to: newFileUrl, fileManager: fileManager)
 
@@ -198,11 +193,18 @@ class PostHogStorage {
                     if fileManager.fileExists(atPath: legacyFileUrl.path) {
                         try fileManager.removeItem(at: legacyFileUrl)
                     }
+                } catch {
+                    hedgeLog("Error during storage migration for file \(storageKey.rawValue) at path \(legacyFileUrl.path): \(error)")
                 }
-            } catch {
-                hedgeLog("Error during storage migration: \(error)")
             }
         }
+    }
+
+    private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
+        let apiDir = getBaseAppFolderUrl(from: configuration)
+            .appendingPathComponent(configuration.apiKey)
+
+        createDirectoryAtURLIfNeeded(url: apiDir)
 
         return apiDir
     }

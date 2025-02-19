@@ -1297,4 +1297,14 @@ let maxRetryDelay = 30.0
     #endif
 }
 
+#if TESTING
+    extension PostHogSDK {
+        #if os(iOS) || targetEnvironment(macCatalyst)
+            func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
+                autocaptureIntegration
+            }
+        #endif
+    }
+#endif
+
 // swiftlint:enable file_length cyclomatic_complexity

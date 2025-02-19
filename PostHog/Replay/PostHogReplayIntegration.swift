@@ -408,7 +408,7 @@
         }
 
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
-            // this will bail on interactive animations (e.g edge slide)
+            // this will bail on view controller animations (interactive or not)
             if !window.isVisible() || isAnimatingTransition(window) {
                 return nil
             }
@@ -432,9 +432,29 @@
             return wireframe
         }
 
-        /// Check if window's root view controller is animating a transition
+        /// Check if any view controller in the hierarchy is animating a transition
         private func isAnimatingTransition(_ window: UIWindow) -> Bool {
-            window.rootViewController?.transitionCoordinator?.isAnimated ?? false
+            guard let rootViewController = window.rootViewController else { return false }
+            return isAnimatingTransition(rootViewController)
+        }
+
+        private func isAnimatingTransition(_ viewController: UIViewController) -> Bool {
+            // Check if this view controller is animating
+            if viewController.transitionCoordinator?.isAnimated ?? false {
+                return true
+            }
+
+            // Check if presented view controller is animating
+            if let presented = viewController.presentedViewController, isAnimatingTransition(presented) {
+                return true
+            }
+
+            // Check if any of the child view controllers is animating
+            if viewController.children.first(where: isAnimatingTransition) != nil {
+                return true
+            }
+
+            return false
         }
 
         private func isAssetsImage(_ image: UIImage) -> Bool {

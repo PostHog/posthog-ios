@@ -1,5 +1,7 @@
 ## Next
 
+- fix: recordings not always properly masked during screen transitions ([#306](https://github.com/PostHog/posthog-ios/pull/306))
+
 ## 3.19.6 - 2025-02-18
 
 - fix: crash on autocapture when a segmented control has not selection ([#304](https://github.com/PostHog/posthog-ios/pull/304))

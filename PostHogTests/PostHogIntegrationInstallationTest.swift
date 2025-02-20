@@ -38,4 +38,10 @@ class PostHogIntegrationInstallationTest {
             #expect(firstInstance.getAutocaptureIntegration() != nil)
         }
     #endif
+    
+    @Test("app life cycle integration installed only once, on first instance")
+    func appLifeCycleIntegrationInstalledOnce() async {
+        #expect(secondInstance.getAppLifeCycleIntegration() == nil)
+        #expect(firstInstance.getAppLifeCycleIntegration() != nil)
+    }
 }

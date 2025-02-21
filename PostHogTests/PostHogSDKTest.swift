@@ -50,7 +50,7 @@ class PostHogSDKTest: QuickSpec {
             deleteDefaults()
             server = MockPostHogServer()
             server.start()
-            
+
             DI.main.appLifecyclePublisher = mockAppLifecycle
         }
         afterEach {
@@ -58,7 +58,7 @@ class PostHogSDKTest: QuickSpec {
             server.stop()
             server = nil
             PostHogSessionManager.shared.endSession {}
-            
+
             DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
         }
 
@@ -596,7 +596,7 @@ class PostHogSDKTest: QuickSpec {
 
         it("sets sessionId on app start") {
             let sut = self.getSut(captureApplicationLifecycleEvents: true)
-            
+
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             let events = getBatchedEvents(server)

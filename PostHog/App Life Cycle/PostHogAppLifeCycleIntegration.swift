@@ -80,11 +80,11 @@ final class PostHogAppLifeCycleIntegration {
 
     private func captureAppInstallOrUpdated() {
         guard let postHog else { return }
-        
+
         if !postHog.config.captureApplicationLifecycleEvents {
             return
         }
-        
+
         let bundle = Bundle.main
 
         let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String

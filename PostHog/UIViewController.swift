@@ -13,27 +13,6 @@
     import UIKit
 
     extension UIViewController {
-        static func swizzleScreenView() {
-            swizzle(forClass: UIViewController.self,
-                    original: #selector(UIViewController.viewDidAppear(_:)),
-                    new: #selector(UIViewController.viewDidAppearOverride))
-        }
-
-        static func unswizzleScreenView() {
-            swizzle(forClass: UIViewController.self,
-                    original: #selector(UIViewController.viewDidAppearOverride),
-                    new: #selector(UIViewController.viewDidAppear(_:)))
-        }
-
-        private func activeController() -> UIViewController? {
-            // if a view is being dismissed, this will return nil
-            if let root = viewIfLoaded?.window?.rootViewController {
-                return root
-            }
-            // TODO: handle container controllers (see ph_topViewController)
-            return UIApplication.getCurrentWindow()?.rootViewController
-        }
-
         static func getViewControllerName(_ viewController: UIViewController) -> String? {
             var title: String? = String(describing: viewController.classForCoder).replacingOccurrences(of: "ViewController", with: "")
 
@@ -42,46 +21,6 @@
             }
 
             return title
-        }
-
-        private func captureScreenView(_ window: UIWindow?) {
-            var rootController = window?.rootViewController
-            if rootController == nil {
-                rootController = activeController()
-            }
-            guard let top = findVisibleViewController(activeController()) else { return }
-
-            let name = UIViewController.getViewControllerName(top)
-
-            if let name {
-                PostHogSDK.shared.screen(name)
-            }
-        }
-
-        @objc func viewDidAppearOverride(animated: Bool) {
-            // ignore views from keyboard window
-            if let window = viewIfLoaded?.window, !window.isKeyboardWindow {
-                captureScreenView(window)
-            }
-
-            // it looks like we're calling ourselves, but we're actually
-            // calling the original implementation of viewDidAppear since it's been swizzled.
-            viewDidAppearOverride(animated: animated)
-        }
-
-        private func findVisibleViewController(_ controller: UIViewController?) -> UIViewController? {
-            if let navigationController = controller as? UINavigationController {
-                return findVisibleViewController(navigationController.visibleViewController)
-            }
-            if let tabController = controller as? UITabBarController {
-                if let selected = tabController.selectedViewController {
-                    return findVisibleViewController(selected)
-                }
-            }
-            if let presented = controller?.presentedViewController {
-                return findVisibleViewController(presented)
-            }
-            return controller
         }
     }
 #endif

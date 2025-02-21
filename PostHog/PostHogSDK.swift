@@ -46,6 +46,7 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var appLifeCycleIntegration: PostHogAppLifeCycleIntegration?
+    private var screenViewIntegration: PostHogScreenViewIntegration?
     #if os(iOS)
         private var replayIntegration: PostHogReplayIntegration?
     #endif
@@ -81,6 +82,7 @@ let maxRetryDelay = 30.0
             autocaptureIntegration?.uninstall(self)
         #endif
         appLifeCycleIntegration?.uninstall(self)
+        screenViewIntegration?.uninstall(self)
     }
 
     @objc public func debug(_ enabled: Bool = true) {
@@ -119,8 +121,9 @@ let maxRetryDelay = 30.0
             #if os(iOS) || targetEnvironment(macCatalyst)
                 autocaptureIntegration = PostHogAutocaptureIntegration(self)
             #endif
-            
+
             appLifeCycleIntegration = PostHogAppLifeCycleIntegration(self)
+            screenViewIntegration = PostHogScreenViewIntegration(self)
 
             #if !os(watchOS)
                 do {
@@ -152,7 +155,7 @@ let maxRetryDelay = 30.0
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
-            captureScreenViews()
+//            captureScreenViews()
 
             PostHogSessionManager.shared.startSession()
 
@@ -167,9 +170,13 @@ let maxRetryDelay = 30.0
                     autocaptureIntegration?.start()
                 }
             #endif
-            
+
             if config.captureApplicationLifecycleEvents {
                 appLifeCycleIntegration?.start()
+            }
+
+            if config.captureScreenViews {
+                screenViewIntegration?.start()
             }
 
             DispatchQueue.main.async {
@@ -978,14 +985,9 @@ let maxRetryDelay = 30.0
             enabled = false
             PostHogSDK.apiKeys.remove(config.apiKey)
 
-            if config.captureScreenViews {
-                #if os(iOS) || os(tvOS)
-                    UIViewController.unswizzleScreenView()
-                #endif
-            }
-
             queue?.stop()
             replayQueue?.stop()
+
             #if os(iOS)
                 replayIntegration?.stop()
                 replayIntegration?.uninstall(self)
@@ -999,6 +1001,10 @@ let maxRetryDelay = 30.0
             appLifeCycleIntegration?.stop()
             appLifeCycleIntegration?.uninstall(self)
             appLifeCycleIntegration = nil
+            screenViewIntegration?.stop()
+            screenViewIntegration?.uninstall(self)
+            screenViewIntegration = nil
+
             queue = nil
             replayQueue = nil
             config.storageManager?.reset()
@@ -1096,13 +1102,13 @@ let maxRetryDelay = 30.0
         return postHog
     }
 
-    private func captureScreenViews() {
-        if config.captureScreenViews {
-            #if os(iOS) || os(tvOS)
-                UIViewController.swizzleScreenView()
-            #endif
-        }
-    }
+//    private func captureScreenViews() {
+//        if config.captureScreenViews {
+//            #if os(iOS) || os(tvOS)
+//                UIViewController.swizzleScreenView()
+//            #endif
+//        }
+//    }
 
     #if os(iOS)
         @objc public func isSessionReplayActive() -> Bool {
@@ -1140,7 +1146,7 @@ let maxRetryDelay = 30.0
                 replayIntegration
             }
         #endif
-        
+
         func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
             appLifeCycleIntegration
         }

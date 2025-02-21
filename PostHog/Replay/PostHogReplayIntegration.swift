@@ -115,7 +115,7 @@
             guard !wasInstalled else { return nil }
 
             postHogInstance = posthog
-            let interceptor = URLSessionInterceptor(posthog.config)
+            let interceptor = URLSessionInterceptor(posthog)
             urlInterceptor = interceptor
             do {
                 try sessionSwizzler = URLSessionSwizzler(interceptor: interceptor)

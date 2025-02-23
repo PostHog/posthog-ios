@@ -41,6 +41,7 @@ class MockPostHogServer {
     public var returnReplayWithMultiVariant = false
     public var replayVariantName = "myBooleanRecordingFlag"
     public var replayVariantValue: Any = true
+    public var quotaLimitFeatureFlags: Bool = false
 
     init() {
         stub(condition: pathEndsWith("/decide")) { _ in
@@ -52,6 +53,10 @@ class MockPostHogServer {
                 "recording-platform-check": "web",
                 self.replayVariantName: self.replayVariantValue,
             ]
+
+            if self.quotaLimitFeatureFlags {
+                flags["quotaLimited"] = ["feature_flags"]
+            }
 
             if self.errorsWhileComputingFlags {
                 flags["new-flag"] = true

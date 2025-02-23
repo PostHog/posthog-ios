@@ -96,14 +96,15 @@ class PostHogFeatureFlags {
             self.dispatchQueue.async {
                 // Check for quota limitation first
                 if let quotaLimited = data?["quotaLimited"] as? [String],
-                   quotaLimited.contains("feature_flags") {
+                   quotaLimited.contains("feature_flags")
+                {
                     hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads")
                     self.featureFlagsLock.withLock {
                         // Clear both feature flags and payloads
                         self.setCachedFeatureFlags([:])
                         self.setCachedFeatureFlagPayload([:])
                     }
-                    
+
                     self.notifyAndRelease()
                     return callback()
                 }

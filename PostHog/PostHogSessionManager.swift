@@ -198,7 +198,7 @@ import Foundation
 
     private var didBecomeActiveToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
-    
+
     private func registerNotifications() {
         let lifecyclePublisher = DI.main.appLifecyclePublisher
         didBecomeActiveToken = lifecyclePublisher.onDidBecomeActive { [weak self] in
@@ -216,7 +216,7 @@ import Foundation
     }
 
     private var applicationEventToken: RegistrationToken?
-    
+
     private func registerApplicationSendEvent() {
         #if os(iOS) || os(tvOS)
             let applicationEventPublisher = DI.main.applicationEventPublisher

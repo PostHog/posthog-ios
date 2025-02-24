@@ -14,6 +14,15 @@ class PostHogIntegrationInstallationTest {
     var secondInstance: PostHogSDK!
 
     init() {
+        #if os(iOS)
+            PostHogReplayIntegration.clearInstalls()
+        #endif
+        #if os(iOS) || targetEnvironment(macCatalyst)
+            PostHogAutocaptureIntegration.clearInstalls()
+        #endif
+        PostHogAppLifeCycleIntegration.clearInstalls()
+        PostHogScreenViewIntegration.clearInstalls()
+
         firstInstance = PostHogSDK.with(PostHogConfig(apiKey: "123"))
         secondInstance = PostHogSDK.with(PostHogConfig(apiKey: "1234"))
     }

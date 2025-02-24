@@ -26,6 +26,8 @@ final class PostHogAppLifeCycleIntegration {
 
     private var didBecomeActiveToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
+    private var didFinishLaunchingToken: RegistrationToken?
+    private var didCaptureAppInstalled = false
 
     init?(_ posthog: PostHogSDK) {
         let wasInstalled = PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
@@ -62,6 +64,9 @@ final class PostHogAppLifeCycleIntegration {
      */
     func start() {
         let publisher = DI.main.appLifecyclePublisher
+        didFinishLaunchingToken = publisher.onDidFinishLaunching { [weak self] in
+            self?.captureAppInstallOrUpdated()
+        }
         didBecomeActiveToken = publisher.onDidBecomeActive { [weak self] in
             self?.captureAppOpened()
         }
@@ -74,12 +79,15 @@ final class PostHogAppLifeCycleIntegration {
      Stop capturing app lifecycle events
      */
     func stop() {
+        didFinishLaunchingToken = nil
         didBecomeActiveToken = nil
         didEnterBackgroundToken = nil
     }
 
     private func captureAppInstallOrUpdated() {
-        guard let postHog else { return }
+        guard let postHog, !didCaptureAppInstalled else { return }
+
+        didCaptureAppInstalled = true
 
         if !postHog.config.captureApplicationLifecycleEvents {
             return
@@ -174,3 +182,13 @@ final class PostHogAppLifeCycleIntegration {
         postHog.capture("Application Backgrounded")
     }
 }
+
+#if TESTING
+    extension PostHogAppLifeCycleIntegration {
+        static func clearInstalls() {
+            integrationInstalledLock.withLock {
+                integrationInstalled = false
+            }
+        }
+    }
+#endif

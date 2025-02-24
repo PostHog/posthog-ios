@@ -15,6 +15,8 @@ final class ScreenViewIntegrationTest {
     let mockScreenView = MockScreenViewPublisher()
 
     init() {
+        PostHogScreenViewIntegration.clearInstalls()
+
         server = MockPostHogServer()
         server.start()
         DI.main.screenViewPublisher = mockScreenView

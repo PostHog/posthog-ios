@@ -135,4 +135,14 @@
             )
         }
     }
+
+    #if TESTING
+        extension PostHogAutocaptureIntegration {
+            static func clearInstalls() {
+                integrationInstalledLock.withLock {
+                    integrationInstalled = false
+                }
+            }
+        }
+    #endif
 #endif

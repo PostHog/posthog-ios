@@ -804,6 +804,16 @@
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
 
+    #if TESTING
+        extension PostHogReplayIntegration {
+            static func clearInstalls() {
+                integrationInstalledLock.withLock {
+                    integrationInstalled = false
+                }
+            }
+        }
+    #endif
+
 #endif
 
 // swiftlint:enable cyclomatic_complexity

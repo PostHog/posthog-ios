@@ -155,8 +155,6 @@ let maxRetryDelay = 30.0
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
-//            captureScreenViews()
-
             PostHogSessionManager.shared.startSession()
 
             #if os(iOS)
@@ -1101,14 +1099,6 @@ let maxRetryDelay = 30.0
         postHog.setup(config)
         return postHog
     }
-
-//    private func captureScreenViews() {
-//        if config.captureScreenViews {
-//            #if os(iOS) || os(tvOS)
-//                UIViewController.swizzleScreenView()
-//            #endif
-//        }
-//    }
 
     #if os(iOS)
         @objc public func isSessionReplayActive() -> Bool {

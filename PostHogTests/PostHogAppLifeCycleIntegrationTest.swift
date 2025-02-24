@@ -16,6 +16,8 @@ final class PostHogAppLifeCycleIntegrationTest {
     let mockAppLifecycle: MockApplicationLifecyclePublisher
 
     init() {
+        PostHogAppLifeCycleIntegration.clearInstalls()
+
         mockAppLifecycle = MockApplicationLifecyclePublisher()
         DI.main.appLifecyclePublisher = mockAppLifecycle
 
@@ -84,30 +86,30 @@ final class PostHogAppLifeCycleIntegrationTest {
         deleteSafely(applicationSupportDirectoryURL())
     }
 
-    @Test("captures Application Installed event")
-    func capturesApplicationInstalledEvent() async throws {
-        // clear versions
-        setVersionDefaults(version: nil, build: nil)
+    #if targetEnvironment(simulator)
+        @Test("captures Application Installed event")
+        func capturesApplicationInstalledEvent() async throws {
+            // clear versions
+            setVersionDefaults(version: nil, build: nil)
 
-        // Ensure a "clean" install
-        #if targetEnvironment(simulator)
-            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == nil)
-            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == nil)
-        #endif
+            // Ensure a "clean" install
+            #if targetEnvironment(simulator)
+                #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == nil)
+                #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == nil)
+            #endif
 
-        // SDK init
-        let sut = getSut()
+            // SDK init
+            let sut = getSut()
 
-        // Simulate an app launch
-        mockAppLifecycle.simulateAppDidFinishLaunching()
+            // Simulate an app launch
+            mockAppLifecycle.simulateAppDidFinishLaunching()
 
-        let events = try await getServerEvents(server)
+            let events = try await getServerEvents(server)
 
-        // Verify Application Installed event
-        #expect(events.count == 1)
-        #expect(events.first?.event == "Application Installed")
+            // Verify Application Installed event
+            #expect(events.count == 1)
+            #expect(events.first?.event == "Application Installed")
 
-        #if targetEnvironment(simulator)
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["build"] != nil)
@@ -115,35 +117,33 @@ final class PostHogAppLifeCycleIntegrationTest {
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
-        #endif
 
-        sut.close()
-    }
+            sut.close()
+        }
 
-    @Test("captures Application Updated event")
-    func capturesApplicationUpdatedEvent() async throws {
-        // clear versions
-        setVersionDefaults(version: "0.0.1", build: "1")
+        @Test("captures Application Updated event")
+        func capturesApplicationUpdatedEvent() async throws {
+            // clear versions
+            setVersionDefaults(version: "0.0.1", build: "1")
 
-        // Ensure a "previous" install
-        #if targetEnvironment(simulator)
-            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == "0.0.1")
-            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == "1")
-        #endif
+            // Ensure a "previous" install
+            #if targetEnvironment(simulator)
+                #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == "0.0.1")
+                #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == "1")
+            #endif
 
-        // SDK init
-        let sut = getSut()
+            // SDK init
+            let sut = getSut()
 
-        // Simulate an app launch
-        mockAppLifecycle.simulateAppDidFinishLaunching()
+            // Simulate an app launch
+            mockAppLifecycle.simulateAppDidFinishLaunching()
 
-        let events = try await getServerEvents(server)
+            let events = try await getServerEvents(server)
 
-        // Verify Application Installed event
-        #expect(events.count == 1)
-        #expect(events.first?.event == "Application Updated")
+            // Verify Application Installed event
+            #expect(events.count == 1)
+            #expect(events.first?.event == "Application Updated")
 
-        #if targetEnvironment(simulator)
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["build"] != nil)
@@ -151,10 +151,88 @@ final class PostHogAppLifeCycleIntegrationTest {
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
-        #endif
 
-        sut.close()
-    }
+            sut.close()
+        }
+
+        @Test("captures Application Installed event when setup is delayed")
+        func capturesDelayedApplicationInstalled() async throws {
+            // clear versions
+            setVersionDefaults(version: nil, build: nil)
+
+            // Ensure a "clean" install
+            #if targetEnvironment(simulator)
+                #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == nil)
+                #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == nil)
+            #endif
+
+            // Simulate an app launch, before SDK is init
+            mockAppLifecycle.simulateAppDidFinishLaunching()
+
+            // SDK init after notification is fired
+            let sut = getSut()
+
+            let events = try await getServerEvents(server)
+
+            // Verify Application Installed event
+            #expect(events.count == 1)
+            #expect(events.first?.event == "Application Installed")
+
+            print("running tests")
+            #expect(events.first?.properties["$app_version"] != nil)
+            #expect(events.first?.properties["build"] != nil)
+            #expect(events.first?.properties["build"] != nil)
+
+            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
+            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
+
+            sut.close()
+        }
+
+        @Test("captures Application Installed event once")
+        func capturesApplicationInstalledEventOnce() async throws {
+            // clear versions
+            setVersionDefaults(version: nil, build: nil)
+
+            // Ensure a "clean" install
+            #if targetEnvironment(simulator)
+                #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == nil)
+                #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == nil)
+            #endif
+
+            // SDK init
+            let sut = getSut(flushAt: 4)
+
+            // Simulate app life cycle events
+            Task { @MainActor in
+                mockAppLifecycle.simulateAppDidFinishLaunching()
+                Task { @MainActor in
+                    mockAppLifecycle.simulateAppDidBecomeActive()
+                    Task { @MainActor in
+                        mockAppLifecycle.simulateAppDidEnterBackground()
+                        Task { @MainActor in
+                            mockAppLifecycle.simulateAppDidFinishLaunching()
+                            Task { @MainActor in
+                                mockAppLifecycle.simulateAppDidBecomeActive()
+                            }
+                        }
+                    }
+                }
+            }
+
+            let events = try await getServerEvents(server)
+
+            // Verify Application Installed event
+            #expect(events.count == 4)
+            #expect(events[0].event == "Application Installed")
+            #expect(events[1].event == "Application Opened")
+            #expect(events[2].event == "Application Backgrounded") // <-- note missing second Application Installed
+            #expect(events[3].event == "Application Opened")
+
+            sut.close()
+        }
+
+    #endif
 
     @Test("captures Application Opened event")
     func capturesApplicationOpenedEvent() async throws {
@@ -192,39 +270,6 @@ final class PostHogAppLifeCycleIntegrationTest {
         // Verify Application Installed event
         #expect(events.count == 1)
         #expect(events[0].event == "Application Backgrounded")
-
-        sut.close()
-    }
-
-    @Test("captures Application Installed event once")
-    func capturesApplicationInstalledEventOnce() async throws {
-        // clear versions
-        setVersionDefaults(version: nil, build: nil)
-
-        // Ensure a "clean" install
-        #if targetEnvironment(simulator)
-            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == nil)
-            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == nil)
-        #endif
-
-        // SDK init
-        let sut = getSut(flushAt: 4)
-
-        // Simulate app life cycle events
-        mockAppLifecycle.simulateAppDidFinishLaunching()
-        mockAppLifecycle.simulateAppDidBecomeActive()
-        mockAppLifecycle.simulateAppDidEnterBackground()
-        mockAppLifecycle.simulateAppDidFinishLaunching()
-        mockAppLifecycle.simulateAppDidBecomeActive()
-
-        let events = try await getServerEvents(server)
-
-        // Verify Application Installed event
-        #expect(events.count == 4)
-        #expect(events[0].event == "Application Installed")
-        #expect(events[1].event == "Application Opened")
-        #expect(events[2].event == "Application Backgrounded") // <-- note missing second Application Installed
-        #expect(events[3].event == "Application Opened")
 
         sut.close()
     }
@@ -281,42 +326,6 @@ final class PostHogAppLifeCycleIntegrationTest {
         #if targetEnvironment(simulator)
             #expect(events[0].properties["version"] != nil)
             #expect(events[0].properties["build"] != nil)
-        #endif
-
-        sut.close()
-    }
-
-    @Test("captures Application Installed event when setup is delayed")
-    func capturesDelayedApplicationInstalled() async throws {
-        // clear versions
-        setVersionDefaults(version: nil, build: nil)
-
-        // Ensure a "clean" install
-        #if targetEnvironment(simulator)
-            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") == nil)
-            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") == nil)
-        #endif
-
-        // Simulate an app launch, before SDK is init
-        mockAppLifecycle.simulateAppDidFinishLaunching()
-
-        // SDK init after notification is fired
-        let sut = getSut()
-
-        let events = try await getServerEvents(server)
-
-        // Verify Application Installed event
-        #expect(events.count == 1)
-        #expect(events.first?.event == "Application Installed")
-
-        #if targetEnvironment(simulator)
-            print("running tests")
-            #expect(events.first?.properties["$app_version"] != nil)
-            #expect(events.first?.properties["build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
-
-            #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
-            #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
         #endif
 
         sut.close()

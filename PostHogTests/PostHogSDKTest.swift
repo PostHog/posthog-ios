@@ -30,6 +30,10 @@ class PostHogSDKTest: QuickSpec {
         config.optOut = optOut
         config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
+
+        let storage = PostHogStorage(config)
+        storage.reset()
+
         return PostHogSDK.with(config)
     }
 
@@ -47,19 +51,20 @@ class PostHogSDKTest: QuickSpec {
         }
 
         beforeEach {
+            PostHogAppLifeCycleIntegration.clearInstalls()
+
             deleteDefaults()
             server = MockPostHogServer()
             server.start()
 
+            DI.main.sessionManager = PostHogSessionManager()
             DI.main.appLifecyclePublisher = mockAppLifecycle
         }
         afterEach {
             now = { Date() }
             server.stop()
             server = nil
-            PostHogSessionManager.shared.endSession {}
-
-            DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
+            DI.main.sessionManager.endSession {}
         }
 
         it("captures the capture event") {
@@ -595,9 +600,9 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("sets sessionId on app start") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
 
-            mockAppLifecycle.simulateAppDidBecomeActive()
+            mockAppLifecycle.simulateAppDidFinishLaunching()
 
             let events = getBatchedEvents(server)
 
@@ -639,9 +644,11 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("clears sessionId for background events after 30 mins in background") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
+            let sut = self.getSut(captureApplicationLifecycleEvents: false, flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
+
+            sut.capture("event captured in foreground")
 
             mockAppLifecycle.simulateAppDidEnterBackground()
 
@@ -660,7 +667,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("reset sessionId after reset") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
+            let sut = self.getSut(captureApplicationLifecycleEvents: false, flushAt: 1)
             let mockNow = MockDate()
             now = { mockNow.date }
 

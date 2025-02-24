@@ -62,3 +62,13 @@ final class PostHogScreenViewIntegration {
         postHog.screen(screenName)
     }
 }
+
+#if TESTING
+    extension PostHogScreenViewIntegration {
+        static func clearInstalls() {
+            integrationInstalledLock.withLock {
+                integrationInstalled = false
+            }
+        }
+    }
+#endif

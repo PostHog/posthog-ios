@@ -1150,6 +1150,10 @@ let maxRetryDelay = 30.0
         func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
             appLifeCycleIntegration
         }
+        
+        func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
+            screenViewIntegration
+        }
     }
 #endif
 

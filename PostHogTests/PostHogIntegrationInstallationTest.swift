@@ -8,7 +8,7 @@
 @testable import PostHog
 import Testing
 
-@Suite("PostHog integration installation tests", .serialized)
+@Suite("Test integration installation", .serialized)
 class PostHogIntegrationInstallationTest {
     var firstInstance: PostHogSDK!
     var secondInstance: PostHogSDK!
@@ -43,5 +43,11 @@ class PostHogIntegrationInstallationTest {
     func appLifeCycleIntegrationInstalledOnce() async {
         #expect(secondInstance.getAppLifeCycleIntegration() == nil)
         #expect(firstInstance.getAppLifeCycleIntegration() != nil)
+    }
+    
+    @Test("screen view integration installed only once, on first instance")
+    func screenViewIntegrationInstalledOnce() async {
+        #expect(secondInstance.getScreenViewIntegration() == nil)
+        #expect(firstInstance.getScreenViewIntegration() != nil)
     }
 }

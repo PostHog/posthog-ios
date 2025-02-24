@@ -151,9 +151,9 @@
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
                 let debouncerDelay = posthog.config.sessionReplayConfig.debouncerDelay
-                DispatchQueue.main.async {
-                    self.timer = Timer.scheduledTimer(withTimeInterval: debouncerDelay, repeats: true, block: { _ in
-                        self.snapshot()
+                DispatchQueue.main.async { [weak self] in
+                    self?.timer = Timer.scheduledTimer(withTimeInterval: debouncerDelay, repeats: true, block: { _ in
+                        self?.snapshot()
                     })
                 }
                 ViewLayoutTracker.swizzleLayoutSubviews()

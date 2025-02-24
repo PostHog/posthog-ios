@@ -187,13 +187,17 @@ class PostHogStorage {
                 do {
                     // Migrate the item and its contents if it exists
                     try migrateItem(at: legacyFileUrl, to: newFileUrl, fileManager: fileManager)
-
-                    // Remove the legacy item after successful migration
-                    if fileManager.fileExists(atPath: legacyFileUrl.path) {
-                        try fileManager.removeItem(at: legacyFileUrl)
-                    }
                 } catch {
                     hedgeLog("Error during storage migration for file \(storageKey.rawValue) at path \(legacyFileUrl.path): \(error)")
+                }
+
+                // Remove the legacy item after successful migration
+                if fileManager.fileExists(atPath: legacyFileUrl.path) {
+                    do {
+                        try fileManager.removeItem(at: legacyFileUrl)
+                    } catch {
+                        hedgeLog("Could not delete file \(storageKey.rawValue) at path \(legacyFileUrl.path): \(error)")
+                    }
                 }
             }
         }

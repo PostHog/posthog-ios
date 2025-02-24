@@ -14,7 +14,7 @@
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
-        private weak var postHogInstance: PostHogSDK?
+        private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
         init?(_ posthog: PostHogSDK) {
@@ -29,13 +29,13 @@
 
             guard !wasInstalled else { return nil }
 
-            postHogInstance = posthog
+            postHog = posthog
         }
 
-        func uninstall(_ posthog: PostHogSDK) {
+        func uninstall(_ postHog: PostHogSDK) {
             // uninstall only for integration instance
-            if postHogInstance === posthog {
-                postHogInstance = nil
+            if self.postHog === postHog || self.postHog == nil {
+                self.postHog = nil
                 Self.integrationInstalledLock.withLock {
                     Self.integrationInstalled = false
                 }
@@ -74,7 +74,7 @@
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard postHogInstance?.isAutocaptureActive() == true else {
+            guard postHog?.isAutocaptureActive() == true else {
                 return
             }
 
@@ -103,7 +103,7 @@
          associated PostHog instance for further processing.
          */
         private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard let posthog = postHogInstance else {
+            guard let posthog = postHog else {
                 return
             }
 

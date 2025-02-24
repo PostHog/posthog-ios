@@ -28,6 +28,7 @@ import Foundation
     override init() {
         super.init()
         registerNotifications()
+        registerApplicationSendEvent()
     }
 
     private var sessionId: String?
@@ -195,9 +196,9 @@ import Foundation
         }
     }
 
-    var didBecomeActiveToken: RegistrationToken?
-    var didEnterBackgroundToken: RegistrationToken?
-
+    private var didBecomeActiveToken: RegistrationToken?
+    private var didEnterBackgroundToken: RegistrationToken?
+    
     private func registerNotifications() {
         let lifecyclePublisher = DI.main.appLifecyclePublisher
         didBecomeActiveToken = lifecyclePublisher.onDidBecomeActive { [weak self] in
@@ -212,6 +213,19 @@ import Foundation
             touchSession()
             self.isAppInBackground = true
         }
+    }
+
+    private var applicationEventToken: RegistrationToken?
+    
+    private func registerApplicationSendEvent() {
+        #if os(iOS) || os(tvOS)
+            let applicationEventPublisher = DI.main.applicationEventPublisher
+            applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] _, _ in
+                // update "last active" session
+                // we want to keep track of the idle time, so we need to maintain a timestamp on the last interactions of the user with the app. UIEvents are a good place to do so since it means that the user is actively interacting with the app (e.g not just noise background activity)
+                self?.touchSession()
+            }
+        #endif
     }
 
     private func isExpired(_ timeNow: TimeInterval, _ timeThen: TimeInterval, _ threshold: TimeInterval) -> Bool {

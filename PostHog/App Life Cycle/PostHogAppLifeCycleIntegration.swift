@@ -47,10 +47,10 @@ final class PostHogAppLifeCycleIntegration {
         }
     }
 
-    func uninstall(_ posthog: PostHogSDK) {
+    func uninstall(_ postHog: PostHogSDK) {
         // uninstall only for integration instance
-        if postHog === posthog {
-            postHog = nil
+        if self.postHog === postHog || self.postHog == nil {
+            self.postHog = nil
             PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
                 PostHogAppLifeCycleIntegration.integrationInstalled = false
             }

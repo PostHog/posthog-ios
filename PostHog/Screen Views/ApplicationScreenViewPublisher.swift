@@ -51,12 +51,12 @@ final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
         return RegistrationToken { [weak self] in
             // Registration token deallocated here
             guard let self else { return }
-            let count = self.registrationLock.withLock {
+            let handlerCount = self.registrationLock.withLock {
                 self.onScreenViewCallbacks[id] = nil
                 return self.onScreenViewCallbacks.values.count
             }
-            // stop observing when there are no more callbacks
-            if count <= 0 {
+            // stop when there are no more callbacks
+            if handlerCount <= 0 {
                 stop()
             }
         }

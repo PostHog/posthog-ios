@@ -14,7 +14,12 @@ enum DI {
         lazy var sessionManager: PostHogSessionManager = .init()
         // publishes global app lifecycle events
         lazy var appLifecyclePublisher: AppLifecyclePublishing = ApplicationLifecyclePublisher.shared
-        // publishes global screen view events
+        // publishes global screen view events (UIViewController.viewDidAppear)
         lazy var screenViewPublisher: ScreenViewPublishing = ApplicationScreenViewPublisher.shared
+
+        #if os(iOS) || os(tvOS)
+            // publishes global application events (UIApplication.sendEvent)
+            lazy var applicationEventPublisher: ApplicationEventPublishing = ApplicationEventPublisher.shared
+        #endif
     }
 }

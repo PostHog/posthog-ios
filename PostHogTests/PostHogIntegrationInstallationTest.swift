@@ -44,7 +44,7 @@ class PostHogIntegrationInstallationTest {
         #expect(secondInstance.getAppLifeCycleIntegration() == nil)
         #expect(firstInstance.getAppLifeCycleIntegration() != nil)
     }
-    
+
     @Test("screen view integration installed only once, on first instance")
     func screenViewIntegrationInstalledOnce() async {
         #expect(secondInstance.getScreenViewIntegration() == nil)

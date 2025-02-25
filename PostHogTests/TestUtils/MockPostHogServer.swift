@@ -45,6 +45,14 @@ class MockPostHogServer {
 
     init() {
         stub(condition: pathEndsWith("/decide")) { _ in
+            if self.quotaLimitFeatureFlags {
+                return HTTPStubsResponse(
+                    jsonObject: ["quotaLimited": ["feature_flags"]], 
+                    statusCode: 200, 
+                    headers: nil
+                )
+            }
+
             var flags = [
                 "bool-value": true,
                 "string-value": "test",
@@ -53,10 +61,6 @@ class MockPostHogServer {
                 "recording-platform-check": "web",
                 self.replayVariantName: self.replayVariantValue,
             ]
-
-            if self.quotaLimitFeatureFlags {
-                flags["quotaLimited"] = ["feature_flags"]
-            }
 
             if self.errorsWhileComputingFlags {
                 flags["new-flag"] = true

@@ -47,7 +47,7 @@
         let screenEvent: Bool
 
         let properties: [String: Any]?
-        
+
         let postHog: PostHogSDK?
 
         func body(content: Content) -> some View {
@@ -59,7 +59,7 @@
                 }
             }
         }
-        
+
         private var instance: PostHogSDK {
             postHog ?? PostHogSDK.shared
         }

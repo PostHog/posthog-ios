@@ -89,46 +89,84 @@
             try await executeRequest(action: { try await data(from: url) }, postHog: postHog)
         }
 
-        func postHogUpload(for request: URLRequest, fromFile fileURL: URL, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+        func postHogUpload(
+            for request: URLRequest,
+            fromFile fileURL: URL,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
             try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL) }, postHog: postHog)
         }
 
-        func postHogUpload(for request: URLRequest, from bodyData: Data, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+        func postHogUpload(
+            for request: URLRequest,
+            from bodyData: Data,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
             try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogData(for request: URLRequest, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+        func postHogData(
+            for request: URLRequest,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
             try await executeRequest(request: request, action: { try await data(for: request, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogData(from url: URL, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+        func postHogData(
+            from url: URL,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
             try await executeRequest(action: { try await data(from: url, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogUpload(for request: URLRequest, fromFile fileURL: URL, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+        func postHogUpload(
+            for request: URLRequest,
+            fromFile fileURL: URL,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
             try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogUpload(for request: URLRequest, from bodyData: Data, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+        func postHogUpload(
+            for request: URLRequest,
+            from bodyData: Data,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
             try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogDownload(for request: URLRequest, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (URL, URLResponse) {
+        func postHogDownload(
+            for request: URLRequest,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (URL, URLResponse) {
             try await executeRequest(request: request, action: { try await download(for: request, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogDownload(from url: URL, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (URL, URLResponse) {
+        func postHogDownload(
+            from url: URL,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (URL, URLResponse) {
             try await executeRequest(action: { try await download(from: url, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogDownload(resumeFrom resumeData: Data, delegate: (any URLSessionTaskDelegate)? = nil, postHog: PostHogSDK? = nil) async throws -> (URL, URLResponse) {
+        func postHogDownload(
+            resumeFrom resumeData: Data,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (URL, URLResponse) {
             try await executeRequest(action: { try await download(resumeFrom: resumeData, delegate: delegate) }, postHog: postHog)
         }
 
@@ -144,7 +182,7 @@
             postHog: PostHogSDK?
         ) {
             let instance = postHog ?? PostHogSDK.shared
-            
+
             // we don't check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
             // has to be called manually anyway
             guard let sessionId, instance.isSessionReplayActive() else {

@@ -47,8 +47,8 @@ class MockPostHogServer {
         stub(condition: pathEndsWith("/decide")) { _ in
             if self.quotaLimitFeatureFlags {
                 return HTTPStubsResponse(
-                    jsonObject: ["quotaLimited": ["feature_flags"]], 
-                    statusCode: 200, 
+                    jsonObject: ["quotaLimited": ["feature_flags"]],
+                    statusCode: 200,
                     headers: nil
                 )
             }

@@ -98,7 +98,7 @@ class PostHogFeatureFlags {
                 if let quotaLimited = data?["quotaLimited"] as? [String],
                    quotaLimited.contains("feature_flags")
                 {
-                    hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads")
+                    hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads.  See https://posthog.com/docs/billing/limits-alerts for more information.")
                     self.featureFlagsLock.withLock {
                         // Clear both feature flags and payloads
                         self.setCachedFeatureFlags([:])

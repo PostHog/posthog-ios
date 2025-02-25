@@ -103,7 +103,7 @@
          associated PostHog instance for further processing.
          */
         private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard let posthog = postHog else {
+            guard let postHog else {
                 return
             }
 
@@ -128,7 +128,7 @@
                 properties["$touch_y"] = coordinates.y
             }
 
-            posthog.autocapture(
+            postHog.autocapture(
                 eventType: eventType,
                 elementsChain: elementsChain,
                 properties: properties

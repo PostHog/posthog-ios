@@ -27,7 +27,7 @@ final class PostHogAppLifeCycleIntegration {
     private var didBecomeActiveToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
     private var didFinishLaunchingToken: RegistrationToken?
-    private var didCaptureAppInstalled = false
+    private var didCaptureAppInstallOrUpdate = false
 
     init?(_ posthog: PostHogSDK) {
         let wasInstalled = PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
@@ -85,11 +85,12 @@ final class PostHogAppLifeCycleIntegration {
     }
 
     private func captureAppInstallOrUpdated() {
-        guard let postHog, !didCaptureAppInstalled else { return }
+        guard let postHog, !didCaptureAppInstallOrUpdate else { return }
 
-        didCaptureAppInstalled = true
+        didCaptureAppInstallOrUpdate = true
 
         if !postHog.config.captureApplicationLifecycleEvents {
+            hedgeLog("Skipping Application Installed/Application Updated event - captureApplicationLifecycleEvents is disabled in configuration")
             return
         }
 
@@ -147,6 +148,7 @@ final class PostHogAppLifeCycleIntegration {
         guard let postHog else { return }
 
         if !postHog.config.captureApplicationLifecycleEvents {
+            hedgeLog("Skipping Application Opened event - captureApplicationLifecycleEvents is disabled in configuration")
             return
         }
 
@@ -176,6 +178,7 @@ final class PostHogAppLifeCycleIntegration {
         guard let postHog else { return }
 
         if !postHog.config.captureApplicationLifecycleEvents {
+            hedgeLog("Skipping Application Backgrounded event - captureApplicationLifecycleEvents is disabled in configuration")
             return
         }
 

@@ -57,9 +57,13 @@ final class PostHogScreenViewIntegration {
     }
 
     private func captureScreenView(screen screenName: String) {
-        guard let postHog, postHog.config.captureScreenViews else { return }
+        guard let postHog else { return }
 
-        postHog.screen(screenName)
+        if postHog.config.captureScreenViews {
+            postHog.screen(screenName)
+        } else {
+            hedgeLog("Skipping $screen event - captureScreenViews is disabled in configuration")
+        }
     }
 }
 

@@ -14,13 +14,20 @@
     import WebKit
 
     class PostHogReplayIntegration {
-        private let config: PostHogConfig
+        private static var integrationInstalledLock = NSLock()
+        private static var integrationInstalled = false
+
+        private var config: PostHogConfig? {
+            postHogInstance?.config
+        }
+
+        private weak var postHogInstance: PostHogSDK?
 
         private var timer: Timer?
         private var isEnabled: Bool = false
 
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
-        private let urlInterceptor: URLSessionInterceptor
+        private var urlInterceptor: URLSessionInterceptor?
         private var sessionSwizzler: URLSessionSwizzler?
 
         /**
@@ -95,13 +102,34 @@
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
 
-        init(_ config: PostHogConfig) {
-            self.config = config
-            urlInterceptor = URLSessionInterceptor(self.config)
+        init?(_ posthog: PostHogSDK) {
+            let wasInstalled = Self.integrationInstalledLock.withLock {
+                if Self.integrationInstalled {
+                    hedgeLog("Replay integration already installed to another PostHogSDK instance.")
+                    return true
+                }
+                Self.integrationInstalled = true
+                return false
+            }
+
+            guard !wasInstalled else { return nil }
+
+            postHogInstance = posthog
+            let interceptor = URLSessionInterceptor(posthog.config)
+            urlInterceptor = interceptor
             do {
-                try sessionSwizzler = URLSessionSwizzler(interceptor: urlInterceptor)
+                try sessionSwizzler = URLSessionSwizzler(interceptor: interceptor)
             } catch {
                 hedgeLog("Error trying to Swizzle URLSession: \(error)")
+            }
+        }
+
+        func uninstall(_ posthog: PostHogSDK) {
+            if postHogInstance === posthog {
+                postHogInstance = nil
+                Self.integrationInstalledLock.withLock {
+                    Self.integrationInstalled = false
+                }
             }
         }
 
@@ -111,6 +139,10 @@
         }
 
         func start() {
+            guard let posthog = postHogInstance else {
+                return
+            }
+
             isEnabled = true
             stopTimer()
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
@@ -118,8 +150,9 @@
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
+                let debouncerDelay = posthog.config.sessionReplayConfig.debouncerDelay
                 DispatchQueue.main.async {
-                    self.timer = Timer.scheduledTimer(withTimeInterval: self.config.sessionReplayConfig.debouncerDelay, repeats: true, block: { _ in
+                    self.timer = Timer.scheduledTimer(withTimeInterval: debouncerDelay, repeats: true, block: { _ in
                         self.snapshot()
                     })
                 }
@@ -128,7 +161,7 @@
 
             UIApplicationTracker.swizzleSendEvent()
 
-            if config.sessionReplayConfig.captureNetworkTelemetry {
+            if posthog.config.sessionReplayConfig.captureNetworkTelemetry {
                 sessionSwizzler?.swizzle()
             }
         }
@@ -142,7 +175,7 @@
             ViewLayoutTracker.unSwizzleLayoutSubviews()
             UIApplicationTracker.unswizzleSendEvent()
             sessionSwizzler?.unswizzle()
-            urlInterceptor.stop()
+            urlInterceptor?.stop()
         }
 
         func isActive() -> Bool {
@@ -158,10 +191,10 @@
             windowViews.removeAllObjects()
         }
 
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil) {
+        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, posthog: PostHogSDK) {
             var hasChanges = false
 
-            guard let wireframe = config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+            guard let wireframe = posthog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
                 return
             }
 
@@ -209,7 +242,7 @@
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
-                PostHogSDK.shared.capture(
+                posthog.capture(
                     "$snapshot",
                     properties: [
                         "$snapshot_source": "mobile",
@@ -278,7 +311,7 @@
             }
 
             if let reactNativeTextView = reactNativeTextView {
-                if view.isKind(of: reactNativeTextView), config.sessionReplayConfig.maskAllTextInputs {
+                if view.isKind(of: reactNativeTextView), config?.sessionReplayConfig.maskAllTextInputs == true {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
@@ -293,7 +326,7 @@
             }
 
             if let reactNativeImageView = reactNativeImageView {
-                if view.isKind(of: reactNativeImageView), config.sessionReplayConfig.maskAllImages {
+                if view.isKind(of: reactNativeImageView), config?.sessionReplayConfig.maskAllImages == true {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }
@@ -332,7 +365,7 @@
             }
 
             // detect any views that don't belong to the current process (likely system views)
-            if config.sessionReplayConfig.maskAllSandboxedViews,
+            if config?.sessionReplayConfig.maskAllSandboxedViews == true,
                let systemSandboxedView,
                view.isKind(of: systemSandboxedView)
             {
@@ -444,11 +477,11 @@
         }
 
         private func isAnyInputSensitive(_ view: UIView) -> Bool {
-            isTextInputSensitive(view) || config.sessionReplayConfig.maskAllImages
+            isTextInputSensitive(view) || config?.sessionReplayConfig.maskAllImages == true
         }
 
         private func isTextInputSensitive(_ view: UIView) -> Bool {
-            config.sessionReplayConfig.maskAllTextInputs || view.isNoCapture()
+            config?.sessionReplayConfig.maskAllTextInputs == true || view.isNoCapture()
         }
 
         private func isLabelSensitive(_ view: UILabel) -> Bool {
@@ -492,7 +525,7 @@
         private func isSwiftUIImageSensitive(_ view: UIView) -> Bool {
             // No way of checking if this is an asset image or not
             // No way of checking if there's actual content in the image or not
-            config.sessionReplayConfig.maskAllImages || view.isNoCapture()
+            config?.sessionReplayConfig.maskAllImages == true || view.isNoCapture()
         }
 
         private func isImageViewSensitive(_ view: UIImageView) -> Bool {
@@ -514,7 +547,7 @@
                 return false
             }
 
-            return config.sessionReplayConfig.maskAllImages
+            return config?.sessionReplayConfig.maskAllImages == true
         }
 
         private func toWireframe(_ view: UIView) -> RRWireframe? {
@@ -655,7 +688,11 @@
         }
 
         @objc private func snapshot() {
-            if !PostHogSDK.shared.isSessionReplayActive() {
+            guard let posthog = postHogInstance else {
+                return
+            }
+
+            if !posthog.isSessionReplayActive() {
                 return
             }
 
@@ -671,18 +708,18 @@
             var screenName: String?
             if let controller = window.rootViewController {
                 // SwiftUI only supported with screenshotMode
-                if controller is AnyObjectUIHostingViewController, !config.sessionReplayConfig.screenshotMode {
+                if controller is AnyObjectUIHostingViewController, !posthog.config.sessionReplayConfig.screenshotMode {
                     hedgeLog("SwiftUI snapshot not supported, enable screenshotMode.")
                     return
                         // screen name only makes sense if we are not using SwiftUI
-                } else if !config.sessionReplayConfig.screenshotMode {
+                } else if !posthog.config.sessionReplayConfig.screenshotMode {
                     screenName = UIViewController.getViewControllerName(controller)
                 }
             }
 
             // this cannot run off of the main thread because most properties require to be called within the main thread
             // this method has to be fast and do as little as possible
-            generateSnapshot(window, screenName)
+            generateSnapshot(window, screenName, posthog: posthog)
         }
     }
 

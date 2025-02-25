@@ -11,11 +11,35 @@
     private let elementsChainDelimiter = ";"
 
     class PostHogAutocaptureIntegration: AutocaptureEventProcessing {
-        private let postHogConfig: PostHogConfig
+        private static var integrationInstalledLock = NSLock()
+        private static var integrationInstalled = false
+
+        private weak var postHogInstance: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        init(_ config: PostHogConfig) {
-            postHogConfig = config
+        init?(_ posthog: PostHogSDK) {
+            let wasInstalled = Self.integrationInstalledLock.withLock {
+                if Self.integrationInstalled {
+                    hedgeLog("Autocapture integration already installed to another PostHogSDK instance.")
+                    return true
+                }
+                Self.integrationInstalled = true
+                return false
+            }
+
+            guard !wasInstalled else { return nil }
+
+            postHogInstance = posthog
+        }
+
+        func uninstall(_ posthog: PostHogSDK) {
+            // uninstall only for integration instance
+            if postHogInstance === posthog {
+                postHogInstance = nil
+                Self.integrationInstalledLock.withLock {
+                    Self.integrationInstalled = false
+                }
+            }
         }
 
         /**
@@ -50,7 +74,7 @@
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard PostHogSDK.shared.isAutocaptureActive() else {
+            guard postHogInstance?.isAutocaptureActive() == true else {
                 return
             }
 
@@ -79,6 +103,10 @@
          associated PostHog instance for further processing.
          */
         private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
+            guard let posthog = postHogInstance else {
+                return
+            }
+
             let eventType: String = switch source {
             case let .actionMethod(description): description
             case let .gestureRecognizer(description): description
@@ -100,7 +128,7 @@
                 properties["$touch_y"] = coordinates.y
             }
 
-            PostHogSDK.shared.autocapture(
+            posthog.autocapture(
                 eventType: eventType,
                 elementsChain: elementsChain,
                 properties: properties

@@ -109,6 +109,7 @@
 		69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */; };
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		69F5183A2BB2BA8300F52C14 /* UIApplicationTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */; };
+		DA0C944B2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0C944A2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift */; };
 		DA0CA6F12CFF6B6300AF9500 /* UIWindow+.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0CA6F02CFF6B6300AF9500 /* UIWindow+.swift */; };
 		DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */; };
 		DA1044892D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */; };
@@ -130,6 +131,7 @@
 		DA6B7C0B2D118C4E0024419F /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA6B7C0C2D118C4E0024419F /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DA6F24822D4A6CA100CA2777 /* PostHogApiTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */; };
+		DA703C0A2D6606EA0069097B /* PostHogIntegrationInstallationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */; };
 		DA7185482D07E11200396388 /* input_3.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185442D07E11200396388 /* input_3.png */; };
 		DA7185492D07E11200396388 /* input_2.png in Resources */ = {isa = PBXBuildFile; fileRef = DA7185432D07E11200396388 /* input_2.png */; };
 		DA71854A2D07E11200396388 /* output_1.webp in Resources */ = {isa = PBXBuildFile; fileRef = DA7185452D07E11200396388 /* output_1.webp */; };
@@ -558,6 +560,7 @@
 		69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITextInputTraits+Util.swift"; sourceTree = "<group>"; };
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
 		69F518392BB2BA8300F52C14 /* UIApplicationTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIApplicationTracker.swift; sourceTree = "<group>"; };
+		DA0C944A2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMigrationTest.swift; sourceTree = "<group>"; };
 		DA0CA6F02CFF6B6300AF9500 /* UIWindow+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIWindow+.swift"; sourceTree = "<group>"; };
 		DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogLabel.swift"; sourceTree = "<group>"; };
 		DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+PostHogLabel.swift"; sourceTree = "<group>"; };
@@ -569,6 +572,7 @@
 		DA5AA7132CE245CD004EFB99 /* UIApplication+.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+.swift"; sourceTree = "<group>"; };
 		DA5B85872CD21CBB00686389 /* AutocaptureEventProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocaptureEventProcessing.swift; sourceTree = "<group>"; };
 		DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApiTest.swift; sourceTree = "<group>"; };
+		DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogIntegrationInstallationTest.swift; sourceTree = "<group>"; };
 		DA7185422D07E11200396388 /* input_1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = input_1.png; sourceTree = "<group>"; };
 		DA7185432D07E11200396388 /* input_2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = input_2.png; sourceTree = "<group>"; };
 		DA7185442D07E11200396388 /* input_3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = input_3.png; sourceTree = "<group>"; };
@@ -929,6 +933,8 @@
 				DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */,
 				3A62646829C9E37A007E8C07 /* TestUtils */,
 				3AE3FB4A2993A68500AFFC18 /* PostHogStorageTest.swift */,
+				DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */,
+				DA0C944A2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift */,
 				3A62647029CAF67B007E8C07 /* PostHogStorageManagerTest.swift */,
 				690FF0BA2AEF8B8200A0B06B /* PostHogContextTest.swift */,
 				690FF0BC2AEF93F400A0B06B /* PostHogFeatureFlagsTest.swift */,
@@ -1869,6 +1875,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */,
+				DA0C944B2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift in Sources */,
 				690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */,
 				690FF0E12AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift in Sources */,
 				DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */,
@@ -1880,6 +1887,7 @@
 				690FF0BB2AEF8B8200A0B06B /* PostHogContextTest.swift in Sources */,
 				690FF0E32AEFD12900A0B06B /* PostHogConfigTest.swift in Sources */,
 				DAF79A2A2D1309C00078A3C9 /* TestError.swift in Sources */,
+				DA703C0A2D6606EA0069097B /* PostHogIntegrationInstallationTest.swift in Sources */,
 				3A62647129CAF67B007E8C07 /* PostHogStorageManagerTest.swift in Sources */,
 				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,
 				690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */,
@@ -2320,6 +2328,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
 				SUPPORTS_MACCATALYST = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -2629,6 +2638,324 @@
 			};
 			name = Release;
 		};
+		DA6E4D3E2D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+			};
+			name = Testing;
+		};
+		DA6E4D3F2D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_LIBRARY_FOR_DISTRIBUTION = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				EXCLUDED_ARCHS = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				MODULEMAP_FILE = PostHog/PostHog.modulemap;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu11 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHog;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG TESTING";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+			};
+			name = Testing;
+		};
+		DA6E4D402D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				OTHER_CFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "TESTING DEBUG";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3,4";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+				WATCHOS_DEPLOYMENT_TARGET = 6.0;
+			};
+			name = Testing;
+		};
+		DA6E4D412D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(PRODUCT_NAME)";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample.yj;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TVOS_DEPLOYMENT_TARGET = 13.0;
+			};
+			name = Testing;
+		};
+		DA6E4D422D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogObjCExample/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogObjCExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Testing;
+		};
+		DA6E4D432D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PostHogExampleMacOS/PostHogExampleMacOS.entitlements;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExampleMacOS/Preview Content\"";
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleMacOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Testing;
+		};
+		DA6E4D442D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PostHogExampleTvOS/Preview Content\"";
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				ENABLE_PREVIEWS = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleTvOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 16.0;
+			};
+			name = Testing;
+		};
+		DA6E4D452D55FA5B003662C3 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogExampleStoryboard/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExampleStoryboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Testing;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2636,6 +2963,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AA34D03296D951B003398F4 /* Debug */,
+				DA6E4D412D55FA5B003662C3 /* Testing */,
 				3AA34D04296D951B003398F4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2645,6 +2973,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AC745C7296D6FE60025C109 /* Debug */,
+				DA6E4D3E2D55FA5B003662C3 /* Testing */,
 				3AC745C8296D6FE60025C109 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2654,6 +2983,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AC745CA296D6FE60025C109 /* Debug */,
+				DA6E4D3F2D55FA5B003662C3 /* Testing */,
 				3AC745CB296D6FE60025C109 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2663,6 +2993,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AC745CD296D6FE60025C109 /* Debug */,
+				DA6E4D402D55FA5B003662C3 /* Testing */,
 				3AC745CE296D6FE60025C109 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2672,6 +3003,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				69278D492AE6BC7200BB541A /* Debug */,
+				DA6E4D422D55FA5B003662C3 /* Testing */,
 				69278D4A2AE6BC7200BB541A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2681,6 +3013,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6992AA8C2AFE51A100087600 /* Debug */,
+				DA6E4D442D55FA5B003662C3 /* Testing */,
 				6992AA8D2AFE51A100087600 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2690,6 +3023,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				699991922AFE1B39000DCB78 /* Debug */,
+				DA6E4D432D55FA5B003662C3 /* Testing */,
 				699991932AFE1B39000DCB78 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2699,6 +3033,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				69F5180A2BAC768300F52C14 /* Debug */,
+				DA6E4D452D55FA5B003662C3 /* Testing */,
 				69F5180B2BAC768300F52C14 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

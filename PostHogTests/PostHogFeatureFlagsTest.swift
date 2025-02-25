@@ -138,6 +138,40 @@ class PostHogFeatureFlagsTest: QuickSpec {
             expect(sut.isFeatureEnabled("bool-value")) == true
         }
 
+        it("clears feature flags when quota limited") {
+            let sut = self.getSut()
+            let group = DispatchGroup()
+            group.enter()
+
+            // First load some feature flags normally
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                group.leave()
+            })
+
+            group.wait()
+
+            // Verify flags are loaded
+            expect(sut.isFeatureEnabled("bool-value")) == true
+            expect(sut.getFeatureFlag("string-value") as? String) == "test"
+
+            // Now set the server to return quota limited response
+            server.quotaLimitFeatureFlags = true
+
+            let group2 = DispatchGroup()
+            group2.enter()
+
+            // Load flags again, this time with quota limiting
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                group2.leave()
+            })
+
+            group2.wait()
+
+            // Verify flags are cleared
+            expect(sut.isFeatureEnabled("bool-value")) == false
+            expect(sut.getFeatureFlag("string-value")).to(beNil())
+        }
+
         #if os(iOS)
             it("returns isSessionReplayFlagActive true if there is a value") {
                 let storage = PostHogStorage(self.config)

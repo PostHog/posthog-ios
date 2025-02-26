@@ -1,6 +1,6 @@
 ## Next
 
-## 3.20.0 - 2025-02-25
+## 3.20.0 - 2025-02-26
 
 - feat: add support for quota-limited feature flags ([#308](https://github.com/PostHog/posthog-ios/pull/308))
 

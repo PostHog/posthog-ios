@@ -12,10 +12,10 @@
 // Author: Skal (pascal.massimino@gmail.com)
 
 #ifdef HAVE_CONFIG_H
-#include "./config.h"
+#include "./ph_config.h"
 #endif
 
-#include "./encode.h"
+#include "./ph_encode.h"
 
 //------------------------------------------------------------------------------
 // WebPConfig

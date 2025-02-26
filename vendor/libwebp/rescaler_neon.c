@@ -11,14 +11,14 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_NEON) && !defined(WEBP_REDUCE_SIZE)
 
 #include <arm_neon.h>
-#include "./utils.h"
-#include "./neon.h"
-#include "./rescaler_utils.h"
+#include "./ph_utils.h"
+#include "./ph_neon.h"
+#include "./ph_rescaler_utils.h"
 
 #define ROUNDER (WEBP_RESCALER_ONE >> 1)
 #define MULT_FIX_C(x, y) (((uint64_t)(x) * (y) + ROUNDER) >> WEBP_RESCALER_RFIX)

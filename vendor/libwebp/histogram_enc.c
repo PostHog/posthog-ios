@@ -10,17 +10,17 @@
 // Author: Jyrki Alakuijala (jyrki@google.com)
 //
 #ifdef HAVE_CONFIG_H
-#include "./config.h"
+#include "./ph_config.h"
 #endif
 
 #include <string.h>
 
-#include "./lossless.h"
-#include "./lossless_common.h"
-#include "./backward_references_enc.h"
-#include "./histogram_enc.h"
-#include "./vp8i_enc.h"
-#include "./utils.h"
+#include "./ph_lossless.h"
+#include "./ph_lossless_common.h"
+#include "./ph_backward_references_enc.h"
+#include "./ph_histogram_enc.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_utils.h"
 
 // Number of partitions for the three dominant (literal, red and blue) symbol
 // costs.

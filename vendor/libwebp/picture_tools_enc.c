@@ -11,8 +11,8 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./vp8i_enc.h"
-#include "./yuv.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_yuv.h"
 
 //------------------------------------------------------------------------------
 // Helper: clean up fully transparent area to help compressibility.

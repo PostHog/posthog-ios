@@ -16,9 +16,9 @@
 
 #include <stdlib.h>
 
-#include "./lossless_common.h"
-#include "./utils.h"
-#include "./vp8li_enc.h"
+#include "./ph_lossless_common.h"
+#include "./ph_utils.h"
+#include "./ph_vp8li_enc.h"
 
 #if (WEBP_NEAR_LOSSLESS == 1)
 

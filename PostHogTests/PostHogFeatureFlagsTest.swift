@@ -138,6 +138,40 @@ class PostHogFeatureFlagsTest: QuickSpec {
             expect(sut.isFeatureEnabled("bool-value")) == true
         }
 
+        it("clears feature flags when quota limited") {
+            let sut = self.getSut()
+            let group = DispatchGroup()
+            group.enter()
+
+            // First load some feature flags normally
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                group.leave()
+            })
+
+            group.wait()
+
+            // Verify flags are loaded
+            expect(sut.isFeatureEnabled("bool-value")) == true
+            expect(sut.getFeatureFlag("string-value") as? String) == "test"
+
+            // Now set the server to return quota limited response
+            server.quotaLimitFeatureFlags = true
+
+            let group2 = DispatchGroup()
+            group2.enter()
+
+            // Load flags again, this time with quota limiting
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                group2.leave()
+            })
+
+            group2.wait()
+
+            // Verify flags are cleared
+            expect(sut.isFeatureEnabled("bool-value")) == false
+            expect(sut.getFeatureFlag("string-value")).to(beNil())
+        }
+
         #if os(iOS)
             it("returns isSessionReplayFlagActive true if there is a value") {
                 let storage = PostHogStorage(self.config)
@@ -305,6 +339,34 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 server.returnReplayWithMultiVariant = true
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "mobile"]
+
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    group.leave()
+                })
+
+                group.wait()
+
+                expect(storage.getDictionary(forKey: .sessionReplay)) != nil
+                expect(self.config.snapshotEndpoint) == "/newS/"
+                expect(sut.isSessionReplayFlagActive()) == false
+
+                storage.reset()
+            }
+
+            it("returns isSessionReplayFlagActive false if bool linked flag is missing") {
+                let storage = PostHogStorage(self.config)
+
+                let sut = self.getSut(storage: storage)
+
+                expect(sut.isSessionReplayFlagActive()) == false
+
+                let group = DispatchGroup()
+                group.enter()
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+                server.replayVariantName = "some-missing-flag"
+                server.flagsSkipReplayVariantName = true
 
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()

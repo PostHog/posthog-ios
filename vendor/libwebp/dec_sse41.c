@@ -11,12 +11,12 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE41)
 
 #include <smmintrin.h>
-#include "./utils.h"
+#include "./ph_utils.h"
 
 static void HE16_SSE41(uint8_t* dst) {     // horizontal
   int j;

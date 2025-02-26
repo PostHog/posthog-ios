@@ -13,13 +13,13 @@
 //          Jyrki Alakuijala (jyrki@google.com)
 //          Urvang Joshi (urvang@google.com)
 
-#include "dsp.h"
+#include "./ph_dsp.h"
 
 #include <math.h>
 #include <stdlib.h>
-#include "./endian_inl_utils.h"
-#include "./lossless.h"
-#include "./lossless_common.h"
+#include "./ph_endian_inl_utils.h"
+#include "./ph_lossless.h"
+#include "./ph_lossless_common.h"
 
 //------------------------------------------------------------------------------
 // Image transforms.

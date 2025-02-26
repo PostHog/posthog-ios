@@ -40,18 +40,31 @@ class MockPostHogServer {
     public var returnReplayWithVariant = false
     public var returnReplayWithMultiVariant = false
     public var replayVariantName = "myBooleanRecordingFlag"
+    public var flagsSkipReplayVariantName = false
     public var replayVariantValue: Any = true
+    public var quotaLimitFeatureFlags: Bool = false
 
     init() {
         stub(condition: pathEndsWith("/decide")) { _ in
+            if self.quotaLimitFeatureFlags {
+                return HTTPStubsResponse(
+                    jsonObject: ["quotaLimited": ["feature_flags"]],
+                    statusCode: 200,
+                    headers: nil
+                )
+            }
+
             var flags = [
                 "bool-value": true,
                 "string-value": "test",
                 "disabled-flag": false,
                 "number-value": true,
                 "recording-platform-check": "web",
-                self.replayVariantName: self.replayVariantValue,
             ]
+
+            if !self.flagsSkipReplayVariantName {
+                flags[self.replayVariantName] = self.replayVariantValue
+            }
 
             if self.errorsWhileComputingFlags {
                 flags["new-flag"] = true

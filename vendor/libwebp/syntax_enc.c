@@ -11,10 +11,10 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./utils.h"
-#include "./format_constants.h"  // RIFF constants
-#include "./mux_types.h"         // ALPHA_FLAG
-#include "./vp8i_enc.h"
+#include "./ph_utils.h"
+#include "./ph_format_constants.h"  // RIFF constants
+#include "./ph_mux_types.h"         // ALPHA_FLAG
+#include "./ph_vp8i_enc.h"
 
 //------------------------------------------------------------------------------
 // Helper functions

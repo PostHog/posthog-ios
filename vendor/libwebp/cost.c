@@ -9,8 +9,8 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./dsp.h"
-#include "./cost_enc.h"
+#include "./ph_dsp.h"
+#include "./ph_cost_enc.h"
 
 //------------------------------------------------------------------------------
 // Boolean-cost cost table

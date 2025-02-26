@@ -11,9 +11,9 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./dsp.h"
-#include "./vp8i_dec.h"
-#include "./utils.h"
+#include "./ph_dsp.h"
+#include "./ph_vp8i_dec.h"
+#include "./ph_utils.h"
 
 //------------------------------------------------------------------------------
 

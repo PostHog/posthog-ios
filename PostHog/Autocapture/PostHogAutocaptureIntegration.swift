@@ -26,7 +26,7 @@
             }
 
             self.postHog = postHog
-            
+
             start()
         }
 

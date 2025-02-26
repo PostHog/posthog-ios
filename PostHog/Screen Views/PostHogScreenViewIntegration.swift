@@ -23,10 +23,10 @@ final class PostHogScreenViewIntegration: PostHogIntegration {
         }
 
         self.postHog = postHog
-        
+
         start()
     }
-    
+
     func uninstall(_ postHog: PostHogSDK) {
         // uninstall only for integration instance
         if self.postHog === postHog || self.postHog == nil {

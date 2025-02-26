@@ -38,7 +38,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         }
 
         self.postHog = postHog
-        
+
         start()
         captureAppInstallOrUpdated()
     }

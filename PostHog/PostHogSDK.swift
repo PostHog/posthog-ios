@@ -1078,7 +1078,7 @@ let maxRetryDelay = 30.0
     #endif
 
     private func installIntegrations() {
-        let integrations = config.integrations
+        let integrations = config.getIntegrations()
         var installed: [PostHogIntegration] = []
 
         for integration in integrations {

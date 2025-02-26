@@ -49,32 +49,3 @@ protocol PostHogIntegration {
      */
     func stop()
 }
-
-extension PostHogConfig {
-    /// Array of integrations to be installed based on current configuration
-    var integrations: [PostHogIntegration] {
-        var integrations: [PostHogIntegration] = []
-
-        if captureScreenViews {
-            integrations.append(PostHogScreenViewIntegration())
-        }
-
-        if captureApplicationLifecycleEvents {
-            integrations.append(PostHogAppLifeCycleIntegration())
-        }
-
-        #if os(iOS)
-            if sessionReplay {
-                integrations.append(PostHogReplayIntegration())
-            }
-        #endif
-
-        #if os(iOS) || targetEnvironment(macCatalyst)
-            if captureElementInteractions {
-                integrations.append(PostHogAutocaptureIntegration())
-            }
-        #endif
-
-        return integrations
-    }
-}

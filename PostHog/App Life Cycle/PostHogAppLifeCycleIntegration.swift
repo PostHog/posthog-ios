@@ -16,7 +16,7 @@ import Foundation
  - captures an `App Opened` event when the app is opened (including the first launch)
  - captures an `App Backgrounded` event when the app moves to the background
  */
-final class PostHogAppLifeCycleIntegration {
+final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private static var integrationInstalledLock = NSLock()
     private static var integrationInstalled = false
 
@@ -29,29 +29,24 @@ final class PostHogAppLifeCycleIntegration {
     private var didFinishLaunchingToken: RegistrationToken?
     private var didCaptureAppInstallOrUpdate = false
 
-    init?(_ posthog: PostHogSDK) {
-        let wasInstalled = PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
+    func install(_ postHog: PostHogSDK) throws {
+        try PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
             if PostHogAppLifeCycleIntegration.integrationInstalled {
-                hedgeLog("App life cycle integration already installed to another PostHogSDK instance.")
-                return true
+                throw InternalPostHogError(description: "App life cycle integration already installed to another PostHogSDK instance.")
             }
             PostHogAppLifeCycleIntegration.integrationInstalled = true
-            return false
         }
 
-        guard !wasInstalled else { return nil }
-
-        postHog = posthog
-
-        // needs to happen on next runloop cause we are still in SDK init sequence here
-        DispatchQueue.main.async {
-            self.captureAppInstallOrUpdated()
-        }
+        self.postHog = postHog
+        
+        start()
+        captureAppInstallOrUpdated()
     }
 
     func uninstall(_ postHog: PostHogSDK) {
         // uninstall only for integration instance
         if self.postHog === postHog || self.postHog == nil {
+            stop()
             self.postHog = nil
             PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
                 PostHogAppLifeCycleIntegration.integrationInstalled = false

@@ -7,31 +7,30 @@
 
 import Foundation
 
-final class PostHogScreenViewIntegration {
+final class PostHogScreenViewIntegration: PostHogIntegration {
     private static var integrationInstalledLock = NSLock()
     private static var integrationInstalled = false
 
     private weak var postHog: PostHogSDK?
     private var screenViewToken: RegistrationToken?
 
-    init?(_ posthog: PostHogSDK) {
-        let wasInstalled = PostHogScreenViewIntegration.integrationInstalledLock.withLock {
+    func install(_ postHog: PostHogSDK) throws {
+        try PostHogScreenViewIntegration.integrationInstalledLock.withLock {
             if PostHogScreenViewIntegration.integrationInstalled {
-                hedgeLog("Autocapture integration already installed to another PostHogSDK instance.")
-                return true
+                throw InternalPostHogError(description: "Autocapture integration already installed to another PostHogSDK instance.")
             }
             PostHogScreenViewIntegration.integrationInstalled = true
-            return false
         }
 
-        guard !wasInstalled else { return nil }
-
-        postHog = posthog
+        self.postHog = postHog
+        
+        start()
     }
-
+    
     func uninstall(_ postHog: PostHogSDK) {
         // uninstall only for integration instance
         if self.postHog === postHog || self.postHog == nil {
+            stop()
             self.postHog = nil
             PostHogScreenViewIntegration.integrationInstalledLock.withLock {
                 PostHogScreenViewIntegration.integrationInstalled = false

@@ -10,9 +10,6 @@ import Testing
 
 @Suite("Test integration installation", .serialized)
 class PostHogIntegrationInstallationTest {
-    var firstInstance: PostHogSDK!
-    var secondInstance: PostHogSDK!
-
     init() {
         #if os(iOS)
             PostHogReplayIntegration.clearInstalls()
@@ -22,41 +19,83 @@ class PostHogIntegrationInstallationTest {
         #endif
         PostHogAppLifeCycleIntegration.clearInstalls()
         PostHogScreenViewIntegration.clearInstalls()
-
-        firstInstance = PostHogSDK.with(PostHogConfig(apiKey: "123"))
-        secondInstance = PostHogSDK.with(PostHogConfig(apiKey: "1234"))
     }
 
-    deinit {
-        firstInstance.close()
-        secondInstance.close()
+    private func getSut(
+        apiKey: String,
+        sessionReplay: Bool = false,
+        captureApplicationLifecycleEvents: Bool = false,
+        captureScreenViews: Bool = false,
+        captureElementInteractions: Bool = false
+    ) -> PostHogSDK {
+        let config = PostHogConfig(apiKey: apiKey)
+        config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
+
+        #if os(iOS)
+            config.sessionReplay = sessionReplay
+        #endif
+
+        #if os(iOS) || targetEnvironment(macCatalyst)
+            config.captureElementInteractions = captureElementInteractions
+        #endif
+
+        config.captureScreenViews = captureScreenViews
+
+        let storage = PostHogStorage(config)
+        storage.reset()
+
+        return PostHogSDK.with(config)
     }
 
     #if os(iOS)
         @Test("replay integration installed only once, on first instance")
         func replayIntegrationInstalledOnce() {
-            #expect(firstInstance.getReplayIntegration() != nil)
-            #expect(secondInstance.getReplayIntegration() == nil)
+            let first = getSut(apiKey: "123", sessionReplay: true)
+            let second = getSut(apiKey: "345", sessionReplay: true)
+
+            #expect(first.getReplayIntegration() != nil)
+            #expect(second.getReplayIntegration() == nil)
+
+            first.close()
+            second.close()
         }
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
         @Test("autocapture integration installed only once, on first instance")
         func autocaptureIntegrationInstalledOnce() async {
-            #expect(secondInstance.getAutocaptureIntegration() == nil)
-            #expect(firstInstance.getAutocaptureIntegration() != nil)
+            let first = getSut(apiKey: "123", captureElementInteractions: true)
+            let second = getSut(apiKey: "345", captureElementInteractions: true)
+
+            #expect(first.getAutocaptureIntegration() != nil)
+            #expect(second.getAutocaptureIntegration() == nil)
+
+            first.close()
+            second.close()
         }
     #endif
 
     @Test("app life cycle integration installed only once, on first instance")
     func appLifeCycleIntegrationInstalledOnce() async {
-        #expect(secondInstance.getAppLifeCycleIntegration() == nil)
-        #expect(firstInstance.getAppLifeCycleIntegration() != nil)
+        let first = getSut(apiKey: "123", captureApplicationLifecycleEvents: true)
+        let second = getSut(apiKey: "345", captureApplicationLifecycleEvents: true)
+
+        #expect(first.getAppLifeCycleIntegration() != nil)
+        #expect(second.getAppLifeCycleIntegration() == nil)
+
+        first.close()
+        second.close()
     }
 
     @Test("screen view integration installed only once, on first instance")
     func screenViewIntegrationInstalledOnce() async {
-        #expect(secondInstance.getScreenViewIntegration() == nil)
-        #expect(firstInstance.getScreenViewIntegration() != nil)
+        let first = getSut(apiKey: "123", captureScreenViews: true)
+        let second = getSut(apiKey: "345", captureScreenViews: true)
+
+        #expect(first.getScreenViewIntegration() != nil)
+        #expect(second.getScreenViewIntegration() == nil)
+
+        first.close()
+        second.close()
     }
 }

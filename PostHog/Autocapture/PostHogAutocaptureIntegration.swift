@@ -10,34 +10,33 @@
 
     private let elementsChainDelimiter = ";"
 
-    class PostHogAutocaptureIntegration: AutocaptureEventProcessing {
+    class PostHogAutocaptureIntegration: AutocaptureEventProcessing, PostHogIntegration {
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
         private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        init?(_ posthog: PostHogSDK) {
-            let wasInstalled = Self.integrationInstalledLock.withLock {
-                if Self.integrationInstalled {
-                    hedgeLog("Autocapture integration already installed to another PostHogSDK instance.")
-                    return true
+        func install(_ postHog: PostHogSDK) throws {
+            try PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+                if PostHogAutocaptureIntegration.integrationInstalled {
+                    throw InternalPostHogError(description: "Autocapture integration already installed to another PostHogSDK instance.")
                 }
-                Self.integrationInstalled = true
-                return false
+                PostHogAutocaptureIntegration.integrationInstalled = true
             }
 
-            guard !wasInstalled else { return nil }
-
-            postHog = posthog
+            self.postHog = postHog
+            
+            start()
         }
 
         func uninstall(_ postHog: PostHogSDK) {
             // uninstall only for integration instance
             if self.postHog === postHog || self.postHog == nil {
+                stop()
                 self.postHog = nil
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
+                PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+                    PostHogAutocaptureIntegration.integrationInstalled = false
                 }
             }
         }
@@ -47,7 +46,6 @@
          */
         func start() {
             PostHogAutocaptureEventTracker.eventProcessor = self
-            hedgeLog("Autocapture integration started")
         }
 
         /**
@@ -58,7 +56,6 @@
                 PostHogAutocaptureEventTracker.eventProcessor = nil
                 debounceTimers.values.forEach { $0.invalidate() }
                 debounceTimers.removeAll()
-                hedgeLog("Autocapture integration stopped")
             }
         }
 

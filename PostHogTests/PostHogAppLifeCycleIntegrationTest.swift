@@ -35,7 +35,7 @@ final class PostHogAppLifeCycleIntegrationTest {
         flushAt: Int = 1,
         captureApplicationLifecycleEvents: Bool = true
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "test", host: "http://localhost:9000")
+        let config = PostHogConfig(apiKey: "app_lifecycle", host: "http://localhost:9000")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
@@ -236,22 +236,25 @@ final class PostHogAppLifeCycleIntegrationTest {
 
     @Test("captures Application Opened event")
     func capturesApplicationOpenedEvent() async throws {
+        setVersionDefaults(version: nil, build: nil)
+
         // SDK init
-        let sut = getSut()
+        let sut = getSut(flushAt: 2)
 
         // Simulate an app open
+        mockAppLifecycle.simulateAppDidFinishLaunching()
         mockAppLifecycle.simulateAppDidBecomeActive()
 
         let events = try await getServerEvents(server)
 
         // Verify Application Installed event
-        #expect(events.count == 1)
-        #expect(events.first?.event == "Application Opened")
-        #expect(events[0].properties["from_background"] as? Bool == false)
+        #expect(events.count == 2)
+        #expect(events[1].event == "Application Opened")
+        #expect(events[1].properties["from_background"] as? Bool == false)
 
         #if targetEnvironment(simulator)
-            #expect(events.first?.properties["version"] != nil)
-            #expect(events.first?.properties["build"] != nil)
+            #expect(events[1].properties["version"] != nil)
+            #expect(events[1].properties["build"] != nil)
         #endif
 
         sut.close()
@@ -259,17 +262,20 @@ final class PostHogAppLifeCycleIntegrationTest {
 
     @Test("captures Application Backgrounded event")
     func capturesApplicationBackgroundedEvent() async throws {
+        setVersionDefaults(version: nil, build: nil)
         // SDK init
-        let sut = getSut()
+        let sut = getSut(flushAt: 3)
 
         // Simulate an app backgrounded
+        mockAppLifecycle.simulateAppDidFinishLaunching()
+        mockAppLifecycle.simulateAppDidBecomeActive()
         mockAppLifecycle.simulateAppDidEnterBackground()
 
         let events = try await getServerEvents(server)
 
         // Verify Application Installed event
-        #expect(events.count == 1)
-        #expect(events[0].event == "Application Backgrounded")
+        #expect(events.count == 3)
+        #expect(events[2].event == "Application Backgrounded")
 
         sut.close()
     }
@@ -306,12 +312,13 @@ final class PostHogAppLifeCycleIntegrationTest {
 
     @Test("captures Application Opened event from background should be true")
     func capturesApplicationOpenedEventFromBackgroundTrue() async throws {
-        setVersionDefaultsToCurrent()
+        setVersionDefaults(version: nil, build: nil)
 
         // SDK init
-        let sut = getSut(flushAt: 3)
+        let sut = getSut(flushAt: 4)
 
         // Simulate an app open
+        mockAppLifecycle.simulateAppDidFinishLaunching()
         mockAppLifecycle.simulateAppDidBecomeActive()
         mockAppLifecycle.simulateAppDidEnterBackground()
         mockAppLifecycle.simulateAppDidBecomeActive()
@@ -319,13 +326,13 @@ final class PostHogAppLifeCycleIntegrationTest {
         let events = try await getServerEvents(server)
 
         // Verify Application Installed event
-        #expect(events.count == 3)
-        #expect(events[2].event == "Application Opened")
-        #expect(events[2].properties["from_background"] as? Bool == true)
+        #expect(events.count == 4)
+        #expect(events[3].event == "Application Opened")
+        #expect(events[3].properties["from_background"] as? Bool == true)
 
         #if targetEnvironment(simulator)
-            #expect(events[0].properties["version"] != nil)
-            #expect(events[0].properties["build"] != nil)
+            #expect(events[1].properties["version"] != nil)
+            #expect(events[1].properties["build"] != nil)
         #endif
 
         sut.close()

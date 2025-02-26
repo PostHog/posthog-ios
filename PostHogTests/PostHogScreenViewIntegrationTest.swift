@@ -9,7 +9,7 @@ import Testing
 
 @testable import PostHog
 
-@Suite("Screen view integration tests")
+@Suite("Screen view integration tests", .serialized)
 final class ScreenViewIntegrationTest {
     var server: MockPostHogServer!
     let mockScreenView = MockScreenViewPublisher()
@@ -29,8 +29,9 @@ final class ScreenViewIntegrationTest {
     }
 
     private func getSut(captureScreenViews: Bool = true) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "test", host: "https://localhost:9000")
+        let config = PostHogConfig(apiKey: "screen_test", host: "https://localhost:9090")
         config.captureScreenViews = captureScreenViews
+        config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
 
         let storage = PostHogStorage(config)

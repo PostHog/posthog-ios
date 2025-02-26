@@ -45,17 +45,11 @@ let maxRetryDelay = 30.0
     private var featureFlags: PostHogFeatureFlags?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
-    private var appLifeCycleIntegration: PostHogAppLifeCycleIntegration?
-    private var screenViewIntegration: PostHogScreenViewIntegration?
-    #if os(iOS)
-        private var replayIntegration: PostHogReplayIntegration?
-    #endif
+    private var installedIntegrations: [PostHogIntegration] = []
+
     /// Internal, only used for testing
     var shouldReloadFlagsForTesting = true
 
-    #if os(iOS) || targetEnvironment(macCatalyst)
-        private var autocaptureIntegration: PostHogAutocaptureIntegration?
-    #endif
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -74,15 +68,7 @@ let maxRetryDelay = 30.0
             self.reachability?.stopNotifier()
         #endif
 
-        // release any integrations
-        #if os(iOS)
-            replayIntegration?.uninstall(self)
-        #endif
-        #if os(iOS) || targetEnvironment(macCatalyst)
-            autocaptureIntegration?.uninstall(self)
-        #endif
-        appLifeCycleIntegration?.uninstall(self)
-        screenViewIntegration?.uninstall(self)
+        uninstallIntegrations()
     }
 
     @objc public func debug(_ enabled: Bool = true) {
@@ -114,16 +100,6 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
             featureFlags = PostHogFeatureFlags(config, theStorage, api)
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
-            #if os(iOS)
-                replayIntegration = PostHogReplayIntegration(self)
-            #endif
-
-            #if os(iOS) || targetEnvironment(macCatalyst)
-                autocaptureIntegration = PostHogAutocaptureIntegration(self)
-            #endif
-
-            appLifeCycleIntegration = PostHogAppLifeCycleIntegration(self)
-            screenViewIntegration = PostHogScreenViewIntegration(self)
 
             #if !os(watchOS)
                 do {
@@ -157,25 +133,7 @@ let maxRetryDelay = 30.0
 
             PostHogSessionManager.shared.startSession()
 
-            #if os(iOS)
-                if config.sessionReplay {
-                    replayIntegration?.start()
-                }
-            #endif
-
-            #if os(iOS) || targetEnvironment(macCatalyst)
-                if config.captureElementInteractions {
-                    autocaptureIntegration?.start()
-                }
-            #endif
-
-            if config.captureApplicationLifecycleEvents {
-                appLifeCycleIntegration?.start()
-            }
-
-            if config.captureScreenViews {
-                screenViewIntegration?.start()
-            }
+            installIntegrations()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -986,23 +944,6 @@ let maxRetryDelay = 30.0
             queue?.stop()
             replayQueue?.stop()
 
-            #if os(iOS)
-                replayIntegration?.stop()
-                replayIntegration?.uninstall(self)
-                replayIntegration = nil
-            #endif
-            #if os(iOS) || targetEnvironment(macCatalyst)
-                autocaptureIntegration?.stop()
-                autocaptureIntegration?.uninstall(self)
-                autocaptureIntegration = nil
-            #endif
-            appLifeCycleIntegration?.stop()
-            appLifeCycleIntegration?.uninstall(self)
-            appLifeCycleIntegration = nil
-            screenViewIntegration?.stop()
-            screenViewIntegration?.uninstall(self)
-            screenViewIntegration = nil
-
             queue = nil
             replayQueue = nil
             config.storageManager?.reset()
@@ -1021,6 +962,8 @@ let maxRetryDelay = 30.0
             PostHogSessionManager.shared.endSession()
             toggleHedgeLog(false)
             shouldReloadFlagsForTesting = true
+
+            uninstallIntegrations()
         }
     }
 
@@ -1049,6 +992,10 @@ let maxRetryDelay = 30.0
             if !isEnabled() {
                 return
             }
+
+            let replayIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogReplayIntegration
+            }.first
 
             guard let replayIntegration else {
                 return
@@ -1085,6 +1032,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            let replayIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogReplayIntegration
+            }.first
+
             guard let replayIntegration, replayIntegration.isActive() else {
                 return
             }
@@ -1106,6 +1057,10 @@ let maxRetryDelay = 30.0
                 return false
             }
 
+            let replayIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogReplayIntegration
+            }.first
+
             guard let replayIntegration, let featureFlags else {
                 return false
             }
@@ -1121,28 +1076,61 @@ let maxRetryDelay = 30.0
             isEnabled() && config.captureElementInteractions
         }
     #endif
+
+    private func installIntegrations() {
+        let integrations = config.integrations
+        var installed: [PostHogIntegration] = []
+
+        for integration in integrations {
+            do {
+                try integration.install(self)
+                installed.append(integration)
+                hedgeLog("Integration \(type(of: integration)) installed")
+            } catch {
+                hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
+            }
+        }
+
+        installedIntegrations = installed
+    }
+
+    private func uninstallIntegrations() {
+        for integration in installedIntegrations {
+            integration.uninstall(self)
+            hedgeLog("Integration \(type(of: integration)) uninstalled")
+        }
+        installedIntegrations = []
+    }
 }
 
 #if TESTING
     extension PostHogSDK {
         #if os(iOS) || targetEnvironment(macCatalyst)
             func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
-                autocaptureIntegration
+                installedIntegrations.compactMap {
+                    $0 as? PostHogAutocaptureIntegration
+                }.first
             }
         #endif
 
         #if os(iOS)
             func getReplayIntegration() -> PostHogReplayIntegration? {
-                replayIntegration
+                installedIntegrations.compactMap {
+                    $0 as? PostHogReplayIntegration
+                }.first
             }
         #endif
 
         func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
-            appLifeCycleIntegration
+            installedIntegrations.compactMap {
+                $0 as? PostHogAppLifeCycleIntegration
+            }.first
         }
 
         func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
-            screenViewIntegration
+            installedIntegrations.compactMap {
+                $0 as? PostHogScreenViewIntegration
+            }.first
         }
     }
 #endif

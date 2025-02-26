@@ -13,7 +13,7 @@
     import UIKit
     import WebKit
 
-    class PostHogReplayIntegration {
+    class PostHogReplayIntegration: PostHogIntegration {
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
@@ -103,17 +103,18 @@
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
 
-        init?(_ postHog: PostHogSDK) {
-            let wasInstalled = Self.integrationInstalledLock.withLock {
-                if Self.integrationInstalled {
-                    hedgeLog("Replay integration already installed to another PostHogSDK instance.")
-                    return true
-                }
-                Self.integrationInstalled = true
-                return false
-            }
+        private func isNotFlutter() -> Bool {
+            // for the Flutter SDK, screen recordings are managed by Flutter SDK itself
+            postHogSdkName != "posthog-flutter"
+        }
 
-            guard !wasInstalled else { return nil }
+        func install(_ postHog: PostHogSDK) throws {
+            try PostHogReplayIntegration.integrationInstalledLock.withLock {
+                if PostHogReplayIntegration.integrationInstalled {
+                    throw InternalPostHogError(description: "Replay integration already installed to another PostHogSDK instance.")
+                }
+                PostHogReplayIntegration.integrationInstalled = true
+            }
 
             self.postHog = postHog
             let interceptor = URLSessionInterceptor(postHog)
@@ -123,20 +124,20 @@
             } catch {
                 hedgeLog("Error trying to Swizzle URLSession: \(error)")
             }
+
+            start()
         }
 
         func uninstall(_ postHog: PostHogSDK) {
             if self.postHog === postHog || self.postHog == nil {
+                stop()
+                urlInterceptor = nil
+                sessionSwizzler = nil
                 self.postHog = nil
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
+                PostHogReplayIntegration.integrationInstalledLock.withLock {
+                    PostHogReplayIntegration.integrationInstalled = false
                 }
             }
-        }
-
-        private func isNotFlutter() -> Bool {
-            // for the Flutter SDK, screen recordings are managed by Flutter SDK itself
-            postHogSdkName != "posthog-flutter"
         }
 
         func start() {

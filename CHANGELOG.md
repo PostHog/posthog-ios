@@ -1,5 +1,9 @@
 ## Next
 
+## 3.20.0 - 2025-02-26
+
+- feat: add support for quota-limited feature flags ([#308](https://github.com/PostHog/posthog-ios/pull/308))
+
 ## 3.19.7 - 2025-02-20
 
 - fix: recordings not always properly masked during screen transitions ([#306](https://github.com/PostHog/posthog-ios/pull/306))

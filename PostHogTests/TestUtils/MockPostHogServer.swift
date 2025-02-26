@@ -59,9 +59,9 @@ class MockPostHogServer {
                 "string-value": "test",
                 "disabled-flag": false,
                 "number-value": true,
-                "recording-platform-check": "web"
+                "recording-platform-check": "web",
             ]
-            
+
             if !self.flagsSkipReplayVariantName {
                 flags[self.replayVariantName] = self.replayVariantValue
             }

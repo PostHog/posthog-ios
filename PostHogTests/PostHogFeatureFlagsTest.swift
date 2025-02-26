@@ -367,7 +367,6 @@ class PostHogFeatureFlagsTest: QuickSpec {
                 server.returnReplayWithVariant = true
                 server.replayVariantName = "some-missing-flag"
                 server.flagsSkipReplayVariantName = true
-//                server.replayVariantValue = false
 
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
                     group.leave()

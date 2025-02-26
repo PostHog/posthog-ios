@@ -13,15 +13,15 @@
     import UIKit
     import WebKit
 
-    class PostHogReplayIntegration {
+    class PostHogReplayIntegration: PostHogIntegration {
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
         private var config: PostHogConfig? {
-            postHogInstance?.config
+            postHog?.config
         }
 
-        private weak var postHogInstance: PostHogSDK?
+        private weak var postHog: PostHogSDK?
 
         private var timer: Timer?
         private var isEnabled: Bool = false
@@ -29,6 +29,7 @@
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
         private var urlInterceptor: URLSessionInterceptor?
         private var sessionSwizzler: URLSessionSwizzler?
+        private var applicationEventToken: RegistrationToken?
 
         /**
          ### Mapping of SwiftUI Views to UIKit
@@ -102,44 +103,45 @@
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
 
-        init?(_ posthog: PostHogSDK) {
-            let wasInstalled = Self.integrationInstalledLock.withLock {
-                if Self.integrationInstalled {
-                    hedgeLog("Replay integration already installed to another PostHogSDK instance.")
-                    return true
+        private func isNotFlutter() -> Bool {
+            // for the Flutter SDK, screen recordings are managed by Flutter SDK itself
+            postHogSdkName != "posthog-flutter"
+        }
+
+        func install(_ postHog: PostHogSDK) throws {
+            try PostHogReplayIntegration.integrationInstalledLock.withLock {
+                if PostHogReplayIntegration.integrationInstalled {
+                    throw InternalPostHogError(description: "Replay integration already installed to another PostHogSDK instance.")
                 }
-                Self.integrationInstalled = true
-                return false
+                PostHogReplayIntegration.integrationInstalled = true
             }
 
-            guard !wasInstalled else { return nil }
-
-            postHogInstance = posthog
-            let interceptor = URLSessionInterceptor(posthog.config)
+            self.postHog = postHog
+            let interceptor = URLSessionInterceptor(postHog)
             urlInterceptor = interceptor
             do {
                 try sessionSwizzler = URLSessionSwizzler(interceptor: interceptor)
             } catch {
                 hedgeLog("Error trying to Swizzle URLSession: \(error)")
             }
+
+            start()
         }
 
-        func uninstall(_ posthog: PostHogSDK) {
-            if postHogInstance === posthog {
-                postHogInstance = nil
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
+        func uninstall(_ postHog: PostHogSDK) {
+            if self.postHog === postHog || self.postHog == nil {
+                stop()
+                urlInterceptor = nil
+                sessionSwizzler = nil
+                self.postHog = nil
+                PostHogReplayIntegration.integrationInstalledLock.withLock {
+                    PostHogReplayIntegration.integrationInstalled = false
                 }
             }
         }
 
-        private func isNotFlutter() -> Bool {
-            // for the Flutter SDK, screen recordings are managed by Flutter SDK itself
-            postHogSdkName != "posthog-flutter"
-        }
-
         func start() {
-            guard let posthog = postHogInstance else {
+            guard let postHog else {
                 return
             }
 
@@ -150,18 +152,22 @@
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
-                let debouncerDelay = posthog.config.sessionReplayConfig.debouncerDelay
-                DispatchQueue.main.async {
-                    self.timer = Timer.scheduledTimer(withTimeInterval: debouncerDelay, repeats: true, block: { _ in
-                        self.snapshot()
+                let debouncerDelay = postHog.config.sessionReplayConfig.debouncerDelay
+                DispatchQueue.main.async { [weak self] in
+                    self?.timer = Timer.scheduledTimer(withTimeInterval: debouncerDelay, repeats: true, block: { _ in
+                        self?.snapshot()
                     })
                 }
                 ViewLayoutTracker.swizzleLayoutSubviews()
             }
 
-            UIApplicationTracker.swizzleSendEvent()
+            // start listening to `UIApplication.sendEvent`
+            let applicationEventPublisher = DI.main.applicationEventPublisher
+            applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] event, date in
+                self?.handleApplicationEvent(event: event, date: date)
+            }
 
-            if posthog.config.sessionReplayConfig.captureNetworkTelemetry {
+            if postHog.config.sessionReplayConfig.captureNetworkTelemetry {
                 sessionSwizzler?.swizzle()
             }
         }
@@ -172,8 +178,10 @@
             resetViews()
             PostHogSessionManager.shared.onSessionIdChanged = {}
 
+            // stop listening to `UIApplication.sendEvent`
+            applicationEventToken = nil
+
             ViewLayoutTracker.unSwizzleLayoutSubviews()
-            UIApplicationTracker.unswizzleSendEvent()
             sessionSwizzler?.unswizzle()
             urlInterceptor?.stop()
         }
@@ -191,10 +199,84 @@
             windowViews.removeAllObjects()
         }
 
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, posthog: PostHogSDK) {
+        private func handleApplicationEvent(event: UIEvent, date: Date) {
+            guard let postHog, postHog.isSessionReplayActive() else {
+                return
+            }
+
+            guard event.type == .touches else {
+                return
+            }
+
+            guard let window = UIApplication.getCurrentWindow() else {
+                return
+            }
+
+            guard let touches = event.touches(for: window) else {
+                return
+            }
+
+            // always make sure we have a fresh session id as early as possible
+            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+                return
+            }
+
+            // capture necessary touch information on the main thread before performing any asynchronous operations
+            // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
+            // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
+            let touchInfo = touches.map {
+                (phase: $0.phase, location: $0.location(in: window))
+            }
+
+            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
+                // captured weakly since integration may have uninstalled by now
+                guard let postHog else { return }
+
+                var snapshotsData: [Any] = []
+                for touch in touchInfo {
+                    let phase = touch.phase
+
+                    let type: Int
+                    if phase == .began {
+                        type = 7
+                    } else if phase == .ended {
+                        type = 9
+                    } else {
+                        continue
+                    }
+
+                    // we keep a failsafe here just in case, but this will likely never be triggered
+                    guard touch.location != .zero else {
+                        continue
+                    }
+
+                    let posX = touch.location.x.toInt()
+                    let posY = touch.location.y.toInt()
+
+                    // if the id is 0, BE transformer will set it to the virtual bodyId
+                    let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
+
+                    let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": date.toMillis()]
+                    snapshotsData.append(data)
+                }
+                if !snapshotsData.isEmpty {
+                    postHog.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: date
+                    )
+                }
+            }
+        }
+
+        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
             var hasChanges = false
 
-            guard let wireframe = posthog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+            guard let wireframe = postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
                 return
             }
 
@@ -242,7 +324,7 @@
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
 
-                posthog.capture(
+                postHog.capture(
                     "$snapshot",
                     properties: [
                         "$snapshot_source": "mobile",
@@ -688,11 +770,7 @@
         }
 
         @objc private func snapshot() {
-            guard let posthog = postHogInstance else {
-                return
-            }
-
-            if !posthog.isSessionReplayActive() {
+            guard let postHog, postHog.isSessionReplayActive() else {
                 return
             }
 
@@ -708,24 +786,34 @@
             var screenName: String?
             if let controller = window.rootViewController {
                 // SwiftUI only supported with screenshotMode
-                if controller is AnyObjectUIHostingViewController, !posthog.config.sessionReplayConfig.screenshotMode {
+                if controller is AnyObjectUIHostingViewController, !postHog.config.sessionReplayConfig.screenshotMode {
                     hedgeLog("SwiftUI snapshot not supported, enable screenshotMode.")
                     return
                         // screen name only makes sense if we are not using SwiftUI
-                } else if !posthog.config.sessionReplayConfig.screenshotMode {
+                } else if !postHog.config.sessionReplayConfig.screenshotMode {
                     screenName = UIViewController.getViewControllerName(controller)
                 }
             }
 
             // this cannot run off of the main thread because most properties require to be called within the main thread
             // this method has to be fast and do as little as possible
-            generateSnapshot(window, screenName, posthog: posthog)
+            generateSnapshot(window, screenName, postHog: postHog)
         }
     }
 
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
+
+    #if TESTING
+        extension PostHogReplayIntegration {
+            static func clearInstalls() {
+                integrationInstalledLock.withLock {
+                    integrationInstalled = false
+                }
+            }
+        }
+    #endif
 
 #endif
 

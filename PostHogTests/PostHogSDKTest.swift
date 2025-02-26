@@ -30,11 +30,16 @@ class PostHogSDKTest: QuickSpec {
         config.optOut = optOut
         config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
+
+        let storage = PostHogStorage(config)
+        storage.reset()
+
         return PostHogSDK.with(config)
     }
 
     override func spec() {
         var server: MockPostHogServer!
+        let mockAppLifecycle = MockApplicationLifecyclePublisher()
 
         func deleteDefaults() {
             let userDefaults = UserDefaults.standard
@@ -46,15 +51,20 @@ class PostHogSDKTest: QuickSpec {
         }
 
         beforeEach {
+            PostHogAppLifeCycleIntegration.clearInstalls()
+
             deleteDefaults()
             server = MockPostHogServer()
             server.start()
+
+            DI.main.sessionManager = PostHogSessionManager()
+            DI.main.appLifecyclePublisher = mockAppLifecycle
         }
         afterEach {
             now = { Date() }
             server.stop()
             server = nil
-            PostHogSessionManager.shared.endSession {}
+            DI.main.sessionManager.endSession {}
         }
 
         it("captures the capture event") {
@@ -458,139 +468,6 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("capture AppBackgrounded") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
-
-            sut.handleAppDidEnterBackground()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 1
-
-            let event = events.first!
-            expect(event.event) == "Application Backgrounded"
-
-            sut.reset()
-            sut.close()
-        }
-
-        it("capture AppInstalled") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
-
-            sut.handleAppDidFinishLaunching()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 1
-
-            let event = events.first!
-            expect(event.event) == "Application Installed"
-            expect(event.properties["version"] as? String) != nil
-            expect(event.properties["build"] as? String) != nil
-
-            sut.reset()
-            sut.close()
-        }
-
-        it("capture AppUpdated") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
-
-            let userDefaults = UserDefaults.standard
-            userDefaults.setValue("1.0.0", forKey: "PHGVersionKey")
-            userDefaults.setValue("1", forKey: "PHGBuildKeyV2")
-            userDefaults.synchronize()
-
-            sut.handleAppDidFinishLaunching()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 1
-
-            let event = events.first!
-            expect(event.event) == "Application Updated"
-            expect(event.properties["version"] as? String) != nil
-            expect(event.properties["build"] as? String) != nil
-            expect(event.properties["previous_version"] as? String) != nil
-            expect(event.properties["previous_build"] as? String) != nil
-
-            sut.reset()
-            sut.close()
-        }
-
-        it("capture AppOpenedFromBackground from_background should be false") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
-
-            sut.handleAppDidBecomeActive()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 1
-
-            let event = events.first!
-            expect(event.event) == "Application Opened"
-            expect(event.properties["from_background"] as? Bool) == false
-
-            sut.reset()
-            sut.close()
-        }
-
-        it("capture AppOpenedFromBackground from_background should be true") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
-
-            sut.handleAppDidBecomeActive()
-            sut.handleAppDidBecomeActive()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 2
-
-            let event = events.last!
-            expect(event.event) == "Application Opened"
-            expect(event.properties["from_background"] as? Bool) == true
-
-            sut.reset()
-            sut.close()
-        }
-
-        it("capture captureAppOpened") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
-
-            sut.handleAppDidBecomeActive()
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 1
-
-            let event = events.first!
-            expect(event.event) == "Application Opened"
-            expect(event.properties["from_background"] as? Bool) == false
-            expect(event.properties["version"] as? String) != nil
-            expect(event.properties["build"] as? String) != nil
-
-            sut.reset()
-            sut.close()
-        }
-
-        it("does not capture life cycle events") {
-            let sut = self.getSut()
-
-            sut.handleAppDidFinishLaunching()
-            sut.handleAppDidBecomeActive()
-            sut.handleAppDidEnterBackground()
-
-            sut.screen("test")
-
-            let events = getBatchedEvents(server)
-
-            expect(events.count) == 1
-
-            let event = events.first!
-            expect(event.event) == "$screen"
-
-            sut.reset()
-            sut.close()
-        }
-
         it("reloadFeatureFlags adds groups if any") {
             let sut = self.getSut()
             // group reloads flags when there are new groups
@@ -723,9 +600,9 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("sets sessionId on app start") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true)
+            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
 
-            sut.handleAppDidBecomeActive()
+            mockAppLifecycle.simulateAppDidFinishLaunching()
 
             let events = getBatchedEvents(server)
 
@@ -767,11 +644,13 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("clears sessionId for background events after 30 mins in background") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 2)
+            let sut = self.getSut(captureApplicationLifecycleEvents: false, flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
 
-            sut.handleAppDidEnterBackground() // Background "timer": 0 mins
+            sut.capture("event captured in foreground")
+
+            mockAppLifecycle.simulateAppDidEnterBackground()
 
             mockNow.date.addTimeInterval(60 * 30 + 1) // Background "timer": 30 mins 1 second
 
@@ -788,7 +667,7 @@ class PostHogSDKTest: QuickSpec {
         }
 
         it("reset sessionId after reset") {
-            let sut = self.getSut(captureApplicationLifecycleEvents: true, flushAt: 1)
+            let sut = self.getSut(captureApplicationLifecycleEvents: false, flushAt: 1)
             let mockNow = MockDate()
             now = { mockNow.date }
 

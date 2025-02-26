@@ -10,34 +10,33 @@
 
     private let elementsChainDelimiter = ";"
 
-    class PostHogAutocaptureIntegration: AutocaptureEventProcessing {
+    class PostHogAutocaptureIntegration: AutocaptureEventProcessing, PostHogIntegration {
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
-        private weak var postHogInstance: PostHogSDK?
+        private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        init?(_ posthog: PostHogSDK) {
-            let wasInstalled = Self.integrationInstalledLock.withLock {
-                if Self.integrationInstalled {
-                    hedgeLog("Autocapture integration already installed to another PostHogSDK instance.")
-                    return true
+        func install(_ postHog: PostHogSDK) throws {
+            try PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+                if PostHogAutocaptureIntegration.integrationInstalled {
+                    throw InternalPostHogError(description: "Autocapture integration already installed to another PostHogSDK instance.")
                 }
-                Self.integrationInstalled = true
-                return false
+                PostHogAutocaptureIntegration.integrationInstalled = true
             }
 
-            guard !wasInstalled else { return nil }
+            self.postHog = postHog
 
-            postHogInstance = posthog
+            start()
         }
 
-        func uninstall(_ posthog: PostHogSDK) {
+        func uninstall(_ postHog: PostHogSDK) {
             // uninstall only for integration instance
-            if postHogInstance === posthog {
-                postHogInstance = nil
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
+            if self.postHog === postHog || self.postHog == nil {
+                stop()
+                self.postHog = nil
+                PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+                    PostHogAutocaptureIntegration.integrationInstalled = false
                 }
             }
         }
@@ -47,7 +46,6 @@
          */
         func start() {
             PostHogAutocaptureEventTracker.eventProcessor = self
-            hedgeLog("Autocapture integration started")
         }
 
         /**
@@ -58,7 +56,6 @@
                 PostHogAutocaptureEventTracker.eventProcessor = nil
                 debounceTimers.values.forEach { $0.invalidate() }
                 debounceTimers.removeAll()
-                hedgeLog("Autocapture integration stopped")
             }
         }
 
@@ -74,7 +71,7 @@
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard postHogInstance?.isAutocaptureActive() == true else {
+            guard postHog?.isAutocaptureActive() == true else {
                 return
             }
 
@@ -103,7 +100,7 @@
          associated PostHog instance for further processing.
          */
         private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard let posthog = postHogInstance else {
+            guard let postHog else {
                 return
             }
 
@@ -128,11 +125,21 @@
                 properties["$touch_y"] = coordinates.y
             }
 
-            posthog.autocapture(
+            postHog.autocapture(
                 eventType: eventType,
                 elementsChain: elementsChain,
                 properties: properties
             )
         }
     }
+
+    #if TESTING
+        extension PostHogAutocaptureIntegration {
+            static func clearInstalls() {
+                integrationInstalledLock.withLock {
+                    integrationInstalled = false
+                }
+            }
+        }
+    #endif
 #endif

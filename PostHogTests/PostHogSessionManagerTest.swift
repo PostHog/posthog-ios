@@ -501,20 +501,6 @@ enum PostHogSessionManagerTest {
     }
 }
 
-final class MockApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
-    func simulateAppDidEnterBackground() {
-        didEnterBackgroundCallbacks.values.forEach { $0() }
-    }
-
-    func simulateAppDidBecomeActive() {
-        didBecomeActiveCallbacks.values.forEach { $0() }
-    }
-
-    func simulateAppDidFinishLaunching() {
-        didFinishLaunchingCallbacks.values.forEach { $0() }
-    }
-}
-
 func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent] {
     guard let expectation = server.batchExpectation else {
         throw InternalPostHogError(description: "Server is not properly configured with a batch expectation.")

@@ -81,4 +81,31 @@ import Foundation
         self.apiKey = apiKey
         self.host = URL(string: host) ?? URL(string: PostHogConfig.defaultHost)!
     }
+
+    /// Returns an array of integrations to be installed based on current configuration
+    func getIntegrations() -> [PostHogIntegration] {
+        var integrations: [PostHogIntegration] = []
+
+        if captureScreenViews {
+            integrations.append(PostHogScreenViewIntegration())
+        }
+
+        if captureApplicationLifecycleEvents {
+            integrations.append(PostHogAppLifeCycleIntegration())
+        }
+
+        #if os(iOS)
+            if sessionReplay {
+                integrations.append(PostHogReplayIntegration())
+            }
+        #endif
+
+        #if os(iOS) || targetEnvironment(macCatalyst)
+            if captureElementInteractions {
+                integrations.append(PostHogAutocaptureIntegration())
+            }
+        #endif
+
+        return integrations
+    }
 }

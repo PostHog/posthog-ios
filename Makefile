@@ -74,7 +74,7 @@ testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
 test:
-	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING | xcpretty
+	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint

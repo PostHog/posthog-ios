@@ -56,14 +56,30 @@ class PostHogFeatureFlags {
 
         // check for boolean flags
         if let linkedFlag = sessionRecording["linkedFlag"] as? String {
-            recordingActive = featureFlags[linkedFlag] as? Bool ?? false
+            let value = featureFlags[linkedFlag]
+
+            if let boolValue = value as? Bool {
+                // boolean flag with value
+                recordingActive = boolValue
+            } else if value is String {
+                // its a multi-variant flag linked to "any"
+                recordingActive = true
+            } else {
+                // disable recording if the flag does not exist/quota limited
+                recordingActive = false
+            }
             // check for specific flag variant
-        } else if let linkedFlag = sessionRecording["linkedFlag"] as? [String: Any],
-                  let flag = linkedFlag["flag"] as? String,
-                  let variant = linkedFlag["variant"] as? String,
-                  let value = featureFlags[flag] as? String
-        {
-            recordingActive = value == variant
+        } else if let linkedFlag = sessionRecording["linkedFlag"] as? [String: Any] {
+            let flag = linkedFlag["flag"] as? String
+            let variant = linkedFlag["variant"] as? String
+
+            if let flag, let variant {
+                let value = featureFlags[flag] as? String
+                recordingActive = value == variant
+            } else {
+                // disable recording if the flag does not exist/quota limited
+                recordingActive = false
+            }
         }
         // check for multi flag variant (any)
         // if let linkedFlag = sessionRecording["linkedFlag"] as? String,
@@ -96,7 +112,8 @@ class PostHogFeatureFlags {
                 if let quotaLimited = data?["quotaLimited"] as? [String],
                    quotaLimited.contains("feature_flags")
                 {
-                    hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads.  See https://posthog.com/docs/billing/limits-alerts for more information.")
+                    // swiftlint:disable:next line_length
+                    hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads. See https://posthog.com/docs/billing/limits-alerts for more information.")
                     self.featureFlagsLock.withLock {
                         // Clear both feature flags and payloads
                         self.setCachedFeatureFlags([:])

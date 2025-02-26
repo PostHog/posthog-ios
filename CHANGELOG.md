@@ -1,5 +1,7 @@
 ## Next
 
+- feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))
+
 ## 3.19.5 - 2025-02-11
 
 - fix: flutter session recordings not working ([#297](https://github.com/PostHog/posthog-ios/pull/297))

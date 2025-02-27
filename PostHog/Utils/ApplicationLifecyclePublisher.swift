@@ -6,7 +6,7 @@
 //
 
 #if os(iOS) || os(tvOS)
-    import UIKit
+    import didEnterBackgroundCallbacks
 #elseif os(macOS)
     import AppKit
 #elseif os(watchOS)
@@ -123,35 +123,35 @@ final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
 class BaseApplicationLifecyclePublisher: AppLifecyclePublishing {
     private let registrationLock = NSLock()
 
-    private var _didBecomeActiveCallbacks: [UUID: AppLifecycleHandler] = [:]
-    private var _didEnterBackgroundCallbacks: [UUID: AppLifecycleHandler] = [:]
-    private var _didFinishLaunchingCallbacks: [UUID: AppLifecycleHandler] = [:]
+    private var didBecomeActiveCallbacks: [UUID: AppLifecycleHandler] = [:]
+    private var didEnterBackgroundCallbacks: [UUID: AppLifecycleHandler] = [:]
+    private var didFinishLaunchingCallbacks: [UUID: AppLifecycleHandler] = [:]
 
     var didBecomeActiveHandlers: [AppLifecycleHandler] {
-        registrationLock.withLock { Array(_didBecomeActiveCallbacks.values) }
+        registrationLock.withLock { Array(didBecomeActiveCallbacks.values) }
     }
 
     var didEnterBackgroundHandlers: [AppLifecycleHandler] {
-        registrationLock.withLock { Array(_didEnterBackgroundCallbacks.values) }
+        registrationLock.withLock { Array(didEnterBackgroundCallbacks.values) }
     }
 
     var didFinishLaunchingHandlers: [AppLifecycleHandler] {
-        registrationLock.withLock { Array(_didFinishLaunchingCallbacks.values) }
+        registrationLock.withLock { Array(didFinishLaunchingCallbacks.values) }
     }
 
     /// Registers a callback for the `didBecomeActive` event.
     func onDidBecomeActive(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken {
-        register(handler: callback, on: \._didBecomeActiveCallbacks)
+        register(handler: callback, on: \.didBecomeActiveCallbacks)
     }
 
     /// Registers a callback for the `didEnterBackground` event.
     func onDidEnterBackground(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken {
-        register(handler: callback, on: \._didEnterBackgroundCallbacks)
+        register(handler: callback, on: \.didEnterBackgroundCallbacks)
     }
 
     /// Registers a callback for the `didFinishLaunching` event.
     func onDidFinishLaunching(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken {
-        register(handler: callback, on: \._didFinishLaunchingCallbacks)
+        register(handler: callback, on: \.didFinishLaunchingCallbacks)
     }
 
     func register(

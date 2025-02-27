@@ -19,6 +19,7 @@
         private var timer: Timer?
         private var isEnabled: Bool = false
 
+        private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
         private let urlInterceptor: URLSessionInterceptor
         private var sessionSwizzler: URLSessionSwizzler?
@@ -114,7 +115,9 @@
             isEnabled = true
             stopTimer()
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
-            PostHogSessionManager.shared.onSessionIdChanged = resetViews
+            PostHogSessionManager.shared.onSessionIdChanged = { [weak self] in
+                self?.resetViews()
+            }
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
@@ -155,7 +158,10 @@
         }
 
         private func resetViews() {
-            windowViews.removeAllObjects()
+            // Ensure thread-safe access to windowViews
+            windowViewsLock.withLock {
+                windowViews.removeAllObjects()
+            }
         }
 
         private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil) {
@@ -169,7 +175,9 @@
             let timestampDate = Date()
             let timestamp = timestampDate.toMillis()
 
-            let snapshotStatus = windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
+            let snapshotStatus = windowViewsLock.withLock {
+                windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
+            }
 
             // always make sure we have a fresh session id at correct timestamp
             guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
@@ -196,7 +204,9 @@
             }
 
             if hasChanges {
-                windowViews.setObject(snapshotStatus, forKey: window)
+                windowViewsLock.withLock {
+                    windowViews.setObject(snapshotStatus, forKey: window)
+                }
             }
 
             // TODO: IncrementalSnapshot, type=2

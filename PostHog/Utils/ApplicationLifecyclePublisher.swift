@@ -6,7 +6,7 @@
 //
 
 #if os(iOS) || os(tvOS)
-    import didEnterBackgroundCallbacks
+    import UIKit
 #elseif os(macOS)
     import AppKit
 #elseif os(watchOS)

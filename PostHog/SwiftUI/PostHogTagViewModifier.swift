@@ -164,6 +164,15 @@
         }
     }
 
+    private let swiftUIIgnoreTypes: [AnyClass] = [
+        // .clipShape or .clipped SwiftUI modifiers will add this to view hierarchy
+        // Not sure of its functionality, but it seems to be just a wrapper view with no visual impact
+        //
+        // We can safely ignore from list of descendant views, since it's sometimes being tagged
+        // for replay masking unintentionally
+        "SwiftUI._UIInheritedView",
+    ].compactMap(NSClassFromString)
+
     func getTargetViews(from controller: PostHogTagViewController) -> [UIView] {
         guard
             let taggerView = controller.view,
@@ -175,7 +184,15 @@
 
         return commonAncestor
             .allDescendants(between: anchorView, and: taggerView)
-            .filter { !$0.postHogView } // exclude injected views
+            .lazy
+            .filter {
+                // ignore some system SwiftUI views
+                !swiftUIIgnoreTypes.contains(where: $0.isKind(of:))
+            }
+            .filter {
+                // exclude injected views
+                !$0.postHogView
+            }
     }
 
     private struct PostHogTagAnchorView: UIViewControllerRepresentable {
@@ -255,6 +272,8 @@
 
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
+            // superview is the wrapper UIViewControllerRepresentable
+            view.superview?.postHogView = true
             handler?()
         }
 

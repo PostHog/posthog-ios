@@ -272,8 +272,6 @@
 
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
-            // superview is the wrapper UIViewControllerRepresentable
-            view.superview?.postHogView = true
             handler?()
         }
 

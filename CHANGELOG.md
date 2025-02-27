@@ -1,5 +1,7 @@
 ## Next
 
+- fix: SwiftUI view masking when using clipShape view modifier ([#312](https://github.com/PostHog/posthog-ios/pull/312))
+
 ## 3.19.8 - 2025-02-26
 
 - feat: add support for quota-limited feature flags ([#308](https://github.com/PostHog/posthog-ios/pull/308))

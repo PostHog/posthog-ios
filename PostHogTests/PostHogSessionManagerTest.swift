@@ -329,11 +329,11 @@ enum PostHogSessionManagerTest {
                 LifeCycleSub(sut),
             ]
 
-            #expect(sut.didBecomeActiveCallbacks.count == 5)
+            #expect(sut.didBecomeActiveHandlers.count == 5)
             registrations.removeFirst(2)
-            #expect(sut.didBecomeActiveCallbacks.count == 3)
+            #expect(sut.didBecomeActiveHandlers.count == 3)
             registrations.removeAll()
-            #expect(sut.didBecomeActiveCallbacks.isEmpty)
+            #expect(sut.didBecomeActiveHandlers.isEmpty)
         }
     }
 
@@ -503,15 +503,15 @@ enum PostHogSessionManagerTest {
 
 final class MockApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
     func simulateAppDidEnterBackground() {
-        didEnterBackgroundCallbacks.values.forEach { $0() }
+        didEnterBackgroundHandlers.forEach { $0() }
     }
 
     func simulateAppDidBecomeActive() {
-        didBecomeActiveCallbacks.values.forEach { $0() }
+        didBecomeActiveHandlers.forEach { $0() }
     }
 
     func simulateAppDidFinishLaunching() {
-        didFinishLaunchingCallbacks.values.forEach { $0() }
+        didFinishLaunchingHandlers.forEach { $0() }
     }
 }
 

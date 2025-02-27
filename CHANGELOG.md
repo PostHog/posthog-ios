@@ -1,5 +1,7 @@
 ## Next
 
+fix: reported crash on PostHogSessionManager ([#311](https://github.com/PostHog/posthog-ios/pull/311))
+
 ## 3.19.8 - 2025-02-26
 
 - feat: add support for quota-limited feature flags ([#308](https://github.com/PostHog/posthog-ios/pull/308))

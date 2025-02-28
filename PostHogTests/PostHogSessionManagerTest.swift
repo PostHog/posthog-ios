@@ -329,11 +329,11 @@ enum PostHogSessionManagerTest {
                 LifeCycleSub(sut),
             ]
 
-            #expect(sut.didBecomeActiveCallbacks.count == 5)
+            #expect(sut.didBecomeActiveHandlers.count == 5)
             registrations.removeFirst(2)
-            #expect(sut.didBecomeActiveCallbacks.count == 3)
+            #expect(sut.didBecomeActiveHandlers.count == 3)
             registrations.removeAll()
-            #expect(sut.didBecomeActiveCallbacks.isEmpty)
+            #expect(sut.didBecomeActiveHandlers.isEmpty)
         }
     }
 

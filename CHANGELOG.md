@@ -2,6 +2,11 @@
 
 - feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))
 
+## 3.19.9 - 2025-02-28
+
+- fix: SwiftUI view masking when using clipShape view modifier ([#312](https://github.com/PostHog/posthog-ios/pull/312))
+- fix: reported crash on PostHogSessionManager ([#311](https://github.com/PostHog/posthog-ios/pull/311))
+
 ## 3.19.8 - 2025-02-26
 
 - feat: add support for quota-limited feature flags ([#308](https://github.com/PostHog/posthog-ios/pull/308))

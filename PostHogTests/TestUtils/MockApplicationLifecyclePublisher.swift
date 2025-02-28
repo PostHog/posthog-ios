@@ -9,14 +9,14 @@
 
 final class MockApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
     func simulateAppDidEnterBackground() {
-        didEnterBackgroundCallbacks.values.forEach { $0() }
+        didEnterBackgroundHandlers.forEach { $0() }
     }
 
     func simulateAppDidBecomeActive() {
-        didBecomeActiveCallbacks.values.forEach { $0() }
+        didBecomeActiveHandlers.forEach { $0() }
     }
 
     func simulateAppDidFinishLaunching() {
-        didFinishLaunchingCallbacks.values.forEach { $0() }
+        didFinishLaunchingHandlers.forEach { $0() }
     }
 }

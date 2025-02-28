@@ -202,16 +202,22 @@ import Foundation
     private func registerNotifications() {
         let lifecyclePublisher = DI.main.appLifecyclePublisher
         didBecomeActiveToken = lifecyclePublisher.onDidBecomeActive { [weak self] in
-            guard let self, isAppInBackground else { return }
+            guard let self, sessionLock.withLock({ self.isAppInBackground }) else {
+                return
+            }
+
             // we consider foregrounding an app an activity on the current session
             touchSession()
-            self.isAppInBackground = false
+            sessionLock.withLock { self.isAppInBackground = false }
         }
         didEnterBackgroundToken = lifecyclePublisher.onDidEnterBackground { [weak self] in
-            guard let self, !isAppInBackground else { return }
+            guard let self, !sessionLock.withLock({ self.isAppInBackground }) else {
+                return
+            }
+
             // we consider backgrounding the app an activity on the current session
             touchSession()
-            self.isAppInBackground = true
+            sessionLock.withLock { self.isAppInBackground = true }
         }
     }
 

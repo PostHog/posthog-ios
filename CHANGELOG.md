@@ -1,5 +1,7 @@
 ## Next
 
+## 3.19.9 - 2025-02-28
+
 - fix: SwiftUI view masking when using clipShape view modifier ([#312](https://github.com/PostHog/posthog-ios/pull/312))
 - fix: reported crash on PostHogSessionManager ([#311](https://github.com/PostHog/posthog-ios/pull/311))
 

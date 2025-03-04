@@ -1,5 +1,7 @@
 ## Next
 
+## 3.20.0 - 2025-03-04
+
 - feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))
 > Note: Now event storage is per API key. Any pending events in legacy storage will be migrated to the first API key used.  
 

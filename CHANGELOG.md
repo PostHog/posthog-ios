@@ -1,5 +1,8 @@
 ## Next
 
+- feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))
+> Note: Now event storage is per API key. Any pending events in legacy storage will be migrated to the first API key used.  
+
 ## 3.19.9 - 2025-02-28
 
 - fix: SwiftUI view masking when using clipShape view modifier ([#312](https://github.com/PostHog/posthog-ios/pull/312))

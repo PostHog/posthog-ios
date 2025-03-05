@@ -11,13 +11,13 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./sharpyuv_dsp.h"
+#include "./ph_sharpyuv_dsp.h"
 
-#include "./utils.h"
+#include "./ph_utils.h"
 #include <stdlib.h>
 
-#include "./sharpyuv_cpu.h"
-#include "./types.h"
+#include "./ph_sharpyuv_cpu.h"
+#include "./ph_types.h"
 
 //-----------------------------------------------------------------------------
 

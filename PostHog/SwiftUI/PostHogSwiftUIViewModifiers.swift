@@ -16,23 +16,28 @@
          - Parameters:
          - screenName: The name of the screen. Defaults to the type of the view.
          - properties: Additional properties to be tracked with the screen.
+         - postHog: The instance to be used when sending the $screen event
          - Returns: A modified view that will be tracked as a screen in PostHog.
          */
         func postHogScreenView(_ screenName: String? = nil,
-                               _ properties: [String: Any]? = nil) -> some View
+                               _ properties: [String: Any]? = nil,
+                               postHog: PostHogSDK? = nil) -> some View
         {
             let viewEventName = screenName ?? "\(type(of: self))"
             return modifier(PostHogSwiftUIViewModifier(viewEventName: viewEventName,
                                                        screenEvent: true,
-                                                       properties: properties))
+                                                       properties: properties,
+                                                       postHog: postHog))
         }
 
         func postHogViewSeen(_ event: String,
-                             _ properties: [String: Any]? = nil) -> some View
+                             _ properties: [String: Any]? = nil,
+                             postHog: PostHogSDK? = nil) -> some View
         {
             modifier(PostHogSwiftUIViewModifier(viewEventName: event,
                                                 screenEvent: false,
-                                                properties: properties))
+                                                properties: properties,
+                                                postHog: postHog))
         }
     }
 
@@ -43,14 +48,20 @@
 
         let properties: [String: Any]?
 
+        let postHog: PostHogSDK?
+
         func body(content: Content) -> some View {
             content.onAppear {
                 if screenEvent {
-                    PostHogSDK.shared.screen(viewEventName, properties: properties)
+                    instance.screen(viewEventName, properties: properties)
                 } else {
-                    PostHogSDK.shared.capture(viewEventName, properties: properties)
+                    instance.capture(viewEventName, properties: properties)
                 }
             }
+        }
+
+        private var instance: PostHogSDK {
+            postHog ?? PostHogSDK.shared
         }
     }
 

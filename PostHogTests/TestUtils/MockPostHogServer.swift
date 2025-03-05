@@ -40,18 +40,31 @@ class MockPostHogServer {
     public var returnReplayWithVariant = false
     public var returnReplayWithMultiVariant = false
     public var replayVariantName = "myBooleanRecordingFlag"
+    public var flagsSkipReplayVariantName = false
     public var replayVariantValue: Any = true
+    public var quotaLimitFeatureFlags: Bool = false
 
-    init(port _: Int = 9001) {
-        stub(condition: isPath("/decide")) { _ in
+    init() {
+        stub(condition: pathEndsWith("/decide")) { _ in
+            if self.quotaLimitFeatureFlags {
+                return HTTPStubsResponse(
+                    jsonObject: ["quotaLimited": ["feature_flags"]],
+                    statusCode: 200,
+                    headers: nil
+                )
+            }
+
             var flags = [
                 "bool-value": true,
                 "string-value": "test",
                 "disabled-flag": false,
                 "number-value": true,
                 "recording-platform-check": "web",
-                self.replayVariantName: self.replayVariantValue,
             ]
+
+            if !self.flagsSkipReplayVariantName {
+                flags[self.replayVariantName] = self.replayVariantValue
+            }
 
             if self.errorsWhileComputingFlags {
                 flags["new-flag"] = true
@@ -90,7 +103,15 @@ class MockPostHogServer {
             return HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
         }
 
-        stub(condition: isPath("/batch")) { _ in
+        stub(condition: pathEndsWith("/batch")) { _ in
+            if self.return500 {
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            } else {
+                HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+        }
+
+        stub(condition: pathEndsWith("/s")) { _ in
             if self.return500 {
                 HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             } else {
@@ -107,9 +128,9 @@ class MockPostHogServer {
         }
 
         HTTPStubs.onStubActivation { request, _, _ in
-            if request.url?.path == "/batch" {
+            if request.url?.lastPathComponent == "batch" {
                 self.trackBatchRequest(request)
-            } else if request.url?.path == "/decide" {
+            } else if request.url?.lastPathComponent == "decide" {
                 self.trackDecide(request)
             }
         }

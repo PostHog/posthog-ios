@@ -11,10 +11,10 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./utils.h"
+#include "./ph_utils.h"
 #include <stdlib.h>  // for abs()
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if !defined(WEBP_REDUCE_SIZE)
 

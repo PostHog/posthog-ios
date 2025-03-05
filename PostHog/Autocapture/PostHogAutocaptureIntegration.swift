@@ -10,12 +10,35 @@
 
     private let elementsChainDelimiter = ";"
 
-    class PostHogAutocaptureIntegration: AutocaptureEventProcessing {
-        private let postHogConfig: PostHogConfig
+    class PostHogAutocaptureIntegration: AutocaptureEventProcessing, PostHogIntegration {
+        private static var integrationInstalledLock = NSLock()
+        private static var integrationInstalled = false
+
+        private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        init(_ config: PostHogConfig) {
-            postHogConfig = config
+        func install(_ postHog: PostHogSDK) throws {
+            try PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+                if PostHogAutocaptureIntegration.integrationInstalled {
+                    throw InternalPostHogError(description: "Autocapture integration already installed to another PostHogSDK instance.")
+                }
+                PostHogAutocaptureIntegration.integrationInstalled = true
+            }
+
+            self.postHog = postHog
+
+            start()
+        }
+
+        func uninstall(_ postHog: PostHogSDK) {
+            // uninstall only for integration instance
+            if self.postHog === postHog || self.postHog == nil {
+                stop()
+                self.postHog = nil
+                PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+                    PostHogAutocaptureIntegration.integrationInstalled = false
+                }
+            }
         }
 
         /**
@@ -23,7 +46,6 @@
          */
         func start() {
             PostHogAutocaptureEventTracker.eventProcessor = self
-            hedgeLog("Autocapture integration started")
         }
 
         /**
@@ -34,7 +56,6 @@
                 PostHogAutocaptureEventTracker.eventProcessor = nil
                 debounceTimers.values.forEach { $0.invalidate() }
                 debounceTimers.removeAll()
-                hedgeLog("Autocapture integration stopped")
             }
         }
 
@@ -50,7 +71,7 @@
          The debounce interval is defined per UIControl by the `ph_autocaptureDebounceInterval` property of `AutoCapturable`
          */
         func process(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
-            guard PostHogSDK.shared.isAutocaptureActive() else {
+            guard postHog?.isAutocaptureActive() == true else {
                 return
             }
 
@@ -79,6 +100,10 @@
          associated PostHog instance for further processing.
          */
         private func handleEventProcessing(source: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
+            guard let postHog else {
+                return
+            }
+
             let eventType: String = switch source {
             case let .actionMethod(description): description
             case let .gestureRecognizer(description): description
@@ -100,11 +125,21 @@
                 properties["$touch_y"] = coordinates.y
             }
 
-            PostHogSDK.shared.autocapture(
+            postHog.autocapture(
                 eventType: eventType,
                 elementsChain: elementsChain,
                 properties: properties
             )
         }
     }
+
+    #if TESTING
+        extension PostHogAutocaptureIntegration {
+            static func clearInstalls() {
+                integrationInstalledLock.withLock {
+                    integrationInstalled = false
+                }
+            }
+        }
+    #endif
 #endif

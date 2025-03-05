@@ -11,7 +11,17 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
 
-buildExamples:
+buildExamples: \
+	buildExamplesPlatforms \
+	buildExampleXCFramework \
+	buildExamplePods \
+
+buildExamplePods: \
+	buildExamplePodsStaticLib \
+	buildExamplePodsStaticFramework \
+	buildExamplePodsDynamicFramework \
+
+buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination 'platform=visionOS Simulator,name=Apple Vision Pro' | xcpretty #visionOS
@@ -21,33 +31,36 @@ buildExamples:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
 
-	## Build with dynamic framework
+buildExamplePodsDynamicFramework:
 	cd PostHogExampleWithPods && \
-		pod install && \
-		cd .. && \
-		xcrun xcodebuild clean build \
-			-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-			-scheme PostHogExampleWithPods \
-			-destination generic/platform=ios | xcpretty
+	USE_FRAMEWORKS=dynamic pod install && cd .. && \
+	set -o pipefail && xcrun xcodebuild clean build \
+		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+		-scheme PostHogExampleWithPods \
+		-destination generic/platform=ios | xcpretty
 
-	## Build with static library
+buildExamplePodsStaticFramework:
 	cd PostHogExampleWithPods && \
-		cp Podfile{,.backup} && \
-		cp Podfile.static Podfile && \
-		cp PostHogExampleWithPods.xcodeproj/project.pbxproj{,.backup} && \
-		pod install && \
-		cd .. && \
-		xcrun xcodebuild clean build \
-			-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
-			-scheme PostHogExampleWithPods \
-			-destination generic/platform=ios | xcpretty
+	USE_FRAMEWORKS=static pod install && cd .. && \
+	set -o pipefail && xcrun xcodebuild clean build \
+		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+		-scheme PostHogExampleWithPods \
+		-destination generic/platform=ios | xcpretty
 
-	## Restore original files
+buildExamplePodsStaticLib: 
 	cd PostHogExampleWithPods && \
-		mv Podfile{.backup,} && \
-		pod install && \
-		mv PostHogExampleWithPods.xcodeproj/project.pbxproj{.backup,}
-		
+	pod install && cd .. && \
+	set -o pipefail && xcrun xcodebuild clean build \
+		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
+		-scheme PostHogExampleWithPods \
+		-destination generic/platform=ios | xcpretty
+
+buildExampleXCFramework:
+	./PostHogExampleExternalSDK/build_xcframework.sh
+	set -o pipefail && xcrun xcodebuild clean build \
+		-project ./PostHogExampleExternalSDK/SDKClient/PostHogExampleExternalSDKClient.xcodeproj \
+		-scheme ExternalSDKClient \
+		-destination "generic/platform=iOS Simulator" | xcpretty
 
 format: swiftLint swiftFormat
 
@@ -66,7 +79,7 @@ testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
 test:
-	set -o pipefail && swift test | xcpretty
+	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint
@@ -86,11 +99,12 @@ bootstrap:
 	brew install peripheryapp/periphery/periphery
 
 # download SDKs and runtimes
-# install any simulator(s) missing from runner image
+# create Apple Vision Pro simulator if missing
 # release pod
 releaseCocoaPods:
-	# I think we can do without these next 2 steps but let's leave it for now
 	set -o pipefail && xcrun xcodebuild -downloadAllPlatforms 
-	# install Apple Vision Pro
-	xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "xros2.2"
+	@if ! xcrun simctl list devices | grep -q "Apple Vision Pro"; then \
+		LATEST_RUNTIME=$$(xcrun simctl list runtimes | grep "com.apple.CoreSimulator.SimRuntime.xrOS" | sort -r | head -n 1 | awk '{print $$NF}') && \
+		xcrun simctl create "Apple Vision Pro" "Apple Vision Pro" "$$LATEST_RUNTIME"; \
+	fi
 	pod trunk push PostHog.podspec --allow-warnings

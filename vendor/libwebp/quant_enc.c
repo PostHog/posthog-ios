@@ -14,9 +14,9 @@
 #include <math.h>
 #include <stdlib.h>  // for abs()
 
-#include "./quant.h"
-#include "./vp8i_enc.h"
-#include "./cost_enc.h"
+#include "./ph_quant.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_cost_enc.h"
 
 #define DO_TRELLIS_I4  1
 #define DO_TRELLIS_I16 1   // not a huge gain, but ok at low bitrate.

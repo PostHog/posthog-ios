@@ -22,7 +22,7 @@ platform :ios, '16.0'
 use_frameworks!
 
 target '$your_project' do
-  pod 'PostHog', '~> 3.0.0'
+  pod 'PostHog', '~> 3.0'
 end
 ```
 

@@ -14,18 +14,18 @@
 
 #include <stdlib.h>
 
-#include "./lossless.h"
-#include "./lossless_common.h"
-#include "./backward_references_enc.h"
-#include "./histogram_enc.h"
-#include "./vp8i_enc.h"
-#include "./vp8li_enc.h"
-#include "./bit_writer_utils.h"
-#include "./huffman_encode_utils.h"
-#include "./palette.h"
-#include "./utils.h"
-#include "./encode.h"
-#include "./format_constants.h"
+#include "./ph_lossless.h"
+#include "./ph_lossless_common.h"
+#include "./ph_backward_references_enc.h"
+#include "./ph_histogram_enc.h"
+#include "./ph_vp8i_enc.h"
+#include "./ph_vp8li_enc.h"
+#include "./ph_bit_writer_utils.h"
+#include "./ph_huffman_encode_utils.h"
+#include "./ph_palette.h"
+#include "./ph_utils.h"
+#include "./ph_encode.h"
+#include "./ph_format_constants.h"
 
 // Maximum number of histogram images (sub-blocks).
 #define MAX_HUFF_IMAGE_SIZE       2600

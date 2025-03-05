@@ -12,15 +12,15 @@
 // Author: mans@mansr.com (Mans Rullgard)
 // Based on SSE code by: somnath@google.com (Somnath Banerjee)
 
-#include "./dsp.h"
+#include "./ph_dsp.h"
 
 #if defined(WEBP_USE_NEON)
 
-#include "./utils.h"
+#include "./ph_utils.h"
 #include <arm_neon.h>
 #include <string.h>
-#include "./neon.h"
-#include "./yuv.h"
+#include "./ph_neon.h"
+#include "./ph_yuv.h"
 
 #ifdef FANCY_UPSAMPLING
 

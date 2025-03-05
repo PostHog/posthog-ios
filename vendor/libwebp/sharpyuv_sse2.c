@@ -11,7 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./sharpyuv_dsp.h"
+#include "./ph_sharpyuv_dsp.h"
 
 #if defined(WEBP_USE_SSE2)
 #include <stdlib.h>

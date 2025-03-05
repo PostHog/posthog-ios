@@ -1,5 +1,45 @@
 ## Next
 
+## 3.20.0 - 2025-03-04
+
+- feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))
+> Note: Now event storage is per API key. Any pending events in legacy storage will be migrated to the first API key used.  
+
+## 3.19.9 - 2025-02-28
+
+- fix: SwiftUI view masking when using clipShape view modifier ([#312](https://github.com/PostHog/posthog-ios/pull/312))
+- fix: reported crash on PostHogSessionManager ([#311](https://github.com/PostHog/posthog-ios/pull/311))
+
+## 3.19.8 - 2025-02-26
+
+- feat: add support for quota-limited feature flags ([#308](https://github.com/PostHog/posthog-ios/pull/308))
+
+## 3.19.7 - 2025-02-20
+
+- fix: recordings not always properly masked during screen transitions ([#306](https://github.com/PostHog/posthog-ios/pull/306))
+
+## 3.19.6 - 2025-02-18
+
+- fix: crash on autocapture when a segmented control has not selection ([#304](https://github.com/PostHog/posthog-ios/pull/304))
+
+## 3.19.5 - 2025-02-11
+
+- fix: flutter session recordings not working ([#297](https://github.com/PostHog/posthog-ios/pull/297))
+
+## 3.19.4 - 2025-02-07
+
+- fix: occasional crash when converting to Int in session replay wireframe ([#294](https://github.com/PostHog/posthog-ios/pull/294))
+
+## 3.19.3 - 2025-02-04
+
+- fix: custom hosts with a path ([#290](https://github.com/PostHog/posthog-ios/pull/290))
+- fix: identify macOS when running Mac Catalyst or iOS on Mac ([#287](https://github.com/PostHog/posthog-ios/pull/287))
+
+## 3.19.2 - 2025-01-30
+
+- fix: XCFramework builds failing ([#288](https://github.com/PostHog/posthog-ios/pull/288))
+- chore: Session Replay GA ([#286](https://github.com/PostHog/posthog-ios/pull/286))
+
 ## 3.19.1 - 2025-01-13
 
 - fix: RN Expo builds failing ([#281](https://github.com/PostHog/posthog-ios/pull/281))

@@ -20,7 +20,8 @@
         }
 
         private func executeRequest(request: URLRequest? = nil,
-                                    action: () async throws -> (Data, URLResponse)) async throws -> (Data, URLResponse)
+                                    action: () async throws -> (Data, URLResponse),
+                                    postHog: PostHogSDK?) async throws -> (Data, URLResponse)
         {
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
@@ -34,7 +35,8 @@
                             sessionId: sessionId,
                             timestamp: timestamp,
                             start: startMillis,
-                            end: endMillis)
+                            end: endMillis,
+                            postHog: postHog)
                 return (data, response)
             } catch {
                 captureData(request: request,
@@ -42,13 +44,15 @@
                             sessionId: sessionId,
                             timestamp: timestamp,
                             start: startMillis,
-                            end: endMillis)
+                            end: endMillis,
+                            postHog: postHog)
                 throw error
             }
         }
 
         private func executeRequest(request: URLRequest? = nil,
-                                    action: () async throws -> (URL, URLResponse)) async throws -> (URL, URLResponse)
+                                    action: () async throws -> (URL, URLResponse),
+                                    postHog: PostHogSDK?) async throws -> (URL, URLResponse)
         {
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
@@ -62,7 +66,8 @@
                             sessionId: sessionId,
                             timestamp: timestamp,
                             start: startMillis,
-                            end: endMillis)
+                            end: endMillis,
+                            postHog: postHog)
                 return (url, response)
             } catch {
                 captureData(request: request,
@@ -70,60 +75,99 @@
                             sessionId: sessionId,
                             timestamp: timestamp,
                             start: startMillis,
-                            end: endMillis)
+                            end: endMillis,
+                            postHog: postHog)
                 throw error
             }
         }
 
-        func postHogData(for request: URLRequest) async throws -> (Data, URLResponse) {
-            try await executeRequest(request: request, action: { try await data(for: request) })
+        func postHogData(for request: URLRequest, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+            try await executeRequest(request: request, action: { try await data(for: request) }, postHog: postHog)
         }
 
-        func postHogData(from url: URL) async throws -> (Data, URLResponse) {
-            try await executeRequest(action: { try await data(from: url) })
+        func postHogData(from url: URL, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
+            try await executeRequest(action: { try await data(from: url) }, postHog: postHog)
         }
 
-        func postHogUpload(for request: URLRequest, fromFile fileURL: URL) async throws -> (Data, URLResponse) {
-            try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL) })
+        func postHogUpload(
+            for request: URLRequest,
+            fromFile fileURL: URL,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
+            try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL) }, postHog: postHog)
         }
 
-        func postHogUpload(for request: URLRequest, from bodyData: Data) async throws -> (Data, URLResponse) {
-            try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData) })
-        }
-
-        @available(iOS 15.0, *)
-        func postHogData(for request: URLRequest, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (Data, URLResponse) {
-            try await executeRequest(request: request, action: { try await data(for: request, delegate: delegate) })
-        }
-
-        @available(iOS 15.0, *)
-        func postHogData(from url: URL, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (Data, URLResponse) {
-            try await executeRequest(action: { try await data(from: url, delegate: delegate) })
-        }
-
-        @available(iOS 15.0, *)
-        func postHogUpload(for request: URLRequest, fromFile fileURL: URL, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (Data, URLResponse) {
-            try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL, delegate: delegate) })
+        func postHogUpload(
+            for request: URLRequest,
+            from bodyData: Data,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
+            try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogUpload(for request: URLRequest, from bodyData: Data, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (Data, URLResponse) {
-            try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData, delegate: delegate) })
+        func postHogData(
+            for request: URLRequest,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
+            try await executeRequest(request: request, action: { try await data(for: request, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogDownload(for request: URLRequest, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (URL, URLResponse) {
-            try await executeRequest(request: request, action: { try await download(for: request, delegate: delegate) })
+        func postHogData(
+            from url: URL,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
+            try await executeRequest(action: { try await data(from: url, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogDownload(from url: URL, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (URL, URLResponse) {
-            try await executeRequest(action: { try await download(from: url, delegate: delegate) })
+        func postHogUpload(
+            for request: URLRequest,
+            fromFile fileURL: URL,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
+            try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL, delegate: delegate) }, postHog: postHog)
         }
 
         @available(iOS 15.0, *)
-        func postHogDownload(resumeFrom resumeData: Data, delegate: (any URLSessionTaskDelegate)? = nil) async throws -> (URL, URLResponse) {
-            try await executeRequest(action: { try await download(resumeFrom: resumeData, delegate: delegate) })
+        func postHogUpload(
+            for request: URLRequest,
+            from bodyData: Data,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (Data, URLResponse) {
+            try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData, delegate: delegate) }, postHog: postHog)
+        }
+
+        @available(iOS 15.0, *)
+        func postHogDownload(
+            for request: URLRequest,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (URL, URLResponse) {
+            try await executeRequest(request: request, action: { try await download(for: request, delegate: delegate) }, postHog: postHog)
+        }
+
+        @available(iOS 15.0, *)
+        func postHogDownload(
+            from url: URL,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (URL, URLResponse) {
+            try await executeRequest(action: { try await download(from: url, delegate: delegate) }, postHog: postHog)
+        }
+
+        @available(iOS 15.0, *)
+        func postHogDownload(
+            resumeFrom resumeData: Data,
+            delegate: (any URLSessionTaskDelegate)? = nil,
+            postHog: PostHogSDK? = nil
+        ) async throws -> (URL, URLResponse) {
+            try await executeRequest(action: { try await download(resumeFrom: resumeData, delegate: delegate) }, postHog: postHog)
         }
 
         // MARK: Private methods
@@ -134,11 +178,14 @@
             sessionId: String?,
             timestamp: Date,
             start: UInt64,
-            end: UInt64? = nil
+            end: UInt64? = nil,
+            postHog: PostHogSDK?
         ) {
+            let instance = postHog ?? PostHogSDK.shared
+
             // we don't check config.sessionReplayConfig.captureNetworkTelemetry here since this extension
             // has to be called manually anyway
-            guard let sessionId, PostHogSDK.shared.isSessionReplayActive() else {
+            guard let sessionId, instance.isSessionReplayActive() else {
                 return
             }
             let currentEnd = end ?? getMonotonicTimeInMilliseconds()
@@ -169,7 +216,7 @@
                 let recordingData: [String: Any] = ["type": 6, "data": pluginData, "timestamp": timestamp.toMillis()]
                 snapshotsData.append(recordingData)
 
-                PostHogSDK.shared.capture(
+                instance.capture(
                     "$snapshot",
                     properties: [
                         "$snapshot_source": "mobile",

@@ -16,7 +16,7 @@
 
 #include <string.h>   // for memset
 
-#include "./utils.h"
+#include "./ph_utils.h"
 
 // #define USE_DITHERING   // uncomment to enable ordered dithering (not vital)
 

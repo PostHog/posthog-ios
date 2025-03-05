@@ -11,7 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
-#include "./cost_enc.h"
+#include "./ph_cost_enc.h"
 
 //------------------------------------------------------------------------------
 // Level cost tables

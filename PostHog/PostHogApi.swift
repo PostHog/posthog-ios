@@ -51,7 +51,7 @@ class PostHogApi {
         components.path = path
         components.queryItems = queryItems
         return components.url
-    } 
+    }
 
     private func getRemoteConfigRequest() -> URLRequest? {
         guard let baseUrl: URL = switch config.host.absoluteString {

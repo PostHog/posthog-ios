@@ -101,7 +101,7 @@ let maxRetryDelay = 30.0
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             remoteConfig = PostHogRemoteConfig(config, theStorage, api)
-            
+
             #if !os(watchOS)
                 do {
                     reachability = try Reachability()
@@ -1042,7 +1042,6 @@ let maxRetryDelay = 30.0
                 $0 as? PostHogReplayIntegration
             }.first
 
-            
             guard let replayIntegration, let remoteConfig else {
                 return false
             }

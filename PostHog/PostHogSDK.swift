@@ -37,7 +37,7 @@ let maxRetryDelay = 30.0
 
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
-    private var storage: PostHogStorage?
+    private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
@@ -801,7 +801,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        remoteConfig?.reloadFeatureFlags {
+        remoteConfig?.reloadFeatureFlags { _ in
             self.flagCallReportedLock.withLock {
                 self.flagCallReported.removeAll()
             }

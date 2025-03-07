@@ -336,4 +336,46 @@ class PostHogContext {
             DispatchQueue.main.async(execute: block)
         }
     }
+
+    static let deviceType: String? = {
+        #if os(iOS) || os(tvOS)
+            if isMacCatalystApp || isiOSAppOnMac {
+                return "Desktop"
+            } else {
+                switch UIDevice.current.userInterfaceIdiom {
+                case UIUserInterfaceIdiom.phone:
+                    return "Mobile"
+                case UIUserInterfaceIdiom.pad:
+                    return "Tablet"
+                case UIUserInterfaceIdiom.tv:
+                    return "TV"
+                case UIUserInterfaceIdiom.carPlay:
+                    return "CarPlay"
+                case UIUserInterfaceIdiom.mac:
+                    return "Desktop"
+                default:
+                    return nil
+                }
+            }
+        #elseif os(macOS)
+            return "Desktop"
+        #endif
+
+        return nil
+    }()
+
+    static let isiOSAppOnMac: Bool = {
+        if #available(iOS 14.0, macOS 11.0, *) {
+            return ProcessInfo.processInfo.isiOSAppOnMac
+        }
+        return false
+    }()
+
+    static let isMacCatalystApp: Bool = {
+        #if targetEnvironment(macCatalyst)
+            true
+        #else
+            false
+        #endif
+    }()
 }

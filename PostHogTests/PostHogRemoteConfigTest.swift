@@ -133,6 +133,7 @@ enum PostHogRemoteConfigTest {
         func loadsCachedFeatureFlags() {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
+            let sut = getSut(storage: storage)
 
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": "bar"])
 
@@ -200,6 +201,7 @@ enum PostHogRemoteConfigTest {
         func loadsCachedRemoteConfig() {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
+            let sut = getSut(storage: storage)
 
             storage.setDictionary(forKey: .remoteConfig, contents: ["foo": "bar"])
 
@@ -259,11 +261,10 @@ enum PostHogRemoteConfigTest {
             func returnsIsSessionReplayFlagActiveTrueIfThereIsAValue() {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
+                let sut = getSut(storage: storage)
 
                 let recording: [String: Any] = ["test": 1]
                 storage.setDictionary(forKey: .sessionReplay, contents: recording)
-
-                let sut = getSut(storage: storage)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
@@ -279,11 +280,10 @@ enum PostHogRemoteConfigTest {
             func returnIsSessionReplayFlagActiveFalseIfFeatureFlagDisabled() async {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
+                let sut = getSut(storage: storage)
 
                 let recording: [String: Any] = ["test": 1]
                 storage.setDictionary(forKey: .sessionReplay, contents: recording)
-
-                let sut = getSut(storage: storage)
 
                 #expect(sut.isSessionReplayFlagActive())
 

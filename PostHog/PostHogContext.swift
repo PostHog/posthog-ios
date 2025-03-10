@@ -327,11 +327,13 @@ class PostHogContext {
             }
         #elseif os(macOS)
             return "Desktop"
+        #else
+            return nil
         #endif
     }()
 
     static let isIOSAppOnMac: Bool = {
-        if #available(iOS 14.0, macOS 11.0, *) {
+        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
             return ProcessInfo.processInfo.isiOSAppOnMac
         }
         return false

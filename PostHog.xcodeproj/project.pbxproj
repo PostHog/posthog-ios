@@ -316,11 +316,13 @@
 		DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */; };
 		DAD39DF42D560818002A1A69 /* Float+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD39DEE2D560813002A1A69 /* Float+Util.swift */; };
 		DAD39DF62D56178D002A1A69 /* UtilsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD39DF52D561787002A1A69 /* UtilsTest.swift */; };
-		DAD4B2F52D79E25100DA503C /* PassthroughWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD4B2EF2D79E24D00DA503C /* PassthroughWindow.swift */; };
+		DAD4B2F52D79E25100DA503C /* SurveysWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */; };
 		DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */; };
 		DAF79A2A2D1309C00078A3C9 /* TestError.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF79A242D1309BE0078A3C9 /* TestError.swift */; };
 		DAF95F512D072F04001E82BB /* UIImage+WebP.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF95F502D072F04001E82BB /* UIImage+WebP.swift */; };
 		DAF95F612D077C21001E82BB /* PostHogWebPTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF95F602D077C1C001E82BB /* PostHogWebPTest.swift */; };
+		DAFF026B2D7B1A9800BD5B1D /* SurveysRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */; };
+		DAFF026D2D7B2F9200BD5B1D /* SurveysDisplayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -793,11 +795,13 @@
 		DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegrationSpec.swift; sourceTree = "<group>"; };
 		DAD39DEE2D560813002A1A69 /* Float+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Float+Util.swift"; sourceTree = "<group>"; };
 		DAD39DF52D561787002A1A69 /* UtilsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilsTest.swift; sourceTree = "<group>"; };
-		DAD4B2EF2D79E24D00DA503C /* PassthroughWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughWindow.swift; sourceTree = "<group>"; tabWidth = 5; };
+		DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveysWindow.swift; sourceTree = "<group>"; tabWidth = 5; };
 		DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskViewModifier.swift; sourceTree = "<group>"; };
 		DAF79A242D1309BE0078A3C9 /* TestError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestError.swift; sourceTree = "<group>"; };
 		DAF95F502D072F04001E82BB /* UIImage+WebP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+WebP.swift"; sourceTree = "<group>"; };
 		DAF95F602D077C1C001E82BB /* PostHogWebPTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogWebPTest.swift; sourceTree = "<group>"; };
+		DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveysRootView.swift; sourceTree = "<group>"; };
+		DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveysDisplayController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1209,7 +1213,9 @@
 		DA30AE872D40173D00465A64 /* Surveys */ = {
 			isa = PBXGroup;
 			children = (
-				DAD4B2EF2D79E24D00DA503C /* PassthroughWindow.swift */,
+				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
+				DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */,
+				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
 				DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */,
 			);
 			path = Surveys;
@@ -1868,6 +1874,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DAFF026B2D7B1A9800BD5B1D /* SurveysRootView.swift in Sources */,
 				690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */,
 				69EE82BE2BA9C8AA00EB9542 /* ViewLayoutTracker.swift in Sources */,
 				69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */,
@@ -1916,6 +1923,7 @@
 				DA9CE3392D3108AD00DFE652 /* yuv.c in Sources */,
 				DA9CE33A2D3108AD00DFE652 /* bit_reader_utils.c in Sources */,
 				DA9CE33B2D3108AD00DFE652 /* lossless_neon.c in Sources */,
+				DAFF026D2D7B2F9200BD5B1D /* SurveysDisplayController.swift in Sources */,
 				DA9CE33C2D3108AD00DFE652 /* backward_references_enc.c in Sources */,
 				DA9CE33D2D3108AD00DFE652 /* huffman_encode_utils.c in Sources */,
 				DA9CE33E2D3108AD00DFE652 /* palette.c in Sources */,
@@ -1947,7 +1955,7 @@
 				DA9CE3572D3108AD00DFE652 /* yuv_sse2.c in Sources */,
 				DA9CE3582D3108AD00DFE652 /* frame_enc.c in Sources */,
 				DAB9F6C42D6C49BB00A988A1 /* ApplicationEventPublisher.swift in Sources */,
-				DAD4B2F52D79E25100DA503C /* PassthroughWindow.swift in Sources */,
+				DAD4B2F52D79E25100DA503C /* SurveysWindow.swift in Sources */,
 				DA9CE3592D3108AD00DFE652 /* cost_neon.c in Sources */,
 				DAD39DF42D560818002A1A69 /* Float+Util.swift in Sources */,
 				DA9CE35A2D3108AD00DFE652 /* enc_sse41.c in Sources */,

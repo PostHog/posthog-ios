@@ -521,7 +521,7 @@ enum PostHogSurveysTest {
 
         init() {
             let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
-            config.surveysEnabled = true
+            config.surveys = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()

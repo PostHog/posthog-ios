@@ -59,10 +59,12 @@ import Foundation
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
-    /// Enable mobile surveys
-    /// Experimental support
-    /// Default: false
-    @objc public var surveysEnabled: Bool = false
+    #if os(iOS) || TESTING
+        /// Enable mobile surveys
+        /// Experimental support
+        /// Default: false
+        @objc public var surveys: Bool = false
+    #endif
 
     // only internal
     var disableReachabilityForTesting: Bool = false
@@ -103,6 +105,11 @@ import Foundation
             if sessionReplay {
                 integrations.append(PostHogReplayIntegration())
             }
+
+            if surveys {
+                integrations.append(PostHogSurveyIntegration())
+            }
+
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)

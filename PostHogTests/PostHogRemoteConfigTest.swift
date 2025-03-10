@@ -19,7 +19,8 @@ enum PostHogRemoteConfigTest {
             server = MockPostHogServer()
             server.start()
             // important!
-            deleteSafely(applicationSupportDirectoryURL())
+            let storage = PostHogStorage(config)
+            storage.reset()
         }
 
         deinit {
@@ -33,7 +34,6 @@ enum PostHogRemoteConfigTest {
         ) -> PostHogRemoteConfig {
             let theConfig = config ?? self.config
             let theStorage = storage ?? PostHogStorage(theConfig)
-            theStorage.reset()
             let api = PostHogApi(theConfig)
             return PostHogRemoteConfig(theConfig, theStorage, api)
         }
@@ -132,9 +132,11 @@ enum PostHogRemoteConfigTest {
         func loadsCachedFeatureFlags() {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
-            let sut = getSut(storage: storage)
 
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": "bar"])
+
+            let sut = getSut(storage: storage)
+
             #expect(sut.getFeatureFlags() as? [String: String] == ["foo": "bar"])
         }
 
@@ -197,15 +199,18 @@ enum PostHogRemoteConfigTest {
         func loadsCachedRemoteConfig() {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
-            let sut = getSut(storage: storage)
 
             storage.setDictionary(forKey: .remoteConfig, contents: ["foo": "bar"])
+
+            let sut = getSut(storage: storage)
 
             #expect(sut.getRemoteConfig() as? [String: String] == ["foo": "bar"])
         }
 
         @Test("loadFeatureFlags fetches remote config if missing")
         func loadFlagsLoadsRemoteConfigWhenMissing() async {
+            let storage = PostHogStorage(config)
+            storage.remove(key: .remoteConfig)
             let sut = getSut()
 
             #expect(sut.getRemoteConfig() == nil)
@@ -253,10 +258,11 @@ enum PostHogRemoteConfigTest {
             func returnsIsSessionReplayFlagActiveTrueIfThereIsAValue() {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
-                let sut = getSut(storage: storage)
 
                 let recording: [String: Any] = ["test": 1]
                 storage.setDictionary(forKey: .sessionReplay, contents: recording)
+
+                let sut = getSut(storage: storage)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
@@ -272,10 +278,11 @@ enum PostHogRemoteConfigTest {
             func returnIsSessionReplayFlagActiveFalseIfFeatureFlagDisabled() async {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
-                let sut = getSut(storage: storage)
 
                 let recording: [String: Any] = ["test": 1]
                 storage.setDictionary(forKey: .sessionReplay, contents: recording)
+
+                let sut = getSut(storage: storage)
 
                 #expect(sut.isSessionReplayFlagActive())
 

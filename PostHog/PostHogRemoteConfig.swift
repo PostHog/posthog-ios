@@ -79,18 +79,6 @@ class PostHogRemoteConfig {
         }
     }
 
-    func getRemoteConfigAsync(
-        forceReload: Bool = false,
-        callback: (([String: Any]?) -> Void)? = nil
-    ) {
-        let cached = getCachedRemoteConfig()
-        if cached == nil || forceReload {
-            reloadRemoteConfig(callback: callback)
-        } else {
-            callback?(cached)
-        }
-    }
-
     func reloadRemoteConfig(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
@@ -326,18 +314,6 @@ class PostHogRemoteConfig {
 
         loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
-        }
-    }
-
-    func getFeatureFlagsAsync(
-        forceReload: Bool = false,
-        callback: (([String: Any]?) -> Void)? = nil
-    ) {
-        let cached = getCachedFeatureFlags()
-        if cached == nil || forceReload {
-            reloadFeatureFlags(callback: callback)
-        } else {
-            callback?(cached)
         }
     }
 

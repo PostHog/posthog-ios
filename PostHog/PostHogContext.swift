@@ -328,8 +328,6 @@ class PostHogContext {
         #elseif os(macOS)
             return "Desktop"
         #endif
-
-        return nil
     }()
 
 

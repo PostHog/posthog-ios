@@ -33,6 +33,7 @@ enum PostHogRemoteConfigTest {
         ) -> PostHogRemoteConfig {
             let theConfig = config ?? self.config
             let theStorage = storage ?? PostHogStorage(theConfig)
+            theStorage.reset()
             let api = PostHogApi(theConfig)
             return PostHogRemoteConfig(theConfig, theStorage, api)
         }

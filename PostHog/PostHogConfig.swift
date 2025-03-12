@@ -11,8 +11,8 @@ import Foundation
         #if os(tvOS)
             static let flushAt: Int = 5
             static let maxQueueSize: Int = 100
-            static let maxBatchSize: Int = 5
-            static let flushIntervalSeconds: TimeInterval = 5
+            static let maxBatchSize: Int = 50
+            static let flushIntervalSeconds: TimeInterval = 30
         #else
             static let flushAt: Int = 20
             static let maxQueueSize: Int = 1000

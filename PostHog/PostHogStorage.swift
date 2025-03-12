@@ -27,6 +27,7 @@ func applicationSupportDirectoryURL() -> URL {
     #else
         let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
     #endif
+
     let bundleIdentifier = getBundleIdentifier()
 
     return url.appendingPathComponent(bundleIdentifier)
@@ -52,16 +53,15 @@ func appGroupContainerUrl(config: PostHogConfig) -> URL? {
 
     #if os(tvOS)
         // tvOS: Due to stricter sandbox rules, creating "Application Support" directory is not possible on tvOS
-        let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
-            .appendingPathComponent("Library/Caches/")
-            .appendingPathComponent(bundleIdentifier)
+        let librarySubPath = "Library/Caches/"
     #else
-        let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
-            .appendingPathComponent("Library/Application Support/")
-            .appendingPathComponent(bundleIdentifier)
+        let librarySubPath = "Library/Application Support/"
     #endif
+
+    let url = FileManager.default
+        .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+        .appendingPathComponent(librarySubPath)
+        .appendingPathComponent(bundleIdentifier)
 
     if let url {
         createDirectoryAtURLIfNeeded(url: url)

@@ -162,6 +162,15 @@
 		DA1D295E2D10B7B2003A31DA /* ApplicationLifecyclePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */; };
 		DA1D29602D10C810003A31DA /* PostHogSessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */; };
 		DA1D29622D115E17003A31DA /* DI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29612D115E13003A31DA /* DI.swift */; };
+		DA263D3A2D7F1057004C100D /* Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D392D7F1054004C100D /* Resources.swift */; };
+		DA263D3E2D7F1F51004C100D /* DynamicHeightTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D3D2D7F1F4E004C100D /* DynamicHeightTextView.swift */; };
+		DA263D422D80085D004C100D /* SurveyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D412D800856004C100D /* SurveyButton.swift */; };
+		DA263D472D801117004C100D /* NumberRating.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D462D801114004C100D /* NumberRating.swift */; };
+		DA263D492D8039F9004C100D /* EmojiRating.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D482D8039F9004C100D /* EmojiRating.swift */; };
+		DA263D4B2D803A23004C100D /* SegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D4A2D803A1F004C100D /* SegmentedControl.swift */; };
+		DA263D4D2D804BED004C100D /* MultipleChoiceOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */; };
+		DA263D4F2D8075D7004C100D /* SwiftUI+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */; };
+		DA263D512D8091CB004C100D /* LegacyTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D502D8091CB004C100D /* LegacyTextField.swift */; };
 		DA26419C2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */; };
 		DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */; };
 		DA30AE812D3FE63F00465A64 /* Survey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE802D3FE63F00465A64 /* Survey.swift */; };
@@ -649,6 +658,15 @@
 		DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationLifecyclePublisher.swift; sourceTree = "<group>"; };
 		DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManagerTest.swift; sourceTree = "<group>"; };
 		DA1D29612D115E13003A31DA /* DI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DI.swift; sourceTree = "<group>"; };
+		DA263D392D7F1054004C100D /* Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resources.swift; sourceTree = "<group>"; };
+		DA263D3D2D7F1F4E004C100D /* DynamicHeightTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicHeightTextView.swift; sourceTree = "<group>"; };
+		DA263D412D800856004C100D /* SurveyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyButton.swift; sourceTree = "<group>"; };
+		DA263D462D801114004C100D /* NumberRating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberRating.swift; sourceTree = "<group>"; };
+		DA263D482D8039F9004C100D /* EmojiRating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EmojiRating.swift; sourceTree = "<group>"; };
+		DA263D4A2D803A1F004C100D /* SegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedControl.swift; sourceTree = "<group>"; };
+		DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipleChoiceOptions.swift; sourceTree = "<group>"; };
+		DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftUI+Util.swift"; sourceTree = "<group>"; };
+		DA263D502D8091CB004C100D /* LegacyTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyTextField.swift; sourceTree = "<group>"; };
 		DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTracker.swift; sourceTree = "<group>"; };
 		DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Util.swift"; sourceTree = "<group>"; };
 		DA30AE802D3FE63F00465A64 /* Survey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Survey.swift; sourceTree = "<group>"; };
@@ -1197,6 +1215,22 @@
 			path = SwiftUI;
 			sourceTree = "<group>";
 		};
+		DA263D452D800EA9004C100D /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */,
+				DA263D4A2D803A1F004C100D /* SegmentedControl.swift */,
+				DA263D462D801114004C100D /* NumberRating.swift */,
+				DA263D482D8039F9004C100D /* EmojiRating.swift */,
+				DA263D412D800856004C100D /* SurveyButton.swift */,
+				DA263D502D8091CB004C100D /* LegacyTextField.swift */,
+				DA263D3D2D7F1F4E004C100D /* DynamicHeightTextView.swift */,
+				DA263D392D7F1054004C100D /* Resources.swift */,
+				DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
 		DA26419B2CC0499300CB427B /* Autocapture */ = {
 			isa = PBXGroup;
 			children = (
@@ -1213,6 +1247,7 @@
 		DA30AE872D40173D00465A64 /* Surveys */ = {
 			isa = PBXGroup;
 			children = (
+				DA263D452D800EA9004C100D /* Utils */,
 				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
 				DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */,
 				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
@@ -1910,6 +1945,7 @@
 				DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */,
 				DA9CE32D2D3108AD00DFE652 /* alpha_processing_sse41.c in Sources */,
 				DA9CE32E2D3108AD00DFE652 /* quant_levels_utils.c in Sources */,
+				DA263D512D8091CB004C100D /* LegacyTextField.swift in Sources */,
 				DA9CE32F2D3108AD00DFE652 /* picture_psnr_enc.c in Sources */,
 				DA9CE3302D3108AD00DFE652 /* enc_sse2.c in Sources */,
 				DA9CE3312D3108AD00DFE652 /* ssim_sse2.c in Sources */,
@@ -1917,6 +1953,7 @@
 				DA9CE3332D3108AD00DFE652 /* tree_enc.c in Sources */,
 				DA9CE3342D3108AD00DFE652 /* filters_sse2.c in Sources */,
 				DA9CE3352D3108AD00DFE652 /* utils.c in Sources */,
+				DA263D3A2D7F1057004C100D /* Resources.swift in Sources */,
 				DA9CE3362D3108AD00DFE652 /* yuv_neon.c in Sources */,
 				DA9CE3372D3108AD00DFE652 /* lossless_sse2.c in Sources */,
 				DA9CE3382D3108AD00DFE652 /* enc.c in Sources */,
@@ -1955,6 +1992,8 @@
 				DA9CE3572D3108AD00DFE652 /* yuv_sse2.c in Sources */,
 				DA9CE3582D3108AD00DFE652 /* frame_enc.c in Sources */,
 				DAB9F6C42D6C49BB00A988A1 /* ApplicationEventPublisher.swift in Sources */,
+				DA263D4B2D803A23004C100D /* SegmentedControl.swift in Sources */,
+				DA263D3E2D7F1F51004C100D /* DynamicHeightTextView.swift in Sources */,
 				DAD4B2F52D79E25100DA503C /* SurveysWindow.swift in Sources */,
 				DA9CE3592D3108AD00DFE652 /* cost_neon.c in Sources */,
 				DAD39DF42D560818002A1A69 /* Float+Util.swift in Sources */,
@@ -1974,6 +2013,7 @@
 				DA9CE3672D3108AD00DFE652 /* picture_tools_enc.c in Sources */,
 				DA9CE3682D3108AD00DFE652 /* sharpyuv_cpu.c in Sources */,
 				DA9CE3692D3108AD00DFE652 /* syntax_enc.c in Sources */,
+				DA263D4F2D8075D7004C100D /* SwiftUI+Util.swift in Sources */,
 				DA9CE36A2D3108AD00DFE652 /* enc_neon.c in Sources */,
 				DA9CE36B2D3108AD00DFE652 /* yuv_sse41.c in Sources */,
 				DA9CE36C2D3108AD00DFE652 /* upsampling.c in Sources */,
@@ -1989,12 +2029,14 @@
 				DA9CE3762D3108AD00DFE652 /* picture_csp_enc.c in Sources */,
 				DA9CE3772D3108AD00DFE652 /* cost_enc.c in Sources */,
 				DA9CE3782D3108AD00DFE652 /* cost_sse2.c in Sources */,
+				DA263D4D2D804BED004C100D /* MultipleChoiceOptions.swift in Sources */,
 				DA9CE3792D3108AD00DFE652 /* huffman_utils.c in Sources */,
 				DA9CE37A2D3108AD00DFE652 /* alpha_processing.c in Sources */,
 				DA9CE37B2D3108AD00DFE652 /* picture_rescale_enc.c in Sources */,
 				DA9CE37C2D3108AD00DFE652 /* cost.c in Sources */,
 				DA9CE37D2D3108AD00DFE652 /* thread_utils.c in Sources */,
 				DA9CE37E2D3108AD00DFE652 /* filters_neon.c in Sources */,
+				DA263D492D8039F9004C100D /* EmojiRating.swift in Sources */,
 				DA9CE37F2D3108AD00DFE652 /* lossless.c in Sources */,
 				DA9CE3802D3108AD00DFE652 /* dec.c in Sources */,
 				DA9CE3812D3108AD00DFE652 /* sharpyuv_neon.c in Sources */,
@@ -2008,6 +2050,7 @@
 				69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */,
+				DA263D472D801117004C100D /* NumberRating.swift in Sources */,
 				DACC08BB2D6E3C6D00115E46 /* PostHogIntegration.swift in Sources */,
 				DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */,
 				690FF0C52AEFAE8200A0B06B /* PostHogLegacyQueue.swift in Sources */,
@@ -2025,6 +2068,7 @@
 				DA30AE812D3FE63F00465A64 /* Survey.swift in Sources */,
 				69ED1AD42C90A0F100FE7A91 /* URLSessionExtension.swift in Sources */,
 				69ED1A9F2C8F451B00FE7A91 /* PostHogPersonProfiles.swift in Sources */,
+				DA263D422D80085D004C100D /* SurveyButton.swift in Sources */,
 				69EE82BA2BA9C50400EB9542 /* PostHogReplayIntegration.swift in Sources */,
 				DA0E43BE2D70438100D39B93 /* PostHogSurveyIntegration.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,

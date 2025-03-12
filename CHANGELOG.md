@@ -1,5 +1,7 @@
 ## Next
 
+- fix: disk storage not working on tvOS ([#316](https://github.com/PostHog/posthog-ios/pull/316))
+
 ## 3.20.0 - 2025-03-04
 
 - feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))

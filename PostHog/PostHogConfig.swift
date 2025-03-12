@@ -7,6 +7,20 @@
 import Foundation
 
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
+    enum Defaults {
+        #if os(tvOS)
+            static let flushAt: Int = 5
+            static let maxQueueSize: Int = 100
+            static let maxBatchSize: Int = 5
+            static let flushIntervalSeconds: TimeInterval = 5
+        #else
+            static let flushAt: Int = 20
+            static let maxQueueSize: Int = 1000
+            static let maxBatchSize: Int = 50
+            static let flushIntervalSeconds: TimeInterval = 30
+        #endif
+    }
+
     @objc(PostHogDataMode) public enum PostHogDataMode: Int {
         case wifi
         case cellular
@@ -15,10 +29,10 @@ import Foundation
 
     @objc public let host: URL
     @objc public let apiKey: String
-    @objc public var flushAt: Int = 20
-    @objc public var maxQueueSize: Int = 1000
-    @objc public var maxBatchSize: Int = 50
-    @objc public var flushIntervalSeconds: TimeInterval = 30
+    @objc public var flushAt: Int = Defaults.flushAt
+    @objc public var maxQueueSize: Int = Defaults.maxQueueSize
+    @objc public var maxBatchSize: Int = Defaults.maxBatchSize
+    @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
     @objc public var dataMode: PostHogDataMode = .any
     @objc public var sendFeatureFlagEvent: Bool = true
     @objc public var preloadFeatureFlags: Bool = true

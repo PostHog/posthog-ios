@@ -10,11 +10,22 @@ import Foundation
 /**
  # Storage
 
- posthog-ios stores data either to file or to UserDefaults in order to support tvOS. As recordings won't work on tvOS anyways and we have no tvOS users so far,
- we are opting to only support iOS via File storage.
+ Note for tvOS:
+ As tvOS restricts access to persisted Application Support directory, we use Library/Caches instead for storage
+
+ If needed, we can use UserDefaults for lightweight data - according to Apple, you can use UserDefaults to persist up to 500KB of data on tvOS
+ see: https://developer.apple.com/forums/thread/16967?answerId=50696022#50696022
  */
 func applicationSupportDirectoryURL() -> URL {
-    let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    #if os(tvOS)
+        // tvOS restricts access to Application Support directory on physical devices
+        // Use Library/Caches directory which may have less frequent eviction behavior than temp (which is purged when the app quits)
+        let searchPath: FileManager.SearchPathDirectory = .cachesDirectory
+    #else
+        let searchPath: FileManager.SearchPathDirectory = .applicationSupportDirectory
+    #endif
+
+    let url = FileManager.default.urls(for: searchPath, in: .userDomainMask).first!
     let bundleIdentifier = getBundleIdentifier()
 
     return url.appendingPathComponent(bundleIdentifier)
@@ -38,9 +49,16 @@ func appGroupContainerUrl(config: PostHogConfig) -> URL? {
 
     let bundleIdentifier = getBundleIdentifier()
 
+    #if os(tvOS)
+        // tvOS: Due to stricter sandbox rules, creating "Application Support" directory is not possible on tvOS
+        let librarySubPath = "Library/Caches/"
+    #else
+        let librarySubPath = "Library/Application Support/"
+    #endif
+
     let url = FileManager.default
         .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
-        .appendingPathComponent("Library/Application Support/")
+        .appendingPathComponent(librarySubPath)
         .appendingPathComponent(bundleIdentifier)
 
     if let url {

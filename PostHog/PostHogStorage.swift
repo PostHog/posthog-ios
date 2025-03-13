@@ -10,13 +10,10 @@ import Foundation
 /**
  # Storage
 
- posthog-ios stores data either to file or to UserDefaults in order to support tvOS.
-
  Note for tvOS:
- As tvOS restricts access to persisted Application Support directory, we use Library/Caches instead for storing file queues
- and UserDefaults for persisting more lightweight data like anonymous ids, feature flags etc.
+ As tvOS restricts access to persisted Application Support directory, we use Library/Caches instead for storage
 
- According to Apple, you can use UserDefaults to store up to 500KB of data on tvOS
+ If needed, we can use UserDefaults for lightweight data - according to Apple, you can use UserDefaults to persist up to 500KB of data on tvOS
  see: https://developer.apple.com/forums/thread/16967?answerId=50696022#50696022
  */
 func applicationSupportDirectoryURL() -> URL {
@@ -96,30 +93,16 @@ class PostHogStorage {
         case sessionReplay = "posthog.sessionReplay"
         case isIdentified = "posthog.isIdentified"
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
-
-        var useFileStorage: Bool {
-            #if os(tvOS)
-                [.replayQeueue, .oldQeueue, .queue].contains(self)
-            #else
-                return true
-            #endif
-        }
     }
 
     // The location for storing data that we always want to keep
     let appFolderUrl: URL
-    let userDefaults: UserDefaults?
 
     init(_ config: PostHogConfig) {
         appFolderUrl = Self.getAppFolderUrl(from: config)
 
-        #if os(tvOS)
-            userDefaults = Self.getUserDefaults(from: config)
-        #else
-            userDefaults = nil
-            // migrate legacy storage if needed
-            Self.migrateLegacyStorage(from: config, to: appFolderUrl)
-        #endif
+        // migrate legacy storage if needed
+        Self.migrateLegacyStorage(from: config, to: appFolderUrl)
     }
 
     public func url(forKey key: StorageKey) -> URL {
@@ -160,44 +143,36 @@ class PostHogStorage {
         }
     }
 
-    private func getValue(forKey key: StorageKey) -> Any? {
-        if key.useFileStorage {
-            guard let data = getData(forKey: key) else { return nil }
+    private func getJson(forKey key: StorageKey) -> Any? {
+        guard let data = getData(forKey: key) else { return nil }
 
-            do {
-                return try JSONSerialization.jsonObject(with: data)
-            } catch {
-                hedgeLog("Failed to serialize key '\(key)' error: \(error)")
-            }
-            return nil
-        } else {
-            return userDefaults?.value(forKey: key.rawValue)
+        do {
+            return try JSONSerialization.jsonObject(with: data)
+        } catch {
+            hedgeLog("Failed to serialize key '\(key)' error: \(error)")
         }
+        return nil
     }
 
-    private func setValue(forKey key: StorageKey, value: Any) {
-        if key.useFileStorage {
-            var jsonObject: Any?
+    private func setJson(forKey key: StorageKey, json: Any) {
+        var jsonObject: Any?
 
-            if let dictionary = value as? [AnyHashable: Any] {
-                jsonObject = dictionary
-            } else if let array = value as? [Any] {
-                jsonObject = array
-            } else {
-                // TRICKY: This is weird legacy behaviour storing the data as a dictionary
-                jsonObject = [key.rawValue: value]
-            }
-
-            var data: Data?
-            do {
-                data = try JSONSerialization.data(withJSONObject: jsonObject!)
-            } catch {
-                hedgeLog("Failed to serialize key '\(key)' error: \(error)")
-            }
-            setData(forKey: key, contents: data)
+        if let dictionary = json as? [AnyHashable: Any] {
+            jsonObject = dictionary
+        } else if let array = json as? [Any] {
+            jsonObject = array
         } else {
-            userDefaults?.set(value, forKey: key.rawValue)
+            // TRICKY: This is weird legacy behaviour storing the data as a dictionary
+            jsonObject = [key.rawValue: json]
         }
+
+        var data: Data?
+        do {
+            data = try JSONSerialization.data(withJSONObject: jsonObject!)
+        } catch {
+            hedgeLog("Failed to serialize key '\(key)' error: \(error)")
+        }
+        setData(forKey: key, contents: data)
     }
 
     /**
@@ -257,30 +232,28 @@ class PostHogStorage {
 
     public func reset() {
         // sadly the StorageKey.allCases does not work here
-        remove(key: .distinctId)
-        remove(key: .anonymousId)
+        deleteSafely(url(forKey: .distinctId))
+        deleteSafely(url(forKey: .anonymousId))
         // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
-        remove(key: .oldQeueue)
-        remove(key: .enabledFeatureFlags)
-        remove(key: .enabledFeatureFlagPayloads)
-        remove(key: .groups)
-        remove(key: .registerProperties)
-        remove(key: .optOut)
-        remove(key: .sessionReplay)
-        remove(key: .isIdentified)
-        remove(key: .personProcessingEnabled)
+        deleteSafely(url(forKey: .oldQeueue))
+        deleteSafely(url(forKey: .enabledFeatureFlags))
+        deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
+        deleteSafely(url(forKey: .groups))
+        deleteSafely(url(forKey: .registerProperties))
+        deleteSafely(url(forKey: .optOut))
+        deleteSafely(url(forKey: .sessionReplay))
+        deleteSafely(url(forKey: .isIdentified))
+        deleteSafely(url(forKey: .personProcessingEnabled))
     }
 
     public func remove(key: StorageKey) {
-        if key.useFileStorage {
-            deleteSafely(url(forKey: key))
-        } else {
-            userDefaults?.removeObject(forKey: key.rawValue)
-        }
+        let url = url(forKey: key)
+
+        deleteSafely(url)
     }
 
     public func getString(forKey key: StorageKey) -> String? {
-        let value = getValue(forKey: key)
+        let value = getJson(forKey: key)
         if let stringValue = value as? String {
             return stringValue
         } else if let dictValue = value as? [String: String] {
@@ -290,19 +263,19 @@ class PostHogStorage {
     }
 
     public func setString(forKey key: StorageKey, contents: String) {
-        setValue(forKey: key, value: contents)
+        setJson(forKey: key, json: contents)
     }
 
     public func getDictionary(forKey key: StorageKey) -> [AnyHashable: Any]? {
-        getValue(forKey: key) as? [AnyHashable: Any]
+        getJson(forKey: key) as? [AnyHashable: Any]
     }
 
     public func setDictionary(forKey key: StorageKey, contents: [AnyHashable: Any]) {
-        setValue(forKey: key, value: contents)
+        setJson(forKey: key, json: contents)
     }
 
     public func getBool(forKey key: StorageKey) -> Bool? {
-        let value = getValue(forKey: key)
+        let value = getJson(forKey: key)
         if let boolValue = value as? Bool {
             return boolValue
         } else if let dictValue = value as? [String: Bool] {
@@ -312,12 +285,6 @@ class PostHogStorage {
     }
 
     public func setBool(forKey key: StorageKey, contents: Bool) {
-        setValue(forKey: key, value: contents)
+        setJson(forKey: key, json: contents)
     }
-
-    #if os(tvOS)
-        private static func getUserDefaults(from config: PostHogConfig) -> UserDefaults? {
-            UserDefaults(suiteName: "posthog.\(config.apiKey)")
-        }
-    #endif
 }

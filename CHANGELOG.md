@@ -1,5 +1,7 @@
 ## Next
 
+- fix: wrong is_identified fallback value ([#317](https://github.com/PostHog/posthog-ios/pull/317))
+
 ## 3.20.0 - 2025-03-04
 
 - feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))

@@ -11,14 +11,12 @@ import Foundation
         #if os(tvOS)
             static let flushAt: Int = 5
             static let maxQueueSize: Int = 100
-            static let maxBatchSize: Int = 50
-            static let flushIntervalSeconds: TimeInterval = 30
         #else
             static let flushAt: Int = 20
             static let maxQueueSize: Int = 1000
-            static let maxBatchSize: Int = 50
-            static let flushIntervalSeconds: TimeInterval = 30
         #endif
+        static let maxBatchSize: Int = 50
+        static let flushIntervalSeconds: TimeInterval = 30
     }
 
     @objc(PostHogDataMode) public enum PostHogDataMode: Int {

@@ -23,11 +23,12 @@ func applicationSupportDirectoryURL() -> URL {
     #if os(tvOS)
         // tvOS restricts access to Application Support directory on physical devices
         // Use Library/Caches directory which may have less frequent eviction behavior than temp (which is purged when the app quits)
-        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let searchPath: FileManager.SearchPathDirectory = .cachesDirectory
     #else
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let searchPath: FileManager.SearchPathDirectory = .applicationSupportDirectory
     #endif
 
+    let url = FileManager.default.urls(for: searchPath, in: .userDomainMask).first!
     let bundleIdentifier = getBundleIdentifier()
 
     return url.appendingPathComponent(bundleIdentifier)

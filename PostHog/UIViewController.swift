@@ -8,7 +8,7 @@
 //  Created by Manoel Aranda Neto on 23.10.23.
 //
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
     import Foundation
     import UIKit
 

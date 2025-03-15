@@ -6,7 +6,7 @@
 //
 // Adapted from: https://github.com/SDWebImage/SDWebImageWebPCoder/blob/master/SDWebImageWebPCoder/Classes/SDImageWebPCoder.m
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
     import Accelerate
     import CoreGraphics
     import Foundation

@@ -8,7 +8,7 @@
 //
 
 import Foundation
-#if os(iOS)
+#if os(iOS) || os(visionOS)
     import UIKit
 #endif
 
@@ -24,7 +24,7 @@ class RRWireframe {
     var text: String?
     var label: String?
     var value: Any? // string or number
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
         var image: UIImage?
         var maskableWidgets: [CGRect]?
     #endif
@@ -37,7 +37,7 @@ class RRWireframe {
     // internal
     var parentId: Int?
 
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
         private func maskImage() -> UIImage? {
             if let image = image {
                 // the scale also affects the image size/resolution, from usually 100kb to 15kb each
@@ -92,7 +92,7 @@ class RRWireframe {
             dict["value"] = value
         }
 
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
             if let image = image {
                 if let maskedImage = maskImage() {
                     base64 = maskedImage.toBase64()

@@ -4,7 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
 
     import Foundation
 
@@ -128,7 +128,11 @@
 
         private func isCaptureNetworkEnabled() -> Bool {
             guard let postHog else { return false }
-            return postHog.config.sessionReplayConfig.captureNetworkTelemetry && postHog.isSessionReplayActive()
+            #if os(visionOS)
+                return false
+            #else
+                return postHog.config.sessionReplayConfig.captureNetworkTelemetry && postHog.isSessionReplayActive()
+            #endif
         }
 
         private func finish(task: URLSessionTask, sample: NetworkSample) {

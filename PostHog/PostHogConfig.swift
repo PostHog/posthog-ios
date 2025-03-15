@@ -63,7 +63,7 @@ import Foundation
     /// or EU Host: 'https://eu.i.posthog.com'
     public static let defaultHost: String = "https://us.i.posthog.com"
 
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
         /// Enable Recording of Session Replays for iOS
         /// Default: false
         @objc public var sessionReplay: Bool = false

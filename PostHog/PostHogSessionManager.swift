@@ -224,7 +224,7 @@ import Foundation
     private var applicationEventToken: RegistrationToken?
 
     private func registerApplicationSendEvent() {
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             let applicationEventPublisher = DI.main.applicationEventPublisher
             applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] _, _ in
                 // update "last active" session

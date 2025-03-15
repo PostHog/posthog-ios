@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 24/10/2024.
 //
 
-#if os(iOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || os(visionOS) || targetEnvironment(macCatalyst)
     import UIKit
 
     final class ForwardingPickerViewDelegate: NSObject, UIPickerViewDelegate, UIPickerViewDataSource {

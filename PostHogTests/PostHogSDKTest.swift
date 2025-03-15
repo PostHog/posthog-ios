@@ -51,7 +51,9 @@ class PostHogSDKTest: QuickSpec {
         }
 
         beforeEach {
-            PostHogAppLifeCycleIntegration.clearInstalls()
+            #if os(iOS)
+                PostHogAppLifeCycleIntegration.clearInstalls()
+            #endif
 
             deleteDefaults()
             server = MockPostHogServer()

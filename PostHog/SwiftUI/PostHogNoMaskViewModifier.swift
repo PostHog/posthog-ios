@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 09/10/2024.
 //
 
-#if os(iOS) && canImport(SwiftUI)
+#if (os(iOS) || os(visionOS)) && canImport(SwiftUI)
 
     import SwiftUI
 

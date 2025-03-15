@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
     import UIKit
 
     typealias ApplicationEventHandler = (_ event: UIEvent, _ date: Date) -> Void

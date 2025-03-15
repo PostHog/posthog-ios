@@ -172,7 +172,7 @@ class PostHogFeatureFlagsTest: QuickSpec {
             expect(sut.getFeatureFlag("string-value")).to(beNil())
         }
 
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
             it("returns isSessionReplayFlagActive true if there is a value") {
                 let storage = PostHogStorage(self.config)
 

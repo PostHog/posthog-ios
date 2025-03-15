@@ -4,7 +4,7 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) || os(visionOS)
     import Foundation
 
     @objc(PostHogSessionReplayConfig) public class PostHogSessionReplayConfig: NSObject {

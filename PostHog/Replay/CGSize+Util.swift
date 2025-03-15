@@ -5,7 +5,7 @@
 //  Created by Manoel Aranda Neto on 24.07.24.
 //
 
-#if os(iOS)
+#if os(iOS) || os(visionOS)
     import Foundation
 
     extension CGSize {

@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 16/12/2024.
 //
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
     import UIKit
 #elseif os(macOS)
     import AppKit
@@ -49,7 +49,7 @@ final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
 
         let defaultCenter = NotificationCenter.default
 
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             defaultCenter.addObserver(self,
                                       selector: #selector(appDidFinishLaunching),
                                       name: UIApplication.didFinishLaunchingNotification,

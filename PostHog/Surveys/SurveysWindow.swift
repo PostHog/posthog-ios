@@ -9,8 +9,9 @@
     import SwiftUI
     import UIKit
 
+    @available(iOS 15.0, *)
     final class SurveysWindow: PassthroughWindow {
-        init(surveysManager: SurveysDisplayController, scene: UIWindowScene) {
+        init(surveysManager: SurveyDisplayController, scene: UIWindowScene) {
             super.init(windowScene: scene)
             let rootView = SurveysRootView().environmentObject(surveysManager)
             let hostingController = UIHostingController(rootView: rootView)

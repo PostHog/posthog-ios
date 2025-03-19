@@ -163,14 +163,12 @@
 		DA1D29602D10C810003A31DA /* PostHogSessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */; };
 		DA1D29622D115E17003A31DA /* DI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29612D115E13003A31DA /* DI.swift */; };
 		DA263D3A2D7F1057004C100D /* Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D392D7F1054004C100D /* Resources.swift */; };
-		DA263D3E2D7F1F51004C100D /* DynamicHeightTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D3D2D7F1F4E004C100D /* DynamicHeightTextView.swift */; };
 		DA263D422D80085D004C100D /* SurveyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D412D800856004C100D /* SurveyButton.swift */; };
 		DA263D472D801117004C100D /* NumberRating.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D462D801114004C100D /* NumberRating.swift */; };
 		DA263D492D8039F9004C100D /* EmojiRating.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D482D8039F9004C100D /* EmojiRating.swift */; };
 		DA263D4B2D803A23004C100D /* SegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D4A2D803A1F004C100D /* SegmentedControl.swift */; };
 		DA263D4D2D804BED004C100D /* MultipleChoiceOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */; };
 		DA263D4F2D8075D7004C100D /* SwiftUI+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */; };
-		DA263D512D8091CB004C100D /* LegacyTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D502D8091CB004C100D /* LegacyTextField.swift */; };
 		DA26419C2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */; };
 		DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */; };
 		DA30AE812D3FE63F00465A64 /* Survey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE802D3FE63F00465A64 /* Survey.swift */; };
@@ -204,6 +202,11 @@
 		DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA929C092D0B3A1D0018369C /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
+		DA9AE8CF2D8357D4002F1B44 /* ConfirmationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */; };
+		DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */; };
+		DA9AE8D32D8377EC002F1B44 /* QuestionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */; };
+		DA9AE8D52D841994002F1B44 /* Survey+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */; };
+		DA9AE8F42D89AFD7002F1B44 /* BottomSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */; };
 		DA9CE32B2D3108AD00DFE652 /* analysis_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE27E2D3108A100DFE652 /* analysis_enc.c */; };
 		DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE2B42D3108A100DFE652 /* lossless_enc_neon.c */; };
 		DA9CE32D2D3108AD00DFE652 /* alpha_processing_sse41.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE27D2D3108A100DFE652 /* alpha_processing_sse41.c */; };
@@ -330,8 +333,9 @@
 		DAF79A2A2D1309C00078A3C9 /* TestError.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF79A242D1309BE0078A3C9 /* TestError.swift */; };
 		DAF95F512D072F04001E82BB /* UIImage+WebP.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF95F502D072F04001E82BB /* UIImage+WebP.swift */; };
 		DAF95F612D077C21001E82BB /* PostHogWebPTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF95F602D077C1C001E82BB /* PostHogWebPTest.swift */; };
+		DAF9E1A02D8231ED00D47263 /* SurveySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF9E19F2D8231EA00D47263 /* SurveySheet.swift */; };
 		DAFF026B2D7B1A9800BD5B1D /* SurveysRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */; };
-		DAFF026D2D7B2F9200BD5B1D /* SurveysDisplayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */; };
+		DAFF026D2D7B2F9200BD5B1D /* SurveyDisplayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFF026C2D7B2F8D00BD5B1D /* SurveyDisplayController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -659,14 +663,12 @@
 		DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManagerTest.swift; sourceTree = "<group>"; };
 		DA1D29612D115E13003A31DA /* DI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DI.swift; sourceTree = "<group>"; };
 		DA263D392D7F1054004C100D /* Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resources.swift; sourceTree = "<group>"; };
-		DA263D3D2D7F1F4E004C100D /* DynamicHeightTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicHeightTextView.swift; sourceTree = "<group>"; };
 		DA263D412D800856004C100D /* SurveyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyButton.swift; sourceTree = "<group>"; };
 		DA263D462D801114004C100D /* NumberRating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberRating.swift; sourceTree = "<group>"; };
 		DA263D482D8039F9004C100D /* EmojiRating.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EmojiRating.swift; sourceTree = "<group>"; };
 		DA263D4A2D803A1F004C100D /* SegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedControl.swift; sourceTree = "<group>"; };
 		DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipleChoiceOptions.swift; sourceTree = "<group>"; };
 		DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftUI+Util.swift"; sourceTree = "<group>"; };
-		DA263D502D8091CB004C100D /* LegacyTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyTextField.swift; sourceTree = "<group>"; };
 		DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTracker.swift; sourceTree = "<group>"; };
 		DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Util.swift"; sourceTree = "<group>"; };
 		DA30AE802D3FE63F00465A64 /* Survey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Survey.swift; sourceTree = "<group>"; };
@@ -691,6 +693,11 @@
 		DA7185472D07E11200396388 /* output_3.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = output_3.webp; sourceTree = "<group>"; };
 		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
 		DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTrackerSpec.swift; sourceTree = "<group>"; };
+		DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationMessage.swift; sourceTree = "<group>"; };
+		DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionHeader.swift; sourceTree = "<group>"; };
+		DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionTypes.swift; sourceTree = "<group>"; };
+		DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Survey+Util.swift"; sourceTree = "<group>"; };
+		DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSection.swift; sourceTree = "<group>"; };
 		DA9CE2792D3108A100DFE652 /* alpha_enc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_enc.c; sourceTree = "<group>"; };
 		DA9CE27A2D3108A100DFE652 /* alpha_processing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing.c; sourceTree = "<group>"; };
 		DA9CE27B2D3108A100DFE652 /* alpha_processing_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing_neon.c; sourceTree = "<group>"; };
@@ -818,8 +825,9 @@
 		DAF79A242D1309BE0078A3C9 /* TestError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestError.swift; sourceTree = "<group>"; };
 		DAF95F502D072F04001E82BB /* UIImage+WebP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+WebP.swift"; sourceTree = "<group>"; };
 		DAF95F602D077C1C001E82BB /* PostHogWebPTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogWebPTest.swift; sourceTree = "<group>"; };
+		DAF9E19F2D8231EA00D47263 /* SurveySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveySheet.swift; sourceTree = "<group>"; };
 		DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveysRootView.swift; sourceTree = "<group>"; };
-		DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveysDisplayController.swift; sourceTree = "<group>"; };
+		DAFF026C2D7B2F8D00BD5B1D /* SurveyDisplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyDisplayController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1218,15 +1226,14 @@
 		DA263D452D800EA9004C100D /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */,
+				DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */,
 				DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */,
 				DA263D4A2D803A1F004C100D /* SegmentedControl.swift */,
 				DA263D462D801114004C100D /* NumberRating.swift */,
 				DA263D482D8039F9004C100D /* EmojiRating.swift */,
 				DA263D412D800856004C100D /* SurveyButton.swift */,
-				DA263D502D8091CB004C100D /* LegacyTextField.swift */,
-				DA263D3D2D7F1F4E004C100D /* DynamicHeightTextView.swift */,
 				DA263D392D7F1054004C100D /* Resources.swift */,
-				DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -1247,9 +1254,14 @@
 		DA30AE872D40173D00465A64 /* Surveys */ = {
 			isa = PBXGroup;
 			children = (
+				DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */,
+				DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */,
+				DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */,
+				DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */,
 				DA263D452D800EA9004C100D /* Utils */,
+				DAF9E19F2D8231EA00D47263 /* SurveySheet.swift */,
+				DAFF026C2D7B2F8D00BD5B1D /* SurveyDisplayController.swift */,
 				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
-				DAFF026C2D7B2F8D00BD5B1D /* SurveysDisplayController.swift */,
 				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
 				DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */,
 			);
@@ -1920,11 +1932,13 @@
 				69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */,
 				69F23A762BB308AE001194F6 /* URLSessionInterceptor.swift in Sources */,
 				DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */,
+				DA9AE8D52D841994002F1B44 /* Survey+Util.swift in Sources */,
 				690FF0BF2AEFA97F00A0B06B /* FileUtils.swift in Sources */,
 				69261D252AD9787A00232EC7 /* PostHogExtensions.swift in Sources */,
 				DA1D295E2D10B7B2003A31DA /* ApplicationLifecyclePublisher.swift in Sources */,
 				3AE3FB4E2993D1D600AFFC18 /* PostHogStorageManager.swift in Sources */,
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
+				DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */,
 				69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */,
 				69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */,
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
@@ -1945,7 +1959,6 @@
 				DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */,
 				DA9CE32D2D3108AD00DFE652 /* alpha_processing_sse41.c in Sources */,
 				DA9CE32E2D3108AD00DFE652 /* quant_levels_utils.c in Sources */,
-				DA263D512D8091CB004C100D /* LegacyTextField.swift in Sources */,
 				DA9CE32F2D3108AD00DFE652 /* picture_psnr_enc.c in Sources */,
 				DA9CE3302D3108AD00DFE652 /* enc_sse2.c in Sources */,
 				DA9CE3312D3108AD00DFE652 /* ssim_sse2.c in Sources */,
@@ -1960,7 +1973,7 @@
 				DA9CE3392D3108AD00DFE652 /* yuv.c in Sources */,
 				DA9CE33A2D3108AD00DFE652 /* bit_reader_utils.c in Sources */,
 				DA9CE33B2D3108AD00DFE652 /* lossless_neon.c in Sources */,
-				DAFF026D2D7B2F9200BD5B1D /* SurveysDisplayController.swift in Sources */,
+				DAFF026D2D7B2F9200BD5B1D /* SurveyDisplayController.swift in Sources */,
 				DA9CE33C2D3108AD00DFE652 /* backward_references_enc.c in Sources */,
 				DA9CE33D2D3108AD00DFE652 /* huffman_encode_utils.c in Sources */,
 				DA9CE33E2D3108AD00DFE652 /* palette.c in Sources */,
@@ -1981,6 +1994,7 @@
 				DA9CE34C2D3108AD00DFE652 /* lossless_sse41.c in Sources */,
 				DA9CE34D2D3108AD00DFE652 /* iterator_enc.c in Sources */,
 				DA9CE34E2D3108AD00DFE652 /* backward_references_cost_enc.c in Sources */,
+				DA9AE8D32D8377EC002F1B44 /* QuestionTypes.swift in Sources */,
 				DA9CE34F2D3108AD00DFE652 /* picture_enc.c in Sources */,
 				DA9CE3502D3108AD00DFE652 /* upsampling_sse41.c in Sources */,
 				DA9CE3512D3108AD00DFE652 /* filters.c in Sources */,
@@ -1993,7 +2007,6 @@
 				DA9CE3582D3108AD00DFE652 /* frame_enc.c in Sources */,
 				DAB9F6C42D6C49BB00A988A1 /* ApplicationEventPublisher.swift in Sources */,
 				DA263D4B2D803A23004C100D /* SegmentedControl.swift in Sources */,
-				DA263D3E2D7F1F51004C100D /* DynamicHeightTextView.swift in Sources */,
 				DAD4B2F52D79E25100DA503C /* SurveysWindow.swift in Sources */,
 				DA9CE3592D3108AD00DFE652 /* cost_neon.c in Sources */,
 				DAD39DF42D560818002A1A69 /* Float+Util.swift in Sources */,
@@ -2015,6 +2028,7 @@
 				DA9CE3692D3108AD00DFE652 /* syntax_enc.c in Sources */,
 				DA263D4F2D8075D7004C100D /* SwiftUI+Util.swift in Sources */,
 				DA9CE36A2D3108AD00DFE652 /* enc_neon.c in Sources */,
+				DAF9E1A02D8231ED00D47263 /* SurveySheet.swift in Sources */,
 				DA9CE36B2D3108AD00DFE652 /* yuv_sse41.c in Sources */,
 				DA9CE36C2D3108AD00DFE652 /* upsampling.c in Sources */,
 				DA9CE36D2D3108AD00DFE652 /* dec_sse41.c in Sources */,
@@ -2050,6 +2064,7 @@
 				69F517F32BAC734300F52C14 /* UIColor+Util.swift in Sources */,
 				3AE3FB3F29924F4F00AFFC18 /* PostHogConfig.swift in Sources */,
 				69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */,
+				DA9AE8CF2D8357D4002F1B44 /* ConfirmationMessage.swift in Sources */,
 				DA263D472D801117004C100D /* NumberRating.swift in Sources */,
 				DACC08BB2D6E3C6D00115E46 /* PostHogIntegration.swift in Sources */,
 				DAD5DD0C2CB6DEF30087387B /* PostHogMaskViewModifier.swift in Sources */,
@@ -2076,6 +2091,7 @@
 				DA703C1C2D6616FD0069097B /* PostHogAppLifeCycleIntegration.swift in Sources */,
 				DAB565CA2D142F8F0088F720 /* PostHogNoMaskViewModifier.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */,
+				DA9AE8F42D89AFD7002F1B44 /* BottomSection.swift in Sources */,
 				DA578E9A2D676AF100B3A56C /* ApplicationScreenViewPublisher.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */,
 				699C5FE62C20178E007DB818 /* UUIDUtils.swift in Sources */,

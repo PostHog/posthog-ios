@@ -27,12 +27,12 @@
                 HStack(spacing: 0) {
                     ForEach(range, id: \.self) { value in
                         let isSelected = selectedValue == value
-                        Button(action: {
+                        Button {
                             if selectedValue == value {
                                 withAnimation(.snappy(duration: 0.25, extraBounce: 0)) {
                                     selectedValue = nil
-                                    minX = 0
                                 }
+
                             } else {
                                 let index = value - range.lowerBound
                                 if selectedValue == nil {
@@ -48,7 +48,7 @@
                                 }
                             }
 
-                        }) {
+                        } label: {
                             segmentView(value, isSelected)
                                 .contentShape(.rect)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -86,17 +86,17 @@
     }
 
     extension SegmentedControl where Indicator == EmptyView, Separator == EmptyView {
-        init(range: ClosedRange<Int>, height: CGFloat, selectedValue: Binding<Int?> , segmentView: @escaping (Int, Bool) -> Segment) {
+        init(range: ClosedRange<Int>, height: CGFloat, selectedValue: Binding<Int?>, segmentView: @escaping (Int, Bool) -> Segment) {
             self.range = range
             self.height = height
-            self._selectedValue = selectedValue
+            _selectedValue = selectedValue
             self.segmentView = segmentView
-            self.separatorView = { _, _ in EmptyView() }
-            self.indicatorView = { _ in EmptyView() }
+            separatorView = { _, _ in EmptyView() }
+            indicatorView = { _ in EmptyView() }
         }
     }
 
-    fileprivate struct SizeKey: PreferenceKey {
+    private struct SizeKey: PreferenceKey {
         static var defaultValue: CGSize = .zero
         static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
             value = nextValue()

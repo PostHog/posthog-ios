@@ -12,8 +12,6 @@
         import UIKit
     #endif
 
-    typealias SurveyResponse = String // TEMP:
-
     final class PostHogSurveyIntegration: PostHogIntegration {
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
@@ -35,7 +33,7 @@
 
         #if os(iOS)
             private var surveysWindow: UIWindow?
-            private var surveyDisplayManager: SurveysDisplayController?
+            private var surveyDisplayManager: SurveyDisplayController?
         #endif
 
         private var didBecomeActiveToken: RegistrationToken?
@@ -63,49 +61,33 @@
         }
 
         func start() {
-            didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
-                guard let self else { return }
+            #if os(iOS)
+                if #available(iOS 15.0, *) {
+                    didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
+                        guard let self, surveysWindow == nil else { return }
 
-                #if os(iOS)
-                    if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
-                        let surveyDisplayManager = SurveysDisplayController(
-                            getNextSurveyStep: getNextSurveyStep,
-                            onSurveySent: onSurveySent,
-                            onSurveyDismissed: onSurveyDismissed
-                        )
-                        surveysWindow = SurveysWindow(
-                            surveysManager: surveyDisplayManager,
-                            scene: activeScene
-                        )
-                        surveysWindow?.isHidden = false
-                        surveysWindow?.windowLevel = activeWindow.windowLevel + 1
+                        #if os(iOS)
+                            if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
+                                let surveyDisplayManager = SurveyDisplayController(
+                                    getNextSurveyStep: getNextSurveyStep,
+                                    getSurveyCompleted: getSurveyCompleted,
+                                    onSurveyCompleted: onSurveyCompleted,
+                                    onSurveyDismissed: onSurveyDismissed
+                                )
 
-                        self.surveyDisplayManager = surveyDisplayManager
+                                surveysWindow = SurveysWindow(
+                                    surveysManager: surveyDisplayManager,
+                                    scene: activeScene
+                                )
+                                surveysWindow?.isHidden = false
+                                surveysWindow?.windowLevel = activeWindow.windowLevel + 1
 
-                        // TEMP, testing display
-                        let survey = Survey(
-                            id: "my-survey-id",
-                            name: "Survey Name",
-                            type: .popover,
-                            questions: [],
-                            featureFlagKeys: nil,
-                            linkedFlagKey: nil,
-                            targetingFlagKey: nil,
-                            internalTargetingFlagKey: nil,
-                            conditions: nil,
-                            appearance: nil,
-                            currentIteration: nil,
-                            currentIterationStartDate: nil,
-                            startDate: nil,
-                            endDate: nil
-                        )
-
-                        DispatchQueue.main.async {
-                            surveyDisplayManager.showSurvey(survey)
-                        }
+                                self.surveyDisplayManager = surveyDisplayManager
+                            }
+                        #endif
                     }
-                #endif
-            }
+                }
+            #endif
 
             // TODO: listen to screen view events
             // TODO: listen to event capture events
@@ -320,14 +302,20 @@
         }
 
         private func getNextSurveyStep(
-            survey _: Survey,
-            currentQuestionIndex _: Int,
-            response _: SurveyResponse
+            survey: Survey,
+            currentQuestionIndex: Int
         ) -> Int {
-            0
+            min(currentQuestionIndex + 1, survey.questions.count - 1)
         }
 
-        private func onSurveySent(survey: Survey) {
+        private func getSurveyCompleted(
+            survey: Survey,
+            currentQuestionIndex: Int
+        ) -> Bool {
+            currentQuestionIndex == survey.questions.count - 1
+        }
+
+        private func onSurveyCompleted(survey: Survey) {
             // TODO: checks
             sendSurveySentEvent(survey: survey)
         }

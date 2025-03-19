@@ -1,5 +1,5 @@
 //
-//  Untitled.swift
+//  MultipleChoiceOptions.swift
 //  PostHog
 //
 //  Created by Ioannis Josephides on 11/03/2025.
@@ -8,35 +8,37 @@
 #if os(iOS)
     import SwiftUI
 
+    @available(iOS 15.0, *)
     struct MultipleChoiceOptions: View {
         let allowsMultipleSelection: Bool
         let hasOpenChoiceQuestion: Bool
         let options: [String]
 
-        @State var selectedOptions: Set<String> = []
-        @State private var openChoiceResponse: String = ""
+        @Binding var selectedOptions: Set<String>
+        @Binding var openChoiceInput: String
         @State private var textFieldRect: CGRect = .zero
-        @State private var isTextFieldFocused: Bool = false
+        @FocusState private var isTextFieldFocused: Bool
 
         var body: some View {
             VStack {
                 ForEach(options, id: \.self) { option in
                     let isSelected = isSelected(option)
 
-                    Button(action: {
+                    Button {
                         withAnimation(.linear(duration: 0.15)) {
                             setSelected(!isSelected, option: option)
                         }
-                    }) {
+                    } label: {
                         if isOpenChoice(option) {
                             VStack(alignment: .leading) {
                                 Text("\(option):")
+                                // Invisible text for calculating TextField placement
                                 Text("text-field-placeholder")
                                     .opacity(0)
                                     .frame(maxWidth: .infinity)
-                                    .readFrame(in: .named("SurveyButton"), onChange: { rect in
-                                        textFieldRect = rect
-                                    })
+                                    .readFrame(in: .named("SurveyButton")) { frame in
+                                        textFieldRect = frame
+                                    }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .modifier(SurveyOptionStyle(isChecked: isSelected))
@@ -46,6 +48,7 @@
                                 .modifier(SurveyOptionStyle(isChecked: isSelected))
                         }
                     }
+                    // text field needs to overlay the Button so it can receive touches first when enabled
                     .overlay(openChoiceField(option), alignment: .topLeading)
                 }
             }
@@ -67,19 +70,22 @@
                     selectedOptions = [option]
                 }
 
-                isTextFieldFocused = isOpenChoice(option)
+                let isOpenChoice = self.isOpenChoice(option)
+                // requires a small delay since textfield is enabled/disabled based on `selectedOptions` state update
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isTextFieldFocused = isOpenChoice
+                }
             } else {
                 selectedOptions.remove(option)
-                isTextFieldFocused = false
             }
         }
 
         @ViewBuilder
         private func openChoiceField(_ option: String) -> some View {
             if isOpenChoice(option) {
-                LegacyTextField(text: $openChoiceResponse)
+                TextField("", text: $openChoiceInput)
                     .focused($isTextFieldFocused)
-                    .foregroundColor(isSelected(option) ? UIColor.black : UIColor.black.withAlphaComponent(0.5))
+                    .foregroundColor(isSelected(option) ? Color.black : Color.black.opacity(0.5))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(maxWidth: textFieldRect.size.width)
                     .disabled(!isSelected(option))
@@ -91,6 +97,7 @@
         }
     }
 
+    @available(iOS 15.0, *)
     private struct SurveyOptionStyle: ViewModifier {
         let isChecked: Bool
 
@@ -118,7 +125,11 @@
         }
     }
 
+    @available(iOS 18.0, *)
     #Preview {
+        @Previewable @State var selectedOptions: Set<String> = []
+        @Previewable @State var openChoiceInput = ""
+
         MultipleChoiceOptions(
             allowsMultipleSelection: true,
             hasOpenChoiceQuestion: true,
@@ -127,7 +138,9 @@
                 "Customer case studies",
                 "Product announcements",
                 "Other",
-            ]
+            ],
+            selectedOptions: $selectedOptions,
+            openChoiceInput: $openChoiceInput
         )
         .colorScheme(.dark)
         .padding()

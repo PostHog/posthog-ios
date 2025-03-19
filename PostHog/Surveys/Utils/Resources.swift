@@ -7,6 +7,7 @@
 
 // see: https://github.com/bring-shrubbery/SVG-to-SwiftUI
 
+// swiftlint:disable line_length
 #if os(iOS)
     import SwiftUI
 
@@ -373,33 +374,6 @@
         }
     }
 
-    struct CancelIcon: Shape {
-        func path(in rect: CGRect) -> Path {
-            var path = Path()
-            let width = rect.size.width
-            let height = rect.size.height
-            path.move(to: CGPoint(x: 0.01373 * width, y: 0.01373 * height))
-            path.addCurve(to: CGPoint(x: 0.08002 * width, y: 0.01373 * height), control1: CGPoint(x: 0.03204 * width, y: -0.00458 * height), control2: CGPoint(x: 0.06171 * width, y: -0.00458 * height))
-            path.addLine(to: CGPoint(x: 0.5 * width, y: 0.43371 * height))
-            path.addLine(to: CGPoint(x: 0.91998 * width, y: 0.01373 * height))
-            path.addCurve(to: CGPoint(x: 0.98627 * width, y: 0.01373 * height), control1: CGPoint(x: 0.93828 * width, y: -0.00458 * height), control2: CGPoint(x: 0.96797 * width, y: -0.00458 * height))
-            path.addCurve(to: CGPoint(x: 0.98627 * width, y: 0.08002 * height), control1: CGPoint(x: 1.00457 * width, y: 0.03204 * height), control2: CGPoint(x: 1.00457 * width, y: 0.06171 * height))
-            path.addLine(to: CGPoint(x: 0.56629 * width, y: 0.5 * height))
-            path.addLine(to: CGPoint(x: 0.98627 * width, y: 0.91998 * height))
-            path.addCurve(to: CGPoint(x: 0.98627 * width, y: 0.98627 * height), control1: CGPoint(x: 1.00457 * width, y: 0.93828 * height), control2: CGPoint(x: 1.00457 * width, y: 0.96797 * height))
-            path.addCurve(to: CGPoint(x: 0.91998 * width, y: 0.98627 * height), control1: CGPoint(x: 0.96797 * width, y: 1.00457 * height), control2: CGPoint(x: 0.93828 * width, y: 1.00457 * height))
-            path.addLine(to: CGPoint(x: 0.5 * width, y: 0.56629 * height))
-            path.addLine(to: CGPoint(x: 0.08002 * width, y: 0.98627 * height))
-            path.addCurve(to: CGPoint(x: 0.01373 * width, y: 0.98627 * height), control1: CGPoint(x: 0.06171 * width, y: 1.00457 * height), control2: CGPoint(x: 0.03204 * width, y: 1.00457 * height))
-            path.addCurve(to: CGPoint(x: 0.01373 * width, y: 0.91998 * height), control1: CGPoint(x: -0.00458 * width, y: 0.96797 * height), control2: CGPoint(x: -0.00458 * width, y: 0.93828 * height))
-            path.addLine(to: CGPoint(x: 0.43371 * width, y: 0.5 * height))
-            path.addLine(to: CGPoint(x: 0.01373 * width, y: 0.08002 * height))
-            path.addCurve(to: CGPoint(x: 0.01373 * width, y: 0.01373 * height), control1: CGPoint(x: -0.00458 * width, y: 0.06171 * height), control2: CGPoint(x: -0.00458 * width, y: 0.03204 * height))
-            path.closeSubpath()
-            return path
-        }
-    }
-
     struct CheckIcon: Shape {
         func path(in rect: CGRect) -> Path {
             var path = Path()
@@ -450,8 +424,8 @@
             }
             HStack {
                 CheckIcon().frame(width: 16, height: 12)
-                CancelIcon().frame(width: 12, height: 12)
             }
         }
     }
 #endif
+// swiftlint:enable line_length

@@ -22,7 +22,7 @@
                     .font(.body.bold())
                     .foregroundColor(foregroundTextColor)
                     .multilineTextAlignment(.leading)
-                if let description, contentType == .text {
+                if let description, !description.isEmpty, contentType == .text {
                     Text(description)
                         .font(.callout)
                         .foregroundColor(foregroundTextColor)

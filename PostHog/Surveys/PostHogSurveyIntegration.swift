@@ -28,11 +28,17 @@
         private var allSurveysLock = NSLock()
         private var allSurveys: [Survey]?
 
+        private var eventsToSurveysLock = NSLock()
+        private var eventsToSurveys: [String: [String]] = [:]
+
         private var seenSurveyKeysLock = NSLock()
         private var seenSurveyKeys: [AnyHashable: Any]?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: Survey?
+
+        private var eventActivatedSurveysLock = NSLock()
+        private var eventActivatedSurveys: Set<String> = []
 
         #if os(iOS)
             private var surveysWindow: UIWindow?
@@ -126,7 +132,7 @@
 
                 let matchingSurveys = surveys
                     .lazy
-                    .filter {           // 1. unseen surveys,
+                    .filter { // 1. unseen surveys,
                         !self.getSurveySeen(survey: $0)
                     }
                     .filter(\.isActive) // 2. that are active,
@@ -150,11 +156,30 @@
                         .compactMap { $0 }
                         .filter { !$0.isEmpty }
 
-                        return Set(allKeys) // remove dupes
-                            .allSatisfy(self.isSurveyFeatureFlagEnabled) // all keys must be enabled
+                        // remove dupes, all keys must be enabled
+                        return Set(allKeys)
+                            .allSatisfy(self.isSurveyFeatureFlagEnabled)
+                    }
+                    .filter { survey in // 5. and if event-based, have been activated by that event
+                        survey.hasEvents ? self.isSurveyEventActivated(survey: survey) : true
                     }
 
                 callback(Array(matchingSurveys))
+            }
+        }
+
+        func onEvent(event: String) {
+            let activatedSurveys = eventsToSurveysLock.withLock { eventsToSurveys[event] } ?? []
+            guard !activatedSurveys.isEmpty else { return }
+
+            eventActivatedSurveysLock.withLock {
+                for survey in activatedSurveys {
+                    eventActivatedSurveys.insert(survey)
+                }
+            }
+
+            DispatchQueue.main.async {
+                self.showNextSurvey()
             }
         }
 
@@ -211,9 +236,22 @@
 
         private func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
             let loadedSurveys: [Survey] = decodeSurveys(from: remoteConfig ?? [:])
+
+            let eventMap = loadedSurveys.reduce(into: [String: [String]]()) { result, current in
+                if let surveyEvents = current.conditions?.events?.values.map(\.name) {
+                    for event in surveyEvents {
+                        result[event, default: []].append(current.id)
+                    }
+                }
+            }
+
             allSurveysLock.withLock {
                 self.allSurveys = loadedSurveys
             }
+            eventsToSurveysLock.withLock {
+                self.eventsToSurveys = eventMap
+            }
+
             callback(loadedSurveys)
         }
 
@@ -328,6 +366,12 @@
             return matchType.matches(targets: deviceTypes, value: deviceType)
         }
 
+        private func isSurveyEventActivated(survey: Survey) -> Bool {
+            eventActivatedSurveysLock.withLock {
+                eventActivatedSurveys.contains(survey.id)
+            }
+        }
+
         private func getNextSurveyStep(
             survey: Survey,
             currentQuestionIndex: Int
@@ -346,6 +390,13 @@
 
         private func onSurveyShown(survey: Survey) {
             sendSurveyShownEvent(survey: survey)
+
+            // clear up event-activated surveys
+            if survey.hasEvents {
+                eventActivatedSurveysLock.withLock {
+                    _ = eventActivatedSurveys.remove(survey.id)
+                }
+            }
         }
 
         private func onSurveyResponse(survey: Survey, responses: [String: SurveyResponse], completed: Bool) {

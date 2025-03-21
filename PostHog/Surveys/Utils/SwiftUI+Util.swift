@@ -10,6 +10,7 @@
 
     extension View {
         /// Reads frame changes of current view in a coordinate space (default global)
+        @available(iOS 14.0, *)
         func readFrame(
             in coordinateSpace: CoordinateSpace = .global,
             onFrame: @escaping (CGRect) -> Void
@@ -22,6 +23,7 @@
             )
         }
 
+        /// Reads current view's safe area insets
         @available(iOS 14.0, *)
         func readSafeAreaInsets(
             onSafeAreaInsets: @escaping (EdgeInsets) -> Void
@@ -39,11 +41,7 @@
         }
     }
 
-    struct ViewFrameInfo: Equatable {
-        var frame: CGRect = .zero
-        var safeAreaInsets: EdgeInsets = .init()
-    }
-
+    @available(iOS 14.0, *)
     private struct ReadFrameModifier: ViewModifier {
         /// Helper for notifying parents for child view frame changes
         struct FramePreferenceKey: PreferenceKey {
@@ -73,7 +71,7 @@
 
     @available(iOS 14.0, *)
     private struct ReadSafeAreaInsetsModifier: ViewModifier {
-        /// Helper for notifying parents for child view frame changes
+        /// Helper for notifying parents for child view's safe area insets
         struct SafeAreaInsetsPreferenceKey: PreferenceKey {
             static var defaultValue: EdgeInsets = .init()
             static func reduce(value _: inout EdgeInsets, nextValue _: () -> EdgeInsets) {

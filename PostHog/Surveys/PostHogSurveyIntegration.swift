@@ -74,7 +74,6 @@
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     // TODO: listen to screen view events
-                    // TODO: listen to event capture events
 
                     didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: 5) { [weak self] in
                         self?.showNextSurvey()
@@ -120,7 +119,7 @@
             #endif
         }
 
-        /// Get surveys that should be enabled for the current user
+        /// Get surveys enabled for the current user
         func getActiveMatchingSurveys(
             forceReload: Bool = false,
             callback: @escaping SurveyCallback
@@ -154,7 +153,7 @@
                         .compactMap { $0 }
                         .filter { !$0.isEmpty }
 
-                        // remove dupes, all keys must be enabled
+                        // all keys must be enabled
                         return Set(allKeys)
                             .allSatisfy(self.isSurveyFeatureFlagEnabled)
                     }
@@ -394,6 +393,11 @@
             // TODO: Partial responses
             if completed {
                 sendSurveySentEvent(survey: survey, responses: responses)
+
+                // Auto-hide if a confirmation message is not displayed
+                if survey.appearance?.displayThankYouMessage == false {
+                    surveyDisplayManager?.dismissSurvey()
+                }
             }
         }
 
@@ -406,7 +410,7 @@
             setSurveySeen(survey: survey)
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
-                // show next survey in queue if any after a short delay
+                // show next survey in queue, if any, after a short delay
                 self.showNextSurvey()
             }
         }

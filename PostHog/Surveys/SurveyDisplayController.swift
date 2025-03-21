@@ -46,14 +46,6 @@
             onSurveyShown(survey)
         }
 
-        // User swiped down to dismiss survey
-        func hideSurvey() {
-            displayedSurvey = nil
-            isSurveyCompleted = false
-            currentQuestionIndex = nil
-            questionResponses = [:]
-        }
-
         func onNextQuestion(index: Int, response: SurveyResponse) {
             guard let displayedSurvey else { return }
 
@@ -68,11 +60,14 @@
         }
 
         // User dismissed survey
-        func userDismissedSurvey() {
-            guard let survey = displayedSurvey else { return }
-            onSurveyClosed(survey, isSurveyCompleted)
+        func dismissSurvey() {
+            if let survey = displayedSurvey {
+                onSurveyClosed(survey, isSurveyCompleted)                
+            }
             displayedSurvey = nil
             isSurveyCompleted = false
+            currentQuestionIndex = nil
+            questionResponses = [:]
         }
 
         func canShowNextSurvey() -> Bool {

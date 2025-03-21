@@ -32,10 +32,12 @@
                         if isOpenChoice(option) {
                             VStack(alignment: .leading) {
                                 Text("\(option):")
+                                    .multilineTextAlignment(.leading)
                                 // Invisible text for calculating TextField placement
                                 Text("text-field-placeholder")
                                     .opacity(0)
                                     .frame(maxWidth: .infinity)
+                                    .multilineTextAlignment(.leading)
                                     .readFrame(in: .named("SurveyButton")) { frame in
                                         textFieldRect = frame
                                     }
@@ -46,6 +48,7 @@
                         } else {
                             Text(option)
                                 .modifier(SurveyOptionStyle(isChecked: isSelected))
+                                .multilineTextAlignment(.leading)
                         }
                     }
                     // text field needs to overlay the Button so it can receive touches first when enabled

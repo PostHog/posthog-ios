@@ -208,6 +208,7 @@
 		DA9AE8D52D841994002F1B44 /* Survey+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */; };
 		DA9AE8F42D89AFD7002F1B44 /* BottomSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */; };
 		DA9AE93C2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE93B2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift */; };
+		DA9AE9602D8E9960002F1B44 /* EdgeBorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE95F2D8E9960002F1B44 /* EdgeBorder.swift */; };
 		DA9CE32B2D3108AD00DFE652 /* analysis_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE27E2D3108A100DFE652 /* analysis_enc.c */; };
 		DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE2B42D3108A100DFE652 /* lossless_enc_neon.c */; };
 		DA9CE32D2D3108AD00DFE652 /* alpha_processing_sse41.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE27D2D3108A100DFE652 /* alpha_processing_sse41.c */; };
@@ -700,6 +701,7 @@
 		DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Survey+Util.swift"; sourceTree = "<group>"; };
 		DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSection.swift; sourceTree = "<group>"; };
 		DA9AE93B2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationViewLayoutPublisher.swift; sourceTree = "<group>"; };
+		DA9AE95F2D8E9960002F1B44 /* EdgeBorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeBorder.swift; sourceTree = "<group>"; };
 		DA9CE2792D3108A100DFE652 /* alpha_enc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_enc.c; sourceTree = "<group>"; };
 		DA9CE27A2D3108A100DFE652 /* alpha_processing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing.c; sourceTree = "<group>"; };
 		DA9CE27B2D3108A100DFE652 /* alpha_processing_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing_neon.c; sourceTree = "<group>"; };
@@ -1228,6 +1230,7 @@
 		DA263D452D800EA9004C100D /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				DA9AE95F2D8E9960002F1B44 /* EdgeBorder.swift */,
 				DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */,
 				DA263D4E2D8075D7004C100D /* SwiftUI+Util.swift */,
 				DA263D4C2D804BC6004C100D /* MultipleChoiceOptions.swift */,
@@ -1958,6 +1961,7 @@
 				69F23A742BB3088E001194F6 /* URLSessionSwizzler.swift in Sources */,
 				69F518142BAC7F4300F52C14 /* Date+Util.swift in Sources */,
 				69F518182BAC80A300F52C14 /* String+Util.swift in Sources */,
+				DA9AE9602D8E9960002F1B44 /* EdgeBorder.swift in Sources */,
 				DA9CE32B2D3108AD00DFE652 /* analysis_enc.c in Sources */,
 				DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */,
 				DA9CE32D2D3108AD00DFE652 /* alpha_processing_sse41.c in Sources */,

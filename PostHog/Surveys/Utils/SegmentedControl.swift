@@ -85,17 +85,6 @@
         }
     }
 
-    extension SegmentedControl where Indicator == EmptyView, Separator == EmptyView {
-        init(range: ClosedRange<Int>, height: CGFloat, selectedValue: Binding<Int?>, segmentView: @escaping (Int, Bool) -> Segment) {
-            self.range = range
-            self.height = height
-            _selectedValue = selectedValue
-            self.segmentView = segmentView
-            separatorView = { _, _ in EmptyView() }
-            indicatorView = { _ in EmptyView() }
-        }
-    }
-
     private struct SizeKey: PreferenceKey {
         static var defaultValue: CGSize = .zero
         static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
@@ -103,19 +92,4 @@
         }
     }
 
-    struct EdgeBorder: Shape {
-        var lineWidth: CGFloat
-        var edges: [Edge]
-
-        func path(in rect: CGRect) -> Path {
-            edges.map { edge -> Path in
-                switch edge {
-                case .top: return Path(.init(x: rect.minX, y: rect.minY, width: rect.width, height: lineWidth))
-                case .bottom: return Path(.init(x: rect.minX, y: rect.maxY - lineWidth, width: rect.width, height: lineWidth))
-                case .leading: return Path(.init(x: rect.minX, y: rect.minY, width: lineWidth, height: rect.height))
-                case .trailing: return Path(.init(x: rect.maxX - lineWidth, y: rect.minY, width: lineWidth, height: rect.height))
-                }
-            }.reduce(into: Path()) { $0.addPath($1) }
-        }
-    }
 #endif

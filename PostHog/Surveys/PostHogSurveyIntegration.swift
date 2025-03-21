@@ -86,8 +86,6 @@
                         #if os(iOS)
                             if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
                                 let surveyDisplayManager = SurveyDisplayController(
-                                    getNextSurveyStep: getNextSurveyStep,
-                                    getSurveyCompleted: getSurveyCompleted,
                                     onSurveyShown: onSurveyShown,
                                     onSurveyResponse: onSurveyResponse,
                                     onSurveyClosed: onSurveyClosed
@@ -168,6 +166,8 @@
             }
         }
 
+        // TODO: Decouple PostHogSDK and use registration handlers instead
+        /// Called from PostHogSDK instance when an event is captured
         func onEvent(event: String) {
             let activatedSurveys = eventsToSurveysLock.withLock { eventsToSurveys[event] } ?? []
             guard !activatedSurveys.isEmpty else { return }
@@ -283,6 +283,7 @@
             survey.type == .popover
         }
 
+        /// Shows next survey in queue. No-op if a survey is already being shown
         private func showNextSurvey() {
             guard surveyDisplayManager?.canShowNextSurvey() == true else { return }
 
@@ -321,6 +322,7 @@
             return surveySeen
         }
 
+        /// Mark a survey as seen
         private func setSurveySeen(survey: Survey) {
             let key = getSurveySeenKey(survey)
             let seenKeys = seenSurveyKeysLock.withLock {
@@ -331,6 +333,7 @@
             storage?.setDictionary(forKey: .surveySeen, contents: seenKeys ?? [:])
         }
 
+        /// Returns survey seen list (and mem-cache from disk if needed)
         private func getSeenSurveyKeys() -> [AnyHashable: Any] {
             seenSurveyKeysLock.withLock {
                 if seenSurveyKeys == nil {
@@ -345,6 +348,7 @@
             matchType ?? .iContains
         }
 
+        /// Checks if a survey with a device type condition matches the current device type
         private func doesSurveyDeviceTypesMatch(survey: Survey) -> Bool {
             guard
                 let conditions = survey.conditions,
@@ -366,28 +370,14 @@
             return matchType.matches(targets: deviceTypes, value: deviceType)
         }
 
+        /// Checks if a survey has been previously activated by an associated event
         private func isSurveyEventActivated(survey: Survey) -> Bool {
             eventActivatedSurveysLock.withLock {
                 eventActivatedSurveys.contains(survey.id)
             }
         }
 
-        private func getNextSurveyStep(
-            survey: Survey,
-            currentQuestionIndex: Int
-        ) -> Int {
-            // TODO: Conditional questions
-            min(currentQuestionIndex + 1, survey.questions.count - 1)
-        }
-
-        private func getSurveyCompleted(
-            survey: Survey,
-            currentQuestionIndex: Int
-        ) -> Bool {
-            // TODO: Conditional questions
-            currentQuestionIndex == survey.questions.count - 1
-        }
-
+        /// Handle a survey that is shown
         private func onSurveyShown(survey: Survey) {
             sendSurveyShownEvent(survey: survey)
 
@@ -399,6 +389,7 @@
             }
         }
 
+        /// Handle a survey response
         private func onSurveyResponse(survey: Survey, responses: [String: SurveyResponse], completed: Bool) {
             // TODO: Partial responses
             if completed {
@@ -406,6 +397,7 @@
             }
         }
 
+        /// Handle a survey dismiss
         private func onSurveyClosed(survey: Survey, completed: Bool) {
             if !completed {
                 sendSurveyDismissedEvent(survey: survey)
@@ -417,17 +409,6 @@
                 // show next survey in queue if any after a short delay
                 self.showNextSurvey()
             }
-        }
-
-        private func baseSurveyEventProperties(for survey: Survey) -> [String: Any] {
-            // TODO: Add session replay screen name
-            let props: [String: Any?] = [
-                "$survey_name": survey.name,
-                "$survey_id": survey.id,
-                "$survey_iteration": survey.currentIteration,
-                "$survey_iteration_start_date": survey.currentIterationStartDate.map(toISO8601String),
-            ]
-            return props.compactMapValues { $0 }
         }
 
         /// Sends a `survey shown` event to PostHog instance
@@ -486,10 +467,21 @@
                 return
             }
 
-            var properties = baseSurveyEventProperties(for: survey)
+            var properties = getBaseSurveyEventProperties(for: survey)
             properties.merge(additionalProperties) { _, new in new }
 
             postHog.capture(event, properties: properties)
+        }
+
+        private func getBaseSurveyEventProperties(for survey: Survey) -> [String: Any] {
+            // TODO: Add session replay screen name
+            let props: [String: Any?] = [
+                "$survey_name": survey.name,
+                "$survey_id": survey.id,
+                "$survey_iteration": survey.currentIteration,
+                "$survey_iteration_start_date": survey.currentIterationStartDate.map(toISO8601String),
+            ]
+            return props.compactMapValues { $0 }
         }
 
         private func getSurveyInteractionProperty(survey: Survey, property: String) -> String {
@@ -509,7 +501,7 @@
         }
     }
 
-    extension Survey {
+    private extension Survey {
         var isActive: Bool {
             startDate != nil && endDate == nil
         }

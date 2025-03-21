@@ -18,14 +18,14 @@
                 .sheet(item: displayBinding) { survey in
                     SurveySheet(
                         survey: survey,
-                        isSurveySent: displayManager.isSurveySent ?? false,
-                        currentQuestionIndex: displayManager.currentQuestionIndex,
+                        isSurveyCompleted: displayManager.isSurveyCompleted,
+                        currentQuestionIndex: displayManager.currentQuestionIndex ?? 0,
                         onClose: displayManager.userDismissedSurvey,
-                        onNextQuestionClicked: { _, _ in
-                            // TODO: handle response
-                            displayManager.onNextQuestion()
+                        onNextQuestionClicked: { index, response in
+                            displayManager.onNextQuestion(index: index, response: response)
                         }
                     )
+                    .environment(\.colorScheme, .light) // enforce light theme for now
                 }
         }
 

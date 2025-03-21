@@ -9,30 +9,37 @@
     import SwiftUI
 
     final class SurveyDisplayController: ObservableObject {
-        @Published var displayedSurvey: Survey?
-        @Published var isSurveySent: Bool = false
-        @Published var currentQuestionIndex: Int?
-
         typealias NextStepHandler = (_ survey: Survey, _ currentQuestionIndex: Int) -> Int
         typealias GetSurveyCompletedHandler = (_ survey: Survey, _ currentQuestionIndex: Int) -> Bool
-        typealias SurveyCompletedHandler = (_ survey: Survey) -> Void
-        typealias SurveyDismissedHandler = (_ survey: Survey) -> Void
+        typealias SurveyShownHandler = (_ survey: Survey) -> Void
+        typealias SurveyResponseHandler = (_ survey: Survey, _ responses: [String: SurveyResponse], _ completed: Bool) -> Void
+        typealias SurveyClosedHandler = (_ survey: Survey, _ completed: Bool) -> Void
 
-        let getNextSurveyStep: NextStepHandler
-        let getSurveyCompleted: GetSurveyCompletedHandler
-        let onSurveyCompleted: SurveyCompletedHandler
-        let onSurveyDismissed: SurveyDismissedHandler
+        @Published var displayedSurvey: Survey?
+        @Published var isSurveyCompleted: Bool = false
+        @Published var currentQuestionIndex: Int?
+        private var questionResponses: [String: SurveyResponse] = [:]
+
+        private let getNextSurveyStep: NextStepHandler
+        private let getSurveyCompleted: GetSurveyCompletedHandler
+        private let onSurveyShown: SurveyShownHandler
+        private let onSurveyResponse: SurveyResponseHandler
+        private let onSurveyClosed: SurveyClosedHandler
+
+        private let kSurveyResponseKey = "$survey_response"
 
         init(
             getNextSurveyStep: @escaping NextStepHandler,
             getSurveyCompleted: @escaping GetSurveyCompletedHandler,
-            onSurveyCompleted: @escaping SurveyCompletedHandler,
-            onSurveyDismissed: @escaping SurveyDismissedHandler
+            onSurveyShown: @escaping SurveyShownHandler,
+            onSurveyResponse: @escaping SurveyResponseHandler,
+            onSurveyClosed: @escaping SurveyClosedHandler
         ) {
             self.getNextSurveyStep = getNextSurveyStep
             self.getSurveyCompleted = getSurveyCompleted
-            self.onSurveyCompleted = onSurveyCompleted
-            self.onSurveyDismissed = onSurveyDismissed
+            self.onSurveyShown = onSurveyShown
+            self.onSurveyResponse = onSurveyResponse
+            self.onSurveyClosed = onSurveyClosed
         }
 
         func showSurvey(_ survey: Survey) {
@@ -42,39 +49,38 @@
             }
 
             displayedSurvey = survey
-            isSurveySent = false
+            isSurveyCompleted = false
             currentQuestionIndex = 0
+            onSurveyShown(survey)
         }
 
         // User swiped down to dismiss survey
         func hideSurvey() {
             displayedSurvey = nil
-            isSurveySent = false
+            isSurveyCompleted = false
             currentQuestionIndex = nil
+            questionResponses = [:]
         }
 
-        func onNextQuestion() {
-            guard let displayedSurvey, let currentQuestionIndex else { return }
-            self.currentQuestionIndex = getNextSurveyStep(displayedSurvey, currentQuestionIndex)
-
-            if getSurveyCompleted(displayedSurvey, currentQuestionIndex) {
-                onSurveyCompleted(displayedSurvey)
-                isSurveySent = true
-            }
+        func onNextQuestion(index: Int, response: SurveyResponse) {
+            guard let displayedSurvey else { return }
+            let responseKey = index == 0 ? kSurveyResponseKey : "\(kSurveyResponseKey)_\(index)"
+            questionResponses[responseKey] = response
+            currentQuestionIndex = getNextSurveyStep(displayedSurvey, index)
+            isSurveyCompleted = getSurveyCompleted(displayedSurvey, index)
+            onSurveyResponse(displayedSurvey, questionResponses, isSurveyCompleted)
         }
 
         // User explicitly dismissed survey
         func userDismissedSurvey() {
             guard let survey = displayedSurvey else { return }
-            if !isSurveySent {
-                onSurveyDismissed(survey)
-            }
+            onSurveyClosed(survey, isSurveyCompleted)
             displayedSurvey = nil
-            isSurveySent = false
+            isSurveyCompleted = false
         }
 
-        func canShow(_: Survey) -> Bool {
-            true
+        func canShowNextSurvey() -> Bool {
+            displayedSurvey == nil
         }
     }
 #endif

@@ -21,5 +21,9 @@ enum DI {
             // publishes global application events (UIApplication.sendEvent)
             lazy var applicationEventPublisher: ApplicationEventPublishing = ApplicationEventPublisher.shared
         #endif
+
+        #if os(iOS)
+            lazy var viewLayoutPublisher: ViewLayoutPublishing = ApplicationViewLayoutPublisher.shared
+        #endif
     }
 }

@@ -42,6 +42,7 @@
                     .background(
                         RoundedRectangle(cornerRadius: 6)
                             .stroke(Color(uiColor: .secondaryLabel), lineWidth: 1)
+                            .background(Color.white)
                     )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {

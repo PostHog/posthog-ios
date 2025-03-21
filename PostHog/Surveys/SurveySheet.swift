@@ -9,19 +9,11 @@
 
     import SwiftUI
 
-    enum SurveyResponse {
-        case link(String)
-        case rating(Int)
-        case openEnded(String)
-        case singleChoice(String)
-        case multipleChoice([String])
-    }
-
     @available(iOS 15, *)
     struct SurveySheet: View {
         let survey: Survey
-        let isSurveySent: Bool
-        let currentQuestionIndex: Int?
+        let isSurveyCompleted: Bool
+        let currentQuestionIndex: Int
         let onClose: () -> Void
         let onNextQuestionClicked: (_ index: Int, _ response: SurveyResponse) -> Void
 
@@ -30,7 +22,7 @@
 
         var body: some View {
             surveyContent
-                .animation(.linear(duration: 0.25), value: currentQuestionIndex ?? 0)
+                .animation(.linear(duration: 0.25), value: currentQuestionIndex)
                 .readFrame(in: .named("survey-scroll-view")) { frame in
                     withAnimation {
                         sheetHeight = frame.height
@@ -47,39 +39,39 @@
 
         @ViewBuilder
         private var surveyContent: some View {
-            if isSurveySent, appearance.displayThankYouMessage {
+            if isSurveyCompleted, appearance.displayThankYouMessage {
                 ConfirmationMessage(onClose: onClose)
             } else if let currentQuestion {
                 switch currentQuestion {
                 case let .open(openSurveyQuestion):
                     OpenTextQuestionView(question: openSurveyQuestion) { resp in
-                        onNextQuestionClicked(0, .openEnded(resp))
+                        onNextQuestionClicked(currentQuestionIndex, .openEnded(resp))
                     }
                 case let .link(linkSurveyQuestion):
                     LinkQuestionView(question: linkSurveyQuestion) { resp in
-                        onNextQuestionClicked(0, .link(resp))
+                        onNextQuestionClicked(currentQuestionIndex, .link(resp))
                     }
                 case let .rating(ratingSurveyQuestion):
                     RatingQuestionView(question: ratingSurveyQuestion) { resp in
-                        onNextQuestionClicked(0, .rating(resp))
+                        onNextQuestionClicked(currentQuestionIndex, .rating(resp))
                     }
                 case let .singleChoice(multipleSurveyQuestion):
                     SingleChoiceQuestionView(question: multipleSurveyQuestion) { resp in
-                        onNextQuestionClicked(0, .singleChoice(resp))
+                        onNextQuestionClicked(currentQuestionIndex, .singleChoice(resp))
                     }
                 case let .multipleChoice(multipleSurveyQuestion):
                     MultipleChoiceQuestionView(question: multipleSurveyQuestion) { resp in
-                        onNextQuestionClicked(0, .multipleChoice(resp))
+                        onNextQuestionClicked(currentQuestionIndex, .multipleChoice(resp))
                     }
                 }
             }
         }
 
         private var currentQuestion: SurveyQuestion? {
-            guard let index = currentQuestionIndex, index <= survey.questions.count - 1 else {
+            guard currentQuestionIndex <= survey.questions.count - 1 else {
                 return nil
             }
-            return survey.questions[index]
+            return survey.questions[currentQuestionIndex]
         }
 
         private var appearance: SurveyDisplayAppearance {
@@ -159,7 +151,7 @@
                 if height >= UIScreen.main.bounds.height {
                     detents.formUnion([.medium, .almostLarge])
                 } else {
-                    detents.formUnion([.medium, .height(height)])
+                    detents.formUnion([.height(height)])
                 }
             } else {
                 detents.insert(.height(height))
@@ -211,7 +203,7 @@
                 backgroundColor: colorFrom(css: appearance?.backgroundColor, defaultColor: .tertiarySystemBackground),
                 submitButtonColor: colorFrom(css: appearance?.submitButtonColor, defaultColor: .black),
                 submitButtonText: appearance?.submitButtonText ?? "Submit",
-                submitButtonTextColor: colorFrom(css: appearance?.submitButtonColor, defaultColor: .white),
+                submitButtonTextColor: colorFrom(css: appearance?.submitButtonTextColor, defaultColor: .white),
                 descriptionTextColor: colorFrom(css: appearance?.descriptionTextColor, defaultColor: .secondaryLabel),
                 ratingButtonColor: colorFrom(css: appearance?.ratingButtonColor),
                 ratingButtonActiveColor: colorFrom(css: appearance?.ratingButtonActiveColor),

@@ -358,6 +358,14 @@ enum SurveyQuestionBranchingType: String, Decodable {
     case specificQuestion = "specific_question"
 }
 
+enum SurveyResponse {
+    case link(String)
+    case rating(Int)
+    case openEnded(String)
+    case singleChoice(String)
+    case multipleChoice([String])
+}
+
 /// A helper type for decoding JSON values, which may be nested objects, arrays, strings, numbers, booleans, or nulls.
 private struct JSON: Decodable {
     let value: Any

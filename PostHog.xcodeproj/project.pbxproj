@@ -207,6 +207,7 @@
 		DA9AE8D32D8377EC002F1B44 /* QuestionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */; };
 		DA9AE8D52D841994002F1B44 /* Survey+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */; };
 		DA9AE8F42D89AFD7002F1B44 /* BottomSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */; };
+		DA9AE93C2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE93B2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift */; };
 		DA9CE32B2D3108AD00DFE652 /* analysis_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE27E2D3108A100DFE652 /* analysis_enc.c */; };
 		DA9CE32C2D3108AD00DFE652 /* lossless_enc_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE2B42D3108A100DFE652 /* lossless_enc_neon.c */; };
 		DA9CE32D2D3108AD00DFE652 /* alpha_processing_sse41.c in Sources */ = {isa = PBXBuildFile; fileRef = DA9CE27D2D3108A100DFE652 /* alpha_processing_sse41.c */; };
@@ -698,6 +699,7 @@
 		DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionTypes.swift; sourceTree = "<group>"; };
 		DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Survey+Util.swift"; sourceTree = "<group>"; };
 		DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSection.swift; sourceTree = "<group>"; };
+		DA9AE93B2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationViewLayoutPublisher.swift; sourceTree = "<group>"; };
 		DA9CE2792D3108A100DFE652 /* alpha_enc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_enc.c; sourceTree = "<group>"; };
 		DA9CE27A2D3108A100DFE652 /* alpha_processing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing.c; sourceTree = "<group>"; };
 		DA9CE27B2D3108A100DFE652 /* alpha_processing_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = alpha_processing_neon.c; sourceTree = "<group>"; };
@@ -1254,16 +1256,17 @@
 		DA30AE872D40173D00465A64 /* Surveys */ = {
 			isa = PBXGroup;
 			children = (
+				DA9AE93B2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift */,
 				DA9AE8F32D89AFD7002F1B44 /* BottomSection.swift */,
 				DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */,
 				DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */,
 				DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */,
-				DA263D452D800EA9004C100D /* Utils */,
 				DAF9E19F2D8231EA00D47263 /* SurveySheet.swift */,
 				DAFF026C2D7B2F8D00BD5B1D /* SurveyDisplayController.swift */,
 				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
 				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
 				DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */,
+				DA263D452D800EA9004C100D /* Utils */,
 			);
 			path = Surveys;
 			sourceTree = "<group>";
@@ -1988,6 +1991,7 @@
 				DA9CE3462D3108AD00DFE652 /* dec_sse2.c in Sources */,
 				DA9CE3472D3108AD00DFE652 /* sharpyuv.c in Sources */,
 				DA9CE3482D3108AD00DFE652 /* token_enc.c in Sources */,
+				DA9AE93C2D8ADF2C002F1B44 /* ApplicationViewLayoutPublisher.swift in Sources */,
 				DA9CE3492D3108AD00DFE652 /* muxread.c in Sources */,
 				DA9CE34A2D3108AD00DFE652 /* muxinternal.c in Sources */,
 				DA9CE34B2D3108AD00DFE652 /* alpha_enc.c in Sources */,

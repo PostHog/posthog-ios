@@ -9,7 +9,7 @@
 import Testing
 import XCTest
 
-@Suite(.serialized)
+@Suite("Test Remote Config", .serialized)
 enum PostHogRemoteConfigTest {
     class BaseTestClass {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
@@ -19,7 +19,8 @@ enum PostHogRemoteConfigTest {
             server = MockPostHogServer()
             server.start()
             // important!
-            deleteSafely(applicationSupportDirectoryURL())
+            let storage = PostHogStorage(config)
+            storage.reset()
         }
 
         deinit {
@@ -45,7 +46,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -58,7 +59,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -71,7 +72,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -87,7 +88,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -103,7 +104,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -116,7 +117,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -135,6 +136,7 @@ enum PostHogRemoteConfigTest {
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": "bar"])
 
             let sut = getSut(storage: storage)
+
             #expect(sut.getFeatureFlags() as? [String: String] == ["foo": "bar"])
         }
 
@@ -143,7 +145,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -151,7 +153,7 @@ enum PostHogRemoteConfigTest {
             server.errorsWhileComputingFlags = true
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -166,7 +168,7 @@ enum PostHogRemoteConfigTest {
 
             // First load some feature flags normally
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -180,7 +182,7 @@ enum PostHogRemoteConfigTest {
 
             // Load flags again, this time with quota limiting
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -201,16 +203,19 @@ enum PostHogRemoteConfigTest {
             storage.setDictionary(forKey: .remoteConfig, contents: ["foo": "bar"])
 
             let sut = getSut(storage: storage)
+
             #expect(sut.getRemoteConfig() as? [String: String] == ["foo": "bar"])
         }
 
         @Test("loadFeatureFlags fetches remote config if missing")
         func loadFlagsLoadsRemoteConfigWhenMissing() async {
+            let storage = PostHogStorage(config)
+            storage.remove(key: .remoteConfig)
             let sut = getSut()
 
             #expect(sut.getRemoteConfig() == nil)
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                     continuation.resume()
                 })
             }
@@ -282,7 +287,7 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive())
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }
@@ -302,7 +307,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }
@@ -325,7 +330,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplayWithVariant = true
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }
@@ -349,7 +354,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantValue = false
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }
@@ -375,7 +380,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }
@@ -401,7 +406,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "mobile"]
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }
@@ -425,7 +430,7 @@ enum PostHogRemoteConfigTest {
                 server.flagsSkipReplayVariantName = true
 
                 await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: {
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
                     })
                 }

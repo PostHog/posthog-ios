@@ -30,6 +30,7 @@ class PostHogRemoteConfig {
 
     /// Internal, only used for testing
     var canReloadFlagsForTesting = true
+
     var onRemoteConfigLoaded: (([String: Any]?) -> Void)?
     var onFeatureFlagsLoaded: (([String: Any]?) -> Void)?
 
@@ -51,6 +52,7 @@ class PostHogRemoteConfig {
 
     private func preloadRemoteConfig() {
         remoteConfigLock.withLock {
+            // load disk cached config to memory
             _ = getCachedRemoteConfig()
         }
 
@@ -66,6 +68,7 @@ class PostHogRemoteConfig {
 
     private func preloadFeatureFlags() {
         featureFlagsLock.withLock {
+            // load disk cached config to memory
             _ = getCachedFeatureFlags()
         }
 
@@ -77,7 +80,7 @@ class PostHogRemoteConfig {
     }
 
     func reloadRemoteConfig(
-        callback: (() -> Void)? = nil
+        callback: (([String: Any]?) -> Void)? = nil
     ) {
         loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
@@ -87,7 +90,6 @@ class PostHogRemoteConfig {
         }
 
         api.remoteConfig { data, _ in
-
             if let data {
                 self.onRemoteConfig(data)
             }
@@ -97,12 +99,12 @@ class PostHogRemoteConfig {
                 self.loadingRemoteConfig = false
             }
 
-            callback?()
+            callback?(data)
         }
     }
 
     func reloadFeatureFlags(
-        callback: (() -> Void)? = nil
+        callback: (([String: Any]?) -> Void)? = nil
     ) {
         guard canReloadFlagsForTesting else {
             return
@@ -118,7 +120,7 @@ class PostHogRemoteConfig {
             distinctId: storageManager.getDistinctId(),
             anonymousId: storageManager.getAnonymousId(),
             groups: groups,
-            callback: callback ?? {}
+            callback: callback ?? { _ in }
         )
     }
 
@@ -182,11 +184,11 @@ class PostHogRemoteConfig {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        callback: @escaping () -> Void
+        callback: @escaping ([String: Any]?) -> Void
     ) {
         if remoteConfigLock.withLock({ hasFeatureFlags == nil }) {
             // not cached or fetched yet
-            reloadRemoteConfig {
+            reloadRemoteConfig { _ in
                 self.loadFeatureFlagsInternal(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
@@ -208,10 +210,11 @@ class PostHogRemoteConfig {
         distinctId: String,
         anonymousId: String,
         groups: [String: String],
-        callback: @escaping () -> Void
+        callback: @escaping ([String: Any]?) -> Void
     ) {
         guard remoteConfigLock.withLock({ hasFeatureFlags == true }) else {
             hedgeLog("Remote config reported no feature flags. Skipping")
+            callback(nil)
             return
         }
 
@@ -240,7 +243,7 @@ class PostHogRemoteConfig {
                     }
 
                     self.notifyFeatureFlagsAndRelease([:])
-                    return callback()
+                    return callback([:])
                 }
 
                 guard let featureFlags = data?["featureFlags"] as? [String: Any],
@@ -250,7 +253,7 @@ class PostHogRemoteConfig {
 
                     self.notifyFeatureFlagsAndRelease(data)
 
-                    return callback()
+                    return callback(nil)
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
@@ -275,6 +278,8 @@ class PostHogRemoteConfig {
                     }
                 #endif
 
+                var loadedFeatureFlags: [String: Any]?
+
                 self.featureFlagsLock.withLock {
                     if errorsWhileComputingFlags {
                         let cachedFeatureFlags = self.getCachedFeatureFlags() ?? [:]
@@ -284,17 +289,19 @@ class PostHogRemoteConfig {
                         let newFeatureFlagsPayloads = cachedFeatureFlagsPayloads.merging(featureFlagPayloads) { _, new in new }
 
                         // if not all flags were computed, we upsert flags instead of replacing them
+                        loadedFeatureFlags = newFeatureFlags
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                         self.notifyFeatureFlagsAndRelease(newFeatureFlags)
                     } else {
+                        loadedFeatureFlags = featureFlags
                         self.setCachedFeatureFlags(featureFlags)
                         self.setCachedFeatureFlagPayload(featureFlagPayloads)
                         self.notifyFeatureFlagsAndRelease(featureFlags)
                     }
                 }
 
-                return callback()
+                return callback(loadedFeatureFlags)
             }
         }
     }
@@ -311,12 +318,7 @@ class PostHogRemoteConfig {
     }
 
     func getFeatureFlags() -> [String: Any]? {
-        var flags: [String: Any]?
-        featureFlagsLock.withLock {
-            flags = self.getCachedFeatureFlags()
-        }
-
-        return flags
+        featureFlagsLock.withLock { getCachedFeatureFlags() }
     }
 
     func isFeatureEnabled(_ key: String) -> Bool {
@@ -412,7 +414,7 @@ class PostHogRemoteConfig {
     // MARK: Remote Config
 
     func getRemoteConfig() -> [String: Any]? {
-        remoteConfig
+        remoteConfigLock.withLock { getCachedRemoteConfig() }
     }
 
     private func getCachedRemoteConfig() -> [String: Any]? {

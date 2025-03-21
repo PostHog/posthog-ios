@@ -9,7 +9,7 @@ import Foundation
 
 /// Represents the main survey object containing metadata, questions, conditions, and appearance settings.
 /// see: posthog-js/posthog-surveys-types.ts
-struct Survey: Decodable {
+struct Survey: Decodable, Identifiable {
     /// The unique identifier for the survey
     let id: String
     /// The name of the survey
@@ -67,7 +67,7 @@ protocol SurveyQuestionProperties {
 
 /// Represents different types of survey questions with their associated data
 enum SurveyQuestion: SurveyQuestionProperties, Decodable {
-    case basic(BasicSurveyQuestion)
+    case open(OpenSurveyQuestion)
     case link(LinkSurveyQuestion)
     case rating(RatingSurveyQuestion)
     case singleChoice(MultipleSurveyQuestion)
@@ -79,7 +79,7 @@ enum SurveyQuestion: SurveyQuestionProperties, Decodable {
 
         switch type {
         case .open:
-            self = try .basic(BasicSurveyQuestion(from: decoder))
+            self = try .open(OpenSurveyQuestion(from: decoder))
         case .link:
             self = try .link(LinkSurveyQuestion(from: decoder))
         case .rating:
@@ -121,7 +121,7 @@ enum SurveyQuestion: SurveyQuestionProperties, Decodable {
 
     private var wrappedQuestion: SurveyQuestionProperties {
         switch self {
-        case let .basic(question): question
+        case let .open(question): question
         case let .link(question): question
         case let .rating(question): question
         case let .singleChoice(question): question
@@ -135,7 +135,7 @@ enum SurveyQuestion: SurveyQuestionProperties, Decodable {
 }
 
 /// Represents a basic open-ended survey question
-struct BasicSurveyQuestion: SurveyQuestionProperties, Decodable {
+struct OpenSurveyQuestion: SurveyQuestionProperties, Decodable {
     let question: String
     let description: String?
     let descriptionContentType: SurveyTextContentType?
@@ -246,10 +246,14 @@ enum SurveyQuestionBranching: Decodable {
 struct SurveyConditions: Decodable {
     /// Target URL for the survey (optional)
     let url: String?
+    /// The match type for the url condition (optional)
+    let urlMatchType: SurveyMatchType?
     /// CSS selector for displaying the survey (optional)
     let selector: String?
-    /// Type of URL matching (e.g., "regex") (optional)
-    let urlMatchType: String?
+    /// Device type based conditions for displaying the survey (optional)
+    let deviceTypes: [String]?
+    /// The match type for the device type condition (optional)
+    let deviceTypesMatchType: SurveyMatchType?
     /// Minimum wait period before showing the survey again (optional)
     let seenSurveyWaitPeriodInDays: Int?
     /// Event-based conditions for displaying the survey (optional)
@@ -260,7 +264,7 @@ struct SurveyConditions: Decodable {
 
 /// Represents event-based conditions for displaying the survey
 struct SurveyEventConditions: Decodable {
-    public let repeatedActivation: String?
+    public let repeatedActivation: Bool?
     /// List of events that trigger the survey
     public let values: [EventCondition]
 }
@@ -271,7 +275,7 @@ struct SurveyActionsConditions: Decodable {
 }
 
 /// Represents a single event condition used in survey targeting
-struct EventCondition: Decodable {
+struct EventCondition: Decodable, Equatable {
     /// Name of the event (e.g., "content loaded")
     public let name: String
 }
@@ -326,7 +330,7 @@ enum SurveyTextContentType: String, Decodable {
     case html, text
 }
 
-enum SurveyUrlMatchType: String, Decodable {
+enum SurveyMatchType: String, Decodable {
     case regex
     case notRegex = "not_regex"
     case exact

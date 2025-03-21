@@ -1,0 +1,22 @@
+{
+  "id": "new",
+  "name": "Open feedback",
+  "description": "",
+  "type": "api",
+  "linked_flag_key": null,
+  "targeting_flag_key": null,
+  "questions": [
+    {
+      "type": "open",
+      "question": "What can we do to improve our product?",
+      "description": "",
+      "descriptionContentType": "text",
+      "originalQuestionIndex": 0
+    }
+  ],
+  "conditions": {
+    "url": "ScreenName"
+  },
+  "start_date": null,
+  "end_date": null
+}

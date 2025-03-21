@@ -18,7 +18,6 @@
         let onNextQuestionClicked: (_ index: Int, _ response: SurveyResponse) -> Void
 
         @State private var sheetHeight: CGFloat = .zero
-        @State private var safeAreaInsets: EdgeInsets = .init()
 
         var body: some View {
             surveyContent
@@ -122,11 +121,12 @@
             NavigationView {
                 ScrollView {
                     content
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 16)
                 }
                 .coordinateSpace(name: "survey-scroll-view")
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollDismissesKeyboard(.interactively)
+                .navigationBarTitleDisplayMode(.inline)
                 .readSafeAreaInsets { insets in
                     DispatchQueue.main.async {
                         if safeAreaInsetsTop == .zero {

@@ -22,6 +22,7 @@
             )
         }
 
+        @available(iOS 14.0, *)
         func readSafeAreaInsets(
             onSafeAreaInsets: @escaping (EdgeInsets) -> Void
         ) -> some View {
@@ -70,6 +71,7 @@
         }
     }
 
+    @available(iOS 14.0, *)
     private struct ReadSafeAreaInsetsModifier: ViewModifier {
         /// Helper for notifying parents for child view frame changes
         struct SafeAreaInsetsPreferenceKey: PreferenceKey {
@@ -81,18 +83,25 @@
 
         let onSafeAreaInsets: (EdgeInsets) -> Void
 
+        @State private var safeAreaInsets: EdgeInsets = .init()
+
         func body(content: Content) -> some View {
-            content
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear
-                            .preference(
-                                key: SafeAreaInsetsPreferenceKey.self,
-                                value: proxy.safeAreaInsets
-                            )
-                    }
-                )
-                .onPreferenceChange(SafeAreaInsetsPreferenceKey.self, perform: onSafeAreaInsets)
+            ZStack {
+                content
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear
+                                .onChange(of: proxy.safeAreaInsets) { size in
+                                    safeAreaInsets = size
+                                }
+                                .preference(
+                                    key: SafeAreaInsetsPreferenceKey.self,
+                                    value: safeAreaInsets
+                                )
+                        }
+                    )
+            }
+            .onPreferenceChange(SafeAreaInsetsPreferenceKey.self, perform: onSafeAreaInsets)
         }
     }
 #endif

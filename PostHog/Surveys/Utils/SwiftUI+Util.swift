@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 10/03/2025.
 //
 
-#if canImport(SwiftUI)
+#if os(iOS)
     import SwiftUI
 
     extension View {

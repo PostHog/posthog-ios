@@ -284,16 +284,18 @@
 
         /// Shows next survey in queue. No-op if a survey is already being shown
         private func showNextSurvey() {
-            guard surveyDisplayManager?.canShowNextSurvey() == true else { return }
+            #if os(iOS)
+                guard surveyDisplayManager?.canShowNextSurvey() == true else { return }
 
-            // Check if there is a new popover surveys to be displayed
-            getActiveMatchingSurveys { activeSurveys in
-                if let survey = activeSurveys.first(where: self.canRenderSurvey) {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.surveyDisplayManager?.showSurvey(survey)
+                // Check if there is a new popover surveys to be displayed
+                getActiveMatchingSurveys { activeSurveys in
+                    if let survey = activeSurveys.first(where: self.canRenderSurvey) {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.surveyDisplayManager?.showSurvey(survey)
+                        }
                     }
                 }
-            }
+            #endif
         }
 
         /// Returns the computed storage key for a given survey
@@ -390,15 +392,17 @@
 
         /// Handle a survey response
         private func onSurveyResponse(survey: Survey, responses: [String: SurveyResponse], completed: Bool) {
-            // TODO: Partial responses
-            if completed {
-                sendSurveySentEvent(survey: survey, responses: responses)
+            #if os(iOS)
+                // TODO: Partial responses
+                if completed {
+                    sendSurveySentEvent(survey: survey, responses: responses)
 
-                // Auto-hide if a confirmation message is not displayed
-                if survey.appearance?.displayThankYouMessage == false {
-                    surveyDisplayManager?.dismissSurvey()
+                    // Auto-hide if a confirmation message is not displayed
+                    if survey.appearance?.displayThankYouMessage == false {
+                        surveyDisplayManager?.dismissSurvey()
+                    }
                 }
-            }
+            #endif
         }
 
         /// Handle a survey dismiss
@@ -505,7 +509,7 @@
         }
     }
 
-    private extension Survey {
+    extension Survey {
         var isActive: Bool {
             startDate != nil && endDate == nil
         }

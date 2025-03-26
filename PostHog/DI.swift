@@ -21,5 +21,10 @@ enum DI {
             // publishes global application events (UIApplication.sendEvent)
             lazy var applicationEventPublisher: ApplicationEventPublishing = ApplicationEventPublisher.shared
         #endif
+
+        #if os(iOS)
+            // publishes global view layout events within a throttle interval (UIView.layoutSubviews)
+            lazy var viewLayoutPublisher: ViewLayoutPublishing = ApplicationViewLayoutPublisher.shared
+        #endif
     }
 }

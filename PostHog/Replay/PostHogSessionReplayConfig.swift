@@ -42,7 +42,19 @@
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact
         /// Defaults to 1s
-        @objc public var debouncerDelay: TimeInterval = 1.0
+        @available(*, deprecated, message: "Deprecated in favor of 'throttleDelay' which provides identical functionality. Will be removed in the next major release.")
+        @objc public var debouncerDelay: TimeInterval {
+            get { throttleDelay }
+            set { throttleDelay = newValue }
+        }
+
+        /// Throttle delay used to reduce the number of snapshots captured and reduce performance impact
+        /// This is used for capturing the view as a wireframe or screenshot
+        /// The lower the number more snapshots will be captured but higher the performance impact
+        /// Defaults to 1s
+        ///
+        /// Note: Previously `debouncerDelay`
+        @objc public var throttleDelay: TimeInterval = 1
 
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }

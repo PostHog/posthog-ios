@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(tvOS) || os(visionOS)
+#if os(iOS) || os(tvOS)
     import UIKit
 #endif
 
@@ -25,14 +25,14 @@ final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
 
     func start() {
         // no-op if not UIKit
-        #if os(iOS) || os(tvOS) || os(visionOS)
+        #if os(iOS) || os(tvOS)
             swizzleViewDidAppear()
         #endif
     }
 
     func stop() {
         // no-op if not UIKit
-        #if os(iOS) || os(tvOS) || os(visionOS)
+        #if os(iOS) || os(tvOS)
             unswizzleViewDidAppear()
         #endif
     }
@@ -62,7 +62,7 @@ final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
         }
     }
 
-    #if os(iOS) || os(tvOS) || os(visionOS)
+    #if os(iOS) || os(tvOS)
         func swizzleViewDidAppear() {
             guard !hasSwizzled else { return }
             hasSwizzled = true
@@ -150,7 +150,7 @@ class BaseScreenViewPublisher: ScreenViewPublishing {
     }
 }
 
-#if os(iOS) || os(tvOS) || os(visionOS)
+#if os(iOS) || os(tvOS)
     private extension UIViewController {
         @objc func viewDidAppearOverride(animated: Bool) {
             ApplicationScreenViewPublisher.shared.viewDidAppear(in: activeController)

@@ -501,12 +501,10 @@
             }
 
             // manually masked views through `.postHogMask()` view modifier
-            #if !os(visionOS)
-                if view.postHogNoCapture {
-                    maskableWidgets.append(view.toAbsoluteRect(window))
-                    return
-                }
-            #endif
+            if view.postHogNoCapture {
+                maskableWidgets.append(view.toAbsoluteRect(window))
+                return
+            }
 
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases

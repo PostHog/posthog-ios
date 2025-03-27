@@ -135,7 +135,7 @@ class PostHogFeatureFlags {
                 }
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
-                #if os(iOS) || os(visionOS)
+                #if os(iOS)
                     if let sessionRecording = data?["sessionRecording"] as? Bool {
                         self.sessionReplayFlagActive = sessionRecording
 
@@ -276,7 +276,7 @@ class PostHogFeatureFlags {
         return value
     }
 
-    #if os(iOS) || os(visionOS)
+    #if os(iOS)
         func isSessionReplayFlagActive() -> Bool {
             sessionReplayFlagActive
         }

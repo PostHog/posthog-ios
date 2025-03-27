@@ -17,7 +17,7 @@ enum DI {
         // publishes global screen view events (UIViewController.viewDidAppear)
         lazy var screenViewPublisher: ScreenViewPublishing = ApplicationScreenViewPublisher.shared
 
-        #if os(iOS) || os(tvOS) || os(visionOS)
+        #if os(iOS) || os(tvOS)
             // publishes global application events (UIApplication.sendEvent)
             lazy var applicationEventPublisher: ApplicationEventPublishing = ApplicationEventPublisher.shared
         #endif

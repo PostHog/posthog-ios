@@ -7,13 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DA9AE90D2D8AB956002F1B44 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = DA9AE90C2D8AB956002F1B44 /* RealityKitContent */; };
 		DA9AE92B2D8AB987002F1B44 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DA9AE92A2D8AB987002F1B44 /* PostHog */; };
+		DAD6AC422D95C08800EAE13B /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = DAD6AC412D95C08800EAE13B /* RealityKitContent */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		DA9AE9072D8AB956002F1B44 /* PostHogExampleVisionOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleVisionOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA9AE90B2D8AB956002F1B44 /* RealityKitContent */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RealityKitContent; sourceTree = "<group>"; };
+		DAF7D3212D95C03500016C39 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
+		DAF7D3232D95C06800016C39 /* RealityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityFoundation.framework; path = System/Library/Frameworks/RealityFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -42,7 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DA9AE90D2D8AB956002F1B44 /* RealityKitContent in Frameworks */,
+				DAD6AC422D95C08800EAE13B /* RealityKitContent in Frameworks */,
 				DA9AE92B2D8AB987002F1B44 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -55,6 +57,7 @@
 			children = (
 				DA9AE9092D8AB956002F1B44 /* PostHogExampleVisionOS */,
 				DA9AE90A2D8AB956002F1B44 /* Packages */,
+				DAF7D3202D95C03400016C39 /* Frameworks */,
 				DA9AE9082D8AB956002F1B44 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -73,6 +76,15 @@
 				DA9AE90B2D8AB956002F1B44 /* RealityKitContent */,
 			);
 			path = Packages;
+			sourceTree = "<group>";
+		};
+		DAF7D3202D95C03400016C39 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DAF7D3232D95C06800016C39 /* RealityFoundation.framework */,
+				DAF7D3212D95C03500016C39 /* RealityKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -95,8 +107,8 @@
 			);
 			name = PostHogExampleVisionOS;
 			packageProductDependencies = (
-				DA9AE90C2D8AB956002F1B44 /* RealityKitContent */,
 				DA9AE92A2D8AB987002F1B44 /* PostHog */,
+				DAD6AC412D95C08800EAE13B /* RealityKitContent */,
 			);
 			productName = PostHogExampleVisionOS;
 			productReference = DA9AE9072D8AB956002F1B44 /* PostHogExampleVisionOS.app */;
@@ -360,13 +372,13 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		DA9AE90C2D8AB956002F1B44 /* RealityKitContent */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RealityKitContent;
-		};
 		DA9AE92A2D8AB987002F1B44 /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PostHog;
+		};
+		DAD6AC412D95C08800EAE13B /* RealityKitContent */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RealityKitContent;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

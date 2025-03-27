@@ -7,7 +7,7 @@
 
 // Inspired from: https://github.com/siteline/swiftui-introspect
 
-#if (os(iOS) || os(visionOS)) && canImport(SwiftUI)
+#if os(iOS) && canImport(SwiftUI)
     import SwiftUI
 
     typealias PostHogTagViewHandler = ([UIView]) -> Void
@@ -254,11 +254,9 @@
             super.init(nibName: nil, bundle: nil)
         }
 
-        #if !os(visionOS)
-            override var preferredStatusBarStyle: UIStatusBarStyle {
-                parent?.preferredStatusBarStyle ?? super.preferredStatusBarStyle
-            }
-        #endif
+        override var preferredStatusBarStyle: UIStatusBarStyle {
+            parent?.preferredStatusBarStyle ?? super.preferredStatusBarStyle
+        }
 
         override func viewDidLoad() {
             super.viewDidLoad()

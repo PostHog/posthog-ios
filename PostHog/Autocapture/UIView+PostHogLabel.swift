@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 04/12/2024.
 //
 
-#if os(iOS) || os(visionOS) || targetEnvironment(macCatalyst)
+#if os(iOS) || targetEnvironment(macCatalyst)
     import UIKit
 
     public extension UIView {

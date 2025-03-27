@@ -118,6 +118,8 @@ class PostHogContext {
                     deviceType = "CarPlay"
                 case UIUserInterfaceIdiom.mac:
                     deviceType = "Desktop"
+                case UIUserInterfaceIdiom.vision:
+                    deviceType = "Vision"
                 default:
                     deviceType = nil
                 }

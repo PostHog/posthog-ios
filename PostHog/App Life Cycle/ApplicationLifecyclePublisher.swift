@@ -49,7 +49,7 @@ final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
 
         let defaultCenter = NotificationCenter.default
 
-        #if os(iOS) || os(tvOS) || os(visionOS)
+        #if os(iOS) || os(tvOS)
             defaultCenter.addObserver(self,
                                       selector: #selector(appDidFinishLaunching),
                                       name: UIApplication.didFinishLaunchingNotification,
@@ -61,6 +61,19 @@ final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
             defaultCenter.addObserver(self,
                                       selector: #selector(appDidBecomeActive),
                                       name: UIApplication.didBecomeActiveNotification,
+                                      object: nil)
+        #elseif os(visionOS)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidFinishLaunching),
+                                      name: UIApplication.didFinishLaunchingNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidEnterBackground),
+                                      name: UIScene.willDeactivateNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidBecomeActive),
+                                      name: UIScene.didActivateNotification,
                                       object: nil)
         #elseif os(macOS)
             defaultCenter.addObserver(self,

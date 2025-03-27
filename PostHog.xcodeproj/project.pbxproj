@@ -332,6 +332,13 @@
 			remoteGlobalIDString = 228DB9F318BC53F1002BA12A;
 			remoteInfo = PostHogExampleAutocapture;
 		};
+		DAF7D2ED2D95ACA500016C39 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DAF7D2DC2D95ACA500016C39 /* PostHogExampleVisionOS.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = DA9AE9072D8AB956002F1B44;
+			remoteInfo = PostHogExampleVisionOS;
+		};
 		DCB801002D8AFFE700A05A74 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
@@ -742,6 +749,7 @@
 		DAD39DF52D561787002A1A69 /* UtilsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilsTest.swift; sourceTree = "<group>"; };
 		DAD5DD072CB6DEE70087387B /* PostHogMaskViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskViewModifier.swift; sourceTree = "<group>"; };
 		DAF79A242D1309BE0078A3C9 /* TestError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestError.swift; sourceTree = "<group>"; };
+		DAF7D2DC2D95ACA500016C39 /* PostHogExampleVisionOS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleVisionOS.xcodeproj; path = PostHogExampleVisionOS/PostHogExampleVisionOS.xcodeproj; sourceTree = "<group>"; };
 		DAF95F502D072F04001E82BB /* UIImage+WebP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+WebP.swift"; sourceTree = "<group>"; };
 		DAF95F602D077C1C001E82BB /* PostHogWebPTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogWebPTest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -877,6 +885,7 @@
 		3AC745AB296D6FE60025C109 = {
 			isa = PBXGroup;
 			children = (
+				DAF7D2DC2D95ACA500016C39 /* PostHogExampleVisionOS.xcodeproj */,
 				DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */,
 				690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */,
 				690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */,
@@ -1334,6 +1343,14 @@
 			path = SwiftUI;
 			sourceTree = "<group>";
 		};
+		DAF7D2DD2D95ACA500016C39 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DAF7D2EE2D95ACA500016C39 /* PostHogExampleVisionOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		DAF95F5B2D077BCC001E82BB /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -1603,6 +1620,10 @@
 					ProjectRef = DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */;
 				},
 				{
+					ProductGroup = DAF7D2DD2D95ACA500016C39 /* Products */;
+					ProjectRef = DAF7D2DC2D95ACA500016C39 /* PostHogExampleVisionOS.xcodeproj */;
+				},
+				{
 					ProductGroup = 690FF1742AF3CE8A00A0B06B /* Products */;
 					ProjectRef = 690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */;
 				},
@@ -1662,6 +1683,13 @@
 			fileType = wrapper.application;
 			path = PostHogExampleAutocapture.app;
 			remoteRef = DA8D37282CBEAC03005EBD27 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		DAF7D2EE2D95ACA500016C39 /* PostHogExampleVisionOS.app */ = {
+			isa = PBXReferenceProxy;
+			fileType = wrapper.application;
+			path = PostHogExampleVisionOS.app;
+			remoteRef = DAF7D2ED2D95ACA500016C39 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */

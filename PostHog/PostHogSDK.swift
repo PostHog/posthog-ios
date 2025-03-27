@@ -594,11 +594,13 @@ let maxRetryDelay = 30.0
 
         targetQueue?.add(posthogEvent)
 
-        let surveysIntegration = installedIntegrations.compactMap {
-            $0 as? PostHogSurveyIntegration
-        }.first
+        #if os(iOS)
+            let surveysIntegration = installedIntegrations.compactMap {
+                $0 as? PostHogSurveyIntegration
+            }.first
 
-        surveysIntegration?.onEvent(event: posthogEvent.event)
+            surveysIntegration?.onEvent(event: posthogEvent.event)
+        #endif
     }
 
     @objc public func screen(_ screenTitle: String) {

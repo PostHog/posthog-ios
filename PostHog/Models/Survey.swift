@@ -360,10 +360,10 @@ enum SurveyQuestionBranchingType: String, Decodable {
 
 enum SurveyResponse {
     case link(String)
-    case rating(Int)
-    case openEnded(String)
-    case singleChoice(String)
-    case multipleChoice([String])
+    case rating(Int?)
+    case openEnded(String?)
+    case singleChoice(String?)
+    case multipleChoice([String]?)
 }
 
 /// A helper type for decoding JSON values, which may be nested objects, arrays, strings, numbers, booleans, or nulls.

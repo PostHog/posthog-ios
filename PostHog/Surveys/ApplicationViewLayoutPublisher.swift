@@ -88,9 +88,6 @@
 
         var onViewLayoutCallbacks: [UUID: ThrottledHandler] = [:]
 
-        static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
-                                                 target: .global(qos: .utility))
-
         final class ThrottledHandler {
             let interval: TimeInterval
             let handler: ApplicationViewLayoutHandler
@@ -104,7 +101,7 @@
             }
 
             func throttleHandler() {
-                dispatchQueue.async { [weak self] in
+                let runThrottle = { [weak self] in
                     guard let self else { return }
                     let now = Date()
                     let timeSinceLastFired = now.timeIntervalSince(lastFired)
@@ -114,6 +111,12 @@
                         handler()
                     }
                 }
+
+                if Thread.isMainThread {
+                    runThrottle()
+                } else {
+                    DispatchQueue.main.async(execute: runThrottle)
+                }
             }
         }
 
@@ -121,9 +124,7 @@
             let id = UUID()
             registrationLock.withLock {
                 self.onViewLayoutCallbacks[id] = ThrottledHandler(
-                    handler: {
-                        DispatchQueue.main.async(execute: callback)
-                    },
+                    handler: callback,
                     interval: interval
                 )
             }

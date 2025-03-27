@@ -434,13 +434,13 @@
                 "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
             ]
 
-            let responsesProperties: [String: Any] = responses.mapValues { resp in
+            let responsesProperties: [String: Any] = responses.compactMapValues { resp in
                 switch resp {
                 case let .link(link): link
                 case let .multipleChoice(choices): choices
                 case let .singleChoice(choice): choice
                 case let .openEnded(input): input
-                case let .rating(rating): "\(rating)"
+                case let .rating(rating): rating.map { "\($0)" }
                 }
             }
 

@@ -13,7 +13,7 @@
         @Environment(\.surveyAppearance) private var appearance
 
         let question: OpenSurveyQuestion
-        let onNextQuestion: (String) -> Void
+        let onNextQuestion: (String?) -> Void
 
         @State private var text: String = ""
 
@@ -46,14 +46,16 @@
                     )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
-                    onNextQuestion(text)
+                    let resp = text.trimmingCharacters(in: .whitespaces)
+                    onNextQuestion(resp.isEmpty ? nil : text)
                 }
                 .disabled(!canSubmit)
             }
         }
 
         private var canSubmit: Bool {
-            !text.isEmpty
+            if question.optional == true { return true }
+            return !text.isEmpty
         }
     }
 
@@ -91,7 +93,7 @@
         @Environment(\.surveyAppearance) private var appearance
 
         let question: RatingSurveyQuestion
-        let onNextQuestion: (Int) -> Void
+        let onNextQuestion: (Int?) -> Void
         @State var rating: Int?
 
         var body: some View {
@@ -119,16 +121,15 @@
                 }
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
-                    if let rating {
-                        onNextQuestion(rating)
-                    }
+                    onNextQuestion(rating)
                 }
                 .disabled(!canSubmit)
             }
         }
 
         private var canSubmit: Bool {
-            rating != nil
+            if question.optional == true { return true }
+            return rating != nil
         }
 
         private var emojiRange: SurveyEmojiRange {
@@ -149,7 +150,7 @@
         @Environment(\.surveyAppearance) private var appearance
 
         let question: MultipleSurveyQuestion
-        let onNextQuestion: (String) -> Void
+        let onNextQuestion: (String?) -> Void
 
         @State private var selectedChoices: Set<String> = []
         @State private var openChoiceInput: String = ""
@@ -171,16 +172,17 @@
                 )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
-                    if let response = selectedChoices.first {
-                        onNextQuestion(response == openChoice ? openChoiceInput : response)
-                    }
+                    let response = selectedChoices.first
+                    let openChoiceInput = openChoiceInput.trimmingCharacters(in: .whitespaces)
+                    onNextQuestion(response == openChoice ? openChoiceInput : response)
                 }
                 .disabled(!canSubmit)
             }
         }
 
         private var canSubmit: Bool {
-            selectedChoices.count == 1 && (hasOpenChoiceSelected ? !openChoiceInput.isEmpty : true)
+            if question.optional == true { return true }
+            return selectedChoices.count == 1 && (hasOpenChoiceSelected ? !openChoiceInput.isEmpty : true)
         }
 
         private var hasOpenChoiceSelected: Bool {
@@ -199,7 +201,7 @@
         @Environment(\.surveyAppearance) private var appearance
 
         let question: MultipleSurveyQuestion
-        let onNextQuestion: ([String]) -> Void
+        let onNextQuestion: ([String]?) -> Void
 
         @State private var selectedChoices: Set<String> = []
         @State private var openChoiceInput: String = ""
@@ -222,14 +224,15 @@
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
                     let resp = selectedChoices.map { $0 == openChoice ? openChoiceInput : $0 }
-                    onNextQuestion(Array(resp))
+                    onNextQuestion(resp.isEmpty ? nil : resp)
                 }
                 .disabled(!canSubmit)
             }
         }
 
         private var canSubmit: Bool {
-            !selectedChoices.isEmpty && (hasOpenChoiceSelected ? !openChoiceInput.isEmpty : true)
+            if question.optional == true { return true }
+            return !selectedChoices.isEmpty && (hasOpenChoiceSelected ? !openChoiceInput.isEmpty : true)
         }
 
         private var hasOpenChoiceSelected: Bool {

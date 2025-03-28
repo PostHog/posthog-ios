@@ -135,6 +135,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Do not modify it, this flag is read and updated by the SDK via feature flags
     @objc public var snapshotEndpoint: String = "/s/"
 
+    @objc public var storagePathPostfix: String? = nil
+
     /// or EU Host: 'https://eu.i.posthog.com'
     public static let defaultHost: String = "https://us.i.posthog.com"
 

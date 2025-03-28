@@ -159,6 +159,8 @@
 - feat: improve session replay throttle logic ([#322](https://github.com/PostHog/posthog-ios/pull/322))
   > Note: `debouncerDelay` is deprecated and will be removed in next major update. Use `throttleDelay` instead which provides identical functionality for controlling session replay capture frequency.
 
+- feat: support multiple SDK instances with same API key ([#1](https://github.com/worldcoin/posthog-ios/pull/1))
+
 ## 3.20.1 - 2025-03-13
 
 - fix: disk storage not working on tvOS ([#316](https://github.com/PostHog/posthog-ios/pull/316))

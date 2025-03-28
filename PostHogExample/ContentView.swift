@@ -93,39 +93,43 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Manual Session Recording Control") {
-                    Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .multilineTextAlignment(.leading)
-                        .id(refreshStatusID)
+                #if os(iOS)
+                    Section("Manual Session Recording Control") {
+                        Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .multilineTextAlignment(.leading)
+                            .id(refreshStatusID)
 
-                    Button("Stop") {
-                        PostHogSDK.shared.stopSessionRecording()
-                        DispatchQueue.main.async {
-                            refreshStatusID = UUID()
+                        Button("Stop") {
+                            PostHogSDK.shared.stopSessionRecording()
+                            DispatchQueue.main.async {
+                                refreshStatusID = UUID()
+                            }
+                        }
+                        Button("Resume") {
+                            PostHogSDK.shared.startSessionRecording()
+                            DispatchQueue.main.async {
+                                refreshStatusID = UUID()
+                            }
+                        }
+                        Button("Start New Session") {
+                            PostHogSDK.shared.startSessionRecording(resumeCurrent: false)
+                            DispatchQueue.main.async {
+                                refreshStatusID = UUID()
+                            }
                         }
                     }
-                    Button("Resume") {
-                        PostHogSDK.shared.startSessionRecording()
-                        DispatchQueue.main.async {
-                            refreshStatusID = UUID()
-                        }
-                    }
-                    Button("Start New Session") {
-                        PostHogSDK.shared.startSessionRecording(resumeCurrent: false)
-                        DispatchQueue.main.async {
-                            refreshStatusID = UUID()
-                        }
-                    }
-                }
+                #endif
                 Section("General") {
                     NavigationLink {
                         ContentView()
                     } label: {
                         Text("Infinite navigation")
                     }
+                    #if os(iOS)
                     .postHogMask()
+                    #endif
 
                     HStack {
                         Spacer()
@@ -169,14 +173,19 @@ struct ContentView: View {
                         RepresentedExampleUIView()
                     }
 
-                    Text("Sensitive text!!").postHogMask()
-                    Button(action: incCounter) {
-                        Text(String(counter))
-                    }
-                    .postHogMask()
+                    #if os(iOS)
+                        Text("Sensitive text!!").postHogMask()
+                        Button(action: incCounter) {
+                            Text(String(counter))
+                        }
+                        .postHogMask()
+                    #endif
 
                     TextField("Enter your name", text: $name)
+                    #if os(iOS)
                         .postHogMask()
+                    #endif
+
                     Text("Hello, \(name)!")
                     Button(action: triggerAuthentication) {
                         Text("Trigger fake authentication!")
@@ -244,9 +253,11 @@ struct ContentView: View {
         }
     }
 
-    private var sessionRecordingStatus: String {
-        PostHogSDK.shared.isSessionReplayActive() ? "🟢" : "🔴"
-    }
+    #if os(iOS)
+        private var sessionRecordingStatus: String {
+            PostHogSDK.shared.isSessionReplayActive() ? "🟢" : "🔴"
+        }
+    #endif
 }
 
 struct ContentView_Previews: PreviewProvider {

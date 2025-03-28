@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
     import UIKit
 #elseif os(macOS)
     import AppKit
@@ -55,7 +55,7 @@ class PostHogContext {
 
         // iOS app running in compatibility mode (Designed for iPad/iPhone)
         var isiOSAppOnMac = false
-        #if os(iOS)
+        #if os(iOS) || os(visionOS)
             if #available(iOS 14.0, *) {
                 isiOSAppOnMac = ProcessInfo.processInfo.isiOSAppOnMac
             }
@@ -71,7 +71,7 @@ class PostHogContext {
         properties["$is_ios_running_on_mac"] = isiOSAppOnMac
         properties["$is_mac_catalyst_app"] = isMacCatalystApp
 
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             let device = UIDevice.current
             // use https://github.com/devicekit/DeviceKit
             let processInfo = ProcessInfo.processInfo
@@ -118,6 +118,8 @@ class PostHogContext {
                     deviceType = "CarPlay"
                 case UIUserInterfaceIdiom.mac:
                     deviceType = "Desktop"
+                case UIUserInterfaceIdiom.vision:
+                    deviceType = "Vision"
                 default:
                     deviceType = nil
                 }
@@ -188,7 +190,7 @@ class PostHogContext {
         // - "hw.model" returns mac model
         #if targetEnvironment(macCatalyst)
             sysctlName = "hw.model"
-        #elseif os(iOS)
+        #elseif os(iOS) || os(visionOS)
             if #available(iOS 14.0, *) {
                 if ProcessInfo.processInfo.isiOSAppOnMac {
                     sysctlName = "hw.model"
@@ -211,8 +213,14 @@ class PostHogContext {
             properties["$screen_height"] = Float(screenSize.height)
         }
 
-        if Locale.current.languageCode != nil {
-            properties["$locale"] = Locale.current.languageCode
+        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+            if let languageCode = Locale.current.language.languageCode {
+                properties["$locale"] = languageCode.identifier
+            }
+        } else {
+            if Locale.current.languageCode != nil {
+                properties["$locale"] = Locale.current.languageCode
+            }
         }
         properties["$timezone"] = TimeZone.current.identifier
 
@@ -227,7 +235,7 @@ class PostHogContext {
     }
 
     private func registerNotifications() {
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             #if os(iOS)
                 NotificationCenter.default.addObserver(self,
                                                        selector: #selector(onOrientationDidChange),
@@ -262,7 +270,7 @@ class PostHogContext {
     }
 
     private func unregisterNotifications() {
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             #if os(iOS)
                 NotificationCenter.default.removeObserver(self,
                                                           name: UIDevice.orientationDidChangeNotification,
@@ -293,7 +301,7 @@ class PostHogContext {
 
     /// Retrieves the current screen size of the application window based on platform
     private func getScreenSize() -> CGSize? {
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             return UIApplication.getCurrentWindow(filterForegrounded: false)?.bounds.size
         #elseif os(macOS)
             // NSScreen.frame represents the full screen rectangle and includes any space occupied by menu, dock or camera bezel

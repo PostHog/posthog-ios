@@ -1,5 +1,8 @@
 ## Next
 
+- fix: visionOS builds ([#291](https://github.com/PostHog/posthog-ios/pull/291))
+Thanks @harlanhaskins ❤️
+
 - feat: improve session replay throttle logic ([#322](https://github.com/PostHog/posthog-ios/pull/322))
 > Note: `debouncerDelay` is deprecated and will be removed in next major update. Use `throttleDelay` instead which provides identical functionality for controlling session replay capture frequency.
 

@@ -305,7 +305,7 @@ import Foundation
         }
 
         var isOnWWANFlagSet: Bool {
-            #if os(iOS)
+            #if os(iOS) || os(visionOS)
                 return contains(.isWWAN)
             #else
                 return false

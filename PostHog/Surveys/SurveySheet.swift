@@ -148,19 +148,10 @@
         }
 
         private var sheetDetents: [SurveyPresentationDetentsRepresentable.Detent] {
-            let height = adjustedSheetHeight
-            var detents = [SurveyPresentationDetentsRepresentable.Detent]()
-
-            if height >= UIScreen.main.bounds.height / 2.0 {
-                if height >= UIScreen.main.bounds.height {
-                    detents += [.medium, .large]
-                } else {
-                    detents += [.height(height)]
-                }
-            } else {
-                detents += [.height(height)]
+            if adjustedSheetHeight >= UIScreen.main.bounds.height {
+                return [.medium, .large]
             }
-            return detents
+            return [.height(adjustedSheetHeight)]
         }
 
         var adjustedSheetHeight: CGFloat {

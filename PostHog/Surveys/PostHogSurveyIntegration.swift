@@ -12,8 +12,6 @@
         import UIKit
     #endif
 
-    typealias SurveyResponse = String // TEMP:
-
     final class PostHogSurveyIntegration: PostHogIntegration {
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
@@ -30,15 +28,25 @@
         private var allSurveysLock = NSLock()
         private var allSurveys: [Survey]?
 
+        private var eventsToSurveysLock = NSLock()
+        private var eventsToSurveys: [String: [String]] = [:]
+
+        private var seenSurveyKeysLock = NSLock()
+        private var seenSurveyKeys: [AnyHashable: Any]?
+
         private var activeSurveyLock = NSLock()
         private var activeSurvey: Survey?
 
+        private var eventActivatedSurveysLock = NSLock()
+        private var eventActivatedSurveys: Set<String> = []
+
         #if os(iOS)
             private var surveysWindow: UIWindow?
-            private var surveyDisplayManager: SurveysDisplayController?
+            private var surveyDisplayManager: SurveyDisplayController?
         #endif
 
         private var didBecomeActiveToken: RegistrationToken?
+        private var didLayoutViewToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) throws {
             try PostHogSurveyIntegration.integrationInstalledLock.withLock {
@@ -63,56 +71,45 @@
         }
 
         func start() {
-            didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
-                guard let self else { return }
+            #if os(iOS)
+                if #available(iOS 15.0, *) {
+                    // TODO: listen to screen view events
 
-                #if os(iOS)
-                    if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
-                        let surveyDisplayManager = SurveysDisplayController(
-                            getNextSurveyStep: getNextSurveyStep,
-                            onSurveySent: onSurveySent,
-                            onSurveyDismissed: onSurveyDismissed
-                        )
-                        surveysWindow = SurveysWindow(
-                            surveysManager: surveyDisplayManager,
-                            scene: activeScene
-                        )
-                        surveysWindow?.isHidden = false
-                        surveysWindow?.windowLevel = activeWindow.windowLevel + 1
-
-                        self.surveyDisplayManager = surveyDisplayManager
-
-                        // TEMP, testing display
-                        let survey = Survey(
-                            id: "my-survey-id",
-                            name: "Survey Name",
-                            type: .popover,
-                            questions: [],
-                            featureFlagKeys: nil,
-                            linkedFlagKey: nil,
-                            targetingFlagKey: nil,
-                            internalTargetingFlagKey: nil,
-                            conditions: nil,
-                            appearance: nil,
-                            currentIteration: nil,
-                            currentIterationStartDate: nil,
-                            startDate: nil,
-                            endDate: nil
-                        )
-
-                        DispatchQueue.main.async {
-                            surveyDisplayManager.showSurvey(survey)
-                        }
+                    didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: 5) { [weak self] in
+                        self?.showNextSurvey()
                     }
-                #endif
-            }
 
-            // TODO: listen to screen view events
-            // TODO: listen to event capture events
+                    didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
+                        guard let self, surveysWindow == nil else { return }
+
+                        #if os(iOS)
+                            if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
+                                let surveyDisplayManager = SurveyDisplayController(
+                                    onSurveyShown: onSurveyShown,
+                                    onSurveyResponse: onSurveyResponse,
+                                    onSurveyClosed: onSurveyClosed
+                                )
+
+                                surveysWindow = SurveysWindow(
+                                    surveysManager: surveyDisplayManager,
+                                    scene: activeScene
+                                )
+                                surveysWindow?.isHidden = false
+                                surveysWindow?.windowLevel = activeWindow.windowLevel + 1
+
+                                self.surveyDisplayManager = surveyDisplayManager
+
+                                showNextSurvey()
+                            }
+                        #endif
+                    }
+                }
+            #endif
         }
 
         func stop() {
             didBecomeActiveToken = nil
+            didLayoutViewToken = nil
             #if os(iOS)
                 surveysWindow?.rootViewController?.dismiss(animated: true) {
                     self.surveysWindow?.isHidden = true
@@ -122,7 +119,7 @@
             #endif
         }
 
-        /// Get surveys that should be enabled for the current user
+        /// Get surveys enabled for the current user
         func getActiveMatchingSurveys(
             forceReload: Bool = false,
             callback: @escaping SurveyCallback
@@ -132,14 +129,17 @@
 
                 let matchingSurveys = surveys
                     .lazy
-                    .filter(\.isActive) // 1. active surveys,
-                    .filter { survey in // 2. that match display conditions,
+                    .filter { // 1. unseen surveys,
+                        !self.getSurveySeen(survey: $0)
+                    }
+                    .filter(\.isActive) // 2. that are active,
+                    .filter { survey in // 3. and match display conditions,
                         // TODO: Check screen conditions
                         // TODO: Check event conditions
                         let deviceTypeCheck = self.doesSurveyDeviceTypesMatch(survey: survey)
                         return deviceTypeCheck
                     }
-                    .filter { survey in // 3. that match linked flags
+                    .filter { survey in // 4. and match linked flags
                         let allKeys: [String?] = [
                             [survey.linkedFlagKey],
                             [survey.targetingFlagKey],
@@ -149,15 +149,36 @@
                                 kvp.key.isEmpty ? nil : kvp.value
                             } ?? [],
                         ]
-                        .joined() // flatten
-                        .compactMap { $0 } // remove nils
-                        .filter { !$0.isEmpty } // remove empty keys
+                        .joined()
+                        .compactMap { $0 }
+                        .filter { !$0.isEmpty }
 
-                        return Set(allKeys) // remove dupes
-                            .allSatisfy(self.isSurveyFeatureFlagEnabled) // all keys must be enabled
+                        // all keys must be enabled
+                        return Set(allKeys)
+                            .allSatisfy(self.isSurveyFeatureFlagEnabled)
+                    }
+                    .filter { survey in // 5. and if event-based, have been activated by that event
+                        survey.hasEvents ? self.isSurveyEventActivated(survey: survey) : true
                     }
 
                 callback(Array(matchingSurveys))
+            }
+        }
+
+        // TODO: Decouple PostHogSDK and use registration handlers instead
+        /// Called from PostHogSDK instance when an event is captured
+        func onEvent(event: String) {
+            let activatedSurveys = eventsToSurveysLock.withLock { eventsToSurveys[event] } ?? []
+            guard !activatedSurveys.isEmpty else { return }
+
+            eventActivatedSurveysLock.withLock {
+                for survey in activatedSurveys {
+                    eventActivatedSurveys.insert(survey)
+                }
+            }
+
+            DispatchQueue.main.async {
+                self.showNextSurvey()
             }
         }
 
@@ -214,14 +235,28 @@
 
         private func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
             let loadedSurveys: [Survey] = decodeSurveys(from: remoteConfig ?? [:])
+
+            let eventMap = loadedSurveys.reduce(into: [String: [String]]()) { result, current in
+                if let surveyEvents = current.conditions?.events?.values.map(\.name) {
+                    for event in surveyEvents {
+                        result[event, default: []].append(current.id)
+                    }
+                }
+            }
+
             allSurveysLock.withLock {
                 self.allSurveys = loadedSurveys
             }
+            eventsToSurveysLock.withLock {
+                self.eventsToSurveys = eventMap
+            }
+
             callback(loadedSurveys)
         }
 
         private func decodeSurveys(from remoteConfig: [String: Any]) -> [Survey] {
-            guard let surveysJSON = remoteConfig["surveys"] else {
+            guard let surveysJSON = remoteConfig["surveys"] as? [[String: Any]] else {
+                // surveys not json, disabled
                 return []
             }
 
@@ -242,30 +277,25 @@
             return postHog.isFeatureEnabled(flagKey)
         }
 
-        private func canRenderSurvey(survey _: Survey) -> Bool {
-            false
+        private func canRenderSurvey(survey: Survey) -> Bool {
+            // only render popover surveys for now
+            survey.type == .popover
         }
 
-        /// Sets given survey as active survey
-        private func setActiveSurvey(survey: Survey) {
-            activeSurveyLock.withLock {
-                if let activeSurvey {
-                    hedgeLog("Survey \(activeSurvey) already in focus. Cannot add survey \(survey).")
-                    return
-                }
-                activeSurvey = survey
-            }
-        }
+        /// Shows next survey in queue. No-op if a survey is already being shown
+        private func showNextSurvey() {
+            #if os(iOS)
+                guard surveyDisplayManager?.canShowNextSurvey() == true else { return }
 
-        /// Removes given survey as active survey
-        private func removeActiveSurvey(survey: Survey) {
-            activeSurveyLock.withLock {
-                guard activeSurvey?.id != survey.id else {
-                    hedgeLog("Survey \(survey) is not in focus. Cannot remove survey \(survey)")
-                    return
+                // Check if there is a new popover surveys to be displayed
+                getActiveMatchingSurveys { activeSurveys in
+                    if let survey = activeSurveys.first(where: self.canRenderSurvey) {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.surveyDisplayManager?.showSurvey(survey)
+                        }
+                    }
                 }
-                activeSurvey = nil
-            }
+            #endif
         }
 
         /// Returns the computed storage key for a given survey
@@ -287,17 +317,39 @@
             }
 
             let key = getSurveySeenKey(survey)
-            let surveysSeen = storage?.getDictionary(forKey: .surveySeen) ?? [:]
+            let surveysSeen = getSeenSurveyKeys()
             let surveySeen = surveysSeen[key] as? Bool ?? false
 
             return surveySeen
         }
 
-        /// Returns given url match type or default value if nil
+        /// Mark a survey as seen
+        private func setSurveySeen(survey: Survey) {
+            let key = getSurveySeenKey(survey)
+            let seenKeys = seenSurveyKeysLock.withLock {
+                seenSurveyKeys?[key] = true
+                return seenSurveyKeys
+            }
+
+            storage?.setDictionary(forKey: .surveySeen, contents: seenKeys ?? [:])
+        }
+
+        /// Returns survey seen list (and mem-cache from disk if needed)
+        private func getSeenSurveyKeys() -> [AnyHashable: Any] {
+            seenSurveyKeysLock.withLock {
+                if seenSurveyKeys == nil {
+                    seenSurveyKeys = storage?.getDictionary(forKey: .surveySeen) ?? [:]
+                }
+                return seenSurveyKeys ?? [:]
+            }
+        }
+
+        /// Returns given match type or default value if nil
         private func getMatchTypeOrDefault(_ matchType: SurveyMatchType?) -> SurveyMatchType {
             matchType ?? .iContains
         }
 
+        /// Checks if a survey with a device type condition matches the current device type
         private func doesSurveyDeviceTypesMatch(survey: Survey) -> Bool {
             guard
                 let conditions = survey.conditions,
@@ -319,56 +371,135 @@
             return matchType.matches(targets: deviceTypes, value: deviceType)
         }
 
-        private func getNextSurveyStep(
-            survey _: Survey,
-            currentQuestionIndex _: Int,
-            response _: SurveyResponse
-        ) -> Int {
-            0
+        /// Checks if a survey has been previously activated by an associated event
+        private func isSurveyEventActivated(survey: Survey) -> Bool {
+            eventActivatedSurveysLock.withLock {
+                eventActivatedSurveys.contains(survey.id)
+            }
         }
 
-        private func onSurveySent(survey: Survey) {
-            // TODO: checks
-            sendSurveySentEvent(survey: survey)
+        /// Handle a survey that is shown
+        private func onSurveyShown(survey: Survey) {
+            sendSurveyShownEvent(survey: survey)
+
+            // clear up event-activated surveys
+            if survey.hasEvents {
+                eventActivatedSurveysLock.withLock {
+                    _ = eventActivatedSurveys.remove(survey.id)
+                }
+            }
         }
 
-        private func onSurveyDismissed(survey: Survey) {
-            // TODO: checks
-            sendSurveyDismissedEvent(survey: survey)
+        /// Handle a survey response
+        private func onSurveyResponse(survey: Survey, responses: [String: SurveyResponse], completed: Bool) {
+            #if os(iOS)
+                // TODO: Partial responses
+                if completed {
+                    sendSurveySentEvent(survey: survey, responses: responses)
+
+                    // Auto-hide if a confirmation message is not displayed
+                    if survey.appearance?.displayThankYouMessage == false {
+                        surveyDisplayManager?.dismissSurvey()
+                    }
+                }
+            #endif
+        }
+
+        /// Handle a survey dismiss
+        private func onSurveyClosed(survey: Survey, completed: Bool) {
+            if !completed {
+                sendSurveyDismissedEvent(survey: survey)
+            }
+            // mark seen
+            setSurveySeen(survey: survey)
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                // show next survey in queue, if any, after a short delay
+                self.showNextSurvey()
+            }
         }
 
         /// Sends a `survey shown` event to PostHog instance
-        private func sendSurveyShownEvent(survey _: Survey) {
-            guard let postHog else {
-                hedgeLog("[survey shown] event not captured, PostHog instance not found.")
-                return
-            }
-            // TODO: this is where we set lastSeenSurveyDate on storage
-
-            hedgeLog("[survey shown] Should send event")
-        }
-
-        /// Sends a `survey dismissed` event to PostHog instance
-        private func sendSurveyDismissedEvent(survey _: Survey) {
-            guard let postHog else {
-                hedgeLog("[survey dismissed] event not captured, PostHog instance not found.")
-                return
-            }
-            // TODO: this is where we set seenSurvey_ on storage
-
-            hedgeLog("[survey dismissed] Should send event")
+        private func sendSurveyShownEvent(survey: Survey) {
+            sendSurveyEvent(
+                event: "survey shown",
+                survey: survey
+            )
         }
 
         /// Sends a `survey sent` event to PostHog instance
-        private func sendSurveySentEvent(survey _: Survey) {
+        private func sendSurveySentEvent(survey: Survey, responses: [String: SurveyResponse]) {
+            let questionProperties: [String: Any] = [
+                "$survey_questions": survey.questions.map(\.question),
+                "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
+            ]
+
+            let responsesProperties: [String: Any] = responses.compactMapValues { resp in
+                switch resp {
+                case let .link(link): link
+                case let .multipleChoice(choices): choices
+                case let .singleChoice(choice): choice
+                case let .openEnded(input): input
+                case let .rating(rating): rating.map { "\($0)" }
+                }
+            }
+
+            let additionalProperties = questionProperties.merging(responsesProperties, uniquingKeysWith: { _, new in new })
+
+            sendSurveyEvent(
+                event: "survey sent",
+                survey: survey,
+                additionalProperties: additionalProperties
+            )
+        }
+
+        /// Sends a `survey dismissed` event to PostHog instance
+        private func sendSurveyDismissedEvent(survey: Survey) {
+            let additionalProperties: [String: Any] = [
+                "$survey_questions": survey.questions.map(\.question),
+                "$set": [
+                    getSurveyInteractionProperty(survey: survey, property: "dismissed"): true,
+                ],
+            ]
+
+            sendSurveyEvent(
+                event: "survey dismissed",
+                survey: survey,
+                additionalProperties: additionalProperties
+            )
+        }
+
+        private func sendSurveyEvent(event: String, survey: Survey, additionalProperties: [String: Any] = [:]) {
             guard let postHog else {
-                hedgeLog("[survey sent] event not captured, PostHog instance not found.")
+                hedgeLog("[\(event)] event not captured, PostHog instance not found.")
                 return
             }
 
-            // TODO: this is where we set seenSurvey_ on storage
+            var properties = getBaseSurveyEventProperties(for: survey)
+            properties.merge(additionalProperties) { _, new in new }
 
-            hedgeLog("[survey sent] Should send event")
+            postHog.capture(event, properties: properties)
+        }
+
+        private func getBaseSurveyEventProperties(for survey: Survey) -> [String: Any] {
+            // TODO: Add session replay screen name
+            let props: [String: Any?] = [
+                "$survey_name": survey.name,
+                "$survey_id": survey.id,
+                "$survey_iteration": survey.currentIteration,
+                "$survey_iteration_start_date": survey.currentIterationStartDate.map(toISO8601String),
+            ]
+            return props.compactMapValues { $0 }
+        }
+
+        private func getSurveyInteractionProperty(survey: Survey, property: String) -> String {
+            var surveyProperty = "$survey_\(property)/\(survey.id)"
+
+            if let currentIteration = survey.currentIteration, currentIteration > 0 {
+                surveyProperty = "$survey_\(property)/\(survey.id)/\(currentIteration)"
+            }
+
+            return surveyProperty
         }
     }
 

@@ -8,28 +8,22 @@
 #if os(iOS)
     import SwiftUI
 
+    @available(iOS 15.0, *)
     struct SurveysRootView: View {
-        @EnvironmentObject private var displayManager: SurveysDisplayController
+        @EnvironmentObject private var displayManager: SurveyDisplayController
 
         var body: some View {
             Color.clear
                 .allowsHitTesting(false)
                 .sheet(item: displayBinding) { survey in
-                    Color.clear
-                        .overlay(
-                            VStack {
-                                Text("Displaying \(survey)")
-
-                                Button("Survey Sent") {
-                                    displayManager.completeSurvey()
-                                }
-
-                                Button("Survey Dismissed") {
-                                    displayManager.userDismissedSurvey()
-                                }
-                            }
-                        )
-                        .frame(height: 300)
+                    SurveySheet(
+                        survey: survey,
+                        isSurveyCompleted: displayManager.isSurveyCompleted,
+                        currentQuestionIndex: displayManager.currentQuestionIndex ?? 0,
+                        onClose: displayManager.dismissSurvey,
+                        onNextQuestionClicked: displayManager.onNextQuestion
+                    )
+                    .environment(\.colorScheme, .light) // enforce light theme for now
                 }
         }
 
@@ -39,8 +33,9 @@
                     displayManager.displayedSurvey
                 },
                 set: { newValue in
+                    // in case interactive dismiss is allowed
                     if newValue == nil {
-                        displayManager.hideSurvey()
+                        displayManager.dismissSurvey()
                     }
                 }
             )

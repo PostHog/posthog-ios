@@ -21,7 +21,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false
-        config.sessionReplay = true
+        config.sessionReplay = false
         config.sessionReplayConfig.screenshotMode = true
         config.sessionReplayConfig.maskAllTextInputs = true
         config.sessionReplayConfig.maskAllImages = true

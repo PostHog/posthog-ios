@@ -23,9 +23,7 @@
             surveyContent
                 .animation(.linear(duration: 0.25), value: currentQuestionIndex)
                 .readFrame(in: .named("survey-scroll-view")) { frame in
-                    withAnimation {
-                        sheetHeight = frame.height
-                    }
+                    sheetHeight = frame.height
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -96,20 +94,14 @@
         @ViewBuilder
         @available(iOS 15, *)
         func surveyBottomSheet(height: CGFloat) -> some View {
-            if #available(iOS 16.4, *) {
-                modifier(
-                    SurveyBottomSheetWithDetents(height: height)
-                )
-            } else {
-                NavigationView {
-                    self
-                }
-            }
+            modifier(
+                SurveyBottomSheetWithWithDetents(height: height)
+            )
         }
     }
 
-    @available(iOS 16.4, *)
-    private struct SurveyBottomSheetWithDetents: ViewModifier {
+    @available(iOS 15.0, *)
+    private struct SurveyBottomSheetWithWithDetents: ViewModifier {
         @Environment(\.surveyAppearance) private var appearance
 
         @State private var sheetHeight: CGFloat = .zero
@@ -119,6 +111,26 @@
 
         func body(content: Content) -> some View {
             NavigationView {
+                scrolledContent(with: content)
+                    .background(appearance.backgroundColor)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .readSafeAreaInsets { insets in
+                        DispatchQueue.main.async {
+                            if safeAreaInsetsTop == .zero {
+                                safeAreaInsetsTop = insets.top
+                            }
+                        }
+                    }
+            }
+            .interactiveDismissDisabled()
+            .background(
+                SurveyPresentationDetentsRepresentable(detents: sheetDetents)
+            )
+        }
+
+        @ViewBuilder
+        private func scrolledContent(with content: Content) -> some View {
+            if #available(iOS 16.4, *) {
                 ScrollView {
                     content
                         .padding(.horizontal, 16)
@@ -126,35 +138,27 @@
                 .coordinateSpace(name: "survey-scroll-view")
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollDismissesKeyboard(.interactively)
-                .navigationBarTitleDisplayMode(.inline)
-                .readSafeAreaInsets { insets in
-                    DispatchQueue.main.async {
-                        if safeAreaInsetsTop == .zero {
-                            safeAreaInsetsTop = insets.top
-                        }
-                    }
+            } else {
+                ScrollView {
+                    content
+                        .padding(.horizontal, 16)
                 }
+                .coordinateSpace(name: "survey-scroll-view")
             }
-            .interactiveDismissDisabled()
-            .presentationDragIndicator(.automatic)
-            .presentationContentInteraction(.resizes)
-            .presentationDetents(sheetDetents)
-            .presentationBackground(appearance.backgroundColor)
-            .presentationBackgroundInteraction(.disabled)
         }
 
-        var sheetDetents: Set<PresentationDetent> {
+        private var sheetDetents: [SurveyPresentationDetentsRepresentable.Detent] {
             let height = adjustedSheetHeight
-            var detents = Set<PresentationDetent>()
+            var detents = [SurveyPresentationDetentsRepresentable.Detent]()
 
             if height >= UIScreen.main.bounds.height / 2.0 {
                 if height >= UIScreen.main.bounds.height {
-                    detents.formUnion([.medium, .almostLarge])
+                    detents += [.medium, .large]
                 } else {
-                    detents.formUnion([.height(height)])
+                    detents += [.height(height)]
                 }
             } else {
-                detents.insert(.height(height))
+                detents += [.height(height)]
             }
             return detents
         }

@@ -91,8 +91,21 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
+                Section("Survey Event Triggers") {
+                    Button("Send \"Show Survey 1\" event") {
+                        PostHogSDK.shared.capture("Show Survey 1")
+                    }
+
+                    Button("Send \"Show Survey 2\" event") {
+                        PostHogSDK.shared.capture("Show Survey 2")
+                    }
+                    
+                    Button("Send \"Show Large Height Survey\" event") {
+                        PostHogSDK.shared.capture("Show Large Height Survey")
+                    }
+                }
                 Section("Manual Session Recording Control") {
                     Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
                         .lineLimit(1)

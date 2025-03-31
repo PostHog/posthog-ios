@@ -12,7 +12,8 @@ import UIKit
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
+            apiKey: "phc_I6xrDzAidIsATFyDe6CdoQDwYZW53QjPNK8d4ZRzKl7",
+            host: "http://localhost:8000"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false

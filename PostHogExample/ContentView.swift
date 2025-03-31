@@ -101,7 +101,7 @@ struct ContentView: View {
                     Button("Send \"Show Survey 2\" event") {
                         PostHogSDK.shared.capture("Show Survey 2")
                     }
-                    
+
                     Button("Send \"Show Large Height Survey\" event") {
                         PostHogSDK.shared.capture("Show Large Height Survey")
                     }

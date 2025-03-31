@@ -75,8 +75,6 @@
 
         final class Controller: UIViewController, UISheetPresentationControllerDelegate {
             var detents: [Detent]
-            weak var _delegate: UISheetPresentationControllerDelegate?
-            var selectedDetentIdentifier: UISheetPresentationController.Detent.Identifier?
 
             init(detents: [Detent]) {
                 self.detents = detents

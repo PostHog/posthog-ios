@@ -62,7 +62,7 @@
         // User dismissed survey
         func dismissSurvey() {
             if let survey = displayedSurvey {
-                onSurveyClosed(survey, isSurveyCompleted)                
+                onSurveyClosed(survey, isSurveyCompleted)
             }
             displayedSurvey = nil
             isSurveyCompleted = false

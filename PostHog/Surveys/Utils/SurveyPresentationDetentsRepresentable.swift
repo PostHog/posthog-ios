@@ -21,6 +21,7 @@
                 case .medium: .medium()
                 case .large:
                     if #available(iOS 16.0, *) {
+                        // almost large detent, so that background view is not scaled
                         .custom(identifier: id, resolver: { context in context.maximumDetentValue - 0.5 })
                     } else {
                         .large()
@@ -112,7 +113,7 @@
                     controller.presentingViewController.view?.tintAdjustmentMode = .dimmed
                 }
             }
-            
+
             override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
                 super.viewWillTransition(to: size, with: coordinator)
                 DispatchQueue.main.async(execute: update)

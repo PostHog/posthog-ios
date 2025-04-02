@@ -5,6 +5,8 @@
 //  Created by Ioannis Josephides on 24/02/2025.
 //
 
+import Foundation
+
 #if os(iOS) || os(tvOS)
     import UIKit
 

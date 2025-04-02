@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 16/12/2024.
 //
 
-#if os(iOS) || os(tvOS)
+#if os(iOS) || os(tvOS) || os(visionOS)
     import UIKit
 #elseif os(macOS)
     import AppKit
@@ -61,6 +61,19 @@ final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
             defaultCenter.addObserver(self,
                                       selector: #selector(appDidBecomeActive),
                                       name: UIApplication.didBecomeActiveNotification,
+                                      object: nil)
+        #elseif os(visionOS)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidFinishLaunching),
+                                      name: UIApplication.didFinishLaunchingNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidEnterBackground),
+                                      name: UIScene.willDeactivateNotification,
+                                      object: nil)
+            defaultCenter.addObserver(self,
+                                      selector: #selector(appDidBecomeActive),
+                                      name: UIScene.didActivateNotification,
                                       object: nil)
         #elseif os(macOS)
             defaultCenter.addObserver(self,

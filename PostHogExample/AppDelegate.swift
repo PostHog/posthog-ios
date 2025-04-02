@@ -21,10 +21,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //        config.flushIntervalSeconds = 30
         config.debug = true
         config.sendFeatureFlagEvent = false
-        config.sessionReplay = false
-        config.sessionReplayConfig.screenshotMode = true
-        config.sessionReplayConfig.maskAllTextInputs = true
-        config.sessionReplayConfig.maskAllImages = true
+
+        #if os(iOS)
+            config.sessionReplay = true
+            config.sessionReplayConfig.screenshotMode = true
+            config.sessionReplayConfig.maskAllTextInputs = true
+            config.sessionReplayConfig.maskAllImages = true
+        #endif
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()
@@ -35,7 +38,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
         let defaultCenter = NotificationCenter.default
 
-        #if os(iOS) || os(tvOS)
+        #if os(iOS) || os(tvOS) || os(visionOS)
             defaultCenter.addObserver(self,
                                       selector: #selector(receiveFeatureFlags),
                                       name: PostHogSDK.didReceiveFeatureFlags,

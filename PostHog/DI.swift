@@ -23,6 +23,7 @@ enum DI {
         #endif
 
         #if os(iOS)
+            // publishes global view layout events within a throttle interval (UIView.layoutSubviews)
             lazy var viewLayoutPublisher: ViewLayoutPublishing = ApplicationViewLayoutPublisher.shared
         #endif
     }

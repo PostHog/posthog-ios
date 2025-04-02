@@ -11,9 +11,11 @@ import Nimble
 import Quick
 
 class PostHogStorageManagerTest: QuickSpec {
-    func getSut() -> PostHogStorageManager {
-        let config = PostHogConfig(apiKey: testAPIKey)
-        return PostHogStorageManager(config)
+    func getSut(_ config: PostHogConfig? = nil) -> PostHogStorageManager {
+        let theConfig = config ?? PostHogConfig(apiKey: "123")
+        let storage = PostHogStorage(theConfig)
+        storage.reset()
+        return PostHogStorageManager(theConfig)
     }
 
     override func spec() {
@@ -46,15 +48,29 @@ class PostHogStorageManagerTest: QuickSpec {
             sut.reset(true)
         }
 
-        it("Can can accept id customization via config") {
-            let config = PostHogConfig(apiKey: testAPIKey)
+        it("Can accept anon id customization via config") {
+            let config = PostHogConfig(apiKey: "123")
             let fixedUuid = UUID.v7()
             config.getAnonymousId = { _ in fixedUuid }
-            let sut = PostHogStorageManager(config)
+            let sut = self.getSut(config)
             let anonymousId = sut.getAnonymousId()
             expect(anonymousId) == fixedUuid.uuidString
 
             sut.reset(true)
+        }
+
+        it("Uses the correct fallback value for isIdentified") {
+            let anonymousIdToSet = UUID.v7()
+            let distinctIdToSet = UUID.v7().uuidString
+
+            let config = PostHogConfig(apiKey: "123")
+            config.getAnonymousId = { _ in anonymousIdToSet }
+
+            let sut = self.getSut(config)
+            sut.setDistinctId(distinctIdToSet)
+
+            // Don't call setIdentified(true), isIdentified should be derived from different anon and distinct ids
+            expect(sut.isIdentified()) == true
         }
     }
 }

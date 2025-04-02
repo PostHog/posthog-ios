@@ -187,7 +187,7 @@
                 return
             }
 
-            guard let config = config, config.surveys else {
+            guard let config = config, config._surveys else {
                 hedgeLog("Surveys disabled. Not loading surveys.")
                 return callback([])
             }

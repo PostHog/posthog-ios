@@ -59,12 +59,19 @@ import Foundation
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
-    #if os(iOS) || TESTING
-        /// Enable mobile surveys
-        /// Experimental support
-        /// Default: false
-        @objc public var surveys: Bool = false
-    #endif
+    /// Enable mobile surveys
+    /// Experimental support
+    /// Default: false
+    @available(iOS 15.0, *)
+    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @_spi(Experimental)
+    @objc public var surveys: Bool {
+        get { _surveys }
+        set { setSurveys(newValue) }
+    }
 
     // only internal
     var disableReachabilityForTesting: Bool = false
@@ -106,7 +113,7 @@ import Foundation
                 integrations.append(PostHogReplayIntegration())
             }
 
-            if surveys {
+            if _surveys {
                 integrations.append(PostHogSurveyIntegration())
             }
 
@@ -119,5 +126,14 @@ import Foundation
         #endif
 
         return integrations
+    }
+
+    var _surveys: Bool = false // swiftlint:disable:this identifier_name
+    private func setSurveys(_ value: Bool) {
+        // protection against objc API availability warning instead of error
+        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
+        if #available(iOS 15.0, *) {
+            _surveys = value
+        }
     }
 }

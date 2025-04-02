@@ -91,7 +91,6 @@
     }
 
     extension View {
-        @ViewBuilder
         @available(iOS 15, *)
         func surveyBottomSheet(height: CGFloat) -> some View {
             modifier(

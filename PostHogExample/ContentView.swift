@@ -91,7 +91,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
                 #if os(iOS)
                     Section("Manual Session Recording Control") {

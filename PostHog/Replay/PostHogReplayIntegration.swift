@@ -31,6 +31,7 @@
         private var urlInterceptor: URLSessionInterceptor?
         private var sessionSwizzler: URLSessionSwizzler?
         private var applicationEventToken: RegistrationToken?
+        private var viewLayoutToken: RegistrationToken?
 
         /**
          ### Mapping of SwiftUI Views to UIKit
@@ -155,13 +156,11 @@
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
-                let debouncerDelay = postHog.config.sessionReplayConfig.debouncerDelay
-                DispatchQueue.main.async { [weak self] in
-                    self?.timer = Timer.scheduledTimer(withTimeInterval: debouncerDelay, repeats: true, block: { _ in
-                        self?.snapshot()
-                    })
+                let interval = postHog.config.sessionReplayConfig.throttleDelay
+                viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: interval) { [weak self] in
+                    // called on main thread
+                    self?.snapshot()
                 }
-                ViewLayoutTracker.swizzleLayoutSubviews()
             }
 
             // start listening to `UIApplication.sendEvent`
@@ -183,8 +182,9 @@
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil
+            // stop listening to `UIView.layoutSubviews` events
+            viewLayoutToken = nil
 
-            ViewLayoutTracker.unSwizzleLayoutSubviews()
             sessionSwizzler?.unswizzle()
             urlInterceptor?.stop()
         }
@@ -803,11 +803,6 @@
             guard let postHog, postHog.isSessionReplayActive() else {
                 return
             }
-
-            if !ViewLayoutTracker.hasChanges {
-                return
-            }
-            ViewLayoutTracker.clear()
 
             guard let window = UIApplication.getCurrentWindow() else {
                 return

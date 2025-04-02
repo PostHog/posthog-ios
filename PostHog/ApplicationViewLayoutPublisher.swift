@@ -11,7 +11,8 @@
     typealias ApplicationViewLayoutHandler = () -> Void
 
     protocol ViewLayoutPublishing: AnyObject {
-        /// Registers a callback for getting notified when a UIView is laid out
+        /// Registers a callback for getting notified when a UIView is laid out.
+        /// Note: callback guaranteed to be called on main thread
         func onViewLayout(throttle: TimeInterval, _ callback: @escaping ApplicationViewLayoutHandler) -> RegistrationToken
     }
 
@@ -81,6 +82,12 @@
         fileprivate func layoutSubviews() {
             notifyHandlers()
         }
+
+        #if TESTING
+            func simulateLayoutSubviews() {
+                layoutSubviews()
+            }
+        #endif
     }
 
     class BaseApplicationViewLayoutPublisher: ViewLayoutPublishing {
@@ -88,11 +95,13 @@
 
         var onViewLayoutCallbacks: [UUID: ThrottledHandler] = [:]
 
+        static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
+                                                 target: .global(qos: .utility))
+
         final class ThrottledHandler {
             let interval: TimeInterval
             let handler: ApplicationViewLayoutHandler
 
-            // private var timer: Timer?
             private var lastFired: Date = .distantPast
 
             init(handler: @escaping ApplicationViewLayoutHandler, interval: TimeInterval) {
@@ -103,7 +112,7 @@
             func throttleHandler() {
                 let runThrottle = { [weak self] in
                     guard let self else { return }
-                    let now = Date()
+                    let now = now()
                     let timeSinceLastFired = now.timeIntervalSince(lastFired)
 
                     if timeSinceLastFired >= interval {
@@ -115,7 +124,9 @@
                 if Thread.isMainThread {
                     runThrottle()
                 } else {
-                    DispatchQueue.main.async(execute: runThrottle)
+                    DispatchQueue.main.async {
+                        runThrottle()
+                    }
                 }
             }
         }

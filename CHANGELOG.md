@@ -1,5 +1,20 @@
 ## Next
 
+- feat: add support for surveys on iOS ([#325](https://github.com/PostHog/posthog-ios/pull/325))
+
+## 3.21.0 - 2025-03-28
+
+- fix: visionOS builds ([#291](https://github.com/PostHog/posthog-ios/pull/291))
+Thanks @harlanhaskins ❤️
+
+- feat: improve session replay throttle logic ([#322](https://github.com/PostHog/posthog-ios/pull/322))
+> Note: `debouncerDelay` is deprecated and will be removed in next major update. Use `throttleDelay` instead which provides identical functionality for controlling session replay capture frequency.
+
+## 3.20.1 - 2025-03-13
+
+- fix: disk storage not working on tvOS ([#316](https://github.com/PostHog/posthog-ios/pull/316))
+- fix: wrong is_identified fallback value ([#317](https://github.com/PostHog/posthog-ios/pull/317))
+
 ## 3.20.0 - 2025-03-04
 
 - feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))

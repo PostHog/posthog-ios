@@ -7,6 +7,18 @@
 import Foundation
 
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
+    enum Defaults {
+        #if os(tvOS)
+            static let flushAt: Int = 5
+            static let maxQueueSize: Int = 100
+        #else
+            static let flushAt: Int = 20
+            static let maxQueueSize: Int = 1000
+        #endif
+        static let maxBatchSize: Int = 50
+        static let flushIntervalSeconds: TimeInterval = 30
+    }
+
     @objc(PostHogDataMode) public enum PostHogDataMode: Int {
         case wifi
         case cellular
@@ -15,10 +27,10 @@ import Foundation
 
     @objc public let host: URL
     @objc public let apiKey: String
-    @objc public var flushAt: Int = 20
-    @objc public var maxQueueSize: Int = 1000
-    @objc public var maxBatchSize: Int = 50
-    @objc public var flushIntervalSeconds: TimeInterval = 30
+    @objc public var flushAt: Int = Defaults.flushAt
+    @objc public var maxQueueSize: Int = Defaults.maxQueueSize
+    @objc public var maxBatchSize: Int = Defaults.maxBatchSize
+    @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
     @objc public var dataMode: PostHogDataMode = .any
     @objc public var sendFeatureFlagEvent: Bool = true
     @objc public var preloadFeatureFlags: Bool = true
@@ -59,12 +71,19 @@ import Foundation
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
-    #if os(iOS) || TESTING
-        /// Enable mobile surveys
-        /// Experimental support
-        /// Default: false
-        @objc public var surveys: Bool = false
-    #endif
+    /// Enable mobile surveys
+    /// Experimental support
+    /// Default: false
+    @available(iOS 15.0, *)
+    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @_spi(Experimental)
+    @objc public var surveys: Bool {
+        get { _surveys }
+        set { setSurveys(newValue) }
+    }
 
     // only internal
     var disableReachabilityForTesting: Bool = false
@@ -106,7 +125,7 @@ import Foundation
                 integrations.append(PostHogReplayIntegration())
             }
 
-            if surveys {
+            if _surveys {
                 integrations.append(PostHogSurveyIntegration())
             }
 
@@ -119,5 +138,14 @@ import Foundation
         #endif
 
         return integrations
+    }
+
+    var _surveys: Bool = false // swiftlint:disable:this identifier_name
+    private func setSurveys(_ value: Bool) {
+        // protection against objc API availability warning instead of error
+        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
+        if #available(iOS 15.0, *) {
+            _surveys = value
+        }
     }
 }

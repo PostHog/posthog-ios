@@ -95,7 +95,7 @@ public class PostHogStorageManager {
     public func isIdentified() -> Bool {
         identifiedLock.withLock {
             if isIdentifiedValue == nil {
-                isIdentifiedValue = storage.getBool(forKey: .isIdentified) ?? (getDistinctId() != getDistinctId())
+                isIdentifiedValue = storage.getBool(forKey: .isIdentified) ?? (getDistinctId() != getAnonymousId())
             }
         }
         return isIdentifiedValue ?? false

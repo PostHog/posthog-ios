@@ -95,7 +95,7 @@
         }
     }
 
-    struct PostHogTagView: UIViewControllerRepresentable {
+    struct PostHogTagView: UIViewRepresentable {
         final class Coordinator {
             var onChangeHandler: PostHogTagViewHandler?
             var onRemoveHandler: PostHogTagViewHandler?
@@ -132,13 +132,13 @@
         }
 
         func makeCoordinator() -> Coordinator {
-            // dismantleUIViewController is Static, so we need to store the onRemoveHandler
+            // dismantleUIView is Static, so we need to store the onRemoveHandler
             // somewhere where we can access it during view distruction
             Coordinator(onRemove: onRemoveHandler)
         }
 
-        func makeUIViewController(context: Context) -> PostHogTagViewController {
-            let controller = PostHogTagViewController(id: id) { controller in
+        func makeUIView(context: Context) -> PostHogTagUIView {
+            let view = PostHogTagUIView(id: id) { controller in
                 let targets = getTargetViews(from: controller)
                 if !targets.isEmpty {
                     context.coordinator.cachedTargets = targets
@@ -146,21 +146,25 @@
                 }
             }
 
-            return controller
+            return view
         }
 
-        func updateUIViewController(_: PostHogTagViewController, context _: Context) {
-            // nothing
+        func updateUIView(_: PostHogTagUIView, context _: Context) {
+            //
         }
 
-        static func dismantleUIViewController(_ controller: PostHogTagViewController, coordinator: Coordinator) {
+        static func dismantleUIView(_ uiView: PostHogTagUIView, coordinator: Coordinator) {
             // using cached targets should be good here
-            let targets = coordinator.cachedTargets.isEmpty ? getTargetViews(from: controller) : coordinator.cachedTargets
+            let targets = coordinator.cachedTargets.isEmpty
+                ? getTargetViews(from: uiView)
+                : coordinator.cachedTargets
+
             if !targets.isEmpty {
                 coordinator.onRemoveHandler?(targets)
             }
 
-            controller.handler = nil
+            uiView.postHogTagView = nil
+            uiView.handler = nil
         }
     }
 
@@ -173,9 +177,8 @@
         "SwiftUI._UIInheritedView",
     ].compactMap(NSClassFromString)
 
-    func getTargetViews(from controller: PostHogTagViewController) -> [UIView] {
+    func getTargetViews(from taggerView: UIView) -> [UIView] {
         guard
-            let taggerView = controller.view,
             let anchorView = taggerView.postHogAnchor,
             let commonAncestor = anchorView.nearestCommonAncestor(with: taggerView)
         else {
@@ -195,49 +198,44 @@
             }
     }
 
-    private struct PostHogTagAnchorView: UIViewControllerRepresentable {
+    private struct PostHogTagAnchorView: UIViewRepresentable {
         var id: UUID
-        var isAnchor: Bool = false
 
-        func makeUIViewController(context _: Context) -> some UIViewController {
-            PostHogTagAnchorViewController(id: id)
+        func makeUIView(context _: Context) -> some UIView {
+            PostHogTagAnchorUIView(id: id)
         }
 
-        func updateUIViewController(_: UIViewControllerType, context _: Context) {
+        func updateUIView(_: UIViewType, context _: Context) {
             //
         }
     }
 
-    private class PostHogTagAnchorViewController: UIViewController {
+    private class PostHogTagAnchorUIView: UIView {
         let id: UUID
 
         init(id: UUID) {
             self.id = id
-            super.init(nibName: nil, bundle: nil)
+            super.init(frame: .zero)
             TaggingStore.shared[id, default: .init()].anchor = self
+            postHogView = true
         }
 
         required init?(coder _: NSCoder) {
             id = UUID()
-            super.init(nibName: nil, bundle: nil)
-        }
-
-        override func viewDidLoad() {
-            super.viewDidLoad()
-            view.postHogView = true
+            super.init(frame: .zero)
         }
     }
 
-    final class PostHogTagViewController: UIViewController {
+    final class PostHogTagUIView: UIView {
         let id: UUID
         var handler: (() -> Void)?
 
         init(
             id: UUID,
-            handler: ((PostHogTagViewController) -> Void)?
+            handler: ((PostHogTagUIView) -> Void)?
         ) {
             self.id = id
-            super.init(nibName: nil, bundle: nil)
+            super.init(frame: .zero)
             self.handler = { [weak self] in
                 guard let self else {
                     return
@@ -251,40 +249,31 @@
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             id = UUID()
-            super.init(nibName: nil, bundle: nil)
+            super.init(frame: .zero)
         }
 
-        override var preferredStatusBarStyle: UIStatusBarStyle {
-            parent?.preferredStatusBarStyle ?? super.preferredStatusBarStyle
-        }
-
-        override func viewDidLoad() {
-            super.viewDidLoad()
-            view.postHogController = self
-            view.postHogView = true
+        override func didMoveToSuperview() {
+            super.didMoveToSuperview()
+            postHogTagView = self
+            postHogView = true
             handler?()
         }
 
-        override func didMove(toParent parent: UIViewController?) {
-            super.didMove(toParent: parent)
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
             handler?()
         }
 
-        override func viewDidLayoutSubviews() {
-            super.viewDidLayoutSubviews()
-            handler?()
-        }
-
-        override func viewDidAppear(_ animated: Bool) {
-            super.viewDidAppear(animated)
+        override func layoutSubviews() {
+            super.layoutSubviews()
             handler?()
         }
     }
 
     private extension UIView {
-        var postHogController: PostHogTagViewController? {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phController) as? PostHogTagViewController }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phController, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+        var postHogTagView: PostHogTagUIView? {
+            get { objc_getAssociatedObject(self, &AssociatedKeys.phTagView) as? PostHogTagUIView }
+            set { objc_setAssociatedObject(self, &AssociatedKeys.phTagView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         }
 
         var postHogView: Bool {
@@ -322,8 +311,8 @@
         }
 
         var postHogAnchor: UIView? {
-            if let controller = postHogController {
-                return TaggingStore.shared[controller.id]?.anchor?.view
+            if let tagView = postHogTagView {
+                return TaggingStore.shared[tagView.id]?.anchor
             }
             return nil
         }
@@ -336,8 +325,8 @@
         static var shared: [UUID: Pair] = [:]
 
         struct Pair {
-            weak var anchor: PostHogTagAnchorViewController?
-            weak var tagger: PostHogTagViewController?
+            weak var anchor: PostHogTagAnchorUIView?
+            weak var tagger: PostHogTagUIView?
         }
     }
 

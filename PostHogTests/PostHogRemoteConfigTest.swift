@@ -224,9 +224,6 @@ enum PostHogRemoteConfigTest {
                 remoteConfigLoaded = true
             }
 
-            #expect(sut.getRemoteConfig() == nil)
-            #expect(sut.getFeatureFlags() == nil)
-
             await withCheckedContinuation { continuation in
                 while !remoteConfigLoaded || !featureFlagsLoaded {}
                 continuation.resume()

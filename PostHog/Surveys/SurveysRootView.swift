@@ -27,7 +27,7 @@
                 }
         }
 
-        private var displayBinding: Binding<Survey?> {
+        private var displayBinding: Binding<PostHogSurvey?> {
             .init(
                 get: {
                     displayManager.displayedSurvey

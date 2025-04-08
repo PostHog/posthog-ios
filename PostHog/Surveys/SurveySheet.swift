@@ -11,11 +11,11 @@
 
     @available(iOS 15, *)
     struct SurveySheet: View {
-        let survey: Survey
+        let survey: PostHogSurvey
         let isSurveyCompleted: Bool
         let currentQuestionIndex: Int
         let onClose: () -> Void
-        let onNextQuestionClicked: (_ index: Int, _ response: SurveyResponse) -> Void
+        let onNextQuestionClicked: (_ index: Int, _ response: PostHogSurveyResponse) -> Void
 
         @State private var sheetHeight: CGFloat = .zero
 
@@ -64,7 +64,7 @@
             }
         }
 
-        private var currentQuestion: SurveyQuestion? {
+        private var currentQuestion: PostHogSurveyQuestion? {
             guard currentQuestionIndex <= survey.questions.count - 1 else {
                 return nil
             }
@@ -170,7 +170,7 @@
         public var displayThankYouMessage: Bool
         public var thankYouMessageHeader: String
         public var thankYouMessageDescription: String?
-        public var thankYouMessageDescriptionContentType: SurveyTextContentType = .text
+        public var thankYouMessageDescriptionContentType: PostHogSurveyTextContentType = .text
         public var thankYouMessageCloseButtonText: String
         public var borderColor: Color
         public var placeholder: String?
@@ -191,7 +191,7 @@
 
     extension SurveyDisplayAppearance {
         @available(iOS 15.0, *)
-        static func getAppearanceWithDefaults(_ appearance: SurveyAppearance? = nil) -> SurveyDisplayAppearance {
+        static func getAppearanceWithDefaults(_ appearance: PostHogSurveyAppearance? = nil) -> SurveyDisplayAppearance {
             SurveyDisplayAppearance(
                 fontFamily: Font.customFont(family: appearance?.fontFamily ?? "") ?? Font.body,
                 backgroundColor: colorFrom(css: appearance?.backgroundColor, defaultColor: .tertiarySystemBackground),

@@ -16,7 +16,7 @@
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
-        typealias SurveyCallback = (_ surveys: [Survey]) -> Void
+        typealias SurveyCallback = (_ surveys: [PostHogSurvey]) -> Void
 
         private let kSurveySeenKeyPrefix = "seenSurvey_"
 
@@ -26,7 +26,7 @@
         private var remoteConfig: PostHogRemoteConfig? { postHog?.remoteConfig }
 
         private var allSurveysLock = NSLock()
-        private var allSurveys: [Survey]?
+        private var allSurveys: [PostHogSurvey]?
 
         private var eventsToSurveysLock = NSLock()
         private var eventsToSurveys: [String: [String]] = [:]
@@ -35,7 +35,7 @@
         private var seenSurveyKeys: [AnyHashable: Any]?
 
         private var activeSurveyLock = NSLock()
-        private var activeSurvey: Survey?
+        private var activeSurvey: PostHogSurvey?
 
         private var eventActivatedSurveysLock = NSLock()
         private var eventActivatedSurveys: Set<String> = []
@@ -234,7 +234,7 @@
         }
 
         private func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
-            let loadedSurveys: [Survey] = decodeSurveys(from: remoteConfig ?? [:])
+            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
 
             let eventMap = loadedSurveys.reduce(into: [String: [String]]()) { result, current in
                 if let surveyEvents = current.conditions?.events?.values.map(\.name) {
@@ -254,7 +254,7 @@
             callback(loadedSurveys)
         }
 
-        private func decodeSurveys(from remoteConfig: [String: Any]) -> [Survey] {
+        private func decodeSurveys(from remoteConfig: [String: Any]) -> [PostHogSurvey] {
             guard let surveysJSON = remoteConfig["surveys"] as? [[String: Any]] else {
                 // surveys not json, disabled
                 return []
@@ -262,7 +262,7 @@
 
             do {
                 let jsonData = try JSONSerialization.data(withJSONObject: surveysJSON)
-                return try PostHogApi.jsonDecoder.decode([Survey].self, from: jsonData)
+                return try PostHogApi.jsonDecoder.decode([PostHogSurvey].self, from: jsonData)
             } catch {
                 hedgeLog("Error decoding Surveys: \(error)")
                 return []
@@ -277,7 +277,7 @@
             return postHog.isFeatureEnabled(flagKey)
         }
 
-        private func canRenderSurvey(survey: Survey) -> Bool {
+        private func canRenderSurvey(survey: PostHogSurvey) -> Bool {
             // only render popover surveys for now
             survey.type == .popover
         }
@@ -299,7 +299,7 @@
         }
 
         /// Returns the computed storage key for a given survey
-        private func getSurveySeenKey(_ survey: Survey) -> String {
+        private func getSurveySeenKey(_ survey: PostHogSurvey) -> String {
             let surveySeenKey = "\(kSurveySeenKeyPrefix)\(survey.id)"
             if let currentIteration = survey.currentIteration, currentIteration > 0 {
                 return "\(surveySeenKey)_\(currentIteration)"
@@ -310,7 +310,7 @@
         /// Checks storage for seenSurvey_ key and returns its value
         ///
         /// Note: if the survey can be repeatedly activated by its events, or if the key is missing, this value will default to false
-        private func getSurveySeen(survey: Survey) -> Bool {
+        private func getSurveySeen(survey: PostHogSurvey) -> Bool {
             if survey.canActivateRepeatedly {
                 // if this survey can activate repeatedly, we override this return value
                 return false
@@ -324,7 +324,7 @@
         }
 
         /// Mark a survey as seen
-        private func setSurveySeen(survey: Survey) {
+        private func setSurveySeen(survey: PostHogSurvey) {
             let key = getSurveySeenKey(survey)
             let seenKeys = seenSurveyKeysLock.withLock {
                 seenSurveyKeys?[key] = true
@@ -345,12 +345,12 @@
         }
 
         /// Returns given match type or default value if nil
-        private func getMatchTypeOrDefault(_ matchType: SurveyMatchType?) -> SurveyMatchType {
+        private func getMatchTypeOrDefault(_ matchType: PostHogSurveyMatchType?) -> PostHogSurveyMatchType {
             matchType ?? .iContains
         }
 
         /// Checks if a survey with a device type condition matches the current device type
-        private func doesSurveyDeviceTypesMatch(survey: Survey) -> Bool {
+        private func doesSurveyDeviceTypesMatch(survey: PostHogSurvey) -> Bool {
             guard
                 let conditions = survey.conditions,
                 let deviceTypes = conditions.deviceTypes, deviceTypes.count > 0
@@ -372,14 +372,14 @@
         }
 
         /// Checks if a survey has been previously activated by an associated event
-        private func isSurveyEventActivated(survey: Survey) -> Bool {
+        private func isSurveyEventActivated(survey: PostHogSurvey) -> Bool {
             eventActivatedSurveysLock.withLock {
                 eventActivatedSurveys.contains(survey.id)
             }
         }
 
         /// Handle a survey that is shown
-        private func onSurveyShown(survey: Survey) {
+        private func onSurveyShown(survey: PostHogSurvey) {
             sendSurveyShownEvent(survey: survey)
 
             // clear up event-activated surveys
@@ -391,7 +391,7 @@
         }
 
         /// Handle a survey response
-        private func onSurveyResponse(survey: Survey, responses: [String: SurveyResponse], completed: Bool) {
+        private func onSurveyResponse(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse], completed: Bool) {
             #if os(iOS)
                 // TODO: Partial responses
                 if completed {
@@ -406,7 +406,7 @@
         }
 
         /// Handle a survey dismiss
-        private func onSurveyClosed(survey: Survey, completed: Bool) {
+        private func onSurveyClosed(survey: PostHogSurvey, completed: Bool) {
             if !completed {
                 sendSurveyDismissedEvent(survey: survey)
             }
@@ -420,7 +420,7 @@
         }
 
         /// Sends a `survey shown` event to PostHog instance
-        private func sendSurveyShownEvent(survey: Survey) {
+        private func sendSurveyShownEvent(survey: PostHogSurvey) {
             sendSurveyEvent(
                 event: "survey shown",
                 survey: survey
@@ -428,7 +428,7 @@
         }
 
         /// Sends a `survey sent` event to PostHog instance
-        private func sendSurveySentEvent(survey: Survey, responses: [String: SurveyResponse]) {
+        private func sendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse]) {
             let questionProperties: [String: Any] = [
                 "$survey_questions": survey.questions.map(\.question),
                 "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
@@ -454,7 +454,7 @@
         }
 
         /// Sends a `survey dismissed` event to PostHog instance
-        private func sendSurveyDismissedEvent(survey: Survey) {
+        private func sendSurveyDismissedEvent(survey: PostHogSurvey) {
             let additionalProperties: [String: Any] = [
                 "$survey_questions": survey.questions.map(\.question),
                 "$set": [
@@ -469,7 +469,7 @@
             )
         }
 
-        private func sendSurveyEvent(event: String, survey: Survey, additionalProperties: [String: Any] = [:]) {
+        private func sendSurveyEvent(event: String, survey: PostHogSurvey, additionalProperties: [String: Any] = [:]) {
             guard let postHog else {
                 hedgeLog("[\(event)] event not captured, PostHog instance not found.")
                 return
@@ -481,7 +481,7 @@
             postHog.capture(event, properties: properties)
         }
 
-        private func getBaseSurveyEventProperties(for survey: Survey) -> [String: Any] {
+        private func getBaseSurveyEventProperties(for survey: PostHogSurvey) -> [String: Any] {
             // TODO: Add session replay screen name
             let props: [String: Any?] = [
                 "$survey_name": survey.name,
@@ -492,7 +492,7 @@
             return props.compactMapValues { $0 }
         }
 
-        private func getSurveyInteractionProperty(survey: Survey, property: String) -> String {
+        private func getSurveyInteractionProperty(survey: PostHogSurvey, property: String) -> String {
             var surveyProperty = "$survey_\(property)/\(survey.id)"
 
             if let currentIteration = survey.currentIteration, currentIteration > 0 {
@@ -503,13 +503,13 @@
         }
     }
 
-    extension Survey: CustomStringConvertible {
+    extension PostHogSurvey: CustomStringConvertible {
         var description: String {
             "\(name) [\(id)]"
         }
     }
 
-    extension Survey {
+    extension PostHogSurvey {
         var isActive: Bool {
             startDate != nil && endDate == nil
         }
@@ -523,7 +523,7 @@
         }
     }
 
-    private extension SurveyMatchType {
+    private extension PostHogSurveyMatchType {
         func matches(targets: [String], value: String) -> Bool {
             switch self {
             // any of the targets contain the value (matched lowercase)
@@ -561,14 +561,14 @@
     }
 
     #if TESTING
-        extension SurveyMatchType {
+        extension PostHogSurveyMatchType {
             var matchFunction: (_ targets: [String], _ value: String) -> Bool {
                 matches
             }
         }
 
         extension PostHogSurveyIntegration {
-            func setSurveys(_ surveys: [Survey]) {
+            func setSurveys(_ surveys: [PostHogSurvey]) {
                 allSurveys = surveys
             }
 

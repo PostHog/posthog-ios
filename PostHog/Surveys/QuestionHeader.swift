@@ -14,7 +14,7 @@
 
         let question: String
         let description: String?
-        let contentType: SurveyTextContentType
+        let contentType: PostHogSurveyTextContentType
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {

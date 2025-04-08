@@ -12,7 +12,7 @@
     struct OpenTextQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: OpenSurveyQuestion
+        let question: PostHogOpenSurveyQuestion
         let onNextQuestion: (String?) -> Void
 
         @State private var text: String = ""
@@ -63,7 +63,7 @@
     struct LinkQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: LinkSurveyQuestion
+        let question: PostHogLinkSurveyQuestion
         let onNextQuestion: (String) -> Void
 
         var body: some View {
@@ -92,7 +92,7 @@
     struct RatingQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: RatingSurveyQuestion
+        let question: PostHogRatingSurveyQuestion
         let onNextQuestion: (Int?) -> Void
         @State var rating: Int?
 
@@ -149,7 +149,7 @@
     struct SingleChoiceQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: MultipleSurveyQuestion
+        let question: PostHogMultipleSurveyQuestion
         let onNextQuestion: (String?) -> Void
 
         @State private var selectedChoices: Set<String> = []
@@ -200,7 +200,7 @@
     struct MultipleChoiceQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: MultipleSurveyQuestion
+        let question: PostHogMultipleSurveyQuestion
         let onNextQuestion: ([String]?) -> Void
 
         @State private var selectedChoices: Set<String> = []

@@ -16,14 +16,14 @@ enum PostHogSurveysTest {
         @Test("survey decodes correctly")
         func surveyDecodesCorrectly() throws {
             let data = try loadFixture("fixture_survey_basic")
-            let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+            let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
             #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
             #expect(sut.name == "Core Web Vitals feature request")
             #expect(sut.type == .popover)
             #expect(sut.featureFlagKeys == [
-                SurveyFeatureFlagKeyValue(key: "flag1", value: "linked-flag-key"),
-                SurveyFeatureFlagKeyValue(key: "flag2", value: "survey-targeting-flag-key"),
+                PostHogSurveyFeatureFlagKeyValue(key: "flag1", value: "linked-flag-key"),
+                PostHogSurveyFeatureFlagKeyValue(key: "flag2", value: "survey-targeting-flag-key"),
             ])
             #expect(sut.targetingFlagKey == "survey-targeting-flag-key")
             #expect(sut.internalTargetingFlagKey == "survey-targeting-88af4df282-custom")
@@ -63,7 +63,7 @@ enum PostHogSurveysTest {
             @Test("basic question decodes correctly")
             func basicQuestionDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_question_basic")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .open(question) = sut.questions[0] {
                     #expect(question.question == "What would you like to see in our Core Web Vitals product?")
@@ -78,7 +78,7 @@ enum PostHogSurveysTest {
             @Test("single-choice question decodes correctly")
             func singleChoiceQuestionDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_question_single_choice")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .singleChoice(question) = sut.questions[0] {
                     #expect(question.choices == ["Heck yeah", "Nope, I'm good"])
@@ -94,7 +94,7 @@ enum PostHogSurveysTest {
             @Test("multiple-choice question decodes correctly")
             func multipleChoiceQuestionDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_question_multiple_choice")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .multipleChoice(question) = sut.questions[0] {
                     #expect(question.choices == [
@@ -118,7 +118,7 @@ enum PostHogSurveysTest {
             @Test("link question decodes correctly")
             func linkQuestionDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_question_link")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .link(question) = sut.questions[0] {
                     #expect(question.link == "https://cal.com/david-posthog/user-interview")
@@ -133,7 +133,7 @@ enum PostHogSurveysTest {
             @Test("rating question decodes correctly")
             func ratingQuestionDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_question_rating")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .rating(question) = sut.questions[0] {
                     #expect(question.scale == 10)
@@ -154,7 +154,7 @@ enum PostHogSurveysTest {
             @Test("next branching decodes correctly")
             func nextBranchingDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_branching_next")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case .next = sut.questions[0].branching {
                     // nothing
@@ -166,7 +166,7 @@ enum PostHogSurveysTest {
             @Test("end branching decodes correctly")
             func endBranchingDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_branching_end")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case .end = sut.questions[0].branching {
                     // nothing
@@ -178,7 +178,7 @@ enum PostHogSurveysTest {
             @Test("specific question branching decodes correctly")
             func specificQuestionBranchingDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_branching_specific")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .specificQuestion(index: index) = sut.questions[0].branching {
                     #expect(index == 2)
@@ -190,7 +190,7 @@ enum PostHogSurveysTest {
             @Test("response-based branching decodes correctly")
             func responseBasedBranchingDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_branching_response_based")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .responseBased(values) = sut.questions[0].branching {
                     #expect(values["0"] as? Int == 1)
@@ -203,7 +203,7 @@ enum PostHogSurveysTest {
             @Test("response-based with linkert branching decodes correctly")
             func responseBasedWithLinkertBranchingDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_branching_response_based_linkert")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .responseBased(values) = sut.questions[0].branching {
                     #expect(values["negative"] as? Int == 1)
@@ -217,7 +217,7 @@ enum PostHogSurveysTest {
             @Test("response-based with empty values branching decodes correctly")
             func responseBasedWithEmptyValuesBranchingDecodesCorrectly() throws {
                 let data = try loadFixture("fixture_survey_branching_response_based_empty")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .responseBased(values) = sut.questions[0].branching {
                     #expect(values.isEmpty)
@@ -232,10 +232,10 @@ enum PostHogSurveysTest {
             @Test("event condition decodes correctly")
             func eventConditionDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_conditions_event")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let events = sut.conditions?.events {
-                    #expect(events.values == [EventCondition(name: "dashboard loading time")])
+                    #expect(events.values == [PostHogEventCondition(name: "dashboard loading time")])
                 } else {
                     throw TestError("Expected event display condition")
                 }
@@ -244,10 +244,10 @@ enum PostHogSurveysTest {
             @Test("repeated event condition decodes correctly")
             func repeatedEventConditionDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_conditions_event_repeated")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let events = sut.conditions?.events {
-                    #expect(events.values == [EventCondition(name: "dashboard loading time")])
+                    #expect(events.values == [PostHogEventCondition(name: "dashboard loading time")])
                     #expect(events.repeatedActivation == true)
                 } else {
                     throw TestError("Expected repeated event display condition")
@@ -257,7 +257,7 @@ enum PostHogSurveysTest {
             @Test("device type condition decodes correctly")
             func deviceTypeConditionDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_conditions_device_type")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let types = sut.conditions?.deviceTypes {
                     #expect(types == ["Mobile"])
@@ -269,7 +269,7 @@ enum PostHogSurveysTest {
             @Test("url condition decodes correctly")
             func urlConditionDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_conditions_url")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url {
                     #expect(url == "ScreenName")
@@ -284,7 +284,7 @@ enum PostHogSurveysTest {
             @Test("exact url match type decodes correctly")
             func exactUrlMatchTypeDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_url_match_type_exact")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
                     #expect(url == "ScreenName")
@@ -297,7 +297,7 @@ enum PostHogSurveysTest {
             @Test("is_not url match type decodes correctly")
             func isNotRegexUrlMatchTypeDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_url_match_type_is_not")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
                     #expect(url == "ScreenName")
@@ -310,7 +310,7 @@ enum PostHogSurveysTest {
             @Test("icontains url match type decodes correctly")
             func iContainsUrlMatchTypeDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_url_match_type_icontains")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
                     #expect(url == "ScreenName")
@@ -323,7 +323,7 @@ enum PostHogSurveysTest {
             @Test("not_icontains url match type decodes correctly")
             func notIContainsUrlMatchTypeDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_url_match_type_not_icontains")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
                     #expect(url == "ScreenName")
@@ -336,7 +336,7 @@ enum PostHogSurveysTest {
             @Test("regex url match type decodes correctly")
             func regexUrlMatchTypeDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_url_match_type_regex")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
                     #expect(url == "ScreenName")
@@ -349,7 +349,7 @@ enum PostHogSurveysTest {
             @Test("not_regex url match type decodes correctly")
             func notRegexUrlMatchTypeDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_url_match_type_not_regex")
-                let sut = try PostHogApi.jsonDecoder.decode(Survey.self, from: data)
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if let url = sut.conditions?.url, let matchType = sut.conditions?.urlMatchType {
                     #expect(url == "ScreenName")
@@ -381,7 +381,7 @@ enum PostHogSurveysTest {
 
         @Test("matches regex correctly", arguments: regexMap)
         func matchesRegex(url: String, regex: String, shouldMatch: Bool) {
-            let sut: SurveyMatchType = .regex
+            let sut: PostHogSurveyMatchType = .regex
             let matches = sut.matchFunction
 
             #expect(matches([url], regex) == shouldMatch)
@@ -389,7 +389,7 @@ enum PostHogSurveysTest {
 
         @Test("matches not_regex correctly", arguments: regexMap)
         func matchesNotRegex(url: String, regex: String, shouldMatch: Bool) {
-            let sut: SurveyMatchType = .notRegex
+            let sut: PostHogSurveyMatchType = .notRegex
             let matches = sut.matchFunction
 
             #expect(matches([url], regex) != shouldMatch)
@@ -397,7 +397,7 @@ enum PostHogSurveysTest {
 
         @Test("matches icontains correctly")
         func matchesIcontains() {
-            let sut: SurveyMatchType = .iContains
+            let sut: PostHogSurveyMatchType = .iContains
             let matches = sut.matchFunction
 
             #expect(matches(["Hello"], "hello") == true)
@@ -409,7 +409,7 @@ enum PostHogSurveysTest {
 
         @Test("matches not_icontains correctly")
         func matchesNotIcontains() {
-            let sut: SurveyMatchType = .notIContains
+            let sut: PostHogSurveyMatchType = .notIContains
             let matches = sut.matchFunction
 
             #expect(matches(["Hello"], "hello") == false)
@@ -421,7 +421,7 @@ enum PostHogSurveysTest {
 
         @Test("matches exact correctly")
         func matchesExact() {
-            let sut: SurveyMatchType = .exact
+            let sut: PostHogSurveyMatchType = .exact
             let matches = sut.matchFunction
 
             #expect(matches(["Hello"], "hello") == false)
@@ -433,7 +433,7 @@ enum PostHogSurveysTest {
 
         @Test("matches is_not correctly")
         func matchesIsNot() {
-            let sut: SurveyMatchType = .isNot
+            let sut: PostHogSurveyMatchType = .isNot
             let matches = sut.matchFunction
 
             #expect(matches(["Hello"], "hello") == true)
@@ -446,8 +446,8 @@ enum PostHogSurveysTest {
 
     @Suite("Test canActivateRepeatedly")
     struct TestCanActivateRepeatedly {
-        private func getSut(repeatedActivation: Bool?, values: [EventCondition]) -> Survey {
-            Survey(
+        private func getSut(repeatedActivation: Bool?, values: [PostHogEventCondition]) -> PostHogSurvey {
+            PostHogSurvey(
                 id: "id",
                 name: "name",
                 type: .popover,
@@ -456,14 +456,14 @@ enum PostHogSurveysTest {
                 linkedFlagKey: nil,
                 targetingFlagKey: nil,
                 internalTargetingFlagKey: nil,
-                conditions: SurveyConditions(
+                conditions: PostHogSurveyConditions(
                     url: nil,
                     urlMatchType: nil,
                     selector: nil,
                     deviceTypes: nil,
                     deviceTypesMatchType: nil,
                     seenSurveyWaitPeriodInDays: nil,
-                    events: SurveyEventConditions(
+                    events: PostHogSurveyEventConditions(
                         repeatedActivation: repeatedActivation,
                         values: values
                     ),
@@ -492,8 +492,8 @@ enum PostHogSurveysTest {
             let sut = getSut(
                 repeatedActivation: true,
                 values: [
-                    EventCondition(name: "first event"),
-                    EventCondition(name: "second event"),
+                    PostHogEventCondition(name: "first event"),
+                    PostHogEventCondition(name: "second event"),
                 ]
             )
 
@@ -505,8 +505,8 @@ enum PostHogSurveysTest {
             let sut = getSut(
                 repeatedActivation: false,
                 values: [
-                    EventCondition(name: "first event"),
-                    EventCondition(name: "second event"),
+                    PostHogEventCondition(name: "first event"),
+                    PostHogEventCondition(name: "second event"),
                 ]
             )
 
@@ -795,7 +795,7 @@ enum PostHogSurveysTest {
 
             let sut = getSut(surveys: surveys)
 
-            let matchedSurveys: [Survey] = await withCheckedContinuation { continuation in
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                 sut.getActiveMatchingSurveys(forceReload: true) {
                     continuation.resume(with: .success($0))
                 }
@@ -816,7 +816,7 @@ enum PostHogSurveysTest {
 
             let sut = getSut(surveys: surveys)
 
-            let matchedSurveys: [Survey] = await withCheckedContinuation { continuation in
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                 sut.getActiveMatchingSurveys(forceReload: true) {
                     continuation.resume(with: .success($0))
                 }
@@ -833,7 +833,7 @@ enum PostHogSurveysTest {
         func returnsOnlySurveysWithEnabledFeatureFlags() async {
             let sut = getSut(surveys: [surveysWithFeatureFlags])
 
-            let matchedSurveys: [Survey] = await withCheckedContinuation { continuation in
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                 sut.getActiveMatchingSurveys(forceReload: true) {
                     continuation.resume(with: .success($0))
                 }
@@ -848,7 +848,7 @@ enum PostHogSurveysTest {
         func shouldFilterOutSurveysWhenAnyFlagIsDisabled() async {
             let sut = getSut(surveys: [surveyWithEnabledAndDisabledFlags])
 
-            let matchedSurveys: [Survey] = await withCheckedContinuation { continuation in
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                 sut.getActiveMatchingSurveys(forceReload: true) {
                     continuation.resume(with: .success($0))
                 }
@@ -861,7 +861,7 @@ enum PostHogSurveysTest {
         func shouldIgnoreSurveysWithMissingFeatureFlagsKeysOrValues() async {
             let sut = getSut(surveys: [surveysWithMissingKeysAndValues])
 
-            let matchedSurveys: [Survey] = await withCheckedContinuation { continuation in
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                 sut.getActiveMatchingSurveys(forceReload: true) {
                     continuation.resume(with: .success($0))
                 }
@@ -875,7 +875,7 @@ enum PostHogSurveysTest {
         func returnsSurveysThatMatchInternalTargetingFlags() async {
             let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
 
-            let matchedSurveys: [Survey] = await withCheckedContinuation { continuation in
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
                 sut.getActiveMatchingSurveys(forceReload: true) {
                     continuation.resume(with: .success($0))
                 }
@@ -891,14 +891,14 @@ func loadFixture(_ name: String) throws -> Data {
     return try Data(contentsOf: url!)
 }
 
-private extension Survey {
+private extension PostHogSurvey {
     static func testInstance(
         id: String = UUID().uuidString,
         name: String,
-        type: SurveyType = .popover,
-        questions: [SurveyQuestion] = [
+        type: PostHogSurveyType = .popover,
+        questions: [PostHogSurveyQuestion] = [
             .open(
-                OpenSurveyQuestion(
+                PostHogOpenSurveyQuestion(
                     question: "Some question",
                     description: "Some description",
                     descriptionContentType: nil,
@@ -909,18 +909,18 @@ private extension Survey {
                 )
             ),
         ],
-        featureFlagKeys: [SurveyFeatureFlagKeyValue]? = nil,
+        featureFlagKeys: [PostHogSurveyFeatureFlagKeyValue]? = nil,
         linkedFlagKey: String? = nil,
         targetingFlagKey: String? = nil,
         internalTargetingFlagKey: String? = nil,
-        conditions: SurveyConditions? = nil,
-        appearance: SurveyAppearance? = nil,
+        conditions: PostHogSurveyConditions? = nil,
+        appearance: PostHogSurveyAppearance? = nil,
         currentIteration: Int? = nil,
         currentIterationStartDate: Date? = nil,
         startDate: Date? = nil,
         endDate: Date? = nil
-    ) -> Survey {
-        Survey(
+    ) -> PostHogSurvey {
+        PostHogSurvey(
             id: id,
             name: name,
             type: type,

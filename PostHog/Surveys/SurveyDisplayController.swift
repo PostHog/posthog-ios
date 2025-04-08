@@ -9,14 +9,14 @@
     import SwiftUI
 
     final class SurveyDisplayController: ObservableObject {
-        typealias SurveyShownHandler = (_ survey: Survey) -> Void
-        typealias SurveyResponseHandler = (_ survey: Survey, _ responses: [String: SurveyResponse], _ completed: Bool) -> Void
-        typealias SurveyClosedHandler = (_ survey: Survey, _ completed: Bool) -> Void
+        typealias SurveyShownHandler = (_ survey: PostHogSurvey) -> Void
+        typealias SurveyResponseHandler = (_ survey: PostHogSurvey, _ responses: [String: PostHogSurveyResponse], _ completed: Bool) -> Void
+        typealias SurveyClosedHandler = (_ survey: PostHogSurvey, _ completed: Bool) -> Void
 
-        @Published var displayedSurvey: Survey?
+        @Published var displayedSurvey: PostHogSurvey?
         @Published var isSurveyCompleted: Bool = false
         @Published var currentQuestionIndex: Int?
-        private var questionResponses: [String: SurveyResponse] = [:]
+        private var questionResponses: [String: PostHogSurveyResponse] = [:]
 
         private let onSurveyShown: SurveyShownHandler
         private let onSurveyResponse: SurveyResponseHandler
@@ -34,7 +34,7 @@
             self.onSurveyClosed = onSurveyClosed
         }
 
-        func showSurvey(_ survey: Survey) {
+        func showSurvey(_ survey: PostHogSurvey) {
             guard displayedSurvey == nil else {
                 hedgeLog("Already displaying a survey. Skipping")
                 return
@@ -46,7 +46,7 @@
             onSurveyShown(survey)
         }
 
-        func onNextQuestion(index: Int, response: SurveyResponse) {
+        func onNextQuestion(index: Int, response: PostHogSurveyResponse) {
             guard let displayedSurvey else { return }
 
             // update question responses
@@ -75,7 +75,7 @@
         }
 
         private func getNextSurveyStep(
-            survey: Survey,
+            survey: PostHogSurvey,
             currentQuestionIndex: Int
         ) -> Int {
             // TODO: Conditional questions
@@ -83,7 +83,7 @@
         }
 
         private func isSurveyCompleted(
-            survey: Survey,
+            survey: PostHogSurvey,
             currentQuestionIndex: Int
         ) -> Bool {
             // TODO: Conditional questions

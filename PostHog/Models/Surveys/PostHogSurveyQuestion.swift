@@ -1,49 +1,11 @@
 //
-//  Survey.swift
+//  PostHogSurveyQuestion.swift
 //  PostHog
 //
-//  Created by Yiannis Josephides on 20/01/2025.
+//  Created by Ioannis Josephides on 08/04/2025.
 //
 
 import Foundation
-
-/// Represents the main survey object containing metadata, questions, conditions, and appearance settings.
-/// see: posthog-js/posthog-surveys-types.ts
-struct PostHogSurvey: Decodable, Identifiable {
-    /// The unique identifier for the survey
-    let id: String
-    /// The name of the survey
-    let name: String
-    /// Type of the survey (e.g., "popover")
-    let type: PostHogSurveyType
-    /// The questions asked in the survey
-    let questions: [PostHogSurveyQuestion]
-    /// Multiple feature flag keys. Must all (AND) evaluate to true for the survey to be shown (optional)
-    let featureFlagKeys: [PostHogSurveyFeatureFlagKeyValue]?
-    /// Linked feature flag key. Must evaluate to true for the survey to be shown (optional)
-    let linkedFlagKey: String?
-    /// Targeting feature flag key. Must evaluate to true for the survey to be shown (optional)
-    let targetingFlagKey: String?
-    /// Internal targeting flag key. Must evaluate to true for the survey to be shown (optional)
-    let internalTargetingFlagKey: String?
-    /// Conditions for displaying the survey (optional)
-    let conditions: PostHogSurveyConditions?
-    /// Appearance settings for the survey (optional)
-    let appearance: PostHogSurveyAppearance?
-    /// The iteration number for the survey (optional)
-    let currentIteration: Int?
-    /// The start date for the current iteration of the survey (optional)
-    let currentIterationStartDate: Date?
-    /// Start date of the survey (optional)
-    let startDate: Date?
-    /// End date of the survey (optional)
-    let endDate: Date?
-}
-
-struct PostHogSurveyFeatureFlagKeyValue: Equatable, Decodable {
-    let key: String
-    let value: String?
-}
 
 // MARK: - Question Models
 
@@ -192,8 +154,6 @@ struct PostHogMultipleSurveyQuestion: PostHogSurveyQuestionProperties, Decodable
     let shuffleOptions: Bool?
 }
 
-// MARK: - Branching Models
-
 /// Represents branching logic for a question based on user responses
 enum PostHogSurveyQuestionBranching: Decodable {
     case next
@@ -238,132 +198,6 @@ enum PostHogSurveyQuestionBranching: Decodable {
     private enum CodingKeys: CodingKey {
         case type, responseValues, index
     }
-}
-
-// MARK: - Display Conditions
-
-/// Represents conditions for displaying the survey, such as URL or event-based triggers
-struct PostHogSurveyConditions: Decodable {
-    /// Target URL for the survey (optional)
-    let url: String?
-    /// The match type for the url condition (optional)
-    let urlMatchType: PostHogSurveyMatchType?
-    /// CSS selector for displaying the survey (optional)
-    let selector: String?
-    /// Device type based conditions for displaying the survey (optional)
-    let deviceTypes: [String]?
-    /// The match type for the device type condition (optional)
-    let deviceTypesMatchType: PostHogSurveyMatchType?
-    /// Minimum wait period before showing the survey again (optional)
-    let seenSurveyWaitPeriodInDays: Int?
-    /// Event-based conditions for displaying the survey (optional)
-    let events: PostHogSurveyEventConditions?
-    /// Action-based conditions for displaying the survey (optional)
-    let actions: PostHogSurveyActionsConditions?
-}
-
-/// Represents event-based conditions for displaying the survey
-struct PostHogSurveyEventConditions: Decodable {
-    public let repeatedActivation: Bool?
-    /// List of events that trigger the survey
-    public let values: [PostHogEventCondition]
-}
-
-struct PostHogSurveyActionsConditions: Decodable {
-    /// List of events that trigger the survey
-    public let values: [PostHogEventCondition]
-}
-
-/// Represents a single event condition used in survey targeting
-struct PostHogEventCondition: Decodable, Equatable {
-    /// Name of the event (e.g., "content loaded")
-    public let name: String
-}
-
-// MARK: - Appearance
-
-/// Represents the appearance settings for the survey, such as colors, fonts, and layout
-struct PostHogSurveyAppearance: Decodable {
-    public let position: PostHogSurveyAppearancePosition?
-    public let fontFamily: String?
-    public let backgroundColor: String?
-    public let submitButtonColor: String?
-    public let submitButtonText: String?
-    public let submitButtonTextColor: String?
-    public let descriptionTextColor: String?
-    public let ratingButtonColor: String?
-    public let ratingButtonActiveColor: String?
-    public let ratingButtonHoverColor: String?
-    public let whiteLabel: Bool?
-    public let autoDisappear: Bool?
-    public let displayThankYouMessage: Bool?
-    public let thankYouMessageHeader: String?
-    public let thankYouMessageDescription: String?
-    public let thankYouMessageDescriptionContentType: PostHogSurveyTextContentType?
-    public let thankYouMessageCloseButtonText: String?
-    public let borderColor: String?
-    public let placeholder: String?
-    public let shuffleQuestions: Bool?
-    public let surveyPopupDelaySeconds: TimeInterval?
-    // widget options
-    public let widgetType: PostHogSurveyAppearanceWidgetType?
-    public let widgetSelector: String?
-    public let widgetLabel: String?
-    public let widgetColor: String?
-}
-
-// MARK: - Supporting Types
-
-enum PostHogSurveyType: String, Decodable {
-    case popover, api, widget
-}
-
-enum PostHogSurveyQuestionType: String, Decodable {
-    case open
-    case link
-    case rating
-    case multipleChoice = "multiple_choice"
-    case singleChoice = "single_choice"
-}
-
-enum PostHogSurveyTextContentType: String, Decodable {
-    case html, text
-}
-
-enum PostHogSurveyMatchType: String, Decodable {
-    case regex
-    case notRegex = "not_regex"
-    case exact
-    case isNot = "is_not"
-    case iContains = "icontains"
-    case notIContains = "not_icontains"
-}
-
-enum PostHogSurveyAppearancePosition: String, Decodable {
-    case left, right, center
-}
-
-enum PostHogSurveyAppearanceWidgetType: String, Decodable {
-    case button, tab, selector
-}
-
-enum PostHogSurveyRatingDisplayType: String, Decodable {
-    case number, emoji
-}
-
-enum PostHogSurveyQuestionBranchingType: String, Decodable {
-    case nextQuestion = "next_question"
-    case end
-    case responseBased = "response_based"
-    case specificQuestion = "specific_question"
-}
-
-enum PostHogSurveyResponse {
-    case link(String)
-    case rating(Int?)
-    case openEnded(String?)
-    case singleChoice(String?)
-    case multipleChoice([String]?)
 }
 
 /// A helper type for decoding JSON values, which may be nested objects, arrays, strings, numbers, booleans, or nulls.

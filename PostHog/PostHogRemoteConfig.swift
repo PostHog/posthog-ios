@@ -24,7 +24,6 @@ class PostHogRemoteConfig {
     private let loadingRemoteConfigLock = NSLock()
     private var loadingRemoteConfig = false
     private var remoteConfig: [String: Any]?
-    private var hasFeatureFlags: Bool?
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
 
@@ -45,9 +44,13 @@ class PostHogRemoteConfig {
         self.storage = storage
         self.api = api
 
-        preloadRemoteConfig()
-        preloadFeatureFlags()
         preloadSessionReplayFlag()
+
+        if config.remoteConfig {
+            preloadRemoteConfig()
+        } else if config.preloadFeatureFlags {
+            preloadFeatureFlags()
+        }
     }
 
     private func preloadRemoteConfig() {
@@ -61,7 +64,16 @@ class PostHogRemoteConfig {
             self.remoteConfig == nil || !self.remoteConfigDidFetch
         }) {
             dispatchQueue.async {
-                self.reloadRemoteConfig()
+                self.reloadRemoteConfig { [weak self] remoteConfig in
+                    guard let self else { return }
+                    let hasFeatureFlags = remoteConfig?[self.hasFeatureFlagsKey] as? Bool == true
+                    let cachedFeatureFlags = self.featureFlagsLock.withLock { self.featureFlags }
+                    let preloadFeatureFlags = self.config.preloadFeatureFlags
+                    // reload feature flags if not previously loaded
+                    if hasFeatureFlags, cachedFeatureFlags == nil, preloadFeatureFlags {
+                        self.preloadFeatureFlags()
+                    }
+                }
             }
         }
     }
@@ -82,6 +94,11 @@ class PostHogRemoteConfig {
     func reloadRemoteConfig(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
+        guard config.remoteConfig else {
+            callback?(nil)
+            return
+        }
+
         loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
                 return
@@ -186,38 +203,6 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {
-        if remoteConfigLock.withLock({ hasFeatureFlags == nil }) {
-            // not cached or fetched yet
-            reloadRemoteConfig { _ in
-                self.loadFeatureFlagsInternal(
-                    distinctId: distinctId,
-                    anonymousId: anonymousId,
-                    groups: groups,
-                    callback: callback
-                )
-            }
-        } else {
-            loadFeatureFlagsInternal(
-                distinctId: distinctId,
-                anonymousId: anonymousId,
-                groups: groups,
-                callback: callback
-            )
-        }
-    }
-
-    private func loadFeatureFlagsInternal(
-        distinctId: String,
-        anonymousId: String,
-        groups: [String: String],
-        callback: @escaping ([String: Any]?) -> Void
-    ) {
-        guard remoteConfigLock.withLock({ hasFeatureFlags == true }) else {
-            hedgeLog("Remote config reported no feature flags. Skipping")
-            callback(nil)
-            return
-        }
-
         loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
                 return
@@ -258,24 +243,7 @@ class PostHogRemoteConfig {
                 let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
 
                 #if os(iOS)
-                    if let sessionRecording = data?["sessionRecording"] as? Bool {
-                        self.sessionReplayFlagActive = sessionRecording
-
-                        // its always false here anyway
-                        if !sessionRecording {
-                            self.storage.remove(key: .sessionReplay)
-                        }
-
-                    } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
-                        // keeps the value from config.sessionReplay since having sessionRecording
-                        // means its enabled on the project settings, but its only enabled
-                        // when local replay integration is enabled/active
-                        if let endpoint = sessionRecording["endpoint"] as? String {
-                            self.config.snapshotEndpoint = endpoint
-                        }
-                        self.sessionReplayFlagActive = self.isRecordingActive(featureFlags, sessionRecording)
-                        self.storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
-                    }
+                    self.processSessionRecordingConfig(data, featureFlags: featureFlags)
                 #endif
 
                 var loadedFeatureFlags: [String: Any]?
@@ -305,6 +273,29 @@ class PostHogRemoteConfig {
             }
         }
     }
+
+    #if os(iOS)
+        private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
+            if let sessionRecording = data?["sessionRecording"] as? Bool {
+                sessionReplayFlagActive = sessionRecording
+
+                // its always false here anyway
+                if !sessionRecording {
+                    storage.remove(key: .sessionReplay)
+                }
+
+            } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
+                // keeps the value from config.sessionReplay since having sessionRecording
+                // means its enabled on the project settings, but its only enabled
+                // when local replay integration is enabled/active
+                if let endpoint = sessionRecording["endpoint"] as? String {
+                    config.snapshotEndpoint = endpoint
+                }
+                sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
+            }
+        }
+    #endif
 
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
         DispatchQueue.main.async {
@@ -425,20 +416,17 @@ class PostHogRemoteConfig {
     }
 
     private func onRemoteConfig(_ remoteConfig: [String: Any]) {
-        let hasFeatureFlags = remoteConfig[hasFeatureFlagsKey] as? Bool
-
         // cache config
         remoteConfigLock.withLock {
             self.remoteConfig = remoteConfig
-            self.hasFeatureFlags = hasFeatureFlags
             storage.setDictionary(forKey: .remoteConfig, contents: remoteConfig)
         }
 
-        // reload feature flags if not previously loaded
-        let cachedFeatureFlags = featureFlagsLock.withLock { self.featureFlags }
-        if hasFeatureFlags == true, cachedFeatureFlags == nil {
-            reloadFeatureFlags()
-        }
+        #if os(iOS)
+            // process session replay config
+            let featureFlags = featureFlagsLock.withLock { self.featureFlags }
+            processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags ?? [:])
+        #endif
 
         DispatchQueue.main.async {
             self.onRemoteConfigLoaded?(remoteConfig)

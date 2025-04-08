@@ -301,7 +301,7 @@ struct SurveyAppearance: Decodable {
     public let thankYouMessageDescription: String?
     public let thankYouMessageDescriptionContentType: SurveyTextContentType?
     public let thankYouMessageCloseButtonText: String?
-    public let borderColor: String
+    public let borderColor: String?
     public let placeholder: String?
     public let shuffleQuestions: Bool?
     public let surveyPopupDelaySeconds: TimeInterval?

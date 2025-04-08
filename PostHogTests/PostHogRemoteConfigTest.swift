@@ -207,25 +207,11 @@ enum PostHogRemoteConfigTest {
             #expect(sut.getRemoteConfig() as? [String: String] == ["foo": "bar"])
         }
 
-        @Test("loadFeatureFlags fetches remote config if missing")
-        func loadFlagsLoadsRemoteConfigWhenMissing() async {
-            let storage = PostHogStorage(config)
-            storage.remove(key: .remoteConfig)
-            let sut = getSut()
-
-            #expect(sut.getRemoteConfig() == nil)
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
-            #expect(sut.getRemoteConfig() != nil)
-        }
-
         @Test("reloadRemoteConfig fetches feature flags if missing")
         func onRemoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.preloadFeatureFlags = false
+            config.remoteConfig = true
+            config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
 
@@ -248,6 +234,34 @@ enum PostHogRemoteConfigTest {
 
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() != nil)
+        }
+
+        @Test("reloadRemoteConfig does not fetch feature flags if preloadFeatureFlags is disabled")
+        func reloadRemoteConfigDoesNotFetchFeatureFlagsIfPreloadFeatureFlagsIsDisabled() async throws {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.remoteConfig = true
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+
+            var featureFlagsLoaded = false
+            var remoteConfigLoaded = false
+
+            sut.onFeatureFlagsLoaded = { _ in
+                featureFlagsLoaded = true
+            }
+            sut.onRemoteConfigLoaded = { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                while !remoteConfigLoaded {}
+                continuation.resume()
+            }
+
+            #expect(featureFlagsLoaded == false)
+            #expect(sut.getRemoteConfig() != nil)
+            #expect(sut.getFeatureFlags() == nil)
         }
     }
 

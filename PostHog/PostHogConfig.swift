@@ -34,6 +34,13 @@ import Foundation
     @objc public var dataMode: PostHogDataMode = .any
     @objc public var sendFeatureFlagEvent: Bool = true
     @objc public var preloadFeatureFlags: Bool = true
+
+    /// Preload PostHog remote config automatically
+    /// Default: true
+    ///
+    /// Note: Surveys rely on remote config. Disabling this will also disable Surveys
+    @objc public var remoteConfig: Bool = true
+
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
     #if os(iOS) || targetEnvironment(macCatalyst)

@@ -47,9 +47,6 @@ let maxRetryDelay = 30.0
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
 
-    /// Internal, only used for testing
-    var shouldReloadFlagsForTesting = true
-
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -950,7 +947,6 @@ let maxRetryDelay = 30.0
             context = nil
             PostHogSessionManager.shared.endSession()
             toggleHedgeLog(false)
-            shouldReloadFlagsForTesting = true
 
             uninstallIntegrations()
         }

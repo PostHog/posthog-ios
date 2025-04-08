@@ -1,5 +1,5 @@
 //
-//  PostHogSurvey.swift
+//  Survey.swift
 //  PostHog
 //
 //  Created by Yiannis Josephides on 20/01/2025.

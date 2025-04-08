@@ -80,7 +80,11 @@ import Foundation
 
     /// Enable mobile surveys
     /// Experimental support
+    ///
     /// Default: false
+    ///
+    /// Note: Event triggers will only work with the instance that first enables surveys.
+    /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
     @available(iOS 15.0, *)
     @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")

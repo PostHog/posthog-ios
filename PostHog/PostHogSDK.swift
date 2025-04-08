@@ -47,6 +47,11 @@ let maxRetryDelay = 30.0
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
 
+    #if os(iOS)
+        private weak var replayIntegration: PostHogReplayIntegration?
+        private weak var surveysIntegration: PostHogSurveyIntegration?
+    #endif
+
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -592,10 +597,6 @@ let maxRetryDelay = 30.0
         targetQueue?.add(posthogEvent)
 
         #if os(iOS)
-            let surveysIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogSurveyIntegration
-            }.first
-
             surveysIntegration?.onEvent(event: posthogEvent.event)
         #endif
     }
@@ -978,10 +979,6 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            let replayIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogReplayIntegration
-            }.first
-
             guard let replayIntegration else {
                 return
             }
@@ -1017,9 +1014,11 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            let replayIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogReplayIntegration
-            }.first
+            #if os(iOS)
+                let replayIntegration = installedIntegrations.compactMap {
+                    $0 as? PostHogReplayIntegration
+                }.first
+            #endif
 
             guard let replayIntegration, replayIntegration.isActive() else {
                 return
@@ -1041,10 +1040,6 @@ let maxRetryDelay = 30.0
             if !isEnabled() {
                 return false
             }
-
-            let replayIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogReplayIntegration
-            }.first
 
             guard let replayIntegration, let remoteConfig else {
                 return false
@@ -1070,6 +1065,18 @@ let maxRetryDelay = 30.0
             do {
                 try integration.install(self)
                 installed.append(integration)
+
+                #if os(iOS)
+                    // TODO: Decouple these two integrations from PostHogSDK intance
+                    if let replayIntegration = integration as? PostHogReplayIntegration {
+                        self.replayIntegration = replayIntegration
+                    }
+
+                    if let surveysIntegration = integration as? PostHogSurveyIntegration {
+                        self.surveysIntegration = surveysIntegration
+                    }
+                #endif
+
                 hedgeLog("Integration \(type(of: integration)) installed")
             } catch {
                 hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
@@ -1085,6 +1092,11 @@ let maxRetryDelay = 30.0
             hedgeLog("Integration \(type(of: integration)) uninstalled")
         }
         installedIntegrations = []
+
+        #if os(iOS)
+            replayIntegration = nil
+            surveysIntegration = nil
+        #endif
     }
 }
 

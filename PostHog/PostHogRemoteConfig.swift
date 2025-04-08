@@ -106,9 +106,24 @@ class PostHogRemoteConfig {
             self.loadingRemoteConfig = true
         }
 
-        api.remoteConfig { data, _ in
-            if let data {
-                self.onRemoteConfig(data)
+        api.remoteConfig { config, _ in
+            if let config {
+                // cache config
+                self.remoteConfigLock.withLock {
+                    self.remoteConfig = config
+                    self.storage.setDictionary(forKey: .remoteConfig, contents: config)
+                }
+
+                // process session replay config
+                #if os(iOS)
+                    let featureFlags = self.featureFlagsLock.withLock { self.featureFlags }
+                    self.processSessionRecordingConfig(config, featureFlags: featureFlags ?? [:])
+                #endif
+
+                // notify
+                DispatchQueue.main.async {
+                    self.onRemoteConfigLoaded?(config)
+                }
             }
 
             self.loadingRemoteConfigLock.withLock {
@@ -116,7 +131,7 @@ class PostHogRemoteConfig {
                 self.loadingRemoteConfig = false
             }
 
-            callback?(data)
+            callback?(config)
         }
     }
 
@@ -413,23 +428,5 @@ class PostHogRemoteConfig {
             remoteConfig = storage.getDictionary(forKey: .remoteConfig) as? [String: Any]
         }
         return remoteConfig
-    }
-
-    private func onRemoteConfig(_ remoteConfig: [String: Any]) {
-        // cache config
-        remoteConfigLock.withLock {
-            self.remoteConfig = remoteConfig
-            storage.setDictionary(forKey: .remoteConfig, contents: remoteConfig)
-        }
-
-        #if os(iOS)
-            // process session replay config
-            let featureFlags = featureFlagsLock.withLock { self.featureFlags }
-            processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags ?? [:])
-        #endif
-
-        DispatchQueue.main.async {
-            self.onRemoteConfigLoaded?(remoteConfig)
-        }
     }
 }

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.22.0 - 2025-04-09
+
 - feat: add support for surveys on iOS ([#325](https://github.com/PostHog/posthog-ios/pull/325))
 
 ## 3.21.0 - 2025-03-28

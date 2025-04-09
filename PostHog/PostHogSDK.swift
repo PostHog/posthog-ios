@@ -37,18 +37,20 @@ let maxRetryDelay = 30.0
 
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
-    private var storage: PostHogStorage?
+    private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
     private var flagCallReported = Set<String>()
-    private var featureFlags: PostHogFeatureFlags?
+    private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
 
-    /// Internal, only used for testing
-    var shouldReloadFlagsForTesting = true
+    #if os(iOS)
+        private weak var replayIntegration: PostHogReplayIntegration?
+        private weak var surveysIntegration: PostHogSurveyIntegration?
+    #endif
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
@@ -98,8 +100,9 @@ let maxRetryDelay = 30.0
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let api = PostHogApi(config)
-            featureFlags = PostHogFeatureFlags(config, theStorage, api)
+
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
+            remoteConfig = PostHogRemoteConfig(config, theStorage, api)
 
             #if !os(watchOS)
                 do {
@@ -137,10 +140,6 @@ let maxRetryDelay = 30.0
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
-            }
-
-            if config.preloadFeatureFlags, shouldReloadFlagsForTesting {
-                reloadFeatureFlags()
             }
         }
     }
@@ -198,7 +197,7 @@ let maxRetryDelay = 30.0
             properties["$groups"] = groups!
         }
 
-        guard let flags = featureFlags?.getFeatureFlags() as? [String: Any] else {
+        guard let flags = remoteConfig?.getFeatureFlags() as? [String: Any] else {
             return properties
         }
 
@@ -350,9 +349,7 @@ let maxRetryDelay = 30.0
         PostHogSessionManager.shared.resetSession()
 
         // reload flags as anon user
-        if shouldReloadFlagsForTesting {
-            reloadFeatureFlags()
-        }
+        remoteConfig?.reloadFeatureFlags()
     }
 
     private func getGroups() -> [String: String] {
@@ -462,9 +459,8 @@ let maxRetryDelay = 30.0
                 properties: sanitizedProperties
             ))
 
-            if shouldReloadFlagsForTesting {
-                reloadFeatureFlags()
-            }
+            remoteConfig?.reloadFeatureFlags()
+
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
@@ -599,6 +595,10 @@ let maxRetryDelay = 30.0
         )
 
         targetQueue?.add(posthogEvent)
+
+        #if os(iOS)
+            surveysIntegration?.onEvent(event: posthogEvent.event)
+        #endif
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -728,8 +728,8 @@ let maxRetryDelay = 30.0
             break
         }
 
-        if shouldReloadFlags, shouldReloadFlagsForTesting {
-            reloadFeatureFlags()
+        if shouldReloadFlags {
+            remoteConfig?.reloadFeatureFlags()
         }
 
         return mergedGroups ?? [:]
@@ -807,25 +807,12 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let featureFlags, let storageManager = config.storageManager else {
-            return
-        }
-
-        var groups: [String: String]?
-        groupsLock.withLock {
-            groups = getGroups()
-        }
-        featureFlags.loadFeatureFlags(
-            distinctId: storageManager.getDistinctId(),
-            anonymousId: storageManager.getAnonymousId(),
-            groups: groups ?? [:],
-            callback: {
-                self.flagCallReportedLock.withLock {
-                    self.flagCallReported.removeAll()
-                }
-                callback()
+        remoteConfig?.reloadFeatureFlags { _ in
+            self.flagCallReportedLock.withLock {
+                self.flagCallReported.removeAll()
             }
-        )
+            callback()
+        }
     }
 
     @objc public func getFeatureFlag(_ key: String) -> Any? {
@@ -833,11 +820,11 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        guard let featureFlags else {
+        guard let remoteConfig else {
             return nil
         }
 
-        let value = featureFlags.getFeatureFlag(key)
+        let value = remoteConfig.getFeatureFlag(key)
 
         if config.sendFeatureFlagEvent {
             reportFeatureFlagCalled(flagKey: key, flagValue: value)
@@ -851,11 +838,11 @@ let maxRetryDelay = 30.0
             return false
         }
 
-        guard let featureFlags else {
+        guard let remoteConfig else {
             return false
         }
 
-        let value = featureFlags.isFeatureEnabled(key)
+        let value = remoteConfig.isFeatureEnabled(key)
 
         if config.sendFeatureFlagEvent {
             reportFeatureFlagCalled(flagKey: key, flagValue: value)
@@ -869,11 +856,11 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        guard let featureFlags else {
+        guard let remoteConfig else {
             return nil
         }
 
-        return featureFlags.getFeatureFlagPayload(key)
+        return remoteConfig.getFeatureFlagPayload(key)
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
@@ -949,7 +936,7 @@ let maxRetryDelay = 30.0
             config.storageManager?.reset()
             config.storageManager = nil
             config = PostHogConfig(apiKey: "")
-            featureFlags = nil
+            remoteConfig = nil
             storage = nil
             #if !os(watchOS)
                 self.reachability?.stopNotifier()
@@ -961,7 +948,6 @@ let maxRetryDelay = 30.0
             context = nil
             PostHogSessionManager.shared.endSession()
             toggleHedgeLog(false)
-            shouldReloadFlagsForTesting = true
 
             uninstallIntegrations()
         }
@@ -993,10 +979,6 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            let replayIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogReplayIntegration
-            }.first
-
             guard let replayIntegration else {
                 return
             }
@@ -1006,7 +988,7 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            guard let featureFlags, featureFlags.isSessionReplayFlagActive() else {
+            guard let remoteConfig, remoteConfig.isSessionReplayFlagActive() else {
                 return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
             }
 
@@ -1032,9 +1014,11 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            let replayIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogReplayIntegration
-            }.first
+            #if os(iOS)
+                let replayIntegration = installedIntegrations.compactMap {
+                    $0 as? PostHogReplayIntegration
+                }.first
+            #endif
 
             guard let replayIntegration, replayIntegration.isActive() else {
                 return
@@ -1057,17 +1041,13 @@ let maxRetryDelay = 30.0
                 return false
             }
 
-            let replayIntegration = installedIntegrations.compactMap {
-                $0 as? PostHogReplayIntegration
-            }.first
-
-            guard let replayIntegration, let featureFlags else {
+            guard let replayIntegration, let remoteConfig else {
                 return false
             }
 
             return replayIntegration.isActive()
                 && !PostHogSessionManager.shared.getSessionId(readOnly: true).isNilOrEmpty
-                && featureFlags.isSessionReplayFlagActive()
+                && remoteConfig.isSessionReplayFlagActive()
         }
     #endif
 
@@ -1085,6 +1065,18 @@ let maxRetryDelay = 30.0
             do {
                 try integration.install(self)
                 installed.append(integration)
+
+                #if os(iOS)
+                    // TODO: Decouple these two integrations from PostHogSDK intance
+                    if let replayIntegration = integration as? PostHogReplayIntegration {
+                        self.replayIntegration = replayIntegration
+                    }
+
+                    if let surveysIntegration = integration as? PostHogSurveyIntegration {
+                        self.surveysIntegration = surveysIntegration
+                    }
+                #endif
+
                 hedgeLog("Integration \(type(of: integration)) installed")
             } catch {
                 hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
@@ -1100,6 +1092,11 @@ let maxRetryDelay = 30.0
             hedgeLog("Integration \(type(of: integration)) uninstalled")
         }
         installedIntegrations = []
+
+        #if os(iOS)
+            replayIntegration = nil
+            surveysIntegration = nil
+        #endif
     }
 }
 

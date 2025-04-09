@@ -93,6 +93,8 @@ class PostHogStorage {
         case sessionReplay = "posthog.sessionReplay"
         case isIdentified = "posthog.isIdentified"
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
+        case remoteConfig = "posthog.remoteConfig"
+        case surveySeen = "posthog.surveySeen"
     }
 
     // The location for storing data that we always want to keep
@@ -244,6 +246,8 @@ class PostHogStorage {
         deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .isIdentified))
         deleteSafely(url(forKey: .personProcessingEnabled))
+        deleteSafely(url(forKey: .remoteConfig))
+        deleteSafely(url(forKey: .surveySeen))
     }
 
     public func remove(key: StorageKey) {

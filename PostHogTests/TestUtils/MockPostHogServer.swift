@@ -43,6 +43,8 @@ class MockPostHogServer {
     public var flagsSkipReplayVariantName = false
     public var replayVariantValue: Any = true
     public var quotaLimitFeatureFlags: Bool = false
+    public var remoteConfigSurveys: String?
+    public var featureFlags: [String: Any]?
 
     init() {
         stub(condition: pathEndsWith("/decide")) { _ in
@@ -61,6 +63,10 @@ class MockPostHogServer {
                 "number-value": true,
                 "recording-platform-check": "web",
             ]
+
+            if let additionalFlags = self.featureFlags {
+                flags.merge(additionalFlags, uniquingKeysWith: { _, new in new })
+            }
 
             if !self.flagsSkipReplayVariantName {
                 flags[self.replayVariantName] = self.replayVariantValue
@@ -117,6 +123,41 @@ class MockPostHogServer {
             } else {
                 HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
             }
+        }
+
+        stub(condition: pathEndsWith("/config")) { _ in
+            let configData =
+                """
+                {
+                    "token": "test_api_key",
+                    "supportedCompression": [
+                        "gzip",
+                        "gzip-js"
+                    ],
+                    "hasFeatureFlags": true,
+                    "captureDeadClicks": true,
+                    "capturePerformance": {
+                        "network_timing": true,
+                        "web_vitals": true,
+                        "web_vitals_allowed_metrics": null
+                    },
+                    "autocapture_opt_out": false,
+                    "autocaptureExceptions": {
+                        "endpoint": "/e/"
+                    },
+                    "analytics": {
+                        "endpoint": "/i/v0/e/"
+                    },
+                    "elementsChainAsString": true,
+                    "sessionRecording": false,
+                    "heatmaps": true,
+                    "surveys": \(self.remoteConfigSurveys ?? "false"),
+                    "defaultIdentifiedOnly": true,
+                    "siteApps": []
+                }
+                """.data(using: .utf8)!
+
+            return HTTPStubsResponse(data: configData, statusCode: 200, headers: nil)
         }
 
         HTTPStubs.onStubActivation { request, _, _ in

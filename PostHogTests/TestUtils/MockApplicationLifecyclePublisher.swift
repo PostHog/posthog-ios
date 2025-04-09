@@ -5,6 +5,7 @@
 //  Created by Ioannis Josephides on 21/02/2025.
 //
 
+import Foundation
 @testable import PostHog
 
 final class MockApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {

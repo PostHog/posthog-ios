@@ -18,7 +18,7 @@ import Quick
             var posthog: PostHogSDK!
 
             beforeEach {
-                let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
+                let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
                 config.captureElementInteractions = true
                 config.flushIntervalSeconds = 0.2
                 config.maxBatchSize = 1

@@ -149,7 +149,7 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: "123", host: "http://localhost:9001")
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -497,25 +497,6 @@ enum PostHogSessionManagerTest {
             newSessionId = PostHogSessionManager.shared.getSessionId()
 
             #expect(newSessionId == rnSessionId)
-        }
-    }
-}
-
-func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent] {
-    guard let expectation = server.batchExpectation else {
-        throw InternalPostHogError(description: "Server is not properly configured with a batch expectation.")
-    }
-
-    return try await withCheckedThrowingContinuation { continuation in
-        let result = XCTWaiter.wait(for: [expectation], timeout: 15)
-
-        switch result {
-        case .completed:
-            continuation.resume(returning: server.batchRequests.flatMap { server.parsePostHogEvents($0) })
-        case .timedOut:
-            continuation.resume(throwing: TestError("Timeout occurred while waiting for server events."))
-        default:
-            continuation.resume(throwing: TestError("Unexpected XCTWaiter result: \(result)."))
         }
     }
 }

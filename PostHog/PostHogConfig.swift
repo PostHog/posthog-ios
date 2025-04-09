@@ -34,6 +34,13 @@ import Foundation
     @objc public var dataMode: PostHogDataMode = .any
     @objc public var sendFeatureFlagEvent: Bool = true
     @objc public var preloadFeatureFlags: Bool = true
+
+    /// Preload PostHog remote config automatically
+    /// Default: true
+    ///
+    /// Note: Surveys rely on remote config. Disabling this will also disable Surveys
+    @objc public var remoteConfig: Bool = true
+
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
     #if os(iOS) || targetEnvironment(macCatalyst)
@@ -70,6 +77,24 @@ import Foundation
         /// Session Replay configuration
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
+
+    /// Enable mobile surveys
+    /// Experimental support
+    ///
+    /// Default: false
+    ///
+    /// Note: Event triggers will only work with the instance that first enables surveys.
+    /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true
+    @available(iOS 15.0, *)
+    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @_spi(Experimental)
+    @objc public var surveys: Bool {
+        get { _surveys }
+        set { setSurveys(newValue) }
+    }
 
     // only internal
     var disableReachabilityForTesting: Bool = false
@@ -110,6 +135,11 @@ import Foundation
             if sessionReplay {
                 integrations.append(PostHogReplayIntegration())
             }
+
+            if _surveys {
+                integrations.append(PostHogSurveyIntegration())
+            }
+
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)
@@ -119,5 +149,14 @@ import Foundation
         #endif
 
         return integrations
+    }
+
+    var _surveys: Bool = false // swiftlint:disable:this identifier_name
+    private func setSurveys(_ value: Bool) {
+        // protection against objc API availability warning instead of error
+        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
+        if #available(iOS 15.0, *) {
+            _surveys = value
+        }
     }
 }

@@ -1,0 +1,23 @@
+{
+    "id": "01947134-8a35-0000-549a-193b86fa2e44",
+    "name": "Community Meetup Preferences Survey",
+    "type": "popover",
+    "questions": [
+        {
+            "type": "multiple_choice",
+            "choices": [
+                "Meet new people",
+                "Build stuff (hackathon style)",
+                "Product growth hack (evolve your existing product, not start from scratch)",
+                "Learn things (talks, discussions)",
+                "Eat, drink and vibe (chill)",
+                "Something else"
+            ],
+            "question": "Let's say there's a meetup. What would you hope to get out of it? ",
+            "buttonText": "Submit",
+            "hasOpenChoice": true,
+            "originalQuestionIndex": 2,
+            "descriptionContentType": "text"
+        }
+    ]
+}

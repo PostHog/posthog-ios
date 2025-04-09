@@ -13,7 +13,7 @@ import Quick
 class PostHogConfigTest: QuickSpec {
     override func spec() {
         it("init config with default values") {
-            let config = PostHogConfig(apiKey: "123")
+            let config = PostHogConfig(apiKey: testAPIKey)
 
             expect(config.host) == URL(string: PostHogConfig.defaultHost)
             expect(config.flushAt) == 20
@@ -30,13 +30,13 @@ class PostHogConfigTest: QuickSpec {
         }
 
         it("init takes api key") {
-            let config = PostHogConfig(apiKey: "123")
+            let config = PostHogConfig(apiKey: testAPIKey)
 
-            expect(config.apiKey) == "123"
+            expect(config.apiKey) == testAPIKey
         }
 
         it("init takes host") {
-            let config = PostHogConfig(apiKey: "123", host: "localhost:9000")
+            let config = PostHogConfig(apiKey: testAPIKey, host: "localhost:9000")
 
             expect(config.host) == URL(string: "localhost:9000")!
         }
@@ -44,14 +44,14 @@ class PostHogConfigTest: QuickSpec {
         #if os(iOS)
             context("when initialized with default values for captureElementInteractions") {
                 it("should enable autocapture by default") {
-                    let sut = PostHogConfig(apiKey: "123")
+                    let sut = PostHogConfig(apiKey: testAPIKey)
                     expect(sut.captureElementInteractions).to(beFalse())
                 }
             }
 
             context("when customized") {
                 it("should allow disabling autocapture") {
-                    let config = PostHogConfig(apiKey: "123")
+                    let config = PostHogConfig(apiKey: testAPIKey)
                     config.captureElementInteractions = false
                     expect(config.captureElementInteractions).to(beFalse())
                 }

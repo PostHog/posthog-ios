@@ -1,0 +1,18 @@
+{
+    "id": "01947134-8a35-0000-549a-193b86fa2e44",
+    "name": "Community Event Interest Survey",
+    "type": "popover",
+    "questions": [
+        {
+            "type": "single_choice",
+            "choices": [
+                "Heck yeah",
+                "Nope, I'm good"
+            ],
+            "question": "Would you be interested in being part of a PostHog community event in your city?",
+            "buttonText": "Submit",
+            "originalQuestionIndex": 0,
+            "descriptionContentType": "text"
+        }
+    ]
+}

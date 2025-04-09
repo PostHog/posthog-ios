@@ -1,0 +1,3641 @@
+{
+    "token": "test_api_key",
+    "supportedCompression": [
+        "gzip",
+        "gzip-js"
+    ],
+    "hasFeatureFlags": true,
+    "captureDeadClicks": true,
+    "capturePerformance": {
+        "network_timing": true,
+        "web_vitals": true,
+        "web_vitals_allowed_metrics": null
+    },
+    "autocapture_opt_out": false,
+    "autocaptureExceptions": {
+        "endpoint": "/e/"
+    },
+    "analytics": {
+        "endpoint": "/i/v0/e/"
+    },
+    "elementsChainAsString": true,
+    "sessionRecording": false,
+    "heatmaps": true,
+    "surveys": [
+        {
+            "id": "01947134-8a35-0000-549a-193b86fa2e44",
+            "name": "Core Web Vitals feature request",
+            "type": "popover",
+            "linked_flag_key": "core-web-vitals",
+            "internal_targeting_flag_key": "survey-targeting-88af4df282-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What would you like to see in our Core Web Vitals product?",
+                    "description": "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "core-web-vitals"
+            },
+            "appearance": {
+                "position": "right",
+                "fontFamily": "system-ui",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 5
+            },
+            "start_date": "2025-01-16T22:23:38.805000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01946c3c-9bb3-0000-7c46-171d3fc7fb65",
+            "name": "Community meetups?",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-ea6405075f",
+            "internal_targeting_flag_key": "survey-targeting-9c4eaf723f-custom",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Heck yeah",
+                        "Nope, I'm good"
+                    ],
+                    "question": "Would you be interested in being part of a PostHog community event in your city?",
+                    "branching": {
+                        "type": "response_based",
+                        "responseValues": {
+                            "1": "end"
+                        }
+                    },
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "open",
+                    "question": "What is your city, by the way?",
+                    "buttonText": "Next",
+                    "description": "(Where do you live?)",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "Meet new people",
+                        "Build stuff (hackathon style)",
+                        "Product growth hack (evolve your existing product, not start from scratch)",
+                        "Learn things (talks, discussions)",
+                        "Eat, drink and vibe (chill)",
+                        "Something else"
+                    ],
+                    "question": "Let's say there's a meetup. What would you hope to get out of it? ",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "hasOpenChoice": true,
+                    "originalQuestionIndex": 2,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes, that sounds like me.",
+                        "Not my jam, but I'd love to be an attendee."
+                    ],
+                    "question": "No promises, but would you be up for being a meeting host?",
+                    "buttonText": "One last thing...",
+                    "description": "(Your job would be to greet people and set a nice tone. We'd give you instructions, and PostHog would promote the event itself. You'd get some free merch.)",
+                    "originalQuestionIndex": 3,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "Best way to reach you?",
+                    "buttonText": "💌 Send it!",
+                    "description": "Add your email if you're okay with us getting in touch about this. (No spam; just about this.)",
+                    "originalQuestionIndex": 4,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "fontFamily": "system-ui",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Alright, that's all we wanted to know!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 3,
+                "thankYouMessageDescription": "Thanks so much. ",
+                "thankYouMessageCloseButtonText": "(Have a nice day)",
+                "thankYouMessageDescriptionContentType": null
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190ded7-7ca2-0000-0401-42b20b679fdf",
+            "name": "Seb CSM checkin",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-31fec641d8",
+            "internal_targeting_flag_key": "survey-targeting-4fef8e2813-custom",
+            "questions": [
+                {
+                    "type": "link",
+                    "question": " ",
+                    "buttonText": "Ask a question here",
+                    "description": "<div>\n    <div> \n        <h1>Hi there 👋</h1><p style=\"font-size:16px;font-weight:500;color:black\"><br>I'm Seb, your account manager. Let me know if you get stuck setting anything up.<br><br> You can shoot me an email at <a style=\"color:blue\" href=\"mailto:seb@posthog.com\" rel=\"noopener\">seb@posthog.com</a> or grab a meeting <a style=\"color:blue\" href=\"https://calendly.com/seb-posthog/csm-chat?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=seb-csm-checkin\" rel=\"noopener\">here</a>.</p>\n    </div> \n    <div>\n            <img style=\"width:230px;float:right;\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1719843271/Seb_9d9fc3a92c.png\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Seb</div>\n    </div>",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                },
+                {
+                    "type": "open",
+                    "question": "What can I help with?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "docs",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks, I'll be in touch soon!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-23T09:18:18.376000Z",
+            "end_date": "2025-01-07T09:47:55.841000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190ff15-5032-0000-722a-e13933c140ac",
+            "name": "Data Warehouse Connectors - Take Two",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-cc63fb40d2-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "We're adding more data sources!",
+                    "description": "Where would you like to sync data from automatically? (e.g. Google Sheets, Meta Ads, Mailchimp)",
+                    "originalQuestionIndex": 0
+                }
+            ],
+            "conditions": {
+                "url": "((us|eu).posthog.com\/.*data-warehouse|posthog.com\/docs\/data-warehouse)",
+                "urlMatchType": "regex"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-29T15:26:12.035000Z",
+            "end_date": "2025-01-06T22:38:26.095000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01943baa-8bce-0000-75e9-fe1e484d3072",
+            "name": "CDP destinations",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-3d76d2fdf1-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What CDP destinations do you need?",
+                    "description": "Help shape the future of PostHog's CDP! Let us know which data destinations you'd love to see next. It'll only take a minute—your feedback makes all the difference.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "((us|eu).posthog.com\/.*destinations|posthog.com\/docs\/cdp)",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2025-01-07T12:42:25.214000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018c8bd4-16e0-0000-81be-0ceff3983d14",
+            "name": "NPS - Product Analytics",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-nps-product-analytics",
+            "internal_targeting_flag_key": "survey-targeting-0612da7c7e-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Product Analytics to someone?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Product Analytics product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/(insights|dashboard)/",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-12-21T10:03:34.427000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018c8bb5-3b27-0000-5231-23807a63f324",
+            "name": "NPS - Session Replay",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-nps-session-replay",
+            "internal_targeting_flag_key": "survey-targeting-c8c8a2295e-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Session Replay to someone?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Session Replay product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/replay.*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-12-21T09:32:07.650000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190086f-5252-0000-5737-3386492add11",
+            "name": "NPS - Web Analytics",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-6e0c40de42",
+            "internal_targeting_flag_key": "survey-targeting-f32de82001-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Web analytics to someone?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Web analytics product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/web.*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-11T19:39:15.197000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01902b02-e304-0000-c281-79d0acbbc830",
+            "name": "NPS - Surveys",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-4238822913",
+            "internal_targeting_flag_key": "survey-targeting-5e78d78c50-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Surveys to someone?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Surveys product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/surveys*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Get my free PostHog sticker",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-18T13:01:26.184000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01902c1f-6675-0000-913b-686c40c3a957",
+            "name": "NPS - Experiments",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-debfa5127d",
+            "internal_targeting_flag_key": "survey-targeting-34bfc6cd55-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Experiments to someone?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Experiments product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/experiments*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Get my free PostHog sticker",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-20T13:56:35.567000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018bcec8-6cf5-0000-c724-a51a86a4e8b1",
+            "name": "NPS - Feature Flags",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-nps-feature-flags",
+            "internal_targeting_flag_key": "survey-targeting-f0115657c6-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Feature Flags to someone?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Feature Flags product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/feature_flags.*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Get my free PostHog sticker",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-11-16T11:06:06.366000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "019320ce-6758-0000-d8c2-00ae64dc9de2",
+            "name": "NPS - CDP",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-d8d59ca30c",
+            "internal_targeting_flag_key": "survey-targeting-c5048129aa-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend PostHog Data pipelines destinations to a friend?",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve our Data pipelines destinations product?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/pipeline/destinations",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-11-14T13:23:13.135000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018e619e-dded-0000-7263-09908e847517",
+            "name": "User Interviews: Replay AI Error Clustering",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-user-interviews-replay-ai-error-clustering",
+            "internal_targeting_flag_key": "survey-targeting-dd0535e863-custom",
+            "questions": [
+                {
+                    "link": "",
+                    "type": "link",
+                    "question": "Beta test a new Replay feature ✨",
+                    "buttonText": "Get started",
+                    "description": "We've built a new way to find the most important session recordings. Get early access in exchange for feedback."
+                },
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "optional": false,
+                    "question": "Do you consent to console logs captured in your app being sent to OpenAI by PostHog?",
+                    "buttonText": "Submit",
+                    "description": "Your team looks like a great match based on the number of console logs captured in user sessions."
+                },
+                {
+                    "link": "https://cal.com/david-posthog/user-interview",
+                    "type": "link",
+                    "question": "Share your thoughts",
+                    "buttonText": "Schedule",
+                    "description": "We'd love to get your first impressions of the feature on a video call"
+                }
+            ],
+            "conditions": {
+                "url": "/replay",
+                "seenSurveyWaitPeriodInDays": 3
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Excited to chat!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "Someone from our team will reach out with the next steps."
+            },
+            "start_date": "2024-03-28T12:30:10.253000Z",
+            "end_date": "2024-12-22T10:29:59.698000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0193d6ce-b8ea-0000-68ac-e15ac8107060",
+            "name": "Query Workshop Davids Accounts",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-9d7a748b59",
+            "internal_targeting_flag_key": "survey-targeting-4bca5750d6-custom",
+            "questions": [
+                {
+                    "link": "https://posthog.cal.com/david.r/posthog-query-workshop",
+                    "type": "link",
+                    "question": "Would a private or team PostHog Query Workshop interest you?",
+                    "buttonText": "Schedule PostHog Workshop",
+                    "description": "We've found ~80% of failed queries in PostHog are resolved with another look at the data model and how to leverage it. As your assigned PostHog success human, I can get you there faster with easy to understand docs, how-tos, and best practices applied to what you're up to. My calendar is yours.\n- David",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "events": {
+                    "values": [
+                        {
+                            "name": "query failed"
+                        }
+                    ]
+                }
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Looking forward to our workshop! - David",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-12-17T23:16:46.466000Z",
+            "end_date": "2024-12-27T19:16:43.561000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0193d4bb-ad27-0000-8816-4cae1d0de10a",
+            "name": "Airbus - Test survey for their own tracking",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-a823dcaad8",
+            "internal_targeting_flag_key": "survey-targeting-2f19ce3c8b-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "Hello how are you doing today?",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https://eu.posthog.com/project/43338"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-12-17T13:08:14.666000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0193788c-3020-0000-07ce-05a6e71fd96a",
+            "name": "User interviews: Group analytics users",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-a5afcbb5a3",
+            "internal_targeting_flag_key": "survey-targeting-740c64c92f-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/anna-posthog/posthog-user-interview",
+                    "type": "link",
+                    "question": "👋 Got 30 mins? Let’s talk Group analytics!",
+                    "buttonText": "Schedule a call",
+                    "description": "We’re always hungry for feedback. Chat with us about your experience with PostHog’s Group analytics for 30 minutes, and we’ll thank you with a $30 merch discount code. Deal?",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/insights/[\\s\\S]",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": false,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Looking forward to chatting with you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "",
+                "thankYouMessageDescriptionContentType": null
+            },
+            "start_date": "2024-11-29T15:31:39.611000Z",
+            "end_date": "2025-01-02T09:49:35.638000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "019398b3-8a57-0000-c76f-eaabceff97fb",
+            "name": "Cameron Onboarding questions",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-f82690a893-custom",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Teach me how to PostHog 🦔",
+                        "I'll figure it out myself"
+                    ],
+                    "question": "Welcome to PostHog! Are you interested in a video series on how to use PostHog?",
+                    "branching": {
+                        "type": "response_based",
+                        "responseValues": {
+                            "1": "end"
+                        }
+                    },
+                    "buttonText": "Submit",
+                    "description": "",
+                    "shuffleOptions": true,
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "PostHog overview",
+                        "Autocapture event tagging/toolbar",
+                        "Data analysis",
+                        "A/B testing",
+                        "Installing PostHog",
+                        "Other"
+                    ],
+                    "optional": true,
+                    "question": "Which topics are you interested in?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "hasOpenChoice": true,
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": null,
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thanks!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "019353fc-1e28-0000-a8cb-9f0437eb1b4f",
+            "name": "User interviews: Web Analytics engaged users",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-5999fec471",
+            "internal_targeting_flag_key": "survey-targeting-ba516c4938-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/anna-posthog/posthog-user-interview",
+                    "type": "link",
+                    "question": "👋 Got 30 mins? Let’s talk Web analytics!",
+                    "buttonText": "Schedule a call",
+                    "description": "We’re always hungry for feedback. Chat with us about your experience with PostHog’s Web analytics for 30 minutes, and we’ll thank you with a $30 merch discount code. Deal?",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/web",
+                "events": {
+                    "values": []
+                },
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Looking forward to chatting with you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-11-22T14:01:49.471000Z",
+            "end_date": "2024-11-29T15:30:29.741000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01934091-22d8-0000-9abd-553412680007",
+            "name": "Net promoter score (NPS) - cameron",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-3e65d4cded-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend us to a friend?",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0192d954-71b1-0000-07cc-1c46d060a2b4",
+            "name": "Net promoter score (NPS) — moible ff test",
+            "type": "api",
+            "internal_targeting_flag_key": "survey-targeting-43a09a0264-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend us to a friend?",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": null,
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0192c4e0-823a-0000-8b74-3a2e4e6e6ffc",
+            "name": "Cameron NPS test",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-73e06952c8",
+            "internal_targeting_flag_key": "survey-targeting-8259a42ad6-custom",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend us to a friend?",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "actions": {
+                    "values": []
+                }
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-10-25T18:11:46.273000Z",
+            "end_date": null,
+            "current_iteration": 1,
+            "current_iteration_start_date": "2024-10-25T18:11:46.273000Z"
+        },
+        {
+            "id": "0190a1f7-e9aa-0000-3559-65656516c5cd",
+            "name": "Telling Mobile users about mobile replay",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-ee4087023e",
+            "internal_targeting_flag_key": "survey-targeting-62eb49d581-custom",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes, please",
+                        "No, thanks"
+                    ],
+                    "question": "New: Session replay for mobiles! 🤳",
+                    "branching": {
+                        "type": "response_based",
+                        "responseValues": {
+                            "0": 2,
+                            "1": 1
+                        }
+                    },
+                    "buttonText": "Submit",
+                    "description": "<a href=\"https://posthog.com/docs/session-replay/mobile\" rel=\"noopener\">Session replay \n for Android &amp; iOS</a> is now available. Want to try it for free?",
+                    "hasOpenChoice": false,
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                },
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "I don't need mobile replay.",
+                        "I don’t have time right now.",
+                        "I'm concerned about privacy.",
+                        "Other (please specify)"
+                    ],
+                    "question": "No worries. Can you tell us why?",
+                    "branching": {
+                        "type": "end"
+                    },
+                    "buttonText": "Finish",
+                    "description": "",
+                    "hasOpenChoice": true,
+                    "shuffleOptions": false,
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "link",
+                    "optional": false,
+                    "question": "Great, let's get you started...",
+                    "buttonText": "Finish",
+                    "description": "\n<a href=\"https://posthog.com/docs/session-replay/mobile\" rel=\"noopener\">➡️ Install mobile session replay</a> <br>\n➡️ Follow our <a href=\"https://posthog.com/roadmap\" rel=\"noopener\">roadmap</a> for updates on session replay for React Native and Flutter",
+                    "originalQuestionIndex": 2,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you!",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-31T14:40:41.577000Z",
+            "end_date": "2024-10-17T13:32:45.756000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0191fa3f-2311-0000-2af3-d337f4f57480",
+            "name": "No-code experiments user interviews",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-9bdd62f951",
+            "internal_targeting_flag_key": "survey-targeting-796a7dea8f-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/no-code-experiments",
+                    "type": "link",
+                    "question": "Are you interested in a visual editor to run no-code experiments?",
+                    "buttonText": "Schedule call",
+                    "description": "Share your feedback with us and get priority access to our Beta.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/experiments*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-09-16T10:00:14.378000Z",
+            "end_date": "2024-10-17T13:31:00.423000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01927868-ba81-0000-69cf-fac1e24e08f1",
+            "name": "Teams add-on subscriber",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-8827fcde65-custom",
+            "questions": [
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "Enforce 2FA/SSO",
+                        "Advanced permissions",
+                        "HIPPA BAA",
+                        "Priority support",
+                        "Unlimited projects",
+                        "Other"
+                    ],
+                    "question": "Thanks for subscribing to the teams add-on!",
+                    "buttonText": "Submit",
+                    "description": "What features drove you to subscribe? You can select multiple!",
+                    "hasOpenChoice": true,
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https://us.posthog.com/organization/billing",
+                "actions": {
+                    "values": [
+                        {
+                            "id": 106002,
+                            "name": "Clicked add teams add-on",
+                            "steps": [
+                                {
+                                    "event": "$autocapture",
+                                    "properties": null,
+                                    "selector": "[data-attr=\"billing-product-addon-teams\"] .LemonButton",
+                                    "tag_name": null,
+                                    "text": null,
+                                    "text_matching": null,
+                                    "href": null,
+                                    "href_matching": "contains",
+                                    "url": null,
+                                    "url_matching": "contains"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "#F64E00",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 12
+            },
+            "start_date": "2024-10-10T21:53:37.552000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "019276b3-f216-0000-1675-5b9304202c46",
+            "name": "User interviews: New feature flag users",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-16a9fb4f24",
+            "internal_targeting_flag_key": "survey-targeting-d28dcb9cf1-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview-feature-flags",
+                    "type": "link",
+                    "question": "💬 Help improve Feature Flags",
+                    "buttonText": "Schedule a call",
+                    "description": "We noticed you recently started using Feature Flags. To improve our product, we would love to hear how you are getting on.\n<br>\n<br>\nP.S. As a small thank you, we'll send you a $30 merch voucher.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/project/\\d+/feature_flags.*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Looking forward to chatting with you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-10-10T13:52:44.858000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01926bc8-e416-0000-251e-85aa174af064",
+            "name": "Error Tracking - Python Alpha",
+            "type": "popover",
+            "linked_flag_key": "error-tracking-alpha",
+            "internal_targeting_flag_key": "survey-targeting-efb3392d5e-custom",
+            "questions": [
+                {
+                    "link": "https://posthog.com/docs/error-tracking#python",
+                    "type": "link",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "question": "Want to know when your customers face bugs?",
+                    "buttonText": "Read the docs",
+                    "description": "We think your team is a good match for an early preview of a new product we're building to capture, investigate and resolve exceptions in your app.<br><br>\nWe would love for you to try it out and share any feedback you have with us.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "(eu|us)\\.posthog\\.com",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 5
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 3
+            },
+            "start_date": "2024-10-08T14:40:52.266000Z",
+            "end_date": "2024-12-28T00:00:00.442242Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190bade-9468-0000-11fa-deb4eb3f5ee5",
+            "name": "Simon CSM Checkin",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-3ed0ba30e1",
+            "internal_targeting_flag_key": "survey-targeting-411e8d8717-custom",
+            "questions": [
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "Call",
+                        "Slack",
+                        "Email",
+                        "Other"
+                    ],
+                    "question": " ",
+                    "buttonText": "Submit",
+                    "description": "<div> \n        <h1>Hello 👋</h1><p>I'm <a href=\"https://posthog.com/community/profiles/28895\" target=\"_blank\" rel=\"noopener\">Simon</a>, your Customer Success Manager. I can help you with:</p><p></p><ul><li>Getting started</li>\n        <li>Getting the most out of PostHog</li><li>Understanding billing</li></ul><p></p><p>Let me know how you prefer to work together:</p>\n</div> \n",
+                    "hasOpenChoice": true,
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "If there's anything you need help with right now, let me know and I'll be in touch.",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks, I'll be in touch soon!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-16T09:36:52.246000Z",
+            "end_date": "2024-10-07T13:08:19.278000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0192066f-039e-0000-04f1-dd9513ba441d",
+            "name": "people who have used playlists",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-e3bb70f9af",
+            "internal_targeting_flag_key": "survey-targeting-e3e87b98ed-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "Thanks for creating a playlist in session replay. We'd love to know what problem playlists is solving for you (or not 🙈)",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-09-18T18:41:04.878000Z",
+            "end_date": "2024-09-26T08:08:31.060000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01922370-e99c-0000-096c-ae282c6ae02e",
+            "name": "Signup for Max AI alpha",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-5c8712a89b",
+            "internal_targeting_flag_key": "survey-targeting-a85a506412-custom",
+            "questions": [
+                {
+                    "type": "link",
+                    "question": "Preview Max AI: our new assistant for your product questions",
+                    "buttonText": "Get early access to Max AI",
+                    "description": "Get early access to Max AI, our experimental feature that lets you talk directly to your data. It's still learning, but we’d love your feedback while it's figuring things out!",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Awesome! You’ve been added to the Max AI alpha.",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "We’ll unlock the feature for you shortly—hang tight!",
+                "thankYouMessageDescriptionContentType": null
+            },
+            "start_date": "2024-09-25T11:44:45.948000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01920518-ba19-0000-7ab8-41ab02acbe7f",
+            "name": "Simon Alaska Air Outreach",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-baa35dd719",
+            "internal_targeting_flag_key": "survey-targeting-1465a869b5-custom",
+            "questions": [
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "Call",
+                        "Teams",
+                        "Email",
+                        "Other"
+                    ],
+                    "question": " ",
+                    "buttonText": "Submit",
+                    "description": "<div> \n        <h1>👋 Alaska Airlines</h1><p>I'm <a target=\"_blank\" href=\"https://posthog.com/community/profiles/28895\" rel=\"noopener\">Simon</a>, from the PostHog Customer team. I can help you out in getting started with PostHog.</p><p></p><p>Let me know how you prefer to work together:</p>\n</div> \n",
+                    "hasOpenChoice": true,
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "If there's anything you need help with right now, let me know and I'll be in touch.",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks, I'll be in touch soon!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-09-19T14:04:12.048000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01909836-5b87-0000-bc6b-6bb348aa45c0",
+            "name": "Cameron CSM Checkin",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-18da0dbc5e",
+            "internal_targeting_flag_key": "survey-targeting-1174c9414e-custom",
+            "questions": [
+                {
+                    "type": "link",
+                    "question": " ",
+                    "buttonText": "Ask a question here",
+                    "description": "<div>\n    <div> \n        <h1>Hi there 👋</h1><p style=\"font-size:16px;font-weight:500;color:black\"><br>I'm Cameron, your account manager. Let me know if you get stuck setting anything up.<br><br> You can shoot me an email at <a style=\"color:blue\" href=\"mailto:cameron@posthog.com\" rel=\"noopener\">cameron@posthog.com</a> or grab a meeting <a style=\"color:blue\" href=\"https://calendly.com/cameron-posthog/30min-1?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=cam-csm-checkin\" rel=\"noopener\">here</a>.</p>\n    </div> \n    <div>\n            <img style=\"width:230px;float:right;\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Cameron</div>\n    </div>",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                },
+                {
+                    "type": "open",
+                    "question": "What can I help with?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "docs",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks, I'll be in touch soon!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-09T16:34:02.122000Z",
+            "end_date": "2024-09-12T19:46:31.794000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0191d7dc-365e-0000-4e6f-a01bb500cf2d",
+            "name": "Scott Annual Plan",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-27cf165e4f",
+            "internal_targeting_flag_key": "survey-targeting-1c2c4fb755-custom",
+            "questions": [
+                {
+                    "link": "https://book.vimcal.com/p/scottsowers/30-minute-meeting",
+                    "type": "link",
+                    "question": "Horribly opposed to reducing what you spend with PostHog?",
+                    "buttonText": "Schedule a call 🤗",
+                    "description": "<p>Hi there! 👋</p>\n<p>You could save 20% or more by moving to an annual plan.</p>\n<p>(Was that too salesy? True though.)</p>\n<p>I can also help you optimize your current consumption.</p>\n<p>Let's talk! (button below)</p><p>\n</p><p>Or, if that's not your thing, send an email: <a style=\"font-weight: bold\" href=\"mailto:scott@posthog.com\" rel=\"noopener\">scott@posthog.com</a>\n</p><div style=\"position: relative; border-width: 2px; border-color: background: rgb(208, 209, 201); background: rgb(229, 231, 224); border-radius: 4px; text-align:right; height: 130px; margin-top: 3em;\">\n    <div style=\"top: 0; left: 0; position: absolute; padding-top: 1em; padding-left: 1em; text-align: left; line-height: 1;\">\n        <p style=\"font-weight: bold; margin-bottom: .5em\">Scott Sowers</p>\n        <p>Real Person</p>\n    </div>\n    <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1724774703/Scott_69d4d8d234.png\" style=\"position: absolute; bottom: 0; right: 0; width: 70%; height: auto;\" alt=\"Picture of Scott, your human at PostHog\">\n</div>\n<div style=\"text-align: center; margin-top: .5em\">\n    <p style=\"font-weight: semi-bold;\">☝️ That's really me</p>\n</div>\n\n",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "posthog.com/organization/billing"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "submitButtonTextColor": "white",
+                "thankYouMessageHeader": "Looking forward to chatting with you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-09-09T17:40:34.525000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190fe51-92a0-0000-4ba3-f85f5f0ef78f",
+            "name": "User interviews: New Product Analytics users",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-1e1f9f051b",
+            "internal_targeting_flag_key": "survey-targeting-5ba5ec19b5-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/anna-posthog/posthog-user-interview",
+                    "type": "link",
+                    "question": "Tell us about your PostHog journey",
+                    "buttonText": "Schedule a call",
+                    "description": "We’d love to hear about your initial experiences with Product Analytics. Your feedback will help us enhance our product.\n<br>\n<br><i>P.S.</i> As a small thank you, we'll send you a $30 merch voucher.<br>",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "events": {
+                    "values": [
+                        {
+                            "name": "insight created"
+                        },
+                        {
+                            "name": "insight analyzed"
+                        }
+                    ]
+                }
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Looking forward to chatting with you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-29T13:45:25.237000Z",
+            "end_date": "2024-08-13T11:59:46.669000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01900bff-504f-0000-2ff6-c8377e1d6723",
+            "name": "User interviews: Larger orgs who have created surveys",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-cc8bf749f8",
+            "internal_targeting_flag_key": "survey-targeting-f3558a22ad-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview",
+                    "type": "link",
+                    "question": "Wanted: Surveys feedback 💬",
+                    "buttonText": "Book feedback call",
+                    "description": "We noticed that you've recently created a survey in PostHog. We're currently planning the next set of features for surveys and would love to get your input.\n<br>\nP.S. As a small thank you, we'll send you a $30 merch voucher.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/.*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 7
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-12T10:30:24.496000Z",
+            "end_date": "2024-08-12T12:11:18.733000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b6e13-590c-0000-decb-c727a2b3f462",
+            "name": "Unsubscription Reason",
+            "type": "api",
+            "internal_targeting_flag_key": "survey-targeting-fa95ffe1c3-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "choices": [
+                        "Tutorials",
+                        "Customer case studies",
+                        "Product announcements"
+                    ],
+                    "question": "Why are you unsubscribing (open)?",
+                    "description": ""
+                },
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "product_analytics",
+                        "session_replay",
+                        "surveys",
+                        "group_analytics",
+                        "feature_flags",
+                        "data_warehouse"
+                    ],
+                    "question": "product_type (filled programmatically)",
+                    "description": ""
+                },
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "Too expensive",
+                        "Not getting enough value",
+                        "Not using the product",
+                        "Found a better alternative",
+                        "Poor customer support",
+                        "Too difficult to use"
+                    ],
+                    "question": "Why are you unsubscribing?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": null,
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-11-02T21:09:34.390000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190f054-30d2-0000-a9ff-99384fc7442f",
+            "name": "What data warehouse tutorial should we write next?",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-b3674bf455-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What data warehouse tutorial should we write next?",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https:\/\/posthog\\.com\/tutorials\/(?:stripe|hubspot|google-ads|zendesk)-reports",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": false,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for reading and giving your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 20,
+                "thankYouMessageDescription": "- Ian",
+                "thankYouMessageDescriptionContentType": null
+            },
+            "start_date": "2024-07-26T18:39:25.812000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190eed6-10b4-0000-6f17-63f941b94023",
+            "name": "Seb CSM checkin (copy)",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-e2e992e2d3",
+            "internal_targeting_flag_key": "survey-targeting-24dc7ee2ce-custom",
+            "questions": [
+                {
+                    "type": "link",
+                    "question": " ",
+                    "buttonText": "Ask a question here",
+                    "description": "<div>\n    <div> \n        <h1>Hi there 👋</h1><p style=\"font-size:16px;font-weight:500;color:black\"><br>I'm Seb, your account manager. Let me know if you get stuck setting anything up.<br><br> You can shoot me an email at <a href=\"mailto:seb@posthog.com\" style=\"color:blue\" rel=\"noopener\">seb@posthog.com</a> or grab a meeting <a href=\"https://calendly.com/seb-posthog/csm-chat?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=seb-csm-checkin\" style=\"color:blue\" rel=\"noopener\">here</a>.</p>\n    </div> \n    <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1719843271/Seb_9d9fc3a92c.png\" style=\"width:230px;float:right;\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Seb</div>\n    </div>",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                },
+                {
+                    "type": "open",
+                    "question": "What can I help with?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "docs",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks, I'll be in touch soon!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190ec3e-3217-0000-a00c-0f9def1fa7a2",
+            "name": "Product-market fit (PMF)",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-4b1ed864bd-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "choices": [
+                        "Not disappointed",
+                        "Somewhat disappointed",
+                        "Very disappointed"
+                    ],
+                    "question": "How would you feel if you could no longer use PostHog?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "question": "Have you found this tutorial useful?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": null,
+            "appearance": {
+                "position": "right",
+                "whiteLabel": true,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190e40d-9abf-0000-e790-51f455056314",
+            "name": "New pricing notification",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-bba3b8c186-custom",
+            "questions": [
+                {
+                    "link": "https://posthog.com/blog/session-replay-pricing",
+                    "type": "link",
+                    "question": "We've decided to make less money",
+                    "buttonText": "Find out more",
+                    "description": "We've slashed our pricing for session replays. They're now more than 50% cheaper for most customers.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "https://posthog.com/",
+                "urlMatchType": "exact"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Looking forward to chatting with you!",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 5
+            },
+            "start_date": "2024-07-24T09:23:48.390000Z",
+            "end_date": "2024-07-24T14:25:55.337000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0190a2c3-71c1-0000-3ce1-f54aadd5dd32",
+            "name": "testing question content validation",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-aa144849c0-custom",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes",
+                        "Haha no"
+                    ],
+                    "question": "Have you found this tutorial useful?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": null,
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b4db1-1388-0000-301b-628e3ea76e52",
+            "name": "Product page survey",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-821c5a2d92",
+            "internal_targeting_flag_key": "survey-targeting-d64a2f9e34-custom",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes",
+                        "No",
+                        "Never tried it!"
+                    ],
+                    "question": "Does pineapple belong on pizza?",
+                    "description": "This is a demo survey with a very serious question."
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "Thanks for the feedback! Anything else you'd like to add?",
+                    "description": ""
+                },
+                {
+                    "type": "rating",
+                    "scale": 5,
+                    "display": "number",
+                    "question": "How likely are you to try PostHog surveys?",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely"
+                }
+            ],
+            "conditions": {
+                "url": "https://posthog.com/surveys",
+                "urlMatchType": "regex"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#fff",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks for playing along!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "That's all, folks! Survey results are available inside the PostHog app. Now we're off to read yours. 🤞🏼"
+            },
+            "start_date": "2023-10-20T15:25:39.431000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01905064-b462-0000-da50-07f1140386d3",
+            "name": "Error tracking (User interview)",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-5819357de0",
+            "internal_targeting_flag_key": "survey-targeting-932c233a7c-custom",
+            "questions": [
+                {
+                    "link": "https://cal.com/david-posthog/user-interview",
+                    "type": "link",
+                    "question": "Wanted: User interview 💬",
+                    "buttonText": "Schedule",
+                    "description": "We're working on a new product to track exceptions. I'd love to get your input and feedback, in exchange for early access once it's ready!\n<br>\n<br>\nP.S. As a small thank you, we'll send you a $30 merch voucher.",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "html"
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/.*",
+                "urlMatchType": "regex"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "surveyPopupDelaySeconds": 3,
+                "thankYouMessageDescription": "Looking forward to chatting with you!"
+            },
+            "start_date": "2024-06-26T16:24:19.874000Z",
+            "end_date": "2024-07-11T08:43:06.908000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01909342-30a7-0000-5dc4-4da68923d40c",
+            "name": "test long-running survey",
+            "type": "popover",
+            "internal_targeting_flag_key": "survey-targeting-63aeceba68-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What can we do to improve our product?",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "events": {
+                    "values": [
+                        {
+                            "name": "surveys beta users interest survey sent"
+                        }
+                    ]
+                }
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-07-08T16:54:41.624000Z",
+            "end_date": "2024-07-08T16:54:54.009000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01903b58-cf66-0000-f818-766ee0253a4c",
+            "name": "Open feedback recurring",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-3fc3406f0c",
+            "internal_targeting_flag_key": "survey-targeting-6e9101ffc9-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What can we do to improve our product?",
+                    "description": "",
+                    "originalQuestionIndex": 0,
+                    "descriptionContentType": "text"
+                },
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend us to a friend?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely",
+                    "originalQuestionIndex": 1,
+                    "descriptionContentType": "text"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-21T15:10:01.318000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018fe70c-5c27-0000-532f-abea042ad704",
+            "name": "test no shuffle",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-eb54ac086a",
+            "internal_targeting_flag_key": "survey-targeting-c18a08888e-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "1",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "2",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                },
+                {
+                    "type": "open",
+                    "question": "3",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 2
+                },
+                {
+                    "type": "open",
+                    "question": "4",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 3
+                },
+                {
+                    "type": "open",
+                    "question": "5",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 4
+                },
+                {
+                    "type": "open",
+                    "question": "6",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 5
+                },
+                {
+                    "type": "open",
+                    "question": "7",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 6
+                },
+                {
+                    "type": "open",
+                    "question": "8",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 7
+                },
+                {
+                    "type": "open",
+                    "question": "9",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 8
+                },
+                {
+                    "type": "open",
+                    "question": "10",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 9
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "shuffleQuestions": false,
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-05T06:18:45.098000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018fe70b-571a-0000-de47-a75085eff058",
+            "name": "test shuffle",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-bd212ccc76",
+            "internal_targeting_flag_key": "survey-targeting-f30503fa12-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "1",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 0
+                },
+                {
+                    "type": "open",
+                    "question": "2",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 1
+                },
+                {
+                    "type": "open",
+                    "question": "3",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 2
+                },
+                {
+                    "type": "open",
+                    "question": "4",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 3
+                },
+                {
+                    "type": "open",
+                    "question": "5",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 4
+                },
+                {
+                    "type": "open",
+                    "question": "6",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 5
+                },
+                {
+                    "type": "open",
+                    "question": "7",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 6
+                },
+                {
+                    "type": "open",
+                    "question": "8",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 7
+                },
+                {
+                    "type": "open",
+                    "question": "9",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 8
+                },
+                {
+                    "type": "open",
+                    "question": "10",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "originalQuestionIndex": 9
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "shuffleQuestions": true,
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-06-05T06:17:22.100000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f30f9-05cd-0000-b2ec-aa80d3a45a2d",
+            "name": "How could we improve our docs?",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-open-feedback",
+            "internal_targeting_flag_key": "survey-targeting-8e0e9bf481-custom",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "How can we improve our docs?",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": "https://posthog.com/docs",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-04-30T21:55:10.439000Z",
+            "end_date": "2024-06-04T21:23:11.776000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018bd957-df77-0000-d2cb-59a4f891fe79",
+            "name": "Data Warehouse Connectors",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "We're adding one-click connectors!",
+                    "description": "Where would you like to automatically sync data from? (e.g. Stripe, Hubspot, Shopify)"
+                }
+            ],
+            "conditions": {
+                "url": "((us|eu).posthog.com\/.*data-warehouse|posthog.com\/docs\/data-warehouse)",
+                "urlMatchType": "regex"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-11-16T18:15:12.213000Z",
+            "end_date": "2024-05-20T23:46:48.633000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f9793-6806-0000-15f1-223ed72e5244",
+            "name": "Data Warehouse User Interview",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-40f589d8c9",
+            "questions": [
+                {
+                    "link": "https://calendly.com/eric-posthog",
+                    "type": "open",
+                    "optional": true,
+                    "question": "How can we improve our data warehouse product?",
+                    "buttonText": "Submit",
+                    "description": "Eric here from team data warehouse!\n\nWe are looking for feedback, issues, and/or feature requests! Leave a message below or book a call in the next step!"
+                },
+                {
+                    "link": "https://calendly.com/eric-posthog/15min",
+                    "type": "link",
+                    "optional": true,
+                    "question": "Schedule",
+                    "buttonText": "Book a call",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for scheduling!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": ""
+            },
+            "start_date": "2024-05-20T20:09:43.732000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f53e0-2085-0000-ce42-40c9be6e6bfa",
+            "name": "phani testing auto filter dismissed and responded again",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-900beba7b2",
+            "questions": [
+                {
+                    "link": "",
+                    "type": "open",
+                    "question": "How can we improve our docs?",
+                    "buttonText": "Submit",
+                    "description": ""
+                },
+                {
+                    "type": "open",
+                    "question": "Give us feedback on our product!",
+                    "buttonText": "Submit",
+                    "description": ""
+                },
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "Tutorials",
+                        "Customer case studies",
+                        "Product announcements"
+                    ],
+                    "question": "Where Should we invest next?",
+                    "buttonText": "Submit",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": "https://posthog.com/docs",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-05-08T02:07:35.902000Z",
+            "end_date": "2024-05-08T02:07:40.439000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f0f9c-f40b-0000-db09-30300e9a723d",
+            "name": "Product Led Sales Outreach",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-drift-customer-outreach-copy",
+            "questions": [
+                {
+                    "link": "https://calendly.com/simon-posthog/30min ",
+                    "type": "open",
+                    "optional": true,
+                    "question": "👋 Hello from Simon",
+                    "buttonText": "Next",
+                    "description": "<img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_thumb,w_300,g_face/v1710125785/posthog.com/contents/images/support-hog.png\" alt=\"Support Hog\">\n<p style=\"margin-top:18px\"><a href=\"https://posthog.com/community/profiles/28895\" rel=\"noopener\">Simon</a> from PostHog here, ready to answer your implementation and pricing/legal questions. Drop a message below and I'll get back to you, or book a call in the next step.</p>"
+                },
+                {
+                    "link": "https://calendly.com/simon-posthog/30min",
+                    "type": "link",
+                    "question": "Want to chat in person?",
+                    "buttonText": "Book a call",
+                    "description": "Hit the button to put something in the diary."
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "urlMatchType": "icontains"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Looking forward to chatting!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-04-24T10:27:52.959000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f0b17-6b85-0000-3874-975ef3783b52",
+            "name": "Drift customer outreach",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-drift-customer-outreach",
+            "questions": [
+                {
+                    "link": "https://calendly.com/simon-posthog/30min ",
+                    "type": "link",
+                    "question": "Hey Drift team, can I help?",
+                    "buttonText": "Book a call",
+                    "description": "<img alt=\"Drift Tron Race\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_pad,w_260/v1713877355/posthog.com/contents/images/drift_posthog.jpg\">\n<p style=\"margin-top:18px\">Simon from the PostHog customer team here. I can answer any product usage and billing questions you have, and help make your PostHog experience everything you hoped it would be. Get in touch if you need help with anything at all.</p>"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-04-23T14:22:29.320000Z",
+            "end_date": "2024-05-09T14:48:30.989000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f588a-a5d1-0000-71b4-83fdd46a31bc",
+            "name": "Docs search feedback",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "open",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "question": "Find what you were looking for?",
+                    "buttonText": "Submit",
+                    "description": "<strong>We're improving our docs search.</strong> If your search didn't help you find what you need, tell us what you searched and what you're looking for so we can improve our search results."
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "If you're still looking for an answer, try posting a question in our <a href=\"/questions\" rel=\"noopener\">community forums</a>."
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f53df-b947-0000-d48e-001ecd676c21",
+            "name": "Open feedback",
+            "type": "popover",
+            "linked_flag_key": "feature-flag-phani-test",
+            "targeting_flag_key": "survey-targeting-a9a7c2ac58",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What can we do to improve our product?",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f0a81-2615-0000-be28-e3283fd1df9e",
+            "name": "User Interviews: Larger orgs",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-user-interviews-larger-orgs",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview",
+                    "type": "link",
+                    "question": "Help us improve PostHog",
+                    "buttonText": "Book user interview",
+                    "description": "We are looking for feedback on various PostHog features. Help guide our roadmap and get $30 of PostHog merch."
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-04-23T10:29:48.873000Z",
+            "end_date": "2024-05-06T16:37:51.857000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018f1a60-7dbf-0000-68e0-56b32bfa5a13",
+            "name": "Feature Flag CS Outreach",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-feature-flag-cs-outreach-copy",
+            "questions": [
+                {
+                    "link": "https://calendly.com/simon-posthog/30min ",
+                    "type": "link",
+                    "question": "🚀 Let's talk Feature Flags",
+                    "buttonText": "Book a call",
+                    "description": "<img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_thumb,w_300,g_face/v1710125785/posthog.com/contents/images/support-hog.png\" alt=\"Support Hog\">\n<p style=\"margin-top:18px\">Simon from your PostHog customer team here. If you need help figuring out Feature Flags and A/B testing then you can reach me in our shared Slack channel, or book time to chat below - I'll be happy to help.</p>"
+                }
+            ],
+            "conditions": {
+                "url": "feature-flags",
+                "urlMatchType": "icontains"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Looking forward to chatting!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-04-26T12:34:33.362000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018e6309-5779-0000-bc97-2a112819b2d8",
+            "name": "Pricing page feedback",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-pricing-page-feedback",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Too high",
+                        "Too low / questionable value",
+                        "I'm confused",
+                        "Looks fine"
+                    ],
+                    "question": "How do you feel about our pricing?",
+                    "buttonText": "Submit",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": "https://posthog.com/pricing",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback.",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": ""
+            },
+            "start_date": "2024-03-21T22:03:58.694000Z",
+            "end_date": "2024-04-25T05:53:03.717000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018ec1ca-2515-0000-5e9d-5c5d02482450",
+            "name": "New A/B testing UI feedback",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-new-ab-testing-ui-feedback",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "New A/B testing UI!",
+                    "description": "We've just released our new A/B testing UI and would love to hear your thoughts. What do you like? What still needs work? Your feedback will help us make it even better."
+                }
+            ],
+            "conditions": {
+                "url": ".*\/project\/\\d+\/experiments\/\\d+",
+                "urlMatchType": "regex"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-04-09T07:37:21.197000Z",
+            "end_date": "2024-04-22T07:31:05.547000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018ece78-b08b-0000-f348-ebb885fde475",
+            "name": "Net promoter score (NPS)",
+            "type": "api",
+            "targeting_flag_key": "survey-targeting-net-promoter-score-nps",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "How likely are you to recommend us to a friend?",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018da782-1e79-0000-4e1a-0cd1fd7ed734",
+            "name": "Discussions feedback",
+            "type": "popover",
+            "linked_flag_key": "discussions",
+            "targeting_flag_key": "survey-targeting-discussions-feedback",
+            "questions": [
+                {
+                    "type": "open",
+                    "scale": 10,
+                    "choices": [
+                        "Tutorials",
+                        "Customer case studies",
+                        "Product announcements"
+                    ],
+                    "display": "number",
+                    "question": "Share your feedback on the “Discussions” preview",
+                    "buttonText": "Submit",
+                    "description": "It looks like you enabled the feature preview but have not yet sent a comment. Can you share why?",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "seenSurveyWaitPeriodInDays": 3
+            },
+            "appearance": {
+                "position": "left",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Maybe it's not what you thought, some features are missing or you don't know what it does...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "We might reach out if we have any follow up questions."
+            },
+            "start_date": "2024-02-15T10:02:58.364000Z",
+            "end_date": "2024-04-05T08:49:01.184000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018d3daf-6594-0000-4279-c8bf22b7f6ed",
+            "name": "Cameron Billing Page Frequent Visit",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-cameron-billing-page-frequent-visit",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": " ",
+                    "buttonText": "Press for answers",
+                    "description": "<div>\n    <div> \n        <h2>Any billing questions?</h2><p style=\"font-size:16px;font-weight:500;color:black\"><br>I can help you get the most of your budget, limit events/flag/replay usage, or get a volume discount. Feel free to dump a question below or book 15 mins <a href=\"https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=billing-page-5x30\" style=\"color:blue\" rel=\"noopener\">here</a>.</p>\n        <p style=\"color:black\">(I can also help with other stuff, too)</p>\n    </div> \n    <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\" style=\"width:230px;float:right;\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Cameron<br>(Customer Success)</div>\n    </div>\n    \n"
+                }
+            ],
+            "conditions": {
+                "url": "/organization/billing"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Ask me anything...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-01-25T18:00:30.755000Z",
+            "end_date": "2024-03-28T14:38:24.996000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018dc62b-70fd-0000-1e5c-f76a775f7974",
+            "name": "User Interviews: Replay",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-user-interviews-replay",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview",
+                    "type": "link",
+                    "question": "Help improve Session Replay",
+                    "buttonText": "Book user interview",
+                    "description": "We are looking for feedback on our Session Replay features. Help guide our roadmap and get $30 of PostHog merch."
+                }
+            ],
+            "conditions": {
+                "url": "https://(app|eu|us)\\.posthog\\.com/*",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-02-20T11:01:30.833000Z",
+            "end_date": "2024-03-02T18:33:42.207000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018d3c85-8fb3-0000-5ff5-23e1a6c67005",
+            "name": "Session Replay new user interviews",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-session-replay-new-user-interviews",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview",
+                    "type": "link",
+                    "question": "Help improve Session Replay and get $30 of PostHog merch",
+                    "buttonText": "Schedule now",
+                    "description": "Join a user interview and share your feedback on setting up and getting started with PostHog Session Replay. "
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-01-25T10:31:41.951000Z",
+            "end_date": "2024-02-20T10:24:43.308000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018cf40a-b709-0000-37a3-68b8ae04a784",
+            "name": "test widget survey 2",
+            "type": "widget",
+            "targeting_flag_key": "survey-targeting-test-widget-survey-2",
+            "questions": [
+                {
+                    "type": "multiple_choice",
+                    "scale": 10,
+                    "choices": [
+                        "Tutorials",
+                        "Other"
+                    ],
+                    "display": "number",
+                    "question": "Which types of content would you like to see more of?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "hasOpenChoice": true,
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "widgetType": "tab",
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "widgetLabel": "feedback",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-01-10T15:43:17.584000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018d664a-902e-0000-596d-c5383e6c38a3",
+            "name": "Product Analytics Onboarding",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "link",
+                    "question": " ",
+                    "buttonText": "tell me more...",
+                    "description": "<div>\n    <div>\n        <div> \n            <h2>make sure to avoid these three common failure modes with PostHog</h2>\n            <p style=\"font-size:16px;font-weight:500\"><br>what are they?</p>\n            <ul style=\"font-size:16px;font-weight:500;\">\n                <li> paying for features you're not using</li>\n                <li> not merging users properly</li>\n                <li> setting up your event schema wrong</li>\n            </ul>\n        </div> \n        <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\" style=\"width:230px;float:right;\">\n        </div>\n        <div style=\"text-align:right;float:right\">^ that's me, Cameron<br>(Customer Success)<br>\n            <p style=\"text-align:right;float:right\">book 15 mins <a href=\"https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=onboarding-survey\" style=\"color:blue\" rel=\"noopener\">here</a>\n            </p>\n        </div>\n    </div>\n</div>\n\n    \n"
+                }
+            ],
+            "conditions": null,
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018d1739-070f-0000-e5e7-60d9e66cb429",
+            "name": "Zendesk ticket Customer satisfaction score (CSAT)",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-zendesk-ticket-customer-satisfaction-score-csat",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 5,
+                    "display": "emoji",
+                    "question": "How happy are you with the level of support you received?",
+                    "description": "",
+                    "lowerBoundLabel": "Very dissatisfied",
+                    "upperBoundLabel": "Very satisfied"
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "Please help us do better! Can you tell us more about the ratings you gave us?",
+                    "buttonText": "Submit",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "#939393",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-01-18T11:07:13.714000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018cd071-2b3d-0000-5ab1-61732ff14ac9",
+            "name": "BI user interviews",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-bi-user-interviews",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview",
+                    "type": "link",
+                    "question": "Help improve HogQL and BI features",
+                    "buttonText": "Schedule call now",
+                    "description": "We are looking for feedback on our new BI querying and visualization features. Help guide our roadmap and get $30 of PostHog merch."
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "seenSurveyWaitPeriodInDays": 14
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2024-01-03T17:48:54.413000Z",
+            "end_date": "2024-01-16T09:55:28.284000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018c609e-2b93-0000-8de4-cf38ee6f6820",
+            "name": "widget feedback",
+            "type": "widget",
+            "targeting_flag_key": "survey-targeting-net-promoter-score-nps-test",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "question": "widget feedback?",
+                    "buttonText": "Submit",
+                    "description": "",
+                    "lowerBoundLabel": "Unlikely",
+                    "upperBoundLabel": "Very likely"
+                },
+                {
+                    "type": "open",
+                    "question": "Give us feedback on our product!",
+                    "buttonText": "Submit",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": true,
+                "widgetType": "tab",
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "widgetLabel": "feedback",
+                "widgetSelector": ".feature-flag-variants",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-12-13T00:40:29.519000Z",
+            "end_date": "2024-01-10T15:42:07.054000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018c4b38-9cd2-0000-37a2-ac5a69d1c6f0",
+            "name": "Billing call with CSM",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-billing-call-with-csm",
+            "questions": [
+                {
+                    "link": "https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=survey&utm_campaign=billing_call_with_csm",
+                    "type": "link",
+                    "question": "Need help getting the most out of your budget?",
+                    "buttonText": "Book a 15 min call",
+                    "description": "Looks like you're on track to hit your first bill and have tweaked billing limits a few times. Happy to chat through strategies to optimize usage. Grab some time below!\n- Cameron, Customer Success Engineer  "
+                }
+            ],
+            "conditions": {
+                "url": "http://(app|eu).posthog.com/organization/billing",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 32
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "autoDisappear": true,
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Chat soon!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018c26b0-74a9-0000-9d9f-fae149c46c47",
+            "name": "Surveys feedback interview",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-surveys-feedback-interview",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What would you like to see from PostHog surveys next?",
+                    "buttonText": "Submit",
+                    "description": "Leave feedback for a chance to receive a $50 merch card, or book a <a target=\"_blank\" href=\"https://calendly.com/posthog-li/posthog-surveys-feedback\" rel=\"noopener\">user interview</a> with us!"
+                }
+            ],
+            "conditions": {
+                "url": "posthog.com/home",
+                "urlMatchType": "icontains",
+                "seenSurveyWaitPeriodInDays": 5
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-12-01T18:42:38.369000Z",
+            "end_date": "2023-12-26T16:50:29.156000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018babde-755c-0000-eb81-0d760eb9bb58",
+            "name": "CSM high ICP signup call",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-csm-high-icp-signup-call",
+            "questions": [
+                {
+                    "type": "multiple_choice",
+                    "choices": [
+                        "🤔 I'm not sure if PostHog will work for my use case",
+                        "❓🔧 I have implementation questions",
+                        "❓💲 I have questions about pricing",
+                        "👍 I've sent data in and am good to go"
+                    ],
+                    "question": "Are you blocked in evaluating or setting up PostHog in any way?",
+                    "description": ""
+                },
+                {
+                    "link": "https://calendly.com/cameron-posthog/30min-1",
+                    "type": "open",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "optional": true,
+                    "question": "If you want to connect for a call, share some details on what you need help with (or skip)",
+                    "description": ""
+                },
+                {
+                    "link": " ",
+                    "type": "link",
+                    "optional": true,
+                    "question": " ",
+                    "description": "<h2 style=\"color:black;\">If you want to hop on a call, grab 30 mins <a target=\"_blank\" href=\"https://calendly.com/cameron-posthog/30min-1?utm_source=posthog-survey&amp;utm_campaign=csm-in-app-outreach-onboarding\" rel=\"noopener\">here</a>.</h2>\n<p>If you need another timezone email me at <a target=\"_blank\" href=\"mailto:cameron@posthog.com?subject=Connect with PostHog CS team\" rel=\"noopener\">cameron@posthog.com</a></p>"
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Register",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thanks!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-11-08T14:24:54.013000Z",
+            "end_date": "2023-11-28T22:41:24.368000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b855c-3f86-0000-75a1-82a11cb9b3b1",
+            "name": "Lior test free form",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-lior-test-free-form",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What can we do to improve our product?",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": true,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-10-31T10:51:43.467000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b6615-0d7a-0000-bbbc-1ab59bce6866",
+            "name": "Web Analytics Feedback",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "rating",
+                    "scale": 10,
+                    "display": "number",
+                    "optional": true,
+                    "question": "How happy are you with PostHog Web Analytics?",
+                    "description": "",
+                    "lowerBoundLabel": "Very unhappy",
+                    "upperBoundLabel": "Very happy"
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "What is the best thing about PostHog Web Analytics?",
+                    "description": ""
+                },
+                {
+                    "type": "open",
+                    "optional": true,
+                    "question": "What is the worst thing about PostHog Web Analytics?",
+                    "description": ""
+                },
+                {
+                    "type": "open",
+                    "question": "How can we improve PostHog Web Analytics?",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": "https://app.posthog.com/web",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-10-25T09:05:57.417000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b4cb1-cece-0000-8147-d04adae26597",
+            "name": "lior-test-survey",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-lior-test-survey",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What is your job title?",
+                    "description": ""
+                },
+                {
+                    "type": "open",
+                    "question": "What are you using [name of your product] to do right now?",
+                    "description": ""
+                },
+                {
+                    "type": "open",
+                    "question": "What obstacles do you face when trying to accomplish your goals?",
+                    "description": ""
+                }
+            ],
+            "conditions": {
+                "url": ""
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": true,
+                "borderColor": "#c9c6c6",
+                "placeholder": "Start typing...",
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "What obstacles do you face when trying to accomplish the goals for your job?\t",
+                "displayThankYouMessage": false,
+                "ratingButtonActiveColor": "black"
+            },
+            "start_date": "2023-10-20T10:46:44.490000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018af528-dfc7-0000-2ff4-87edf3f92d1e",
+            "name": "Surveys announcement - US",
+            "type": "popover",
+            "questions": [
+                {
+                    "link": "https://app.posthog.com/surveys",
+                    "type": "link",
+                    "question": "User surveys now available out of beta!",
+                    "description": "Collect NPS scores, schedule interviews, and more with no-code surveys. Get your first 250 responses for free, every month!"
+                }
+            ],
+            "conditions": {
+                "url": "https://app.posthog.com/"
+            },
+            "appearance": {
+                "position": "right",
+                "textColor": "black",
+                "whiteLabel": false,
+                "borderColor": " ",
+                "placeholder": "",
+                "backgroundColor": "white",
+                "submitButtonText": "Create a survey now",
+                "ratingButtonColor": "#e0e2e8",
+                "submitButtonColor": "#2c2c2c",
+                "descriptionTextColor": "#4b4b52",
+                "thankYouMessageHeader": "Redirecting ...",
+                "displayThankYouMessage": true
+            },
+            "start_date": "2023-10-23T15:36:44.188000Z",
+            "end_date": "2023-10-25T12:24:43.724000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b0c19-4b5f-0000-065b-2fbbeb408c1e",
+            "name": "Pineapple survey on 404",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "question": "Does pineapple belong on pizza?",
+                    "description": "🍍+ 🍕? 👍 or 👎?"
+                }
+            ],
+            "conditions": {
+                "url": "",
+                "selector": ".bg-black.-mt-1"
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#D0D1C9",
+                "placeholder": "",
+                "backgroundColor": "#E5E7E0",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you sharing your opinion!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": "By the way, PostHog now has surveys (just like this one). <a href=\"/docs/surveys\">Learn more</a>"
+            },
+            "start_date": "2023-10-07T21:44:41.415000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0189028c-18b1-0000-6c93-8224e2a9bf73",
+            "name": "Pineapple on pizza?",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "single_choice",
+                    "choices": [
+                        "Yes",
+                        "No"
+                    ],
+                    "question": "Do you like pineapple on pizza? 🍕"
+                }
+            ],
+            "conditions": {
+                "url": "https://posthog.com/faq",
+                "urlMatchType": "exact"
+            },
+            "appearance": {
+                "textColor": "black",
+                "backgroundColor": "white",
+                "submitButtonText": "Submit",
+                "submitButtonColor": "#2C2C2C"
+            },
+            "start_date": "2023-06-28T15:08:24.253000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018b00a3-0f18-0000-62e5-8d2b528578a1",
+            "name": "Onboarding open feedback box",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "How can our onboarding be improved?",
+                    "description": "What is the most confusing or frustrating part of this onboarding flow? We just built this new flow, and we'd love to hear what you think. Feel free to answer this after you finish, too, just leave it here until you're ready!"
+                }
+            ],
+            "conditions": {
+                "url": "posthog.com/onboarding/.*step=1",
+                "urlMatchType": "regex",
+                "seenSurveyWaitPeriodInDays": 30
+            },
+            "appearance": {
+                "position": "right",
+                "whiteLabel": false,
+                "borderColor": "#c9c6c6",
+                "placeholder": "",
+                "backgroundColor": "#eeeded",
+                "submitButtonText": "Submit",
+                "ratingButtonColor": "white",
+                "submitButtonColor": "black",
+                "thankYouMessageHeader": "Thank you for your feedback!",
+                "displayThankYouMessage": true,
+                "ratingButtonActiveColor": "black",
+                "thankYouMessageDescription": ""
+            },
+            "start_date": "2023-10-05T16:22:20.600000Z",
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "018a4b07-3273-0000-1c98-906f16902c65",
+            "name": "High ICP (+AI) Interviews",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-high-icp-interviews",
+            "questions": [
+                {
+                    "link": "https://cal.com/posthog-annika/posthog-user-interview",
+                    "type": "link",
+                    "question": "Help improve PostHog!",
+                    "description": "You are invited to a 30-minute user interview.\n\nHelp guide our roadmap and get $30 of PostHog merch."
+                }
+            ],
+            "conditions": {
+                "seenSurveyWaitPeriodInDays": 60
+            },
+            "appearance": {
+                "textColor": "black",
+                "whiteLabel": false,
+                "borderColor": "black",
+                "backgroundColor": "#eeeeee",
+                "submitButtonText": "Book now",
+                "submitButtonColor": "black",
+                "descriptionTextColor": "#4b4b52",
+                "thankYouMessageHeader": "",
+                "displayThankYouMessage": true
+            },
+            "start_date": "2023-08-31T09:58:10.065000Z",
+            "end_date": "2023-10-11T07:10:04.219000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "01890b66-13c4-0000-41b0-de7f5b0d3407",
+            "name": "Billing page customer success question",
+            "type": "popover",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "Questions about billing?  Let the PostHog Customer Success team know!"
+                }
+            ],
+            "conditions": {
+                "url": "/organization/billing"
+            },
+            "appearance": {
+                "textColor": "black",
+                "backgroundColor": "white",
+                "submitButtonColor": "#2C2C2C"
+            },
+            "start_date": "2023-06-30T08:23:19.660000Z",
+            "end_date": "2023-06-30T15:40:42.933000Z",
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        },
+        {
+            "id": "0188d7e7-a6c5-0000-8c31-3660bf4d5476",
+            "name": "What do you think of the new Surveys beta for PostHog?",
+            "type": "popover",
+            "targeting_flag_key": "survey-targeting-what-do-you-think-of-the-new-surveys-beta-for-posthog",
+            "questions": [
+                {
+                    "type": "open",
+                    "question": "What do you think of the new Surveys beta for PostHog?"
+                }
+            ],
+            "conditions": {
+                "url": "https://app.posthog.com"
+            },
+            "appearance": {
+                "textColor": "black",
+                "backgroundColor": "pink",
+                "submitButtonColor": "#2C2C2C"
+            },
+            "start_date": null,
+            "end_date": null,
+            "current_iteration": null,
+            "current_iteration_start_date": null
+        }
+    ],
+    "defaultIdentifiedOnly": true,
+    "siteApps": [
+        {
+            "id": 19688,
+            "url": "/site_app/19688/d54IywwATlasiHPO0esGMrU9PymVciwKKjRjRzab4yb/635b6f4fdf1b0ed2c4669942e4387e25/",
+            "type": "site_app"
+        },
+        {
+            "id": 27768,
+            "url": "/site_app/27768/rnVhKUOCLlKdoHdW8N6WELudxFbpkPjYYdHA3NQpvaO/c514a67762c2e8a4a63c76769962add5/",
+            "type": "site_app"
+        }
+    ]
+}

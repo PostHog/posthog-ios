@@ -19,6 +19,7 @@ class MockPostHogServer {
     var decideExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
     var decideRequests = [URLRequest]()
+    var version: Int = 3
 
     func trackBatchRequest(_ request: URLRequest) {
         batchRequests.append(request)
@@ -46,7 +47,10 @@ class MockPostHogServer {
     public var remoteConfigSurveys: String?
     public var featureFlags: [String: Any]?
 
-    init() {
+    // version is the version of the response we want to return regardless of the request version
+    init(version: Int = 3) {
+        self.version = version
+
         stub(condition: pathEndsWith("/decide")) { _ in
             if self.quotaLimitFeatureFlags {
                 return HTTPStubsResponse(
@@ -62,6 +66,7 @@ class MockPostHogServer {
                 "disabled-flag": false,
                 "number-value": true,
                 "recording-platform-check": "web",
+                "payload-json": true,
             ]
 
             if let additionalFlags = self.featureFlags {
@@ -72,21 +77,149 @@ class MockPostHogServer {
                 flags[self.replayVariantName] = self.replayVariantValue
             }
 
+            var flagsV4 = [
+                "bool-value": [
+                    "key": "bool-value",
+                    "enabled": true,
+                    "variant": nil,
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 3",
+                        "condition_index": 2,
+                    ],
+                    "metadata": [
+                        "id": 2,
+                        "version": 23,
+                        "payload": "true",
+                        "description": "This is an enabled flag",
+                    ],
+                ],
+                "string-value": [
+                    "key": "string-value",
+                    "enabled": true,
+                    "variant": "test",
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 1",
+                        "condition_index": 0,
+                    ],
+                    "metadata": [
+                        "id": 3,
+                        "version": 1,
+                        "payload": "\"string-value\"",
+                        "description": "",
+                    ],
+                ],
+                "disabled-flag": [
+                    "key": "disabled-flag",
+                    "enabled": false,
+                    "variant": nil,
+                    "reason": [
+                        "type": "no_condition_match",
+                        "description": "No matching condition set",
+                        "condition_index": nil,
+                    ],
+                    "metadata": [
+                        "id": 4,
+                        "version": 1,
+                        "payload": nil,
+                        "description": "This is a disabled flag",
+                    ],
+                ],
+                "number-value": [
+                    "key": "number-value",
+                    "enabled": true,
+                    "variant": nil,
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 2",
+                        "condition_index": 1,
+                    ],
+                    "metadata": [
+                        "id": 5,
+                        "version": 14,
+                        "payload": "2",
+                        "description": "This is a number flag",
+                    ],
+                ],
+                "recording-platform-check": [
+                    "key": "recording-platform-check",
+                    "enabled": true,
+                    "variant": "web",
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 4",
+                        "condition_index": 3,
+                    ],
+                    "metadata": [
+                        "id": 6,
+                        "version": 1,
+                        "payload": nil,
+                        "description": "This is a recording platform check flag",
+                    ],
+                ],
+                "payload-json": [
+                    "key": "payload-json",
+                    "enabled": true,
+                    "variant": nil,
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 5",
+                        "condition_index": 4,
+                    ],
+                    "metadata": [
+                        "id": 7,
+                        "version": 1,
+                        "payload": "{ \"foo\": \"bar\" }",
+                        "description": "This is a payload json flag",
+                    ],
+                ],
+            ]
+
             if self.errorsWhileComputingFlags {
                 flags["new-flag"] = true
                 flags.removeValue(forKey: "bool-value")
+
+                flagsV4["new-flag"] = [
+                    "key": "new-flag",
+                    "enabled": true,
+                    "variant": nil,
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 6",
+                        "condition_index": 5,
+                    ],
+                    "metadata": [
+                        "id": 8,
+                        "version": 1,
+                        "payload": nil,
+                        "description": "This is a new flag",
+                    ],
+                ]
+                flagsV4.removeValue(forKey: "bool-value")
             }
 
-            var obj: [String: Any] = [
-                "featureFlags": flags,
-                "featureFlagPayloads": [
-                    "payload-bool": "true",
-                    "number-value": "2",
-                    "payload-string": "\"string-value\"",
-                    "payload-json": "{ \"foo\": \"bar\" }",
-                ],
-                "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
-            ]
+            var obj: [String: Any] = [:]
+
+            if self.version == 4 {
+                obj = [
+                    "flags": flagsV4,
+                    "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
+                    "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
+                ]
+            } else {
+                obj = [
+                    "featureFlags": flags,
+                    "featureFlagPayloads": [
+                        "bool-value": "true",
+                        "number-value": "2",
+                        "string-value": "\"string-value\"",
+                        "payload-json": "{ \"foo\": \"bar\" }",
+                    ],
+                    "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
+                    "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
+                ]
+            }
 
             if self.returnReplay {
                 var sessionRecording: [String: Any] = [

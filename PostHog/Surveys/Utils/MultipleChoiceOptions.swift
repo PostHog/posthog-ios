@@ -128,25 +128,33 @@
         }
     }
 
-    @available(iOS 18.0, *)
-    #Preview {
-        @Previewable @State var selectedOptions: Set<String> = []
-        @Previewable @State var openChoiceInput = ""
+    #if DEBUG
+        @available(iOS 18.0, *)
+        private struct TestView: View {
+            @State var selectedOptions: Set<String> = []
+            @State var openChoiceInput = ""
 
-        MultipleChoiceOptions(
-            allowsMultipleSelection: true,
-            hasOpenChoiceQuestion: true,
-            options: [
-                "Tutorials",
-                "Customer case studies",
-                "Product announcements",
-                "Other",
-            ],
-            selectedOptions: $selectedOptions,
-            openChoiceInput: $openChoiceInput
-        )
-        .colorScheme(.dark)
-        .padding()
-    }
+            var body: some View {
+                MultipleChoiceOptions(
+                    allowsMultipleSelection: true,
+                    hasOpenChoiceQuestion: true,
+                    options: [
+                        "Tutorials",
+                        "Customer case studies",
+                        "Product announcements",
+                        "Other",
+                    ],
+                    selectedOptions: $selectedOptions,
+                    openChoiceInput: $openChoiceInput
+                )
+                .colorScheme(.dark)
+                .padding()
+            }
+        }
 
+        @available(iOS 18.0, *)
+        #Preview {
+            TestView()
+        }
+    #endif
 #endif

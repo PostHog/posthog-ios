@@ -99,26 +99,31 @@
         }
     }
 
-    @available(iOS 18.0, *)
-    #Preview {
-        @Previewable @State var selectedValue: Int?
+    #if DEBUG
+        @available(iOS 18.0, *)
+        private struct TestView: View {
+            @State var selectedValue: Int?
 
-        NavigationView {
-            VStack(spacing: 15) {
-                NumberRating(
-                    selectedValue: $selectedValue,
-                    numberRange: .oneToFive,
-                    lowerBoundLabel: "Unlikely",
-                    upperBoundLabel: "Very Likely"
-                )
+            var body: some View {
+                NavigationView {
+                    VStack(spacing: 15) {
+                        NumberRating(
+                            selectedValue: $selectedValue,
+                            numberRange: .oneToFive,
+                            lowerBoundLabel: "Unlikely",
+                            upperBoundLabel: "Very Likely"
+                        )
+                    }
+                    .padding()
+                }
+                .navigationBarTitle(Text("Number Rating"))
+                .environment(\.colorScheme, .light)
             }
-            .padding()
         }
-        .navigationBarTitle(Text("Number Rating"))
-        .environment(\.colorScheme, .light)
-        // .environment(\.surveyAppearance.borderColor, .blue)
-        // .environment(\.surveyAppearance.ratingButtonActiveColor, .white)
-        // .environment(\.surveyAppearance.ratingButtonColor, .red)
-    }
 
+        @available(iOS 18.0, *)
+        #Preview {
+            TestView()
+        }
+    #endif
 #endif

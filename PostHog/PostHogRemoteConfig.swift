@@ -18,6 +18,8 @@ class PostHogRemoteConfig {
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
     private var sessionReplayFlagActive = false
+
+    private var flags: [String: Any]?
     private var featureFlags: [String: Any]?
 
     private var remoteConfigLock = NSLock()
@@ -26,6 +28,7 @@ class PostHogRemoteConfig {
     private var remoteConfig: [String: Any]?
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
+    private var requestId: String?
 
     /// Internal, only used for testing
     var canReloadFlagsForTesting = true
@@ -35,6 +38,10 @@ class PostHogRemoteConfig {
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))
+
+    var lastRequestId: String? {
+        requestId ?? storage.getString(forKey: .requestId)
+    }
 
     init(_ config: PostHogConfig,
          _ storage: PostHogStorage,
@@ -246,8 +253,27 @@ class PostHogRemoteConfig {
                     return callback([:])
                 }
 
-                guard let featureFlags = data?["featureFlags"] as? [String: Any],
-                      let featureFlagPayloads = data?["featureFlagPayloads"] as? [String: Any]
+                // Safely handle optional data
+                guard var data = data else {
+                    hedgeLog("Error: Decide response data is nil")
+                    self.notifyFeatureFlagsAndRelease(data)
+                    return callback(nil)
+                }
+
+                self.normalizeResponse(&data)
+
+                let flagsV4 = data["flags"] as? [String: Any]
+
+                // Grab the request ID from the response
+                let requestId = data["requestId"] as? String
+                if let requestId {
+                    // Store the request ID in the storage.
+                    self.requestId = requestId
+                    self.storage.setString(forKey: .requestId, contents: requestId)
+                }
+
+                guard let featureFlags = data["featureFlags"] as? [String: Any],
+                      let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
 
@@ -255,7 +281,7 @@ class PostHogRemoteConfig {
 
                     return callback(nil)
                 }
-                let errorsWhileComputingFlags = data?["errorsWhileComputingFlags"] as? Bool ?? false
+                let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
 
                 #if os(iOS)
                     self.processSessionRecordingConfig(data, featureFlags: featureFlags)
@@ -265,6 +291,11 @@ class PostHogRemoteConfig {
 
                 self.featureFlagsLock.withLock {
                     if errorsWhileComputingFlags {
+                        // v4 cached flags which contains metadata about each flag.
+                        let cachedFlags = self.getCachedFlags() ?? [:]
+
+                        // The following two aren't necessarily needed for v4, but we'll keep them for now
+                        // for back compatibility for existing v3 users who might already have cached flag data.
                         let cachedFeatureFlags = self.getCachedFeatureFlags() ?? [:]
                         let cachedFeatureFlagsPayloads = self.getCachedFeatureFlagPayload() ?? [:]
 
@@ -273,11 +304,19 @@ class PostHogRemoteConfig {
 
                         // if not all flags were computed, we upsert flags instead of replacing them
                         loadedFeatureFlags = newFeatureFlags
+                        if let flagsV4 = flagsV4 {
+                            let newFlags = cachedFlags.merging(flagsV4) { _, new in new }
+                            // if not all flags were computed, we upsert flags instead of replacing them
+                            self.setCachedFlags(newFlags)
+                        }
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                         self.notifyFeatureFlagsAndRelease(newFeatureFlags)
                     } else {
                         loadedFeatureFlags = featureFlags
+                        if let flagsV4 = flagsV4 {
+                            self.setCachedFlags(flagsV4)
+                        }
                         self.setCachedFeatureFlags(featureFlags)
                         self.setCachedFeatureFlagPayload(featureFlagPayloads)
                         self.notifyFeatureFlagsAndRelease(featureFlags)
@@ -356,6 +395,15 @@ class PostHogRemoteConfig {
         return flags?[key]
     }
 
+    func getFeatureFlagDetails(_ key: String) -> Any? {
+        var flags: [String: Any]?
+        featureFlagsLock.withLock {
+            flags = self.getCachedFlags()
+        }
+
+        return flags?[key]
+    }
+
     private func getCachedFeatureFlagPayload() -> [String: Any]? {
         if featureFlagPayloads == nil {
             featureFlagPayloads = storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
@@ -380,6 +428,18 @@ class PostHogRemoteConfig {
         storage.setDictionary(forKey: .enabledFeatureFlags, contents: featureFlags)
     }
 
+    private func setCachedFlags(_ flags: [String: Any]) {
+        self.flags = flags
+        storage.setDictionary(forKey: .flags, contents: flags)
+    }
+
+    private func getCachedFlags() -> [String: Any]? {
+        if flags == nil {
+            flags = storage.getDictionary(forKey: .flags) as? [String: Any]
+        }
+        return flags
+    }
+
     func getFeatureFlagPayload(_ key: String) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
@@ -402,6 +462,39 @@ class PostHogRemoteConfig {
 
         // fallback to original value if not possible to serialize
         return value
+    }
+
+    private func normalizeResponse(_ data: inout [String: Any]) {
+        if let flagsV4 = data["flags"] as? [String: Any] {
+            var featureFlags = [String: Any]()
+            var featureFlagsPayloads = [String: Any]()
+            for (key, value) in flagsV4 {
+                if let flag = value as? [String: Any] {
+                    if let variant = flag["variant"] as? String {
+                        featureFlags[key] = variant
+                        // If there's a variant, the flag is enabled, so we can store the payload
+                        if let metadata = flag["metadata"] as? [String: Any],
+                           let payload = metadata["payload"]
+                        {
+                            featureFlagsPayloads[key] = payload
+                        }
+                    } else {
+                        let enabled = flag["enabled"] as? Bool
+                        featureFlags[key] = enabled
+
+                        // Only store payload if the flag is enabled
+                        if enabled == true,
+                           let metadata = flag["metadata"] as? [String: Any],
+                           let payload = metadata["payload"]
+                        {
+                            featureFlagsPayloads[key] = payload
+                        }
+                    }
+                }
+            }
+            data["featureFlags"] = featureFlags
+            data["featureFlagPayloads"] = featureFlagsPayloads
+        }
     }
 
     #if os(iOS)

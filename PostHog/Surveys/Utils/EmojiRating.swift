@@ -97,25 +97,33 @@
         }
     }
 
-    @available(iOS 18.0, *)
-    #Preview {
-        @Previewable @State var selectedValue: Int?
+    #if DEBUG
+        @available(iOS 18.0, *)
+        private struct TestView: View {
+            @State var selectedValue: Int?
 
-        NavigationView {
-            VStack(spacing: 40) {
-                EmojiRating(
-                    selectedValue: $selectedValue,
-                    emojiRange: .oneToFive,
-                    lowerBoundLabel: "Unlikely",
-                    upperBoundLabel: "Very likely"
-                )
-                .padding(.horizontal, 20)
+            var body: some View {
+                NavigationView {
+                    VStack(spacing: 40) {
+                        EmojiRating(
+                            selectedValue: $selectedValue,
+                            emojiRange: .oneToFive,
+                            lowerBoundLabel: "Unlikely",
+                            upperBoundLabel: "Very likely"
+                        )
+                        .padding(.horizontal, 20)
+                    }
+                }
+                .navigationBarTitle(Text("Emoji Rating"))
+                .environment(\.surveyAppearance.ratingButtonColor, .green.opacity(0.3))
+                .environment(\.surveyAppearance.ratingButtonActiveColor, .green)
+                .environment(\.surveyAppearance.descriptionTextColor, .orange)
             }
         }
-        .navigationBarTitle(Text("Emoji Rating"))
-        .environment(\.surveyAppearance.ratingButtonColor, .green.opacity(0.3))
-        .environment(\.surveyAppearance.ratingButtonActiveColor, .green)
-        .environment(\.surveyAppearance.descriptionTextColor, .orange)
-    }
 
+        @available(iOS 18.0, *)
+        #Preview {
+            TestView()
+        }
+    #endif
 #endif

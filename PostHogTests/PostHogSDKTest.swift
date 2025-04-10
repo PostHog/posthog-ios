@@ -372,7 +372,7 @@ class PostHogSDKTest: QuickSpec {
             sut.reset()
             sut.close()
         }
-        
+
         it("removes all integrations on opt-out") {
             let sut = self.getSut(
                 captureApplicationLifecycleEvents: true,
@@ -380,7 +380,7 @@ class PostHogSDKTest: QuickSpec {
             )
 
             expect(sut.getAppLifeCycleIntegration()).notTo(beNil())
-            
+
             sut.optOut()
 
             expect(sut.getAppLifeCycleIntegration()).to(beNil())

@@ -1,6 +1,6 @@
 ## Next
 
-- feat: stop integrations on optOut() ([#329](https://github.com/PostHog/posthog-ios/pull/329))
+- feat: start/stop integrations when calling optIn() or optOut() ([#329](https://github.com/PostHog/posthog-ios/pull/329))
 
 ## 3.22.1 - 2025-04-10
 

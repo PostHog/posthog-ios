@@ -1,5 +1,6 @@
 ## Next
 
+- fix: manually start session recording even when `config.sessionReplay` is disabled ([#330](https://github.com/PostHog/posthog-ios/pull/330))
 - feat: start/stop integrations when calling optIn() or optOut() ([#329](https://github.com/PostHog/posthog-ios/pull/329))
 
 ## 3.22.1 - 2025-04-10

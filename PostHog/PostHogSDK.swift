@@ -998,6 +998,17 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            if isOptOutState() {
+                return
+            }
+
+            if replayIntegration == nil {
+                // replay integration was not previously installed (probably disabled in config), attempt to install it
+                setupLock.withLock {
+                    installReplayIntegration()
+                }
+            }
+
             guard let replayIntegration else {
                 return
             }
@@ -1032,12 +1043,6 @@ let maxRetryDelay = 30.0
             if !isEnabled() {
                 return
             }
-
-            #if os(iOS)
-                let replayIntegration = installedIntegrations.compactMap {
-                    $0 as? PostHogReplayIntegration
-                }.first
-            #endif
 
             guard let replayIntegration, replayIntegration.isActive() else {
                 return
@@ -1109,6 +1114,23 @@ let maxRetryDelay = 30.0
 
         installedIntegrations = installed
     }
+
+    #if os(iOS)
+        private func installReplayIntegration() {
+            guard replayIntegration == nil else { return }
+
+            let integration = PostHogReplayIntegration()
+            do {
+                try integration.install(self)
+                installedIntegrations.append(integration)
+                replayIntegration = integration
+
+                hedgeLog("Integration \(type(of: integration)) installed")
+            } catch {
+                hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
+            }
+        }
+    #endif
 
     private func uninstallIntegrations() {
         for integration in installedIntegrations {

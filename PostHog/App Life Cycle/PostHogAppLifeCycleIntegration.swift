@@ -186,6 +186,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
 #if TESTING
     extension PostHogAppLifeCycleIntegration {
         static func clearInstalls() {
+            PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate = false
             integrationInstalledLock.withLock {
                 integrationInstalled = false
             }

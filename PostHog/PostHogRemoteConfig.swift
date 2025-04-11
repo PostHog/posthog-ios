@@ -304,7 +304,7 @@ class PostHogRemoteConfig {
 
                         // if not all flags were computed, we upsert flags instead of replacing them
                         loadedFeatureFlags = newFeatureFlags
-                        if let flagsV4 = flagsV4 {
+                        if let flagsV4 {
                             let newFlags = cachedFlags.merging(flagsV4) { _, new in new }
                             // if not all flags were computed, we upsert flags instead of replacing them
                             self.setCachedFlags(newFlags)

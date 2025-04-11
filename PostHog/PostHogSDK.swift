@@ -897,6 +897,10 @@ let maxRetryDelay = 30.0
             return
         }
 
+        if !isOptOut() {
+            return
+        }
+
         optOutLock.withLock {
             config.optOut = false
             storage?.setBool(forKey: .optOut, contents: false)
@@ -909,6 +913,10 @@ let maxRetryDelay = 30.0
 
     @objc public func optOut() {
         if !isEnabled() {
+            return
+        }
+
+        if isOptOut() {
             return
         }
 
@@ -1069,6 +1077,11 @@ let maxRetryDelay = 30.0
     #endif
 
     private func installIntegrations() {
+        guard installedIntegrations.isEmpty else {
+            hedgeLog("Integrations already installed. Call uninstallIntegrations() first.")
+            return
+        }
+
         let integrations = config.getIntegrations()
         var installed: [PostHogIntegration] = []
 

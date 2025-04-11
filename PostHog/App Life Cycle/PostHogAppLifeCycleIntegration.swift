@@ -19,6 +19,7 @@ import Foundation
 final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private static var integrationInstalledLock = NSLock()
     private static var integrationInstalled = false
+    private static var didCaptureAppInstallOrUpdate = false
 
     private weak var postHog: PostHogSDK?
 
@@ -27,7 +28,6 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private var didBecomeActiveToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
     private var didFinishLaunchingToken: RegistrationToken?
-    private var didCaptureAppInstallOrUpdate = false
 
     func install(_ postHog: PostHogSDK) throws {
         try PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
@@ -80,9 +80,11 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     }
 
     private func captureAppInstallOrUpdated() {
-        guard let postHog, !didCaptureAppInstallOrUpdate else { return }
+        // Check if Application Installed or Application Updated was already checked in the lifecycle of this app
+        // This can be called multiple times in case of optOut, multiple instances or start/stop integration
+        guard let postHog, !PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate else { return }
 
-        didCaptureAppInstallOrUpdate = true
+        PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate = true
 
         if !postHog.config.captureApplicationLifecycleEvents {
             hedgeLog("Skipping Application Installed/Application Updated event - captureApplicationLifecycleEvents is disabled in configuration")

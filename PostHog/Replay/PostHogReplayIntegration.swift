@@ -23,7 +23,6 @@
 
         private weak var postHog: PostHogSDK?
 
-        private var timer: Timer?
         private var isEnabled: Bool = false
 
         private let windowViewsLock = NSLock()
@@ -148,7 +147,6 @@
             }
 
             isEnabled = true
-            stopTimer()
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
             PostHogSessionManager.shared.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
@@ -176,7 +174,6 @@
 
         func stop() {
             isEnabled = false
-            stopTimer()
             resetViews()
             PostHogSessionManager.shared.onSessionIdChanged = {}
 
@@ -191,11 +188,6 @@
 
         func isActive() -> Bool {
             isEnabled
-        }
-
-        private func stopTimer() {
-            timer?.invalidate()
-            timer = nil
         }
 
         private func resetViews() {

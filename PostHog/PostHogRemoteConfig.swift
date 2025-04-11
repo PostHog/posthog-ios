@@ -28,6 +28,7 @@ class PostHogRemoteConfig {
     private var remoteConfig: [String: Any]?
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
+    private let requestIdLock = NSLock()
     private var requestId: String?
 
     /// Internal, only used for testing
@@ -40,7 +41,9 @@ class PostHogRemoteConfig {
                                               target: .global(qos: .utility))
 
     var lastRequestId: String? {
-        requestId ?? storage.getString(forKey: .requestId)
+        requestIdLock.withLock {
+            requestId ?? storage.getString(forKey: .requestId)
+        }
     }
 
     init(_ config: PostHogConfig,
@@ -268,8 +271,10 @@ class PostHogRemoteConfig {
                 let requestId = data["requestId"] as? String
                 if let requestId {
                     // Store the request ID in the storage.
-                    self.requestId = requestId
-                    self.storage.setString(forKey: .requestId, contents: requestId)
+                    self.requestIdLock.withLock {
+                        self.requestId = requestId
+                        self.storage.setString(forKey: .requestId, contents: requestId)
+                    }
                 }
 
                 guard let featureFlags = data["featureFlags"] as? [String: Any],

@@ -319,7 +319,7 @@ class PostHogRemoteConfig {
                         self.notifyFeatureFlagsAndRelease(newFeatureFlags)
                     } else {
                         loadedFeatureFlags = featureFlags
-                        if let flagsV4 = flagsV4 {
+                        if let flagsV4 {
                             self.setCachedFlags(flagsV4)
                         }
                         self.setCachedFeatureFlags(featureFlags)

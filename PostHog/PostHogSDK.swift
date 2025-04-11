@@ -136,7 +136,10 @@ let maxRetryDelay = 30.0
 
             PostHogSessionManager.shared.startSession()
 
-            installIntegrations()
+            if !config.optOut {
+                // don't install integrations if in opt-out state
+                installIntegrations()
+            }
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -894,9 +897,17 @@ let maxRetryDelay = 30.0
             return
         }
 
+        if !isOptOut() {
+            return
+        }
+
         optOutLock.withLock {
             config.optOut = false
             storage?.setBool(forKey: .optOut, contents: false)
+        }
+
+        setupLock.withLock {
+            installIntegrations()
         }
     }
 
@@ -905,9 +916,17 @@ let maxRetryDelay = 30.0
             return
         }
 
+        if isOptOut() {
+            return
+        }
+
         optOutLock.withLock {
             config.optOut = true
             storage?.setBool(forKey: .optOut, contents: true)
+        }
+
+        setupLock.withLock {
+            uninstallIntegrations()
         }
     }
 
@@ -1058,6 +1077,11 @@ let maxRetryDelay = 30.0
     #endif
 
     private func installIntegrations() {
+        guard installedIntegrations.isEmpty else {
+            hedgeLog("Integrations already installed. Call uninstallIntegrations() first.")
+            return
+        }
+
         let integrations = config.getIntegrations()
         var installed: [PostHogIntegration] = []
 

@@ -87,6 +87,7 @@ class PostHogStorage {
         case replayQeueue = "posthog.replayFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
+        case flags = "posthog.flags"
         case groups = "posthog.groups"
         case registerProperties = "posthog.registerProperties"
         case optOut = "posthog.optOut"
@@ -95,6 +96,7 @@ class PostHogStorage {
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
         case remoteConfig = "posthog.remoteConfig"
         case surveySeen = "posthog.surveySeen"
+        case requestId = "posthog.requestId"
     }
 
     // The location for storing data that we always want to keep
@@ -238,6 +240,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .anonymousId))
         // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
         deleteSafely(url(forKey: .oldQeueue))
+        deleteSafely(url(forKey: .flags))
         deleteSafely(url(forKey: .enabledFeatureFlags))
         deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
         deleteSafely(url(forKey: .groups))
@@ -248,6 +251,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .personProcessingEnabled))
         deleteSafely(url(forKey: .remoteConfig))
         deleteSafely(url(forKey: .surveySeen))
+        deleteSafely(url(forKey: .requestId))
     }
 
     public func remove(key: StorageKey) {

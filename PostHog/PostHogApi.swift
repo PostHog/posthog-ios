@@ -200,7 +200,7 @@ class PostHogApi {
     ) {
         guard let url = getEndpointURL(
             "/decide",
-            queryItems: URLQueryItem(name: "v", value: "3"),
+            queryItems: URLQueryItem(name: "v", value: "4"),
             relativeTo: config.host
         ) else {
             hedgeLog("Malformed decide URL error.")

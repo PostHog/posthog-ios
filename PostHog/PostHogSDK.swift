@@ -877,10 +877,26 @@ let maxRetryDelay = 30.0
         }
 
         if shouldCapture {
-            let properties = [
+            let requestId = remoteConfig?.lastRequestId ?? ""
+            let details = remoteConfig?.getFeatureFlagDetails(flagKey)
+
+            var properties = [
                 "$feature_flag": flagKey,
-                "$feature_flag_response": flagValue ?? "",
+                "$feature_flag_response": flagValue ?? NSNull(),
+                "$feature_flag_request_id": requestId,
             ]
+
+            if let details = details as? [String: Any] {
+                if let reason = details["reason"] as? [String: Any] {
+                    properties["$feature_flag_reason"] = reason["description"] ?? NSNull()
+                }
+
+                if let metadata = details["metadata"] as? [String: Any] {
+                    properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
+                    properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
+                }
+            }
+
             capture("$feature_flag_called", properties: properties)
         }
     }

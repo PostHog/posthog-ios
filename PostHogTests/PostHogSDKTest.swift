@@ -54,7 +54,7 @@ class PostHogSDKTest: QuickSpec {
             PostHogAppLifeCycleIntegration.clearInstalls()
 
             deleteDefaults()
-            server = MockPostHogServer()
+            server = MockPostHogServer(version: 4)
             server.start()
 
             DI.main.sessionManager = PostHogSessionManager()
@@ -460,6 +460,10 @@ class PostHogSDKTest: QuickSpec {
             expect(event.event) == "$feature_flag_called"
             expect(event.properties["$feature_flag"] as? String) == "bool-value"
             expect(event.properties["$feature_flag_response"] as? Bool) == true
+            expect(event.properties["$feature_flag_request_id"] as? String) == "0f801b5b-0776-42ca-b0f7-8375c95730bf"
+            expect(event.properties["$feature_flag_id"] as? Int) == 2
+            expect(event.properties["$feature_flag_version"] as? Int) == 23
+            expect(event.properties["$feature_flag_reason"] as? String) == "Matched condition set 3"
 
             sut.reset()
             sut.close()

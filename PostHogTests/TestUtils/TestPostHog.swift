@@ -45,11 +45,6 @@ func getDecideRequest(_ server: MockPostHogServer) -> [[String: Any]] {
     return requests
 }
 
-func deleteSafelyApplicationSupportDirectory() {
-    let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    deleteSafely(url)
-}
-
 func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent] {
     guard let expectation = server.batchExpectation else {
         throw TestError("Server is not properly configured with a batch expectation.")

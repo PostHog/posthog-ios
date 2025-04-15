@@ -5,12 +5,15 @@
 //  Created by Ioannis Josephides on 14/04/2025.
 //
 
+import Foundation
 @testable import PostHog
 import Testing
 
 @Suite("Identity tests", .serialized)
 class PostHogIdentityTests {
     let server: MockPostHogServer
+
+    var cleanupJobs: [() -> Void]
 
     func getSut(
         reuseAnonymousId: Bool = false,
@@ -20,17 +23,26 @@ class PostHogIdentityTests {
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
-        return PostHogSDK.with(config)
+        let sut = PostHogSDK.with(config)
+        cleanupJobs.append {
+            sut.reset()
+            sut.close()
+            deleteSafely(applicationSupportDirectoryURL())
+        }
+        return sut
     }
 
-    init() {
+    init() throws {
         server = MockPostHogServer()
         server.start()
-        deleteSafelyApplicationSupportDirectory()
+        cleanupJobs = []
     }
 
     deinit {
         server.reset()
+        for cleanup in cleanupJobs {
+            cleanup()
+        }
     }
 
     @Test("does not clear anonymousId on reset()")
@@ -40,9 +52,6 @@ class PostHogIdentityTests {
         sut.reset()
         let newAnonId = sut.getAnonymousId()
         #expect(oldAnonId == newAnonId)
-
-        sut.reset()
-        sut.close()
     }
 
     @Test("does not clear anonymousId on close()")
@@ -56,9 +65,6 @@ class PostHogIdentityTests {
         let newAnonId = sut.getAnonymousId()
 
         #expect(oldAnonId == newAnonId)
-
-        sut.reset()
-        sut.close()
     }
 
     @Test("anonymousId is not overwritten on re-identify when reuseAnonymousId is true")
@@ -73,9 +79,6 @@ class PostHogIdentityTests {
         let newAnonId = sut.getAnonymousId()
         #expect(oldAnonId == newAnonId)
         #expect(oldAnonId == sut.getDistinctId())
-
-        sut.reset()
-        sut.close()
     }
 
     @Test("anonymousId is retained across series of identify() and reset() reuseAnonymousId is true")

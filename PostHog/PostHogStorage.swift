@@ -234,10 +234,12 @@ class PostHogStorage {
         return apiDir
     }
 
-    public func reset() {
+    public func reset(keepAnonymousId: Bool = false) {
         // sadly the StorageKey.allCases does not work here
         deleteSafely(url(forKey: .distinctId))
-        deleteSafely(url(forKey: .anonymousId))
+        if !keepAnonymousId {
+            deleteSafely(url(forKey: .anonymousId))
+        }
         // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
         deleteSafely(url(forKey: .oldQeueue))
         deleteSafely(url(forKey: .flags))
@@ -254,13 +256,13 @@ class PostHogStorage {
         deleteSafely(url(forKey: .requestId))
     }
 
-    public func remove(key: StorageKey) {
+    func remove(key: StorageKey) {
         let url = url(forKey: key)
 
         deleteSafely(url)
     }
 
-    public func getString(forKey key: StorageKey) -> String? {
+    func getString(forKey key: StorageKey) -> String? {
         let value = getJson(forKey: key)
         if let stringValue = value as? String {
             return stringValue
@@ -270,19 +272,19 @@ class PostHogStorage {
         return nil
     }
 
-    public func setString(forKey key: StorageKey, contents: String) {
+    func setString(forKey key: StorageKey, contents: String) {
         setJson(forKey: key, json: contents)
     }
 
-    public func getDictionary(forKey key: StorageKey) -> [AnyHashable: Any]? {
+    func getDictionary(forKey key: StorageKey) -> [AnyHashable: Any]? {
         getJson(forKey: key) as? [AnyHashable: Any]
     }
 
-    public func setDictionary(forKey key: StorageKey, contents: [AnyHashable: Any]) {
+    func setDictionary(forKey key: StorageKey, contents: [AnyHashable: Any]) {
         setJson(forKey: key, json: contents)
     }
 
-    public func getBool(forKey key: StorageKey) -> Bool? {
+    func getBool(forKey key: StorageKey) -> Bool? {
         let value = getJson(forKey: key)
         if let boolValue = value as? Bool {
             return boolValue
@@ -292,7 +294,7 @@ class PostHogStorage {
         return nil
     }
 
-    public func setBool(forKey key: StorageKey, contents: Bool) {
+    func setBool(forKey key: StorageKey, contents: Bool) {
         setJson(forKey: key, json: contents)
     }
 }

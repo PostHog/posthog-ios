@@ -194,7 +194,7 @@ class PostHogApi {
 
     func decide(
         distinctId: String,
-        anonymousId: String,
+        anonymousId: String?,
         groups: [String: String],
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {
@@ -211,12 +211,15 @@ class PostHogApi {
 
         let request = getURLRequest(url)
 
-        let toSend: [String: Any] = [
+        var toSend: [String: Any] = [
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
-            "$anon_distinct_id": anonymousId,
             "$groups": groups,
         ]
+
+        if let anonymousId {
+            toSend["$anon_distinct_id"] = anonymousId
+        }
 
         var data: Data?
 

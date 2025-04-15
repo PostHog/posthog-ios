@@ -344,8 +344,8 @@ let maxRetryDelay = 30.0
         }
 
         // storage also removes all feature flags
-        storage?.reset()
-        config.storageManager?.reset()
+        storage?.reset(keepAnonymousId: config.reuseAnonymousId)
+        config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
@@ -444,16 +444,23 @@ let maxRetryDelay = 30.0
         let hasDifferentDistinctId = distinctId != oldDistinctId
 
         if hasDifferentDistinctId, !isIdentified {
-            // We keep the AnonymousId to be used by decide calls and identify to link the previousId
-            storageManager.setAnonymousId(oldDistinctId)
-            storageManager.setDistinctId(distinctId)
+            var props: [String: Any] = ["distinct_id": distinctId]
 
+            if !config.reuseAnonymousId {
+                // We keep the AnonymousId to be used by decide calls and identify to link the previousId
+                storageManager.setAnonymousId(oldDistinctId)
+                props["$anon_distinct_id"] = oldDistinctId
+            }
+
+            storageManager.setDistinctId(distinctId)
             storageManager.setIdentified(true)
 
-            let properties = buildProperties(distinctId: distinctId, properties: [
-                "distinct_id": distinctId,
-                "$anon_distinct_id": oldDistinctId,
-            ], userProperties: sanitizeDictionary(userProperties), userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce))
+            let properties = buildProperties(
+                distinctId: distinctId,
+                properties: props,
+                userProperties: sanitizeDictionary(userProperties),
+                userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
+            )
             let sanitizedProperties = sanitizeProperties(properties)
 
             queue.add(PostHogEvent(
@@ -968,7 +975,7 @@ let maxRetryDelay = 30.0
 
             queue = nil
             replayQueue = nil
-            config.storageManager?.reset()
+            config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             config = PostHogConfig(apiKey: "")
             remoteConfig = nil

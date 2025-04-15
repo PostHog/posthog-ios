@@ -52,6 +52,19 @@ import Foundation
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
+
+    /// Flag to reuse the anonymous Id between `reset()` and next `identify()` calls
+    ///
+    /// If enabled, the anonymous Id will be reused for all anonymous users on this device,
+    /// essentially creating a "Guest user Id" as long as this option is enabled.
+    ///
+    /// Note:
+    ///     Events captured *before* call to *identify()* won't be linked to the identified user
+    ///     Events captured *after*  call to *reset()* won't be linked to the identified user
+    ///
+    /// Defaults to false.
+    @objc public var reuseAnonymousId: Bool = false
+
     /// Hook that allows to sanitize the event properties
     /// The hook is called before the event is cached or sent over the wire
     @objc public var propertiesSanitizer: PostHogPropertiesSanitizer?

@@ -45,7 +45,6 @@ import Foundation
     @objc public var captureScreenViews: Bool = true
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enable autocapture for iOS
-        /// Experimental support
         /// Default: false
         @objc public var captureElementInteractions: Bool = false
     #endif

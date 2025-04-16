@@ -1,5 +1,7 @@
 ## Next
 
+- feat: reuse `anonymousId` between user changes ([#332](https://github.com/PostHog/posthog-ios/pull/332))
+
 ## 3.23.0 - 2025-04-14
 
 - fix: postHogMask() view modifier breaks navigation bar ([#331](https://github.com/PostHog/posthog-ios/pull/331))

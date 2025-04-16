@@ -127,9 +127,9 @@ public class PostHogStorageManager {
         }
     }
 
-    public func reset(_ resetStorage: Bool = false) {
+    public func reset(keepAnonymousId: Bool = false, _ resetStorage: Bool = false) {
         // resetStorage is only used for testing, when the reset method is called,
-        // the storage is also cleared, so we dont do here to not do it twice.
+        // the storage is also cleared, so we don't do here to not do it twice.
         distinctLock.withLock {
             distinctId = nil
             cachedDistinctId = false
@@ -137,12 +137,16 @@ public class PostHogStorageManager {
                 storage.remove(key: .distinctId)
             }
         }
-        anonLock.withLock {
-            anonymousId = nil
-            if resetStorage {
-                storage.remove(key: .anonymousId)
+
+        if !keepAnonymousId {
+            anonLock.withLock {
+                anonymousId = nil
+                if resetStorage {
+                    storage.remove(key: .anonymousId)
+                }
             }
         }
+
         identifiedLock.withLock {
             isIdentifiedValue = nil
             if resetStorage {

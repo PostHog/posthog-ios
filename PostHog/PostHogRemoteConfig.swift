@@ -157,10 +157,12 @@ class PostHogRemoteConfig {
         }
 
         let groups = featureFlagsLock.withLock { getGroups() }
+        let distinctId = storageManager.getDistinctId()
+        let anonymousId = config.reuseAnonymousId == false ? storageManager.getAnonymousId() : nil
 
         loadFeatureFlags(
-            distinctId: storageManager.getDistinctId(),
-            anonymousId: storageManager.getAnonymousId(),
+            distinctId: distinctId,
+            anonymousId: anonymousId,
             groups: groups,
             callback: callback ?? { _ in }
         )
@@ -224,7 +226,7 @@ class PostHogRemoteConfig {
 
     func loadFeatureFlags(
         distinctId: String,
-        anonymousId: String,
+        anonymousId: String?,
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {

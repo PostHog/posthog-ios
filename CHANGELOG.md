@@ -1,5 +1,7 @@
 ## Next
 
+- chore: Autocapture GA ([#334](https://github.com/PostHog/posthog-ios/pull/334))
+
 ## 3.23.0 - 2025-04-14
 
 - fix: postHogMask() view modifier breaks navigation bar ([#331](https://github.com/PostHog/posthog-ios/pull/331))

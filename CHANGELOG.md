@@ -1,5 +1,6 @@
 ## Next
 
+- chore: Autocapture GA ([#334](https://github.com/PostHog/posthog-ios/pull/334))
 - feat: reuse `anonymousId` between user changes ([#332](https://github.com/PostHog/posthog-ios/pull/332))
 
 ## 3.23.0 - 2025-04-14

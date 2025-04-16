@@ -109,7 +109,7 @@ class PostHogStorage {
         Self.migrateLegacyStorage(from: config, to: appFolderUrl)
     }
 
-    public func url(forKey key: StorageKey) -> URL {
+    func url(forKey key: StorageKey) -> URL {
         appFolderUrl.appendingPathComponent(key.rawValue)
     }
 
@@ -234,7 +234,7 @@ class PostHogStorage {
         return apiDir
     }
 
-    public func reset(keepAnonymousId: Bool = false) {
+    func reset(keepAnonymousId: Bool = false) {
         // sadly the StorageKey.allCases does not work here
         deleteSafely(url(forKey: .distinctId))
         if !keepAnonymousId {

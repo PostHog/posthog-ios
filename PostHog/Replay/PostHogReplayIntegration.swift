@@ -7,8 +7,10 @@
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
 #if os(iOS)
+    import CoreImage.CIFilterBuiltins
     import Foundation
     import PhotosUI
+    import SafariServices
     import SwiftUI
     import UIKit
     import WebKit
@@ -526,26 +528,22 @@
 
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
             // this will bail on view controller animations (interactive or not)
-            if !window.isVisible() || isAnimatingTransition(window) {
+            if !window.isVisible() {
                 return nil
             }
 
-            var maskableWidgets: [CGRect] = []
-            var maskChildren = false
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            guard let snapshotImage = window.renderWithMasking() else {
+                return nil
+            }
+
+            if !snapshotImage.size.hasSize() {
+                return nil
+            }
 
             let wireframe = createBasicWireframe(window)
-
-            if let image = window.toImage() {
-                if !image.size.hasSize() {
-                    return nil
-                }
-
-                wireframe.maskableWidgets = maskableWidgets
-
-                wireframe.image = image
-            }
             wireframe.type = "screenshot"
+            wireframe.image = snapshotImage
+
             return wireframe
         }
 
@@ -821,6 +819,430 @@
     private protocol AnyObjectUIHostingViewController: AnyObject {}
 
     extension UIHostingController: AnyObjectUIHostingViewController {}
+
+//    func snapshotWithSanitizedText(from view: UIView, callback: ((UIImage) -> Void)?) {
+//        // Create a renderer with the bounds of the view
+//        let renderer = UIGraphicsImageRenderer(bounds: view.bounds)
+//        var restorations: [() -> Void] = []
+//
+//        // Generate the snapshot
+//        let snapshot = renderer.image { context in
+//            // Recursive function to draw the view hierarchy with sanitized text
+//            func drawSanitizedHierarchy(in view: UIView) {
+//                // Check for text-containing views and sanitize them
+//                if let textField = view as? UITextField {
+//                    let originalIsHidden = textField.isHidden
+//                    textField.isHidden = true
+//                    restorations.append { textField.isHidden = originalIsHidden }
+//
+//                    // Replace text with sanitized text
+//                    let label = UILabel(frame: textField.frame)
+//                    label.text = "****"
+//                    label.font = textField.font
+//                    label.textAlignment = textField.textAlignment
+//                    label.drawHierarchy(in: label.bounds, afterScreenUpdates: true)
+//                } else if let textView = view as? UITextView {
+//                    let originalIsHidden = textView.isHidden
+//                    textView.isHidden = true
+//                    restorations.append { textView.isHidden = originalIsHidden }
+//
+//                    let label = UILabel(frame: textView.frame)
+//                    label.text = "****"
+//                    label.font = textView.font
+//                    label.textAlignment = textView.textAlignment
+//                    label.drawHierarchy(in: label.bounds, afterScreenUpdates: true)
+//                } else {
+//                    // If not a text-containing view, draw the view as is
+//                    view.drawHierarchy(in: view.bounds, afterScreenUpdates: false)
+//                }
+//
+//                // Recursively sanitize and draw subviews
+//                for subview in view.subviews {
+//                    context.cgContext.saveGState() // Save the current graphics state
+//                    context.cgContext.translateBy(x: subview.frame.origin.x, y: subview.frame.origin.y)
+//                    drawSanitizedHierarchy(in: subview)
+//                    for restoration in restorations {
+//                        restoration()
+//                    }
+//                    context.cgContext.restoreGState() // Restore the previous graphics state
+//                }
+//            }
+//
+//            // Start the sanitization and drawing process
+//            drawSanitizedHierarchy(in: view)
+//        }
+//
+//        // Call the callback with the snapshot
+//        callback?(snapshot)
+//    }
+
+    let swiftUIImageLayerTypes = [
+        "SwiftUI.ImageLayer",
+    ].compactMap(NSClassFromString)
+
+    let swiftUITextBasedViewTypes = [
+        "SwiftUI.CGDrawingView", // Text, Button
+        "SwiftUI.TextEditorTextView", // TextEditor
+        "SwiftUI.VerticalTextView", // TextField, vertical axis
+    ].compactMap(NSClassFromString)
+
+    extension UIView {
+        func drawHierarchyWithMasking(
+            in context: CGContext
+        ) {
+            context.saveGState()
+
+            let globalFrame = convert(bounds, to: window)
+            context.concatenate(transform)
+            context.translateBy(x: globalFrame.origin.x, y: globalFrame.origin.y)
+
+            // Draw the current layer
+            if swiftUITextBasedViewTypes.contains(where: isKind(of:)) {
+                renderObfuscatedLabel(for: self, in: context)
+            } else if swiftUIImageLayerTypes.contains(where: layer.isKind(of:)) {
+                // renderBlurred(view: self)
+                renderPixellated(view: self)
+            } else if let imageView = self as? UIImageView {
+                renderPixellated(view: imageView)
+            } else if let vc = findViewController() as? SFSafariViewController {
+                renderObfuscatedRemoteView(text: "SFSafariView", for: vc.view, in: context)
+            } else if let webView = self as? WKWebView {
+                renderObfuscatedRemoteView(text: "WKWebView", for: webView, in: context)
+            } else if let view = self as? UITextView {
+                renderObfuscatedLabel(for: view, in: context)
+            } else if let view = self as? UITextField {
+                renderObfuscatedLabel(for: view, in: context)
+            } else if let label = self as? UILabel {
+                renderObfuscatedLabel(for: label, in: context)
+            } else {
+                // Render the view
+                renderInContext(context)
+            }
+
+            context.restoreGState()
+
+            context.saveGState()
+
+            let cornerPath = UIBezierPath(
+                roundedRect: globalFrame,
+                byRoundingCorners: layer.maskedCorners.toUIRectCorner,
+                cornerRadii: CGSize(
+                    width: layer.cornerRadius,
+                    height: layer.cornerRadius
+                )
+            ).cgPath
+            context.addPath(cornerPath)
+            context.clip()
+
+            for subview in subviews {
+                guard !subview.isHidden, subview.alpha > 0 else { continue }
+                subview.drawHierarchyWithMasking(in: context)
+            }
+            context.restoreGState()
+        }
+
+        /// Helper method to render a single view into a CGContext
+        /// - Parameter context: The `CGContext` to render into.
+        private func renderInContext(_ context: CGContext) {
+            if let visualEffectsView = self as? UIVisualEffectView {
+                renderVisualEffectView(visualEffectsView, in: context)
+            } else if subviews.count == 0 {
+                layer.render(in: context)
+            } else {
+                drawWithEffects(in: context)
+            }
+        }
+
+        /// Renders the view hierarchy into an image, replacing `UITextField` and `UITextView` with obfuscated labels.
+        /// - Returns: A `UIImage` representation of the view hierarchy.
+        func renderWithMasking() -> UIImage? {
+            // Start a graphics context with the view's size
+            UIGraphicsBeginImageContextWithOptions(bounds.size, false, 0)
+            guard let context = UIGraphicsGetCurrentContext() else {
+                UIGraphicsEndImageContext()
+                return nil
+            }
+
+            // Render view hierarchy
+            drawHierarchyWithMasking(in: context)
+
+            // Capture the rendered image
+            let renderedImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            return renderedImage
+        }
+
+        /// Renders an obfuscated label (e.g., "****") in place of a text input view.
+        /// - Parameters:
+        ///   - view: The text input view to replace.
+        ///   - context: The graphics context to render into.
+        private func renderObfuscatedLabel(for view: UIView, in context: CGContext) {
+            func maxCharacters(for frameWidth: CGFloat, using font: UIFont) -> Int {
+                // Create a sample character to measure its size
+                let sampleText = "*" // "W" tends to be one of the widest characters
+                let sampleSize = sampleText.size(withAttributes: [.font: font])
+
+                // Calculate how many of these characters can fit in the frame
+                let maxCharacters = Int(frameWidth / sampleSize.width)
+                return maxCharacters
+            }
+
+            let label = UILabel(frame: view.bounds)
+            label.text = String(repeating: "*", count: maxCharacters(for: view.bounds.width, using: .preferredFont(forTextStyle: .body)))
+            // label.textAlignment = .left
+            label.lineBreakMode = .byClipping
+
+            if let textField = view as? UITextField {
+                label.text = (textField.text ?? textField.attributedText?.string)?.mask()
+                label.textAlignment = textField.textAlignment
+                label.font = textField.font
+                label.textColor = textField.textColor
+            } else if let textView = view as? UITextView {
+                label.text = (textView.text ?? textView.attributedText.string)?.mask()
+                label.textAlignment = textView.textAlignment
+                label.font = textView.font
+                label.textColor = textView.textColor
+            } else if let labelView = view as? UILabel {
+                label.text = (labelView.text ?? labelView.attributedText?.string)?.mask()
+                label.textAlignment = labelView.textAlignment
+                label.font = labelView.font
+                label.textColor = labelView.textColor
+            }
+
+            label.backgroundColor = view.backgroundColor?.resolvedColor(with: view.traitCollection) ?? .clear
+
+            // Render the label as a replacement
+            label.layer.render(in: context)
+        }
+
+        private func renderObfuscatedRemoteView(text: String, for view: UIView, in _: CGContext) {
+            guard let backgroundImage = UIGraphicsGetImageFromCurrentImageContext() else {
+                return
+            }
+            let blurredBackground = applyGaussianBlur(to: backgroundImage, radius: 8)
+            blurredBackground.draw(in: view.bounds)
+
+            let overlayColor = UIColor.black.withAlphaComponent(0.6)
+            overlayColor.setFill()
+            UIRectFillUsingBlendMode(CGRect(origin: .zero, size: view.bounds.size), .normal)
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 24),
+                .foregroundColor: UIColor.white,
+            ]
+
+            let textSize = text.size(withAttributes: attributes)
+            let textRect = CGRect(
+                x: (view.bounds.width - textSize.width) / 2,
+                y: (view.bounds.height - textSize.height) / 2,
+                width: textSize.width,
+                height: textSize.height
+            )
+            text.draw(in: textRect, withAttributes: attributes)
+        }
+
+        private func renderBlurred(view: UIView) {
+            UIGraphicsBeginImageContextWithOptions(view.bounds.size, false, 0)
+            guard let blurContext = UIGraphicsGetCurrentContext() else {
+                UIGraphicsEndImageContext()
+                return
+            }
+            view.layer.render(in: blurContext)
+            guard let viewImage = UIGraphicsGetImageFromCurrentImageContext() else {
+                UIGraphicsEndImageContext()
+                return
+            }
+            let blurredImage = applyGaussianBlur(to: viewImage, radius: 10)
+            UIGraphicsEndImageContext()
+            blurredImage.draw(in: view.bounds)
+        }
+
+        private func renderPixellated(view: UIView) {
+            UIGraphicsBeginImageContextWithOptions(view.bounds.size, false, 0)
+            guard let blurContext = UIGraphicsGetCurrentContext() else {
+                UIGraphicsEndImageContext()
+                return
+            }
+            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+            // view.layer.render(in: blurContext)
+            guard let viewImage = UIGraphicsGetImageFromCurrentImageContext() else {
+                UIGraphicsEndImageContext()
+                return
+            }
+            let obfuscatedImage =
+                applyGaussianBlur(
+                    to: pixellate(
+                        image: viewImage,
+                        scale: Float(viewImage.size.width) / 5.0
+                    ),
+                    radius: 4
+                )
+
+            UIGraphicsEndImageContext()
+            obfuscatedImage.draw(in: view.bounds)
+        }
+
+        /// Custom drawing function that renders the layer, including corner radius and effects.
+        /// - Parameter context: The `CGContext` to draw into.
+        func drawWithEffects(in context: CGContext) {
+            context.saveGState() // Save the initial graphics state
+
+            // Draw the background color
+            if let backgroundColor = layer.backgroundColor ?? backgroundColor?.cgColor {
+                context.setFillColor(backgroundColor)
+                context.fill(bounds)
+            }
+
+            // Handle the layer mask if present
+            if let mask = layer.mask {
+                context.saveGState()
+                if let maskContext = UIGraphicsGetCurrentContext() {
+                    mask.render(in: maskContext) // Render the mask into the current context
+                }
+                context.restoreGState()
+            }
+
+            // Check if this is a UIVisualEffectView and handle accordingly
+            if let visualEffectsView = self as? UIVisualEffectView {
+                renderVisualEffectView(visualEffectsView, in: context)
+            } else {
+                layer.draw(in: context) // Fallback to default layer drawing
+            }
+
+            // Draw shadow (if any)
+            if layer.shadowOpacity > 0 {
+                context.setShadow(
+                    offset: layer.shadowOffset,
+                    blur: layer.shadowRadius,
+                    color: layer.shadowColor
+                )
+            }
+
+            context.restoreGState() // Restore the graphics state
+        }
+
+        private func renderVisualEffectView(_ visualEffectView: UIVisualEffectView, in context: CGContext) {
+            // Retrieve the background color from ancestors, if available
+            guard let backgroundColor = visualEffectView.ancestors.first(where: { $0.layer.backgroundColor != nil })?.layer.backgroundColor else {
+                return
+            }
+
+            // Capture the current graphics context as an image
+            guard let backgroundImage = UIGraphicsGetImageFromCurrentImageContext() else { return }
+            guard let cgImage = backgroundImage.cgImage else { return }
+
+            // Convert visualEffectView's frame to a rect in the image's coordinate space
+            let cropRect = visualEffectView.convert(visualEffectView.bounds, to: nil)
+            let scaledCropRect = CGRect(
+                x: cropRect.origin.x * backgroundImage.scale,
+                y: cropRect.origin.y * backgroundImage.scale,
+                width: cropRect.width * backgroundImage.scale,
+                height: cropRect.height * backgroundImage.scale
+            )
+
+            // Crop the image
+            guard let croppedCGImage = cgImage.cropping(to: scaledCropRect) else { return }
+            let croppedImage = UIImage(cgImage: croppedCGImage)
+
+            // Optional: Apply a Gaussian blur or other effects here
+            let blurredImage = applyBokehBlur(to: croppedImage, radius: 15)
+
+            // Draw the resulting image in the graphics context
+            context.saveGState()
+            context.translateBy(x: 0, y: visualEffectView.bounds.height)
+            context.scaleBy(x: 1, y: -1)
+            context.clip(to: visualEffectView.bounds)
+            context.concatenate(visualEffectView.transform)
+            context.draw(blurredImage.cgImage!, in: visualEffectView.bounds)
+            let fillColor = visualEffectView.traitCollection.userInterfaceStyle == .light ? UIColor.white : UIColor.black
+            fillColor.withAlphaComponent(0.9).setFill()
+            UIRectFillUsingBlendMode(visualEffectView.bounds, .normal)
+            context.restoreGState()
+        }
+
+        func findViewController() -> UIViewController? {
+            var responder: UIResponder? = self
+
+            while responder != nil {
+                if let responder = responder as? UIViewController {
+                    return responder
+                }
+                responder = responder?.next
+            }
+            return nil
+        }
+
+        /// Applies a Gaussian blur to an image.
+        /// - Parameter image: The image to blur.
+        /// - Returns: A new UIImage with the blur effect applied.
+        private func applyGaussianBlur(to image: UIImage, radius: Float) -> UIImage {
+            let context = CIContext()
+            let inputImage = CIImage(image: image)
+            let filter = CIFilter.gaussianBlur()
+            filter.inputImage = inputImage
+            filter.radius = radius
+
+            guard
+                let outputImage = filter.outputImage,
+                let cgImage = context.createCGImage(outputImage, from: outputImage.extent)
+            else {
+                return image
+            }
+            return UIImage(cgImage: cgImage)
+        }
+
+        private func applyBokehBlur(to image: UIImage, radius: Float) -> UIImage {
+            let context = CIContext()
+            let inputImage = CIImage(image: image)
+            let filter = CIFilter.bokehBlur()
+            filter.inputImage = inputImage
+            filter.radius = radius
+
+            guard
+                let outputImage = filter.outputImage,
+                let cgImage = context.createCGImage(outputImage, from: outputImage.extent)
+            else {
+                return image
+            }
+            return UIImage(cgImage: cgImage)
+        }
+
+        private func pixellate(image: UIImage, scale: Float) -> UIImage {
+            let context = CIContext()
+            let inputImage = CIImage(image: image)
+            let filter = CIFilter.pixellate()
+            filter.inputImage = inputImage
+            filter.scale = scale
+
+            guard
+                let outputImage = filter.outputImage,
+                let cgImage = context.createCGImage(outputImage, from: outputImage.extent)
+            else {
+                return image
+            }
+            return UIImage(cgImage: cgImage)
+        }
+    }
+
+    extension CACornerMask {
+        /// Converts `CACornerMask` to the equivalent `UIRectCorner`.
+        var toUIRectCorner: UIRectCorner {
+            var rectCorner: UIRectCorner = []
+            if contains(.layerMinXMinYCorner) {
+                rectCorner.insert(.topLeft)
+            }
+            if contains(.layerMaxXMinYCorner) {
+                rectCorner.insert(.topRight)
+            }
+            if contains(.layerMinXMaxYCorner) {
+                rectCorner.insert(.bottomLeft)
+            }
+            if contains(.layerMaxXMaxYCorner) {
+                rectCorner.insert(.bottomRight)
+            }
+            return rectCorner
+        }
+    }
 
     #if TESTING
         extension PostHogReplayIntegration {

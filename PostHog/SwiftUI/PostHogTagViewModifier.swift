@@ -270,7 +270,7 @@
         }
     }
 
-    private extension UIView {
+    extension UIView {
         var postHogTagView: PostHogTagUIView? {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phTagView) as? PostHogTagUIView }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phTagView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
@@ -338,7 +338,7 @@
      - children: A function that takes an element and returns a sequence of its children.
      - Returns: An AnySequence that iterates over all elements and their children.
      */
-    private func recursiveSequence<S: Sequence>(_ sequence: S, children: @escaping (S.Element) -> S) -> AnySequence<S.Element> {
+    func recursiveSequence<S: Sequence>(_ sequence: S, children: @escaping (S.Element) -> S) -> AnySequence<S.Element> {
         AnySequence {
             var mainIterator = sequence.makeIterator()
             // Current iterator, or `nil` if all sequences are exhausted:

@@ -844,21 +844,8 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func isFeatureEnabled(_ key: String) -> Bool {
-        if !isEnabled() {
-            return false
-        }
-
-        guard let remoteConfig else {
-            return false
-        }
-
-        let value = remoteConfig.isFeatureEnabled(key)
-
-        if config.sendFeatureFlagEvent {
-            reportFeatureFlagCalled(flagKey: key, flagValue: value)
-        }
-
-        return value
+        let result = getFeatureFlag(key)
+        return result is String ? true : (result as? Bool) ?? false
     }
 
     @objc public func getFeatureFlagPayload(_ key: String) -> Any? {

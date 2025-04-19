@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#/ Usage: bin/build
+#/ Description: Runs linter and mypy
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+
+make buildSdk

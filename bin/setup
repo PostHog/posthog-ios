@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#/ Usage: bin/setup
+#/ Description: Sets up the dependencies needed to develop this project
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+
+make bootstrap

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#/ Usage: bin/fmt
+#/ Description: Lints the code
+source bin/helpers/_utils.sh
+set_source_and_root_dir
+
+make lint

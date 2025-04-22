@@ -8,23 +8,17 @@
 import Foundation
 
 final class PostHogAPIDateFormatter {
-    private let dateFormatterWithMilliseconds: DateFormatter = {
+    private static func getFormatter(with format: String) -> DateFormatter {
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
-
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        dateFormatter.dateFormat = format
         return dateFormatter
-    }()
+    }
 
-    private let dateFormatterWithSeconds: DateFormatter = {
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+    private let dateFormatterWithMilliseconds = getFormatter(with: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
-        return dateFormatter
-    }()
+    private let dateFormatterWithSeconds = getFormatter(with: "yyyy-MM-dd'T'HH:mm:ss'Z'")
 
     func string(from date: Date) -> String {
         dateFormatterWithMilliseconds.string(from: date)

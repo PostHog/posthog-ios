@@ -373,26 +373,6 @@ class PostHogRemoteConfig {
         featureFlagsLock.withLock { getCachedFeatureFlags() }
     }
 
-    func isFeatureEnabled(_ key: String) -> Bool {
-        var flags: [String: Any]?
-        featureFlagsLock.withLock {
-            flags = self.getCachedFeatureFlags()
-        }
-
-        let value = flags?[key]
-
-        if value != nil {
-            let boolValue = value as? Bool
-            if boolValue != nil {
-                return boolValue!
-            } else {
-                return true
-            }
-        } else {
-            return false
-        }
-    }
-
     func getFeatureFlag(_ key: String) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {

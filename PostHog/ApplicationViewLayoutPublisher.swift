@@ -36,7 +36,7 @@
             swizzle(
                 forClass: UIViewController.self,
                 original: #selector(UIViewController.viewDidLayoutSubviews),
-                new: #selector(UIViewController.ph_swizzled_LayoutSubviews)
+                new: #selector(UIViewController.ph_swizzled_viewDidLayoutSubviews)
             )
         }
 
@@ -48,7 +48,7 @@
             swizzle(
                 forClass: UIViewController.self,
                 original: #selector(UIViewController.viewDidLayoutSubviews),
-                new: #selector(UIViewController.ph_swizzled_LayoutSubviews)
+                new: #selector(UIViewController.ph_swizzled_viewDidLayoutSubviews)
             )
         }
 
@@ -158,8 +158,8 @@
     }
 
     extension UIViewController {
-        @objc func ph_swizzled_LayoutSubviews() {
-            ph_swizzled_LayoutSubviews() // call original, not altering execution logic
+        @objc func ph_swizzled_viewDidLayoutSubviews() {
+            ph_swizzled_viewDidLayoutSubviews() // call original, not altering execution logic
             if Thread.isMainThread {
                 ApplicationViewLayoutPublisher.shared.layoutSubviews()
             }

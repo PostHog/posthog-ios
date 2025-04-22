@@ -34,9 +34,9 @@
             hasSwizzled = true
 
             swizzle(
-                forClass: UIView.self,
-                original: #selector(UIView.layoutSubviews),
-                new: #selector(UIView.ph_swizzled_LayoutSubviews)
+                forClass: UIViewController.self,
+                original: #selector(UIViewController.viewDidLayoutSubviews),
+                new: #selector(UIViewController.ph_swizzled_LayoutSubviews)
             )
         }
 
@@ -46,9 +46,9 @@
 
             // swizzling twice will exchange implementations back to original
             swizzle(
-                forClass: UIView.self,
-                original: #selector(UIView.layoutSubviews),
-                new: #selector(UIView.ph_swizzled_LayoutSubviews)
+                forClass: UIViewController.self,
+                original: #selector(UIViewController.viewDidLayoutSubviews),
+                new: #selector(UIViewController.ph_swizzled_LayoutSubviews)
             )
         }
 
@@ -157,7 +157,7 @@
         }
     }
 
-    extension UIView {
+    extension UIViewController {
         @objc func ph_swizzled_LayoutSubviews() {
             ph_swizzled_LayoutSubviews() // call original, not altering execution logic
             if Thread.isMainThread {

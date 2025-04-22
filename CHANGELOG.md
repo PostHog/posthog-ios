@@ -1,4 +1,4 @@
-## 3.24.1 - 2025-04-18
+## 3.24.1 - 2025-04-22
 
 - fix: Send correct `$feature_flag_response` for the `$feature_flag_called` event when calling `isFeatureEnabled` ([#337](https://github.com/PostHog/posthog-ios/pull/337))
 

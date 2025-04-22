@@ -53,4 +53,41 @@ struct UtilsTest {
             #expect(frNumber.toInt() == 1234567891)
         }
     }
+
+    @Suite("Date format tests")
+    struct DateTests {
+        @Test("can parse ISO8601 date with microsecond precision")
+        func canParseISO8601DateWithMicroseconds() {
+            let dateString = "2024-12-17T16:51:06.952123Z"
+            let date = toISO8601Date(dateString)
+            #expect(date != nil)
+            let backToString = toISO8601String(date!)
+            #expect(backToString == "2024-12-17T16:51:06.952Z")
+        }
+
+        @Test("can parse ISO8601 date with milliseconds precision")
+        func canParseISO8601DateWithMilliseconds() {
+            let dateString = "2024-12-17T16:51:06.952Z"
+            let date = toISO8601Date(dateString)
+            #expect(date != nil)
+            let backToString = toISO8601String(date!)
+            #expect(backToString == "2024-12-17T16:51:06.952Z")
+        }
+
+        @Test("can parse ISO8601 date with seconds precision")
+        func canParseISO8601DateWithSeconds() {
+            let dateString = "2024-12-12T18:58:22Z"
+            let date = toISO8601Date(dateString)
+            #expect(date != nil)
+            let backToString = toISO8601String(date!)
+            #expect(backToString == "2024-12-12T18:58:22.000Z")
+        }
+
+        @Test("converts date to ISO8601 string consistently")
+        func convertsDateToISO8601StringConsistently() {
+            let date = Date(timeIntervalSince1970: 1703174400) // 2023-12-21T16:00:00Z
+            let dateString = toISO8601String(date)
+            #expect(dateString == "2023-12-21T16:00:00.000Z")
+        }
+    }
 }

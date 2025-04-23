@@ -246,6 +246,29 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("send feature flag event with variant response for isFeatureEnabled when enabled") {
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitDecideRequest(server)
+            expect(sut.isFeatureEnabled("string-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            expect(event.properties["$feature_flag"] as? String) == "string-value"
+            expect(event.properties["$feature_flag_response"] as? String) == "test"
+            expect(event.properties["$feature_flag_request_id"] as? String) == "0f801b5b-0776-42ca-b0f7-8375c95730bf"
+            expect(event.properties["$feature_flag_id"] as? Int) == 3
+            expect(event.properties["$feature_flag_version"] as? Int) == 1
+            expect(event.properties["$feature_flag_reason"] as? String) == "Matched condition set 1"
+
+            sut.reset()
+            sut.close()
+        }
+
         it("send feature flag event for getFeatureFlag when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 

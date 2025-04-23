@@ -39,8 +39,8 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
-    @Suite("Test isFeatureEnabled()")
-    class TestIsFeatureFlagEnabled: BaseTestClass {
+    @Suite("Test getFeatureFlag")
+    class TestGetFeatureFlagValue: BaseTestClass {
         @Test("Returns true for enabled Bool flag")
         func testReturnsTrueBoolean() async {
             let sut = getSut()
@@ -51,7 +51,7 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            #expect(sut.isFeatureEnabled("bool-value") == true)
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
 
         @Test("Returns true for enabled String flag")
@@ -64,7 +64,7 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            #expect(sut.isFeatureEnabled("string-value") == true)
+            #expect(sut.getFeatureFlag("string-value") as? String == "test")
         }
 
         @Test("Returns false for disabled flag")
@@ -77,12 +77,9 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            #expect(sut.isFeatureEnabled("disabled-flag") == false)
+            #expect(sut.getFeatureFlag("disabled-flag") as? Bool == false)
         }
-    }
 
-    @Suite("Test getFeatureFlag")
-    class TestGetFeatureFlagValue: BaseTestClass {
         @Test("returns feature flag value")
         func getFeatureFlagValue() async {
             let sut = getSut()
@@ -158,8 +155,8 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            #expect(sut.isFeatureEnabled("new-flag") == true)
-            #expect(sut.isFeatureEnabled("bool-value") == true)
+            #expect(sut.getFeatureFlag("new-flag") as? Bool == true)
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
 
         @Test("clears feature flags when quota limited")
@@ -174,7 +171,7 @@ enum PostHogFeatureFlagsTest {
             }
 
             // Verify flags are loaded
-            #expect(sut.isFeatureEnabled("bool-value") == true)
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
             #expect(sut.getFeatureFlag("string-value") as? String == "test")
 
             // Now set the server to return quota limited response
@@ -188,7 +185,7 @@ enum PostHogFeatureFlagsTest {
             }
 
             // Verify flags are cleared
-            #expect(sut.isFeatureEnabled("bool-value") == false)
+            #expect(sut.getFeatureFlag("bool-value") == nil)
             #expect(sut.getFeatureFlag("string-value") == nil)
         }
     }

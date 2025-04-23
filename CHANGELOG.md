@@ -1,6 +1,7 @@
 ## Next
 
 - fix: app hangs on iPad with floating keyboard when session replay is enabled ([#340](https://github.com/PostHog/posthog-ios/pull/340))
+- fix: support ISO8601 dates with missing milliseconds ([#338](https://github.com/PostHog/posthog-ios/pull/338))
 
 ## 3.24.0 - 2025-04-17
 

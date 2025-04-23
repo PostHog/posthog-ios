@@ -54,8 +54,8 @@ enum PostHogSurveysTest {
             #expect(sut.appearance?.surveyPopupDelaySeconds == 5)
             #expect(sut.startDate.map(ISO8601DateFormatter().string) == "2025-01-16T22:23:38Z")
             #expect(sut.endDate == nil)
-            #expect(sut.currentIteration == nil)
-            #expect(sut.currentIterationStartDate == nil)
+            #expect(sut.currentIteration == 1)
+            #expect(sut.currentIterationStartDate.map(ISO8601DateFormatter().string) == "2024-12-12T18:58:22Z")
         }
 
         @Suite("Survey question types decode correctly")

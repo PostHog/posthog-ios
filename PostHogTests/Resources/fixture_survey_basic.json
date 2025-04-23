@@ -38,6 +38,6 @@
     },
     "start_date": "2025-01-16T22:23:38.805000Z",
     "end_date": null,
-    "current_iteration": null,
-    "current_iteration_start_date": null
+    "current_iteration": 1,
+    "current_iteration_start_date": "2024-12-12T18:58:22Z"
 }

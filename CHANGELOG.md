@@ -1,7 +1,6 @@
-## 3.24.1 - 2025-04-22
+## 3.24.1 - 2025-04-23
 
 - fix: Send correct `$feature_flag_response` for the `$feature_flag_called` event when calling `isFeatureEnabled` ([#337](https://github.com/PostHog/posthog-ios/pull/337))
-
 - fix: support ISO8601 dates with missing milliseconds ([#338](https://github.com/PostHog/posthog-ios/pull/338))
 
 ## 3.24.0 - 2025-04-17

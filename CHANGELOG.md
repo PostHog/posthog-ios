@@ -1,6 +1,7 @@
 ## Next
 
 - fix: optional link in survey question type ([#341](https://github.com/PostHog/posthog-ios/pull/341))
+- fix: app hangs on iPad with floating keyboard when session replay is enabled ([#340](https://github.com/PostHog/posthog-ios/pull/340))
 
 ## 3.24.1 - 2025-04-23
 

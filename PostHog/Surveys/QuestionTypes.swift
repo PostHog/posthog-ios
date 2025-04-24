@@ -84,7 +84,10 @@
         }
 
         private var link: URL? {
-            URL(string: question.link)
+            if let link = question.link {
+                return URL(string: link)
+            }
+            return nil
         }
     }
 

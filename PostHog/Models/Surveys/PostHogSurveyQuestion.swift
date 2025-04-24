@@ -117,7 +117,7 @@ struct PostHogLinkSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
     /// URL link associated with the question
-    let link: String
+    let link: String?
 }
 
 /// Represents a rating-based survey question

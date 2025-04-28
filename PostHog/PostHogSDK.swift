@@ -447,7 +447,7 @@ let maxRetryDelay = 30.0
             var props: [String: Any] = ["distinct_id": distinctId]
 
             if !config.reuseAnonymousId {
-                // We keep the AnonymousId to be used by decide calls and identify to link the previousId
+                // We keep the AnonymousId to be used by flags calls and identify to link the previousId
                 storageManager.setAnonymousId(oldDistinctId)
                 props["$anon_distinct_id"] = oldDistinctId
             }

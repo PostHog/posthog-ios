@@ -192,18 +192,18 @@ class PostHogApi {
         }.resume()
     }
 
-    func decide(
+    func flags(
         distinctId: String,
         anonymousId: String?,
         groups: [String: String],
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {
         guard let url = getEndpointURL(
-            "/decide",
-            queryItems: URLQueryItem(name: "v", value: "4"),
+            "/flags",
+            queryItems: URLQueryItem(name: "v", value: "2"),
             relativeTo: config.host
         ) else {
-            hedgeLog("Malformed decide URL error.")
+            hedgeLog("Malformed flags URL error.")
             return completion(nil, nil)
         }
 
@@ -226,13 +226,13 @@ class PostHogApi {
         do {
             data = try JSONSerialization.data(withJSONObject: toSend)
         } catch {
-            hedgeLog("Error parsing the decide body: \(error)")
+            hedgeLog("Error parsing the flags body: \(error)")
             return completion(nil, error)
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: data!) { data, response, error in
             if error != nil {
-                hedgeLog("Error calling the decide API: \(String(describing: error))")
+                hedgeLog("Error calling the flags API: \(String(describing: error))")
                 return completion(nil, error)
             }
 
@@ -240,20 +240,20 @@ class PostHogApi {
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
                 let jsonBody = String(describing: try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any])
-                let errorMessage = "Error calling decide API: status: \(httpResponse.statusCode), body: \(jsonBody)."
+                let errorMessage = "Error calling flags API: status: \(httpResponse.statusCode), body: \(jsonBody)."
                 hedgeLog(errorMessage)
 
                 return completion(nil,
                                   InternalPostHogError(description: errorMessage))
             } else {
-                hedgeLog("Decide called successfully.")
+                hedgeLog("Flags called successfully.")
             }
 
             do {
                 let jsonData = try JSONSerialization.jsonObject(with: data!, options: .allowFragments) as? [String: Any]
                 completion(jsonData, nil)
             } catch {
-                hedgeLog("Error parsing the decide response: \(error)")
+                hedgeLog("Error parsing the flags response: \(error)")
                 completion(nil, error)
             }
         }.resume()

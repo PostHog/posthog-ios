@@ -45,10 +45,10 @@ enum PostHogApiTests {
             #expect(resp.statusCode == 200)
         }
 
-        func testDecideEndpoint(forHost host: String) async throws {
+        func testFlagsEndpoint(forHost host: String) async throws {
             let sut = getSut(host: host)
             let resp = await getApiResponse { completion in
-                sut.decide(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
                     completion(data)
                 }
             }
@@ -147,41 +147,41 @@ enum PostHogApiTests {
         }
     }
 
-    @Suite("Test decide endpoint with different host paths")
-    class TestDecideEndpoint: BaseTestSuite {
+    @Suite("Test flags endpoint with different host paths")
+    class TestFlagsEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost")
+            try await testFlagsEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func testHostWithNoPathAndTrailingSlash() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost/")
+            try await testFlagsEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func testHostWithPath() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost/api/v1")
+            try await testFlagsEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func testHostWithPathAndTrailingSlash() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost/api/v1/")
+            try await testFlagsEndpoint(forHost: "http://localhost/api/v1/")
         }
 
         @Test("with host containing port number")
         func testHostWithPortNumber() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost:9000")
+            try await testFlagsEndpoint(forHost: "http://localhost:9000")
         }
 
         @Test("with host containing port number and path")
         func testHostWithPortNumberAndPath() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost:9000/api/v1")
+            try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1")
         }
 
         @Test("with host containing port number, path and trailing slash")
         func testHostWithPortNumberAndTrailingSlash() async throws {
-            try await testDecideEndpoint(forHost: "http://localhost:9000/api/v1/")
+            try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 }

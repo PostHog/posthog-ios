@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add support for conditional survey questions ([#343](https://github.com/PostHog/posthog-ios/pull/343))
+
 ## 3.24.2 - 2025-04-24
 
 - fix: optional link in survey question type ([#341](https://github.com/PostHog/posthog-ios/pull/341))

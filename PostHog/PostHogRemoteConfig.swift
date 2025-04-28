@@ -238,8 +238,8 @@ class PostHogRemoteConfig {
         }
 
         api.flags(distinctId: distinctId,
-                   anonymousId: anonymousId,
-                   groups: groups)
+                  anonymousId: anonymousId,
+                  groups: groups)
         { data, _ in
             self.dispatchQueue.async {
                 // Check for quota limitation first

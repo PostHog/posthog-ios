@@ -1,5 +1,9 @@
 ## Next
 
+## 3.25.0 – 2025-04-29
+
+- use new `/flags` endpoint instead of `/decide` ([#345](https://github.com/PostHog/posthog-ios/pull/345))
+
 ## 3.24.2 - 2025-04-24
 
 - fix: optional link in survey question type ([#341](https://github.com/PostHog/posthog-ios/pull/341))

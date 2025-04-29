@@ -1,5 +1,7 @@
 ## Next
 
+## 3.24.3 - 2025-04-29
+
 - fix: feature flags not loading on sdk init ([#346](https://github.com/PostHog/posthog-ios/pull/346))
 
 ## 3.24.2 - 2025-04-24

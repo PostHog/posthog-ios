@@ -1,5 +1,7 @@
 ## Next
 
+- fix: feature flags not loading on sdk init ([#346](https://github.com/PostHog/posthog-ios/pull/346))
+
 ## 3.24.2 - 2025-04-24
 
 - fix: optional link in survey question type ([#341](https://github.com/PostHog/posthog-ios/pull/341))

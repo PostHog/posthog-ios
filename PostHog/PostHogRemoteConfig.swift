@@ -77,10 +77,9 @@ class PostHogRemoteConfig {
                 self.reloadRemoteConfig { [weak self] remoteConfig in
                     guard let self else { return }
                     let hasFeatureFlags = remoteConfig?[self.hasFeatureFlagsKey] as? Bool == true
-                    let cachedFeatureFlags = self.featureFlagsLock.withLock { self.featureFlags }
                     let preloadFeatureFlags = self.config.preloadFeatureFlags
                     // reload feature flags if not previously loaded
-                    if hasFeatureFlags, cachedFeatureFlags == nil, preloadFeatureFlags {
+                    if hasFeatureFlags, preloadFeatureFlags {
                         self.preloadFeatureFlags()
                     }
                 }

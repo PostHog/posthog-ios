@@ -106,6 +106,43 @@ enum PostHogRemoteConfigTest {
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() == nil)
         }
+        
+        @Test("reloadRemoteConfig fetches feature flags on init even if flags are cached")
+        func reloadRemoteConfigFetchesFeatureFlagsOnInitEvenIfFlagsAreCached() async throws {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+            
+            // set cached flag
+            storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["some-flag": true])
+            // return flipped cached flag
+            server.featureFlags = ["some-flag": false]
+            
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.remoteConfig = true
+            config.preloadFeatureFlags = true
+            config.storageManager = PostHogStorageManager(config)
+            
+            let sut = getSut(storage: storage, config: config)
+
+            var featureFlagsLoaded = false
+            sut.onFeatureFlagsLoaded = { _ in
+                featureFlagsLoaded = true
+            }
+            
+            #expect(sut.getFeatureFlag("some-flag") as? Bool == true)
+
+            // wait for flags to be loaded
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2) // 2 second timeout
+                while !featureFlagsLoaded && Date() < timeout {}
+                continuation.resume()
+            }
+
+            // test for new value
+            #expect(featureFlagsLoaded == true)
+            #expect(sut.getFeatureFlag("some-flag") as? Bool == false)
+            
+        }
     }
 
     #if os(iOS)

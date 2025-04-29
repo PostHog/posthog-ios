@@ -136,7 +136,7 @@ enum PostHogSurveysTest {
                 let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
 
                 if case let .rating(question) = sut.questions[0] {
-                    #expect(question.scale == 10)
+                    #expect(question.scale == .tenPoint)
                     #expect(question.display == .number)
                     #expect(question.question == "How likely are you to recommend us to a friend?")
                     #expect(question.lowerBoundLabel == "Unlikely")
@@ -970,7 +970,7 @@ enum PostHogSurveysTest {
                     .rating(.testInstance(
                         question: "q1",
                         display: .number,
-                        scale: 10,
+                        scale: .tenPoint,
                         branching: .specificQuestion(index: 2)
                     )),
                     .open(.testInstance(question: "q2")),
@@ -1088,7 +1088,7 @@ enum PostHogSurveysTest {
                     .rating(.testInstance(
                         question: "rating question",
                         display: .emoji,
-                        scale: 3,
+                        scale: .threePoint,
                         branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
                     )),
                     .open(.testInstance(question: "q2")),
@@ -1129,7 +1129,7 @@ enum PostHogSurveysTest {
                     .rating(.testInstance(
                         question: "rating question",
                         display: .emoji,
-                        scale: 5,
+                        scale: .fivePoint,
                         branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
                     )),
                     .open(.testInstance(question: "q2")),
@@ -1174,7 +1174,7 @@ enum PostHogSurveysTest {
                     .rating(.testInstance(
                         question: "rating question",
                         display: .number,
-                        scale: 7,
+                        scale: .sevenPoint,
                         branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
                     )),
                     .open(.testInstance(question: "q2")),
@@ -1221,7 +1221,7 @@ enum PostHogSurveysTest {
                     .rating(.testInstance(
                         question: "q1",
                         display: .number,
-                        scale: 10,
+                        scale: .tenPoint,
                         branching: .responseBased(responseValues: ["detractors": 1, "passives": 2, "promoters": 3])
                     )),
                     .open(.testInstance(question: "question_detractors", branching: .end)), // Detractors path
@@ -1357,7 +1357,7 @@ private extension PostHogRatingSurveyQuestion {
     static func testInstance(
         question: String,
         display: PostHogSurveyRatingDisplayType,
-        scale: Int,
+        scale: PostHogSurveyRatingScale,
         branching: PostHogSurveyQuestionBranching? = nil
     ) -> PostHogRatingSurveyQuestion {
         PostHogRatingSurveyQuestion(

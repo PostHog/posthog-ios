@@ -189,32 +189,32 @@
 
         // Gets the response bucket for a given rating response value, given the scale.
         // For example, for a scale of 3, the buckets are "negative", "neutral" and "positive".
-        private func getRatingBucketForResponseValue(scale: Int, value: Int) -> String? {
+        private func getRatingBucketForResponseValue(scale: PostHogSurveyRatingScale, value: Int) -> String? {
             // swiftlint:disable:previous cyclomatic_complexity
             // Validate input ranges
             switch scale {
-            case 3 where RatingBucket.threePointRange.contains(value):
+            case .threePoint where RatingBucket.threePointRange.contains(value):
                 switch value {
                 case BucketThresholds.ThreePoint.negatives: return RatingBucket.negative
                 case BucketThresholds.ThreePoint.neutrals: return RatingBucket.neutral
                 default: return RatingBucket.positive
                 }
 
-            case 5 where RatingBucket.fivePointRange.contains(value):
+            case .fivePoint where RatingBucket.fivePointRange.contains(value):
                 switch value {
                 case BucketThresholds.FivePoint.negatives: return RatingBucket.negative
                 case BucketThresholds.FivePoint.neutrals: return RatingBucket.neutral
                 default: return RatingBucket.positive
                 }
 
-            case 7 where RatingBucket.sevenPointRange.contains(value):
+            case .sevenPoint where RatingBucket.sevenPointRange.contains(value):
                 switch value {
                 case BucketThresholds.SevenPoint.negatives: return RatingBucket.negative
                 case BucketThresholds.SevenPoint.neutrals: return RatingBucket.neutral
                 default: return RatingBucket.positive
                 }
 
-            case 10 where RatingBucket.tenPointRange.contains(value):
+            case .tenPoint where RatingBucket.tenPointRange.contains(value):
                 switch value {
                 case BucketThresholds.TenPoint.detractors: return RatingBucket.detractors
                 case BucketThresholds.TenPoint.passives: return RatingBucket.passives

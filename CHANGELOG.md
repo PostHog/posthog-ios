@@ -1,5 +1,7 @@
 ## Next
 
+- fix: clear cached flags if remote config response hasFeatureFlags: false ([#347](https://github.com/PostHog/posthog-ios/pull/347))
+
 ## 3.24.3 - 2025-04-29
 
 - fix: feature flags not loading on sdk init ([#346](https://github.com/PostHog/posthog-ios/pull/346))

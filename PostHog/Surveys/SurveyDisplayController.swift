@@ -36,7 +36,7 @@
 
         func showSurvey(_ survey: PostHogSurvey) {
             guard displayedSurvey == nil else {
-                hedgeLog("Already displaying a survey. Skipping")
+                hedgeLog("[Surveys] Already displaying a survey. Skipping")
                 return
             }
 
@@ -136,7 +136,7 @@
             responseValues: [String: Any]
         ) -> NextSurveyQuestion? {
             guard let response else {
-                hedgeLog("Got response based branching, but missing the actual response.")
+                hedgeLog("[Surveys] Got response based branching, but missing the actual response.")
                 return nil
             }
 
@@ -153,7 +153,7 @@
                     return processBranchingStep(nextIndex: nextIndex, totalQuestions: survey.questions.count)
                 }
 
-                hedgeLog("Could not find response index for specific question.")
+                hedgeLog("[Surveys] Could not find response index for specific question.")
                 return nil
 
             case let (.rating(ratingQuestion), .rating(responseInt)):
@@ -163,11 +163,11 @@
                 {
                     return processBranchingStep(nextIndex: nextIndex, totalQuestions: survey.questions.count)
                 }
-                hedgeLog("Could not get response bucket for rating question.")
+                hedgeLog("[Surveys] Could not get response bucket for rating question.")
                 return nil
 
             default:
-                hedgeLog("Got response based branching for an unsupported question type.")
+                hedgeLog("[Surveys] Got response based branching for an unsupported question type.")
                 return nil
             }
         }
@@ -190,17 +190,39 @@
         // Gets the response bucket for a given rating response value, given the scale.
         // For example, for a scale of 3, the buckets are "negative", "neutral" and "positive".
         private func getRatingBucketForResponseValue(scale: Int, value: Int) -> String? {
+            // swiftlint:disable:previous cyclomatic_complexity
+            // Validate input ranges
             switch scale {
-            case 3 where value >= 1 && value <= 3:
-                return value == 1 ? "negative" : value == 2 ? "neutral" : "positive"
-            case 5 where value >= 1 && value <= 5:
-                return value <= 2 ? "negative" : value == 3 ? "neutral" : "positive"
-            case 7 where value >= 1 && value <= 7:
-                return value <= 3 ? "negative" : value == 4 ? "neutral" : "positive"
-            case 10 where value >= 0 && value <= 10:
-                return value <= 6 ? "detractors" : value <= 8 ? "passives" : "promoters"
+            case 3 where RatingBucket.threePointRange.contains(value):
+                switch value {
+                case BucketThresholds.ThreePoint.negatives: return RatingBucket.negative
+                case BucketThresholds.ThreePoint.neutrals: return RatingBucket.neutral
+                default: return RatingBucket.positive
+                }
+
+            case 5 where RatingBucket.fivePointRange.contains(value):
+                switch value {
+                case BucketThresholds.FivePoint.negatives: return RatingBucket.negative
+                case BucketThresholds.FivePoint.neutrals: return RatingBucket.neutral
+                default: return RatingBucket.positive
+                }
+
+            case 7 where RatingBucket.sevenPointRange.contains(value):
+                switch value {
+                case BucketThresholds.SevenPoint.negatives: return RatingBucket.negative
+                case BucketThresholds.SevenPoint.neutrals: return RatingBucket.neutral
+                default: return RatingBucket.positive
+                }
+
+            case 10 where RatingBucket.tenPointRange.contains(value):
+                switch value {
+                case BucketThresholds.TenPoint.detractors: return RatingBucket.detractors
+                case BucketThresholds.TenPoint.passives: return RatingBucket.passives
+                default: return RatingBucket.promoters
+                }
+
             default:
-                hedgeLog("Cannot get rating bucket for invalid scale: \(scale). The scale must be one of: 3 (1-3), 5 (1-5), 7 (1-7), 10 (0-10).")
+                hedgeLog("[Surveys] Cannot get rating bucket for invalid scale: \(scale). The scale must be one of: 3 (1-3), 5 (1-5), 7 (1-7), 10 (0-10).")
                 return nil
             }
         }
@@ -209,5 +231,43 @@
     enum NextSurveyQuestion {
         case index(Int)
         case end
+    }
+
+    private enum RatingBucket {
+        // Bucket names
+        static let negative = "negative"
+        static let neutral = "neutral"
+        static let positive = "positive"
+        static let detractors = "detractors"
+        static let passives = "passives"
+        static let promoters = "promoters"
+
+        // Scale ranges
+        static let threePointRange = 1 ... 3
+        static let fivePointRange = 1 ... 5
+        static let sevenPointRange = 1 ... 7
+        static let tenPointRange = 0 ... 10
+    }
+
+    private enum BucketThresholds {
+        enum ThreePoint {
+            static let negatives = 1 ... 1
+            static let neutrals = 2 ... 2
+        }
+
+        enum FivePoint {
+            static let negatives = 1 ... 2
+            static let neutrals = 3 ... 3
+        }
+
+        enum SevenPoint {
+            static let negatives = 1 ... 3
+            static let neutrals = 4 ... 4
+        }
+
+        enum TenPoint {
+            static let detractors = 0 ... 6
+            static let passives = 7 ... 8
+        }
     }
 #endif

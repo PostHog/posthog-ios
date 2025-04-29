@@ -76,10 +76,16 @@ class PostHogRemoteConfig {
             dispatchQueue.async {
                 self.reloadRemoteConfig { [weak self] remoteConfig in
                     guard let self else { return }
+
                     let hasFeatureFlags = remoteConfig?[self.hasFeatureFlagsKey] as? Bool == true
-                    let preloadFeatureFlags = self.config.preloadFeatureFlags
-                    // reload feature flags if not previously loaded
-                    if hasFeatureFlags, preloadFeatureFlags {
+
+                    // if server responds with `hasFeatureFlags: false`, then there are no more active flags on the account
+                    guard hasFeatureFlags else {
+                        return clearFeatureFlags()
+                    }
+
+                    // reload feature flags based on config
+                    if self.config.preloadFeatureFlags {
                         self.preloadFeatureFlags()
                     }
                 }
@@ -247,12 +253,8 @@ class PostHogRemoteConfig {
                 {
                     // swiftlint:disable:next line_length
                     hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads. See https://posthog.com/docs/billing/limits-alerts for more information.")
-                    self.featureFlagsLock.withLock {
-                        // Clear both feature flags and payloads
-                        self.setCachedFeatureFlags([:])
-                        self.setCachedFeatureFlagPayload([:])
-                    }
 
+                    self.clearFeatureFlags()
                     self.notifyFeatureFlagsAndRelease([:])
                     return callback([:])
                 }
@@ -480,6 +482,14 @@ class PostHogRemoteConfig {
             }
             data["featureFlags"] = featureFlags
             data["featureFlagPayloads"] = featureFlagsPayloads
+        }
+    }
+
+    private func clearFeatureFlags() {
+        featureFlagsLock.withLock {
+            setCachedFlags([:])
+            setCachedFeatureFlags([:])
+            setCachedFeatureFlagPayload([:])
         }
     }
 

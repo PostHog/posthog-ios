@@ -71,7 +71,8 @@ enum PostHogRemoteConfigTest {
             }
 
             await withCheckedContinuation { continuation in
-                while !remoteConfigLoaded || !featureFlagsLoaded {}
+                let timeout = Date().addingTimeInterval(2) // 2 second timeout
+                while !remoteConfigLoaded || !featureFlagsLoaded, Date() < timeout {}
                 continuation.resume()
             }
 
@@ -98,7 +99,8 @@ enum PostHogRemoteConfigTest {
             }
 
             await withCheckedContinuation { continuation in
-                while !remoteConfigLoaded {}
+                let timeout = Date().addingTimeInterval(2) // 2 second timeout
+                while !remoteConfigLoaded, Date() < timeout {}
                 continuation.resume()
             }
 

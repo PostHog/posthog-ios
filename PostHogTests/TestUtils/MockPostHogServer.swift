@@ -268,7 +268,7 @@ class MockPostHogServer {
                         "gzip",
                         "gzip-js"
                     ],
-                    "hasFeatureFlags": "\(self.hasFeatureFlags)",
+                    "hasFeatureFlags": \(self.hasFeatureFlags),
                     "captureDeadClicks": true,
                     "capturePerformance": {
                         "network_timing": true,

@@ -81,7 +81,9 @@ class PostHogRemoteConfig {
 
                     // if server responds with `hasFeatureFlags: false`, then there are no more active flags on the account
                     guard hasFeatureFlags else {
-                        return clearFeatureFlags()
+                        clearFeatureFlags()
+                        notifyFeatureFlags([:])
+                        return
                     }
 
                     // reload feature flags based on config
@@ -359,11 +361,15 @@ class PostHogRemoteConfig {
         }
     #endif
 
-    private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
+    private func notifyFeatureFlags(_ featureFlags: [String: Any]?) {
         DispatchQueue.main.async {
             self.onFeatureFlagsLoaded?(featureFlags)
             NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
         }
+    }
+
+    private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
+        notifyFeatureFlags(featureFlags)
 
         loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false

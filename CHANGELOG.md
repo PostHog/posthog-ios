@@ -1,5 +1,7 @@
 ## Next
 
+## 3.25.0 - 2025-04-30
+
 - feat: add support for conditional survey questions ([#343](https://github.com/PostHog/posthog-ios/pull/343))
 
 ## 3.24.3 - 2025-04-29

@@ -25,19 +25,19 @@ func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0,
     return events
 }
 
-func waitDecideRequest(_ server: MockPostHogServer) {
-    let result = XCTWaiter.wait(for: [server.decideExpectation!], timeout: 15)
+func waitFlagsRequest(_ server: MockPostHogServer) {
+    let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: 15)
 
     if result != XCTWaiter.Result.completed {
         XCTFail("The expected requests never arrived")
     }
 }
 
-func getDecideRequest(_ server: MockPostHogServer) -> [[String: Any]] {
-    waitDecideRequest(server)
+func getFlagsRequest(_ server: MockPostHogServer) -> [[String: Any]] {
+    waitFlagsRequest(server)
 
     var requests: [[String: Any]] = []
-    for request in server.decideRequests.reversed() {
+    for request in server.flagsRequests.reversed() {
         let item = server.parseRequest(request, gzip: false)
         requests.append(item!)
     }

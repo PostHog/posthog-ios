@@ -1,5 +1,7 @@
 ## Next
 
+- use new `/flags` endpoint instead of `/decide` ([#345](https://github.com/PostHog/posthog-ios/pull/345))
+
 ## 3.25.0 - 2025-04-30
 
 - feat: add support for conditional survey questions ([#343](https://github.com/PostHog/posthog-ios/pull/343))

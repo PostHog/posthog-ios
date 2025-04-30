@@ -46,6 +46,13 @@ enum PostHogSurveyRatingDisplayType: String, Decodable {
     case number, emoji
 }
 
+enum PostHogSurveyRatingScale: Int, Decodable {
+    case threePoint = 3
+    case fivePoint = 5
+    case sevenPoint = 7
+    case tenPoint = 10
+}
+
 enum PostHogSurveyQuestionBranchingType: String, Decodable {
     case nextQuestion = "next_question"
     case end

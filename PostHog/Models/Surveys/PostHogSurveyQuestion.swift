@@ -132,7 +132,7 @@ struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     /// Display type for the rating ("number" or "emoji")
     let display: PostHogSurveyRatingDisplayType
     /// Scale of the rating (3, 5, 7, or 10)
-    let scale: Int
+    let scale: PostHogSurveyRatingScale
     let lowerBoundLabel: String
     let upperBoundLabel: String
 }

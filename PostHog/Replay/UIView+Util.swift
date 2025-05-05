@@ -35,31 +35,8 @@
             label.lowercased().contains("ph-no-capture")
         }
 
-        func toImage() -> UIImage? {
-            // Avoid Rendering Offscreen Views
-            let bounds = superview?.bounds ?? bounds
-            let size = bounds.intersection(bounds).size
-
-            if !size.hasSize() {
-                return nil
-            }
-
-            let rendererFormat = UIGraphicsImageRendererFormat.default()
-
-            // This can significantly improve rendering performance because the renderer won't need to
-            // process transparency.
-            rendererFormat.opaque = isOpaque
-            // Another way to improve rendering performance is to scale the renderer's content.
-            // rendererFormat.scale = 0.5
-            let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
-
-            let image = renderer.image { _ in
-                /// Note: Always `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
-                /// This can potentially affect capturing a snapshot during a screen transition but we want the lesser of the two evils here
-                drawHierarchy(in: bounds, afterScreenUpdates: false)
-            }
-
-            return image
+        func toImage(captureScale: CGFloat = 0.50) -> UIImage? {
+            PostHogViewRenderer.capture(self, scale: captureScale)
         }
 
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason

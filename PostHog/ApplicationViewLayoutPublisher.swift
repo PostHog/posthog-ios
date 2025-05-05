@@ -95,10 +95,10 @@
 
         var onViewLayoutCallbacks: [UUID: ThrottledHandler] = [:]
 
-        static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
-                                                 target: .global(qos: .utility))
-
         final class ThrottledHandler {
+            static let throttleQueue = DispatchQueue(label: "com.posthog.ThrottledHandler",
+                                                     target: .global(qos: .userInteractive))
+
             let interval: TimeInterval
             let handler: ApplicationViewLayoutHandler
 
@@ -110,23 +110,20 @@
             }
 
             func throttleHandler() {
-                let runThrottle = { [weak self] in
-                    guard let self else { return }
-                    let now = now()
-                    let timeSinceLastFired = now.timeIntervalSince(lastFired)
+                let now = now()
+                let timeSinceLastFired = now.timeIntervalSince(lastFired)
 
-                    if timeSinceLastFired >= interval {
-                        lastFired = now
-                        handler()
-                    }
+                if timeSinceLastFired >= interval {
+                    lastFired = now
+                    notifyOnMain(handler)
                 }
+            }
 
+            private func notifyOnMain(_ handler: @escaping ApplicationViewLayoutHandler) {
                 if Thread.isMainThread {
-                    runThrottle()
+                    handler()
                 } else {
-                    DispatchQueue.main.async {
-                        runThrottle()
-                    }
+                    DispatchQueue.main.async(execute: handler)
                 }
             }
         }
@@ -150,9 +147,12 @@
         }
 
         func notifyHandlers() {
-            let handlers = registrationLock.withLock { onViewLayoutCallbacks.values }
-            for handler in handlers {
-                handler.throttleHandler()
+            ThrottledHandler.throttleQueue.async {
+                // Don't lock on main
+                let handlers = self.registrationLock.withLock { self.onViewLayoutCallbacks.values }
+                for handler in handlers {
+                    handler.throttleHandler()
+                }
             }
         }
     }

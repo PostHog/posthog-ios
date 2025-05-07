@@ -1,5 +1,7 @@
 ## Next
 
+- fix: edge case where session manager would not rotate session id ([#349](https://github.com/PostHog/posthog-ios/pull/349))
+
 ## 3.25.0 - 2025-04-30
 
 - feat: add support for conditional survey questions ([#343](https://github.com/PostHog/posthog-ios/pull/343))

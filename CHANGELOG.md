@@ -1,5 +1,7 @@
 ## Next
 
+- feat: capture console logs for session replay ([#350](https://github.com/PostHog/posthog-ios/pull/350))
+
 ## 3.25.0 - 2025-04-30
 
 - feat: add support for conditional survey questions ([#343](https://github.com/PostHog/posthog-ios/pull/343))

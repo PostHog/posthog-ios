@@ -31,6 +31,7 @@
         private var sessionSwizzler: URLSessionSwizzler?
         private var applicationEventToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
+        private var consoleLogInterceptor: PostHogConsoleLogInterceptor?
 
         /**
          ### Mapping of SwiftUI Views to UIKit
@@ -170,6 +171,14 @@
             if postHog.config.sessionReplayConfig.captureNetworkTelemetry {
                 sessionSwizzler?.swizzle()
             }
+
+            // start captures console logs
+            if postHog.config.sessionReplayConfig.captureLogs {
+                consoleLogInterceptor = PostHogConsoleLogInterceptor()
+                consoleLogInterceptor?.startCapturing(config: postHog.config) { [weak self] output in
+                    self?.handleConsoleLog(output)
+                }
+            }
         }
 
         func stop() {
@@ -181,6 +190,10 @@
             applicationEventToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
+
+            // stop capturing console logs
+            consoleLogInterceptor?.stopCapturing()
+            consoleLogInterceptor = nil
 
             sessionSwizzler?.unswizzle()
             urlInterceptor?.stop()
@@ -195,6 +208,32 @@
             windowViewsLock.withLock {
                 windowViews.removeAllObjects()
             }
+        }
+
+        private func handleConsoleLog(_ output: PostHogConsoleLogInterceptor.ConsoleOutput) {
+            guard let postHog, postHog.isSessionReplayActive(), let sessionId = PostHogSessionManager.shared.getSessionId(at: output.timestamp) else {
+                return
+            }
+
+            var snapshotsData: [Any] = []
+            let payloadData: [String: Any] = ["level": output.level, "payload": output.text]
+            let pluginData: [String: Any] = ["plugin": "rrweb/console@1", "payload": payloadData]
+
+            snapshotsData.append([
+                "type": 6,
+                "data": pluginData,
+                "timestamp": output.timestamp.toMillis(),
+            ])
+
+            postHog.capture(
+                "$snapshot",
+                properties: [
+                    "$snapshot_source": "mobile",
+                    "$snapshot_data": snapshotsData,
+                    "$session_id": sessionId,
+                ],
+                timestamp: now()
+            )
         }
 
         private func handleApplicationEvent(event: UIEvent, date: Date) {

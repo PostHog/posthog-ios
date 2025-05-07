@@ -65,7 +65,7 @@
         /// - NSLog messages
         ///
         /// Each log entry will be tagged with a level (info/warning/error) based on the message content
-        /// and the source. The level detection uses `captureLogsErrorPattern` and `captureLogsWarningPattern`.
+        /// and the source. The level detection uses `logMessageErrorPattern` and `logMessageWarningPattern`.
         ///
         /// Defaults to `false`
         @objc public var captureLogs: Bool = false

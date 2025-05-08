@@ -232,7 +232,7 @@
                     "$snapshot_data": snapshotsData,
                     "$session_id": sessionId,
                 ],
-                timestamp: now()
+                timestamp: output.timestamp
             )
         }
 

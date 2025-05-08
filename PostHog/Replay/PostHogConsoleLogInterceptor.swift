@@ -8,7 +8,9 @@
 #if os(iOS)
     import Foundation
 
-    class PostHogConsoleLogInterceptor {
+    final class PostHogConsoleLogInterceptor {
+        private let maxLogStringSize = 2000 // Maximum number of characters allowed in a string
+
         struct ConsoleOutput {
             let timestamp: Date
             let text: String
@@ -97,6 +99,13 @@
             }() : output
 
             callback(ConsoleOutput(timestamp: Date(), text: sanitizedOutput, level: level))
+        }
+
+        /// Console logs can be really large.
+        /// This function returns a truncated version of the console output if it exceeds `maxLogStringSize`
+        private func truncatedOutput(_ output: String) -> String {
+            guard output.count > maxLogStringSize else { return output }
+            return "\(output.prefix(maxLogStringSize))...[truncated]"
         }
 
         func stopCapturing() {

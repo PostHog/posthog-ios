@@ -296,10 +296,10 @@ let maxRetryDelay = 30.0
             props = props.merging(sdkInfo ?? [:]) { current, _ in current }
         }
 
-        // use existing session id if already present in props
+        // use existing session id if already present in properties (from params)
         // for session replay, we attach the session id on the event as early as possible to avoid sending snapshots to a wrong session
         // if not present, get a current or new session id at event timestamp
-        let propSessionId = props["$session_id"] as? String
+        let propSessionId = properties?["$session_id"] as? String
         let sessionId: String? = propSessionId.isNilOrEmpty
             ? PostHogSessionManager.shared.getSessionId(at: timestamp ?? now())
             : propSessionId
@@ -319,7 +319,7 @@ let maxRetryDelay = 30.0
 
         // only Session Replay needs distinct_id also in the props
         // remove after https://github.com/PostHog/posthog/issues/23275 gets merged
-        let propDistinctId = props["distinct_id"] as? String
+        let propDistinctId = properties?["distinct_id"] as? String
         if !appendSharedProps, propDistinctId == nil || propDistinctId?.isEmpty == true {
             props["distinct_id"] = distinctId
         }

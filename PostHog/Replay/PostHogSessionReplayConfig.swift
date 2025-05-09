@@ -70,28 +70,8 @@
         /// Defaults to `false`
         @objc public var captureLogs: Bool = false
 
-        /// Regular expression pattern used to identify error-level log messages.
-        ///
-        /// The pattern is applied to each log message to determine if it should be tagged as an error.
-        /// By default, it matches common error indicators such as:
-        /// - The word "error", "exception", "fail" or "failed"
-        /// - OSLog messages with type "Error" or "Fault"
-        ///
-        /// You can customize this pattern to match your application's logging format.
-        ///
-        /// Messages that don't match either the `error` or `warning` patterns are tagged as `info` level.
-        @objc public var logMessageErrorPattern = "(error|exception|fail(ed)?|OSLOG-.*type:\"Error\"|OSLOG-.*type:\"Fault\")"
-
-        /// Regular expression pattern used to identify warning-level log messages.
-        ///
-        /// By default, it matches common warning indicators such as:
-        /// - The words "warning", "warn", "caution", or "deprecated"
-        /// - OSLog messages with type "Warning"
-        ///
-        /// You can customize this pattern to match your application's logging format.
-        ///
-        /// Messages that don't match either the `error` or `warning` patterns are tagged as `info` level.
-        @objc public var logMessageWarningPattern = "(warn(ing)?|caution|deprecated|OSLOG-.*type:\"Warning\")"
+        /// Further configuration for capturing console output
+        @objc public var captureLogsConfig: PostHogSessionReplayConsoleLogConfig = .init()
 
         // TODO: sessionRecording config such as networkPayloadCapture, sampleRate, etc
     }

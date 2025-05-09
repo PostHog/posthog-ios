@@ -79,26 +79,26 @@
             // Note: Need to skip internal logs because `config.debug` may be enabled. If that's the case, then
             // the process of capturing logs, will generate more logs, leading to an infinite loop. This relies on hedgeLog() format which should
             // be okay, even not ideal
-            guard !output.hasPrefix("[PostHog]"), !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard !output.contains("[PostHog]"), !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return
             }
 
-            // Detect log level from regex patterns from config (one of info, warn, error)
-            let level = {
-                if output.range(of: config.sessionReplayConfig.logMessageWarningPattern, options: .regularExpression) != nil { return "warn" }
-                if output.range(of: config.sessionReplayConfig.logMessageErrorPattern, options: .regularExpression) != nil { return "error" }
-                return "info"
-            }()
+            // Process log messages from config
+            let messages = config.sessionReplayConfig.captureLogsConfig.processConsoleOutput(output)
 
-            // For OSLog messages, extract just the log message part
-            let sanitizedOutput = output.contains("OSLOG-") ? {
-                if let tabIndex = output.lastIndex(of: "\t") {
-                    return String(output[output.index(after: tabIndex)...])
+            for message in messages where shouldCaptureLog(message: message, config: config) {
+                let level = switch message.level {
+                case .error: "error"
+                case .info: "info"
+                case .warn: "warn"
                 }
-                return output
-            }() : output
+                callback(ConsoleOutput(timestamp: Date(), text: truncatedOutput(message.message), level: level))
+            }
+        }
 
-            callback(ConsoleOutput(timestamp: Date(), text: sanitizedOutput, level: level))
+        /// Determines if the log message should be captured, based on config
+        private func shouldCaptureLog(message: PostHogConsoleLogResult, config: PostHogConfig) -> Bool {
+            message.level.rawValue >= config.sessionReplayConfig.captureLogsConfig.minimumLogLevel.rawValue
         }
 
         /// Console logs can be really large.

@@ -212,6 +212,8 @@
 		DA92C6412DCE09C700C02F3E /* PostHogConsoleLogResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */; };
 		DA92C6492DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */; };
 		DA92C64B2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */; };
+		DA92C6632DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */; };
+		DA92C66B2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */; };
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
 		DA9AE8CF2D8357D4002F1B44 /* ConfirmationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */; };
 		DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */; };
@@ -723,6 +725,8 @@
 		DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogResult.swift; sourceTree = "<group>"; };
 		DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogLevel.swift; sourceTree = "<group>"; };
 		DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConsoleLogConfig.swift; sourceTree = "<group>"; };
+		DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConsoleLogsPlugin.swift; sourceTree = "<group>"; };
+		DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayPlugin.swift; sourceTree = "<group>"; };
 		DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTrackerSpec.swift; sourceTree = "<group>"; };
 		DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationMessage.swift; sourceTree = "<group>"; };
 		DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionHeader.swift; sourceTree = "<group>"; };
@@ -1215,10 +1219,8 @@
 		69EE82B82BA9C4DA00EB9542 /* Replay */ = {
 			isa = PBXGroup;
 			children = (
+				DA92C6622DCE304600C02F3E /* Plugins */,
 				DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */,
-				DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */,
-				DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */,
-				DA74644E2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift */,
 				DAB9F6C32D6C49B300A988A1 /* ApplicationEventPublisher.swift */,
 				DAD39DEE2D560813002A1A69 /* Float+Util.swift */,
 				69B7F6062CF7702D00A48BCC /* UIImage+Util.swift */,
@@ -1349,6 +1351,26 @@
 				DA8D37292CBEAC03005EBD27 /* PostHogExampleAutocapture.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DA92C6612DCE304600C02F3E /* Console Logs */ = {
+			isa = PBXGroup;
+			children = (
+				DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */,
+				DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */,
+				DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */,
+				DA74644E2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift */,
+			);
+			path = "Console Logs";
+			sourceTree = "<group>";
+		};
+		DA92C6622DCE304600C02F3E /* Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */,
+				DA92C6612DCE304600C02F3E /* Console Logs */,
+			);
+			path = Plugins;
 			sourceTree = "<group>";
 		};
 		DA9CE2FE2D3108A100DFE652 /* libwebp */ = {
@@ -2060,6 +2082,7 @@
 				DA9CE33B2D3108AD00DFE652 /* lossless_neon.c in Sources */,
 				DAFF026D2D7B2F9200BD5B1D /* SurveyDisplayController.swift in Sources */,
 				DA9CE33C2D3108AD00DFE652 /* backward_references_enc.c in Sources */,
+				DA92C6632DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift in Sources */,
 				DA9CE33D2D3108AD00DFE652 /* huffman_encode_utils.c in Sources */,
 				DA9CE33E2D3108AD00DFE652 /* palette.c in Sources */,
 				DA9CE33F2D3108AD00DFE652 /* rescaler_utils.c in Sources */,
@@ -2073,6 +2096,7 @@
 				DA9CE3452D3108AD00DFE652 /* vp8l_enc.c in Sources */,
 				DA9CE3462D3108AD00DFE652 /* dec_sse2.c in Sources */,
 				DA9CE3472D3108AD00DFE652 /* sharpyuv.c in Sources */,
+				DA92C66B2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift in Sources */,
 				DA9CE3482D3108AD00DFE652 /* token_enc.c in Sources */,
 				DA9CE3492D3108AD00DFE652 /* muxread.c in Sources */,
 				DA9CE34A2D3108AD00DFE652 /* muxinternal.c in Sources */,

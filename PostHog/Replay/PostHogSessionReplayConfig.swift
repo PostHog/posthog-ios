@@ -74,5 +74,16 @@
         @objc public var captureLogsConfig: PostHogSessionReplayConsoleLogConfig = .init()
 
         // TODO: sessionRecording config such as networkPayloadCapture, sampleRate, etc
+
+        /// Returns an array of plugins to be installed based on current configuration
+        func getPlugins() -> [PostHogSessionReplayPlugin] {
+            var plugins: [PostHogSessionReplayPlugin] = []
+
+            if captureLogs {
+                plugins.append(PostHogSessionReplayConsoleLogsPlugin())
+            }
+
+            return plugins
+        }
     }
 #endif

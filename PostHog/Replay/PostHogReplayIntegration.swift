@@ -30,8 +30,10 @@
         private var urlInterceptor: URLSessionInterceptor?
         private var sessionSwizzler: URLSessionSwizzler?
         private var applicationEventToken: RegistrationToken?
+        private var applicationBackgroundedToken: RegistrationToken?
+        private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
-        private var consoleLogInterceptor: PostHogConsoleLogInterceptor?
+        private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
          ### Mapping of SwiftUI Views to UIKit
@@ -172,12 +174,23 @@
                 sessionSwizzler?.swizzle()
             }
 
-            // start captures console logs
-            if postHog.config.sessionReplayConfig.captureLogs {
-                consoleLogInterceptor = PostHogConsoleLogInterceptor()
-                consoleLogInterceptor?.startCapturing(config: postHog.config) { [weak self] output in
-                    self?.handleConsoleLog(output)
-                }
+            // Install plugins
+            let plugins = postHog.config.sessionReplayConfig.getPlugins()
+            installedPlugins = []
+            for plugin in plugins {
+                plugin.start(postHog: postHog)
+                installedPlugins.append(plugin)
+            }
+
+            // Start listening to application background events and pause all plugins
+            let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
+            applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground { [weak self] in
+                self?.pauseAllPlugins()
+            }
+
+            // Start listening to application foreground events and resume all plugins
+            applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive { [weak self] in
+                self?.resumeAllPlugins()
             }
         }
 
@@ -188,12 +201,17 @@
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil
+            // stop listening to Application lifecycle events
+            applicationBackgroundedToken = nil
+            applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
 
-            // stop capturing console logs
-            consoleLogInterceptor?.stopCapturing()
-            consoleLogInterceptor = nil
+            // stop plugins
+            for plugin in installedPlugins {
+                plugin.stop()
+            }
+            installedPlugins = []
 
             sessionSwizzler?.unswizzle()
             urlInterceptor?.stop()
@@ -210,30 +228,16 @@
             }
         }
 
-        private func handleConsoleLog(_ output: PostHogConsoleLogInterceptor.ConsoleOutput) {
-            guard let postHog, postHog.isSessionReplayActive(), let sessionId = PostHogSessionManager.shared.getSessionId(at: output.timestamp) else {
-                return
+        private func pauseAllPlugins() {
+            for plugin in installedPlugins {
+                plugin.pause()
             }
+        }
 
-            var snapshotsData: [Any] = []
-            let payloadData: [String: Any] = ["level": output.level, "payload": output.text]
-            let pluginData: [String: Any] = ["plugin": "rrweb/console@1", "payload": payloadData]
-
-            snapshotsData.append([
-                "type": 6,
-                "data": pluginData,
-                "timestamp": output.timestamp.toMillis(),
-            ])
-
-            postHog.capture(
-                "$snapshot",
-                properties: [
-                    "$snapshot_source": "mobile",
-                    "$snapshot_data": snapshotsData,
-                    "$session_id": sessionId,
-                ],
-                timestamp: output.timestamp
-            )
+        private func resumeAllPlugins() {
+            for plugin in installedPlugins {
+                plugin.resume()
+            }
         }
 
         private func handleApplicationEvent(event: UIEvent, date: Date) {

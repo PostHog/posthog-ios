@@ -14,8 +14,10 @@
         struct ConsoleOutput {
             let timestamp: Date
             let text: String
-            let level: String
+            let level: PostHogConsoleLogLevel
         }
+
+        static let shared = PostHogConsoleLogInterceptor()
 
         // Pipe redirection properties
         private var stdoutPipe: Pipe?
@@ -23,10 +25,11 @@
         private var originalStdout: Int32 = -1
         private var originalStderr: Int32 = -1
 
-        func startCapturing(config: PostHogConfig, callback: @escaping (ConsoleOutput) -> Void) {
-            setupPipeRedirection(config: config, callback: callback)
+        private init() { /* Singleton */ }
 
-            hedgeLog("[Session Replay] Capturing console logs started")
+        func startCapturing(config: PostHogConfig, callback: @escaping (ConsoleOutput) -> Void) {
+            stopCapturing() // cleanup
+            setupPipeRedirection(config: config, callback: callback)
         }
 
         private func setupPipeRedirection(config: PostHogConfig, callback: @escaping (ConsoleOutput) -> Void) {
@@ -87,12 +90,7 @@
             let messages = config.sessionReplayConfig.captureLogsConfig.processConsoleOutput(output)
 
             for message in messages where shouldCaptureLog(message: message, config: config) {
-                let level = switch message.level {
-                case .error: "error"
-                case .info: "info"
-                case .warn: "warn"
-                }
-                callback(ConsoleOutput(timestamp: Date(), text: truncatedOutput(message.message), level: level))
+                callback(ConsoleOutput(timestamp: Date(), text: truncatedOutput(message.message), level: message.level))
             }
         }
 
@@ -129,8 +127,6 @@
             stderrPipe?.fileHandleForReading.closeFile()
             stdoutPipe = nil
             stderrPipe = nil
-
-            hedgeLog("[Session Replay] Capturing console logs stopped")
         }
     }
 #endif

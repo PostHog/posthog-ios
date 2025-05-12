@@ -30,7 +30,8 @@
     PostHogConfig *config = [[PostHogConfig alloc] apiKey:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
     config.preloadFeatureFlags = YES;
     config.sessionReplayConfig.captureLogs = YES;
-    config.sessionReplayConfig.processConsoleOutput = ^NSArray<PostHogConsoleLogResult *> * _Nonnull(NSString * _Nonnull text) {
+    config.sessionReplayConfig.captureLogsConfig.minimumLogLevel = PostHogConsoleLogLevelWarn;
+    config.sessionReplayConfig.captureLogsConfig.processConsoleOutput = ^NSArray<PostHogConsoleLogResult *> * _Nonnull(NSString * _Nonnull text) {
         // Simple implementation: just return the text as-is with info level
         return @[[[PostHogConsoleLogResult alloc] initWithLevel:PostHogConsoleLogLevelInfo message:text]];
     };

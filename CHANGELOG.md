@@ -1,6 +1,9 @@
 ## Next
 
 - feat: capture console logs for session replay ([#350](https://github.com/PostHog/posthog-ios/pull/350))
+## 3.25.1 - 2025-05-13
+
+- fix: edge case where session manager would not rotate session id ([#349](https://github.com/PostHog/posthog-ios/pull/349))
 
 ## 3.25.0 - 2025-04-30
 

@@ -143,9 +143,20 @@ import Foundation
     func touchSession() {
         guard isNotReactNative() else { return }
 
-        let timestamp = now().timeIntervalSince1970
-        sessionLock.withLock {
-            if sessionId != nil {
+        let (currentSessionId, lastActive) = sessionLock.withLock {
+            (sessionId, sessionActivityTimestamp)
+        }
+
+        guard currentSessionId != nil else { return }
+
+        let timeNow = now()
+        let timestamp = timeNow.timeIntervalSince1970
+
+        // Check if session has passed maximum inactivity length between user activity marks
+        if let lastActive, isExpired(timestamp, lastActive, sessionActivityThreshold) {
+            rotateSession(at: timeNow, reason: .sessionTimeout)
+        } else {
+            sessionLock.withLock {
                 sessionActivityTimestamp = timestamp
             }
         }

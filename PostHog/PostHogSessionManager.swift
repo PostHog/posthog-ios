@@ -31,6 +31,7 @@ import Foundation
         registerApplicationSendEvent()
     }
 
+    private let queue = DispatchQueue(label: "com.posthog.URLSessionInterceptor", target: .global(qos: .utility))
     private var sessionId: String?
     private var sessionStartTimestamp: TimeInterval?
     private var sessionActivityTimestamp: TimeInterval?
@@ -143,10 +144,13 @@ import Foundation
     func touchSession() {
         guard isNotReactNative() else { return }
 
+        // Note: touching a session will lock, so avoid calling on main queue
         let timestamp = now().timeIntervalSince1970
-        sessionLock.withLock {
-            if sessionId != nil {
-                sessionActivityTimestamp = timestamp
+        queue.async {
+            self.sessionLock.withLock {
+                if self.sessionId != nil {
+                    self.sessionActivityTimestamp = timestamp
+                }
             }
         }
     }

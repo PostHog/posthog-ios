@@ -39,19 +39,51 @@ enum PostHogSessionManagerTest {
 
             #expect(newSessionId == originalSessionId)
 
-            mockAppLifecycle.simulateAppDidEnterBackground()
+            mockAppLifecycle.simulateAppDidEnterBackground() // user backgrounds app
+
             mockNow.date.addTimeInterval(60 * 30) // +30 minutes (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = PostHogSessionManager.shared.getSessionId() // background activity
 
             #expect(newSessionId == originalSessionId)
 
             mockNow.date.addTimeInterval(60 * 1) // past 30 minutes (session should clear)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = PostHogSessionManager.shared.getSessionId() // background activity, session should be cleared
 
             #expect(newSessionId == nil)
         }
 
-        @Test("Session id is rotated after 30 min of inactivity")
+        @Test("Session id is cleared after 30 min when moving from background to foreground")
+        func testSessionClearedWhenMovingBetweenBackgroundAndForeground() throws {
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            let originalSessionId = PostHogSessionManager.shared.getNextSessionId()
+
+            try #require(originalSessionId != nil)
+
+            PostHogSessionManager.shared.touchSession()
+            var newSessionId: String?
+
+            newSessionId = PostHogSessionManager.shared.getSessionId()
+
+            #expect(newSessionId == originalSessionId)
+
+            mockAppLifecycle.simulateAppDidEnterBackground() // user backgrounds app
+            mockNow.date.addTimeInterval(60 * 29) // waits 29 mins
+            mockAppLifecycle.simulateAppDidBecomeActive() // user foregrounds app
+            newSessionId = PostHogSessionManager.shared.getSessionId() // should not rotate
+
+            #expect(newSessionId == originalSessionId)
+
+            mockAppLifecycle.simulateAppDidEnterBackground() // user backgrounds app
+            mockNow.date.addTimeInterval(60 * 31) // waits 30+ mins
+            mockAppLifecycle.simulateAppDidBecomeActive() // user foregrounds app
+            newSessionId = PostHogSessionManager.shared.getSessionId() // *should* rotate
+
+            #expect(newSessionId != originalSessionId)
+        }
+
+        @Test("Session id is rotated after 30 min of inactivity when app is foregrounded")
         func testSessionRotatedWhenInactive() throws {
             let mockNow = MockDate()
             now = { mockNow.date }

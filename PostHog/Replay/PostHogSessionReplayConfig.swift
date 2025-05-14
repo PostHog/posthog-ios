@@ -56,6 +56,21 @@
         /// Note: Previously `debouncerDelay`
         @objc public var throttleDelay: TimeInterval = 1
 
+        /// Enables screen capture operations to run on a background thread instead of the main thread.
+        ///
+        /// When enabled, this can improve UI responsiveness by moving screen capture operations
+        /// off the main thread. While this can provide better performance, it may lead to unexpected
+        /// side effects due to UIKit's threading limitations when accessing view hierarchies from
+        /// background threads.
+        ///
+        /// - Note: In debug builds, enabling this will trigger Xcode's Main Thread Checker warnings
+        /// and may cause brief UI freezes during debugging. These freezes are caused by the Main Thread
+        /// Checker diagnostic tool and do not occur in production builds.
+        ///
+        /// - Warning: This feature is not recommended due to potential instability. UIKit view operations are not
+        /// thread-safe and accessing them from background threads may cause unpredictable behavior.
+        @objc public var enableBackgroundSnapshotCapture: Bool = false
+
         // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
     }
 #endif

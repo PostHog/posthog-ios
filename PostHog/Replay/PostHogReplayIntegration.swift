@@ -811,9 +811,13 @@
                 }
             }
 
-            // this cannot run off of the main thread because most properties require to be called within the main thread
-            // this method has to be fast and do as little as possible
-            generateSnapshot(window, screenName, postHog: postHog)
+            if config?.sessionReplayConfig.enableBackgroundSnapshotCapture == true {
+                PostHogReplayIntegration.dispatchQueue.async {
+                    self.generateSnapshot(window, screenName, postHog: postHog)
+                }
+            } else {
+                generateSnapshot(window, screenName, postHog: postHog)
+            }
         }
     }
 

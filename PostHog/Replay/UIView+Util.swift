@@ -35,7 +35,7 @@
             label.lowercased().contains("ph-no-capture")
         }
 
-        func toImage(captureScale: CGFloat = 0.50) -> UIImage? {
+        func toImage(captureScale: CGFloat = 1) -> UIImage? {
             PostHogViewRenderer.capture(self, scale: captureScale)
         }
 

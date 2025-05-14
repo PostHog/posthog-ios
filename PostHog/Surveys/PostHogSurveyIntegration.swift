@@ -80,9 +80,9 @@
                             PostHogDisplaySurvey(title: "Some Survey")) { survey in
                                 hedgeLog("[Flutter] Survey \(survey.title) was shown")
                             } onSurveyResponse: { survey, index, response in
-                                let nextIndex = index + 1
-                                hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex)")
-                                return nextIndex
+                                let (nextIndex, completed) = index < 3 ? (index + 1, false) : (index, true)
+                                hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex), completed \(completed)")
+                                return PostHogNextSurveyQuestion(questionIndex: nextIndex, isSurveyCompleted: completed)
                             } onSurveyClosed: { survey in
                                 hedgeLog("[Flutter] Survey \(survey.title) was closed")
                                 
@@ -92,9 +92,9 @@
                                         PostHogDisplaySurvey(title: "Another Survey")) { survey in
                                             hedgeLog("[Flutter] Survey \(survey.title) was shown")
                                         } onSurveyResponse: { survey, index, response in
-                                            let nextIndex = index + 1
-                                            hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex)")
-                                            return nextIndex
+                                            let (nextIndex, completed) = index < 5 ? (index + 1, false) : (index, true)
+                                            hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex), completed \(completed)")
+                                            return PostHogNextSurveyQuestion(questionIndex: nextIndex, isSurveyCompleted: completed)
                                         } onSurveyClosed: { survey in
                                             hedgeLog("[Flutter] Survey \(survey.title) was closed")
                                         }

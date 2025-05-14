@@ -23,14 +23,25 @@
 
     @objc public class PostHogDisplaySurvey: NSObject {
         public let title: String
-        
+
         init(title: String) {
             self.title = title
         }
     }
 
     public typealias OnSurveyDelegateShown = (_ survey: PostHogDisplaySurvey) -> Void
-    public typealias OnSurveyDelegateResponse = (_ survey: PostHogDisplaySurvey, _ index: Int, _ response: String) -> Int
+    @objc public class PostHogNextSurveyQuestion: NSObject {
+        public let questionIndex: Int
+        public let isSurveyCompleted: Bool
+        
+        init(questionIndex: Int, isSurveyCompleted: Bool) {
+            self.questionIndex = questionIndex
+            self.isSurveyCompleted = isSurveyCompleted
+            super.init()
+        }
+    }
+    
+    public typealias OnSurveyDelegateResponse = (_ survey: PostHogDisplaySurvey, _ index: Int, _ response: String) -> PostHogNextSurveyQuestion
     public typealias OnSurveyDelegateClosed = (_ survey: PostHogDisplaySurvey) -> Void
 
 #endif

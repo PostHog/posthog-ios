@@ -74,34 +74,61 @@
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     // TODO: listen to screen view events
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        self.config?.surveysConfig.surveysDelegate?.renderSurvey(
+                            PostHogDisplaySurvey(title: "Some Survey")) { survey in
+                                hedgeLog("[Flutter] Survey \(survey.title) was shown")
+                            } onSurveyResponse: { survey, index, response in
+                                let nextIndex = index + 1
+                                hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex)")
+                                return nextIndex
+                            } onSurveyClosed: { survey in
+                                hedgeLog("[Flutter] Survey \(survey.title) was closed")
+                                
+                                // Show next survey
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    self.config?.surveysConfig.surveysDelegate?.renderSurvey(
+                                        PostHogDisplaySurvey(title: "Another Survey")) { survey in
+                                            hedgeLog("[Flutter] Survey \(survey.title) was shown")
+                                        } onSurveyResponse: { survey, index, response in
+                                            let nextIndex = index + 1
+                                            hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex)")
+                                            return nextIndex
+                                        } onSurveyClosed: { survey in
+                                            hedgeLog("[Flutter] Survey \(survey.title) was closed")
+                                        }
+                                }
+                            }
+                    }
 
                     didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: 5) { [weak self] in
-                        self?.showNextSurvey()
+                        //self?.showNextSurvey()
                     }
 
                     didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
-                        guard let self, surveysWindow == nil else { return }
-
-                        #if os(iOS)
-                            if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
-                                let surveyDisplayManager = SurveyDisplayController(
-                                    onSurveyShown: onSurveyShown,
-                                    onSurveyResponse: onSurveyResponse,
-                                    onSurveyClosed: onSurveyClosed
-                                )
-
-                                surveysWindow = SurveysWindow(
-                                    surveysManager: surveyDisplayManager,
-                                    scene: activeScene
-                                )
-                                surveysWindow?.isHidden = false
-                                surveysWindow?.windowLevel = activeWindow.windowLevel + 1
-
-                                self.surveyDisplayManager = surveyDisplayManager
-
-                                showNextSurvey()
-                            }
-                        #endif
+//                        guard let self, surveysWindow == nil else { return }
+//
+//                        #if os(iOS)
+//                            if let activeWindow = UIApplication.getCurrentWindow(), let activeScene = activeWindow.windowScene {
+//                                let surveyDisplayManager = SurveyDisplayController(
+//                                    onSurveyShown: onSurveyShown,
+//                                    onSurveyResponse: onSurveyResponse,
+//                                    onSurveyClosed: onSurveyClosed
+//                                )
+//
+//                                surveysWindow = SurveysWindow(
+//                                    surveysManager: surveyDisplayManager,
+//                                    scene: activeScene
+//                                )
+//                                surveysWindow?.isHidden = false
+//                                surveysWindow?.windowLevel = activeWindow.windowLevel + 1
+//
+//                                self.surveyDisplayManager = surveyDisplayManager
+//
+//                                showNextSurvey()
+//                            }
+//                        #endif
                     }
                 }
             #endif

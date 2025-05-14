@@ -70,40 +70,55 @@
             }
         }
 
+        private var mockSurveys: [PostHogDisplaySurvey] = [
+            DummyPostHogSurveys.multipleChoiceQuestionWithOpenChoice,
+            DummyPostHogSurveys.singleChoiceQuestionWithOpenChoice,
+            DummyPostHogSurveys.singleChoiceQuestion,
+            DummyPostHogSurveys.ratingTenQuestion,
+            DummyPostHogSurveys.ratingSevenQuestion,
+            DummyPostHogSurveys.ratingFiveQuestion,
+            DummyPostHogSurveys.ratingFiveEmojiQuestion,
+            DummyPostHogSurveys.ratingThreeEmojiQuestion,
+            DummyPostHogSurveys.linkQuestion,
+            DummyPostHogSurveys.openQuestion,
+            //DummyPostHogSurveys.multipleChoiceQuestion,
+        ]
+
+        private func showNextMockSurvey() {
+            if #available(iOS 15.0, *) {
+                guard !mockSurveys.isEmpty else { return }
+
+                let survey = mockSurveys.removeFirst()
+                config?.surveysConfig.surveysDelegate?.renderSurvey(
+                    survey
+                ) { survey in
+                    hedgeLog("[Survey] \(survey.name) shown")
+                } onSurveyResponse: { survey, index, response in
+                    hedgeLog("[Survey] \(survey.name) response: \(response)")
+                    let (nextIndex, completed) = index < survey.questions.count - 1 ? (index + 1, false) : (index, true)
+                    return PostHogNextSurveyQuestion(questionIndex: nextIndex, isSurveyCompleted: completed)
+                } onSurveyClosed: { survey in
+                    hedgeLog("[Survey] \(survey.name) closed")
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        self.showNextMockSurvey()
+                    }
+                }
+            }
+        }
+
         func start() {
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     // TODO: listen to screen view events
-                    
+
+                    // Start showing mock surveys
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        self.config?.surveysConfig.surveysDelegate?.renderSurvey(
-                            PostHogDisplaySurvey(title: "Some Survey")) { survey in
-                                hedgeLog("[Flutter] Survey \(survey.title) was shown")
-                            } onSurveyResponse: { survey, index, response in
-                                let (nextIndex, completed) = index < 3 ? (index + 1, false) : (index, true)
-                                hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex), completed \(completed)")
-                                return PostHogNextSurveyQuestion(questionIndex: nextIndex, isSurveyCompleted: completed)
-                            } onSurveyClosed: { survey in
-                                hedgeLog("[Flutter] Survey \(survey.title) was closed")
-                                
-                                // Show next survey
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                    self.config?.surveysConfig.surveysDelegate?.renderSurvey(
-                                        PostHogDisplaySurvey(title: "Another Survey")) { survey in
-                                            hedgeLog("[Flutter] Survey \(survey.title) was shown")
-                                        } onSurveyResponse: { survey, index, response in
-                                            let (nextIndex, completed) = index < 5 ? (index + 1, false) : (index, true)
-                                            hedgeLog("[Flutter] Got survey \(survey.title) response \(index) \(response) - Next index \(nextIndex), completed \(completed)")
-                                            return PostHogNextSurveyQuestion(questionIndex: nextIndex, isSurveyCompleted: completed)
-                                        } onSurveyClosed: { survey in
-                                            hedgeLog("[Flutter] Survey \(survey.title) was closed")
-                                        }
-                                }
-                            }
+                        self.showNextMockSurvey()
                     }
 
                     didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: 5) { [weak self] in
-                        //self?.showNextSurvey()
+                        // self?.showNextSurvey()
                     }
 
                     didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in

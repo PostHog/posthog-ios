@@ -14,7 +14,7 @@
         struct ConsoleOutput {
             let timestamp: Date
             let text: String
-            let level: PostHogConsoleLogLevel
+            let level: PostHogLogLevel
         }
 
         static let shared = PostHogConsoleLogInterceptor()
@@ -86,17 +86,21 @@
                 return
             }
 
-            // Process log messages from config
-            let messages = config.sessionReplayConfig.captureLogsConfig.processConsoleOutput(output)
+            // Process log entries from config
+            let entries = output
+                .components(separatedBy: CharacterSet.newlines) // split by line
+                .lazy
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } // Skip empty strings and new lines
+                .compactMap(config.sessionReplayConfig.captureLogsConfig.logSanitizer)
 
-            for message in messages where shouldCaptureLog(message: message, config: config) {
-                callback(ConsoleOutput(timestamp: Date(), text: truncatedOutput(message.message), level: message.level))
+            for entry in entries where shouldCaptureLog(entry: entry, config: config) {
+                callback(ConsoleOutput(timestamp: Date(), text: truncatedOutput(entry.message), level: entry.level))
             }
         }
 
         /// Determines if the log message should be captured, based on config
-        private func shouldCaptureLog(message: PostHogConsoleLogResult, config: PostHogConfig) -> Bool {
-            message.level.rawValue >= config.sessionReplayConfig.captureLogsConfig.minimumLogLevel.rawValue
+        private func shouldCaptureLog(entry: PostHogLogEntry, config: PostHogConfig) -> Bool {
+            entry.level.rawValue >= config.sessionReplayConfig.captureLogsConfig.minLogLevel.rawValue
         }
 
         /// Console logs can be really large.

@@ -209,8 +209,8 @@
 		DA74644F2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA74644E2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift */; };
 		DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA929C092D0B3A1D0018369C /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		DA92C6412DCE09C700C02F3E /* PostHogConsoleLogResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */; };
-		DA92C6492DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */; };
+		DA92C6412DCE09C700C02F3E /* PostHogLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */; };
+		DA92C6492DCE09DE00C02F3E /* PostHogLogLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */; };
 		DA92C64B2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */; };
 		DA92C6632DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */; };
 		DA92C66B2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */; };
@@ -722,8 +722,8 @@
 		DA7185472D07E11200396388 /* output_3.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = output_3.webp; sourceTree = "<group>"; };
 		DA74644E2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogInterceptor.swift; sourceTree = "<group>"; };
 		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
-		DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogResult.swift; sourceTree = "<group>"; };
-		DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsoleLogLevel.swift; sourceTree = "<group>"; };
+		DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLogEntry.swift; sourceTree = "<group>"; };
+		DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLogLevel.swift; sourceTree = "<group>"; };
 		DA92C64A2DCE1A2600C02F3E /* PostHogSessionReplayConsoleLogConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConsoleLogConfig.swift; sourceTree = "<group>"; };
 		DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayConsoleLogsPlugin.swift; sourceTree = "<group>"; };
 		DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayPlugin.swift; sourceTree = "<group>"; };
@@ -1357,8 +1357,8 @@
 			isa = PBXGroup;
 			children = (
 				DA92C6602DCE304600C02F3E /* PostHogSessionReplayConsoleLogsPlugin.swift */,
-				DA92C6482DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift */,
-				DA92C6402DCE09C700C02F3E /* PostHogConsoleLogResult.swift */,
+				DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */,
+				DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */,
 				DA74644E2DC8D58100C7D394 /* PostHogConsoleLogInterceptor.swift */,
 			);
 			path = "Console Logs";
@@ -2092,7 +2092,7 @@
 				DA9CE3422D3108AD00DFE652 /* rescaler_sse2.c in Sources */,
 				DA9CE3432D3108AD00DFE652 /* lossless_enc.c in Sources */,
 				DA9CE3442D3108AD00DFE652 /* alpha_processing_sse2.c in Sources */,
-				DA92C6412DCE09C700C02F3E /* PostHogConsoleLogResult.swift in Sources */,
+				DA92C6412DCE09C700C02F3E /* PostHogLogEntry.swift in Sources */,
 				DA9CE3452D3108AD00DFE652 /* vp8l_enc.c in Sources */,
 				DA9CE3462D3108AD00DFE652 /* dec_sse2.c in Sources */,
 				DA9CE3472D3108AD00DFE652 /* sharpyuv.c in Sources */,
@@ -2169,7 +2169,7 @@
 				DA9CE3812D3108AD00DFE652 /* sharpyuv_neon.c in Sources */,
 				69ED1A882C89B73100FE7A91 /* PostHogSwiftUIViewModifiers.swift in Sources */,
 				69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */,
-				DA92C6492DCE09DE00C02F3E /* PostHogConsoleLogLevel.swift in Sources */,
+				DA92C6492DCE09DE00C02F3E /* PostHogLogLevel.swift in Sources */,
 				DAF95F512D072F04001E82BB /* UIImage+WebP.swift in Sources */,
 				69F517E82BAC675800F52C14 /* RRWireframe.swift in Sources */,
 				3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */,

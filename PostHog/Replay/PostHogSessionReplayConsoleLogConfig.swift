@@ -13,18 +13,16 @@
         ///
         /// This block is called whenever console output is captured. It allows you to:
         /// 1. Filter or modify log messages before they are sent to session replay
-        /// 2. Split output into separate log entries (e.g multi-line)
-        /// 3. Determine the appropriate log level (info/warn/error) for each message
-        /// 4. Format, sanitize or skip a log messages (e.g. remove sensitive data or PII)
+        /// 2. Determine the appropriate log level (info/warn/error) for each message
+        /// 3. Format, sanitize or skip a log messages (e.g. remove sensitive data or PII)
         ///
         /// The default implementation:
-        /// - Splits log output by newlines and filters out empty lines
         /// - Detect log level (best effort)
         /// - Process OSLog messages to remove metadata
         ///
         /// - Parameter output: The raw console output to process
         /// - Returns: Array of `PostHogConsoleLogResult` objects, one for each processed log entry. Return an empty array to skip a log output
-        @objc public var processConsoleOutput: ((String) -> [PostHogConsoleLogResult]) = PostHogSessionReplayConsoleLogConfig.defaultProcessConsoleOutput
+        @objc public var logSanitizer: ((String) -> PostHogLogEntry?) = PostHogSessionReplayConsoleLogConfig.defaultLogSanitizer
 
         /// The minimum log level to capture in session replay.
         /// Only log messages with this level or higher will be captured.
@@ -34,33 +32,27 @@
         /// - `.info` messages will be skipped
         ///
         /// Defaults to `.error` to minimize noise in session replays.
-        @objc public var minimumLogLevel: PostHogConsoleLogLevel = .error
+        @objc public var minLogLevel: PostHogLogLevel = .error
 
         /// Default implementation for processing console output.
-        static func defaultProcessConsoleOutput(_ output: String) -> [PostHogConsoleLogResult] {
-            output
-                .components(separatedBy: "\n") // handle multiline output
-                .lazy
-                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } // Skip empty strings and new lines
-                .map { message in
-                    let message = String(message)
-                    // Determine console log level
-                    let level: PostHogConsoleLogLevel = {
-                        if message.range(of: logMessageWarningPattern, options: .regularExpression) != nil { return .warn }
-                        if message.range(of: logMessageErrorPattern, options: .regularExpression) != nil { return .error }
-                        return .info
-                    }()
+        static func defaultLogSanitizer(_ message: String) -> PostHogLogEntry? {
+            let message = String(message)
+            // Determine console log level
+            let level: PostHogLogLevel = {
+                if message.range(of: logMessageWarningPattern, options: .regularExpression) != nil { return .warn }
+                if message.range(of: logMessageErrorPattern, options: .regularExpression) != nil { return .error }
+                return .info
+            }()
 
-                    // For OSLog messages, extract just the log message part
-                    let sanitizedMessage = message.contains("OSLOG-") ? {
-                        if let tabIndex = message.lastIndex(of: "\t") {
-                            return String(message[message.index(after: tabIndex)...])
-                        }
-                        return message
-                    }() : message
-
-                    return PostHogConsoleLogResult(level: level, message: sanitizedMessage)
+            // For OSLog messages, extract just the log message part
+            let sanitizedMessage = message.contains("OSLOG-") ? {
+                if let tabIndex = message.lastIndex(of: "\t") {
+                    return String(message[message.index(after: tabIndex)...])
                 }
+                return message
+            }() : message
+
+            return PostHogLogEntry(level: level, message: sanitizedMessage)
         }
 
         /// Default regular expression pattern used to identify error-level log messages.

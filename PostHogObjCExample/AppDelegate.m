@@ -31,9 +31,9 @@
     config.preloadFeatureFlags = YES;
     config.sessionReplayConfig.captureLogs = YES;
     config.sessionReplayConfig.captureLogsConfig.minLogLevel = PostHogLogLevelWarn;
-    config.sessionReplayConfig.captureLogsConfig.logSanitizer = ^PostHogLogResult * _Nullable(NSString * _Nonnull text) {
+    config.sessionReplayConfig.captureLogsConfig.logSanitizer = ^PostHogLogEntry * _Nullable(NSString * _Nonnull text) {
         // Simple implementation: just return the text as-is with info level
-        return [[PostHogLogResult alloc] initWithLevel:PostHogLogLevelInfo message:text];
+        return [[PostHogLogEntry alloc] initWithLevel:PostHogLogLevelInfo message:text];
     };
 
     

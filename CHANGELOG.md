@@ -1,5 +1,7 @@
 ## Next
 
+## 3.26.0 - 2025-05-20
+
 - feat: capture console logs for session replay ([#350](https://github.com/PostHog/posthog-ios/pull/350))
 
 ## 3.25.1 - 2025-05-13

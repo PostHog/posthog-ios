@@ -79,15 +79,13 @@ class PostHogRemoteConfig {
 
                     let hasFeatureFlags = remoteConfig?[self.hasFeatureFlagsKey] as? Bool == true
 
-                    // if server responds with `hasFeatureFlags: false`, then there are no more active flags on the account
-                    guard hasFeatureFlags else {
+                    if !hasFeatureFlags {
+                        // if server responds with `hasFeatureFlags: false`, then there are no more active flags on the account
                         clearFeatureFlags()
+                        // need to notify cause people may be waiting for flags to load
                         notifyFeatureFlags([:])
-                        return
-                    }
-
-                    // reload feature flags based on config
-                    if self.config.preloadFeatureFlags {
+                    } else if self.config.preloadFeatureFlags {
+                        // reload feature flags based on config
                         self.preloadFeatureFlags()
                     }
                 }
@@ -277,8 +275,7 @@ class PostHogRemoteConfig {
                 if let requestId {
                     // Store the request ID in the storage.
                     self.requestIdLock.withLock {
-                        self.requestId = requestId
-                        self.storage.setString(forKey: .requestId, contents: requestId)
+                        self.setCachedRequestId(requestId)
                     }
                 }
 
@@ -398,6 +395,7 @@ class PostHogRemoteConfig {
         return flags?[key]
     }
 
+    // To be called after acquiring `featureFlagsLock`
     private func getCachedFeatureFlagPayload() -> [String: Any]? {
         if featureFlagPayloads == nil {
             featureFlagPayloads = storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
@@ -405,11 +403,13 @@ class PostHogRemoteConfig {
         return featureFlagPayloads
     }
 
+    // To be called after acquiring `featureFlagsLock`
     private func setCachedFeatureFlagPayload(_ featureFlagPayloads: [String: Any]) {
         self.featureFlagPayloads = featureFlagPayloads
         storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: featureFlagPayloads)
     }
 
+    // To be called after acquiring `featureFlagsLock`
     private func getCachedFeatureFlags() -> [String: Any]? {
         if featureFlags == nil {
             featureFlags = storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
@@ -417,16 +417,19 @@ class PostHogRemoteConfig {
         return featureFlags
     }
 
+    // To be called after acquiring `featureFlagsLock`
     private func setCachedFeatureFlags(_ featureFlags: [String: Any]) {
         self.featureFlags = featureFlags
         storage.setDictionary(forKey: .enabledFeatureFlags, contents: featureFlags)
     }
 
+    // To be called after acquiring `featureFlagsLock`
     private func setCachedFlags(_ flags: [String: Any]) {
         self.flags = flags
         storage.setDictionary(forKey: .flags, contents: flags)
     }
 
+    // To be called after acquiring `featureFlagsLock`
     private func getCachedFlags() -> [String: Any]? {
         if flags == nil {
             flags = storage.getDictionary(forKey: .flags) as? [String: Any]
@@ -456,6 +459,16 @@ class PostHogRemoteConfig {
 
         // fallback to original value if not possible to serialize
         return value
+    }
+
+    // To be called after acquiring `requestIdLock`
+    private func setCachedRequestId(_ value: String?) {
+        requestId = value
+        if let value {
+            storage.setString(forKey: .requestId, contents: value)
+        } else {
+            storage.remove(key: .requestId)
+        }
     }
 
     private func normalizeResponse(_ data: inout [String: Any]) {
@@ -496,6 +509,9 @@ class PostHogRemoteConfig {
             setCachedFlags([:])
             setCachedFeatureFlags([:])
             setCachedFeatureFlagPayload([:])
+        }
+        requestIdLock.withLock {
+            setCachedRequestId(nil)
         }
     }
 

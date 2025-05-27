@@ -136,13 +136,13 @@
         }
 
         private var emojiRange: SurveyEmojiRange {
-            question.scale == 3 ? .oneToThree : .oneToFive
+            question.scale == .threePoint ? .oneToThree : .oneToFive
         }
 
         private var numberRange: SurveyNumberRange {
             switch question.scale {
-            case 7: .oneToSeven
-            case 10: .zeroToTen
+            case .sevenPoint: .oneToSeven
+            case .tenPoint: .zeroToTen
             default: .oneToFive
             }
         }

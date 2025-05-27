@@ -12,7 +12,7 @@ import UIKit
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
+            apiKey: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
@@ -27,6 +27,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.maskAllTextInputs = true
             config.sessionReplayConfig.maskAllImages = true
+            config.sessionReplayConfig.captureLogs = true
+            config.sessionReplayConfig.captureLogsConfig.minLogLevel = .info
+            config.sessionReplayConfig.captureLogsConfig.logSanitizer = { log in
+                // Skip some logs
+                guard !log.contains("[SKIP]") else { return nil }
+                // all logs are lowercased and info level
+                return PostHogLogEntry(level: .info, message: log.lowercased())
+            }
         #endif
 
         PostHogSDK.shared.setup(config)
@@ -50,5 +58,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
     @objc func receiveFeatureFlags() {
         print("user receiveFeatureFlags callback")
+        print("[SKIP] user receiveFeatureFlags callback")
     }
 }

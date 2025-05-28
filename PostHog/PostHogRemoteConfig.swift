@@ -28,7 +28,6 @@ class PostHogRemoteConfig {
     private var remoteConfig: [String: Any]?
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
-    private let requestIdLock = NSLock()
     private var requestId: String?
 
     /// Internal, only used for testing
@@ -41,7 +40,7 @@ class PostHogRemoteConfig {
                                               target: .global(qos: .utility))
 
     var lastRequestId: String? {
-        requestIdLock.withLock {
+        featureFlagsLock.withLock {
             requestId ?? storage.getString(forKey: .requestId)
         }
     }
@@ -270,33 +269,29 @@ class PostHogRemoteConfig {
 
                 let flagsV4 = data["flags"] as? [String: Any]
 
-                // Grab the request ID from the response
-                let requestId = data["requestId"] as? String
-                if let requestId {
-                    // Store the request ID in the storage.
-                    self.requestIdLock.withLock {
-                        self.setCachedRequestId(requestId)
-                    }
-                }
-
                 guard let featureFlags = data["featureFlags"] as? [String: Any],
                       let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
-
                     self.notifyFeatureFlagsAndRelease(data)
-
                     return callback(nil)
                 }
-                let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
 
                 #if os(iOS)
                     self.processSessionRecordingConfig(data, featureFlags: featureFlags)
                 #endif
 
+                // Grab the request ID from the response
+                let requestId = data["requestId"] as? String
+                let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
                 var loadedFeatureFlags: [String: Any]?
 
                 self.featureFlagsLock.withLock {
+                    if let requestId {
+                        // Store the request ID in the storage.
+                        self.setCachedRequestId(requestId)
+                    }
+
                     if errorsWhileComputingFlags {
                         // v4 cached flags which contains metadata about each flag.
                         let cachedFlags = self.getCachedFlags() ?? [:]
@@ -461,7 +456,7 @@ class PostHogRemoteConfig {
         return value
     }
 
-    // To be called after acquiring `requestIdLock`
+    // To be called after acquiring `featureFlagsLock`
     private func setCachedRequestId(_ value: String?) {
         requestId = value
         if let value {
@@ -509,9 +504,7 @@ class PostHogRemoteConfig {
             setCachedFlags([:])
             setCachedFeatureFlags([:])
             setCachedFeatureFlagPayload([:])
-        }
-        requestIdLock.withLock {
-            setCachedRequestId(nil)
+            setCachedRequestId(nil) // requestId no longer valid
         }
     }
 

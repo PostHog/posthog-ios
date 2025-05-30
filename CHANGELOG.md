@@ -1,5 +1,7 @@
 ## Next
 
+- fix: clear cached flags if remote config response hasFeatureFlags: false ([#347](https://github.com/PostHog/posthog-ios/pull/347))
+
 ## 3.26.0 - 2025-05-20
 
 - feat: capture console logs for session replay ([#350](https://github.com/PostHog/posthog-ios/pull/350))

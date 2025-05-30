@@ -24,7 +24,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is cleared after 30 min of background time")
-        func testSessionClearedBackgrounded() throws {
+        func sessionClearedBackgrounded() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -53,7 +53,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is cleared after 30 min when moving from background to foreground")
-        func testSessionClearedWhenMovingBetweenBackgroundAndForeground() throws {
+        func sessionClearedWhenMovingBetweenBackgroundAndForeground() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -84,7 +84,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is rotated after 30 min of inactivity when app is foregrounded")
-        func testSessionRotatedWhenInactive() throws {
+        func sessionRotatedWhenInactive() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -113,7 +113,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is rotated after max session length is reached")
-        func testSessionRotatedWhenPastMaxSessionLength() throws {
+        func sessionRotatedWhenPastMaxSessionLength() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -196,7 +196,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Clears $session_id after 30 mins of background inactivity")
-        func testSessionClearedAfterBackgroundInactivity() async throws {
+        func sessionClearedAfterBackgroundInactivity() async throws {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
@@ -229,7 +229,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Rotates $session_id after 30 mins of inactivity")
-        func testSessionRotatedAfterInactivity() async throws {
+        func sessionRotatedAfterInactivity() async throws {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
@@ -267,7 +267,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Rotates $session_id after max session length of 24 hours")
-        func testSessionRotatedAfterMaxSessionLength() async throws {
+        func sessionRotatedAfterMaxSessionLength() async throws {
             let sut = getSut(flushAt: 52)
             let mockNow = MockDate()
             var compoundedTime: TimeInterval = 0
@@ -350,7 +350,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("ApplicationLifecyclePublisher handles token deallocation correctly")
-        func testApplicationLifecyclePublisherHandlesTokenDeallocationCorrectly() {
+        func applicationLifecyclePublisherHandlesTokenDeallocationCorrectly() {
             let sut = MockApplicationLifecyclePublisher()
 
             var registrations = [
@@ -381,7 +381,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is NOT cleared after 30 min of background time")
-        func testSessionNotClearedBackgrounded() throws {
+        func sessionNotClearedBackgrounded() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -409,7 +409,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is NOT rotated after 30 min of inactivity")
-        func testSessionNotRotatedWhenInactive() throws {
+        func sessionNotRotatedWhenInactive() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -437,7 +437,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is NOT rotated after max session length is reached")
-        func testSessionNotRotatedWhenPastMaxSessionLength() throws {
+        func sessionNotRotatedWhenPastMaxSessionLength() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -472,7 +472,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is NOT cleared when startSession() is called")
-        func testSessionNotRotatedWhenStartSessionCalled() throws {
+        func sessionNotRotatedWhenStartSessionCalled() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -492,7 +492,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is NOT cleared when endSession() is called")
-        func testSessionNotRotatedWhenEndSessionCalled() throws {
+        func sessionNotRotatedWhenEndSessionCalled() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 
@@ -512,7 +512,7 @@ enum PostHogSessionManagerTest {
         }
 
         @Test("Session id is NOT rotated when resetSession() is called")
-        func testSessionNotRotatedWhenResetSessionCalled() throws {
+        func sessionNotRotatedWhenResetSessionCalled() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
 

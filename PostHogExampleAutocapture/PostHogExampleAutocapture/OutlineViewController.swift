@@ -206,7 +206,6 @@ extension OutlineViewController {
 
     private func configureDataSource() {
         let containerCellRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, OutlineItem> { cell, _, menuItem in
-
             var contentConfiguration = cell.defaultContentConfiguration()
             contentConfiguration.text = menuItem.title
 

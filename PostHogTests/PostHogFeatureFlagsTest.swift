@@ -42,7 +42,7 @@ enum PostHogFeatureFlagsTest {
     @Suite("Test getFeatureFlag")
     class TestGetFeatureFlagValue: BaseTestClass {
         @Test("Returns true for enabled Bool flag")
-        func testReturnsTrueBoolean() async {
+        func returnsTrueBoolean() async {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
@@ -55,7 +55,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Returns true for enabled String flag")
-        func testReturnsTrueString() async {
+        func returnsTrueString() async {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in
@@ -68,7 +68,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Returns false for disabled flag")
-        func testReturnsFalseDisabled() async {
+        func returnsFalseDisabled() async {
             let sut = getSut()
 
             await withCheckedContinuation { continuation in

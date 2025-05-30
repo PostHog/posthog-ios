@@ -65,7 +65,7 @@
         /// - NSLog messages
         ///
         /// Each log entry will be tagged with a level (info/warning/error) based on the message content
-        /// and the source. The level detection uses `logMessageErrorPattern` and `logMessageWarningPattern`.
+        /// and the source.
         ///
         /// Defaults to `false`
         @objc public var captureLogs: Bool = false
@@ -81,6 +81,10 @@
 
             if captureLogs {
                 plugins.append(PostHogSessionReplayConsoleLogsPlugin())
+            }
+
+            if captureNetworkTelemetry {
+                plugins.append(PostHogSessionReplayNetworkPlugin())
             }
 
             return plugins

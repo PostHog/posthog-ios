@@ -27,8 +27,6 @@
 
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
-        private var urlInterceptor: URLSessionInterceptor?
-        private var sessionSwizzler: URLSessionSwizzler?
         private var applicationEventToken: RegistrationToken?
         private var applicationBackgroundedToken: RegistrationToken?
         private var applicationForegroundedToken: RegistrationToken?
@@ -121,13 +119,6 @@
             }
 
             self.postHog = postHog
-            let interceptor = URLSessionInterceptor(postHog)
-            urlInterceptor = interceptor
-            do {
-                try sessionSwizzler = URLSessionSwizzler(interceptor: interceptor)
-            } catch {
-                hedgeLog("Error trying to Swizzle URLSession: \(error)")
-            }
 
             start()
         }
@@ -135,8 +126,6 @@
         func uninstall(_ postHog: PostHogSDK) {
             if self.postHog === postHog || self.postHog == nil {
                 stop()
-                urlInterceptor = nil
-                sessionSwizzler = nil
                 self.postHog = nil
                 PostHogReplayIntegration.integrationInstalledLock.withLock {
                     PostHogReplayIntegration.integrationInstalled = false
@@ -145,7 +134,7 @@
         }
 
         func start() {
-            guard let postHog else {
+            guard let postHog, !isEnabled else {
                 return
             }
 
@@ -170,10 +159,6 @@
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
-            if postHog.config.sessionReplayConfig.captureNetworkTelemetry {
-                sessionSwizzler?.swizzle()
-            }
-
             // Install plugins
             let plugins = postHog.config.sessionReplayConfig.getPlugins()
             installedPlugins = []
@@ -195,6 +180,7 @@
         }
 
         func stop() {
+            guard isEnabled else { return }
             isEnabled = false
             resetViews()
             PostHogSessionManager.shared.onSessionIdChanged = {}
@@ -212,9 +198,6 @@
                 plugin.stop()
             }
             installedPlugins = []
-
-            sessionSwizzler?.unswizzle()
-            urlInterceptor?.stop()
         }
 
         func isActive() -> Bool {
@@ -257,11 +240,6 @@
                 return
             }
 
-            // always make sure we have a fresh session id as early as possible
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
-                return
-            }
-
             // capture necessary touch information on the main thread before performing any asynchronous operations
             // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
@@ -272,6 +250,11 @@
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // captured weakly since integration may have uninstalled by now
                 guard let postHog else { return }
+
+                // always make sure we have a fresh session id as early as possible
+                guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+                    return
+                }
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {
@@ -329,11 +312,6 @@
                 windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
             }
 
-            // always make sure we have a fresh session id at correct timestamp
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
-                return
-            }
-
             var snapshotsData: [Any] = []
 
             if !snapshotStatus.sentMetaEvent {
@@ -360,8 +338,12 @@
             }
 
             // TODO: IncrementalSnapshot, type=2
-
             PostHogReplayIntegration.dispatchQueue.async {
+                // always make sure we have a fresh session id at correct timestamp
+                guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
+                    return
+                }
+
                 var wireframes: [Any] = []
                 wireframes.append(wireframe.toDict())
                 let initialOffset = ["top": 0, "left": 0]

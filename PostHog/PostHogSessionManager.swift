@@ -31,7 +31,6 @@ import Foundation
         registerApplicationSendEvent()
     }
 
-    private let queue = DispatchQueue(label: "com.posthog.PostHogSessionManager", target: .global(qos: .utility))
     private var sessionId: String?
     private var sessionStartTimestamp: TimeInterval?
     private var sessionActivityTimestamp: TimeInterval?
@@ -144,24 +143,21 @@ import Foundation
     func touchSession() {
         guard isNotReactNative() else { return }
 
+        let (currentSessionId, lastActive) = sessionLock.withLock {
+            (sessionId, sessionActivityTimestamp)
+        }
+
+        guard currentSessionId != nil else { return }
+
         let timeNow = now()
         let timestamp = timeNow.timeIntervalSince1970
 
-        // Avoid locking on main thread
-        queue.async {
-            let (currentSessionId, lastActive) = self.sessionLock.withLock {
-                (self.sessionId, self.sessionActivityTimestamp)
-            }
-
-            guard currentSessionId != nil else { return }
-
-            // Check if session has passed maximum inactivity length between user activity marks
-            if let lastActive, self.isExpired(timestamp, lastActive, self.sessionActivityThreshold) {
-                self.rotateSession(at: timeNow, reason: .sessionTimeout)
-            } else {
-                self.sessionLock.withLock {
-                    self.sessionActivityTimestamp = timestamp
-                }
+        // Check if session has passed maximum inactivity length between user activity marks
+        if let lastActive, isExpired(timestamp, lastActive, sessionActivityThreshold) {
+            rotateSession(at: timeNow, reason: .sessionTimeout)
+        } else {
+            sessionLock.withLock {
+                sessionActivityTimestamp = timestamp
             }
         }
     }

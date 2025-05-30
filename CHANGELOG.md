@@ -1,7 +1,6 @@
 ## Next
 
 - fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))
-- fix: avoid locking on main thread ([#352](https://github.com/PostHog/posthog-ios/pull/352))
 
 ## 3.26.0 - 2025-05-20
 

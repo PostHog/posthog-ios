@@ -1,6 +1,7 @@
 ## Next
 
 - fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))
+- fix: clear cached flags if remote config response hasFeatureFlags: false ([#347](https://github.com/PostHog/posthog-ios/pull/347))
 
 ## 3.26.0 - 2025-05-20
 

@@ -25,8 +25,11 @@
 
         private var hasSwizzled = false
 
-        init(interceptor: URLSessionInterceptor) throws {
-            self.interceptor = interceptor
+        init(shouldCapture: @escaping () -> Bool, onCapture: @escaping (NetworkSample) -> Void) throws {
+            interceptor = URLSessionInterceptor(
+                shouldCapture: shouldCapture,
+                onCapture: onCapture
+            )
 
             dataTaskWithURLAndCompletion = try DataTaskWithURLAndCompletion.build(interceptor: interceptor)
             dataTaskWithURL = try DataTaskWithURL.build(interceptor: interceptor)

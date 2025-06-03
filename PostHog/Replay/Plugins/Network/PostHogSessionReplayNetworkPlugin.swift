@@ -16,8 +16,6 @@
 
         func start(postHog: PostHogSDK) {
             self.postHog = postHog
-            isActive = true
-
             do {
                 sessionSwizzler = try URLSessionSwizzler(
                     shouldCapture: shouldCaptureNetworkSample,
@@ -25,6 +23,7 @@
                 )
                 sessionSwizzler?.swizzle()
                 hedgeLog("[Session Replay] Network telemetry plugin started")
+                isActive = true
             } catch {
                 hedgeLog("[Session Replay] Failed to initialize network telemetry: \(error)")
             }

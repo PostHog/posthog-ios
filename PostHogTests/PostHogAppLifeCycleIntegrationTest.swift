@@ -337,4 +337,40 @@ final class PostHogAppLifeCycleIntegrationTest {
 
         sut.close()
     }
+
+    @Test("should not captures two consecutive Application Backgrounded events")
+    func doesNotCaptureConsecutiveApplicationBackgroundedEvents() async throws {
+        setVersionDefaults(version: nil, build: nil)
+
+        // SDK init
+        let sut = getSut(flushAt: 6)
+
+        // Simulate an app open
+        mockAppLifecycle.simulateAppDidFinishLaunching() // installed
+        mockAppLifecycle.simulateAppDidBecomeActive() // opened
+        mockAppLifecycle.simulateAppDidEnterBackground() // backgrounded
+        mockAppLifecycle.simulateAppDidBecomeActive() // opened
+        mockAppLifecycle.simulateAppDidEnterBackground() // backgrounded
+
+        // Simulate app launched in background
+        mockAppLifecycle.simulateAppDidFinishLaunching() // launched in background
+        mockAppLifecycle.simulateAppDidEnterBackground()
+
+        sut.capture("Satisfy Queue")
+
+        let events = try await getServerEvents(server)
+
+        let expectedEventNames = [
+            "Application Installed",
+            "Application Opened",
+            "Application Backgrounded",
+            "Application Opened",
+            "Application Backgrounded",
+            "Satisfy Queue",
+        ]
+
+        #expect(events.map(\.event) == expectedEventNames)
+
+        sut.close()
+    }
 }

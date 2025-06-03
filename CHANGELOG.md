@@ -1,6 +1,7 @@
 ## Next
 
 - fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))
+- fix: prevent duplicate application lifecycle events ([#354](https://github.com/PostHog/posthog-ios/pull/354))
 
 ## 3.26.1 - 2025-05-30
 

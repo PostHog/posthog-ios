@@ -1,11 +1,13 @@
 ## Next
 
+## 3.26.2 - 2025-06-03
+
 - fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))
 - fix: prevent duplicate application lifecycle events ([#354](https://github.com/PostHog/posthog-ios/pull/354))
 
 ## 3.26.1 - 2025-05-30
 
-- fix: clear cached flags if remote config response hasFeatureFlags is false ([#347](https://github.com/PostHog/posthog-ios/pull/347))
+- fix: clear cached flags if remote config response hasFeatureFlags is false ([#347](https://github.com/PostHog/posthog-ios/pull/347))§
 
 ## 3.26.0 - 2025-05-20
 

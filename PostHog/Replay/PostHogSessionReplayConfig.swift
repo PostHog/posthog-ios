@@ -56,6 +56,38 @@
         /// Note: Previously `debouncerDelay`
         @objc public var throttleDelay: TimeInterval = 1
 
-        // TODO: sessionRecording config such as networkPayloadCapture, captureConsoleLogs, sampleRate, etc
+        /// Enable capturing console output for session replay.
+        ///
+        /// When enabled, logs from the following sources will be captured:
+        /// - Standard output (stdout)
+        /// - Standard error (stderr)
+        /// - OSLog messages
+        /// - NSLog messages
+        ///
+        /// Each log entry will be tagged with a level (info/warning/error) based on the message content
+        /// and the source.
+        ///
+        /// Defaults to `false`
+        @objc public var captureLogs: Bool = false
+
+        /// Further configuration for capturing console output
+        @objc public var captureLogsConfig: PostHogSessionReplayConsoleLogConfig = .init()
+
+        // TODO: sessionRecording config such as networkPayloadCapture, sampleRate, etc
+
+        /// Returns an array of plugins to be installed based on current configuration
+        func getPlugins() -> [PostHogSessionReplayPlugin] {
+            var plugins: [PostHogSessionReplayPlugin] = []
+
+            if captureLogs {
+                plugins.append(PostHogSessionReplayConsoleLogsPlugin())
+            }
+
+            if captureNetworkTelemetry {
+                plugins.append(PostHogSessionReplayNetworkPlugin())
+            }
+
+            return plugins
+        }
     }
 #endif

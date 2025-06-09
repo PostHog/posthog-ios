@@ -27,7 +27,7 @@
         }
 
         @Test("Session replay can be manually started when disabled in config")
-        func testManualSessionReplayStart() async throws {
+        func manualSessionReplayStart() async throws {
             // Setup SDK with session replay disabled
             let sut = getSut(sessionReplay: false)
 
@@ -44,7 +44,7 @@
         }
 
         @Test("Session replay can be toggled multiple times")
-        func testSessionReplayToggle() async throws {
+        func sessionReplayToggle() async throws {
             // Setup SDK with session replay disabled
             let sut = getSut(sessionReplay: false)
 

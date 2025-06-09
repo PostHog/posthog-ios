@@ -45,6 +45,7 @@ class MockPostHogServer {
     public var replayVariantValue: Any = true
     public var quotaLimitFeatureFlags: Bool = false
     public var remoteConfigSurveys: String?
+    public var hasFeatureFlags: Bool = true
     public var featureFlags: [String: Any]?
 
     // version is the version of the response we want to return regardless of the request version
@@ -267,7 +268,7 @@ class MockPostHogServer {
                         "gzip",
                         "gzip-js"
                     ],
-                    "hasFeatureFlags": true,
+                    "hasFeatureFlags": \(self.hasFeatureFlags),
                     "captureDeadClicks": true,
                     "capturePerformance": {
                         "network_timing": true,

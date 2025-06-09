@@ -2,6 +2,23 @@
 
 - use new `/flags` endpoint instead of `/decide` ([#345](https://github.com/PostHog/posthog-ios/pull/345))
 
+## 3.26.2 - 2025-06-03
+
+- fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))
+- fix: prevent duplicate application lifecycle events ([#354](https://github.com/PostHog/posthog-ios/pull/354))
+
+## 3.26.1 - 2025-05-30
+
+- fix: clear cached flags if remote config response hasFeatureFlags is false ([#347](https://github.com/PostHog/posthog-ios/pull/347))§
+
+## 3.26.0 - 2025-05-20
+
+- feat: capture console logs for session replay ([#350](https://github.com/PostHog/posthog-ios/pull/350))
+
+## 3.25.1 - 2025-05-13
+
+- fix: edge case where session manager would not rotate session id ([#349](https://github.com/PostHog/posthog-ios/pull/349))
+
 ## 3.25.0 - 2025-04-30
 
 - feat: add support for conditional survey questions ([#343](https://github.com/PostHog/posthog-ios/pull/343))

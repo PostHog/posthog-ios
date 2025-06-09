@@ -201,6 +201,7 @@ class PostHogApi {
         guard let url = getEndpointURL(
             "/flags",
             queryItems: URLQueryItem(name: "v", value: "2"),
+            queryItems: URLQueryItem(name: "config", value: "true"),
             relativeTo: config.host
         ) else {
             hedgeLog("Malformed flags URL error.")

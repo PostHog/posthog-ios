@@ -212,7 +212,7 @@ class PostHogApi {
                 relativeTo: config.host
             )
         }
-        
+
         guard let url else {
             hedgeLog("Malformed flags URL error.")
             return completion(nil, nil)

@@ -198,20 +198,11 @@ class PostHogApi {
         groups: [String: String],
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {
-        let url: URL?
-        if config.remoteConfig {
-            url = getEndpointURL(
-                "/flags",
-                queryItems: URLQueryItem(name: "v", value: "2"),
-                relativeTo: config.host
-            )
-        } else {
-            url = getEndpointURL(
-                "/flags",
-                queryItems: URLQueryItem(name: "v", value: "2"), URLQueryItem(name: "config", value: "true"),
-                relativeTo: config.host
-            )
-        }
+        let url = getEndpointURL(
+            "/flags",
+            queryItems: URLQueryItem(name: "v", value: "2"), URLQueryItem(name: "config", value: "true"),
+            relativeTo: config.host
+        )
 
         guard let url else {
             hedgeLog("Malformed flags URL error.")

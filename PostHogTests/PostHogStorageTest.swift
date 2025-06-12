@@ -25,12 +25,20 @@ class PostHogStorageTest {
 
     @Test("returns the app group container dir URL")
     func returnsTheAppGroupContainerDirURL() {
+        let appGroupIdentifier = "group.com.posthog.some_identifier"
         let config = PostHogConfig(apiKey: "123")
-        config.appGroupIdentifier = "some_identifier"
+        config.appGroupIdentifier = appGroupIdentifier
         let url = appGroupContainerUrl(config: config)!
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier]
+
+        let expectedSuffix = ["Library", "Application Support", appGroupIdentifier]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+
+        // positive check: must return the same url across the whole app group
         #expect(actualSuffix == expectedSuffix)
+
+        // negative check: guard against using bundleIdentifier, prevents spawning
+        // separate folders per bundle identifer within the app group folder
+        #expect(!actualSuffix.contains(testBundleIdentifier))
 
         let groupContainerComponent = url.pathComponents[url.pathComponents.count - 5]
         #expect(["Group Containers", "AppGroup"].contains(groupContainerComponent))

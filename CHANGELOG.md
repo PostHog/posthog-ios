@@ -1,5 +1,7 @@
 ## Next
 
+- fix: do not call flags callback with invalid flags ([#355](https://github.com/PostHog/posthog-ios/pull/355))
+
 ## 3.26.2 - 2025-06-03
 
 - fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))

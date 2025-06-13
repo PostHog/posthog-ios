@@ -1,5 +1,7 @@
 ## Next
 
+- fix: unify storage path for `appGroupIdentifier` across targets ([#356](https://github.com/PostHog/posthog-ios/pull/356))
+
 ## 3.26.2 - 2025-06-03
 
 - fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))

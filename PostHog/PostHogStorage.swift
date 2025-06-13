@@ -93,7 +93,7 @@ func getBundleIdentifier() -> String {
    - libraryUrl: The base library URL where both legacy and new containers might exist
    - destinationUrl: The target app group container URL where files should be migrated
  */
-private func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: URL) {
+internal func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: URL) {
     let bundleIdentifier = getBundleIdentifier()
     guard let sourceUrl = libraryUrl?.appendingPathComponent(bundleIdentifier), directoryExists(sourceUrl) else {
         return
@@ -117,7 +117,8 @@ private func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinatio
    - url: The directory URL to potentially remove
  - Returns: `true` if the directory was removed, `false` otherwise
  */
-private func removeIfEmpty(_ url: URL) -> Bool {
+@discardableResult
+internal func removeIfEmpty(_ url: URL) -> Bool {
     let remainingItems = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [])
     if remainingItems?.isEmpty ?? true {
         do {
@@ -142,7 +143,7 @@ private func removeIfEmpty(_ url: URL) -> Bool {
    - destinationFile: The destination file URL
  - Throws: Any errors that occur during file operations
  */
-private func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
+internal func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
     if !FileManager.default.fileExists(atPath: destinationFile.path) {
         try FileManager.default.copyItem(at: sourceFile, to: destinationFile)
     }
@@ -157,7 +158,7 @@ private func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
    - sourceDir: The source directory URL
    - destinationDir: The destination directory URL
  */
-private func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
+internal func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
     do {
         // Create destination directory if it doesn't exist (we need to call this here again as the function is recursive)
         createDirectoryAtURLIfNeeded(url: destinationDir)
@@ -172,7 +173,7 @@ private func migrateDirectoryContents(from sourceDir: URL, to destinationDir: UR
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: item.path, isDirectory: &isDirectory) {
                 if isDirectory.boolValue {
-                    // Recursively migrate subdirectory
+                    // Recursively migrate subdirectory (preserving the folder structure)
                     migrateDirectoryContents(from: item, to: destinationItem)
                     // Remove empty directory after migration
                     removeIfEmpty(item)

@@ -80,7 +80,7 @@ class PostHogStorageMergeTest {
     }
 
     @Test("test app group container merge detection")
-    func testAppGroupContainerMergeDetection() throws {
+    func appGroupContainerMergeDetection() throws {
         // This test verifies that the merge detection logic works correctly
         // by setting up files in the legacy location and checking if they would be detected
 
@@ -105,7 +105,7 @@ class PostHogStorageMergeTest {
     }
 
     @Test("test merge legacy container function")
-    func testMergeLegacyContainerFunction() throws {
+    func mergeLegacyContainerFunction() throws {
         // Test the actual mergeLegacyContainerIfNeeded function
 
         // Create legacy files
@@ -138,7 +138,7 @@ class PostHogStorageMergeTest {
     }
 
     @Test("test file migration with existing files")
-    func testFileMigrationWithExistingFiles() throws {
+    func fileMigrationWithExistingFiles() throws {
         let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testApiKey)
         let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testApiKey)
 
@@ -173,7 +173,7 @@ class PostHogStorageMergeTest {
     }
 
     @Test("test nested directory migration")
-    func testNestedDirectoryMigration() throws {
+    func nestedDirectoryMigration() throws {
         let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testApiKey)
         let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testApiKey)
 
@@ -210,7 +210,7 @@ class PostHogStorageMergeTest {
     }
 
     @Test("test anonymous ID preservation")
-    func testAnonymousIdPreservation() throws {
+    func anonymousIdPreservation() throws {
         let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testApiKey)
         let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testApiKey)
 
@@ -258,7 +258,7 @@ class PostHogStorageMergeTest {
     }
 
     @Test("test removeIfEmpty function")
-    func testRemoveIfEmptyFunction() throws {
+    func removeIfEmptyFunction() throws {
         // Test empty directory removal
         let emptyDir = baseUrl.appendingPathComponent("test_empty_dir")
         try fileManager.createDirectory(at: emptyDir, withIntermediateDirectories: true)

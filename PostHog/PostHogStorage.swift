@@ -93,7 +93,7 @@ func getBundleIdentifier() -> String {
    - libraryUrl: The base library URL where both legacy and new containers might exist
    - destinationUrl: The target app group container URL where files should be migrated
  */
-internal func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: URL) {
+func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: URL) {
     let bundleIdentifier = getBundleIdentifier()
     guard let sourceUrl = libraryUrl?.appendingPathComponent(bundleIdentifier), directoryExists(sourceUrl) else {
         return
@@ -118,7 +118,7 @@ internal func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinati
  - Returns: `true` if the directory was removed, `false` otherwise
  */
 @discardableResult
-internal func removeIfEmpty(_ url: URL) -> Bool {
+func removeIfEmpty(_ url: URL) -> Bool {
     let remainingItems = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [])
     if remainingItems?.isEmpty ?? true {
         do {
@@ -143,7 +143,7 @@ internal func removeIfEmpty(_ url: URL) -> Bool {
    - destinationFile: The destination file URL
  - Throws: Any errors that occur during file operations
  */
-internal func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
+func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
     if !FileManager.default.fileExists(atPath: destinationFile.path) {
         try FileManager.default.copyItem(at: sourceFile, to: destinationFile)
     }
@@ -158,7 +158,7 @@ internal func migrateFile(from sourceFile: URL, to destinationFile: URL) throws 
    - sourceDir: The source directory URL
    - destinationDir: The destination directory URL
  */
-internal func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
+func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
     do {
         // Create destination directory if it doesn't exist (we need to call this here again as the function is recursive)
         createDirectoryAtURLIfNeeded(url: destinationDir)

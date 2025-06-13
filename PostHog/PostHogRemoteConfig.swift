@@ -261,7 +261,7 @@ class PostHogRemoteConfig {
                 // Safely handle optional data
                 guard var data = data else {
                     hedgeLog("Error: Decide response data is nil")
-                    self.notifyFeatureFlagsAndRelease(data)
+                    self.notifyFeatureFlagsAndRelease(nil)
                     return callback(nil)
                 }
 
@@ -273,7 +273,7 @@ class PostHogRemoteConfig {
                       let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
                     hedgeLog("Error: Decide response missing correct featureFlags format")
-                    self.notifyFeatureFlagsAndRelease(data)
+                    self.notifyFeatureFlagsAndRelease(nil)
                     return callback(nil)
                 }
 

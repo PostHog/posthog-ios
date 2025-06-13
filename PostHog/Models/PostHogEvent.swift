@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class PostHogEvent {
+@objc(PostHogEvent) public class PostHogEvent: NSObject {
     public var event: String
     public var distinctId: String
     public var properties: [String: Any]

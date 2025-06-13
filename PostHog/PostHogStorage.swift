@@ -54,17 +54,18 @@ func appGroupContainerUrl(config: PostHogConfig) -> URL? {
         let librarySubPath = "Library/Application Support/"
     #endif
 
-    let url = FileManager.default
+    let libraryUrl = FileManager.default
         .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
         .appendingPathComponent(librarySubPath)
-        .appendingPathComponent(appGroupIdentifier)
 
-    if let url {
-        createDirectoryAtURLIfNeeded(url: url)
-        return directoryExists(url) ? url : nil
-    }
+    guard let url = libraryUrl?.appendingPathComponent(appGroupIdentifier) else { return nil }
 
-    return nil
+    createDirectoryAtURLIfNeeded(url: url)
+
+    // Merges a legacy container (using bundleIdentifier) into the new container using appGroupIdentifier
+    mergeLegacyContainerIfNeeded(within: libraryUrl, to: url)
+
+    return directoryExists(url) ? url : nil
 }
 
 func getBundleIdentifier() -> String {
@@ -73,6 +74,121 @@ func getBundleIdentifier() -> String {
     #else
         return Bundle.main.bundleIdentifier!
     #endif
+}
+
+/**
+ Merges content from a legacy container directory into the current app group container.
+
+ This function handles the migration of PostHog data from the old storage location (using `bundleIdentifier`)
+ to the new app group shared container location (using `appGroupIdentifier`).
+
+ Migration rules:
+ - Files that already exist at the destination are skipped (no overwrite)
+ - The anonymousId from the first processed container (legacy or current) is preserved to maintain user identity
+ - Successfully migrated files are deleted from the source
+ - Empty directories are cleaned up after migration
+ - The entire folder structure is preserved during migration
+
+ - Parameters:
+   - libraryUrl: The base library URL where both legacy and new containers might exist
+   - destinationUrl: The target app group container URL where files should be migrated
+ */
+private func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: URL) {
+    let bundleIdentifier = getBundleIdentifier()
+    guard let sourceUrl = libraryUrl?.appendingPathComponent(bundleIdentifier), directoryExists(sourceUrl) else {
+        return
+    }
+
+    hedgeLog("Legacy folder found at \(sourceUrl), merging...")
+
+    // Migrate all contents from the legacy container
+    migrateDirectoryContents(from: sourceUrl, to: destinationUrl)
+
+    // Try to remove the source directory if it's empty
+    if removeIfEmpty(sourceUrl) {
+        hedgeLog("Successfully migrated and removed legacy folder at \(sourceUrl)")
+    }
+}
+
+/**
+ Removes a directory if it's empty.
+
+ - Parameters:
+   - url: The directory URL to potentially remove
+ - Returns: `true` if the directory was removed, `false` otherwise
+ */
+private func removeIfEmpty(_ url: URL) -> Bool {
+    let remainingItems = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [])
+    if remainingItems?.isEmpty ?? true {
+        do {
+            try FileManager.default.removeItem(at: url)
+            return true
+        } catch {
+            hedgeLog("Failed to remove empty directory at \(url.path): \(error)")
+        }
+    }
+    return false
+}
+
+/**
+ Migrates a single file from source to destination.
+
+ Migration rules:
+ - If the file doesn't exist at destination, it's copied and then deleted from source
+ - If the file already exists at destination, only the source file is deleted
+
+ - Parameters:
+   - sourceFile: The source file URL
+   - destinationFile: The destination file URL
+ - Throws: Any errors that occur during file operations
+ */
+private func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
+    if !FileManager.default.fileExists(atPath: destinationFile.path) {
+        try FileManager.default.copyItem(at: sourceFile, to: destinationFile)
+    }
+    // Always delete source file after processing (whether copied or skipped)
+    try FileManager.default.removeItem(at: sourceFile)
+}
+
+/**
+ Recursively migrates all contents from a source directory to a destination directory.
+
+ - Parameters:
+   - sourceDir: The source directory URL
+   - destinationDir: The destination directory URL
+ */
+private func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
+    do {
+        // Create destination directory if it doesn't exist (we need to call this here again as the function is recursive)
+        createDirectoryAtURLIfNeeded(url: destinationDir)
+
+        // Get all items in source directory
+        let items = try FileManager.default.contentsOfDirectory(at: sourceDir, includingPropertiesForKeys: nil, options: [])
+
+        for item in items {
+            let destinationItem = destinationDir.appendingPathComponent(item.lastPathComponent)
+
+            // Check if it's a directory
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: item.path, isDirectory: &isDirectory) {
+                if isDirectory.boolValue {
+                    // Recursively migrate subdirectory
+                    migrateDirectoryContents(from: item, to: destinationItem)
+                    // Remove empty directory after migration
+                    removeIfEmpty(item)
+                } else {
+                    // Migrate file
+                    do {
+                        try migrateFile(from: item, to: destinationItem)
+                    } catch {
+                        hedgeLog("Failed to migrate file from \(item.path) to \(destinationItem.path): \(error)")
+                    }
+                }
+            }
+        }
+    } catch {
+        hedgeLog("Error reading directory contents at \(sourceDir.path): \(error)")
+    }
 }
 
 class PostHogStorage {

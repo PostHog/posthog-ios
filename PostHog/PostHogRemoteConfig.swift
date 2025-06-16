@@ -241,9 +241,9 @@ class PostHogRemoteConfig {
             self.loadingFeatureFlags = true
         }
 
-        api.decide(distinctId: distinctId,
-                   anonymousId: anonymousId,
-                   groups: groups)
+        api.flags(distinctId: distinctId,
+                  anonymousId: anonymousId,
+                  groups: groups)
         { data, _ in
             self.dispatchQueue.async {
                 // Check for quota limitation first
@@ -260,7 +260,7 @@ class PostHogRemoteConfig {
 
                 // Safely handle optional data
                 guard var data = data else {
-                    hedgeLog("Error: Decide response data is nil")
+                    hedgeLog("Error: Flags response data is nil")
                     self.notifyFeatureFlagsAndRelease(nil)
                     return callback(nil)
                 }
@@ -272,7 +272,7 @@ class PostHogRemoteConfig {
                 guard let featureFlags = data["featureFlags"] as? [String: Any],
                       let featureFlagPayloads = data["featureFlagPayloads"] as? [String: Any]
                 else {
-                    hedgeLog("Error: Decide response missing correct featureFlags format")
+                    hedgeLog("Error: Flags response missing correct featureFlags format")
                     self.notifyFeatureFlagsAndRelease(nil)
                     return callback(nil)
                 }

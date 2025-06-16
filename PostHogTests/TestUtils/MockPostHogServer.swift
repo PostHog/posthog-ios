@@ -16,9 +16,9 @@ import OHHTTPStubsSwift
 class MockPostHogServer {
     var batchRequests = [URLRequest]()
     var batchExpectation: XCTestExpectation?
-    var decideExpectation: XCTestExpectation?
+    var flagsExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
-    var decideRequests = [URLRequest]()
+    var flagsRequests = [URLRequest]()
     var version: Int = 3
 
     func trackBatchRequest(_ request: URLRequest) {
@@ -29,10 +29,10 @@ class MockPostHogServer {
         }
     }
 
-    func trackDecide(_ request: URLRequest) {
-        decideRequests.append(request)
+    func trackFlags(_ request: URLRequest) {
+        flagsRequests.append(request)
 
-        decideExpectation?.fulfill()
+        flagsExpectation?.fulfill()
     }
 
     public var errorsWhileComputingFlags = false
@@ -52,7 +52,7 @@ class MockPostHogServer {
     init(version: Int = 3) {
         self.version = version
 
-        stub(condition: pathEndsWith("/decide")) { _ in
+        stub(condition: pathEndsWith("/flags")) { _ in
             if self.quotaLimitFeatureFlags {
                 return HTTPStubsResponse(
                     jsonObject: ["quotaLimited": ["feature_flags"]],
@@ -297,8 +297,8 @@ class MockPostHogServer {
         HTTPStubs.onStubActivation { request, _, _ in
             if request.url?.lastPathComponent == "batch" {
                 self.trackBatchRequest(request)
-            } else if request.url?.lastPathComponent == "decide" {
-                self.trackDecide(request)
+            } else if request.url?.lastPathComponent == "flags" {
+                self.trackFlags(request)
             }
         }
     }
@@ -317,9 +317,9 @@ class MockPostHogServer {
 
     func reset(batchCount: Int = 1) {
         batchRequests = []
-        decideRequests = []
+        flagsRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
-        decideExpectation = XCTestExpectation(description: "1 decide requests to occur")
+        flagsExpectation = XCTestExpectation(description: "1 flag requests to occur")
         batchExpectationCount = batchCount
         errorsWhileComputingFlags = false
         return500 = false

@@ -216,7 +216,7 @@ class PostHogSDKTest: QuickSpec {
         it("loads feature flags automatically") {
             let sut = self.getSut(preloadFeatureFlags: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             sut.reset()
@@ -226,7 +226,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event for isFeatureEnabled when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             let events = getBatchedEvents(server)
@@ -249,7 +249,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event with variant response for isFeatureEnabled when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("string-value")) == true
 
             let events = getBatchedEvents(server)
@@ -272,7 +272,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event for getFeatureFlag when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.getFeatureFlag("bool-value") as? Bool) == true
 
             let events = getBatchedEvents(server)
@@ -304,7 +304,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reloadFeatureFlags()
 
-            let requests = getDecideRequest(server)
+            let requests = getFlagsRequest(server)
 
             expect(requests.count) == 1
             let request = requests.first
@@ -365,7 +365,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.reloadFeatureFlags()
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
 
             sut.capture("event")
 
@@ -553,7 +553,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reset()
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             sut.close()

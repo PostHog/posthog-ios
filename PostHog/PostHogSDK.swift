@@ -782,17 +782,28 @@ let maxRetryDelay = 30.0
         queue.add(event)
     }
 
-    func buildEvent(event: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
+    func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
         let sanitizedProperties = sanitizeProperties(properties)
 
         let event = PostHogEvent(
-            event: event,
+            event: eventName,
             distinctId: distinctId,
             properties: sanitizedProperties,
             timestamp: timestamp
         )
 
-        return config.beforeSend(event)
+        let resultEvent = config.beforeSend(event)
+
+        if resultEvent == nil {
+            let originalMessage = "PostHog event \(eventName) was dropped"
+            let message = PostHogEventName.isUnsafeEditable(eventName)
+                ? "\(originalMessage). This can cause unexpected behavior."
+                : originalMessage
+
+            hedgeLog(message)
+        }
+
+        return resultEvent
     }
 
     @objc(groupWithType:key:)

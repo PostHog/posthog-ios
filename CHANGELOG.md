@@ -1,5 +1,7 @@
 ## Next
 
+## 3.27.0 - 2025-06-16
+
 - fix: unify storage path for `appGroupIdentifier` across targets ([#356](https://github.com/PostHog/posthog-ios/pull/356))
 - fix: do not call flags callback with invalid flags ([#355](https://github.com/PostHog/posthog-ios/pull/355))
 - use new `/flags` endpoint instead of `/decide` ([#345](https://github.com/PostHog/posthog-ios/pull/345))

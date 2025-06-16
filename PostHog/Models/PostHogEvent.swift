@@ -84,7 +84,7 @@ import Foundation
     }
 }
 
-enum PostHogEventName: String, CaseIterable {
+enum PostHogKnownUnsafeEditableEvent: String {
     case snapshot = "$snapshot"
     case pageview = "$pageview"
     case pageleave = "$pageleave"
@@ -100,7 +100,7 @@ enum PostHogEventName: String, CaseIterable {
     case featureEnrollmentUpdate = "$feature_enrollment_update"
     case featureFlagCalled = "$feature_flag_called"
 
-    static func isUnsafeEditable(_ name: String) -> Bool {
-        PostHogEventName(rawValue: name) != nil
+    static func contains(_ name: String) -> Bool {
+        PostHogKnownUnsafeEditableEvent(rawValue: name) != nil
     }
 }

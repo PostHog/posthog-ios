@@ -796,7 +796,7 @@ let maxRetryDelay = 30.0
 
         if resultEvent == nil {
             let originalMessage = "PostHog event \(eventName) was dropped"
-            let message = PostHogEventName.isUnsafeEditable(eventName)
+            let message = PostHogKnownUnsafeEditableEvent.contains(eventName)
                 ? "\(originalMessage). This can cause unexpected behavior."
                 : originalMessage
 

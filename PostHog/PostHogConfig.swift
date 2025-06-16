@@ -6,7 +6,7 @@
 //
 import Foundation
 
-public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
+public typealias BeforeSendBlock = (PostHogEvent?) -> PostHogEvent?
 
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
     enum Defaults {

@@ -26,11 +26,18 @@ class PostHogStorageTest {
     @Test("returns the app group container dir URL")
     func returnsTheAppGroupContainerDirURL() {
         let config = PostHogConfig(apiKey: "123")
-        config.appGroupIdentifier = "some_identifier"
+        config.appGroupIdentifier = testAppGroupIdentifier
         let url = appGroupContainerUrl(config: config)!
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier]
+
+        let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
+
+        // positive check: must return the same url across the whole app group
         #expect(actualSuffix == expectedSuffix)
+
+        // negative check: guard against using bundleIdentifier, prevents spawning
+        // separate folders per bundle identifer within the app group folder
+        #expect(!actualSuffix.contains(testBundleIdentifier))
 
         let groupContainerComponent = url.pathComponents[url.pathComponents.count - 5]
         #expect(["Group Containers", "AppGroup"].contains(groupContainerComponent))
@@ -144,13 +151,13 @@ class PostHogStorageTest {
     @Test("writes to disk in an api key folder under a group container directory")
     func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
         let config = PostHogConfig(apiKey: "test_key")
-        config.appGroupIdentifier = "group.com.posthog.test"
+        config.appGroupIdentifier = testAppGroupIdentifier
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
         sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_key"]
+        let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier, "test_key"]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 

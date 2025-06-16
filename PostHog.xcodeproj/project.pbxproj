@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */; };
 		3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108229C47940002C0084 /* UIViewExample.swift */; };
 		3A0F108529C9ABB6002C0084 /* ReadWriteLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */; };
 		3A0F108929C9BD76002C0084 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108829C9BD76002C0084 /* Errors.swift */; };
@@ -518,6 +519,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMergeTest.swift; sourceTree = "<group>"; };
 		3A0F108229C47940002C0084 /* UIViewExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewExample.swift; sourceTree = "<group>"; };
 		3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadWriteLock.swift; sourceTree = "<group>"; };
 		3A0F108829C9BD76002C0084 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
@@ -1078,6 +1080,7 @@
 		3AC745C3296D6FE60025C109 /* PostHogTests */ = {
 			isa = PBXGroup;
 			children = (
+				1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */,
 				DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */,
 				DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */,
 				DAD39DF52D561787002A1A69 /* UtilsTest.swift */,
@@ -2258,6 +2261,7 @@
 				DA0F98A22D940E8C009AB6F5 /* ApplicationViewLayoutPublisherTest.swift in Sources */,
 				3A62647129CAF67B007E8C07 /* PostHogStorageManagerTest.swift in Sources */,
 				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,
+				1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */,
 				DA4FFB152DA93C78006BAEEA /* PostHogSessionReplayTest.swift in Sources */,
 				690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */,
 				DA6F24822D4A6CA100CA2777 /* PostHogApiTest.swift in Sources */,

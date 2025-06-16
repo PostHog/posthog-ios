@@ -80,6 +80,8 @@ extension Bundle {
 
 let testBundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
 
+let testAppGroupIdentifier = "group.com.posthog.test"
+
 final class BundleLocator {}
 
 let testAPIKey = "test_api_key"

@@ -120,7 +120,7 @@ func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: UR
 @discardableResult
 func removeIfEmpty(_ url: URL) -> Bool {
     let remainingItems = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [])
-    if remainingItems?.isEmpty ?? true {
+    if remainingItems?.isEmpty == true {
         do {
             try FileManager.default.removeItem(at: url)
             return true

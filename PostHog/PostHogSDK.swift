@@ -792,7 +792,7 @@ let maxRetryDelay = 30.0
             timestamp: timestamp
         )
 
-        let resultEvent = config.beforeSend(event)
+        let resultEvent = config.runBeforeSend(event)
 
         if resultEvent == nil {
             let originalMessage = "PostHog event \(eventName) was dropped"

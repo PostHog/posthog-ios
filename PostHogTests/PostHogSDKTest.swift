@@ -19,7 +19,7 @@ class PostHogSDKTest: QuickSpec {
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
-                beforeSend: BeforeSendBlock? = nil) -> PostHogSDK
+                beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -33,7 +33,7 @@ class PostHogSDKTest: QuickSpec {
         config.personProfiles = personProfiles
 
         if let beforeSend = beforeSend {
-            config.beforeSend = beforeSend
+            config.setBeforeSend(beforeSend)
         }
 
         let storage = PostHogStorage(config)
@@ -701,9 +701,9 @@ class PostHogSDKTest: QuickSpec {
                         sut = self.getSut(
                             sendFeatureFlagEvent: true,
                             flushAt: 1,
-                            beforeSend: {
+                            beforeSend: [{
                                 $0.event == eventTrigger.targetKey ? nil : $0
-                            }
+                            }]
                         )
                     }
 
@@ -738,13 +738,13 @@ class PostHogSDKTest: QuickSpec {
                         sut = self.getSut(
                             sendFeatureFlagEvent: true,
                             flushAt: 2,
-                            beforeSend: {
+                            beforeSend: [{
                                 if $0.event == eventTrigger.targetKey {
                                     $0.event = testUpdatedEventKey
                                 }
 
                                 return $0
-                            }
+                            }]
                         )
                     }
 
@@ -801,12 +801,12 @@ class PostHogSDKTest: QuickSpec {
                 sut = self.getSut(
                     sendFeatureFlagEvent: true,
                     flushAt: 1,
-                    beforeSend: {
+                    beforeSend: [{
                         if $0.event == testKey {
                             $0.event = "$snapshot"
                         }
                         return $0
-                    }
+                    }]
                 )
 
                 sut.capture(testKey)
@@ -815,6 +815,74 @@ class PostHogSDKTest: QuickSpec {
                 let events = getBatchedEvents(server)
                 expect(events.count).to(equal(1))
                 expect(events[0].event).to(equal("other_test"))
+            }
+
+            describe("array edge cases") {
+                it("properly handles empty beforeSend array") {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 2,
+                        beforeSend: []
+                    )
+
+                    let expectedEvents = [
+                        "first_event",
+                        "second_event",
+                    ]
+
+                    for event in expectedEvents {
+                        sut.capture(event)
+                    }
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(expectedEvents.count))
+                    expect(events.map(\.event)).to(equal(expectedEvents))
+                }
+
+                it("supports trailing closure syntax for single block") {
+                    let sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 1
+                    )
+
+                    sut.config.setBeforeSend { $0.event == "first_event" ? nil : $0 }
+
+                    sut.capture("first_event")
+                    sut.capture("second_event")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("second_event"))
+                }
+
+                it("supports multiple beforeSend blocks") {
+                    let sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 2,
+                        beforeSend: [
+                            { $0.event == "first_event" ? nil : $0 },
+                            { $0.event = "modified_event"
+                                return $0 },
+                            { $0.event == "second_event" ? nil : $0 },
+                        ]
+                    )
+
+                    sut.capture("first_event")
+                    sut.capture("second_event")
+                    sut.capture("third_event")
+
+                    // first event is skipped by the first block
+                    // second event is modified by the second block and not skipped by the third block(because it became "modified_event")
+                    // third event is modified by the third block
+                    let expectedEvents = [
+                        "modified_event",
+                        "modified_event",
+                    ]
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(expectedEvents.count))
+                    expect(events.map(\.event)).to(equal(expectedEvents))
+                }
             }
         }
 

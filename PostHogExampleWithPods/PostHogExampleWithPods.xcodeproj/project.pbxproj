@@ -12,11 +12,10 @@
 		690FF0262AE7C5BA00A0B06B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 690FF0252AE7C5BA00A0B06B /* Assets.xcassets */; };
 		690FF0292AE7C5BA00A0B06B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 690FF0282AE7C5BA00A0B06B /* Preview Assets.xcassets */; };
 		690FF0362AE7C61300A0B06B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0352AE7C61300A0B06B /* AppDelegate.swift */; };
-		C9E5B5DE324D8151CE82217D /* Pods_PostHogExampleWithPods.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 43AF6FA31CF44E5BE9245799 /* Pods_PostHogExampleWithPods.framework */; };
+		E7087D98D8DE0D2DD84278DD /* Pods_PostHogExampleWithPods.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8266354C5603FEBCC7C01E4B /* Pods_PostHogExampleWithPods.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		43AF6FA31CF44E5BE9245799 /* Pods_PostHogExampleWithPods.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PostHogExampleWithPods.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C2D1D1AA0327AA47D050EED /* Pods-PostHogExampleWithPods.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogExampleWithPods.release.xcconfig"; path = "Target Support Files/Pods-PostHogExampleWithPods/Pods-PostHogExampleWithPods.release.xcconfig"; sourceTree = "<group>"; };
 		690FF01E2AE7C5B900A0B06B /* PostHogExampleWithPods.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogExampleWithPods.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		690FF0212AE7C5B900A0B06B /* PostHogExampleWithPodsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExampleWithPodsApp.swift; sourceTree = "<group>"; };
@@ -24,6 +23,7 @@
 		690FF0252AE7C5BA00A0B06B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		690FF0282AE7C5BA00A0B06B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		690FF0352AE7C61300A0B06B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		8266354C5603FEBCC7C01E4B /* Pods_PostHogExampleWithPods.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PostHogExampleWithPods.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9E7CD1F6231834F08BF61E6C /* Pods-PostHogExampleWithPods.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PostHogExampleWithPods.debug.xcconfig"; path = "Target Support Files/Pods-PostHogExampleWithPods/Pods-PostHogExampleWithPods.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -32,7 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C9E5B5DE324D8151CE82217D /* Pods_PostHogExampleWithPods.framework in Frameworks */,
+				E7087D98D8DE0D2DD84278DD /* Pods_PostHogExampleWithPods.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,7 +89,7 @@
 		9A20B85D4D10AA6F7B0C13FB /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				43AF6FA31CF44E5BE9245799 /* Pods_PostHogExampleWithPods.framework */,
+				8266354C5603FEBCC7C01E4B /* Pods_PostHogExampleWithPods.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -105,7 +105,7 @@
 				690FF01A2AE7C5B900A0B06B /* Sources */,
 				690FF01B2AE7C5B900A0B06B /* Frameworks */,
 				690FF01C2AE7C5B900A0B06B /* Resources */,
-				09BD9A3D139AADDAE022DD57 /* [CP] Embed Pods Frameworks */,
+				6E4C2BEF8CB8F259A129729E /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -162,7 +162,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		09BD9A3D139AADDAE022DD57 /* [CP] Embed Pods Frameworks */ = {
+		6E4C2BEF8CB8F259A129729E /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (

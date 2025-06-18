@@ -107,7 +107,7 @@ import Foundation
         get { _surveys }
         set { setSurveys(newValue) }
     }
-    
+
     @available(iOS 15.0, *)
     @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
@@ -182,7 +182,7 @@ import Foundation
             _surveys = value
         }
     }
-    
+
     var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
     private func setSurveysConfig(_ value: PostHogSurveysConfig) {
         // protection against objc API availability warning instead of error

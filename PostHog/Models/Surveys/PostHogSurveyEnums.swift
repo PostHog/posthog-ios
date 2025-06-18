@@ -60,10 +60,83 @@ enum PostHogSurveyQuestionBranchingType: String, Decodable {
     case specificQuestion = "specific_question"
 }
 
-enum PostHogSurveyResponse {
-    case link(String)
-    case rating(Int?)
-    case openEnded(String?)
-    case singleChoice(String?)
-    case multipleChoice([String]?)
+@objc public enum PostHogSurveyResponseType: Int {
+    case link
+    case rating
+    case openEnded
+    case singleChoice
+    case multipleChoice
+}
+
+@objc @objcMembers
+public class PostHogSurveyResponse: NSObject {
+    public let type: PostHogSurveyResponseType
+    public let linkClicked: Bool?
+    public let ratingValue: Int?
+    public let textValue: String?
+    public let multipleChoiceValues: [String]?
+
+    private init(
+        type: PostHogSurveyResponseType,
+        linkClicked: Bool? = nil,
+        ratingValue: Int? = nil,
+        textValue: String? = nil,
+        multipleChoiceValues: [String]? = nil
+    ) {
+        self.type = type
+        self.linkClicked = linkClicked
+        self.ratingValue = ratingValue
+        self.textValue = textValue
+        self.multipleChoiceValues = multipleChoiceValues
+    }
+
+    public static func link(_ clicked: Bool) -> PostHogSurveyResponse {
+        PostHogSurveyResponse(
+            type: .link,
+            linkClicked: clicked,
+            ratingValue: nil,
+            textValue: nil,
+            multipleChoiceValues: nil
+        )
+    }
+
+    public static func rating(_ rating: Int?) -> PostHogSurveyResponse {
+        PostHogSurveyResponse(
+            type: .rating,
+            linkClicked: nil,
+            ratingValue: rating,
+            textValue: nil,
+            multipleChoiceValues: nil
+        )
+    }
+
+    public static func openEnded(_ openEnded: String?) -> PostHogSurveyResponse {
+        PostHogSurveyResponse(
+            type: .openEnded,
+            linkClicked: nil,
+            ratingValue: nil,
+            textValue: openEnded,
+            multipleChoiceValues: nil
+        )
+    }
+
+    public static func singleChoice(_ singleChoice: String?) -> PostHogSurveyResponse {
+        PostHogSurveyResponse(
+            type: .singleChoice,
+            linkClicked: nil,
+            ratingValue: nil,
+            textValue: singleChoice,
+            multipleChoiceValues: nil
+        )
+    }
+
+    public static func multipleChoice(_ multipleChoice: [String]?) -> PostHogSurveyResponse {
+        PostHogSurveyResponse(
+            type: .multipleChoice,
+            linkClicked: nil,
+            ratingValue: nil,
+            textValue: nil,
+            multipleChoiceValues: multipleChoice
+        )
+    }
 }

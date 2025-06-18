@@ -6,29 +6,31 @@
 //
 
 import Foundation
-import PostHog
+@_spi(Experimental) import PostHog
 import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_D16KaOwrdsdSBdMbtBg1lQhJJ3TF8mgqOPqZnAjubws",
+            apiKey: "phc_IOjYecUqPAO2JURqXcUeZYetcmpuobGlsRKPy1RaRUx",
             host: "http://localhost:8010"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
-        config.captureApplicationLifecycleEvents = false
+        config.captureApplicationLifecycleEvents = true
 //        config.flushAt = 1
 //        config.flushIntervalSeconds = 30
         config.debug = true
-        config.sendFeatureFlagEvent = false
+        config.sendFeatureFlagEvent = true
 
         #if os(iOS)
-            config.sessionReplay = true
+            config.sessionReplay = false
             config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.maskAllTextInputs = true
             config.sessionReplayConfig.maskAllImages = true
         #endif
+
+        config.surveys = true
 
         PostHogSDK.shared.setup(config)
 //        PostHogSDK.shared.debug()

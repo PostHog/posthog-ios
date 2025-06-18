@@ -425,7 +425,6 @@ extension ButtonViewController: UIToolTipInteractionDelegate {
         // This handler is called when this button needs updating.
         button.configurationUpdateHandler = {
             [unowned self] button in
-
             // Start with the current button's configuration.
             var newConfig = button.configuration
 

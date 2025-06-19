@@ -19,7 +19,8 @@ class PostHogSDKTest: QuickSpec {
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
-                beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
+                beforeSend: [BeforeSendBlock]? = nil,
+                afterSend: [AfterSendBlock]? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -36,13 +37,17 @@ class PostHogSDKTest: QuickSpec {
             config.setBeforeSend(beforeSend)
         }
 
+        if let afterSend = afterSend {
+            config.setAfterSend(afterSend)
+        }
+
         let storage = PostHogStorage(config)
         storage.reset()
 
         return PostHogSDK.with(config)
     }
 
-    func getBeforeSendEventsConfig() -> [BeforeSendTestEventContext] {
+    func getTestEventsConfig() -> [TestEventContext] {
         [
             .init(
                 triggerClosure: { $0.capture("test_event") },
@@ -80,6 +85,14 @@ class PostHogSDKTest: QuickSpec {
                 testName: "get feature flag"
             ),
         ]
+    }
+
+    func getBeforeSendEventsConfig() -> [BeforeSendTestEventContext] {
+        getTestEventsConfig()
+    }
+
+    func getAfterSendEventsConfig() -> [AfterSendTestEventContext] {
+        getTestEventsConfig()
     }
 
     override func spec() {
@@ -886,6 +899,166 @@ class PostHogSDKTest: QuickSpec {
             }
         }
 
+        describe("afterSend hook") {
+            let eventTriggers = getAfterSendEventsConfig()
+            var sut: PostHogSDK!
+            var callbackEvents: [PostHogEvent] = []
+            var callbackCallCount = 0
+
+            beforeEach {
+                callbackEvents = []
+                callbackCallCount = 0
+            }
+
+            afterEach {
+                sut?.reset()
+                sut?.close()
+            }
+
+            for eventTrigger in eventTriggers {
+                context("success response") {
+                    beforeEach {
+                        sut = self.getSut(
+                            sendFeatureFlagEvent: true,
+                            flushAt: 1,
+                            afterSend: [{ events in
+                                callbackCallCount += 1
+                                callbackEvents.append(contentsOf: events)
+                            }]
+                        )
+                    }
+
+                    describe(eventTrigger.testName) {
+                        it("calls afterSend with correct events") {
+                            eventTrigger.triggerClosure(sut)
+
+                            let events = getBatchedEvents(server)
+                            expect(events.count).to(equal(1))
+                            expect(events[0].event).to(equal(eventTrigger.targetKey))
+
+                            // Wait a bit for the afterSend callback to be called
+                            expect(callbackCallCount).toEventually(equal(1))
+                            expect(callbackEvents.count).toEventually(equal(1))
+                            expect(callbackEvents[0].event).toEventually(equal(eventTrigger.targetKey))
+                        }
+
+                        it("calls afterSend for multiple events in batch") {
+                            sut = self.getSut(
+                                sendFeatureFlagEvent: true,
+                                flushAt: 3,
+                                afterSend: [{ events in
+                                    callbackCallCount += 1
+                                    callbackEvents.append(contentsOf: events)
+                                }]
+                            )
+
+                            sut.capture("event1")
+                            sut.capture("event2")
+                            eventTrigger.triggerClosure(sut)
+
+                            let events = getBatchedEvents(server)
+                            expect(events.count).to(equal(3))
+
+                            // Wait for the afterSend callback
+                            expect(callbackCallCount).toEventually(equal(1))
+                            expect(callbackEvents.count).toEventually(equal(3))
+
+                            let eventNames = callbackEvents.map(\.event)
+                            expect(eventNames).toEventually(contain("event1"))
+                            expect(eventNames).toEventually(contain("event2"))
+                            expect(eventNames).toEventually(contain(eventTrigger.targetKey))
+                        }
+                    }
+                }
+            }
+
+            context("multiple afterSend blocks") {
+                var secondCallbackCallCount = 0
+                var secondCallbackEvents: [PostHogEvent] = []
+
+                beforeEach {
+                    secondCallbackCallCount = 0
+                    secondCallbackEvents = []
+
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 1,
+                        afterSend: [
+                            { events in
+                                callbackCallCount += 1
+                                callbackEvents.append(contentsOf: events)
+                            },
+                            { events in
+                                secondCallbackCallCount += 1
+                                secondCallbackEvents.append(contentsOf: events)
+                            },
+                        ]
+                    )
+                }
+
+                it("calls all afterSend blocks") {
+                    sut.capture("test_event")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+
+                    // Wait for both callbacks
+                    expect(callbackCallCount).toEventually(equal(1))
+                    expect(secondCallbackCallCount).toEventually(equal(1))
+                    expect(callbackEvents.count).toEventually(equal(1))
+                    expect(secondCallbackEvents.count).toEventually(equal(1))
+                    expect(callbackEvents[0].event).toEventually(equal("test_event"))
+                    expect(secondCallbackEvents[0].event).toEventually(equal("test_event"))
+                }
+            }
+
+            context("default hook") {
+                beforeEach {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 1
+                    )
+                }
+
+                it("doesn't break without afterSend hook") {
+                    sut.capture("test_event")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("test_event"))
+
+                    // No callback should be called
+                    expect(callbackCallCount).to(equal(0))
+                    expect(callbackEvents.count).to(equal(0))
+                }
+            }
+
+            context("error response") {
+                beforeEach {
+                    server.return500 = true
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 1,
+                        afterSend: [{ events in
+                            callbackCallCount += 1
+                            callbackEvents.append(contentsOf: events)
+                        }]
+                    )
+                }
+
+                it("doesn't call afterSend on API errors") {
+                    sut.capture("test_event")
+
+                    // Give some time for the error response
+                    Thread.sleep(forTimeInterval: 0.5)
+
+                    // No callback should be called for error responses
+                    expect(callbackCallCount).to(equal(0))
+                    expect(callbackEvents.count).to(equal(0))
+                }
+            }
+        }
+
         #if os(iOS)
             context("autocapture") {
                 it("isAutocaptureActive() should be false if disabled by config") {
@@ -908,8 +1081,11 @@ class PostHogSDKTest: QuickSpec {
     }
 }
 
-struct BeforeSendTestEventContext {
+struct TestEventContext {
     let triggerClosure: (PostHogSDK) -> Void
     let targetKey: String
     let testName: String
 }
+
+typealias BeforeSendTestEventContext = TestEventContext
+typealias AfterSendTestEventContext = TestEventContext

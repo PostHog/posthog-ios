@@ -114,6 +114,12 @@ class PostHogQueue {
             hedgeLog("Pausing queue consumption for \(delay) seconds due to \(retryCount) API failure(s).")
         } else {
             retryCount = 0
+
+            // We need to discuss threads and object deep copy here
+            // Only call afterSend for actual success responses (200-299)
+            if 200 ... 299 ~= statusCode {
+                config.runAfterSend(payload.events)
+            }
         }
 
         payload.completion(!shouldRetry)

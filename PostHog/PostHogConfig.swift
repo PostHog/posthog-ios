@@ -17,17 +17,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     }
 }
 
-public typealias AfterSendBlock = ([PostHogEvent]) -> Void
-
-@objc public final class BoxedAfterSendBlock: NSObject {
-    @objc public let block: AfterSendBlock
-
-    @objc(block:)
-    public init(block: @escaping AfterSendBlock) {
-        self.block = block
-    }
-}
-
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
     enum Defaults {
         #if os(tvOS)
@@ -222,34 +211,5 @@ public typealias AfterSendBlock = ([PostHogEvent]) -> Void
 
     func runBeforeSend(_ event: PostHogEvent) -> PostHogEvent? {
         beforeSend(event)
-    }
-
-    /// Hook that allows to run custom logic after events are successfully sent to the API
-    /// The hook is called after the API accepts the events (queue flush → success response received from API)
-    private var afterSend: AfterSendBlock = { _ in }
-
-    private static func buildAfterSendBlock(_ blocks: [AfterSendBlock]) -> AfterSendBlock {
-        { events in
-            for block in blocks {
-                block(events)
-            }
-        }
-    }
-
-    public func setAfterSend(_ blocks: [AfterSendBlock]) {
-        afterSend = Self.buildAfterSendBlock(blocks)
-    }
-
-    public func setAfterSend(_ blocks: AfterSendBlock...) {
-        setAfterSend(blocks)
-    }
-
-    @available(*, unavailable, message: "Use setAfterSend(_ blocks: AfterSendBlock...) instead")
-    @objc public func setAfterSend(_ blocks: [BoxedAfterSendBlock]) {
-        setAfterSend(blocks.map(\.block))
-    }
-
-    func runAfterSend(_ events: [PostHogEvent]) {
-        afterSend(events)
     }
 }

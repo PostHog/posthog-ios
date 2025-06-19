@@ -19,8 +19,7 @@ class PostHogSDKTest: QuickSpec {
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
-                beforeSend: [BeforeSendBlock]? = nil,
-                afterSend: [AfterSendBlock]? = nil) -> PostHogSDK
+                beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -35,10 +34,6 @@ class PostHogSDKTest: QuickSpec {
 
         if let beforeSend = beforeSend {
             config.setBeforeSend(beforeSend)
-        }
-
-        if let afterSend = afterSend {
-            config.setAfterSend(afterSend)
         }
 
         let storage = PostHogStorage(config)
@@ -899,18 +894,33 @@ class PostHogSDKTest: QuickSpec {
             }
         }
 
-        describe("afterSend hook") {
+        describe("didSendEvents notification") {
             let eventTriggers = getAfterSendEventsConfig()
             var sut: PostHogSDK!
-            var callbackEvents: [PostHogEvent] = []
-            var callbackCallCount = 0
+            var notificationEvents: [PostHogEvent] = []
+            var notificationCallCount = 0
+            var observer: NSObjectProtocol?
 
             beforeEach {
-                callbackEvents = []
-                callbackCallCount = 0
+                notificationEvents = []
+                notificationCallCount = 0
+
+                observer = NotificationCenter.default.addObserver(
+                    forName: PostHogSDK.didSendEvents,
+                    object: nil,
+                    queue: .main
+                ) { notification in
+                    if let events = notification.userInfo?["events"] as? [PostHogEvent] {
+                        notificationEvents.append(contentsOf: events)
+                        notificationCallCount += 1
+                    }
+                }
             }
 
             afterEach {
+                if let observer = observer {
+                    NotificationCenter.default.removeObserver(observer)
+                }
                 sut?.reset()
                 sut?.close()
             }
@@ -920,36 +930,28 @@ class PostHogSDKTest: QuickSpec {
                     beforeEach {
                         sut = self.getSut(
                             sendFeatureFlagEvent: true,
-                            flushAt: 1,
-                            afterSend: [{ events in
-                                callbackCallCount += 1
-                                callbackEvents.append(contentsOf: events)
-                            }]
+                            flushAt: 1
                         )
                     }
 
                     describe(eventTrigger.testName) {
-                        it("calls afterSend with correct events") {
+                        it("posts didSendEvents with correct events") {
                             eventTrigger.triggerClosure(sut)
 
                             let events = getBatchedEvents(server)
                             expect(events.count).to(equal(1))
                             expect(events[0].event).to(equal(eventTrigger.targetKey))
 
-                            // Wait a bit for the afterSend callback to be called
-                            expect(callbackCallCount).toEventually(equal(1))
-                            expect(callbackEvents.count).toEventually(equal(1))
-                            expect(callbackEvents[0].event).toEventually(equal(eventTrigger.targetKey))
+                            // Wait a bit for the notification to be posted
+                            expect(notificationCallCount).toEventually(equal(1))
+                            expect(notificationEvents.count).toEventually(equal(1))
+                            expect(notificationEvents[0].event).toEventually(equal(eventTrigger.targetKey))
                         }
 
-                        it("calls afterSend for multiple events in batch") {
+                        it("posts didSendEvents for multiple events in batch") {
                             sut = self.getSut(
                                 sendFeatureFlagEvent: true,
-                                flushAt: 3,
-                                afterSend: [{ events in
-                                    callbackCallCount += 1
-                                    callbackEvents.append(contentsOf: events)
-                                }]
+                                flushAt: 3
                             )
 
                             sut.capture("event1")
@@ -959,11 +961,11 @@ class PostHogSDKTest: QuickSpec {
                             let events = getBatchedEvents(server)
                             expect(events.count).to(equal(3))
 
-                            // Wait for the afterSend callback
-                            expect(callbackCallCount).toEventually(equal(1))
-                            expect(callbackEvents.count).toEventually(equal(3))
+                            // Wait for the notification
+                            expect(notificationCallCount).toEventually(equal(1))
+                            expect(notificationEvents.count).toEventually(equal(3))
 
-                            let eventNames = callbackEvents.map(\.event)
+                            let eventNames = notificationEvents.map(\.event)
                             expect(eventNames).toEventually(contain("event1"))
                             expect(eventNames).toEventually(contain("event2"))
                             expect(eventNames).toEventually(contain(eventTrigger.targetKey))
@@ -972,64 +974,51 @@ class PostHogSDKTest: QuickSpec {
                 }
             }
 
-            context("multiple afterSend blocks") {
-                var secondCallbackCallCount = 0
-                var secondCallbackEvents: [PostHogEvent] = []
+            context("multiple observers") {
+                var secondNotificationCallCount = 0
+                var secondNotificationEvents: [PostHogEvent] = []
+                var secondObserver: NSObjectProtocol?
 
                 beforeEach {
-                    secondCallbackCallCount = 0
-                    secondCallbackEvents = []
+                    secondNotificationCallCount = 0
+                    secondNotificationEvents = []
 
-                    sut = self.getSut(
-                        sendFeatureFlagEvent: true,
-                        flushAt: 1,
-                        afterSend: [
-                            { events in
-                                callbackCallCount += 1
-                                callbackEvents.append(contentsOf: events)
-                            },
-                            { events in
-                                secondCallbackCallCount += 1
-                                secondCallbackEvents.append(contentsOf: events)
-                            },
-                        ]
-                    )
-                }
+                    secondObserver = NotificationCenter.default.addObserver(
+                        forName: PostHogSDK.didSendEvents,
+                        object: nil,
+                        queue: .main
+                    ) { notification in
+                        if let events = notification.userInfo?["events"] as? [PostHogEvent] {
+                            secondNotificationEvents.append(contentsOf: events)
+                            secondNotificationCallCount += 1
+                        }
+                    }
 
-                it("calls all afterSend blocks") {
-                    sut.capture("test_event")
-
-                    let events = getBatchedEvents(server)
-                    expect(events.count).to(equal(1))
-
-                    // Wait for both callbacks
-                    expect(callbackCallCount).toEventually(equal(1))
-                    expect(secondCallbackCallCount).toEventually(equal(1))
-                    expect(callbackEvents.count).toEventually(equal(1))
-                    expect(secondCallbackEvents.count).toEventually(equal(1))
-                    expect(callbackEvents[0].event).toEventually(equal("test_event"))
-                    expect(secondCallbackEvents[0].event).toEventually(equal("test_event"))
-                }
-            }
-
-            context("default hook") {
-                beforeEach {
                     sut = self.getSut(
                         sendFeatureFlagEvent: true,
                         flushAt: 1
                     )
                 }
 
-                it("doesn't break without afterSend hook") {
+                afterEach {
+                    if let secondObserver = secondObserver {
+                        NotificationCenter.default.removeObserver(secondObserver)
+                    }
+                }
+
+                it("notifies all observers") {
                     sut.capture("test_event")
 
                     let events = getBatchedEvents(server)
                     expect(events.count).to(equal(1))
-                    expect(events[0].event).to(equal("test_event"))
 
-                    // No callback should be called
-                    expect(callbackCallCount).to(equal(0))
-                    expect(callbackEvents.count).to(equal(0))
+                    // Wait for both observers
+                    expect(notificationCallCount).toEventually(equal(1))
+                    expect(secondNotificationCallCount).toEventually(equal(1))
+                    expect(notificationEvents.count).toEventually(equal(1))
+                    expect(secondNotificationEvents.count).toEventually(equal(1))
+                    expect(notificationEvents[0].event).toEventually(equal("test_event"))
+                    expect(secondNotificationEvents[0].event).toEventually(equal("test_event"))
                 }
             }
 
@@ -1038,23 +1027,19 @@ class PostHogSDKTest: QuickSpec {
                     server.return500 = true
                     sut = self.getSut(
                         sendFeatureFlagEvent: true,
-                        flushAt: 1,
-                        afterSend: [{ events in
-                            callbackCallCount += 1
-                            callbackEvents.append(contentsOf: events)
-                        }]
+                        flushAt: 1
                     )
                 }
 
-                it("doesn't call afterSend on API errors") {
+                it("doesn't post didSendEvents on API errors") {
                     sut.capture("test_event")
 
                     // Give some time for the error response
                     Thread.sleep(forTimeInterval: 0.5)
 
-                    // No callback should be called for error responses
-                    expect(callbackCallCount).to(equal(0))
-                    expect(callbackEvents.count).to(equal(0))
+                    // No notification should be posted for error responses
+                    expect(notificationCallCount).to(equal(0))
+                    expect(notificationEvents.count).to(equal(0))
                 }
             }
         }

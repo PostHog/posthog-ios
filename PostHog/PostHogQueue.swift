@@ -115,10 +115,15 @@ class PostHogQueue {
         } else {
             retryCount = 0
 
-            // We need to discuss threads and object deep copy here
-            // Only call afterSend for actual success responses (200-299)
+            // Only post notification for actual success responses (200-299)
             if 200 ... 299 ~= statusCode {
-                config.runAfterSend(payload.events)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: PostHogSDK.didSendEvents,
+                        object: nil,
+                        userInfo: ["events": payload.events] // TODO: We need to discuss threads and object deep copy here
+                    )
+                }
             }
         }
 

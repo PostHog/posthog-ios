@@ -17,4 +17,5 @@ import Foundation
 public extension PostHogSDK {
     @objc static let didStartNotification = Notification.Name("PostHogDidStart") // object: nil
     @objc static let didReceiveFeatureFlags = Notification.Name("PostHogDidReceiveFeatureFlags") // object: nil
+    @objc static let didSendEvents = Notification.Name("PostHogDidSendEvents") // object: nil, userInfo: ["events": [PostHogEvent]]
 }

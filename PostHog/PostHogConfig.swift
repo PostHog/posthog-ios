@@ -108,6 +108,17 @@ import Foundation
         set { setSurveys(newValue) }
     }
 
+    @available(iOS 15.0, *)
+    @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
+    @_spi(Experimental)
+    @objc public var surveysConfig: PostHogSurveysConfig {
+        get { _surveysConfig }
+        set { setSurveysConfig(newValue) }
+    }
+
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false
@@ -169,6 +180,15 @@ import Foundation
         // Unlike swift, which enforces stricter safety rules, objc just displays a warning
         if #available(iOS 15.0, *) {
             _surveys = value
+        }
+    }
+
+    var _surveysConfig: PostHogSurveysConfig = .init() // swiftlint:disable:this identifier_name
+    private func setSurveysConfig(_ value: PostHogSurveysConfig) {
+        // protection against objc API availability warning instead of error
+        // Unlike swift, which enforces stricter safety rules, objc just displays a warning
+        if #available(iOS 15.0, *) {
+            _surveysConfig = value
         }
     }
 }

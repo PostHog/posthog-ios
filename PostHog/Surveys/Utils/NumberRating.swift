@@ -13,14 +13,14 @@
         @Environment(\.surveyAppearance) private var appearance
 
         @Binding var selectedValue: Int?
-        let numberRange: SurveyNumberRange
+        let range: ClosedRange<Int>
         let lowerBoundLabel: String
         let upperBoundLabel: String
 
         var body: some View {
             VStack {
                 SegmentedControl(
-                    range: numberRange.range,
+                    range: range,
                     height: 45,
                     selectedValue: $selectedValue
                 ) { value, selected in
@@ -30,7 +30,7 @@
                             foregroundTextColor(selected: selected)
                         )
                 } separatorView: { value, _ in
-                    if value != numberRange.range.upperBound {
+                    if value != range.upperBound {
                         EdgeBorder(lineWidth: 1, edges: [.trailing])
                             .foregroundStyle(appearance.borderColor)
                     }
@@ -85,20 +85,6 @@
         }
     }
 
-    enum SurveyNumberRange {
-        case oneToFive
-        case oneToSeven
-        case zeroToTen
-
-        var range: ClosedRange<Int> {
-            switch self {
-            case .oneToFive: 1 ... 5
-            case .oneToSeven: 1 ... 7
-            case .zeroToTen: 0 ... 10
-            }
-        }
-    }
-
     #if DEBUG
         @available(iOS 18.0, *)
         private struct TestView: View {
@@ -109,7 +95,7 @@
                     VStack(spacing: 15) {
                         NumberRating(
                             selectedValue: $selectedValue,
-                            numberRange: .oneToFive,
+                            range: 0 ... 10,
                             lowerBoundLabel: "Unlikely",
                             upperBoundLabel: "Very Likely"
                         )

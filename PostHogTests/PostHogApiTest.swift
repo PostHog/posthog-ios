@@ -74,37 +74,37 @@ enum PostHogApiTests {
     @Suite("Test batch endpoint with different host paths")
     class TestBatchEndpoint: BaseTestSuite {
         @Test("with host containing no path")
-        func testHostWithNoPath() async throws {
+        func hostWithNoPath() async throws {
             try await testBatchEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
-        func testHostWithNoPathAndTrailingSlash() async throws {
+        func hostWithNoPathAndTrailingSlash() async throws {
             try await testBatchEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
-        func testHostWithPath() async throws {
+        func hostWithPath() async throws {
             try await testBatchEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
-        func testHostWithPathAndTrailingSlash() async throws {
+        func hostWithPathAndTrailingSlash() async throws {
             try await testBatchEndpoint(forHost: "http://localhost/api/v1/")
         }
 
         @Test("with host containing port number")
-        func testHostWithPortNumber() async throws {
+        func hostWithPortNumber() async throws {
             try await testBatchEndpoint(forHost: "http://localhost:9000")
         }
 
         @Test("with host containing port number and path")
-        func testHostWithPortNumberAndPath() async throws {
+        func hostWithPortNumberAndPath() async throws {
             try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1")
         }
 
         @Test("with host containing port number, path and trailing slash")
-        func testHostWithPortNumberAndTrailingSlash() async throws {
+        func hostWithPortNumberAndTrailingSlash() async throws {
             try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }

@@ -59,11 +59,3 @@ enum PostHogSurveyQuestionBranchingType: String, Decodable {
     case responseBased = "response_based"
     case specificQuestion = "specific_question"
 }
-
-enum PostHogSurveyResponse {
-    case link(String)
-    case rating(Int?)
-    case openEnded(String?)
-    case singleChoice(String?)
-    case multipleChoice([String]?)
-}

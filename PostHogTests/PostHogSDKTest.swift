@@ -873,7 +873,7 @@ class PostHogSDKTest: QuickSpec {
 
                     // first event is skipped by the first block
                     // second event is modified by the second block and not skipped by the third block(because it became "modified_event")
-                    // third event is modified by the third block
+                    // third event is modified by the second block
                     let expectedEvents = [
                         "modified_event",
                         "modified_event",

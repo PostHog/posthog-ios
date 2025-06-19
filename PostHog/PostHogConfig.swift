@@ -6,6 +6,17 @@
 //
 import Foundation
 
+public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
+
+@objc public final class BoxedBeforeSendBlock: NSObject {
+    @objc public let block: BeforeSendBlock
+
+    @objc(block:)
+    public init(block: @escaping BeforeSendBlock) {
+        self.block = block
+    }
+}
+
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
     enum Defaults {
         #if os(tvOS)
@@ -66,6 +77,7 @@ import Foundation
 
     /// Hook that allows to sanitize the event properties
     /// The hook is called before the event is cached or sent over the wire
+    @available(*, deprecated, message: "Use beforeSend instead")
     @objc public var propertiesSanitizer: PostHogPropertiesSanitizer?
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
@@ -170,5 +182,34 @@ import Foundation
         if #available(iOS 15.0, *) {
             _surveys = value
         }
+    }
+
+    /// Hook that allows to sanitize the event
+    /// The hook is called before the event is cached or sent over the wire
+    private var beforeSend: BeforeSendBlock = { $0 }
+
+    private static func buildBeforeSendBlock(_ blocks: [BeforeSendBlock]) -> BeforeSendBlock {
+        { event in
+            blocks.reduce(event) { event, block in
+                event.flatMap(block)
+            }
+        }
+    }
+
+    public func setBeforeSend(_ blocks: [BeforeSendBlock]) {
+        beforeSend = Self.buildBeforeSendBlock(blocks)
+    }
+
+    public func setBeforeSend(_ blocks: BeforeSendBlock...) {
+        setBeforeSend(blocks)
+    }
+
+    @available(*, unavailable, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
+    @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) {
+        setBeforeSend(blocks.map(\.block))
+    }
+
+    func runBeforeSend(_ event: PostHogEvent) -> PostHogEvent? {
+        beforeSend(event)
     }
 }

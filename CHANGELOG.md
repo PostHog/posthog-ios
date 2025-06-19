@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add support for beforeSend function to edit or drop events ([#357](https://github.com/PostHog/posthog-ios/pull/357))
+
 ## 3.27.0 - 2025-06-16
 
 - fix: unify storage path for `appGroupIdentifier` across targets ([#356](https://github.com/PostHog/posthog-ios/pull/356))

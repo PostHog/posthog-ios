@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add support for custom survey UI ([#359](https://github.com/PostHog/posthog-ios/pull/359))
+
 ## 3.25.1 - 2025-05-13
 
 - fix: edge case where session manager would not rotate session id ([#349](https://github.com/PostHog/posthog-ios/pull/349))

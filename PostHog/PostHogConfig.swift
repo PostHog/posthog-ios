@@ -147,6 +147,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     func getIntegrations() -> [PostHogIntegration] {
         var integrations: [PostHogIntegration] = []
 
+        // Feature flag sync integration is always installed for proper synchronization
+        integrations.append(PostHogFeatureFlagSyncIntegration())
+
         if captureScreenViews {
             integrations.append(PostHogScreenViewIntegration())
         }

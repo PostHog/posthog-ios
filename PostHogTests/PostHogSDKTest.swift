@@ -9,7 +9,7 @@ import Foundation
 import Nimble
 import Quick
 
-@testable import PostHog
+@preconcurrency @testable import PostHog
 
 class PostHogSDKTest: QuickSpec {
     func getSut(preloadFeatureFlags: Bool = false,
@@ -943,9 +943,10 @@ class PostHogSDKTest: QuickSpec {
                             expect(events[0].event).to(equal(eventTrigger.targetKey))
 
                             // Wait a bit for the notification to be posted
-                            expect(notificationCallCount).toEventually(equal(1))
-                            expect(notificationEvents.count).toEventually(equal(1))
-                            expect(notificationEvents[0].event).toEventually(equal(eventTrigger.targetKey))
+                            Thread.sleep(forTimeInterval: 0.1)
+                            expect(notificationCallCount).to(equal(1))
+                            expect(notificationEvents.count).to(equal(1))
+                            expect(notificationEvents[0].event).to(equal(eventTrigger.targetKey))
                         }
 
                         it("posts didSendEvents for multiple events in batch") {
@@ -962,13 +963,14 @@ class PostHogSDKTest: QuickSpec {
                             expect(events.count).to(equal(3))
 
                             // Wait for the notification
-                            expect(notificationCallCount).toEventually(equal(1))
-                            expect(notificationEvents.count).toEventually(equal(3))
+                            Thread.sleep(forTimeInterval: 0.1)
+                            expect(notificationCallCount).to(equal(1))
+                            expect(notificationEvents.count).to(equal(3))
 
                             let eventNames = notificationEvents.map(\.event)
-                            expect(eventNames).toEventually(contain("event1"))
-                            expect(eventNames).toEventually(contain("event2"))
-                            expect(eventNames).toEventually(contain(eventTrigger.targetKey))
+                            expect(eventNames).to(contain("event1"))
+                            expect(eventNames).to(contain("event2"))
+                            expect(eventNames).to(contain(eventTrigger.targetKey))
                         }
                     }
                 }
@@ -1013,12 +1015,13 @@ class PostHogSDKTest: QuickSpec {
                     expect(events.count).to(equal(1))
 
                     // Wait for both observers
-                    expect(notificationCallCount).toEventually(equal(1))
-                    expect(secondNotificationCallCount).toEventually(equal(1))
-                    expect(notificationEvents.count).toEventually(equal(1))
-                    expect(secondNotificationEvents.count).toEventually(equal(1))
-                    expect(notificationEvents[0].event).toEventually(equal("test_event"))
-                    expect(secondNotificationEvents[0].event).toEventually(equal("test_event"))
+                    Thread.sleep(forTimeInterval: 0.1)
+                    expect(notificationCallCount).to(equal(1))
+                    expect(secondNotificationCallCount).to(equal(1))
+                    expect(notificationEvents.count).to(equal(1))
+                    expect(secondNotificationEvents.count).to(equal(1))
+                    expect(notificationEvents[0].event).to(equal("test_event"))
+                    expect(secondNotificationEvents[0].event).to(equal("test_event"))
                 }
             }
 
@@ -1040,6 +1043,232 @@ class PostHogSDKTest: QuickSpec {
                     // No notification should be posted for error responses
                     expect(notificationCallCount).to(equal(0))
                     expect(notificationEvents.count).to(equal(0))
+                }
+            }
+        }
+
+        describe("feature flag synchronization") {
+            var sut: PostHogSDK!
+            var flagReloadCount = 0
+            var flagReloadObserver: NSObjectProtocol?
+
+            beforeEach {
+                flagReloadCount = 0
+
+                // Set up observer to count feature flag reloads
+                sut = self.getSut(
+                    sendFeatureFlagEvent: true,
+                    flushAt: 1
+                )
+
+                flagReloadObserver = NotificationCenter.default.addObserver(
+                    forName: PostHogSDK.didReceiveFeatureFlags,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    flagReloadCount += 1
+                }
+            }
+
+            afterEach {
+                if let currentObserver = flagReloadObserver {
+                    NotificationCenter.default.removeObserver(currentObserver)
+                    flagReloadObserver = nil
+                }
+
+                // sut?.reset() Disabled to avoid flakiness from the SDK fetching feature flags on reset
+                sut?.close()
+            }
+
+            it("integration is properly installed and accessible") {
+                // Verify that the integration was installed
+                let integration = sut.getFeatureFlagSyncIntegration()
+                expect(integration).toNot(beNil())
+            }
+
+            context("identity-changing events") {
+                it("triggers feature flag reload for $identify events") {
+                    sut.identify("new-user-id")
+
+                    // Wait for the event to be sent and processed
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("$identify"))
+
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("does not trigger additional feature flag reload for $groupidentify events") {
+                    // Groups trigger immediate reload when updated locally, so no additional reload needed
+                    sut.group(type: "company", key: "company-123", groupProperties: ["name": "Acme Corp"])
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("$groupidentify"))
+
+                    // Should get exactly 1 reload (from immediate groups() call only)
+                    // Our integration should NOT trigger an additional reload
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("triggers feature flag reload for $create_alias events") {
+                    sut.alias("new-alias")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("$create_alias"))
+
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("does not trigger feature flag reload for regular events") {
+                    sut.capture("regular_event")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("regular_event"))
+
+                    expect(flagReloadCount).toAlways(equal(0), until: .milliseconds(1000))
+                }
+
+                it("handles batched events with mixed types") {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        captureApplicationLifecycleEvents: false,
+                        flushAt: 3
+                    )
+
+                    sut.capture("regular_event")
+                    sut.identify("new-user")
+                    sut.capture("another_regular_event")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(3))
+
+                    // Should trigger exactly one feature flag reload because batch contains a $identify event
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("handles multiple identity events in sequence") {
+                    // Use flushAt: 5 to ensure we can fit all events, then manually flush
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        captureApplicationLifecycleEvents: false,
+                        flushAt: 5
+                    )
+
+                    sut.identify("user-1")
+                    sut.alias("alias-1")
+                    sut.identify("user-2")
+
+                    // Manually flush to send the batched events
+                    sut.flush()
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(beGreaterThanOrEqualTo(2)) // At least 2 events (could be 2 or 3 depending on deduplication)
+
+                    let eventNames = events.map(\.event)
+                    expect(eventNames).to(contain("$identify"))
+                    expect(eventNames).to(contain("$create_alias"))
+
+                    // Should trigger exactly 1 feature flag reload for the batch containing identity events
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("does not trigger feature flag reload on API errors") {
+                    server.return500 = true
+
+                    sut.identify("new-user-id")
+
+                    expect(flagReloadCount).toAlways(equal(0), until: .milliseconds(1000))
+                }
+            }
+
+            context("configuration-based restrictions") {
+                it("does not trigger feature flag reload when user has opted out") {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        captureApplicationLifecycleEvents: false,
+                        flushAt: 1,
+                        optOut: true
+                    )
+
+                    sut.identify("new-user-id")
+
+                    // When opted out, no events should be sent, so we can't use getBatchedEvents
+                    // Instead, just wait and verify no reloads happen
+                    expect(flagReloadCount).toAlways(equal(0), until: .milliseconds(1000))
+                }
+
+                it("triggers feature flag reload when preloadFeatureFlags is enabled") {
+                    sut = self.getSut(
+                        preloadFeatureFlags: true,
+                        sendFeatureFlagEvent: true,
+                        captureApplicationLifecycleEvents: false,
+                        flushAt: 1
+                    )
+
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("respects opt-out state changes dynamically using optOut()") {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        captureApplicationLifecycleEvents: false,
+                        flushAt: 1
+                    )
+
+                    sut.identify("user-before-optout")
+
+                    let events1 = getBatchedEvents(server)
+                    expect(events1.count).to(equal(1))
+                    expect(events1[0].event).to(equal("$identify"))
+
+                    // // Should trigger reload before opt-out
+                    Thread.sleep(forTimeInterval: 0.5)
+                    expect(flagReloadCount).to(equal(1))
+
+                    // // Opt out
+                    sut.optOut()
+
+                    sut.identify("user-after-optout")
+
+                    // // Wait to ensure no events are sent and no reloads happen after opt-out
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
+                }
+
+                it("respects opt-out state changes dynamically using optIn()") {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        captureApplicationLifecycleEvents: false,
+                        flushAt: 1,
+                        optOut: true
+                    )
+
+                    sut.identify("user-after-optout")
+
+                    // // Wait to ensure no events are sent and no reloads happen after opt-out
+                    expect(flagReloadCount).toAlways(equal(0), until: .milliseconds(1000))
+
+                    // // Opt back in
+                    sut.optIn()
+
+                    sut.identify("user-after-optin")
+
+                    let events2 = getBatchedEvents(server)
+                    expect(events2.count).to(equal(1))
+                    expect(events2[0].event).to(equal("$identify"))
+
+                    // // Should trigger reload after opt-in
+                    expect(flagReloadCount).toAlways(beLessThan(2), until: .milliseconds(1000))
+                    expect(flagReloadCount).to(equal(1))
                 }
             }
         }

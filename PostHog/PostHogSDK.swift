@@ -52,6 +52,8 @@ let maxRetryDelay = 30.0
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
+    private weak var featureFlagSyncIntegration: PostHogFeatureFlagSyncIntegration?
+
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
@@ -468,7 +470,8 @@ let maxRetryDelay = 30.0
 
             queue.add(event)
 
-            remoteConfig?.reloadFeatureFlags()
+            // Note: Feature flags will be reloaded automatically when this event is successfully sent
+            // via PostHogFeatureFlagSyncIntegration listening to didSendEvents notification
 
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
@@ -1131,6 +1134,11 @@ let maxRetryDelay = 30.0
                 try integration.install(self)
                 installed.append(integration)
 
+                // Store reference to feature flag sync integration
+                if let featureFlagSyncIntegration = integration as? PostHogFeatureFlagSyncIntegration {
+                    self.featureFlagSyncIntegration = featureFlagSyncIntegration
+                }
+
                 #if os(iOS)
                     // TODO: Decouple these two integrations from PostHogSDK intance
                     if let replayIntegration = integration as? PostHogReplayIntegration {
@@ -1179,6 +1187,8 @@ let maxRetryDelay = 30.0
             replayIntegration = nil
             surveysIntegration = nil
         #endif
+
+        featureFlagSyncIntegration = nil
     }
 }
 
@@ -1209,6 +1219,12 @@ let maxRetryDelay = 30.0
         func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
             installedIntegrations.compactMap {
                 $0 as? PostHogScreenViewIntegration
+            }.first
+        }
+
+        func getFeatureFlagSyncIntegration() -> PostHogFeatureFlagSyncIntegration? {
+            installedIntegrations.compactMap {
+                $0 as? PostHogFeatureFlagSyncIntegration
             }.first
         }
     }

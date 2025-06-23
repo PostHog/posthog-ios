@@ -9,12 +9,13 @@
     import Foundation
 
     class URLSessionInterceptor {
-        private weak var postHog: PostHogSDK?
-
         private let tasksLock = NSLock()
+        private let shouldCapture: () -> Bool
+        private let onCapture: (NetworkSample) -> Void
 
-        init(_ postHog: PostHogSDK) {
-            self.postHog = postHog
+        init(shouldCapture: @escaping () -> Bool, onCapture: @escaping (NetworkSample) -> Void) {
+            self.shouldCapture = shouldCapture
+            self.onCapture = onCapture
         }
 
         /// An internal queue for synchronising the access to `samplesByTask`.
@@ -27,9 +28,10 @@
         /// This method should be called as soon as the task was created.
         /// - Parameter task: the task object obtained from `URLSession`.
         func taskCreated(task: URLSessionTask, session _: URLSession? = nil) {
-            if !isCaptureNetworkEnabled() {
+            guard shouldCapture() else {
                 return
             }
+
             guard let request = task.originalRequest else {
                 return
             }
@@ -64,7 +66,7 @@
         /// - Parameter task: the task object obtained from `URLSession`.
         /// - Parameter error: optional `Error` if the task completed with error.
         func taskCompleted(task: URLSessionTask, error _: Error?) {
-            if !isCaptureNetworkEnabled() {
+            guard shouldCapture() else {
                 return
             }
 
@@ -126,37 +128,9 @@
             return -1
         }
 
-        private func isCaptureNetworkEnabled() -> Bool {
-            guard let postHog else { return false }
-            return postHog.config.sessionReplayConfig.captureNetworkTelemetry && postHog.isSessionReplayActive()
-        }
-
         private func finish(task: URLSessionTask, sample: NetworkSample) {
-            if let postHog {
-                let timestamp = sample.timeOrigin
-
-                var snapshotsData: [Any] = []
-
-                let requestsData = [sample.toDict()]
-                let payloadData: [String: Any] = ["requests": requestsData]
-                let pluginData: [String: Any] = ["plugin": "rrweb/network@1", "payload": payloadData]
-
-                let data: [String: Any] = [
-                    "type": 6,
-                    "data": pluginData,
-                    "timestamp": timestamp.toMillis(),
-                ]
-                snapshotsData.append(data)
-
-                postHog.capture(
-                    "$snapshot",
-                    properties: [
-                        "$snapshot_source": "mobile",
-                        "$snapshot_data": snapshotsData,
-                        "$session_id": sample.sessionId,
-                    ],
-                    timestamp: sample.timeOrigin
-                )
+            if shouldCapture() {
+                onCapture(sample)
             }
 
             tasksLock.withLock {

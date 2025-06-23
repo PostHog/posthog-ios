@@ -18,7 +18,8 @@ class PostHogSDKTest: QuickSpec {
                 flushAt: Int = 1,
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
-                personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
+                personProfiles: PostHogPersonProfiles = .identifiedOnly,
+                beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
@@ -31,10 +32,54 @@ class PostHogSDKTest: QuickSpec {
         config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
 
+        if let beforeSend = beforeSend {
+            config.setBeforeSend(beforeSend)
+        }
+
         let storage = PostHogStorage(config)
         storage.reset()
 
         return PostHogSDK.with(config)
+    }
+
+    func getBeforeSendEventsConfig() -> [BeforeSendTestEventContext] {
+        [
+            .init(
+                triggerClosure: { $0.capture("test_event") },
+                targetKey: "test_event",
+                testName: "capture"
+            ),
+            .init(
+                triggerClosure: { $0.screen("screen_name") },
+                targetKey: "$screen",
+                testName: "screen"
+            ),
+            .init(
+                triggerClosure: { $0.autocapture(eventType: "test_type", elementsChain: "chain", properties: [:]) },
+                targetKey: "$autocapture",
+                testName: "autocapture"
+            ),
+            .init(
+                triggerClosure: { $0.identify("user_id") },
+                targetKey: "$identify",
+                testName: "identify"
+            ),
+            .init(
+                triggerClosure: { $0.group(type: "test_type", key: "test_key") },
+                targetKey: "$groupidentify",
+                testName: "group"
+            ),
+            .init(
+                triggerClosure: { $0.alias("test_alias") },
+                targetKey: "$create_alias",
+                testName: "alias"
+            ),
+            .init(
+                triggerClosure: { _ = $0.getFeatureFlag("key") },
+                targetKey: "$feature_flag_called",
+                testName: "get feature flag"
+            ),
+        ]
     }
 
     override func spec() {
@@ -216,7 +261,7 @@ class PostHogSDKTest: QuickSpec {
         it("loads feature flags automatically") {
             let sut = self.getSut(preloadFeatureFlags: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             sut.reset()
@@ -226,7 +271,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event for isFeatureEnabled when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             let events = getBatchedEvents(server)
@@ -249,7 +294,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event with variant response for isFeatureEnabled when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("string-value")) == true
 
             let events = getBatchedEvents(server)
@@ -272,7 +317,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event for getFeatureFlag when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.getFeatureFlag("bool-value") as? Bool) == true
 
             let events = getBatchedEvents(server)
@@ -304,7 +349,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reloadFeatureFlags()
 
-            let requests = getDecideRequest(server)
+            let requests = getFlagsRequest(server)
 
             expect(requests.count) == 1
             let request = requests.first
@@ -365,7 +410,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.reloadFeatureFlags()
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
 
             sut.capture("event")
 
@@ -553,7 +598,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reset()
 
-            waitDecideRequest(server)
+            waitFlagsRequest(server)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             sut.close()
@@ -640,6 +685,207 @@ class PostHogSDKTest: QuickSpec {
             expect(event[1].event).to(equal("$feature_flag_called"))
         }
 
+        describe("beforeSend hook") {
+            let eventTriggers = getBeforeSendEventsConfig()
+            let testOtherEventKey = "other_event"
+            var sut: PostHogSDK!
+
+            afterEach {
+                sut?.reset()
+                sut?.close()
+            }
+
+            for eventTrigger in eventTriggers {
+                context("returns nil") {
+                    beforeEach {
+                        sut = self.getSut(
+                            sendFeatureFlagEvent: true,
+                            flushAt: 1,
+                            beforeSend: [{
+                                $0.event == eventTrigger.targetKey ? nil : $0
+                            }]
+                        )
+                    }
+
+                    describe(eventTrigger.testName) {
+                        it("skips the event") {
+                            sut.capture(testOtherEventKey)
+                            eventTrigger.triggerClosure(sut)
+
+                            let events = getBatchedEvents(server)
+                            let eventNames = events.map(\.event)
+
+                            expect(events.count).to(equal(1))
+                            expect(eventNames).notTo(contain(eventTrigger.targetKey))
+                        }
+
+                        it("preserves other events") {
+                            sut.capture(testOtherEventKey)
+                            eventTrigger.triggerClosure(sut)
+
+                            let event = getBatchedEvents(server)
+
+                            expect(event.count).to(equal(1))
+                            expect(event[0].event).to(equal(testOtherEventKey))
+                        }
+                    }
+                }
+
+                context("event is updated") {
+                    let testUpdatedEventKey = "updated_event"
+
+                    beforeEach {
+                        sut = self.getSut(
+                            sendFeatureFlagEvent: true,
+                            flushAt: 2,
+                            beforeSend: [{
+                                if $0.event == eventTrigger.targetKey {
+                                    $0.event = testUpdatedEventKey
+                                }
+
+                                return $0
+                            }]
+                        )
+                    }
+
+                    describe(eventTrigger.testName) {
+                        it("updates the event") {
+                            sut.capture(testOtherEventKey)
+                            eventTrigger.triggerClosure(sut)
+
+                            let events = getBatchedEvents(server)
+                            let eventNames = events.map(\.event)
+
+                            expect(events.count).to(equal(2))
+                            expect(eventNames).to(contain(testUpdatedEventKey))
+                        }
+
+                        it("preserves all events") {
+                            sut.capture(testOtherEventKey)
+                            eventTrigger.triggerClosure(sut)
+
+                            let event = getBatchedEvents(server)
+
+                            expect(event.count).to(equal(2))
+                            expect(event[0].event).to(equal(testOtherEventKey))
+                        }
+                    }
+                }
+
+                context("default hook") {
+                    beforeEach {
+                        sut = self.getSut(
+                            sendFeatureFlagEvent: true,
+                            flushAt: 2
+                        )
+                    }
+
+                    describe(eventTrigger.testName) {
+                        it("keeps the events intact") {
+                            sut.capture(testOtherEventKey)
+                            eventTrigger.triggerClosure(sut)
+
+                            let events = getBatchedEvents(server)
+                            let eventNames = events.map(\.event)
+
+                            expect(events.count).to(equal(2))
+                            expect(eventNames[0]).to(equal(testOtherEventKey))
+                            expect(eventNames[1]).to(equal(eventTrigger.targetKey))
+                        }
+                    }
+                }
+            }
+
+            it("skip updated to $session event") {
+                let testKey = "test_key"
+                sut = self.getSut(
+                    sendFeatureFlagEvent: true,
+                    flushAt: 1,
+                    beforeSend: [{
+                        if $0.event == testKey {
+                            $0.event = "$snapshot"
+                        }
+                        return $0
+                    }]
+                )
+
+                sut.capture(testKey)
+                sut.capture("other_test")
+
+                let events = getBatchedEvents(server)
+                expect(events.count).to(equal(1))
+                expect(events[0].event).to(equal("other_test"))
+            }
+
+            describe("array edge cases") {
+                it("properly handles empty beforeSend array") {
+                    sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 2,
+                        beforeSend: []
+                    )
+
+                    let expectedEvents = [
+                        "first_event",
+                        "second_event",
+                    ]
+
+                    for event in expectedEvents {
+                        sut.capture(event)
+                    }
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(expectedEvents.count))
+                    expect(events.map(\.event)).to(equal(expectedEvents))
+                }
+
+                it("supports trailing closure syntax for single block") {
+                    let sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 1
+                    )
+
+                    sut.config.setBeforeSend { $0.event == "first_event" ? nil : $0 }
+
+                    sut.capture("first_event")
+                    sut.capture("second_event")
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(1))
+                    expect(events[0].event).to(equal("second_event"))
+                }
+
+                it("supports multiple beforeSend blocks") {
+                    let sut = self.getSut(
+                        sendFeatureFlagEvent: true,
+                        flushAt: 2,
+                        beforeSend: [
+                            { $0.event == "first_event" ? nil : $0 },
+                            { $0.event = "modified_event"
+                                return $0 },
+                            { $0.event == "second_event" ? nil : $0 },
+                        ]
+                    )
+
+                    sut.capture("first_event")
+                    sut.capture("second_event")
+                    sut.capture("third_event")
+
+                    // first event is skipped by the first block
+                    // second event is modified by the second block and not skipped by the third block(because it became "modified_event")
+                    // third event is modified by the second block
+                    let expectedEvents = [
+                        "modified_event",
+                        "modified_event",
+                    ]
+
+                    let events = getBatchedEvents(server)
+                    expect(events.count).to(equal(expectedEvents.count))
+                    expect(events.map(\.event)).to(equal(expectedEvents))
+                }
+            }
+        }
+
         #if os(iOS)
             context("autocapture") {
                 it("isAutocaptureActive() should be false if disabled by config") {
@@ -660,4 +906,10 @@ class PostHogSDKTest: QuickSpec {
             }
         #endif
     }
+}
+
+struct BeforeSendTestEventContext {
+    let triggerClosure: (PostHogSDK) -> Void
+    let targetKey: String
+    let testName: String
 }

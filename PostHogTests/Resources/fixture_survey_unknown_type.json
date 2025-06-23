@@ -1,0 +1,43 @@
+{
+    "id": "01947134-8a35-0000-549a-193b86fa2e44",
+    "name": "Core Web Vitals feature request",
+    "type": "future_type_not_yet_supported",
+    "feature_flag_keys": [
+        { "key": "flag1", "value": "linked-flag-key" },
+        { "key": "flag2", "value": "survey-targeting-flag-key" }
+    ],
+    "targeting_flag_key": "survey-targeting-flag-key",
+    "linked_flag_key": "core-web-vitals",
+    "internal_targeting_flag_key": "survey-targeting-88af4df282-custom",
+    "questions": [
+        {
+            "type": "open",
+            "question": "What would you like to see in our Core Web Vitals product?",
+            "description": "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product",
+            "originalQuestionIndex": 0,
+            "descriptionContentType": "text"
+        }
+    ],
+    "conditions": {
+        "url": "core-web-vitals"
+    },
+    "appearance": {
+        "position": "right",
+        "fontFamily": "system-ui",
+        "whiteLabel": false,
+        "borderColor": "#c9c6c6",
+        "placeholder": "Start typing...",
+        "backgroundColor": "#eeeded",
+        "ratingButtonColor": "white",
+        "submitButtonColor": "black",
+        "submitButtonTextColor": "white",
+        "thankYouMessageHeader": "Thank you for your feedback!",
+        "displayThankYouMessage": true,
+        "ratingButtonActiveColor": "black",
+        "surveyPopupDelaySeconds": 5
+    },
+    "start_date": "2025-01-16T22:23:38.805000Z",
+    "end_date": null,
+    "current_iteration": 1,
+    "current_iteration_start_date": "2024-12-12T18:58:22Z"
+}

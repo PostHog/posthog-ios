@@ -34,6 +34,7 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     case rating(PostHogRatingSurveyQuestion)
     case singleChoice(PostHogMultipleSurveyQuestion)
     case multipleChoice(PostHogMultipleSurveyQuestion)
+    case unknown(type: String)
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -50,44 +51,47 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
             self = try .singleChoice(PostHogMultipleSurveyQuestion(from: decoder))
         case .multipleChoice:
             self = try .multipleChoice(PostHogMultipleSurveyQuestion(from: decoder))
+        case let .unknown(type):
+            self = .unknown(type: type)
         }
     }
 
     var question: String {
-        wrappedQuestion.question
+        wrappedQuestion?.question ?? ""
     }
 
     var description: String? {
-        wrappedQuestion.description
+        wrappedQuestion?.description
     }
 
     var descriptionContentType: PostHogSurveyTextContentType? {
-        wrappedQuestion.descriptionContentType
+        wrappedQuestion?.descriptionContentType
     }
 
     var optional: Bool? {
-        wrappedQuestion.optional
+        wrappedQuestion?.optional
     }
 
     var buttonText: String? {
-        wrappedQuestion.buttonText
+        wrappedQuestion?.buttonText
     }
 
     var originalQuestionIndex: Int? {
-        wrappedQuestion.originalQuestionIndex
+        wrappedQuestion?.originalQuestionIndex
     }
 
     var branching: PostHogSurveyQuestionBranching? {
-        wrappedQuestion.branching
+        wrappedQuestion?.branching
     }
 
-    private var wrappedQuestion: PostHogSurveyQuestionProperties {
+    private var wrappedQuestion: PostHogSurveyQuestionProperties? {
         switch self {
         case let .open(question): question
         case let .link(question): question
         case let .rating(question): question
         case let .singleChoice(question): question
         case let .multipleChoice(question): question
+        case .unknown: nil
         }
     }
 
@@ -160,6 +164,7 @@ enum PostHogSurveyQuestionBranching: Decodable {
     case end
     case responseBased(responseValues: [String: Any])
     case specificQuestion(index: Int)
+    case unknown(type: String)
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -192,6 +197,8 @@ enum PostHogSurveyQuestionBranching: Decodable {
             }
         case .specificQuestion:
             self = try .specificQuestion(index: container.decode(Int.self, forKey: .index))
+        case let .unknown(type):
+            self = .unknown(type: type)
         }
     }
 

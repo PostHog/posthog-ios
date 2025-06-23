@@ -1,6 +1,30 @@
 ## Next
 
 - feat: add support for custom survey UI ([#359](https://github.com/PostHog/posthog-ios/pull/359))
+- fix: surveys decoding error ([#363](https://github.com/PostHog/posthog-ios/pull/363))
+
+## 3.28.0 - 2025-06-19
+
+- feat: add support for beforeSend function to edit or drop events ([#357](https://github.com/PostHog/posthog-ios/pull/357))
+
+## 3.27.0 - 2025-06-16
+
+- fix: unify storage path for `appGroupIdentifier` across targets ([#356](https://github.com/PostHog/posthog-ios/pull/356))
+- fix: do not call flags callback with invalid flags ([#355](https://github.com/PostHog/posthog-ios/pull/355))
+- use new `/flags` endpoint instead of `/decide` ([#345](https://github.com/PostHog/posthog-ios/pull/345))
+
+## 3.26.2 - 2025-06-03
+
+- fix: pause network capture when app is backgrounded ([#352](https://github.com/PostHog/posthog-ios/pull/352))
+- fix: prevent duplicate application lifecycle events ([#354](https://github.com/PostHog/posthog-ios/pull/354))
+
+## 3.26.1 - 2025-05-30
+
+- fix: clear cached flags if remote config response hasFeatureFlags is false ([#347](https://github.com/PostHog/posthog-ios/pull/347))§
+
+## 3.26.0 - 2025-05-20
+
+- feat: capture console logs for session replay ([#350](https://github.com/PostHog/posthog-ios/pull/350))
 
 ## 3.25.1 - 2025-05-13
 

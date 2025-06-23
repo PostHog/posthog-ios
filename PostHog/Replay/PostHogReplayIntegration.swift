@@ -27,10 +27,11 @@
 
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
-        private var urlInterceptor: URLSessionInterceptor?
-        private var sessionSwizzler: URLSessionSwizzler?
         private var applicationEventToken: RegistrationToken?
+        private var applicationBackgroundedToken: RegistrationToken?
+        private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
+        private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
          ### Mapping of SwiftUI Views to UIKit
@@ -118,13 +119,6 @@
             }
 
             self.postHog = postHog
-            let interceptor = URLSessionInterceptor(postHog)
-            urlInterceptor = interceptor
-            do {
-                try sessionSwizzler = URLSessionSwizzler(interceptor: interceptor)
-            } catch {
-                hedgeLog("Error trying to Swizzle URLSession: \(error)")
-            }
 
             start()
         }
@@ -132,8 +126,6 @@
         func uninstall(_ postHog: PostHogSDK) {
             if self.postHog === postHog || self.postHog == nil {
                 stop()
-                urlInterceptor = nil
-                sessionSwizzler = nil
                 self.postHog = nil
                 PostHogReplayIntegration.integrationInstalledLock.withLock {
                     PostHogReplayIntegration.integrationInstalled = false
@@ -142,7 +134,7 @@
         }
 
         func start() {
-            guard let postHog else {
+            guard let postHog, !isEnabled else {
                 return
             }
 
@@ -167,23 +159,45 @@
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
-            if postHog.config.sessionReplayConfig.captureNetworkTelemetry {
-                sessionSwizzler?.swizzle()
+            // Install plugins
+            let plugins = postHog.config.sessionReplayConfig.getPlugins()
+            installedPlugins = []
+            for plugin in plugins {
+                plugin.start(postHog: postHog)
+                installedPlugins.append(plugin)
+            }
+
+            // Start listening to application background events and pause all plugins
+            let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
+            applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground { [weak self] in
+                self?.pauseAllPlugins()
+            }
+
+            // Start listening to application foreground events and resume all plugins
+            applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive { [weak self] in
+                self?.resumeAllPlugins()
             }
         }
 
         func stop() {
+            guard isEnabled else { return }
             isEnabled = false
             resetViews()
             PostHogSessionManager.shared.onSessionIdChanged = {}
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil
+            // stop listening to Application lifecycle events
+            applicationBackgroundedToken = nil
+            applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
 
-            sessionSwizzler?.unswizzle()
-            urlInterceptor?.stop()
+            // stop plugins
+            for plugin in installedPlugins {
+                plugin.stop()
+            }
+            installedPlugins = []
         }
 
         func isActive() -> Bool {
@@ -194,6 +208,18 @@
             // Ensure thread-safe access to windowViews
             windowViewsLock.withLock {
                 windowViews.removeAllObjects()
+            }
+        }
+
+        private func pauseAllPlugins() {
+            for plugin in installedPlugins {
+                plugin.pause()
+            }
+        }
+
+        private func resumeAllPlugins() {
+            for plugin in installedPlugins {
+                plugin.resume()
             }
         }
 

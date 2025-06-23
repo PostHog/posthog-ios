@@ -62,7 +62,8 @@
                             onNextQuestionClicked(currentQuestionIndex, .singleChoice(resp))
                         }
                     }
-                default: EmptyView()
+                default:
+                    EmptyView()
                 }
             }
         }

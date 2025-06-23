@@ -447,7 +447,7 @@ let maxRetryDelay = 30.0
             var props: [String: Any] = ["distinct_id": distinctId]
 
             if !config.reuseAnonymousId {
-                // We keep the AnonymousId to be used by decide calls and identify to link the previousId
+                // We keep the AnonymousId to be used by flags calls and identify to link the previousId
                 storageManager.setAnonymousId(oldDistinctId)
                 props["$anon_distinct_id"] = oldDistinctId
             }
@@ -461,13 +461,12 @@ let maxRetryDelay = 30.0
                 userProperties: sanitizeDictionary(userProperties),
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
-            let sanitizedProperties = sanitizeProperties(properties)
 
-            queue.add(PostHogEvent(
-                event: "$identify",
-                distinctId: distinctId,
-                properties: sanitizedProperties
-            ))
+            guard let event = buildEvent(event: "$identify", distinctId: distinctId, properties: properties) else {
+                return
+            }
+
+            queue.add(event)
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -570,7 +569,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        let isSnapshotEvent = event == "$snapshot"
+        var isSnapshotEvent = event == "$snapshot"
         let eventTimestamp = timestamp ?? now()
         let eventDistinctId = distinctId ?? getDistinctId()
 
@@ -587,22 +586,29 @@ let maxRetryDelay = 30.0
                                          groups: groups,
                                          appendSharedProps: !isSnapshotEvent,
                                          timestamp: timestamp)
-        let sanitizedProperties = sanitizeProperties(properties)
+
+        // Sanitize is now called in buildEvent
+        let posthogEvent = buildEvent(
+            event: event,
+            distinctId: eventDistinctId,
+            properties: properties,
+            timestamp: eventTimestamp
+        )
+
+        guard let posthogEvent else {
+            return
+        }
+
+        // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook
+        isSnapshotEvent = posthogEvent.event == "$snapshot"
 
         // if this is a $snapshot event and $session_id is missing, don't process then event
-        if isSnapshotEvent, sanitizedProperties["$session_id"] == nil {
+        if isSnapshotEvent, posthogEvent.properties["$session_id"] == nil {
             return
         }
 
         // Session Replay has its own queue
         let targetQueue = isSnapshotEvent ? replayQueue : queue
-
-        let posthogEvent = PostHogEvent(
-            event: event,
-            distinctId: eventDistinctId,
-            properties: sanitizedProperties,
-            timestamp: eventTimestamp
-        )
 
         targetQueue?.add(posthogEvent)
 
@@ -636,13 +642,12 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
-        let sanitizedProperties = sanitizeProperties(properties)
 
-        queue.add(PostHogEvent(
-            event: "$screen",
-            distinctId: distinctId,
-            properties: sanitizedProperties
-        ))
+        guard let event = buildEvent(event: "$screen", distinctId: distinctId, properties: properties) else {
+            return
+        }
+
+        queue.add(event)
     }
 
     func autocapture(
@@ -670,13 +675,12 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
-        let sanitizedProperties = sanitizeProperties(properties)
 
-        queue.add(PostHogEvent(
-            event: "$autocapture",
-            distinctId: distinctId,
-            properties: sanitizedProperties
-        ))
+        guard let event = buildEvent(event: "$autocapture", distinctId: distinctId, properties: properties) else {
+            return
+        }
+
+        queue.add(event)
     }
 
     private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
@@ -708,13 +712,12 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
-        let sanitizedProperties = sanitizeProperties(properties)
 
-        queue.add(PostHogEvent(
-            event: "$create_alias",
-            distinctId: distinctId,
-            properties: sanitizedProperties
-        ))
+        guard let event = buildEvent(event: "$create_alias", distinctId: distinctId, properties: properties) else {
+            return
+        }
+
+        queue.add(event)
     }
 
     private func groups(_ newGroups: [String: String]) -> [String: String] {
@@ -771,13 +774,36 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
+
+        guard let event = buildEvent(event: "$groupidentify", distinctId: distinctId, properties: properties) else {
+            return
+        }
+
+        queue.add(event)
+    }
+
+    func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
         let sanitizedProperties = sanitizeProperties(properties)
 
-        queue.add(PostHogEvent(
-            event: "$groupidentify",
+        let event = PostHogEvent(
+            event: eventName,
             distinctId: distinctId,
-            properties: sanitizedProperties
-        ))
+            properties: sanitizedProperties,
+            timestamp: timestamp
+        )
+
+        let resultEvent = config.runBeforeSend(event)
+
+        if resultEvent == nil {
+            let originalMessage = "PostHog event \(eventName) was dropped"
+            let message = PostHogKnownUnsafeEditableEvent.contains(eventName)
+                ? "\(originalMessage). This can cause unexpected behavior."
+                : originalMessage
+
+            hedgeLog(message)
+        }
+
+        return resultEvent
     }
 
     @objc(groupWithType:key:)

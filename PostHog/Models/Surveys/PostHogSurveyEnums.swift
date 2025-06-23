@@ -114,6 +114,12 @@ enum PostHogSurveyMatchType: Decodable, Equatable {
 }
 
 enum PostHogSurveyAppearancePosition: Decodable, Equatable {
+    case topLeft
+    case topCenter
+    case topRight
+    case middleLeft
+    case middleCenter
+    case middleRight
     case left
     case right
     case center
@@ -124,6 +130,18 @@ enum PostHogSurveyAppearancePosition: Decodable, Equatable {
         let positionString = try container.decode(String.self)
 
         switch positionString {
+        case "top_left":
+            self = .topLeft
+        case "top_center":
+            self = .topCenter
+        case "top_right":
+            self = .topRight
+        case "middle_left":
+            self = .middleLeft
+        case "middle_center":
+            self = .middleCenter
+        case "middle_right":
+            self = .middleRight
         case "left":
             self = .left
         case "right":

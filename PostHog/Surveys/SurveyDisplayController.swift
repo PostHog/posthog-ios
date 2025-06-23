@@ -112,7 +112,7 @@
                     responseValues: responseValues
                 ) ?? .index(nextQuestionIndex)
 
-            case .next:
+            case .next, .unknown:
                 return .index(nextQuestionIndex)
             }
         }

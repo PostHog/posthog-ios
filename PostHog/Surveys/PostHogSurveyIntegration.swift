@@ -556,6 +556,8 @@
                 targets.allSatisfy { target in
                     target != value
                 }
+            case .unknown:
+                false
             }
         }
     }

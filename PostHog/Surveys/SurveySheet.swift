@@ -60,6 +60,8 @@
                     MultipleChoiceQuestionView(question: multipleSurveyQuestion) { resp in
                         onNextQuestionClicked(currentQuestionIndex, .multipleChoice(resp))
                     }
+                default:
+                    EmptyView()
                 }
             }
         }

@@ -86,8 +86,7 @@ import Foundation
 
 enum PostHogKnownUnsafeEditableEvent: String {
     case snapshot = "$snapshot"
-    case pageview = "$pageview"
-    case pageleave = "$pageleave"
+    case screen = "$screen"
     case set = "$set"
     case surveyDismissed = "survey dismissed"
     case surveySent = "survey sent"
@@ -95,9 +94,6 @@ enum PostHogKnownUnsafeEditableEvent: String {
     case identify = "$identify"
     case groupidentify = "$groupidentify"
     case createAlias = "$create_alias"
-    case clientIngestionWarning = "$$client_ingestion_warning"
-    case webExperimentApplied = "$web_experiment_applied"
-    case featureEnrollmentUpdate = "$feature_enrollment_update"
     case featureFlagCalled = "$feature_flag_called"
 
     static func contains(_ name: String) -> Bool {

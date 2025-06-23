@@ -1,6 +1,6 @@
 ## Next
 
-- fix: surveys decoding error ([#361](https://github.com/PostHog/posthog-ios/pull/361))
+- fix: surveys decoding error ([#363](https://github.com/PostHog/posthog-ios/pull/363))
 
 ## 3.28.0 - 2025-06-19
 

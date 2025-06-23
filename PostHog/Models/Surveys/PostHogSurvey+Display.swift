@@ -6,7 +6,7 @@
             PostHogDisplaySurvey(
                 id: id,
                 name: name,
-                questions: questions.map { $0.toDisplayQuestion() },
+                questions: questions.compactMap { $0.toDisplayQuestion() },
                 appearance: appearance?.toDisplayAppearance(),
                 startDate: startDate,
                 endDate: endDate
@@ -15,7 +15,7 @@
     }
 
     extension PostHogSurveyQuestion {
-        func toDisplayQuestion() -> PostHogDisplaySurveyQuestion {
+        func toDisplayQuestion() -> PostHogDisplaySurveyQuestion? {
             switch self {
             case let .open(question):
                 return PostHogDisplayOpenQuestion(
@@ -62,6 +62,9 @@
                     shuffleOptions: question.shuffleOptions ?? false,
                     isMultipleChoice: isMultipleChoice
                 )
+
+            default:
+                return nil
             }
         }
 
@@ -82,25 +85,27 @@
                 case 10: 0 ... 10
                 default: 1 ... 5
                 }
+            default:
+                1 ... 5
             }
         }
     }
 
     extension PostHogSurveyTextContentType {
         func toDisplayContentType() -> PostHogDisplaySurveyTextContentType {
-            switch self {
-            case .html: return .html
-            case .text: return .text
+            if case .html = self {
+                return .html
             }
+            return .text
         }
     }
 
     extension PostHogSurveyRatingDisplayType {
         func toDisplayRatingType() -> PostHogDisplaySurveyRatingType {
-            switch self {
-            case .number: return .number
-            case .emoji: return .emoji
+            if case .emoji = self {
+                return .emoji
             }
+            return .number
         }
     }
 

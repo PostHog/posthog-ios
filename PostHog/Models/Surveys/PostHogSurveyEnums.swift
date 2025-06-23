@@ -204,6 +204,16 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
     case tenPoint
     case unknown(scale: Int)
 
+    var rawValue: Int {
+        switch self {
+        case .threePoint: 3
+        case .fivePoint: 5
+        case .sevenPoint: 7
+        case .tenPoint: 10
+        case let .unknown(scale): scale
+        }
+    }
+
     init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
         let scaleInt = try container.decode(Int.self)

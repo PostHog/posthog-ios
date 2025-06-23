@@ -1,5 +1,7 @@
 ## Next
 
+- fix: surveys decoding error ([#361](https://github.com/PostHog/posthog-ios/pull/361))
+
 ## 3.28.0 - 2025-06-19
 
 - feat: add support for beforeSend function to edit or drop events ([#357](https://github.com/PostHog/posthog-ios/pull/357))

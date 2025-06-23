@@ -58,6 +58,49 @@ enum PostHogSurveysTest {
             #expect(sut.currentIterationStartDate.map(ISO8601DateFormatter().string) == "2024-12-12T18:58:22Z")
         }
 
+        @Test("survey with unknown type decodes correctly")
+        func surveyWithUnknownTypeDecodesCorrectly() throws {
+            let data = try loadFixture("fixture_survey_unknown_type")
+            let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+            #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
+            #expect(sut.name == "Core Web Vitals feature request")
+
+            // Verify that an unknown survey type is correctly captured
+            if case let .unknown(type) = sut.type {
+                #expect(type == "future_type_not_yet_supported")
+            } else {
+                throw TestError("Expected unknown survey type")
+            }
+
+            // Verify that other properties are still correctly decoded
+            #expect(sut.questions.count == 1)
+            #expect(sut.conditions?.url == "core-web-vitals")
+            #expect(sut.appearance?.position == .right)
+        }
+
+        @Test("survey with unknown question type decodes correctly")
+        func surveyWithUnknownQuestionTypeDecodesCorrectly() throws {
+            let data = try loadFixture("fixture_survey_unknown_question_type")
+            let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+            #expect(sut.id == "01947134-8a35-0000-549a-193b86fa2e44")
+            #expect(sut.name == "Core Web Vitals feature request")
+            #expect(sut.type == .popover)
+            #expect(sut.questions.count == 1)
+
+            // Verify that an unknown question type is correctly captured
+            if case let .unknown(type) = sut.questions[0] {
+                #expect(type == "future_question_type")
+            } else {
+                throw TestError("Expected unknown question type")
+            }
+
+            // Verify that other properties are still correctly decoded
+            #expect(sut.conditions?.url == "core-web-vitals")
+            #expect(sut.appearance?.position == .right)
+        }
+
         @Suite("Survey question types decode correctly")
         struct SurveyQuestionTypeDecodeTests {
             @Test("basic question decodes correctly")

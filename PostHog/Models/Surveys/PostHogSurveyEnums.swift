@@ -32,7 +32,7 @@ enum PostHogSurveyType: Decodable, Equatable {
     }
 }
 
-enum PostHogSurveyQuestionType: Decodable {
+enum PostHogSurveyQuestionType: Decodable, Equatable {
     case open
     case link
     case rating
@@ -136,7 +136,7 @@ enum PostHogSurveyAppearancePosition: Decodable, Equatable {
     }
 }
 
-enum PostHogSurveyAppearanceWidgetType: Decodable {
+enum PostHogSurveyAppearanceWidgetType: Decodable, Equatable {
     case button
     case tab
     case selector
@@ -205,7 +205,7 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
     }
 }
 
-enum PostHogSurveyQuestionBranchingType: Decodable {
+enum PostHogSurveyQuestionBranchingType: Decodable, Equatable {
     case nextQuestion
     case end
     case responseBased

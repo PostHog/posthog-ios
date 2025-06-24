@@ -49,5 +49,5 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
 
     /// Called when surveys are stopped to clean up any UI elements and reset the survey display state.
     /// This method should handle the dismissal of any active surveys and cleanup of associated resources.
-    @objc func cleanup()
+    @objc func cleanupSurveys()
 }

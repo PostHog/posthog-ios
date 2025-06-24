@@ -41,7 +41,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         #endif
     }
 
-    func cleanup() {
+    func cleanupSurveys() {
         #if os(iOS)
             displayController?.dismissSurvey() // dismiss any active surveys
             surveysWindow?.rootViewController?.dismiss(animated: true) {

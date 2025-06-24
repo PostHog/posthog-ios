@@ -87,7 +87,7 @@
             didLayoutViewToken = nil
             #if os(iOS)
                 if #available(iOS 15.0, *) {
-                    config?.surveysConfig.surveysDelegate.cleanup()
+                    config?.surveysConfig.surveysDelegate.cleanupSurveys()
                 }
             #endif
         }

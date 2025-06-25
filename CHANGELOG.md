@@ -1,5 +1,7 @@
 ## Next
 
+- fix: survey question header padding ([#365](https://github.com/PostHog/posthog-ios/pull/365))
+
 ## 3.28.1 - 2025-06-23
 
 - fix: surveys decoding error ([#363](https://github.com/PostHog/posthog-ios/pull/363))

@@ -95,10 +95,10 @@
 
         var onViewLayoutCallbacks: [UUID: ThrottledHandler] = [:]
 
-        static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
-                                                 target: .global(qos: .utility))
-
         final class ThrottledHandler {
+            static let throttleQueue = DispatchQueue(label: "com.posthog.ThrottledHandler",
+                                                     target: .global(qos: .utility))
+
             let interval: TimeInterval
             let handler: ApplicationViewLayoutHandler
 
@@ -110,23 +110,13 @@
             }
 
             func throttleHandler() {
-                let runThrottle = { [weak self] in
-                    guard let self else { return }
-                    let now = now()
-                    let timeSinceLastFired = now.timeIntervalSince(lastFired)
+                let now = now()
+                let timeSinceLastFired = now.timeIntervalSince(lastFired)
 
-                    if timeSinceLastFired >= interval {
-                        lastFired = now
-                        handler()
-                    }
-                }
-
-                if Thread.isMainThread {
-                    runThrottle()
-                } else {
-                    DispatchQueue.main.async {
-                        runThrottle()
-                    }
+                if timeSinceLastFired >= interval {
+                    lastFired = now
+                    // notify on main
+                    DispatchQueue.main.async(execute: handler)
                 }
             }
         }
@@ -150,9 +140,12 @@
         }
 
         func notifyHandlers() {
-            let handlers = registrationLock.withLock { onViewLayoutCallbacks.values }
-            for handler in handlers {
-                handler.throttleHandler()
+            ThrottledHandler.throttleQueue.async {
+                // Don't lock on main
+                let handlers = self.registrationLock.withLock { self.onViewLayoutCallbacks.values }
+                for handler in handlers {
+                    handler.throttleHandler()
+                }
             }
         }
     }

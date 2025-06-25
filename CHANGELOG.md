@@ -1,5 +1,7 @@
 ## Next
 
+- fix: session replay perforamnce improvements ([#364](https://github.com/PostHog/posthog-ios/pull/364))
+
 ## 3.28.1 - 2025-06-23
 
 - fix: surveys decoding error ([#363](https://github.com/PostHog/posthog-ios/pull/363))

@@ -31,6 +31,7 @@ import Foundation
         registerApplicationSendEvent()
     }
 
+    private let queue = DispatchQueue(label: "com.posthog.PostHogSessionManager", target: .global(qos: .utility))
     private var sessionId: String?
     private var sessionStartTimestamp: TimeInterval?
     private var sessionActivityTimestamp: TimeInterval?
@@ -240,7 +241,9 @@ import Foundation
             applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] _, _ in
                 // update "last active" session
                 // we want to keep track of the idle time, so we need to maintain a timestamp on the last interactions of the user with the app. UIEvents are a good place to do so since it means that the user is actively interacting with the app (e.g not just noise background activity)
-                self?.touchSession()
+                self?.queue.async {
+                    self?.touchSession()
+                }
             }
         #endif
     }

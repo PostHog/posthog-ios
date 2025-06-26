@@ -240,11 +240,6 @@
                 return
             }
 
-            // always make sure we have a fresh session id as early as possible
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
-                return
-            }
-
             // capture necessary touch information on the main thread before performing any asynchronous operations
             // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
             // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
@@ -253,6 +248,11 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
+                // always make sure we have a fresh session id as early as possible
+                guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+                    return
+                }
+
                 // captured weakly since integration may have uninstalled by now
                 guard let postHog else { return }
 
@@ -312,11 +312,6 @@
                 windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
             }
 
-            // always make sure we have a fresh session id at correct timestamp
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
-                return
-            }
-
             var snapshotsData: [Any] = []
 
             if !snapshotStatus.sentMetaEvent {
@@ -345,6 +340,11 @@
             // TODO: IncrementalSnapshot, type=2
 
             PostHogReplayIntegration.dispatchQueue.async {
+                // always make sure we have a fresh session id at correct timestamp
+                guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
+                    return
+                }
+
                 var wireframes: [Any] = []
                 wireframes.append(wireframe.toDict())
                 let initialOffset = ["top": 0, "left": 0]

@@ -1,5 +1,6 @@
 ## Next
 
+- fix: survey question header padding ([#365](https://github.com/PostHog/posthog-ios/pull/365))
 - fix: session replay perforamnce improvements ([#364](https://github.com/PostHog/posthog-ios/pull/364))
 
 ## 3.28.1 - 2025-06-23

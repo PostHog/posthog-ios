@@ -26,7 +26,7 @@
                 )
 
                 TextEditor(text: $text)
-                    .frame(height: 150)
+                    .frame(height: 80)
                     .overlay(
                         Group {
                             if text.isEmpty {

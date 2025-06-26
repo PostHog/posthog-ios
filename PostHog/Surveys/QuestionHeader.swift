@@ -29,6 +29,7 @@
                         .multilineTextAlignment(.leading)
                 }
             }
+            .padding(.top, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
 

@@ -44,8 +44,8 @@
                     isOptional: question.optional ?? false,
                     buttonText: question.buttonText,
                     ratingType: question.display.toDisplayRatingType(),
-                    scaleLowerBound: getRange(for: question.scale.rawValue, type: question.display).lowerBound,
-                    scaleUpperBound: getRange(for: question.scale.rawValue, type: question.display).upperBound,
+                    scaleLowerBound: question.scale.range.lowerBound,
+                    scaleUpperBound: question.scale.range.upperBound,
                     lowerBoundLabel: question.lowerBoundLabel,
                     upperBoundLabel: question.upperBoundLabel
                 )
@@ -72,21 +72,6 @@
             switch self {
             case .multipleChoice: return true
             default: return false
-            }
-        }
-
-        private func getRange(for scale: Int, type ratingType: PostHogSurveyRatingDisplayType) -> ClosedRange<Int> {
-            switch ratingType {
-            case .emoji:
-                scale == 3 ? 1 ... 3 : 1 ... 5
-            case .number:
-                switch scale {
-                case 7: 1 ... 7
-                case 10: 0 ... 10
-                default: 1 ... 5
-                }
-            default:
-                1 ... 5
             }
         }
     }

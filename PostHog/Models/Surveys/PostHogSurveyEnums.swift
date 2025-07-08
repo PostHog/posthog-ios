@@ -214,6 +214,26 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
         }
     }
 
+    var range: ClosedRange<Int> {
+        switch self {
+        case .threePoint: 1 ... 3
+        case .fivePoint: 1 ... 5
+        case .sevenPoint: 1 ... 7
+        case .tenPoint: 0 ... 10
+        case let .unknown(scale): 1 ... scale
+        }
+    }
+
+    init(range: ClosedRange<Int>) {
+        switch range {
+        case 1 ... 3: self = .threePoint
+        case 1 ... 5: self = .fivePoint
+        case 1 ... 7: self = .sevenPoint
+        case 0 ... 10: self = .tenPoint
+        default: self = .unknown(scale: range.upperBound)
+        }
+    }
+
     init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
         let scaleInt = try container.decode(Int.self)

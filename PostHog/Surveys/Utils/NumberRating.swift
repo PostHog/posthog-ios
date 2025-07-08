@@ -13,14 +13,14 @@
         @Environment(\.surveyAppearance) private var appearance
 
         @Binding var selectedValue: Int?
-        let range: ClosedRange<Int>
+        let scale: PostHogSurveyRatingScale
         let lowerBoundLabel: String
         let upperBoundLabel: String
 
         var body: some View {
             VStack {
                 SegmentedControl(
-                    range: range,
+                    range: scale.range,
                     height: 45,
                     selectedValue: $selectedValue
                 ) { value, selected in
@@ -30,7 +30,7 @@
                             foregroundTextColor(selected: selected)
                         )
                 } separatorView: { value, _ in
-                    if value != range.upperBound {
+                    if value != scale.range.upperBound {
                         EdgeBorder(lineWidth: 1, edges: [.trailing])
                             .foregroundStyle(appearance.borderColor)
                     }
@@ -95,7 +95,7 @@
                     VStack(spacing: 15) {
                         NumberRating(
                             selectedValue: $selectedValue,
-                            range: 0 ... 10,
+                            scale: .tenPoint,
                             lowerBoundLabel: "Unlikely",
                             upperBoundLabel: "Very Likely"
                         )

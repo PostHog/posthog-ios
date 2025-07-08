@@ -110,14 +110,14 @@
                 if question.ratingType == .emoji {
                     EmojiRating(
                         selectedValue: $rating,
-                        range: scaleRange,
+                        scale: scale,
                         lowerBoundLabel: question.lowerBoundLabel,
                         upperBoundLabel: question.upperBoundLabel
                     )
                 } else {
                     NumberRating(
                         selectedValue: $rating,
-                        range: scaleRange,
+                        scale: scale,
                         lowerBoundLabel: question.lowerBoundLabel,
                         upperBoundLabel: question.upperBoundLabel
                     )
@@ -135,8 +135,8 @@
             return rating != nil
         }
 
-        private var scaleRange: ClosedRange<Int> {
-            question.scaleLowerBound ... question.scaleUpperBound
+        private var scale: PostHogSurveyRatingScale {
+            PostHogSurveyRatingScale(range: question.scaleLowerBound ... question.scaleUpperBound)
         }
     }
 

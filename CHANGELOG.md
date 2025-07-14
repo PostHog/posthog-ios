@@ -1,5 +1,7 @@
 ## Next
 
+## 3.28.3 - 2025-07-14
+
 - fix: don't clear flags on remote config error or if hasFeatureFlags is nil ([#368](https://github.com/PostHog/posthog-ios/pull/368))
 
 ## 3.28.2 - 2025-06-26

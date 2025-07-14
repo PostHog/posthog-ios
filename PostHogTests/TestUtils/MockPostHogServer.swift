@@ -45,7 +45,7 @@ class MockPostHogServer {
     public var replayVariantValue: Any = true
     public var quotaLimitFeatureFlags: Bool = false
     public var remoteConfigSurveys: String?
-    public var hasFeatureFlags: Bool = true
+    public var hasFeatureFlags: Bool? = true
     public var featureFlags: [String: Any]?
 
     // version is the version of the response we want to return regardless of the request version
@@ -260,6 +260,18 @@ class MockPostHogServer {
         }
 
         stub(condition: pathEndsWith("/config")) { _ in
+            if self.return500 {
+                return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            }
+
+            // conditionally include hasFeatureFlags key
+            let hasFeatureFlagsPayload: String = {
+                if let hasFeatureFlags = self.hasFeatureFlags {
+                    return "\"hasFeatureFlags\": \(hasFeatureFlags),"
+                }
+                return ""
+            }()
+
             let configData =
                 """
                 {
@@ -268,7 +280,7 @@ class MockPostHogServer {
                         "gzip",
                         "gzip-js"
                     ],
-                    "hasFeatureFlags": \(self.hasFeatureFlags),
+                    \(hasFeatureFlagsPayload)
                     "captureDeadClicks": true,
                     "capturePerformance": {
                         "network_timing": true,

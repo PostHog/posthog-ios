@@ -76,15 +76,23 @@ class PostHogRemoteConfig {
                 self.reloadRemoteConfig { [weak self] remoteConfig in
                     guard let self else { return }
 
-                    let hasFeatureFlags = remoteConfig?[self.hasFeatureFlagsKey] as? Bool == true
+                    // if there's no remote config response, skip
+                    guard let remoteConfig else {
+                        hedgeLog("Remote config response is missing, skipping loading flags")
+                        notifyFeatureFlags(nil)
+                        return
+                    }
 
-                    if !hasFeatureFlags {
-                        // if server responds with `hasFeatureFlags: false`, then there are no more active flags on the account
+                    // Check if the server explicitly responded with hasFeatureFlags key
+                    if let hasFeatureFlagsBoolValue = remoteConfig[self.hasFeatureFlagsKey] as? Bool, !hasFeatureFlagsBoolValue {
+                        hedgeLog("hasFeatureFlags is false, clearing flags and skipping loading flags")
+                        // Server responded with explicit hasFeatureFlags: false, meaning no active flags on the account
                         clearFeatureFlags()
                         // need to notify cause people may be waiting for flags to load
                         notifyFeatureFlags([:])
                     } else if self.config.preloadFeatureFlags {
-                        // reload feature flags based on config
+                        // If we reach here, hasFeatureFlags is either true, nil or not a boolean value
+                        // Note: notifyFeatureFlags() will be eventually called inside preloadFeatureFlags()
                         self.preloadFeatureFlags()
                     }
                 }
@@ -157,6 +165,8 @@ class PostHogRemoteConfig {
         }
 
         guard let storageManager = config.storageManager else {
+            hedgeLog("No PostHogStorageManager found in config, skipping loading feature flags")
+            callback?(nil)
             return
         }
 

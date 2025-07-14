@@ -186,28 +186,28 @@ enum PostHogRemoteConfigTest {
             #expect(storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty == true)
             #expect(storage.getDictionary(forKey: .enabledFeatureFlagPayloads).isNilOrEmpty == true)
         }
-        
+
         @Test("should not clear flags if remote config call fails")
         func shouldNotClearFlagsIfRemoteConfigCallFails() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
             config.remoteConfig = true
-            
+
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": true])
-            
+
             // simulate a net call failure
             server.return500 = true
-            
+
             let sut = getSut(storage: storage, config: config)
-            
+
             var featureFlagsLoaded = false
             sut.onFeatureFlagsLoaded = { _ in
                 featureFlagsLoaded = true
             }
-            
+
             // wait for flags to be loaded
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(2) // 2 second timeout
@@ -217,32 +217,32 @@ enum PostHogRemoteConfigTest {
                     continuation.resume()
                 }
             }
-            
+
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
         }
-        
+
         @Test("should not clear flags if hasFeatureFlags key is missing")
         func shouldNotClearFlagsIfHasFeatureFlagsKeyIsMissing() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
             config.remoteConfig = true
-            
+
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": true])
-            
+
             // removes `hasFeatureFlags` from response
             server.hasFeatureFlags = nil
-            
+
             let sut = getSut(storage: storage, config: config)
-            
+
             var featureFlagsLoaded = false
             sut.onFeatureFlagsLoaded = { _ in
                 featureFlagsLoaded = true
             }
-            
+
             // wait for flags to be loaded
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(2) // 2 second timeout
@@ -252,7 +252,7 @@ enum PostHogRemoteConfigTest {
                     continuation.resume()
                 }
             }
-            
+
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
         }

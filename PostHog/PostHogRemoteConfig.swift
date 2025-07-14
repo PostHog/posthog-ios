@@ -74,17 +74,25 @@ class PostHogRemoteConfig {
         }) {
             dispatchQueue.async {
                 self.reloadRemoteConfig { [weak self] remoteConfig in
-                    guard let self else { return }
+                    // if there's no remote config response, skip
+                    guard let self, let remoteConfig else { return }
 
-                    let hasFeatureFlags = remoteConfig?[self.hasFeatureFlagsKey] as? Bool == true
+                    // Check if the server explicitly responded with hasFeatureFlags key
+                    if let hasFeatureFlagsValue = remoteConfig[self.hasFeatureFlagsKey] {
+                        let hasFeatureFlags = hasFeatureFlagsValue as? Bool == true
 
-                    if !hasFeatureFlags {
-                        // if server responds with `hasFeatureFlags: false`, then there are no more active flags on the account
-                        clearFeatureFlags()
-                        // need to notify cause people may be waiting for flags to load
-                        notifyFeatureFlags([:])
-                    } else if self.config.preloadFeatureFlags {
-                        // reload feature flags based on config
+                        if !hasFeatureFlags {
+                            // Server responded with hasFeatureFlags: false, meaning no active flags on the account
+                            clearFeatureFlags()
+                            // need to notify cause people may be waiting for flags to load
+                            notifyFeatureFlags([:])
+                            return
+                        }
+                    }
+
+                    // If we reach here, either hasFeatureFlags is true or not present
+                    if self.config.preloadFeatureFlags {
+                        // Reload feature flags based on config
                         self.preloadFeatureFlags()
                     }
                 }

@@ -263,7 +263,7 @@ class MockPostHogServer {
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             }
-            
+
             // conditionally include hasFeatureFlags key
             let hasFeatureFlagsPayload: String = {
                 if let hasFeatureFlags = self.hasFeatureFlags {
@@ -271,7 +271,7 @@ class MockPostHogServer {
                 }
                 return ""
             }()
-            
+
             let configData =
                 """
                 {

@@ -74,25 +74,25 @@ class PostHogRemoteConfig {
         }) {
             dispatchQueue.async {
                 self.reloadRemoteConfig { [weak self] remoteConfig in
+                    guard let self else { return }
+
                     // if there's no remote config response, skip
-                    guard let self, let remoteConfig else { return }
-
-                    // Check if the server explicitly responded with hasFeatureFlags key
-                    if let hasFeatureFlagsValue = remoteConfig[self.hasFeatureFlagsKey] {
-                        let hasFeatureFlags = hasFeatureFlagsValue as? Bool == true
-
-                        if !hasFeatureFlags {
-                            // Server responded with hasFeatureFlags: false, meaning no active flags on the account
-                            clearFeatureFlags()
-                            // need to notify cause people may be waiting for flags to load
-                            notifyFeatureFlags([:])
-                            return
-                        }
+                    guard let remoteConfig else {
+                        hedgeLog("Remote config response is missing, skipping loading flags")
+                        notifyFeatureFlags(nil)
+                        return
                     }
 
-                    // If we reach here, either hasFeatureFlags is true or not present
-                    if self.config.preloadFeatureFlags {
-                        // Reload feature flags based on config
+                    // Check if the server explicitly responded with hasFeatureFlags key
+                    if let hasFeatureFlagsBoolValue = remoteConfig[self.hasFeatureFlagsKey] as? Bool, !hasFeatureFlagsBoolValue {
+                        hedgeLog("hasFeatureFlags is false, clearing flags and skipping loading flags")
+                        // Server responded with explicit hasFeatureFlags: false, meaning no active flags on the account
+                        clearFeatureFlags()
+                        // need to notify cause people may be waiting for flags to load
+                        notifyFeatureFlags([:])
+                    } else if self.config.preloadFeatureFlags {
+                        // If we reach here, hasFeatureFlags is either true, nil or not a boolean value
+                        // Note: notifyFeatureFlags() will be eventually called inside preloadFeatureFlags()
                         self.preloadFeatureFlags()
                     }
                 }
@@ -165,6 +165,8 @@ class PostHogRemoteConfig {
         }
 
         guard let storageManager = config.storageManager else {
+            hedgeLog("No PostHogStorageManager found in config, skipping loading feature flags")
+            callback?(nil)
             return
         }
 

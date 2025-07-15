@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add support for custom survey UI ([#359](https://github.com/PostHog/posthog-ios/pull/359))
+
 ## 3.28.2 - 2025-06-26
 
 - fix: survey question header padding ([#365](https://github.com/PostHog/posthog-ios/pull/365))

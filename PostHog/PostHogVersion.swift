@@ -9,7 +9,7 @@ import Foundation
 
 // if you change this, make sure to also change it in the podspec and check if the script scripts/bump-version.sh still works
 // This property is internal only
-public var postHogVersion = "3.28.3"
+public var postHogVersion = "3.29.0"
 
 public let postHogiOSSdkName = "posthog-ios"
 // This property is internal only

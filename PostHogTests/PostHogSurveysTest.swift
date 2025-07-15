@@ -930,17 +930,9 @@ enum PostHogSurveysTest {
 
     @Suite("Test conditional branching", .serialized)
     class TestConfitionalBranchingLogic {
-        private func getSurveyController() -> SurveyDisplayController {
-            SurveyDisplayController(
-                onSurveyShown: { _ in },
-                onSurveyResponse: { _, _, _ in },
-                onSurveyClosed: { _, _ in }
-            )
-        }
-
         @Test("returns next question index when no branching")
-        func returnsNextQuestionIndexWhenNoBranching() {
-            let sut = getSurveyController()
+        func returnsNextQuestionIndexWhenNoBranching() throws {
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -951,24 +943,33 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
-            sut.onNextQuestion(index: 0, response: .openEnded("response 1"))
-            #expect(sut.currentQuestionIndex == 1)
-            #expect(sut.isSurveyCompleted == false)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                #expect(nextIndex == 1)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
-            sut.onNextQuestion(index: 1, response: .openEnded("response 2"))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("response 2")) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
-            sut.onNextQuestion(index: 2, response: .openEnded("response 3"))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == true)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 3")) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == true)
+            } else {
+                throw TestError("Expected next question state")
+            }
         }
 
         @Test("completes survey with single question")
-        func completesSurveyWithSingleQuestion() {
-            let sut = getSurveyController()
+        func completesSurveyWithSingleQuestion() throws {
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -977,16 +978,19 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
-            sut.onNextQuestion(index: 0, response: .openEnded("response"))
-            #expect(sut.currentQuestionIndex == 0)
-            #expect(sut.isSurveyCompleted == true)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
+                #expect(nextIndex == 0)
+                #expect(isCompleted == true)
+            } else {
+                throw TestError("Expected next question state")
+            }
         }
 
         @Test("ends survey when branching is end")
-        func endsSurveyWhenBranchingIsEnd() {
-            let sut = getSurveyController()
+        func endsSurveyWhenBranchingIsEnd() throws {
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -996,16 +1000,19 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
-            sut.onNextQuestion(index: 0, response: .openEnded("response"))
-            #expect(sut.currentQuestionIndex == 0)
-            #expect(sut.isSurveyCompleted == true)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
+                #expect(nextIndex == 0)
+                #expect(isCompleted == true)
+            } else {
+                throw TestError("Expected next question state")
+            }
         }
 
         @Test("jumps to specific question when branching to specific question")
-        func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() {
-            let sut = getSurveyController()
+        func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() throws {
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1022,24 +1029,33 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
-            sut.onNextQuestion(index: 0, response: .openEnded("response 1"))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
-            sut.onNextQuestion(index: 2, response: .openEnded("response 2"))
-            #expect(sut.currentQuestionIndex == 3)
-            #expect(sut.isSurveyCompleted == false)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
+                #expect(nextIndex == 3)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
-            sut.onNextQuestion(index: 3, response: .openEnded("response 3"))
-            #expect(sut.currentQuestionIndex == 3)
-            #expect(sut.isSurveyCompleted == true)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("response 3")) {
+                #expect(nextIndex == 3)
+                #expect(isCompleted == true)
+            } else {
+                throw TestError("Expected next question state")
+            }
         }
 
         @Test("jumps to last question when branching is out of bounds")
-        func jumpsToLastQuestionWhenBranchingOutOfBounds() {
-            let sut = getSurveyController()
+        func jumpsToLastQuestionWhenBranchingOutOfBounds() throws {
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1050,20 +1066,26 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
-            sut.onNextQuestion(index: 0, response: .openEnded("response 1"))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
-            sut.onNextQuestion(index: 2, response: .openEnded("response 2"))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == true)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == true)
+            } else {
+                throw TestError("Expected next question state")
+            }
         }
 
         @Test("handles single choice response based branching")
-        func handlesSingleChoiceResponseBasedBranching() {
-            let sut = getSurveyController()
+        func handlesSingleChoiceResponseBasedBranching() throws {
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1087,43 +1109,62 @@ enum PostHogSurveysTest {
             )
 
             // Test Very Satisfied/Satisfied path (promoter)
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .singleChoice("Very Satisfied"))
-            #expect(sut.currentQuestionIndex == 3)
-            #expect(sut.isSurveyCompleted == false)
-            sut.onNextQuestion(index: 3, response: .openEnded("Great product!"))
-            #expect(sut.currentQuestionIndex == 4)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Satisfied")) {
+                #expect(nextIndex == 3)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
+
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("Great product!")) {
+                #expect(nextIndex == 4)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
             // Test Neutral path
-            sut.dismissSurvey()
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .singleChoice("Neutral"))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
-            sut.onNextQuestion(index: 2, response: .openEnded("It's okay"))
-            #expect(sut.currentQuestionIndex == 4)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Neutral")) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
+
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("It's okay")) {
+                #expect(nextIndex == 4)
+                #expect(isCompleted == false)
+            } else {
+                throw TestError("Expected next question state")
+            }
 
             // Test Dissatisfied/Very Dissatisfied path (detractor)
-            sut.dismissSurvey()
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied"))
-            #expect(sut.currentQuestionIndex == 1)
-            #expect(sut.isSurveyCompleted == false)
-            sut.onNextQuestion(index: 1, response: .openEnded("Needs work"))
-            #expect(sut.currentQuestionIndex == 4)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")) {
+                #expect(nextIndex == 1)
+                #expect(isCompleted == false)
+            }
+
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("Needs work")) {
+                #expect(nextIndex == 4)
+                #expect(isCompleted == false)
+            }
 
             // Complete final question for any path
-            sut.onNextQuestion(index: 4, response: .singleChoice("Yes"))
-            #expect(sut.currentQuestionIndex == 4)
-            #expect(sut.isSurveyCompleted == true)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 4, response: .singleChoice("Yes")) {
+                #expect(nextIndex == 4)
+                #expect(isCompleted == true)
+            }
         }
 
         @Test("handles rating response based branching for scale 3")
         func handlesRatingResponseBasedBranchingForScale3() {
-            let sut = getSurveyController()
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1140,31 +1181,32 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
             // Test negative (1)
-            sut.onNextQuestion(index: 0, response: .rating(1))
-            #expect(sut.currentQuestionIndex == 1)
-            #expect(sut.isSurveyCompleted == false)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(1)) {
+                #expect(nextIndex == 1)
+                #expect(isCompleted == false)
+            }
 
             // Test neutral (2)
-            sut.dismissSurvey()
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .rating(2))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(2)) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            }
 
             // Test positive (3)
-            sut.dismissSurvey()
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .rating(3))
-            #expect(sut.currentQuestionIndex == 3)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
+                #expect(nextIndex == 3)
+                #expect(isCompleted == false)
+            }
         }
 
         @Test("handles rating response based branching for scale 5")
         func handlesRatingResponseBasedBranchingForScale5() {
-            let sut = getSurveyController()
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1183,33 +1225,33 @@ enum PostHogSurveysTest {
 
             // negative (1-2)
             for rating in 1 ... 2 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 1)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 1)
+                    #expect(isCompleted == false)
+                }
             }
 
             // neutral (3)
-            sut.dismissSurvey()
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .rating(3))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            }
 
             // positive (4-5)
             for rating in 4 ... 5 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 3)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == false)
+                }
             }
         }
 
         @Test("handles rating response based branching for scale 7")
         func handlesRatingResponseBasedBranchingForScale7() {
-            let sut = getSurveyController()
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1226,37 +1268,37 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
             // negative (1-3)
             for rating in 1 ... 3 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 1)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 1)
+                    #expect(isCompleted == false)
+                }
             }
 
             // neutral (4)
-            sut.dismissSurvey()
-            sut.showSurvey(survey)
-            sut.onNextQuestion(index: 0, response: .rating(4))
-            #expect(sut.currentQuestionIndex == 2)
-            #expect(sut.isSurveyCompleted == false)
+            sut.setShownSurvey(survey)
+            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(4)) {
+                #expect(nextIndex == 2)
+                #expect(isCompleted == false)
+            }
 
             // positive (5-7)
             for rating in 5 ... 7 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 3)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == false)
+                }
             }
         }
 
         @Test("handles NPS rating response based branching for scale 10")
         func handlesNPSRatingResponseBasedBranchingForScale10() {
-            let sut = getSurveyController()
+            let sut = PostHogSurveyIntegration()
 
             let survey = PostHogSurvey.testInstance(
                 name: "test survey",
@@ -1273,33 +1315,33 @@ enum PostHogSurveysTest {
                 ]
             )
 
-            sut.showSurvey(survey)
+            sut.setShownSurvey(survey)
 
             // detractors (0-6)
             for rating in 0 ... 6 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 1)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 1)
+                    #expect(isCompleted == false)
+                }
             }
 
             // passives (7-8)
             for rating in 7 ... 8 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 2)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                }
             }
 
             // promoters (9-10)
             for rating in 9 ... 10 {
-                sut.dismissSurvey()
-                sut.showSurvey(survey)
-                sut.onNextQuestion(index: 0, response: .rating(rating))
-                #expect(sut.currentQuestionIndex == 3)
-                #expect(sut.isSurveyCompleted == false)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == false)
+                }
             }
         }
     }

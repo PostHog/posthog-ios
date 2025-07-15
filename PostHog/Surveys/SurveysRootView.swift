@@ -19,7 +19,7 @@
                     SurveySheet(
                         survey: survey,
                         isSurveyCompleted: displayManager.isSurveyCompleted,
-                        currentQuestionIndex: displayManager.currentQuestionIndex ?? 0,
+                        currentQuestionIndex: displayManager.currentQuestionIndex,
                         onClose: displayManager.dismissSurvey,
                         onNextQuestionClicked: displayManager.onNextQuestion
                     )
@@ -27,7 +27,7 @@
                 }
         }
 
-        private var displayBinding: Binding<PostHogSurvey?> {
+        private var displayBinding: Binding<PostHogDisplaySurvey?> {
             .init(
                 get: {
                     displayManager.displayedSurvey

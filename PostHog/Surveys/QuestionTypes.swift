@@ -12,7 +12,7 @@
     struct OpenTextQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: PostHogOpenSurveyQuestion
+        let question: PostHogDisplayOpenQuestion
         let onNextQuestion: (String?) -> Void
 
         @State private var text: String = ""
@@ -21,8 +21,8 @@
             VStack(spacing: 16) {
                 QuestionHeader(
                     question: question.question,
-                    description: question.description,
-                    contentType: question.descriptionContentType ?? .text
+                    description: question.questionDescription,
+                    contentType: question.questionDescriptionContentType
                 )
 
                 TextEditor(text: $text)
@@ -54,7 +54,7 @@
         }
 
         private var canSubmit: Bool {
-            if question.optional == true { return true }
+            if question.isOptional { return true }
             return !text.isEmpty
         }
     }
@@ -63,19 +63,19 @@
     struct LinkQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: PostHogLinkSurveyQuestion
-        let onNextQuestion: (String) -> Void
+        let question: PostHogDisplayLinkQuestion
+        let onNextQuestion: (Bool) -> Void
 
         var body: some View {
             VStack(spacing: 16) {
                 QuestionHeader(
                     question: question.question,
-                    description: question.description,
-                    contentType: question.descriptionContentType ?? .text
+                    description: question.questionDescription,
+                    contentType: question.questionDescriptionContentType
                 )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
-                    onNextQuestion("link clicked")
+                    onNextQuestion(true)
                     if let link, UIApplication.shared.canOpenURL(link) {
                         UIApplication.shared.open(link)
                     }
@@ -95,7 +95,7 @@
     struct RatingQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: PostHogRatingSurveyQuestion
+        let question: PostHogDisplayRatingQuestion
         let onNextQuestion: (Int?) -> Void
         @State var rating: Int?
 
@@ -103,21 +103,21 @@
             VStack(spacing: 16) {
                 QuestionHeader(
                     question: question.question,
-                    description: question.description,
-                    contentType: question.descriptionContentType ?? .text
+                    description: question.questionDescription,
+                    contentType: question.questionDescriptionContentType
                 )
 
-                if question.display == .emoji {
+                if question.ratingType == .emoji {
                     EmojiRating(
                         selectedValue: $rating,
-                        emojiRange: emojiRange,
+                        scale: scale,
                         lowerBoundLabel: question.lowerBoundLabel,
                         upperBoundLabel: question.upperBoundLabel
                     )
                 } else {
                     NumberRating(
                         selectedValue: $rating,
-                        numberRange: numberRange,
+                        scale: scale,
                         lowerBoundLabel: question.lowerBoundLabel,
                         upperBoundLabel: question.upperBoundLabel
                     )
@@ -131,20 +131,12 @@
         }
 
         private var canSubmit: Bool {
-            if question.optional == true { return true }
+            if question.isOptional { return true }
             return rating != nil
         }
 
-        private var emojiRange: SurveyEmojiRange {
-            question.scale == .threePoint ? .oneToThree : .oneToFive
-        }
-
-        private var numberRange: SurveyNumberRange {
-            switch question.scale {
-            case .sevenPoint: .oneToSeven
-            case .tenPoint: .zeroToTen
-            default: .oneToFive
-            }
+        private var scale: PostHogSurveyRatingScale {
+            PostHogSurveyRatingScale(range: question.scaleLowerBound ... question.scaleUpperBound)
         }
     }
 
@@ -152,7 +144,7 @@
     struct SingleChoiceQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: PostHogMultipleSurveyQuestion
+        let question: PostHogDisplayChoiceQuestion
         let onNextQuestion: (String?) -> Void
 
         @State private var selectedChoices: Set<String> = []
@@ -162,13 +154,13 @@
             VStack(spacing: 16) {
                 QuestionHeader(
                     question: question.question,
-                    description: question.description,
-                    contentType: question.descriptionContentType ?? .text
+                    description: question.questionDescription,
+                    contentType: question.questionDescriptionContentType
                 )
 
                 MultipleChoiceOptions(
                     allowsMultipleSelection: false,
-                    hasOpenChoiceQuestion: question.hasOpenChoice ?? false,
+                    hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
                     openChoiceInput: $openChoiceInput
@@ -184,7 +176,7 @@
         }
 
         private var canSubmit: Bool {
-            if question.optional == true { return true }
+            if question.isOptional { return true }
             return selectedChoices.count == 1 && (hasOpenChoiceSelected ? !openChoiceInput.isEmpty : true)
         }
 
@@ -203,7 +195,7 @@
     struct MultipleChoiceQuestionView: View {
         @Environment(\.surveyAppearance) private var appearance
 
-        let question: PostHogMultipleSurveyQuestion
+        let question: PostHogDisplayChoiceQuestion
         let onNextQuestion: ([String]?) -> Void
 
         @State private var selectedChoices: Set<String> = []
@@ -213,13 +205,13 @@
             VStack(spacing: 16) {
                 QuestionHeader(
                     question: question.question,
-                    description: question.description,
-                    contentType: question.descriptionContentType ?? .text
+                    description: question.questionDescription,
+                    contentType: question.questionDescriptionContentType
                 )
 
                 MultipleChoiceOptions(
                     allowsMultipleSelection: true,
-                    hasOpenChoiceQuestion: question.hasOpenChoice ?? false,
+                    hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
                     openChoiceInput: $openChoiceInput
@@ -234,7 +226,7 @@
         }
 
         private var canSubmit: Bool {
-            if question.optional == true { return true }
+            if question.isOptional { return true }
             return !selectedChoices.isEmpty && (hasOpenChoiceSelected ? !openChoiceInput.isEmpty : true)
         }
 
@@ -248,5 +240,4 @@
             return question.choices.last
         }
     }
-
 #endif

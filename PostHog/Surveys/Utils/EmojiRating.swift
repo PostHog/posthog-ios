@@ -13,14 +13,14 @@
         @Environment(\.surveyAppearance) private var appearance
         @Binding var selectedValue: Int?
 
-        let emojiRange: SurveyEmojiRange
+        let scale: PostHogSurveyRatingScale
         let lowerBoundLabel: String
         let upperBoundLabel: String
 
         var body: some View {
             VStack {
                 HStack {
-                    ForEach(emojiRange.range, id: \.self) { value in
+                    ForEach(scale.range, id: \.self) { value in
                         Button {
                             withAnimation(.linear(duration: 0.25)) {
                                 selectedValue = selectedValue == value ? nil : value
@@ -32,7 +32,7 @@
                                 .font(.body.bold())
                                 .foregroundColor(foregroundColor(selected: isSelected))
 
-                            if value != emojiRange.range.upperBound {
+                            if value != scale.range.upperBound {
                                 Spacer()
                             }
                         }
@@ -53,47 +53,33 @@
 
         // swiftlint:disable:next cyclomatic_complexity
         @ViewBuilder private func emoji(for value: Int) -> some View {
-            if emojiRange.range.count == 3 {
+            switch scale {
+            case .threePoint:
                 switch value {
-                case 1: DissatisfiedEmoji().erasedToAnyView
-                case 2: NeutralEmoji().erasedToAnyView
-                case 3: SatisfiedEmoji().erasedToAnyView
-                default: EmptyView().erasedToAnyView
+                case 1: DissatisfiedEmoji()
+                case 2: NeutralEmoji()
+                case 3: SatisfiedEmoji()
+                default: EmptyView()
                 }
-            } else if emojiRange.range.count == 5 {
+            case .fivePoint:
                 switch value {
-                case 1: VeryDissatisfiedEmoji().erasedToAnyView
-                case 2: DissatisfiedEmoji().erasedToAnyView
-                case 3: NeutralEmoji().erasedToAnyView
-                case 4: SatisfiedEmoji().erasedToAnyView
-                case 5: VerySatisfiedEmoji().erasedToAnyView
-                default: EmptyView().erasedToAnyView
+                case 1: VeryDissatisfiedEmoji()
+                case 2: DissatisfiedEmoji()
+                case 3: NeutralEmoji()
+                case 4: SatisfiedEmoji()
+                case 5: VerySatisfiedEmoji()
+                default: EmptyView()
                 }
+            default: EmptyView()
             }
         }
 
         private func foregroundColor(selected: Bool) -> Color {
-            selected ? ratingButtonActiveColor : ratingButtonColor
-        }
-
-        private var ratingButtonColor: Color {
-            appearance.ratingButtonColor ?? Color(uiColor: .tertiaryLabel)
+            selected ? Color(uiColor: .label) : Color(uiColor: .tertiaryLabel)
         }
 
         private var ratingButtonActiveColor: Color {
             appearance.ratingButtonActiveColor ?? .black
-        }
-    }
-
-    enum SurveyEmojiRange {
-        case oneToThree
-        case oneToFive
-
-        var range: ClosedRange<Int> {
-            switch self {
-            case .oneToThree: 1 ... 3
-            case .oneToFive: 1 ... 5
-            }
         }
     }
 
@@ -107,7 +93,7 @@
                     VStack(spacing: 40) {
                         EmojiRating(
                             selectedValue: $selectedValue,
-                            emojiRange: .oneToFive,
+                            scale: .fivePoint,
                             lowerBoundLabel: "Unlikely",
                             upperBoundLabel: "Very likely"
                         )

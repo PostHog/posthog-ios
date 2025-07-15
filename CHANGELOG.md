@@ -1,6 +1,6 @@
 ## Next
 
-- feat: add support for custom survey UI ([#359](https://github.com/PostHog/posthog-ios/pull/359))
+- feat: add support for custom survey UI ([#369](https://github.com/PostHog/posthog-ios/pull/369))
 
 ## 3.28.3 - 2025-07-14
 

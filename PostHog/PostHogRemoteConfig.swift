@@ -29,6 +29,12 @@ class PostHogRemoteConfig {
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
     private var requestId: String?
+    
+    private let personPropertiesForFlagsLock = NSLock()
+    private var personPropertiesForFlags: [String: Any] = [:]
+    
+    private let groupPropertiesForFlagsLock = NSLock()
+    private var groupPropertiesForFlags: [String: [String: Any]] = [:]
 
     /// Internal, only used for testing
     var canReloadFlagsForTesting = true
@@ -251,9 +257,14 @@ class PostHogRemoteConfig {
             self.loadingFeatureFlags = true
         }
 
+        let personProperties = getPersonPropertiesForFlags()
+        let groupProperties = getGroupPropertiesForFlags()
+        
         api.flags(distinctId: distinctId,
                   anonymousId: anonymousId,
-                  groups: groups)
+                  groups: groups,
+                  personProperties: personProperties.isEmpty ? nil : personProperties,
+                  groupProperties: groupProperties.isEmpty ? nil : groupProperties)
         { data, _ in
             self.dispatchQueue.async {
                 // Check for quota limitation first
@@ -440,6 +451,55 @@ class PostHogRemoteConfig {
             flags = storage.getDictionary(forKey: .flags) as? [String: Any]
         }
         return flags
+    }
+    
+    func setPersonPropertiesForFlags(_ properties: [String: Any]) {
+        personPropertiesForFlagsLock.withLock {
+            // Merge properties additively, similar to JS SDK behavior
+            for (key, value) in properties {
+                personPropertiesForFlags[key] = value
+            }
+        }
+    }
+    
+    func resetPersonPropertiesForFlags() {
+        personPropertiesForFlagsLock.withLock {
+            personPropertiesForFlags.removeAll()
+        }
+    }
+    
+    func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
+        groupPropertiesForFlagsLock.withLock {
+            // Merge properties additively for this group type
+            if groupPropertiesForFlags[groupType] == nil {
+                groupPropertiesForFlags[groupType] = [:]
+            }
+            for (key, value) in properties {
+                groupPropertiesForFlags[groupType]![key] = value
+            }
+        }
+    }
+    
+    func resetGroupPropertiesForFlags(_ groupType: String? = nil) {
+        groupPropertiesForFlagsLock.withLock {
+            if let groupType = groupType {
+                groupPropertiesForFlags.removeValue(forKey: groupType)
+            } else {
+                groupPropertiesForFlags.removeAll()
+            }
+        }
+    }
+    
+    private func getGroupPropertiesForFlags() -> [String: [String: Any]] {
+        return groupPropertiesForFlagsLock.withLock {
+            groupPropertiesForFlags
+        }
+    }
+    
+    private func getPersonPropertiesForFlags() -> [String: Any] {
+        return personPropertiesForFlagsLock.withLock {
+            personPropertiesForFlags
+        }
     }
 
     func getFeatureFlagPayload(_ key: String) -> Any? {

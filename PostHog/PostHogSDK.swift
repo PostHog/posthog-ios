@@ -350,6 +350,10 @@ let maxRetryDelay = 30.0
             flagCallReported.removeAll()
         }
         PostHogSessionManager.shared.resetSession()
+        
+        // Clear person and group properties for flags
+        remoteConfig?.resetPersonPropertiesForFlags()
+        remoteConfig?.resetGroupPropertiesForFlags()
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()
@@ -467,6 +471,11 @@ let maxRetryDelay = 30.0
             }
 
             queue.add(event)
+            
+            // Automatically set person properties for feature flags
+            if let userProperties = userProperties, !userProperties.isEmpty {
+                remoteConfig?.setPersonPropertiesForFlags(userProperties)
+            }
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -477,6 +486,11 @@ let maxRetryDelay = 30.0
                     distinctId: distinctId,
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
+            
+            // Automatically set person properties for feature flags
+            if let userProperties = userProperties, !userProperties.isEmpty {
+                remoteConfig?.setPersonPropertiesForFlags(userProperties)
+            }
 
             // Note we don't reload flags on property changes as these get processed async
 
@@ -831,6 +845,146 @@ let maxRetryDelay = 30.0
     }
 
     // FEATURE FLAGS
+    
+    /// Sets person properties that will be included in feature flag evaluation requests.
+    ///
+    /// This method allows you to override server-side person properties for immediate feature flag evaluation,
+    /// solving the race condition where person properties from `identify()` calls may not have been processed
+    /// by the server yet.
+    ///
+    /// Properties are merged additively with existing properties. Feature flags are automatically reloaded
+    /// after setting properties.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Set properties and automatically reload flags
+    /// PostHogSDK.shared.setPersonPropertiesForFlags([
+    ///     "$app_version": "2.93.0",
+    ///     "plan": "premium"
+    /// ])
+    ///
+    /// // Now feature flags will be evaluated with these properties
+    /// let flagValue = PostHogSDK.shared.isFeatureEnabled("new_feature")
+    /// ```
+    ///
+    /// - Parameter properties: Dictionary of person properties to include in flag evaluation
+    /// - SeeAlso: `setPersonPropertiesForFlags(_:reloadFeatureFlags:)` to control flag reloading behavior
+    @objc public func setPersonPropertiesForFlags(_ properties: [String: Any]) {
+        setPersonPropertiesForFlags(properties, reloadFeatureFlags: true)
+    }
+    
+    /// Sets person properties that will be included in feature flag evaluation requests.
+    ///
+    /// This method allows you to override server-side person properties for immediate feature flag evaluation,
+    /// solving the race condition where person properties from `identify()` calls may not have been processed
+    /// by the server yet.
+    ///
+    /// Properties are merged additively with existing properties.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Set properties without automatically reloading flags
+    /// PostHogSDK.shared.setPersonPropertiesForFlags([
+    ///     "$app_version": "2.93.0",
+    ///     "plan": "premium"
+    /// ], reloadFeatureFlags: false)
+    ///
+    /// // Manually reload flags later
+    /// PostHogSDK.shared.reloadFeatureFlags()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - properties: Dictionary of person properties to include in flag evaluation
+    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
+    @objc(setPersonPropertiesForFlags:reloadFeatureFlags:)
+    public func setPersonPropertiesForFlags(_ properties: [String: Any], reloadFeatureFlags: Bool) {
+        if !isEnabled() {
+            return
+        }
+        
+        let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
+        remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
+        
+        if reloadFeatureFlags {
+            self.reloadFeatureFlags()
+        }
+    }
+    
+    /// Resets all person properties that were set for feature flag evaluation.
+    ///
+    /// After calling this method, feature flag evaluation will only use server-side person properties
+    /// and will not include any locally overridden properties.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Clear all locally set person properties for flags
+    /// PostHogSDK.shared.resetPersonPropertiesForFlags()
+    ///
+    /// // Feature flags will now use only server-side properties
+    /// let flagValue = PostHogSDK.shared.isFeatureEnabled("feature")
+    /// ```
+    ///
+    /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
+    ///         after resetting if you want to immediately refresh flags with the cleared properties.
+    @objc public func resetPersonPropertiesForFlags() {
+        if !isEnabled() {
+            return
+        }
+        
+        remoteConfig?.resetPersonPropertiesForFlags()
+    }
+    
+    /// Sets properties for a specific group type to include when evaluating feature flags.
+    /// These properties supplement the standard group information sent to PostHog for flag evaluation,
+    /// providing additional context that can be used in flag targeting conditions.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// PostHogSDK.shared.setGroupPropertiesForFlags("organization", properties: [
+    ///     "plan": "enterprise",
+    ///     "seats": 50,
+    ///     "industry": "technology"
+    /// ])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - groupType: The group type identifier (e.g., "organization", "team")
+    ///   - properties: Dictionary of properties to set for this group type
+    /// - Note: This method automatically reloads feature flags to apply the new properties.
+    @objc public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
+        if !isEnabled() {
+            return
+        }
+        
+        let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
+        remoteConfig?.setGroupPropertiesForFlags(groupType, properties: sanitizedProperties)
+        
+        // Automatically reload flags to apply the new properties
+        remoteConfig?.reloadFeatureFlags()
+    }
+    
+    /// Clears group properties for feature flag evaluation for a specific group type,
+    /// or all group properties if no group type is specified.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Clear properties for specific group type
+    /// PostHogSDK.shared.resetGroupPropertiesForFlags("organization")
+    /// 
+    /// // Clear all group properties
+    /// PostHogSDK.shared.resetGroupPropertiesForFlags()
+    /// ```
+    ///
+    /// - Parameter groupType: The group type to clear properties for, or nil to clear all group properties
+    /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
+    ///         after resetting if you want to immediately refresh flags with the cleared properties.
+    @objc public func resetGroupPropertiesForFlags(_ groupType: String? = nil) {
+        if !isEnabled() {
+            return
+        }
+        remoteConfig?.resetGroupPropertiesForFlags(groupType)
+    }
+
     @objc public func reloadFeatureFlags() {
         reloadFeatureFlags {
             // No use case

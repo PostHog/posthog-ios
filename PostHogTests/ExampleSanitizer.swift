@@ -9,7 +9,7 @@ import Foundation
 import PostHog
 
 class ExampleSanitizer: PostHogPropertiesSanitizer {
-    public func sanitize(_ properties: [String: Any]) -> [String: Any] {
+    func sanitize(_ properties: [String: Any]) -> [String: Any] {
         var sanitizedProperties = properties
         // Perform sanitization
         // For example, removing keys with empty values

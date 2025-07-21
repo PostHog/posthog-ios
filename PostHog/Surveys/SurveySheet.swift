@@ -163,21 +163,21 @@
     }
 
     struct SwiftUISurveyAppearance {
-        public var fontFamily: Font
-        public var backgroundColor: Color
-        public var submitButtonColor: Color
-        public var submitButtonText: String
-        public var submitButtonTextColor: Color
-        public var descriptionTextColor: Color
-        public var ratingButtonColor: Color?
-        public var ratingButtonActiveColor: Color?
-        public var displayThankYouMessage: Bool
-        public var thankYouMessageHeader: String
-        public var thankYouMessageDescription: String?
-        public var thankYouMessageDescriptionContentType: PostHogDisplaySurveyTextContentType = .text
-        public var thankYouMessageCloseButtonText: String
-        public var borderColor: Color
-        public var placeholder: String?
+        var fontFamily: Font
+        var backgroundColor: Color
+        var submitButtonColor: Color
+        var submitButtonText: String
+        var submitButtonTextColor: Color
+        var descriptionTextColor: Color
+        var ratingButtonColor: Color?
+        var ratingButtonActiveColor: Color?
+        var displayThankYouMessage: Bool
+        var thankYouMessageHeader: String
+        var thankYouMessageDescription: String?
+        var thankYouMessageDescriptionContentType: PostHogDisplaySurveyTextContentType = .text
+        var thankYouMessageCloseButtonText: String
+        var borderColor: Color
+        var placeholder: String?
     }
 
     @available(iOS 15.0, *)

@@ -363,7 +363,7 @@
     final class Weak<T: AnyObject> {
         weak var value: T?
 
-        public init(_ wrappedValue: T? = nil) {
+        init(_ wrappedValue: T? = nil) {
             value = wrappedValue
         }
     }

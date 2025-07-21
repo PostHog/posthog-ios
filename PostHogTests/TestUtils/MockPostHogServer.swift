@@ -35,18 +35,18 @@ class MockPostHogServer {
         flagsExpectation?.fulfill()
     }
 
-    public var errorsWhileComputingFlags = false
-    public var return500 = false
-    public var returnReplay = false
-    public var returnReplayWithVariant = false
-    public var returnReplayWithMultiVariant = false
-    public var replayVariantName = "myBooleanRecordingFlag"
-    public var flagsSkipReplayVariantName = false
-    public var replayVariantValue: Any = true
-    public var quotaLimitFeatureFlags: Bool = false
-    public var remoteConfigSurveys: String?
-    public var hasFeatureFlags: Bool? = true
-    public var featureFlags: [String: Any]?
+    var errorsWhileComputingFlags = false
+    var return500 = false
+    var returnReplay = false
+    var returnReplayWithVariant = false
+    var returnReplayWithMultiVariant = false
+    var replayVariantName = "myBooleanRecordingFlag"
+    var flagsSkipReplayVariantName = false
+    var replayVariantValue: Any = true
+    var quotaLimitFeatureFlags: Bool = false
+    var remoteConfigSurveys: String?
+    var hasFeatureFlags: Bool? = true
+    var featureFlags: [String: Any]?
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {

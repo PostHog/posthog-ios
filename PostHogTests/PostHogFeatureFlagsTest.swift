@@ -189,4 +189,263 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("string-value") == nil)
         }
     }
+
+    @Suite("Test Person and Group Properties for Flags")
+    class TestPersonAndGroupPropertiesForFlags: BaseTestClass {
+        @Test("Person properties are stored and retrieved correctly")
+        func storeAndRetrievePersonProperties() {
+            let sut = getSut()
+            let properties = [
+                "test_property": "test_value",
+                "plan": "premium",
+                "age": 25,
+            ] as [String: Any]
+
+            // Set properties
+            sut.setPersonPropertiesForFlags(properties)
+
+            // Verify they can be retrieved by testing the internal state
+            // Since getPersonPropertiesForFlags is private, we'll test via flag loading
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            // Verify the request included person properties by checking server received data
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+
+            #expect(requestBody != nil)
+            if let personProperties = requestBody?["person_properties"] as? [String: Any] {
+                #expect(personProperties["test_property"] as? String == "test_value")
+                #expect(personProperties["plan"] as? String == "premium")
+                #expect(personProperties["age"] as? Int == 25)
+            } else {
+                #expect(Bool(false), "Person properties not found in request")
+            }
+        }
+
+        @Test("Person properties are additive")
+        func personPropertiesAreAdditive() {
+            let sut = getSut()
+
+            // Set first batch of properties
+            sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
+
+            // Set second batch that overlaps
+            sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"])
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let personProperties = requestBody?["person_properties"] as? [String: Any] {
+                #expect(personProperties["property1"] as? String == "value1")
+                #expect(personProperties["property2"] as? String == "value2")
+                #expect(personProperties["shared"] as? String == "updated") // Latest wins
+            } else {
+                #expect(Bool(false), "Person properties not found in request")
+            }
+        }
+
+        @Test("Reset person properties clears all properties")
+        func resetPersonPropertiesClearsAll() {
+            let sut = getSut()
+
+            // Set some properties
+            sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
+
+            // Reset them
+            sut.resetPersonPropertiesForFlags()
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let requestBody = requestBody {
+                #expect(requestBody["person_properties"] == nil)
+            }
+        }
+
+        @Test("Group properties are stored and retrieved correctly")
+        func storeAndRetrieveGroupProperties() {
+            let sut = getSut()
+            let properties = [
+                "plan": "enterprise",
+                "seats": 50,
+                "industry": "technology",
+            ] as [String: Any]
+
+            // Set group properties
+            sut.setGroupPropertiesForFlags("organization", properties: properties)
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let groupProperties = requestBody?["group_properties"] as? [String: [String: Any]],
+               let orgProperties = groupProperties["organization"]
+            {
+                #expect(orgProperties["plan"] as? String == "enterprise")
+                #expect(orgProperties["seats"] as? Int == 50)
+                #expect(orgProperties["industry"] as? String == "technology")
+            } else {
+                #expect(Bool(false), "Group properties not found in request")
+            }
+        }
+
+        @Test("Multiple group types are handled correctly")
+        func multipleGroupTypesHandled() {
+            let sut = getSut()
+
+            // Set properties for different group types
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let groupProperties = requestBody?["group_properties"] as? [String: [String: Any]] {
+                #expect(groupProperties["organization"]?["plan"] as? String == "enterprise")
+                #expect(groupProperties["team"]?["role"] as? String == "engineering")
+            } else {
+                #expect(Bool(false), "Group properties not found in request")
+            }
+        }
+
+        @Test("Reset group properties for specific type")
+        func resetGroupPropertiesSpecificType() {
+            let sut = getSut()
+
+            // Set properties for multiple group types
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+
+            // Reset only organization properties
+            sut.resetGroupPropertiesForFlags("organization")
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let groupProperties = requestBody?["group_properties"] as? [String: [String: Any]] {
+                #expect(groupProperties["organization"] == nil)
+                #expect(groupProperties["team"]?["role"] as? String == "engineering")
+            } else {
+                #expect(Bool(false), "Group properties not found in request")
+            }
+        }
+
+        @Test("Reset all group properties")
+        func resetAllGroupProperties() {
+            let sut = getSut()
+
+            // Set properties for multiple group types
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+
+            // Reset all group properties
+            sut.resetGroupPropertiesForFlags()
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let requestBody = requestBody {
+                #expect(requestBody["group_properties"] == nil)
+            }
+        }
+
+        @Test("Both person and group properties sent together")
+        func bothPersonAndGroupPropertiesSent() {
+            let sut = getSut()
+
+            // Set both types of properties
+            sut.setPersonPropertiesForFlags(["user_plan": "premium"])
+            sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"])
+
+            let expectation = expectation(description: "Flag loading completed")
+
+            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                expectation.fulfill()
+            }
+
+            wait(for: [expectation], timeout: 1.0)
+
+            #expect(server.flagsRequests.count > 0)
+            let lastRequest = server.flagsRequests.last!
+            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(requestBody != nil)
+            if let requestBody = requestBody {
+                // Check person properties
+                if let personProperties = requestBody["person_properties"] as? [String: Any] {
+                    #expect(personProperties["user_plan"] as? String == "premium")
+                } else {
+                    #expect(Bool(false), "Person properties not found")
+                }
+
+                // Check group properties
+                if let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] {
+                    #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise")
+                } else {
+                    #expect(Bool(false), "Group properties not found")
+                }
+            } else {
+                #expect(Bool(false), "Request body not found")
+            }
+        }
+    }
 }

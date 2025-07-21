@@ -215,18 +215,26 @@ enum PostHogFeatureFlagsTest {
             wait(for: [expectation], timeout: 1.0)
 
             // Verify the request included person properties by checking server received data
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
-            #expect(requestBody != nil)
-            if let personProperties = requestBody?["person_properties"] as? [String: Any] {
-                #expect(personProperties["test_property"] as? String == "test_value")
-                #expect(personProperties["plan"] as? String == "premium")
-                #expect(personProperties["age"] as? Int == 25)
-            } else {
-                #expect(Bool(false), "Person properties not found in request")
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            guard let personProperties = requestBody["person_properties"] as? [String: Any] else {
+                #expect(Bool(false), "Person properties not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(personProperties["test_property"] as? String == "test_value", "Expected test_property to be 'test_value'")
+            #expect(personProperties["plan"] as? String == "premium", "Expected plan to be 'premium'")
+            #expect(personProperties["age"] as? Int == 25, "Expected age to be 25")
         }
 
         @Test("Person properties are additive")
@@ -247,17 +255,26 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let personProperties = requestBody?["person_properties"] as? [String: Any] {
-                #expect(personProperties["property1"] as? String == "value1")
-                #expect(personProperties["property2"] as? String == "value2")
-                #expect(personProperties["shared"] as? String == "updated") // Latest wins
-            } else {
-                #expect(Bool(false), "Person properties not found in request")
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            guard let personProperties = requestBody["person_properties"] as? [String: Any] else {
+                #expect(Bool(false), "Person properties not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(personProperties["property1"] as? String == "value1", "Expected property1 to be 'value1'")
+            #expect(personProperties["property2"] as? String == "value2", "Expected property2 to be 'value2'")
+            #expect(personProperties["shared"] as? String == "updated", "Expected shared property to be 'updated' (latest value)")
         }
 
         @Test("Reset person properties clears all properties")
@@ -278,13 +295,19 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let requestBody = requestBody {
-                #expect(requestBody["person_properties"] == nil)
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            #expect(requestBody["person_properties"] == nil, "Expected person_properties to be nil after reset")
         }
 
         @Test("Group properties are stored and retrieved correctly")
@@ -307,19 +330,31 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let groupProperties = requestBody?["group_properties"] as? [String: [String: Any]],
-               let orgProperties = groupProperties["organization"]
-            {
-                #expect(orgProperties["plan"] as? String == "enterprise")
-                #expect(orgProperties["seats"] as? Int == 50)
-                #expect(orgProperties["industry"] as? String == "technology")
-            } else {
-                #expect(Bool(false), "Group properties not found in request")
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            guard let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] else {
+                #expect(Bool(false), "Group properties not found in request body: \(requestBody)")
+                return
+            }
+
+            guard let orgProperties = groupProperties["organization"] else {
+                #expect(Bool(false), "Organization group properties not found: \(groupProperties)")
+                return
+            }
+
+            #expect(orgProperties["plan"] as? String == "enterprise", "Expected organization plan to be 'enterprise'")
+            #expect(orgProperties["seats"] as? Int == 50, "Expected organization seats to be 50")
+            #expect(orgProperties["industry"] as? String == "technology", "Expected organization industry to be 'technology'")
         }
 
         @Test("Multiple group types are handled correctly")
@@ -338,16 +373,25 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let groupProperties = requestBody?["group_properties"] as? [String: [String: Any]] {
-                #expect(groupProperties["organization"]?["plan"] as? String == "enterprise")
-                #expect(groupProperties["team"]?["role"] as? String == "engineering")
-            } else {
-                #expect(Bool(false), "Group properties not found in request")
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            guard let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] else {
+                #expect(Bool(false), "Group properties not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(groupProperties["organization"]?["plan"] as? String == "enterprise", "Expected organization plan to be 'enterprise'")
+            #expect(groupProperties["team"]?["role"] as? String == "engineering", "Expected team role to be 'engineering'")
         }
 
         @Test("Reset group properties for specific type")
@@ -369,16 +413,25 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let groupProperties = requestBody?["group_properties"] as? [String: [String: Any]] {
-                #expect(groupProperties["organization"] == nil)
-                #expect(groupProperties["team"]?["role"] as? String == "engineering")
-            } else {
-                #expect(Bool(false), "Group properties not found in request")
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            guard let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] else {
+                #expect(Bool(false), "Group properties not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(groupProperties["organization"] == nil, "Expected organization properties to be cleared")
+            #expect(groupProperties["team"]?["role"] as? String == "engineering", "Expected team role to still be 'engineering'")
         }
 
         @Test("Reset all group properties")
@@ -400,13 +453,19 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let requestBody = requestBody {
-                #expect(requestBody["group_properties"] == nil)
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            #expect(requestBody["group_properties"] == nil, "Expected group_properties to be nil after reset")
         }
 
         @Test("Both person and group properties sent together")
@@ -425,27 +484,33 @@ enum PostHogFeatureFlagsTest {
 
             wait(for: [expectation], timeout: 1.0)
 
-            #expect(server.flagsRequests.count > 0)
-            let lastRequest = server.flagsRequests.last!
-            let requestBody = server.parseRequest(lastRequest, gzip: false)
-            #expect(requestBody != nil)
-            if let requestBody = requestBody {
-                // Check person properties
-                if let personProperties = requestBody["person_properties"] as? [String: Any] {
-                    #expect(personProperties["user_plan"] as? String == "premium")
-                } else {
-                    #expect(Bool(false), "Person properties not found")
-                }
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
-                // Check group properties
-                if let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] {
-                    #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise")
-                } else {
-                    #expect(Bool(false), "Group properties not found")
-                }
-            } else {
-                #expect(Bool(false), "Request body not found")
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found in server.flagsRequests")
+                return
             }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body from flags request")
+                return
+            }
+
+            // Check person properties
+            guard let personProperties = requestBody["person_properties"] as? [String: Any] else {
+                #expect(Bool(false), "Person properties not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(personProperties["user_plan"] as? String == "premium", "Expected user_plan to be 'premium'")
+
+            // Check group properties
+            guard let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] else {
+                #expect(Bool(false), "Group properties not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise'")
         }
     }
 }

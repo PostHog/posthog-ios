@@ -473,9 +473,7 @@ let maxRetryDelay = 30.0
             queue.add(event)
 
             // Automatically set person properties for feature flags
-            if let userProperties = userProperties, !userProperties.isEmpty {
-                remoteConfig?.setPersonPropertiesForFlags(userProperties)
-            }
+            setPersonPropertiesForFlagsIfNeeded(userProperties)
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -488,9 +486,7 @@ let maxRetryDelay = 30.0
                     userPropertiesSetOnce: userPropertiesSetOnce)
 
             // Automatically set person properties for feature flags
-            if let userProperties = userProperties, !userProperties.isEmpty {
-                remoteConfig?.setPersonPropertiesForFlags(userProperties)
-            }
+            setPersonPropertiesForFlagsIfNeeded(userProperties)
 
             // Note we don't reload flags on property changes as these get processed async
 
@@ -505,6 +501,12 @@ let maxRetryDelay = 30.0
             return true
         }
         return false
+    }
+
+    private func setPersonPropertiesForFlagsIfNeeded(_ userProperties: [String: Any]?) {
+        if let userProperties = userProperties, !userProperties.isEmpty {
+            remoteConfig?.setPersonPropertiesForFlags(userProperties)
+        }
     }
 
     @objc public func capture(_ event: String) {

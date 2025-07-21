@@ -472,7 +472,7 @@ let maxRetryDelay = 30.0
 
             queue.add(event)
 
-            // Automatically set person properties for feature flags
+            // Automatically set person properties for feature flags during identify event
             setPersonPropertiesForFlagsIfNeeded(userProperties)
 
             remoteConfig?.reloadFeatureFlags()

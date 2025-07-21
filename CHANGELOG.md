@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add person and group properties for feature flags ([#366](https://github.com/PostHog/posthog-ios/pull/366))
+
 ## 3.29.0 - 2025-07-15
 
 - feat: add support for custom survey UI ([#369](https://github.com/PostHog/posthog-ios/pull/369))

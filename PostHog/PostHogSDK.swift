@@ -350,7 +350,7 @@ let maxRetryDelay = 30.0
             flagCallReported.removeAll()
         }
         PostHogSessionManager.shared.resetSession()
-        
+
         // Clear person and group properties for flags
         remoteConfig?.resetPersonPropertiesForFlags()
         remoteConfig?.resetGroupPropertiesForFlags()
@@ -471,7 +471,7 @@ let maxRetryDelay = 30.0
             }
 
             queue.add(event)
-            
+
             // Automatically set person properties for feature flags
             if let userProperties = userProperties, !userProperties.isEmpty {
                 remoteConfig?.setPersonPropertiesForFlags(userProperties)
@@ -486,7 +486,7 @@ let maxRetryDelay = 30.0
                     distinctId: distinctId,
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
-            
+
             // Automatically set person properties for feature flags
             if let userProperties = userProperties, !userProperties.isEmpty {
                 remoteConfig?.setPersonPropertiesForFlags(userProperties)
@@ -845,7 +845,7 @@ let maxRetryDelay = 30.0
     }
 
     // FEATURE FLAGS
-    
+
     /// Sets person properties that will be included in feature flag evaluation requests.
     ///
     /// This method allows you to override server-side person properties for immediate feature flag evaluation,
@@ -872,7 +872,7 @@ let maxRetryDelay = 30.0
     @objc public func setPersonPropertiesForFlags(_ properties: [String: Any]) {
         setPersonPropertiesForFlags(properties, reloadFeatureFlags: true)
     }
-    
+
     /// Sets person properties that will be included in feature flag evaluation requests.
     ///
     /// This method allows you to override server-side person properties for immediate feature flag evaluation,
@@ -901,15 +901,15 @@ let maxRetryDelay = 30.0
         if !isEnabled() {
             return
         }
-        
+
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
         remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
-        
+
         if reloadFeatureFlags {
-            self.reloadFeatureFlags()
+            remoteConfig?.reloadFeatureFlags()
         }
     }
-    
+
     /// Resets all person properties that were set for feature flag evaluation.
     ///
     /// After calling this method, feature flag evaluation will only use server-side person properties
@@ -930,10 +930,10 @@ let maxRetryDelay = 30.0
         if !isEnabled() {
             return
         }
-        
+
         remoteConfig?.resetPersonPropertiesForFlags()
     }
-    
+
     /// Sets properties for a specific group type to include when evaluating feature flags.
     /// These properties supplement the standard group information sent to PostHog for flag evaluation,
     /// providing additional context that can be used in flag targeting conditions.
@@ -955,14 +955,14 @@ let maxRetryDelay = 30.0
         if !isEnabled() {
             return
         }
-        
+
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
         remoteConfig?.setGroupPropertiesForFlags(groupType, properties: sanitizedProperties)
-        
+
         // Automatically reload flags to apply the new properties
         remoteConfig?.reloadFeatureFlags()
     }
-    
+
     /// Clears group properties for feature flag evaluation for a specific group type,
     /// or all group properties if no group type is specified.
     ///
@@ -970,7 +970,7 @@ let maxRetryDelay = 30.0
     /// ```swift
     /// // Clear properties for specific group type
     /// PostHogSDK.shared.resetGroupPropertiesForFlags("organization")
-    /// 
+    ///
     /// // Clear all group properties
     /// PostHogSDK.shared.resetGroupPropertiesForFlags()
     /// ```

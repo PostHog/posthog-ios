@@ -29,10 +29,10 @@ class PostHogRemoteConfig {
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
     private var requestId: String?
-    
+
     private let personPropertiesForFlagsLock = NSLock()
     private var personPropertiesForFlags: [String: Any] = [:]
-    
+
     private let groupPropertiesForFlagsLock = NSLock()
     private var groupPropertiesForFlags: [String: [String: Any]] = [:]
 
@@ -259,7 +259,7 @@ class PostHogRemoteConfig {
 
         let personProperties = getPersonPropertiesForFlags()
         let groupProperties = getGroupPropertiesForFlags()
-        
+
         api.flags(distinctId: distinctId,
                   anonymousId: anonymousId,
                   groups: groups,
@@ -452,7 +452,7 @@ class PostHogRemoteConfig {
         }
         return flags
     }
-    
+
     func setPersonPropertiesForFlags(_ properties: [String: Any]) {
         personPropertiesForFlagsLock.withLock {
             // Merge properties additively, similar to JS SDK behavior
@@ -461,13 +461,13 @@ class PostHogRemoteConfig {
             }
         }
     }
-    
+
     func resetPersonPropertiesForFlags() {
         personPropertiesForFlagsLock.withLock {
             personPropertiesForFlags.removeAll()
         }
     }
-    
+
     func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
         groupPropertiesForFlagsLock.withLock {
             // Merge properties additively for this group type
@@ -479,7 +479,7 @@ class PostHogRemoteConfig {
             }
         }
     }
-    
+
     func resetGroupPropertiesForFlags(_ groupType: String? = nil) {
         groupPropertiesForFlagsLock.withLock {
             if let groupType = groupType {
@@ -489,15 +489,15 @@ class PostHogRemoteConfig {
             }
         }
     }
-    
+
     private func getGroupPropertiesForFlags() -> [String: [String: Any]] {
-        return groupPropertiesForFlagsLock.withLock {
+        groupPropertiesForFlagsLock.withLock {
             groupPropertiesForFlags
         }
     }
-    
+
     private func getPersonPropertiesForFlags() -> [String: Any] {
-        return personPropertiesForFlagsLock.withLock {
+        personPropertiesForFlagsLock.withLock {
             personPropertiesForFlags
         }
     }

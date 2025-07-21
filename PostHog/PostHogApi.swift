@@ -224,11 +224,11 @@ class PostHogApi {
         if let anonymousId {
             toSend["$anon_distinct_id"] = anonymousId
         }
-        
+
         if let personProperties, !personProperties.isEmpty {
             toSend["person_properties"] = personProperties
         }
-        
+
         if let groupProperties, !groupProperties.isEmpty {
             toSend["group_properties"] = groupProperties
         }

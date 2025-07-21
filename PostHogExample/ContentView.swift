@@ -81,32 +81,32 @@ struct ContentView: View {
             "name": name,
         ])
     }
-    
+
     func testPersonPropertiesForFlags() {
         print("🧪 Testing person properties for flags...")
-        
+
         // Set some test person properties
         PostHogSDK.shared.setPersonPropertiesForFlags([
             "test_property": "manual_test_value",
             "plan": "premium_test",
-            "$app_version": "custom_override_version"
+            "$app_version": "custom_override_version",
         ])
-        
+
         print("✅ Set person properties for flags")
-        
+
         // Set some test group properties
         PostHogSDK.shared.setGroupPropertiesForFlags("organization", properties: [
             "plan": "enterprise",
             "seats": 50,
-            "industry": "technology"
+            "industry": "technology",
         ])
-        
+
         print("✅ Set group properties for flags (organization)")
-        
+
         // Trigger flag evaluation to send the request
         let flagValue = PostHogSDK.shared.isFeatureEnabled("test_flag")
         print("🏁 Flag value: \(flagValue)")
-        
+
         // Check what's in getFeatureFlag too
         if let strFlag = PostHogSDK.shared.getFeatureFlag("multivariant") as? String {
             print("📄 Multivariant flag: \(strFlag)")
@@ -224,7 +224,7 @@ struct ContentView: View {
                     Button(action: triggerIdentify) {
                         Text("Trigger identify!")
                     }.postHogViewSeen("Trigger identify")
-                    
+
                     Button(action: testPersonPropertiesForFlags) {
                         Text("🧪 Test Person & Group Properties")
                     }

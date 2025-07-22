@@ -83,10 +83,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
     /// Automatically set common device and app properties as person properties for feature flag evaluation.
-    /// 
+    ///
     /// When enabled, the SDK will automatically set the following person properties:
     /// - $app_version: App version from bundle
-    /// - $app_build: App build number from bundle  
+    /// - $app_build: App build number from bundle
     /// - $os_name: Operating system name (iOS, macOS, etc.)
     /// - $os_version: Operating system version
     /// - $device_type: Device type (Mobile, Tablet, Desktop, etc.)

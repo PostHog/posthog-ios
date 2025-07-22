@@ -890,23 +890,23 @@ class PostHogSDKTest: QuickSpec {
 
         context("automatic person properties") {
             it("sets default person properties on SDK setup when enabled") {
-                let _ = self.getSut()
-                
+                _ = self.getSut()
+
                 waitFlagsRequest(server)
-                
+
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))
-                
+
                 guard let lastRequest = requests.last else {
                     fail("No flags request found")
                     return
                 }
-                
+
                 guard let personProperties = lastRequest["person_properties"] as? [String: Any] else {
                     fail("Person properties not found in request")
                     return
                 }
-                
+
                 // Verify expected default properties are set
                 expect(personProperties["$app_version"]).toNot(beNil())
                 expect(personProperties["$app_build"]).toNot(beNil())
@@ -915,48 +915,48 @@ class PostHogSDKTest: QuickSpec {
                 expect(personProperties["$device_type"]).toNot(beNil())
                 expect(personProperties["$locale"]).toNot(beNil())
             }
-            
+
             it("does not set default person properties when disabled") {
                 let sut = self.getSut(setDefaultPersonProperties: false)
-                
+
                 // Manually trigger a flag request since no automatic one will happen
                 sut.reloadFeatureFlags()
-                
+
                 waitFlagsRequest(server)
-                
+
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))
-                
+
                 guard let lastRequest = requests.last else {
                     fail("No flags request found")
                     return
                 }
-                
+
                 // person_properties should be nil when default properties are disabled
                 expect(lastRequest["person_properties"]).to(beNil())
             }
-            
+
             it("refreshes default person properties on app updates") {
                 let sut = self.getSut(captureApplicationLifecycleEvents: true)
-                
+
                 // Simulate app update by calling the refresh method directly
                 sut.refreshDefaultPersonProperties()
-                
+
                 waitFlagsRequest(server)
-                
+
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))
-                
+
                 guard let lastRequest = requests.last else {
                     fail("No flags request found")
                     return
                 }
-                
+
                 guard let personProperties = lastRequest["person_properties"] as? [String: Any] else {
                     fail("Person properties not found in request")
                     return
                 }
-                
+
                 // Verify properties are refreshed
                 expect(personProperties["$app_version"]).toNot(beNil())
                 expect(personProperties["$os_name"]).toNot(beNil())

@@ -577,7 +577,7 @@ let maxRetryDelay = 30.0
 
     /// Refreshes the default person properties, typically called during app updates.
     /// This ensures that properties like $app_version and $app_build are current.
-    internal func refreshDefaultPersonProperties() {
+    func refreshDefaultPersonProperties() {
         setDefaultPersonProperties()
     }
 

@@ -892,8 +892,6 @@ class PostHogSDKTest: QuickSpec {
             it("sets default person properties on SDK setup when enabled") {
                 _ = self.getSut()
 
-                waitFlagsRequest(server)
-
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))
 
@@ -922,8 +920,6 @@ class PostHogSDKTest: QuickSpec {
                 // Manually trigger a flag request since no automatic one will happen
                 sut.reloadFeatureFlags()
 
-                waitFlagsRequest(server)
-
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))
 
@@ -941,8 +937,6 @@ class PostHogSDKTest: QuickSpec {
 
                 // Simulate app update by calling the refresh method directly
                 sut.refreshDefaultPersonProperties()
-
-                waitFlagsRequest(server)
 
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))

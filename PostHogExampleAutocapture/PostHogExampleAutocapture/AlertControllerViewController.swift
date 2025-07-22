@@ -32,7 +32,7 @@ class AlertControllerViewController: UITableViewController {
         case howOtherActionSheet
     }
 
-    private var textDidChangeObserver: Any? = nil
+    private var textDidChangeObserver: Any?
 
     // MARK: - UIAlertControllerStyleAlert Style Alerts
 

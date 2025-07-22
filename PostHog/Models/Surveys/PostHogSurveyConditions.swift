@@ -29,19 +29,19 @@ struct PostHogSurveyConditions: Decodable {
 
 /// Represents event-based conditions for displaying the survey
 struct PostHogSurveyEventConditions: Decodable {
-    public let repeatedActivation: Bool?
+    let repeatedActivation: Bool?
     /// List of events that trigger the survey
-    public let values: [PostHogEventCondition]
+    let values: [PostHogEventCondition]
 }
 
 /// Represents action-based conditions for displaying the survey
 struct PostHogSurveyActionsConditions: Decodable {
     /// List of events that trigger the survey
-    public let values: [PostHogEventCondition]
+    let values: [PostHogEventCondition]
 }
 
 /// Represents a single event condition used in survey targeting
 struct PostHogEventCondition: Decodable, Equatable {
     /// Name of the event (e.g., "content loaded")
-    public let name: String
+    let name: String
 }

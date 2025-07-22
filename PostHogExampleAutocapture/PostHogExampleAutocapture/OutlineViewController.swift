@@ -34,10 +34,10 @@ class OutlineViewController: UIViewController {
         }
     }
 
-    var dataSource: UICollectionViewDiffableDataSource<Section, OutlineItem>! = nil
-    var outlineCollectionView: UICollectionView! = nil
+    var dataSource: UICollectionViewDiffableDataSource<Section, OutlineItem>!
+    var outlineCollectionView: UICollectionView!
 
-    private var detailTargetChangeObserver: Any? = nil
+    private var detailTargetChangeObserver: Any?
 
     override func viewDidLoad() {
         super.viewDidLoad()

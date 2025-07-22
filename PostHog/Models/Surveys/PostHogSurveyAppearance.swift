@@ -9,30 +9,30 @@ import Foundation
 
 /// Represents the appearance settings for the survey, such as colors, fonts, and layout
 struct PostHogSurveyAppearance: Decodable {
-    public let position: PostHogSurveyAppearancePosition?
-    public let fontFamily: String?
-    public let backgroundColor: String?
-    public let submitButtonColor: String?
-    public let submitButtonText: String?
-    public let submitButtonTextColor: String?
-    public let descriptionTextColor: String?
-    public let ratingButtonColor: String?
-    public let ratingButtonActiveColor: String?
-    public let ratingButtonHoverColor: String?
-    public let whiteLabel: Bool?
-    public let autoDisappear: Bool?
-    public let displayThankYouMessage: Bool?
-    public let thankYouMessageHeader: String?
-    public let thankYouMessageDescription: String?
-    public let thankYouMessageDescriptionContentType: PostHogSurveyTextContentType?
-    public let thankYouMessageCloseButtonText: String?
-    public let borderColor: String?
-    public let placeholder: String?
-    public let shuffleQuestions: Bool?
-    public let surveyPopupDelaySeconds: TimeInterval?
+    let position: PostHogSurveyAppearancePosition?
+    let fontFamily: String?
+    let backgroundColor: String?
+    let submitButtonColor: String?
+    let submitButtonText: String?
+    let submitButtonTextColor: String?
+    let descriptionTextColor: String?
+    let ratingButtonColor: String?
+    let ratingButtonActiveColor: String?
+    let ratingButtonHoverColor: String?
+    let whiteLabel: Bool?
+    let autoDisappear: Bool?
+    let displayThankYouMessage: Bool?
+    let thankYouMessageHeader: String?
+    let thankYouMessageDescription: String?
+    let thankYouMessageDescriptionContentType: PostHogSurveyTextContentType?
+    let thankYouMessageCloseButtonText: String?
+    let borderColor: String?
+    let placeholder: String?
+    let shuffleQuestions: Bool?
+    let surveyPopupDelaySeconds: TimeInterval?
     // widget options
-    public let widgetType: PostHogSurveyAppearanceWidgetType?
-    public let widgetSelector: String?
-    public let widgetLabel: String?
-    public let widgetColor: String?
+    let widgetType: PostHogSurveyAppearanceWidgetType?
+    let widgetSelector: String?
+    let widgetLabel: String?
+    let widgetColor: String?
 }

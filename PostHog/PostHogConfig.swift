@@ -82,6 +82,22 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 
+    /// Automatically set common device and app properties as person properties for feature flag evaluation.
+    /// 
+    /// When enabled, the SDK will automatically set the following person properties:
+    /// - $app_version: App version from bundle
+    /// - $app_build: App build number from bundle  
+    /// - $os_name: Operating system name (iOS, macOS, etc.)
+    /// - $os_version: Operating system version
+    /// - $device_type: Device type (Mobile, Tablet, Desktop, etc.)
+    /// - $locale: User's current locale
+    ///
+    /// This helps ensure feature flags that rely on these properties work correctly
+    /// without waiting for server-side processing of identify() calls.
+    ///
+    /// Default: true
+    @objc public var setDefaultPersonProperties: Bool = true
+
     /// The identifier of the App Group that should be used to store shared analytics data.
     /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
     /// Default: nil

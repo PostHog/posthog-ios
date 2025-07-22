@@ -142,6 +142,11 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         }
 
         postHog.capture(event, properties: props)
+
+        // Refresh default person properties on app updates to ensure they're current
+        if event == "Application Updated" {
+            postHog.refreshDefaultPersonProperties()
+        }
     }
 
     private func captureAppOpened() {

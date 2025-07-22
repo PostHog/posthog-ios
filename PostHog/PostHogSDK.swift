@@ -141,6 +141,9 @@ let maxRetryDelay = 30.0
                 installIntegrations()
             }
 
+            // Set default person properties after setup is complete
+            setDefaultPersonProperties()
+
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
@@ -522,6 +525,56 @@ let maxRetryDelay = 30.0
         }
 
         remoteConfig?.setPersonPropertiesForFlags(allProperties)
+    }
+
+    /// Automatically sets default device and app properties as person properties for feature flag evaluation.
+    /// This ensures feature flags can immediately use properties like $app_version, $os_version, etc.
+    /// without waiting for server-side processing of identify() calls.
+    private func setDefaultPersonProperties() {
+        guard config.setDefaultPersonProperties else { return }
+        guard isEnabled() else { return }
+
+        let staticContext = context?.staticContext() ?? [:]
+        let dynamicContext = context?.dynamicContext() ?? [:]
+
+        var defaultProperties: [String: Any] = [:]
+
+        // App information
+        if let appVersion = staticContext["$app_version"] {
+            defaultProperties["$app_version"] = appVersion
+        }
+        if let appBuild = staticContext["$app_build"] {
+            defaultProperties["$app_build"] = appBuild
+        }
+
+        // Operating system information
+        if let osName = staticContext["$os_name"] {
+            defaultProperties["$os_name"] = osName
+        }
+        if let osVersion = staticContext["$os_version"] {
+            defaultProperties["$os_version"] = osVersion
+        }
+
+        // Device information
+        if let deviceType = staticContext["$device_type"] {
+            defaultProperties["$device_type"] = deviceType
+        }
+
+        // Localization
+        if let locale = dynamicContext["$locale"] {
+            defaultProperties["$locale"] = locale
+        }
+
+        if !defaultProperties.isEmpty {
+            let sanitizedProperties = sanitizeDictionary(defaultProperties) ?? [:]
+            remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
+        }
+    }
+
+    /// Refreshes the default person properties, typically called during app updates.
+    /// This ensures that properties like $app_version and $app_build are current.
+    internal func refreshDefaultPersonProperties() {
+        setDefaultPersonProperties()
     }
 
     @objc public func capture(_ event: String) {

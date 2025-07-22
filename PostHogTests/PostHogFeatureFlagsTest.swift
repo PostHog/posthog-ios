@@ -193,7 +193,7 @@ enum PostHogFeatureFlagsTest {
     @Suite("Test Person and Group Properties for Flags")
     class TestPersonAndGroupPropertiesForFlags: BaseTestClass {
         @Test("Person properties are stored and retrieved correctly")
-        func storeAndRetrievePersonProperties() {
+        func storeAndRetrievePersonProperties() async {
             let sut = getSut()
             let properties = [
                 "test_property": "test_value",
@@ -206,13 +206,11 @@ enum PostHogFeatureFlagsTest {
 
             // Verify they can be retrieved by testing the internal state
             // Since getPersonPropertiesForFlags is private, we'll test via flag loading
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             // Verify the request included person properties by checking server received data
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
@@ -238,7 +236,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Person properties are additive")
-        func personPropertiesAreAdditive() {
+        func personPropertiesAreAdditive() async {
             let sut = getSut()
 
             // Set first batch of properties
@@ -247,13 +245,11 @@ enum PostHogFeatureFlagsTest {
             // Set second batch that overlaps
             sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"])
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
@@ -278,7 +274,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Reset person properties clears all properties")
-        func resetPersonPropertiesClearsAll() {
+        func resetPersonPropertiesClearsAll() async {
             let sut = getSut()
 
             // Set some properties
@@ -287,13 +283,11 @@ enum PostHogFeatureFlagsTest {
             // Reset them
             sut.resetPersonPropertiesForFlags()
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
@@ -311,7 +305,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Group properties are stored and retrieved correctly")
-        func storeAndRetrieveGroupProperties() {
+        func storeAndRetrieveGroupProperties() async {
             let sut = getSut()
             let properties = [
                 "plan": "enterprise",
@@ -322,13 +316,11 @@ enum PostHogFeatureFlagsTest {
             // Set group properties
             sut.setGroupPropertiesForFlags("organization", properties: properties)
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
@@ -358,20 +350,18 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Multiple group types are handled correctly")
-        func multipleGroupTypesHandled() {
+        func multipleGroupTypesHandled() async {
             let sut = getSut()
 
             // Set properties for different group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
             sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
@@ -395,7 +385,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Reset group properties for specific type")
-        func resetGroupPropertiesSpecificType() {
+        func resetGroupPropertiesSpecificType() async {
             let sut = getSut()
 
             // Set properties for multiple group types
@@ -405,13 +395,11 @@ enum PostHogFeatureFlagsTest {
             // Reset only organization properties
             sut.resetGroupPropertiesForFlags("organization")
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
@@ -435,7 +423,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Reset all group properties")
-        func resetAllGroupProperties() {
+        func resetAllGroupProperties() async {
             let sut = getSut()
 
             // Set properties for multiple group types
@@ -445,13 +433,11 @@ enum PostHogFeatureFlagsTest {
             // Reset all group properties
             sut.resetGroupPropertiesForFlags()
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
@@ -469,20 +455,18 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Both person and group properties sent together")
-        func bothPersonAndGroupPropertiesSent() {
+        func bothPersonAndGroupPropertiesSent() async {
             let sut = getSut()
 
             // Set both types of properties
             sut.setPersonPropertiesForFlags(["user_plan": "premium"])
             sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"])
 
-            let expectation = expectation(description: "Flag loading completed")
-
-            sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
-                expectation.fulfill()
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                    continuation.resume()
+                }
             }
-
-            wait(for: [expectation], timeout: 1.0)
 
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 

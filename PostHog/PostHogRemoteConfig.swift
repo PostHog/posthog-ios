@@ -476,11 +476,8 @@ class PostHogRemoteConfig {
     func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
         groupPropertiesForFlagsLock.withLock {
             // Merge properties additively for this group type
-            if groupPropertiesForFlags[groupType] == nil {
-                groupPropertiesForFlags[groupType] = [:]
-            }
             for (key, value) in properties {
-                groupPropertiesForFlags[groupType]![key] = value
+                groupPropertiesForFlags[groupType, default: [:]][key] = value
             }
             // Persist to disk
             storage.setDictionary(forKey: .groupPropertiesForFlags, contents: groupPropertiesForFlags)

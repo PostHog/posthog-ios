@@ -504,6 +504,10 @@ let maxRetryDelay = 30.0
     }
 
     private func setPersonPropertiesForFlagsIfNeeded(_ userProperties: [String: Any]?) {
+        guard hasPersonProcessing() else {
+            return
+        }
+        
         guard let sanitizedProperties = sanitizeDictionary(userProperties), !sanitizedProperties.isEmpty else {
             return
         }

@@ -504,9 +504,10 @@ let maxRetryDelay = 30.0
     }
 
     private func setPersonPropertiesForFlagsIfNeeded(_ userProperties: [String: Any]?) {
-        if let userProperties = userProperties, !userProperties.isEmpty {
-            remoteConfig?.setPersonPropertiesForFlags(userProperties)
+        guard let sanitizedProperties = sanitizeDictionary(userProperties), !sanitizedProperties.isEmpty else {
+            return
         }
+        remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
     }
 
     @objc public func capture(_ event: String) {

@@ -975,6 +975,7 @@ let maxRetryDelay = 30.0
         }
 
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
+        guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setGroupPropertiesForFlags(groupType, properties: sanitizedProperties)
 
         // Automatically reload flags to apply the new properties

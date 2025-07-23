@@ -535,7 +535,6 @@ let maxRetryDelay = 30.0
         guard isEnabled() else { return }
 
         let staticContext = context?.staticContext() ?? [:]
-        let dynamicContext = context?.dynamicContext() ?? [:]
 
         var defaultProperties: [String: Any] = [:]
 
@@ -560,9 +559,15 @@ let maxRetryDelay = 30.0
             defaultProperties["$device_type"] = deviceType
         }
 
-        // Localization
-        if let locale = dynamicContext["$locale"] {
-            defaultProperties["$locale"] = locale
+        // Localization - read directly to avoid expensive dynamicContext call
+        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+            if let languageCode = Locale.current.language.languageCode {
+                defaultProperties["$locale"] = languageCode.identifier
+            }
+        } else {
+            if Locale.current.languageCode != nil {
+                defaultProperties["$locale"] = Locale.current.languageCode
+            }
         }
 
         if !defaultProperties.isEmpty {

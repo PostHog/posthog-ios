@@ -566,12 +566,7 @@ let maxRetryDelay = 30.0
         }
 
         if !defaultProperties.isEmpty {
-            let sanitizedProperties = sanitizeDictionary(defaultProperties)
-            if sanitizedProperties == nil {
-                hedgeLog("Warning: Failed to sanitize default person properties, skipping")
-                return
-            }
-            remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties ?? [:])
+            remoteConfig?.setPersonPropertiesForFlags(defaultProperties)
         }
     }
 

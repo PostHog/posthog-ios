@@ -102,7 +102,9 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api)
+            remoteConfig = PostHogRemoteConfig(config, theStorage, api) { [weak self] in
+                self?.getDefaultPersonProperties() ?? [:]
+            }
 
             #if !os(watchOS)
                 do {
@@ -140,9 +142,6 @@ let maxRetryDelay = 30.0
                 // don't install integrations if in opt-out state
                 installIntegrations()
             }
-
-            // Set default person properties after setup is complete
-            setDefaultPersonProperties()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
@@ -527,12 +526,12 @@ let maxRetryDelay = 30.0
         remoteConfig?.setPersonPropertiesForFlags(allProperties)
     }
 
-    /// Automatically sets default device and app properties as person properties for feature flag evaluation.
-    /// This ensures feature flags can immediately use properties like $app_version, $os_version, etc.
-    /// without waiting for server-side processing of identify() calls.
-    private func setDefaultPersonProperties() {
-        guard config.setDefaultPersonProperties else { return }
-        guard isEnabled() else { return }
+    /// Returns fresh default device and app properties for feature flag evaluation.
+    /// This ensures feature flags can use current properties like $app_version, $os_version, etc.
+    /// These properties are computed fresh each time they're needed.
+    private func getDefaultPersonProperties() -> [String: Any] {
+        guard config.setDefaultPersonProperties else { return [:] }
+        guard isEnabled() else { return [:] }
 
         let staticContext = context?.staticContext() ?? [:]
 
@@ -570,9 +569,7 @@ let maxRetryDelay = 30.0
             }
         }
 
-        if !defaultProperties.isEmpty {
-            remoteConfig?.setPersonPropertiesForFlags(defaultProperties)
-        }
+        return defaultProperties
     }
 
     @objc public func capture(_ event: String) {

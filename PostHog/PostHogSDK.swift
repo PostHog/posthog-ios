@@ -913,7 +913,7 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - properties: Dictionary of person properties to include in flag evaluation
     ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
-    @objc(setPersonPropertiesForFlags:reloadFeatureFlags:)
+    @objc(setPersonPropertiesForFlagsWithProperties:reloadFeatureFlags:)
     public func setPersonPropertiesForFlags(_ properties: [String: Any], reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
             return

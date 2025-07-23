@@ -58,6 +58,9 @@ class PostHogRemoteConfig {
         self.config = config
         self.storage = storage
         self.api = api
+        
+        // Load cached person and group properties for flags
+        loadCachedPropertiesForFlags()
 
         preloadSessionReplayFlag()
 
@@ -459,12 +462,16 @@ class PostHogRemoteConfig {
             for (key, value) in properties {
                 personPropertiesForFlags[key] = value
             }
+            // Persist to disk
+            storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
         }
     }
 
     func resetPersonPropertiesForFlags() {
         personPropertiesForFlagsLock.withLock {
             personPropertiesForFlags.removeAll()
+            // Clear from disk
+            storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
         }
     }
 
@@ -477,6 +484,8 @@ class PostHogRemoteConfig {
             for (key, value) in properties {
                 groupPropertiesForFlags[groupType]![key] = value
             }
+            // Persist to disk
+            storage.setDictionary(forKey: .groupPropertiesForFlags, contents: groupPropertiesForFlags)
         }
     }
 
@@ -487,6 +496,8 @@ class PostHogRemoteConfig {
             } else {
                 groupPropertiesForFlags.removeAll()
             }
+            // Persist changes to disk
+            storage.setDictionary(forKey: .groupPropertiesForFlags, contents: groupPropertiesForFlags)
         }
     }
 
@@ -499,6 +510,20 @@ class PostHogRemoteConfig {
     private func getPersonPropertiesForFlags() -> [String: Any] {
         personPropertiesForFlagsLock.withLock {
             personPropertiesForFlags
+        }
+    }
+    
+    private func loadCachedPropertiesForFlags() {
+        personPropertiesForFlagsLock.withLock {
+            if let cachedPersonProperties = storage.getDictionary(forKey: .personPropertiesForFlags) as? [String: Any] {
+                personPropertiesForFlags = cachedPersonProperties
+            }
+        }
+        
+        groupPropertiesForFlagsLock.withLock {
+            if let cachedGroupProperties = storage.getDictionary(forKey: .groupPropertiesForFlags) as? [String: [String: Any]] {
+                groupPropertiesForFlags = cachedGroupProperties
+            }
         }
     }
 

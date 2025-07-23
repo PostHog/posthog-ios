@@ -981,22 +981,38 @@ let maxRetryDelay = 30.0
         remoteConfig?.reloadFeatureFlags()
     }
 
-    /// Clears group properties for feature flag evaluation for a specific group type,
-    /// or all group properties if no group type is specified.
+    /// Clears all group properties for feature flag evaluation.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Clear all group properties
+    /// PostHogSDK.shared.resetGroupPropertiesForFlags()
+    /// ```
+    ///
+    /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
+    ///         after resetting if you want to immediately refresh flags with the cleared properties.
+    @objc public func resetGroupPropertiesForFlags() {
+        resetGroupPropertiesForFlags(groupType: nil)
+    }
+
+    /// Clears group properties for feature flag evaluation for a specific group type.
     ///
     /// ## Example Usage
     /// ```swift
     /// // Clear properties for specific group type
     /// PostHogSDK.shared.resetGroupPropertiesForFlags("organization")
-    ///
-    /// // Clear all group properties
-    /// PostHogSDK.shared.resetGroupPropertiesForFlags()
     /// ```
     ///
-    /// - Parameter groupType: The group type to clear properties for, or nil to clear all group properties
+    /// - Parameter groupType: The group type to clear properties for
     /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
     ///         after resetting if you want to immediately refresh flags with the cleared properties.
-    @objc public func resetGroupPropertiesForFlags(_ groupType: String? = nil) {
+    @objc(resetGroupPropertiesForFlagsWithGroupType:)
+    public func resetGroupPropertiesForFlags(_ groupType: String) {
+        resetGroupPropertiesForFlags(groupType: groupType)
+    }
+
+    /// Internal implementation for resetting group properties.
+    private func resetGroupPropertiesForFlags(groupType: String?) {
         if !isEnabled() {
             return
         }

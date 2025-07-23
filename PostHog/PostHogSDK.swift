@@ -920,6 +920,7 @@ let maxRetryDelay = 30.0
         }
 
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
+        guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
 
         if reloadFeatureFlags {

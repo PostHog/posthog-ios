@@ -459,9 +459,7 @@ class PostHogRemoteConfig {
     func setPersonPropertiesForFlags(_ properties: [String: Any]) {
         personPropertiesForFlagsLock.withLock {
             // Merge properties additively, similar to JS SDK behavior
-            for (key, value) in properties {
-                personPropertiesForFlags[key] = value
-            }
+            personPropertiesForFlags.merge(properties, uniquingKeysWith: { _, new in new })
             // Persist to disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
         }

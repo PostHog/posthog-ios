@@ -225,7 +225,7 @@ class PostHogApi {
             toSend["$anon_distinct_id"] = anonymousId
         }
 
-        if let personProperties, !personProperties.isEmpty {
+        if !personProperties.isEmpty {
             toSend["person_properties"] = personProperties
         }
 

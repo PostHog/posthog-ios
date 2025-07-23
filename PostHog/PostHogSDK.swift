@@ -510,17 +510,17 @@ let maxRetryDelay = 30.0
         guard hasPersonProcessing() else {
             return
         }
-        
+
         let sanitizedUserProperties = sanitizeDictionary(userProperties) ?? [:]
         let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce) ?? [:]
-        
+
         // Combine both types of properties for feature flag evaluation
         let allProperties = sanitizedUserProperties.merging(sanitizedUserPropertiesSetOnce) { userProp, _ in userProp }
-        
+
         guard !allProperties.isEmpty else {
             return
         }
-        
+
         remoteConfig?.setPersonPropertiesForFlags(allProperties)
     }
 
@@ -913,10 +913,6 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - properties: Dictionary of person properties to include in flag evaluation
     ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
-    @objc public func setPersonPropertiesForFlags(_ properties: [String: Any]) {
-        setPersonPropertiesForFlags(properties, reloadFeatureFlags: true)
-    }
-    
     @objc(setPersonPropertiesForFlags:reloadFeatureFlags:)
     public func setPersonPropertiesForFlags(_ properties: [String: Any], reloadFeatureFlags: Bool = true) {
         if !isEnabled() {

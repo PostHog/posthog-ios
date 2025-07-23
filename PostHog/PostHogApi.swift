@@ -196,7 +196,7 @@ class PostHogApi {
         distinctId: String,
         anonymousId: String?,
         groups: [String: String],
-        personProperties: [String: Any]? = nil,
+        personProperties: [String: Any],
         groupProperties: [String: [String: Any]]? = nil,
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {

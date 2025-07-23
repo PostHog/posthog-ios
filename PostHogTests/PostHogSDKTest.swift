@@ -931,7 +931,6 @@ class PostHogSDKTest: QuickSpec {
                 // person_properties should be nil when default properties are disabled
                 expect(lastRequest["person_properties"]).to(beNil())
             }
-
         }
 
         #if os(iOS)

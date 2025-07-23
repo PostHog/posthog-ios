@@ -575,7 +575,6 @@ let maxRetryDelay = 30.0
         }
     }
 
-
     @objc public func capture(_ event: String) {
         capture(event, distinctId: nil, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }

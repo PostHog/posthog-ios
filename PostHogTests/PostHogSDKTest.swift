@@ -932,29 +932,6 @@ class PostHogSDKTest: QuickSpec {
                 expect(lastRequest["person_properties"]).to(beNil())
             }
 
-            it("refreshes default person properties on app updates") {
-                let sut = self.getSut(captureApplicationLifecycleEvents: true)
-
-                // Simulate app update by calling the refresh method directly
-                sut.refreshDefaultPersonProperties()
-
-                let requests = getFlagsRequest(server)
-                expect(requests.count).to(beGreaterThan(0))
-
-                guard let lastRequest = requests.last else {
-                    fail("No flags request found")
-                    return
-                }
-
-                guard let personProperties = lastRequest["person_properties"] as? [String: Any] else {
-                    fail("Person properties not found in request")
-                    return
-                }
-
-                // Verify properties are refreshed
-                expect(personProperties["$app_version"]).toNot(beNil())
-                expect(personProperties["$os_name"]).toNot(beNil())
-            }
         }
 
         #if os(iOS)

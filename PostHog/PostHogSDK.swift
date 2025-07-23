@@ -575,11 +575,6 @@ let maxRetryDelay = 30.0
         }
     }
 
-    /// Refreshes the default person properties, typically called during app updates.
-    /// This ensures that properties like $app_version and $app_build are current.
-    func refreshDefaultPersonProperties() {
-        setDefaultPersonProperties()
-    }
 
     @objc public func capture(_ event: String) {
         capture(event, distinctId: nil, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)

@@ -890,7 +890,7 @@ class PostHogSDKTest: QuickSpec {
 
         context("automatic person properties") {
             it("sets default person properties on SDK setup when enabled") {
-                _ = self.getSut()
+                let sut = self.getSut(preloadFeatureFlags: true)
 
                 let requests = getFlagsRequest(server)
                 expect(requests.count).to(beGreaterThan(0))

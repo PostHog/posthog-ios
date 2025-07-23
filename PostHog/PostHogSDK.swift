@@ -473,7 +473,7 @@ let maxRetryDelay = 30.0
             queue.add(event)
 
             // Automatically set person properties for feature flags during identify event
-            setPersonPropertiesForFlagsIfNeeded(userProperties)
+            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -486,7 +486,7 @@ let maxRetryDelay = 30.0
                     userPropertiesSetOnce: userPropertiesSetOnce)
 
             // Automatically set person properties for feature flags
-            setPersonPropertiesForFlagsIfNeeded(userProperties)
+            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
             // Note we don't reload flags on property changes as these get processed async
 
@@ -503,15 +503,25 @@ let maxRetryDelay = 30.0
         return false
     }
 
-    private func setPersonPropertiesForFlagsIfNeeded(_ userProperties: [String: Any]?) {
+    private func setPersonPropertiesForFlagsIfNeeded(
+        _ userProperties: [String: Any]?,
+        userPropertiesSetOnce: [String: Any]? = nil
+    ) {
         guard hasPersonProcessing() else {
             return
         }
         
-        guard let sanitizedProperties = sanitizeDictionary(userProperties), !sanitizedProperties.isEmpty else {
+        let sanitizedUserProperties = sanitizeDictionary(userProperties) ?? [:]
+        let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce) ?? [:]
+        
+        // Combine both types of properties for feature flag evaluation
+        let allProperties = sanitizedUserProperties.merging(sanitizedUserPropertiesSetOnce) { userProp, _ in userProp }
+        
+        guard !allProperties.isEmpty else {
             return
         }
-        remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
+        
+        remoteConfig?.setPersonPropertiesForFlags(allProperties)
     }
 
     @objc public func capture(_ event: String) {

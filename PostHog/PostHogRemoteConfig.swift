@@ -58,7 +58,7 @@ class PostHogRemoteConfig {
         self.config = config
         self.storage = storage
         self.api = api
-        
+
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
 
@@ -266,7 +266,7 @@ class PostHogRemoteConfig {
         api.flags(distinctId: distinctId,
                   anonymousId: anonymousId,
                   groups: groups,
-                  personProperties: personProperties.isEmpty ? nil : personProperties,
+                  personProperties: personProperties,
                   groupProperties: groupProperties.isEmpty ? nil : groupProperties)
         { data, _ in
             self.dispatchQueue.async {
@@ -507,14 +507,14 @@ class PostHogRemoteConfig {
             personPropertiesForFlags
         }
     }
-    
+
     private func loadCachedPropertiesForFlags() {
         personPropertiesForFlagsLock.withLock {
             if let cachedPersonProperties = storage.getDictionary(forKey: .personPropertiesForFlags) as? [String: Any] {
                 personPropertiesForFlags = cachedPersonProperties
             }
         }
-        
+
         groupPropertiesForFlagsLock.withLock {
             if let cachedGroupProperties = storage.getDictionary(forKey: .groupPropertiesForFlags) as? [String: [String: Any]] {
                 groupPropertiesForFlags = cachedGroupProperties

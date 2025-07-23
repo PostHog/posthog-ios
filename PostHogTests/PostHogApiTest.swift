@@ -48,7 +48,7 @@ enum PostHogApiTests {
         func testFlagsEndpoint(forHost host: String) async throws {
             let sut = getSut(host: host)
             let resp = await getApiResponse { completion in
-                sut.flags(distinctId: "", anonymousId: "", groups: [:]) { data, _ in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, _ in
                     completion(data)
                 }
             }

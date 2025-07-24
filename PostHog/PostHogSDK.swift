@@ -869,6 +869,9 @@ let maxRetryDelay = 30.0
             props["$group_set"] = groupProps
         }
 
+        // Automatically set group properties for feature flags
+        setGroupPropertiesForFlagsIfNeeded(type: type, groupProperties: groupProperties)
+
         // Same as .group but without associating the current user with the group
         let distinctId = getDistinctId()
 
@@ -927,9 +930,6 @@ let maxRetryDelay = 30.0
         _ = groups([type: key])
 
         groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties))
-
-        // Automatically set group properties for feature flags
-        setGroupPropertiesForFlagsIfNeeded(type: type, groupProperties: groupProperties)
     }
 
     // FEATURE FLAGS

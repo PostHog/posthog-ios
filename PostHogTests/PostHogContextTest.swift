@@ -64,5 +64,28 @@ class PostHogContextTest: QuickSpec {
             expect(context["$lib"] as? String) == "posthog-ios"
             expect(context["$lib_version"] as? String) == postHogVersion
         }
+
+        it("returns person properties context") {
+            let sut = self.getSut()
+
+            let context = sut.personPropertiesContext()
+
+            // Check that it includes expected properties from static context
+            expect(context["$app_version"] as? String) != nil
+            expect(context["$app_build"] as? String) != nil
+            expect(context["$locale"] as? String) != nil
+            
+            #if os(iOS) || os(tvOS) || os(visionOS)
+                expect(context["$os_name"] as? String) != nil
+                expect(context["$os_version"] as? String) != nil
+                expect(context["$device_type"] as? String) != nil
+                expect(context["$device_manufacturer"] as? String) == "Apple"
+                expect(context["$device_model"] as? String) != nil
+            #endif
+            
+            // Verify it doesn't include non-person properties
+            expect(context["$app_namespace"] as? String) == nil
+            expect(context["$is_emulator"] as? Bool) == nil
+        }
     }
 }

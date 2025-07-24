@@ -498,76 +498,76 @@ enum PostHogFeatureFlagsTest {
         }
 
         @Test("Capture with userProperties automatically sets person properties for flags")
-        func testCaptureWithUserPropertiesAutomaticallySetsPersonPropertiesForFlags() async {
+        func captureWithUserPropertiesAutomaticallySetsPersonPropertiesForFlags() async {
             let sut = PostHogSDK.testIntance(server: server)
-            
+
             // Enable person processing
             sut.identify("test_user")
-            
+
             // Capture event with user properties
             sut.capture("test_event", properties: ["event_prop": "value"], userProperties: ["user_plan": "premium"])
-            
+
             await withCheckedContinuation { continuation in
                 sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
                     continuation.resume()
                 }
             }
-            
+
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
-            
+
             guard let lastRequest = server.flagsRequests.last else {
                 #expect(Bool(false), "No flags request found in server.flagsRequests")
                 return
             }
-            
+
             guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
                 #expect(Bool(false), "Failed to parse request body from flags request")
                 return
             }
-            
+
             // Check that person properties from capture were included
             guard let personProperties = requestBody["person_properties"] as? [String: Any] else {
                 #expect(Bool(false), "Person properties not found in request body: \(requestBody)")
                 return
             }
-            
+
             #expect(personProperties["user_plan"] as? String == "premium", "Expected user_plan to be 'premium' from capture call")
         }
 
         @Test("Group with groupProperties automatically sets group properties for flags")
-        func testGroupWithGroupPropertiesAutomaticallySetsGroupPropertiesForFlags() async {
+        func groupWithGroupPropertiesAutomaticallySetsGroupPropertiesForFlags() async {
             let sut = PostHogSDK.testIntance(server: server)
-            
+
             // Enable person processing
             sut.identify("test_user")
-            
+
             // Call group with properties
             sut.group(type: "organization", key: "org123", groupProperties: ["org_plan": "enterprise"])
-            
+
             await withCheckedContinuation { continuation in
                 sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
                     continuation.resume()
                 }
             }
-            
+
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
-            
+
             guard let lastRequest = server.flagsRequests.last else {
                 #expect(Bool(false), "No flags request found in server.flagsRequests")
                 return
             }
-            
+
             guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
                 #expect(Bool(false), "Failed to parse request body from flags request")
                 return
             }
-            
+
             // Check that group properties from group call were included
             guard let groupProperties = requestBody["group_properties"] as? [String: [String: Any]] else {
                 #expect(Bool(false), "Group properties not found in request body: \(requestBody)")
                 return
             }
-            
+
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise' from group call")
         }
     }

@@ -550,43 +550,7 @@ let maxRetryDelay = 30.0
         guard config.setDefaultPersonProperties else { return [:] }
         guard isEnabled() else { return [:] }
 
-        let staticContext = context?.staticContext() ?? [:]
-
-        var defaultProperties: [String: Any] = [:]
-
-        // App information
-        if let appVersion = staticContext["$app_version"] {
-            defaultProperties["$app_version"] = appVersion
-        }
-        if let appBuild = staticContext["$app_build"] {
-            defaultProperties["$app_build"] = appBuild
-        }
-
-        // Operating system information
-        if let osName = staticContext["$os_name"] {
-            defaultProperties["$os_name"] = osName
-        }
-        if let osVersion = staticContext["$os_version"] {
-            defaultProperties["$os_version"] = osVersion
-        }
-
-        // Device information
-        if let deviceType = staticContext["$device_type"] {
-            defaultProperties["$device_type"] = deviceType
-        }
-
-        // Localization - read directly to avoid expensive dynamicContext call
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
-            if let languageCode = Locale.current.language.languageCode {
-                defaultProperties["$locale"] = languageCode.identifier
-            }
-        } else {
-            if Locale.current.languageCode != nil {
-                defaultProperties["$locale"] = Locale.current.languageCode
-            }
-        }
-
-        return defaultProperties
+        return context?.personPropertiesContext() ?? [:]
     }
 
     @objc public func capture(_ event: String) {

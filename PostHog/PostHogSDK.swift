@@ -526,6 +526,23 @@ let maxRetryDelay = 30.0
         remoteConfig?.setPersonPropertiesForFlags(allProperties)
     }
 
+    private func setGroupPropertiesForFlagsIfNeeded(
+        type: String,
+        groupProperties: [String: Any]?
+    ) {
+        guard hasPersonProcessing() else {
+            return
+        }
+
+        let sanitizedGroupProperties = sanitizeDictionary(groupProperties) ?? [:]
+
+        guard !sanitizedGroupProperties.isEmpty else {
+            return
+        }
+
+        remoteConfig?.setGroupPropertiesForFlags(type, properties: sanitizedGroupProperties)
+    }
+
     /// Returns fresh default device and app properties for feature flag evaluation.
     /// This ensures feature flags can use current properties like $app_version, $os_version, etc.
     /// These properties are computed fresh each time they're needed.
@@ -690,6 +707,9 @@ let maxRetryDelay = 30.0
         let targetQueue = isSnapshotEvent ? replayQueue : queue
 
         targetQueue?.add(posthogEvent)
+
+        // Automatically set person properties for feature flags during capture event
+        setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
         #if os(iOS)
             surveysIntegration?.onEvent(event: posthogEvent.event)
@@ -907,6 +927,9 @@ let maxRetryDelay = 30.0
         _ = groups([type: key])
 
         groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties))
+
+        // Automatically set group properties for feature flags
+        setGroupPropertiesForFlagsIfNeeded(type: type, groupProperties: groupProperties)
     }
 
     // FEATURE FLAGS

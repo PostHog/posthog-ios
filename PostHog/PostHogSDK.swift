@@ -517,7 +517,7 @@ let maxRetryDelay = 30.0
         let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce) ?? [:]
 
         // Combine both types of properties for feature flag evaluation
-        let allProperties = sanitizedUserProperties.merging(sanitizedUserPropertiesSetOnce) { userProp, _ in userProp }
+        let allProperties = sanitizedUserProperties.merging(sanitizedUserPropertiesSetOnce) { current, _ in current }
 
         guard !allProperties.isEmpty else {
             return

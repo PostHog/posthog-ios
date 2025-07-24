@@ -1017,7 +1017,8 @@ let maxRetryDelay = 30.0
     ///   - groupType: The group type identifier (e.g., "organization", "team")
     ///   - properties: Dictionary of properties to set for this group type
     /// - Note: This method automatically reloads feature flags to apply the new properties.
-    @objc public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
+    @objc(setGroupPropertiesForFlags:properties:)
+    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
         if !isEnabled() {
             return
         }

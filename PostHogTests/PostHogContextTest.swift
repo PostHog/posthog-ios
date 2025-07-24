@@ -74,7 +74,7 @@ class PostHogContextTest: QuickSpec {
             expect(context["$app_version"] as? String) != nil
             expect(context["$app_build"] as? String) != nil
             expect(context["$locale"] as? String) != nil
-            
+
             #if os(iOS) || os(tvOS) || os(visionOS)
                 expect(context["$os_name"] as? String) != nil
                 expect(context["$os_version"] as? String) != nil
@@ -82,7 +82,7 @@ class PostHogContextTest: QuickSpec {
                 expect(context["$device_manufacturer"] as? String) == "Apple"
                 expect(context["$device_model"] as? String) != nil
             #endif
-            
+
             // Verify it doesn't include non-person properties
             expect(context["$app_namespace"] as? String) == nil
             expect(context["$is_emulator"] as? Bool) == nil

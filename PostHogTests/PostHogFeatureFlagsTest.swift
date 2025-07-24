@@ -195,10 +195,10 @@ enum PostHogFeatureFlagsTest {
         @Test("Person properties are stored and retrieved correctly")
         func storeAndRetrievePersonProperties() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing by identifying
             sut.identify("test_user")
-            
+
             let properties = [
                 "test_property": "test_value",
                 "plan": "premium",
@@ -242,7 +242,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Person properties are additive")
         func personPropertiesAreAdditive() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
 
@@ -283,7 +283,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Reset person properties clears all properties")
         func resetPersonPropertiesClearsAll() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
 
@@ -322,10 +322,10 @@ enum PostHogFeatureFlagsTest {
         @Test("Group properties are stored and retrieved correctly")
         func storeAndRetrieveGroupProperties() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
-            
+
             let properties = [
                 "plan": "enterprise",
                 "seats": 50,
@@ -371,7 +371,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Multiple group types are handled correctly")
         func multipleGroupTypesHandled() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
 
@@ -409,7 +409,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Reset group properties for specific type")
         func resetGroupPropertiesSpecificType() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
 
@@ -450,7 +450,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Reset all group properties")
         func resetAllGroupProperties() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
 
@@ -485,7 +485,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Both person and group properties sent together")
         func bothPersonAndGroupPropertiesSent() async {
             let sut = PostHogSDK.with(config)
-            
+
             // Enable person processing
             sut.identify("test_user")
 

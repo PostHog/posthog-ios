@@ -13,6 +13,7 @@ class PostHogRemoteConfig {
     private let config: PostHogConfig
     private let storage: PostHogStorage
     private let api: PostHogApi
+    private let getDefaultPersonProperties: () -> [String: Any]
 
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
@@ -53,11 +54,13 @@ class PostHogRemoteConfig {
 
     init(_ config: PostHogConfig,
          _ storage: PostHogStorage,
-         _ api: PostHogApi)
+         _ api: PostHogApi,
+         _ getDefaultPersonProperties: @escaping () -> [String: Any])
     {
         self.config = config
         self.storage = storage
         self.api = api
+        self.getDefaultPersonProperties = getDefaultPersonProperties
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
@@ -502,7 +505,16 @@ class PostHogRemoteConfig {
 
     private func getPersonPropertiesForFlags() -> [String: Any] {
         personPropertiesForFlagsLock.withLock {
-            personPropertiesForFlags
+            var properties = personPropertiesForFlags
+
+            // Always include fresh default properties if enabled
+            if config.setDefaultPersonProperties {
+                let defaultProperties = getDefaultPersonProperties()
+                // User-set properties override default properties
+                properties = defaultProperties.merging(properties) { _, userValue in userValue }
+            }
+
+            return properties
         }
     }
 

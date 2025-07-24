@@ -1,6 +1,7 @@
 ## Next
 
 - feat: add person and group properties for feature flags ([#373](https://github.com/PostHog/posthog-ios/pull/373))
+- feat: support default properties for feature flag evaluation ([#375](https://github.com/PostHog/posthog-ios/pull/375))
 
 ## 3.29.0 - 2025-07-15
 

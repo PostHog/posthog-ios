@@ -371,6 +371,8 @@ class PostHogStorage {
         deleteSafely(url(forKey: .remoteConfig))
         deleteSafely(url(forKey: .surveySeen))
         deleteSafely(url(forKey: .requestId))
+        deleteSafely(url(forKey: .personPropertiesForFlags))
+        deleteSafely(url(forKey: .groupPropertiesForFlags))
     }
 
     func remove(key: StorageKey) {

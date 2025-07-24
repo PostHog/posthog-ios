@@ -85,11 +85,15 @@ struct ContentView: View {
     func testPersonPropertiesForFlags() {
         print("🧪 Testing person properties for flags...")
 
-        // Set some test person properties
+        // Note: PostHog iOS SDK automatically sets default person properties like:
+        // $app_version, $app_build, $os_name, $os_version, $device_type, $locale
+        // This ensures feature flags work immediately without waiting for identify() calls.
+
+        // Set some additional test person properties
         PostHogSDK.shared.setPersonPropertiesForFlags([
             "test_property": "manual_test_value",
             "plan": "premium_test",
-            "$app_version": "custom_override_version",
+            "$app_version": "custom_override_version", // This will override the automatic value
         ])
 
         print("✅ Set person properties for flags")

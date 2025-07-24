@@ -102,7 +102,9 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api)
+            remoteConfig = PostHogRemoteConfig(config, theStorage, api) { [weak self] in
+                self?.getDefaultPersonProperties() ?? [:]
+            }
 
             #if !os(watchOS)
                 do {
@@ -515,13 +517,76 @@ let maxRetryDelay = 30.0
         let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce) ?? [:]
 
         // Combine both types of properties for feature flag evaluation
-        let allProperties = sanitizedUserProperties.merging(sanitizedUserPropertiesSetOnce) { userProp, _ in userProp }
+        let allProperties = sanitizedUserProperties.merging(sanitizedUserPropertiesSetOnce) { current, _ in current }
 
         guard !allProperties.isEmpty else {
             return
         }
 
         remoteConfig?.setPersonPropertiesForFlags(allProperties)
+    }
+
+    private func setGroupPropertiesForFlagsIfNeeded(
+        type: String,
+        groupProperties: [String: Any]?
+    ) {
+        guard hasPersonProcessing() else {
+            return
+        }
+
+        let sanitizedGroupProperties = sanitizeDictionary(groupProperties) ?? [:]
+
+        guard !sanitizedGroupProperties.isEmpty else {
+            return
+        }
+
+        remoteConfig?.setGroupPropertiesForFlags(type, properties: sanitizedGroupProperties)
+    }
+
+    /// Returns fresh default device and app properties for feature flag evaluation.
+    /// This ensures feature flags can use current properties like $app_version, $os_version, etc.
+    /// These properties are computed fresh each time they're needed.
+    private func getDefaultPersonProperties() -> [String: Any] {
+        guard config.setDefaultPersonProperties else { return [:] }
+        guard isEnabled() else { return [:] }
+
+        let staticContext = context?.staticContext() ?? [:]
+
+        var defaultProperties: [String: Any] = [:]
+
+        // App information
+        if let appVersion = staticContext["$app_version"] {
+            defaultProperties["$app_version"] = appVersion
+        }
+        if let appBuild = staticContext["$app_build"] {
+            defaultProperties["$app_build"] = appBuild
+        }
+
+        // Operating system information
+        if let osName = staticContext["$os_name"] {
+            defaultProperties["$os_name"] = osName
+        }
+        if let osVersion = staticContext["$os_version"] {
+            defaultProperties["$os_version"] = osVersion
+        }
+
+        // Device information
+        if let deviceType = staticContext["$device_type"] {
+            defaultProperties["$device_type"] = deviceType
+        }
+
+        // Localization - read directly to avoid expensive dynamicContext call
+        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+            if let languageCode = Locale.current.language.languageCode {
+                defaultProperties["$locale"] = languageCode.identifier
+            }
+        } else {
+            if Locale.current.languageCode != nil {
+                defaultProperties["$locale"] = Locale.current.languageCode
+            }
+        }
+
+        return defaultProperties
     }
 
     @objc public func capture(_ event: String) {
@@ -642,6 +707,9 @@ let maxRetryDelay = 30.0
         let targetQueue = isSnapshotEvent ? replayQueue : queue
 
         targetQueue?.add(posthogEvent)
+
+        // Automatically set person properties for feature flags during capture event
+        setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
         #if os(iOS)
             surveysIntegration?.onEvent(event: posthogEvent.event)
@@ -801,6 +869,9 @@ let maxRetryDelay = 30.0
             props["$group_set"] = groupProps
         }
 
+        // Automatically set group properties for feature flags
+        setGroupPropertiesForFlagsIfNeeded(type: type, groupProperties: groupProperties)
+
         // Same as .group but without associating the current user with the group
         let distinctId = getDistinctId()
 
@@ -919,6 +990,10 @@ let maxRetryDelay = 30.0
             return
         }
 
+        guard hasPersonProcessing() else {
+            return
+        }
+
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
         guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
@@ -949,6 +1024,10 @@ let maxRetryDelay = 30.0
             return
         }
 
+        guard hasPersonProcessing() else {
+            return
+        }
+
         remoteConfig?.resetPersonPropertiesForFlags()
     }
 
@@ -969,8 +1048,39 @@ let maxRetryDelay = 30.0
     ///   - groupType: The group type identifier (e.g., "organization", "team")
     ///   - properties: Dictionary of properties to set for this group type
     /// - Note: This method automatically reloads feature flags to apply the new properties.
-    @objc public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
+    /// - SeeAlso: `setGroupPropertiesForFlags(_:properties:reloadFeatureFlags:)` to control flag reloading behavior
+    @objc(setGroupPropertiesForFlags:properties:)
+    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
+        setGroupPropertiesForFlags(groupType, properties: properties, reloadFeatureFlags: true)
+    }
+
+    /// Sets properties for a specific group type to include when evaluating feature flags.
+    /// These properties supplement the standard group information sent to PostHog for flag evaluation,
+    /// providing additional context that can be used in flag targeting conditions.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Set properties without automatically reloading flags
+    /// PostHogSDK.shared.setGroupPropertiesForFlags("organization", properties: [
+    ///     "plan": "enterprise",
+    ///     "seats": 50
+    /// ], reloadFeatureFlags: false)
+    ///
+    /// // Manually reload flags later
+    /// PostHogSDK.shared.reloadFeatureFlags()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - groupType: The group type identifier (e.g., "organization", "team")
+    ///   - properties: Dictionary of properties to set for this group type
+    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
+    @objc(setGroupPropertiesForFlags:properties:reloadFeatureFlags:)
+    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool) {
         if !isEnabled() {
+            return
+        }
+
+        guard hasPersonProcessing() else {
             return
         }
 
@@ -978,8 +1088,9 @@ let maxRetryDelay = 30.0
         guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setGroupPropertiesForFlags(groupType, properties: sanitizedProperties)
 
-        // Automatically reload flags to apply the new properties
-        remoteConfig?.reloadFeatureFlags()
+        if reloadFeatureFlags {
+            remoteConfig?.reloadFeatureFlags()
+        }
     }
 
     /// Clears all group properties for feature flag evaluation.
@@ -1017,6 +1128,11 @@ let maxRetryDelay = 30.0
         if !isEnabled() {
             return
         }
+
+        guard hasPersonProcessing() else {
+            return
+        }
+
         remoteConfig?.resetGroupPropertiesForFlags(groupType)
     }
 

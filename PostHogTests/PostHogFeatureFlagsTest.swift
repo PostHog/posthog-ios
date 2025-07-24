@@ -194,7 +194,11 @@ enum PostHogFeatureFlagsTest {
     class TestPersonAndGroupPropertiesForFlags: BaseTestClass {
         @Test("Person properties are stored and retrieved correctly")
         func storeAndRetrievePersonProperties() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing by identifying
+            sut.identify("test_user")
+            
             let properties = [
                 "test_property": "test_value",
                 "plan": "premium",
@@ -207,7 +211,7 @@ enum PostHogFeatureFlagsTest {
             // Verify they can be retrieved by testing the internal state
             // Since getPersonPropertiesForFlags is private, we'll test via flag loading
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -237,7 +241,10 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Person properties are additive")
         func personPropertiesAreAdditive() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
 
             // Set first batch of properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
@@ -246,7 +253,7 @@ enum PostHogFeatureFlagsTest {
             sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"])
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -275,7 +282,10 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Reset person properties clears all properties")
         func resetPersonPropertiesClearsAll() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
 
             // Set some properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
@@ -284,7 +294,7 @@ enum PostHogFeatureFlagsTest {
             sut.resetPersonPropertiesForFlags()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -301,12 +311,21 @@ enum PostHogFeatureFlagsTest {
                 return
             }
 
-            #expect(requestBody["person_properties"] == nil, "Expected person_properties to be nil after reset")
+            // After reset, person_properties should only contain default device properties, not the custom ones
+            if let personProperties = requestBody["person_properties"] as? [String: Any] {
+                #expect(personProperties["property1"] == nil, "Expected property1 to be removed after reset")
+                #expect(personProperties["property2"] == nil, "Expected property2 to be removed after reset")
+                // Device properties like $device_manufacturer, $os_name etc. are expected to remain
+            }
         }
 
         @Test("Group properties are stored and retrieved correctly")
         func storeAndRetrieveGroupProperties() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
+            
             let properties = [
                 "plan": "enterprise",
                 "seats": 50,
@@ -317,7 +336,7 @@ enum PostHogFeatureFlagsTest {
             sut.setGroupPropertiesForFlags("organization", properties: properties)
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -351,14 +370,17 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Multiple group types are handled correctly")
         func multipleGroupTypesHandled() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
 
             // Set properties for different group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
             sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -386,7 +408,10 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Reset group properties for specific type")
         func resetGroupPropertiesSpecificType() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
 
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -396,7 +421,7 @@ enum PostHogFeatureFlagsTest {
             sut.resetGroupPropertiesForFlags("organization")
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -424,7 +449,10 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Reset all group properties")
         func resetAllGroupProperties() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
 
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -434,7 +462,7 @@ enum PostHogFeatureFlagsTest {
             sut.resetGroupPropertiesForFlags()
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -456,14 +484,17 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Both person and group properties sent together")
         func bothPersonAndGroupPropertiesSent() async {
-            let sut = getSut()
+            let sut = PostHogSDK.with(config)
+            
+            // Enable person processing
+            sut.identify("test_user")
 
             // Set both types of properties
             sut.setPersonPropertiesForFlags(["user_plan": "premium"])
             sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"])
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -499,7 +530,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Capture with userProperties automatically sets person properties for flags")
         func captureWithUserPropertiesAutomaticallySetsPersonPropertiesForFlags() async {
-            let sut = PostHogSDK.testIntance(server: server)
+            let sut = PostHogSDK.with(config)
 
             // Enable person processing
             sut.identify("test_user")
@@ -508,7 +539,7 @@ enum PostHogFeatureFlagsTest {
             sut.capture("test_event", properties: ["event_prop": "value"], userProperties: ["user_plan": "premium"])
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
@@ -536,7 +567,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Group with groupProperties automatically sets group properties for flags")
         func groupWithGroupPropertiesAutomaticallySetsGroupPropertiesForFlags() async {
-            let sut = PostHogSDK.testIntance(server: server)
+            let sut = PostHogSDK.with(config)
 
             // Enable person processing
             sut.identify("test_user")
@@ -545,7 +576,7 @@ enum PostHogFeatureFlagsTest {
             sut.group(type: "organization", key: "org123", groupProperties: ["org_plan": "enterprise"])
 
             await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "test_user", anonymousId: nil, groups: [:]) { _ in
+                sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }

@@ -990,6 +990,10 @@ let maxRetryDelay = 30.0
             return
         }
 
+        guard hasPersonProcessing() else {
+            return
+        }
+
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
         guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
@@ -1020,6 +1024,10 @@ let maxRetryDelay = 30.0
             return
         }
 
+        guard hasPersonProcessing() else {
+            return
+        }
+
         remoteConfig?.resetPersonPropertiesForFlags()
     }
 
@@ -1043,6 +1051,10 @@ let maxRetryDelay = 30.0
     @objc(setGroupPropertiesForFlags:properties:)
     public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
         if !isEnabled() {
+            return
+        }
+
+        guard hasPersonProcessing() else {
             return
         }
 
@@ -1089,6 +1101,11 @@ let maxRetryDelay = 30.0
         if !isEnabled() {
             return
         }
+
+        guard hasPersonProcessing() else {
+            return
+        }
+
         remoteConfig?.resetGroupPropertiesForFlags(groupType)
     }
 

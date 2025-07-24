@@ -238,8 +238,8 @@ class PostHogContext {
                 personProperties["$locale"] = languageCode.identifier
             }
         } else {
-            if Locale.current.languageCode != nil {
-                personProperties["$locale"] = Locale.current.languageCode
+            if let languageCode = Locale.current.languageCode {
+                personProperties["$locale"] = languageCode
             }
         }
 

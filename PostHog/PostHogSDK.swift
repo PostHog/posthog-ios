@@ -1048,8 +1048,34 @@ let maxRetryDelay = 30.0
     ///   - groupType: The group type identifier (e.g., "organization", "team")
     ///   - properties: Dictionary of properties to set for this group type
     /// - Note: This method automatically reloads feature flags to apply the new properties.
+    /// - SeeAlso: `setGroupPropertiesForFlags(_:properties:reloadFeatureFlags:)` to control flag reloading behavior
     @objc(setGroupPropertiesForFlags:properties:)
     public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {
+        setGroupPropertiesForFlags(groupType, properties: properties, reloadFeatureFlags: true)
+    }
+
+    /// Sets properties for a specific group type to include when evaluating feature flags.
+    /// These properties supplement the standard group information sent to PostHog for flag evaluation,
+    /// providing additional context that can be used in flag targeting conditions.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Set properties without automatically reloading flags
+    /// PostHogSDK.shared.setGroupPropertiesForFlags("organization", properties: [
+    ///     "plan": "enterprise",
+    ///     "seats": 50
+    /// ], reloadFeatureFlags: false)
+    ///
+    /// // Manually reload flags later
+    /// PostHogSDK.shared.reloadFeatureFlags()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - groupType: The group type identifier (e.g., "organization", "team")
+    ///   - properties: Dictionary of properties to set for this group type
+    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
+    @objc(setGroupPropertiesForFlags:properties:reloadFeatureFlags:)
+    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool) {
         if !isEnabled() {
             return
         }
@@ -1062,8 +1088,9 @@ let maxRetryDelay = 30.0
         guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setGroupPropertiesForFlags(groupType, properties: sanitizedProperties)
 
-        // Automatically reload flags to apply the new properties
-        remoteConfig?.reloadFeatureFlags()
+        if reloadFeatureFlags {
+            remoteConfig?.reloadFeatureFlags()
+        }
     }
 
     /// Clears all group properties for feature flag evaluation.

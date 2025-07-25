@@ -19,6 +19,7 @@ class PostHogSDKTest: QuickSpec {
                 optOut: Bool = false,
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
+                setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
@@ -31,6 +32,7 @@ class PostHogSDKTest: QuickSpec {
         config.optOut = optOut
         config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
+        config.setDefaultPersonProperties = setDefaultPersonProperties
 
         if let beforeSend = beforeSend {
             config.setBeforeSend(beforeSend)
@@ -883,6 +885,51 @@ class PostHogSDKTest: QuickSpec {
                     expect(events.count).to(equal(expectedEvents.count))
                     expect(events.map(\.event)).to(equal(expectedEvents))
                 }
+            }
+        }
+
+        context("automatic person properties") {
+            it("sets default person properties on SDK setup when enabled") {
+                let sut = self.getSut(preloadFeatureFlags: true)
+
+                let requests = getFlagsRequest(server)
+                expect(requests.count).to(beGreaterThan(0))
+
+                guard let lastRequest = requests.last else {
+                    fail("No flags request found")
+                    return
+                }
+
+                guard let personProperties = lastRequest["person_properties"] as? [String: Any] else {
+                    fail("Person properties not found in request")
+                    return
+                }
+
+                // Verify expected default properties are set
+                expect(personProperties["$app_version"]).toNot(beNil())
+                expect(personProperties["$app_build"]).toNot(beNil())
+                expect(personProperties["$os_name"]).toNot(beNil())
+                expect(personProperties["$os_version"]).toNot(beNil())
+                expect(personProperties["$device_type"]).toNot(beNil())
+                expect(personProperties["$locale"]).toNot(beNil())
+            }
+
+            it("does not set default person properties when disabled") {
+                let sut = self.getSut(setDefaultPersonProperties: false)
+
+                // Manually trigger a flag request since no automatic one will happen
+                sut.reloadFeatureFlags()
+
+                let requests = getFlagsRequest(server)
+                expect(requests.count).to(beGreaterThan(0))
+
+                guard let lastRequest = requests.last else {
+                    fail("No flags request found")
+                    return
+                }
+
+                // person_properties should be nil when default properties are disabled
+                expect(lastRequest["person_properties"]).to(beNil())
             }
         }
 

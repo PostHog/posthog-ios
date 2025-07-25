@@ -196,6 +196,8 @@ class PostHogApi {
         distinctId: String,
         anonymousId: String?,
         groups: [String: String],
+        personProperties: [String: Any],
+        groupProperties: [String: [String: Any]]? = nil,
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {
         let url = getEndpointURL(
@@ -221,6 +223,14 @@ class PostHogApi {
 
         if let anonymousId {
             toSend["$anon_distinct_id"] = anonymousId
+        }
+
+        if !personProperties.isEmpty {
+            toSend["person_properties"] = personProperties
+        }
+
+        if let groupProperties, !groupProperties.isEmpty {
+            toSend["group_properties"] = groupProperties
         }
 
         var data: Data?

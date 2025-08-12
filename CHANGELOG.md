@@ -1,5 +1,7 @@
 ## Next
 
+## 3.30.1 - 2025-08-12
+
 - fix: map missing content type for Surveys ([#377](https://github.com/PostHog/posthog-ios/pull/377))
 
 ## 3.30.0 - 2025-07-28

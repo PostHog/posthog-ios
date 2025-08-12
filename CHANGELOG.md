@@ -1,5 +1,7 @@
 ## Next
 
+- fix: map missing content type for Surveys ([#377](https://github.com/PostHog/posthog-ios/pull/377))
+
 ## 3.30.0 - 2025-07-28
 
 - feat: add person and group properties for feature flags ([#373](https://github.com/PostHog/posthog-ios/pull/373))

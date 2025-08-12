@@ -110,6 +110,7 @@
                 displayThankYouMessage: displayThankYouMessage ?? true,
                 thankYouMessageHeader: thankYouMessageHeader,
                 thankYouMessageDescription: thankYouMessageDescription,
+                thankYouMessageDescriptionContentType: thankYouMessageDescriptionContentType?.toDisplayContentType(),
                 thankYouMessageCloseButtonText: thankYouMessageCloseButtonText
             )
         }

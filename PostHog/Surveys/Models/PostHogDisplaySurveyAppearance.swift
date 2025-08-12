@@ -52,21 +52,21 @@ import Foundation
     public let thankYouMessageCloseButtonText: String?
 
     init(
-        fontFamily: String? = nil,
-        backgroundColor: String? = nil,
-        borderColor: String? = nil,
-        submitButtonColor: String? = nil,
-        submitButtonText: String? = nil,
-        submitButtonTextColor: String? = nil,
-        descriptionTextColor: String? = nil,
-        ratingButtonColor: String? = nil,
-        ratingButtonActiveColor: String? = nil,
-        placeholder: String? = nil,
-        displayThankYouMessage: Bool = true,
-        thankYouMessageHeader: String? = nil,
-        thankYouMessageDescription: String? = nil,
-        thankYouMessageDescriptionContentType: PostHogDisplaySurveyTextContentType? = nil,
-        thankYouMessageCloseButtonText: String? = nil
+        fontFamily: String?,
+        backgroundColor: String?,
+        borderColor: String?,
+        submitButtonColor: String?,
+        submitButtonText: String?,
+        submitButtonTextColor: String?,
+        descriptionTextColor: String?,
+        ratingButtonColor: String?,
+        ratingButtonActiveColor: String?,
+        placeholder: String?,
+        displayThankYouMessage: Bool,
+        thankYouMessageHeader: String?,
+        thankYouMessageDescription: String?,
+        thankYouMessageDescriptionContentType: PostHogDisplaySurveyTextContentType?,
+        thankYouMessageCloseButtonText: String?
     ) {
         self.fontFamily = fontFamily
         self.backgroundColor = backgroundColor

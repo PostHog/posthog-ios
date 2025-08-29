@@ -1,6 +1,7 @@
 ## Next
 
 - feat: surveys GA ([#381](https://github.com/PostHog/posthog-ios/pull/381))
+> Note: Surveys are now enabled by default
 
 ## 3.30.1 - 2025-08-12
 

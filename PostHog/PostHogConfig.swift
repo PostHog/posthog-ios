@@ -119,7 +119,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     #endif
 
     /// Enable mobile surveys
-    /// Experimental support
     ///
     /// Default: false
     ///
@@ -130,7 +129,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @_spi(Experimental)
     @objc public var surveys: Bool {
         get { _surveys }
         set { setSurveys(newValue) }
@@ -141,7 +139,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(tvOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(visionOS, unavailable, message: "Surveys are only available on iOS 15+")
-    @_spi(Experimental)
     @objc public var surveysConfig: PostHogSurveysConfig {
         get { _surveysConfig }
         set { setSurveysConfig(newValue) }
@@ -202,7 +199,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         return integrations
     }
 
-    var _surveys: Bool = false // swiftlint:disable:this identifier_name
+    var _surveys: Bool = true // swiftlint:disable:this identifier_name
     private func setSurveys(_ value: Bool) {
         // protection against objc API availability warning instead of error
         // Unlike swift, which enforces stricter safety rules, objc just displays a warning

@@ -9,6 +9,48 @@ import AuthenticationServices
 import PostHog
 import SwiftUI
 
+struct LongScrollView: View {
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(0 ..< 3000, id: \.self) { index in
+                    VStack {
+                        AsyncImage(url: .init(string: "https://picsum.photos/id/\(index)/200/200.jpg")) { result in
+                            if let image = result.image{
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } else {
+                                Color.gray
+                            }
+                        }
+                        .aspectRatio(1, contentMode: .fill)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Item \(index)")
+                                .font(.headline)
+                            Text("This is item number \(index) in a long scrolling list")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .frame(minHeight: 120)
+                }
+            }
+            .padding(.vertical)
+        }
+        .navigationTitle("Long Scroll Test")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 class SignInViewModel: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
     // MARK: - ASWebAuthenticationPresentationContextProviding
 
@@ -82,41 +124,6 @@ struct ContentView: View {
         ])
     }
 
-    func testPersonPropertiesForFlags() {
-        print("🧪 Testing person properties for flags...")
-
-        // Note: PostHog iOS SDK automatically sets default person properties like:
-        // $app_version, $app_build, $os_name, $os_version, $device_type, $locale
-        // This ensures feature flags work immediately without waiting for identify() calls.
-
-        // Set some additional test person properties
-        PostHogSDK.shared.setPersonPropertiesForFlags([
-            "test_property": "manual_test_value",
-            "plan": "premium_test",
-            "$app_version": "custom_override_version", // This will override the automatic value
-        ])
-
-        print("✅ Set person properties for flags")
-
-        // Set some test group properties
-        PostHogSDK.shared.setGroupPropertiesForFlags("organization", properties: [
-            "plan": "enterprise",
-            "seats": 50,
-            "industry": "technology",
-        ])
-
-        print("✅ Set group properties for flags (organization)")
-
-        // Trigger flag evaluation to send the request
-        let flagValue = PostHogSDK.shared.isFeatureEnabled("test_flag")
-        print("🏁 Flag value: \(flagValue)")
-
-        // Check what's in getFeatureFlag too
-        if let strFlag = PostHogSDK.shared.getFeatureFlag("multivariant") as? String {
-            print("📄 Multivariant flag: \(strFlag)")
-        }
-    }
-
     func triggerAuthentication() {
         signInViewModel.triggerAuthentication()
     }
@@ -129,6 +136,13 @@ struct ContentView: View {
         NavigationView {
             List {
                 #if os(iOS)
+                    Section("Session Replay Test") {
+                        NavigationLink {
+                            LongScrollView()
+                        } label: {
+                            Text("Long Scroll Test")
+                        }
+                    }
                     Section("Manual Session Recording Control") {
                         Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
                             .lineLimit(1)
@@ -228,10 +242,6 @@ struct ContentView: View {
                     Button(action: triggerIdentify) {
                         Text("Trigger identify!")
                     }.postHogViewSeen("Trigger identify")
-
-                    Button(action: testPersonPropertiesForFlags) {
-                        Text("🧪 Test Person & Group Properties")
-                    }
                 }
 
                 Section("Feature flags") {

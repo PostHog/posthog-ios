@@ -34,8 +34,12 @@
         private func checkLabel(_ label: String) -> Bool {
             label.lowercased().contains("ph-no-capture")
         }
-
+        
         func toImage() -> UIImage? {
+            PostHogViewRenderer.capture(self, scale: 1)
+        }
+
+        func legacyToImage() -> UIImage? {
             // Avoid Rendering Offscreen Views
             let bounds = superview?.bounds ?? bounds
             let size = bounds.intersection(bounds).size

@@ -324,6 +324,8 @@
 		DAA022472D78203D00197660 /* fixture_survey_url_match_type_not_regex.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA022462D78203D00197660 /* fixture_survey_url_match_type_not_regex.json */; };
 		DAA022492D78205100197660 /* fixture_survey_url_match_type_is_not.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA022482D78205100197660 /* fixture_survey_url_match_type_is_not.json */; };
 		DAA0224B2D782D6F00197660 /* fixture_survey_url_match_type_exact.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA0224A2D782D6F00197660 /* fixture_survey_url_match_type_exact.json */; };
+		DAA45E3A2E6B7B080015FDCC /* PostHogViewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA45E392E6B7B080015FDCC /* PostHogViewRenderer.swift */; };
+		DAA45E3B2E6B7B080015FDCC /* PostHogGraphicsImageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA45E382E6B7B080015FDCC /* PostHogGraphicsImageRenderer.swift */; };
 		DAA5ED972D4043A500D437E0 /* PostHogSurveysTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */; };
 		DAA5EE212D43605000D437E0 /* fixture_survey_branching_response_based_linkert.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE1A2D43605000D437E0 /* fixture_survey_branching_response_based_linkert.json */; };
 		DAA5EE242D43605000D437E0 /* fixture_survey_branching_response_based_empty.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE192D43605000D437E0 /* fixture_survey_branching_response_based_empty.json */; };
@@ -850,6 +852,8 @@
 		DAA022462D78203D00197660 /* fixture_survey_url_match_type_not_regex.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = fixture_survey_url_match_type_not_regex.json; sourceTree = "<group>"; };
 		DAA022482D78205100197660 /* fixture_survey_url_match_type_is_not.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = fixture_survey_url_match_type_is_not.json; sourceTree = "<group>"; };
 		DAA0224A2D782D6F00197660 /* fixture_survey_url_match_type_exact.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = fixture_survey_url_match_type_exact.json; sourceTree = "<group>"; };
+		DAA45E382E6B7B080015FDCC /* PostHogGraphicsImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGraphicsImageRenderer.swift; sourceTree = "<group>"; };
+		DAA45E392E6B7B080015FDCC /* PostHogViewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogViewRenderer.swift; sourceTree = "<group>"; };
 		DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysTest.swift; sourceTree = "<group>"; };
 		DAA5EE132D43605000D437E0 /* fixture_survey_basic.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_basic.json; sourceTree = "<group>"; };
 		DAA5EE162D43605000D437E0 /* fixture_survey_branching_end.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_branching_end.json; sourceTree = "<group>"; };
@@ -1267,6 +1271,8 @@
 				69F23A772BB30991001194F6 /* NetworkSample.swift */,
 				69F23A792BB309F3001194F6 /* MethodSwizzler.swift */,
 				6955CB722C517651008EFD8D /* CGSize+Util.swift */,
+				DAA45E382E6B7B080015FDCC /* PostHogGraphicsImageRenderer.swift */,
+				DAA45E392E6B7B080015FDCC /* PostHogViewRenderer.swift */,
 			);
 			path = Replay;
 			sourceTree = "<group>";
@@ -2113,6 +2119,8 @@
 				DA690C6C2DA54BD70045FF4E /* PostHogSurveyConditions.swift in Sources */,
 				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,
 				690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */,
+				DAA45E3A2E6B7B080015FDCC /* PostHogViewRenderer.swift in Sources */,
+				DAA45E3B2E6B7B080015FDCC /* PostHogGraphicsImageRenderer.swift in Sources */,
 				69F518162BAC7F9200F52C14 /* UIView+Util.swift in Sources */,
 				69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */,
 				DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */,

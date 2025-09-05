@@ -19,7 +19,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.captureApplicationLifecycleEvents = false
 //        config.flushAt = 1
 //        config.flushIntervalSeconds = 30
-        config.debug = true
+        config.debug = false
         config.sendFeatureFlagEvent = false
 
         #if os(iOS)

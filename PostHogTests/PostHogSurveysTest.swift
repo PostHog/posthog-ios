@@ -1360,6 +1360,7 @@ private extension PostHogSurvey {
         questions: [PostHogSurveyQuestion] = [
             .open(
                 PostHogOpenSurveyQuestion(
+                    id: "",
                     question: "Some question",
                     description: "Some description",
                     descriptionContentType: nil,
@@ -1406,6 +1407,7 @@ private extension PostHogOpenSurveyQuestion {
         branching: PostHogSurveyQuestionBranching? = nil
     ) -> PostHogOpenSurveyQuestion {
         PostHogOpenSurveyQuestion(
+            id: "",
             question: question,
             description: "",
             descriptionContentType: nil,
@@ -1424,6 +1426,7 @@ private extension PostHogMultipleSurveyQuestion {
         branching: PostHogSurveyQuestionBranching? = nil
     ) -> PostHogMultipleSurveyQuestion {
         PostHogMultipleSurveyQuestion(
+            id: "",
             question: question,
             description: "",
             descriptionContentType: nil,
@@ -1446,6 +1449,7 @@ private extension PostHogRatingSurveyQuestion {
         branching: PostHogSurveyQuestionBranching? = nil
     ) -> PostHogRatingSurveyQuestion {
         PostHogRatingSurveyQuestion(
+            id: "",
             question: question,
             description: "",
             descriptionContentType: nil,

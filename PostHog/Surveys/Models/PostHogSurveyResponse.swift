@@ -10,6 +10,8 @@ import Foundation
 /// A model representing a user's response to a survey question
 @objc @objcMembers
 public class PostHogSurveyResponse: NSObject {
+//    The question ID
+//    public let id: String
     /// The type of response (link, rating, text, or multiple choice)
     public let type: PostHogSurveyResponseType
     /// Whether a link was clicked (for link questions)
@@ -22,6 +24,7 @@ public class PostHogSurveyResponse: NSObject {
     public let selectedOptions: [String]?
 
     private init(
+//        id: String,
         type: PostHogSurveyResponseType,
         linkClicked: Bool? = nil,
         ratingValue: Int? = nil,

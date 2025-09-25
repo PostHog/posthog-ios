@@ -11,6 +11,8 @@ import Foundation
 
 /// Protocol defining common properties for all survey question types
 protocol PostHogSurveyQuestionProperties {
+    /// Question ID
+    var id: String { get }
     /// Question text
     var question: String { get }
     /// Additional description or instructions (optional)
@@ -54,6 +56,10 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
         case let .unknown(type):
             self = .unknown(type: type)
         }
+    }
+    
+    var id: String {
+        wrappedQuestion?.id ?? ""
     }
 
     var question: String {
@@ -102,6 +108,7 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
 
 /// Represents a basic open-ended survey question
 struct PostHogOpenSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
+    let id: String
     let question: String
     let description: String?
     let descriptionContentType: PostHogSurveyTextContentType?
@@ -113,6 +120,7 @@ struct PostHogOpenSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
 
 /// Represents a survey question with an associated link
 struct PostHogLinkSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
+    let id: String
     let question: String
     let description: String?
     let descriptionContentType: PostHogSurveyTextContentType?
@@ -126,6 +134,7 @@ struct PostHogLinkSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
 
 /// Represents a rating-based survey question
 struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
+    let id: String
     let question: String
     let description: String?
     let descriptionContentType: PostHogSurveyTextContentType?
@@ -143,6 +152,7 @@ struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
 
 /// Represents a multiple-choice or single-choice survey question
 struct PostHogMultipleSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
+    let id: String
     let question: String
     let description: String?
     let descriptionContentType: PostHogSurveyTextContentType?

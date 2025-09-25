@@ -9,7 +9,7 @@ import Foundation
 
 /// Base class for all survey question types
 @objc public class PostHogDisplaySurveyQuestion: NSObject {
-    /// The question ID
+    /// The question ID, empty if none
     @objc public let id: String
     /// The main question text to display
     @objc public let question: String

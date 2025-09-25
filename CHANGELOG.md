@@ -1,6 +1,6 @@
 ## Next
 
-- feat: iOS surveys use the new response question id format ([#381](https://github.com/PostHog/posthog-ios/pull/381))
+- feat: iOS surveys use the new response question id format ([#383](https://github.com/PostHog/posthog-ios/pull/383))
 
 ## 3.31.0 - 2025-08-29
 

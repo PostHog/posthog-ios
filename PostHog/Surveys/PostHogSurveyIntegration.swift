@@ -523,7 +523,6 @@
         /// Sends a `survey dismissed` event to PostHog instance
         private func sendSurveyDismissedEvent(survey: PostHogSurvey) {
             let additionalProperties: [String: Any] = [
-                // "$survey_questions": survey.questions.map(\.question),
                 "$set": [
                     getSurveyInteractionProperty(survey: survey, property: "dismissed"): true,
                 ],

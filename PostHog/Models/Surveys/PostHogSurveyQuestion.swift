@@ -11,7 +11,7 @@ import Foundation
 
 /// Protocol defining common properties for all survey question types
 protocol PostHogSurveyQuestionProperties {
-    /// Question ID
+    /// Question ID, empty if none
     var id: String { get }
     /// Question text
     var question: String { get }

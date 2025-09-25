@@ -30,6 +30,7 @@ enum PostHogSurveysTest {
             #expect(sut.questions.count == 1)
 
             if case let .open(question) = sut.questions[0] {
+                #expect(question.id == "300")
                 #expect(question.question == "What would you like to see in our Core Web Vitals product?")
                 #expect(question.description == "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product")
                 #expect(question.originalQuestionIndex == 0)

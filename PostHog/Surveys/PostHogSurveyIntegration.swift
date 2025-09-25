@@ -400,7 +400,7 @@
                 hedgeLog("[Surveys] Received a response event for a non-active survey")
                 return nil
             }
-            
+
             // TODO: ideally the handleSurveyResponse should pass the question ID as param but it would break the Flutter SDK for older versions
             let questionId: String
             if index < survey.questions.count {
@@ -494,7 +494,7 @@
                 let responseKey = question.id.isEmpty ? getOldResponseKey(for: index) : getNewResponseKey(for: question.id)
                 var questionData: [String: Any] = [
                     "id": question.id,
-                    "question": question.question
+                    "question": question.question,
                 ]
 
                 if let response = responsesProperties[responseKey] {
@@ -762,7 +762,7 @@
         private func getOldResponseKey(for index: Int) -> String {
             index == 0 ? kSurveyResponseKey : "\(kSurveyResponseKey)_\(index)"
         }
-        
+
         // Returns the new survey response key for a specific question id
         private func getNewResponseKey(for questionId: String) -> String {
             "\(kSurveyResponseKey)_\(questionId)"

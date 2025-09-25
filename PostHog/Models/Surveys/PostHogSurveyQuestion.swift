@@ -57,7 +57,7 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
             self = .unknown(type: type)
         }
     }
-    
+
     var id: String {
         wrappedQuestion?.id ?? ""
     }

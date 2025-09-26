@@ -595,8 +595,10 @@ enum PostHogSurveysTest {
                 "type": "popover",
                 "questions": [
                     {
+                        "id": "1",
                         "type": "open",
-                        "question": "What is a completed survey?"
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
                     }
                 ]
             }
@@ -610,8 +612,10 @@ enum PostHogSurveysTest {
                 "type": "popover",
                 "questions": [
                     {
+                        "id": "1",
                         "type": "open",
-                        "question": "What is a completed survey?"
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "start_date": "2024-07-23T09:18:18.376000Z"
@@ -626,8 +630,10 @@ enum PostHogSurveysTest {
                 "type": "popover",
                 "questions": [
                     {
+                        "id": "1",
                         "type": "open",
-                        "question": "What is a completed survey?"
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "start_date": "2024-07-23T09:18:18.376000Z",
@@ -643,8 +649,10 @@ enum PostHogSurveysTest {
                 "type": "popover",
                 "questions": [
                     {
+                        "id": "1",
                         "type": "open",
-                        "question": "What is a completed survey?"
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "conditions": { 
@@ -663,8 +671,10 @@ enum PostHogSurveysTest {
                 "type": "popover",
                 "questions": [
                     {
+                        "id": "1",
                         "type": "open",
-                        "question": "What is a completed survey?"
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "conditions": { 
@@ -683,9 +693,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "feature_flag_keys": [
@@ -700,9 +712,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "feature_flag_keys": [
@@ -717,9 +731,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "start_date": "2024-07-23T09:18:18.376000Z"
@@ -734,9 +750,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "feature_flag_keys": [
@@ -751,9 +769,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "feature_flag_keys": [
@@ -772,9 +792,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "feature_flag_keys": [
@@ -793,9 +815,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "internal_targeting_flag_key": "internal-targeting-flag-enabled",
@@ -811,9 +835,11 @@ enum PostHogSurveysTest {
                 "description": "survey with feature flags description",
                 "type": "popover",
                 "questions": [
-                    { 
-                        "type": "open", 
-                        "question": "what do you think?" 
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "what do you think?",
+                        "originalQuestionIndex": 0
                     }
                 ],
                 "internal_targeting_flag_key": "internal-targeting-flag-disabled",

@@ -227,7 +227,7 @@
                 }
             ],
             "conditions": {
-                "url": "((us|eu).posthog.com/.*data-warehouse|posthog.com/docs/data-warehouse)",
+                "url": "((us|eu).posthog.com\/.*data-warehouse|posthog.com\/docs\/data-warehouse)",
                 "urlMatchType": "regex"
             },
             "appearance": {
@@ -263,7 +263,7 @@
                 }
             ],
             "conditions": {
-                "url": "((us|eu).posthog.com/.*destinations|posthog.com/docs/cdp)",
+                "url": "((us|eu).posthog.com\/.*destinations|posthog.com\/docs\/cdp)",
                 "urlMatchType": "regex",
                 "seenSurveyWaitPeriodInDays": 14
             },
@@ -1786,7 +1786,7 @@
                 }
             ],
             "conditions": {
-                "url": "https://posthog\\.com/tutorials/(?:stripe|hubspot|google-ads|zendesk)-reports",
+                "url": "https:\/\/posthog\\.com\/tutorials\/(?:stripe|hubspot|google-ads|zendesk)-reports",
                 "urlMatchType": "regex",
                 "seenSurveyWaitPeriodInDays": 14
             },
@@ -2446,7 +2446,7 @@
                 }
             ],
             "conditions": {
-                "url": "((us|eu).posthog.com/.*data-warehouse|posthog.com/docs/data-warehouse)",
+                "url": "((us|eu).posthog.com\/.*data-warehouse|posthog.com\/docs\/data-warehouse)",
                 "urlMatchType": "regex"
             },
             "appearance": {
@@ -3764,6 +3764,14 @@
             "current_iteration_start_date": null
         }
     ],
+    "featureFlags": {
+        "linked-flag-enabled": true,
+        "linked-flag-disabled": false,
+        "survey-targeting-flag-enabled": true,
+        "survey-targeting-flag-disabled": false,
+        "internal-targeting-flag-enabled": true,
+        "internal-targeting-flag-disabled": false
+    },
     "defaultIdentifiedOnly": true,
     "siteApps": [
         {

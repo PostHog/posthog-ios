@@ -120,7 +120,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Enable mobile surveys
     ///
-    /// Default: false
+    /// Default: true
     ///
     /// Note: Event triggers will only work with the instance that first enables surveys.
     /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true

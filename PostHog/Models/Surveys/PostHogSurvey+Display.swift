@@ -19,6 +19,7 @@
             switch self {
             case let .open(question):
                 return PostHogDisplayOpenQuestion(
+                    id: question.id,
                     question: question.question,
                     questionDescription: question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
@@ -28,6 +29,7 @@
 
             case let .link(question):
                 return PostHogDisplayLinkQuestion(
+                    id: question.id,
                     question: question.question,
                     questionDescription: question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
@@ -38,6 +40,7 @@
 
             case let .rating(question):
                 return PostHogDisplayRatingQuestion(
+                    id: question.id,
                     question: question.question,
                     questionDescription: question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
@@ -52,6 +55,7 @@
 
             case let .singleChoice(question), let .multipleChoice(question):
                 return PostHogDisplayChoiceQuestion(
+                    id: question.id,
                     question: question.question,
                     questionDescription: question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),

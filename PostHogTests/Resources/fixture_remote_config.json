@@ -30,6 +30,7 @@
             "internal_targeting_flag_key": "survey-targeting-88af4df282-custom",
             "questions": [
                 {
+                    "id": "123",
                     "type": "open",
                     "question": "What would you like to see in our Core Web Vitals product?",
                     "description": "Core Web Vitals just launched and we're interested in hearing (reading?) from you on what you think we're missing with this product",
@@ -83,7 +84,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "124"
                 },
                 {
                     "type": "open",
@@ -91,7 +93,8 @@
                     "buttonText": "Next",
                     "description": "(Where do you live?)",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "125"
                 },
                 {
                     "type": "multiple_choice",
@@ -108,7 +111,8 @@
                     "description": "",
                     "hasOpenChoice": true,
                     "originalQuestionIndex": 2,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "126"
                 },
                 {
                     "type": "single_choice",
@@ -120,7 +124,8 @@
                     "buttonText": "One last thing...",
                     "description": "(Your job would be to greet people and set a nice tone. We'd give you instructions, and PostHog would promote the event itself. You'd get some free merch.)",
                     "originalQuestionIndex": 3,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "127"
                 },
                 {
                     "type": "open",
@@ -129,7 +134,8 @@
                     "buttonText": "💌 Send it!",
                     "description": "Add your email if you're okay with us getting in touch about this. (No spam; just about this.)",
                     "originalQuestionIndex": 4,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "128"
                 }
             ],
             "conditions": {
@@ -172,7 +178,8 @@
                     "buttonText": "Ask a question here",
                     "description": "<div>\n    <div> \n        <h1>Hi there 👋</h1><p style=\"font-size:16px;font-weight:500;color:black\"><br>I'm Seb, your account manager. Let me know if you get stuck setting anything up.<br><br> You can shoot me an email at <a style=\"color:blue\" href=\"mailto:seb@posthog.com\" rel=\"noopener\">seb@posthog.com</a> or grab a meeting <a style=\"color:blue\" href=\"https://calendly.com/seb-posthog/csm-chat?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=seb-csm-checkin\" rel=\"noopener\">here</a>.</p>\n    </div> \n    <div>\n            <img style=\"width:230px;float:right;\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1719843271/Seb_9d9fc3a92c.png\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Seb</div>\n    </div>",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "129"
                 },
                 {
                     "type": "open",
@@ -180,7 +187,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "130"
                 }
             ],
             "conditions": {
@@ -214,7 +222,8 @@
                     "type": "open",
                     "question": "We're adding more data sources!",
                     "description": "Where would you like to sync data from automatically? (e.g. Google Sheets, Meta Ads, Mailchimp)",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "131"
                 }
             ],
             "conditions": {
@@ -249,7 +258,8 @@
                     "question": "What CDP destinations do you need?",
                     "description": "Help shape the future of PostHog's CDP! Let us know which data destinations you'd love to see next. It'll only take a minute—your feedback makes all the difference.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "132"
                 }
             ],
             "conditions": {
@@ -291,14 +301,16 @@
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "133"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve our Product Analytics product?",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "134"
                 }
             ],
             "conditions": {
@@ -340,14 +352,16 @@
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "135"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve our Session Replay product?",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "136"
                 }
             ],
             "conditions": {
@@ -389,14 +403,16 @@
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "137"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve our Web analytics product?",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "138"
                 }
             ],
             "conditions": {
@@ -438,14 +454,16 @@
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "139"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve our Surveys product?",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "140"
                 }
             ],
             "conditions": {
@@ -488,14 +506,16 @@
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "141"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve our Experiments product?",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "142"
                 }
             ],
             "conditions": {
@@ -538,14 +558,16 @@
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "143"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve our Feature Flags product?",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "144"
                 }
             ],
             "conditions": {
@@ -588,7 +610,8 @@
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "145"
                 },
                 {
                     "type": "open",
@@ -596,7 +619,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "146"
                 }
             ],
             "conditions": {
@@ -634,7 +658,8 @@
                     "type": "link",
                     "question": "Beta test a new Replay feature ✨",
                     "buttonText": "Get started",
-                    "description": "We've built a new way to find the most important session recordings. Get early access in exchange for feedback."
+                    "description": "We've built a new way to find the most important session recordings. Get early access in exchange for feedback.",
+                    "id": "147"
                 },
                 {
                     "type": "single_choice",
@@ -645,14 +670,16 @@
                     "optional": false,
                     "question": "Do you consent to console logs captured in your app being sent to OpenAI by PostHog?",
                     "buttonText": "Submit",
-                    "description": "Your team looks like a great match based on the number of console logs captured in user sessions."
+                    "description": "Your team looks like a great match based on the number of console logs captured in user sessions.",
+                    "id": "148"
                 },
                 {
                     "link": "https://cal.com/david-posthog/user-interview",
                     "type": "link",
                     "question": "Share your thoughts",
                     "buttonText": "Schedule",
-                    "description": "We'd love to get your first impressions of the feature on a video call"
+                    "description": "We'd love to get your first impressions of the feature on a video call",
+                    "id": "149"
                 }
             ],
             "conditions": {
@@ -691,7 +718,8 @@
                     "buttonText": "Schedule PostHog Workshop",
                     "description": "We've found ~80% of failed queries in PostHog are resolved with another look at the data model and how to leverage it. As your assigned PostHog success human, I can get you there faster with easy to understand docs, how-tos, and best practices applied to what you're up to. My calendar is yours.\n- David",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "150"
                 }
             ],
             "conditions": {
@@ -735,7 +763,8 @@
                     "question": "Hello how are you doing today?",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "151"
                 }
             ],
             "conditions": {
@@ -773,7 +802,8 @@
                     "buttonText": "Schedule a call",
                     "description": "We’re always hungry for feedback. Chat with us about your experience with PostHog’s Group analytics for 30 minutes, and we’ll thank you with a $30 merch discount code. Deal?",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "152"
                 }
             ],
             "conditions": {
@@ -825,7 +855,8 @@
                     "description": "",
                     "shuffleOptions": true,
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "153"
                 },
                 {
                     "type": "multiple_choice",
@@ -843,7 +874,8 @@
                     "description": "",
                     "hasOpenChoice": true,
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "154"
                 }
             ],
             "conditions": null,
@@ -880,7 +912,8 @@
                     "buttonText": "Schedule a call",
                     "description": "We’re always hungry for feedback. Chat with us about your experience with PostHog’s Web analytics for 30 minutes, and we’ll thank you with a $30 merch discount code. Deal?",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "155"
                 }
             ],
             "conditions": {
@@ -923,7 +956,8 @@
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "156"
                 }
             ],
             "conditions": {
@@ -962,7 +996,8 @@
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "157"
                 }
             ],
             "conditions": null,
@@ -1000,7 +1035,8 @@
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "158"
                 }
             ],
             "conditions": {
@@ -1052,7 +1088,8 @@
                     "description": "<a href=\"https://posthog.com/docs/session-replay/mobile\" rel=\"noopener\">Session replay \n for Android &amp; iOS</a> is now available. Want to try it for free?",
                     "hasOpenChoice": false,
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "159"
                 },
                 {
                     "type": "multiple_choice",
@@ -1071,7 +1108,8 @@
                     "hasOpenChoice": true,
                     "shuffleOptions": false,
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "160"
                 },
                 {
                     "type": "link",
@@ -1080,7 +1118,8 @@
                     "buttonText": "Finish",
                     "description": "\n<a href=\"https://posthog.com/docs/session-replay/mobile\" rel=\"noopener\">➡️ Install mobile session replay</a> <br>\n➡️ Follow our <a href=\"https://posthog.com/roadmap\" rel=\"noopener\">roadmap</a> for updates on session replay for React Native and Flutter",
                     "originalQuestionIndex": 2,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "161"
                 }
             ],
             "conditions": {
@@ -1118,7 +1157,8 @@
                     "buttonText": "Schedule call",
                     "description": "Share your feedback with us and get priority access to our Beta.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "162"
                 }
             ],
             "conditions": {
@@ -1166,7 +1206,8 @@
                     "description": "What features drove you to subscribe? You can select multiple!",
                     "hasOpenChoice": true,
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "163"
                 }
             ],
             "conditions": {
@@ -1227,7 +1268,8 @@
                     "buttonText": "Schedule a call",
                     "description": "We noticed you recently started using Feature Flags. To improve our product, we would love to hear how you are getting on.\n<br>\n<br>\nP.S. As a small thank you, we'll send you a $30 merch voucher.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "164"
                 }
             ],
             "conditions": {
@@ -1271,7 +1313,8 @@
                     "buttonText": "Read the docs",
                     "description": "We think your team is a good match for an early preview of a new product we're building to capture, investigate and resolve exceptions in your app.<br><br>\nWe would love for you to try it out and share any feedback you have with us.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "165"
                 }
             ],
             "conditions": {
@@ -1318,7 +1361,8 @@
                     "description": "<div> \n        <h1>Hello 👋</h1><p>I'm <a href=\"https://posthog.com/community/profiles/28895\" target=\"_blank\" rel=\"noopener\">Simon</a>, your Customer Success Manager. I can help you with:</p><p></p><ul><li>Getting started</li>\n        <li>Getting the most out of PostHog</li><li>Understanding billing</li></ul><p></p><p>Let me know how you prefer to work together:</p>\n</div> \n",
                     "hasOpenChoice": true,
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "166"
                 },
                 {
                     "type": "open",
@@ -1327,7 +1371,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "167"
                 }
             ],
             "conditions": {
@@ -1363,7 +1408,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "168"
                 }
             ],
             "conditions": {
@@ -1400,7 +1446,8 @@
                     "buttonText": "Get early access to Max AI",
                     "description": "Get early access to Max AI, our experimental feature that lets you talk directly to your data. It's still learning, but we’d love your feedback while it's figuring things out!",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "169"
                 }
             ],
             "conditions": {
@@ -1446,7 +1493,8 @@
                     "description": "<div> \n        <h1>👋 Alaska Airlines</h1><p>I'm <a target=\"_blank\" href=\"https://posthog.com/community/profiles/28895\" rel=\"noopener\">Simon</a>, from the PostHog Customer team. I can help you out in getting started with PostHog.</p><p></p><p>Let me know how you prefer to work together:</p>\n</div> \n",
                     "hasOpenChoice": true,
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "170"
                 },
                 {
                     "type": "open",
@@ -1455,7 +1503,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "171"
                 }
             ],
             "conditions": {
@@ -1491,7 +1540,8 @@
                     "buttonText": "Ask a question here",
                     "description": "<div>\n    <div> \n        <h1>Hi there 👋</h1><p style=\"font-size:16px;font-weight:500;color:black\"><br>I'm Cameron, your account manager. Let me know if you get stuck setting anything up.<br><br> You can shoot me an email at <a style=\"color:blue\" href=\"mailto:cameron@posthog.com\" rel=\"noopener\">cameron@posthog.com</a> or grab a meeting <a style=\"color:blue\" href=\"https://calendly.com/cameron-posthog/30min-1?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=cam-csm-checkin\" rel=\"noopener\">here</a>.</p>\n    </div> \n    <div>\n            <img style=\"width:230px;float:right;\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Cameron</div>\n    </div>",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "172"
                 },
                 {
                     "type": "open",
@@ -1499,7 +1549,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "173"
                 }
             ],
             "conditions": {
@@ -1537,7 +1588,8 @@
                     "buttonText": "Schedule a call 🤗",
                     "description": "<p>Hi there! 👋</p>\n<p>You could save 20% or more by moving to an annual plan.</p>\n<p>(Was that too salesy? True though.)</p>\n<p>I can also help you optimize your current consumption.</p>\n<p>Let's talk! (button below)</p><p>\n</p><p>Or, if that's not your thing, send an email: <a style=\"font-weight: bold\" href=\"mailto:scott@posthog.com\" rel=\"noopener\">scott@posthog.com</a>\n</p><div style=\"position: relative; border-width: 2px; border-color: background: rgb(208, 209, 201); background: rgb(229, 231, 224); border-radius: 4px; text-align:right; height: 130px; margin-top: 3em;\">\n    <div style=\"top: 0; left: 0; position: absolute; padding-top: 1em; padding-left: 1em; text-align: left; line-height: 1;\">\n        <p style=\"font-weight: bold; margin-bottom: .5em\">Scott Sowers</p>\n        <p>Real Person</p>\n    </div>\n    <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1724774703/Scott_69d4d8d234.png\" style=\"position: absolute; bottom: 0; right: 0; width: 70%; height: auto;\" alt=\"Picture of Scott, your human at PostHog\">\n</div>\n<div style=\"text-align: center; margin-top: .5em\">\n    <p style=\"font-weight: semi-bold;\">☝️ That's really me</p>\n</div>\n\n",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "174"
                 }
             ],
             "conditions": {
@@ -1576,7 +1628,8 @@
                     "buttonText": "Schedule a call",
                     "description": "We’d love to hear about your initial experiences with Product Analytics. Your feedback will help us enhance our product.\n<br>\n<br><i>P.S.</i> As a small thank you, we'll send you a $30 merch voucher.<br>",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "175"
                 }
             ],
             "conditions": {
@@ -1623,7 +1676,8 @@
                     "buttonText": "Book feedback call",
                     "description": "We noticed that you've recently created a survey in PostHog. We're currently planning the next set of features for surveys and would love to get your input.\n<br>\nP.S. As a small thank you, we'll send you a $30 merch voucher.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "176"
                 }
             ],
             "conditions": {
@@ -1663,7 +1717,8 @@
                         "Product announcements"
                     ],
                     "question": "Why are you unsubscribing (open)?",
-                    "description": ""
+                    "description": "",
+                    "id": "177"
                 },
                 {
                     "type": "single_choice",
@@ -1676,7 +1731,8 @@
                         "data_warehouse"
                     ],
                     "question": "product_type (filled programmatically)",
-                    "description": ""
+                    "description": "",
+                    "id": "178"
                 },
                 {
                     "type": "multiple_choice",
@@ -1691,7 +1747,8 @@
                     "question": "Why are you unsubscribing?",
                     "buttonText": "Submit",
                     "description": "",
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "179"
                 }
             ],
             "conditions": null,
@@ -1724,7 +1781,8 @@
                     "question": "What data warehouse tutorial should we write next?",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "180"
                 }
             ],
             "conditions": {
@@ -1766,7 +1824,8 @@
                     "buttonText": "Ask a question here",
                     "description": "<div>\n    <div> \n        <h1>Hi there 👋</h1><p style=\"font-size:16px;font-weight:500;color:black\"><br>I'm Seb, your account manager. Let me know if you get stuck setting anything up.<br><br> You can shoot me an email at <a href=\"mailto:seb@posthog.com\" style=\"color:blue\" rel=\"noopener\">seb@posthog.com</a> or grab a meeting <a href=\"https://calendly.com/seb-posthog/csm-chat?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=seb-csm-checkin\" style=\"color:blue\" rel=\"noopener\">here</a>.</p>\n    </div> \n    <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1719843271/Seb_9d9fc3a92c.png\" style=\"width:230px;float:right;\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Seb</div>\n    </div>",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "181"
                 },
                 {
                     "type": "open",
@@ -1774,7 +1833,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "182"
                 }
             ],
             "conditions": {
@@ -1815,7 +1875,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "183"
                 },
                 {
                     "type": "single_choice",
@@ -1827,7 +1888,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "184"
                 }
             ],
             "conditions": null,
@@ -1861,7 +1923,8 @@
                     "buttonText": "Find out more",
                     "description": "We've slashed our pricing for session replays. They're now more than 50% cheaper for most customers.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "185"
                 }
             ],
             "conditions": {
@@ -1902,7 +1965,8 @@
                     "buttonText": "Submit",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "186"
                 }
             ],
             "conditions": null,
@@ -1938,13 +2002,15 @@
                         "Never tried it!"
                     ],
                     "question": "Does pineapple belong on pizza?",
-                    "description": "This is a demo survey with a very serious question."
+                    "description": "This is a demo survey with a very serious question.",
+                    "id": "187"
                 },
                 {
                     "type": "open",
                     "optional": true,
                     "question": "Thanks for the feedback! Anything else you'd like to add?",
-                    "description": ""
+                    "description": "",
+                    "id": "188"
                 },
                 {
                     "type": "rating",
@@ -1953,7 +2019,8 @@
                     "question": "How likely are you to try PostHog surveys?",
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
-                    "upperBoundLabel": "Very likely"
+                    "upperBoundLabel": "Very likely",
+                    "id": "189"
                 }
             ],
             "conditions": {
@@ -1993,7 +2060,8 @@
                     "buttonText": "Schedule",
                     "description": "We're working on a new product to track exceptions. I'd love to get your input and feedback, in exchange for early access once it's ready!\n<br>\n<br>\nP.S. As a small thank you, we'll send you a $30 merch voucher.",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "html"
+                    "descriptionContentType": "html",
+                    "id": "190"
                 }
             ],
             "conditions": {
@@ -2031,7 +2099,8 @@
                     "question": "What can we do to improve our product?",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "191"
                 }
             ],
             "conditions": {
@@ -2073,7 +2142,8 @@
                     "question": "What can we do to improve our product?",
                     "description": "",
                     "originalQuestionIndex": 0,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "192"
                 },
                 {
                     "type": "rating",
@@ -2085,7 +2155,8 @@
                     "lowerBoundLabel": "Unlikely",
                     "upperBoundLabel": "Very likely",
                     "originalQuestionIndex": 1,
-                    "descriptionContentType": "text"
+                    "descriptionContentType": "text",
+                    "id": "193"
                 }
             ],
             "conditions": {
@@ -2120,70 +2191,80 @@
                     "question": "1",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "194"
                 },
                 {
                     "type": "open",
                     "question": "2",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "195"
                 },
                 {
                     "type": "open",
                     "question": "3",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 2
+                    "originalQuestionIndex": 2,
+                    "id": "196"
                 },
                 {
                     "type": "open",
                     "question": "4",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 3
+                    "originalQuestionIndex": 3,
+                    "id": "197"
                 },
                 {
                     "type": "open",
                     "question": "5",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 4
+                    "originalQuestionIndex": 4,
+                    "id": "198"
                 },
                 {
                     "type": "open",
                     "question": "6",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 5
+                    "originalQuestionIndex": 5,
+                    "id": "199"
                 },
                 {
                     "type": "open",
                     "question": "7",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 6
+                    "originalQuestionIndex": 6,
+                    "id": "200"
                 },
                 {
                     "type": "open",
                     "question": "8",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 7
+                    "originalQuestionIndex": 7,
+                    "id": "201"
                 },
                 {
                     "type": "open",
                     "question": "9",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 8
+                    "originalQuestionIndex": 8,
+                    "id": "202"
                 },
                 {
                     "type": "open",
                     "question": "10",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 9
+                    "originalQuestionIndex": 9,
+                    "id": "203"
                 }
             ],
             "conditions": {
@@ -2219,70 +2300,80 @@
                     "question": "1",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 0
+                    "originalQuestionIndex": 0,
+                    "id": "204"
                 },
                 {
                     "type": "open",
                     "question": "2",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 1
+                    "originalQuestionIndex": 1,
+                    "id": "205"
                 },
                 {
                     "type": "open",
                     "question": "3",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 2
+                    "originalQuestionIndex": 2,
+                    "id": "206"
                 },
                 {
                     "type": "open",
                     "question": "4",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 3
+                    "originalQuestionIndex": 3,
+                    "id": "207"
                 },
                 {
                     "type": "open",
                     "question": "5",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 4
+                    "originalQuestionIndex": 4,
+                    "id": "208"
                 },
                 {
                     "type": "open",
                     "question": "6",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 5
+                    "originalQuestionIndex": 5,
+                    "id": "209"
                 },
                 {
                     "type": "open",
                     "question": "7",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 6
+                    "originalQuestionIndex": 6,
+                    "id": "210"
                 },
                 {
                     "type": "open",
                     "question": "8",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 7
+                    "originalQuestionIndex": 7,
+                    "id": "211"
                 },
                 {
                     "type": "open",
                     "question": "9",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 8
+                    "originalQuestionIndex": 8,
+                    "id": "212"
                 },
                 {
                     "type": "open",
                     "question": "10",
                     "buttonText": "Submit",
                     "description": "",
-                    "originalQuestionIndex": 9
+                    "originalQuestionIndex": 9,
+                    "id": "213"
                 }
             ],
             "conditions": {
@@ -2316,7 +2407,8 @@
                 {
                     "type": "open",
                     "question": "How can we improve our docs?",
-                    "description": ""
+                    "description": "",
+                    "id": "214"
                 }
             ],
             "conditions": {
@@ -2349,7 +2441,8 @@
                 {
                     "type": "open",
                     "question": "We're adding one-click connectors!",
-                    "description": "Where would you like to automatically sync data from? (e.g. Stripe, Hubspot, Shopify)"
+                    "description": "Where would you like to automatically sync data from? (e.g. Stripe, Hubspot, Shopify)",
+                    "id": "215"
                 }
             ],
             "conditions": {
@@ -2385,7 +2478,8 @@
                     "optional": true,
                     "question": "How can we improve our data warehouse product?",
                     "buttonText": "Submit",
-                    "description": "Eric here from team data warehouse!\n\nWe are looking for feedback, issues, and/or feature requests! Leave a message below or book a call in the next step!"
+                    "description": "Eric here from team data warehouse!\n\nWe are looking for feedback, issues, and/or feature requests! Leave a message below or book a call in the next step!",
+                    "id": "216"
                 },
                 {
                     "link": "https://calendly.com/eric-posthog/15min",
@@ -2393,7 +2487,8 @@
                     "optional": true,
                     "question": "Schedule",
                     "buttonText": "Book a call",
-                    "description": ""
+                    "description": "",
+                    "id": "217"
                 }
             ],
             "conditions": {
@@ -2429,13 +2524,15 @@
                     "type": "open",
                     "question": "How can we improve our docs?",
                     "buttonText": "Submit",
-                    "description": ""
+                    "description": "",
+                    "id": "218"
                 },
                 {
                     "type": "open",
                     "question": "Give us feedback on our product!",
                     "buttonText": "Submit",
-                    "description": ""
+                    "description": "",
+                    "id": "219"
                 },
                 {
                     "type": "multiple_choice",
@@ -2446,7 +2543,8 @@
                     ],
                     "question": "Where Should we invest next?",
                     "buttonText": "Submit",
-                    "description": ""
+                    "description": "",
+                    "id": "220"
                 }
             ],
             "conditions": {
@@ -2483,14 +2581,16 @@
                     "optional": true,
                     "question": "👋 Hello from Simon",
                     "buttonText": "Next",
-                    "description": "<img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_thumb,w_300,g_face/v1710125785/posthog.com/contents/images/support-hog.png\" alt=\"Support Hog\">\n<p style=\"margin-top:18px\"><a href=\"https://posthog.com/community/profiles/28895\" rel=\"noopener\">Simon</a> from PostHog here, ready to answer your implementation and pricing/legal questions. Drop a message below and I'll get back to you, or book a call in the next step.</p>"
+                    "description": "<img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_thumb,w_300,g_face/v1710125785/posthog.com/contents/images/support-hog.png\" alt=\"Support Hog\">\n<p style=\"margin-top:18px\"><a href=\"https://posthog.com/community/profiles/28895\" rel=\"noopener\">Simon</a> from PostHog here, ready to answer your implementation and pricing/legal questions. Drop a message below and I'll get back to you, or book a call in the next step.</p>",
+                    "id": "221"
                 },
                 {
                     "link": "https://calendly.com/simon-posthog/30min",
                     "type": "link",
                     "question": "Want to chat in person?",
                     "buttonText": "Book a call",
-                    "description": "Hit the button to put something in the diary."
+                    "description": "Hit the button to put something in the diary.",
+                    "id": "222"
                 }
             ],
             "conditions": {
@@ -2526,7 +2626,8 @@
                     "type": "link",
                     "question": "Hey Drift team, can I help?",
                     "buttonText": "Book a call",
-                    "description": "<img alt=\"Drift Tron Race\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_pad,w_260/v1713877355/posthog.com/contents/images/drift_posthog.jpg\">\n<p style=\"margin-top:18px\">Simon from the PostHog customer team here. I can answer any product usage and billing questions you have, and help make your PostHog experience everything you hoped it would be. Get in touch if you need help with anything at all.</p>"
+                    "description": "<img alt=\"Drift Tron Race\" src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_pad,w_260/v1713877355/posthog.com/contents/images/drift_posthog.jpg\">\n<p style=\"margin-top:18px\">Simon from the PostHog customer team here. I can answer any product usage and billing questions you have, and help make your PostHog experience everything you hoped it would be. Get in touch if you need help with anything at all.</p>",
+                    "id": "223"
                 }
             ],
             "conditions": {
@@ -2562,7 +2663,8 @@
                     ],
                     "question": "Find what you were looking for?",
                     "buttonText": "Submit",
-                    "description": "<strong>We're improving our docs search.</strong> If your search didn't help you find what you need, tell us what you searched and what you're looking for so we can improve our search results."
+                    "description": "<strong>We're improving our docs search.</strong> If your search didn't help you find what you need, tell us what you searched and what you're looking for so we can improve our search results.",
+                    "id": "224"
                 }
             ],
             "conditions": {
@@ -2596,7 +2698,8 @@
                 {
                     "type": "open",
                     "question": "What can we do to improve our product?",
-                    "description": ""
+                    "description": "",
+                    "id": "225"
                 }
             ],
             "conditions": {
@@ -2630,7 +2733,8 @@
                     "type": "link",
                     "question": "Help us improve PostHog",
                     "buttonText": "Book user interview",
-                    "description": "We are looking for feedback on various PostHog features. Help guide our roadmap and get $30 of PostHog merch."
+                    "description": "We are looking for feedback on various PostHog features. Help guide our roadmap and get $30 of PostHog merch.",
+                    "id": "226"
                 }
             ],
             "conditions": {
@@ -2666,7 +2770,8 @@
                     "type": "link",
                     "question": "🚀 Let's talk Feature Flags",
                     "buttonText": "Book a call",
-                    "description": "<img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_thumb,w_300,g_face/v1710125785/posthog.com/contents/images/support-hog.png\" alt=\"Support Hog\">\n<p style=\"margin-top:18px\">Simon from your PostHog customer team here. If you need help figuring out Feature Flags and A/B testing then you can reach me in our shared Slack channel, or book time to chat below - I'll be happy to help.</p>"
+                    "description": "<img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/c_thumb,w_300,g_face/v1710125785/posthog.com/contents/images/support-hog.png\" alt=\"Support Hog\">\n<p style=\"margin-top:18px\">Simon from your PostHog customer team here. If you need help figuring out Feature Flags and A/B testing then you can reach me in our shared Slack channel, or book time to chat below - I'll be happy to help.</p>",
+                    "id": "227"
                 }
             ],
             "conditions": {
@@ -2707,7 +2812,8 @@
                     ],
                     "question": "How do you feel about our pricing?",
                     "buttonText": "Submit",
-                    "description": ""
+                    "description": "",
+                    "id": "228"
                 }
             ],
             "conditions": {
@@ -2742,11 +2848,12 @@
                 {
                     "type": "open",
                     "question": "New A/B testing UI!",
-                    "description": "We've just released our new A/B testing UI and would love to hear your thoughts. What do you like? What still needs work? Your feedback will help us make it even better."
+                    "description": "We've just released our new A/B testing UI and would love to hear your thoughts. What do you like? What still needs work? Your feedback will help us make it even better.",
+                    "id": "229"
                 }
             ],
             "conditions": {
-                "url": ".*\/project\/\\d+\/experiments\/\\d+",
+                "url": ".*/project/\\d+/experiments/\\d+",
                 "urlMatchType": "regex"
             },
             "appearance": {
@@ -2779,7 +2886,8 @@
                     "question": "How likely are you to recommend us to a friend?",
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
-                    "upperBoundLabel": "Very likely"
+                    "upperBoundLabel": "Very likely",
+                    "id": "230"
                 }
             ],
             "conditions": {
@@ -2822,7 +2930,8 @@
                     "buttonText": "Submit",
                     "description": "It looks like you enabled the feature preview but have not yet sent a comment. Can you share why?",
                     "lowerBoundLabel": "Unlikely",
-                    "upperBoundLabel": "Very likely"
+                    "upperBoundLabel": "Very likely",
+                    "id": "231"
                 }
             ],
             "conditions": {
@@ -2858,7 +2967,8 @@
                     "type": "open",
                     "question": " ",
                     "buttonText": "Press for answers",
-                    "description": "<div>\n    <div> \n        <h2>Any billing questions?</h2><p style=\"font-size:16px;font-weight:500;color:black\"><br>I can help you get the most of your budget, limit events/flag/replay usage, or get a volume discount. Feel free to dump a question below or book 15 mins <a href=\"https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=billing-page-5x30\" style=\"color:blue\" rel=\"noopener\">here</a>.</p>\n        <p style=\"color:black\">(I can also help with other stuff, too)</p>\n    </div> \n    <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\" style=\"width:230px;float:right;\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Cameron<br>(Customer Success)</div>\n    </div>\n    \n"
+                    "description": "<div>\n    <div> \n        <h2>Any billing questions?</h2><p style=\"font-size:16px;font-weight:500;color:black\"><br>I can help you get the most of your budget, limit events/flag/replay usage, or get a volume discount. Feel free to dump a question below or book 15 mins <a href=\"https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=billing-page-5x30\" style=\"color:blue\" rel=\"noopener\">here</a>.</p>\n        <p style=\"color:black\">(I can also help with other stuff, too)</p>\n    </div> \n    <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\" style=\"width:230px;float:right;\">\n    </div>\n        <div style=\"text-align:right;float:right;color:black\">^ that's me, Cameron<br>(Customer Success)</div>\n    </div>\n    \n",
+                    "id": "232"
                 }
             ],
             "conditions": {
@@ -2892,7 +3002,8 @@
                     "type": "link",
                     "question": "Help improve Session Replay",
                     "buttonText": "Book user interview",
-                    "description": "We are looking for feedback on our Session Replay features. Help guide our roadmap and get $30 of PostHog merch."
+                    "description": "We are looking for feedback on our Session Replay features. Help guide our roadmap and get $30 of PostHog merch.",
+                    "id": "233"
                 }
             ],
             "conditions": {
@@ -2928,7 +3039,8 @@
                     "type": "link",
                     "question": "Help improve Session Replay and get $30 of PostHog merch",
                     "buttonText": "Schedule now",
-                    "description": "Join a user interview and share your feedback on setting up and getting started with PostHog Session Replay. "
+                    "description": "Join a user interview and share your feedback on setting up and getting started with PostHog Session Replay. ",
+                    "id": "234"
                 }
             ],
             "conditions": {
@@ -2970,7 +3082,8 @@
                     "description": "",
                     "hasOpenChoice": true,
                     "lowerBoundLabel": "Unlikely",
-                    "upperBoundLabel": "Very likely"
+                    "upperBoundLabel": "Very likely",
+                    "id": "235"
                 }
             ],
             "conditions": {
@@ -3004,7 +3117,8 @@
                     "type": "link",
                     "question": " ",
                     "buttonText": "tell me more...",
-                    "description": "<div>\n    <div>\n        <div> \n            <h2>make sure to avoid these three common failure modes with PostHog</h2>\n            <p style=\"font-size:16px;font-weight:500\"><br>what are they?</p>\n            <ul style=\"font-size:16px;font-weight:500;\">\n                <li> paying for features you're not using</li>\n                <li> not merging users properly</li>\n                <li> setting up your event schema wrong</li>\n            </ul>\n        </div> \n        <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\" style=\"width:230px;float:right;\">\n        </div>\n        <div style=\"text-align:right;float:right\">^ that's me, Cameron<br>(Customer Success)<br>\n            <p style=\"text-align:right;float:right\">book 15 mins <a href=\"https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=onboarding-survey\" style=\"color:blue\" rel=\"noopener\">here</a>\n            </p>\n        </div>\n    </div>\n</div>\n\n    \n"
+                    "description": "<div>\n    <div>\n        <div> \n            <h2>make sure to avoid these three common failure modes with PostHog</h2>\n            <p style=\"font-size:16px;font-weight:500\"><br>what are they?</p>\n            <ul style=\"font-size:16px;font-weight:500;\">\n                <li> paying for features you're not using</li>\n                <li> not merging users properly</li>\n                <li> setting up your event schema wrong</li>\n            </ul>\n        </div> \n        <div>\n            <img src=\"https://res.cloudinary.com/dmukukwp6/image/upload/v1685570037/cameron_bc0de38765.png\" style=\"width:230px;float:right;\">\n        </div>\n        <div style=\"text-align:right;float:right\">^ that's me, Cameron<br>(Customer Success)<br>\n            <p style=\"text-align:right;float:right\">book 15 mins <a href=\"https://calendly.com/cameron-posthog/15-minute-posthog-q-a?utm_source=posthog-survey&amp;utm_medium=survey&amp;utm_campaign=onboarding-survey\" style=\"color:blue\" rel=\"noopener\">here</a>\n            </p>\n        </div>\n    </div>\n</div>\n\n    \n",
+                    "id": "236"
                 }
             ],
             "conditions": null,
@@ -3038,14 +3152,16 @@
                     "question": "How happy are you with the level of support you received?",
                     "description": "",
                     "lowerBoundLabel": "Very dissatisfied",
-                    "upperBoundLabel": "Very satisfied"
+                    "upperBoundLabel": "Very satisfied",
+                    "id": "237"
                 },
                 {
                     "type": "open",
                     "optional": true,
                     "question": "Please help us do better! Can you tell us more about the ratings you gave us?",
                     "buttonText": "Submit",
-                    "description": ""
+                    "description": "",
+                    "id": "238"
                 }
             ],
             "conditions": {
@@ -3079,7 +3195,8 @@
                     "type": "link",
                     "question": "Help improve HogQL and BI features",
                     "buttonText": "Schedule call now",
-                    "description": "We are looking for feedback on our new BI querying and visualization features. Help guide our roadmap and get $30 of PostHog merch."
+                    "description": "We are looking for feedback on our new BI querying and visualization features. Help guide our roadmap and get $30 of PostHog merch.",
+                    "id": "239"
                 }
             ],
             "conditions": {
@@ -3117,13 +3234,15 @@
                     "buttonText": "Submit",
                     "description": "",
                     "lowerBoundLabel": "Unlikely",
-                    "upperBoundLabel": "Very likely"
+                    "upperBoundLabel": "Very likely",
+                    "id": "240"
                 },
                 {
                     "type": "open",
                     "question": "Give us feedback on our product!",
                     "buttonText": "Submit",
-                    "description": ""
+                    "description": "",
+                    "id": "241"
                 }
             ],
             "conditions": {
@@ -3160,7 +3279,8 @@
                     "type": "link",
                     "question": "Need help getting the most out of your budget?",
                     "buttonText": "Book a 15 min call",
-                    "description": "Looks like you're on track to hit your first bill and have tweaked billing limits a few times. Happy to chat through strategies to optimize usage. Grab some time below!\n- Cameron, Customer Success Engineer  "
+                    "description": "Looks like you're on track to hit your first bill and have tweaked billing limits a few times. Happy to chat through strategies to optimize usage. Grab some time below!\n- Cameron, Customer Success Engineer  ",
+                    "id": "242"
                 }
             ],
             "conditions": {
@@ -3196,7 +3316,8 @@
                     "type": "open",
                     "question": "What would you like to see from PostHog surveys next?",
                     "buttonText": "Submit",
-                    "description": "Leave feedback for a chance to receive a $50 merch card, or book a <a target=\"_blank\" href=\"https://calendly.com/posthog-li/posthog-surveys-feedback\" rel=\"noopener\">user interview</a> with us!"
+                    "description": "Leave feedback for a chance to receive a $50 merch card, or book a <a target=\"_blank\" href=\"https://calendly.com/posthog-li/posthog-surveys-feedback\" rel=\"noopener\">user interview</a> with us!",
+                    "id": "243"
                 }
             ],
             "conditions": {
@@ -3236,7 +3357,8 @@
                         "👍 I've sent data in and am good to go"
                     ],
                     "question": "Are you blocked in evaluating or setting up PostHog in any way?",
-                    "description": ""
+                    "description": "",
+                    "id": "244"
                 },
                 {
                     "link": "https://calendly.com/cameron-posthog/30min-1",
@@ -3247,14 +3369,16 @@
                     ],
                     "optional": true,
                     "question": "If you want to connect for a call, share some details on what you need help with (or skip)",
-                    "description": ""
+                    "description": "",
+                    "id": "245"
                 },
                 {
                     "link": " ",
                     "type": "link",
                     "optional": true,
                     "question": " ",
-                    "description": "<h2 style=\"color:black;\">If you want to hop on a call, grab 30 mins <a target=\"_blank\" href=\"https://calendly.com/cameron-posthog/30min-1?utm_source=posthog-survey&amp;utm_campaign=csm-in-app-outreach-onboarding\" rel=\"noopener\">here</a>.</h2>\n<p>If you need another timezone email me at <a target=\"_blank\" href=\"mailto:cameron@posthog.com?subject=Connect with PostHog CS team\" rel=\"noopener\">cameron@posthog.com</a></p>"
+                    "description": "<h2 style=\"color:black;\">If you want to hop on a call, grab 30 mins <a target=\"_blank\" href=\"https://calendly.com/cameron-posthog/30min-1?utm_source=posthog-survey&amp;utm_campaign=csm-in-app-outreach-onboarding\" rel=\"noopener\">here</a>.</h2>\n<p>If you need another timezone email me at <a target=\"_blank\" href=\"mailto:cameron@posthog.com?subject=Connect with PostHog CS team\" rel=\"noopener\">cameron@posthog.com</a></p>",
+                    "id": "246"
                 }
             ],
             "conditions": {
@@ -3287,7 +3411,8 @@
                 {
                     "type": "open",
                     "question": "What can we do to improve our product?",
-                    "description": ""
+                    "description": "",
+                    "id": "247"
                 }
             ],
             "conditions": {
@@ -3324,24 +3449,28 @@
                     "question": "How happy are you with PostHog Web Analytics?",
                     "description": "",
                     "lowerBoundLabel": "Very unhappy",
-                    "upperBoundLabel": "Very happy"
+                    "upperBoundLabel": "Very happy",
+                    "id": "248"
                 },
                 {
                     "type": "open",
                     "optional": true,
                     "question": "What is the best thing about PostHog Web Analytics?",
-                    "description": ""
+                    "description": "",
+                    "id": "249"
                 },
                 {
                     "type": "open",
                     "optional": true,
                     "question": "What is the worst thing about PostHog Web Analytics?",
-                    "description": ""
+                    "description": "",
+                    "id": "250"
                 },
                 {
                     "type": "open",
                     "question": "How can we improve PostHog Web Analytics?",
-                    "description": ""
+                    "description": "",
+                    "id": "251"
                 }
             ],
             "conditions": {
@@ -3375,17 +3504,20 @@
                 {
                     "type": "open",
                     "question": "What is your job title?",
-                    "description": ""
+                    "description": "",
+                    "id": "252"
                 },
                 {
                     "type": "open",
                     "question": "What are you using [name of your product] to do right now?",
-                    "description": ""
+                    "description": "",
+                    "id": "253"
                 },
                 {
                     "type": "open",
                     "question": "What obstacles do you face when trying to accomplish your goals?",
-                    "description": ""
+                    "description": "",
+                    "id": "254"
                 }
             ],
             "conditions": {
@@ -3418,7 +3550,8 @@
                     "link": "https://app.posthog.com/surveys",
                     "type": "link",
                     "question": "User surveys now available out of beta!",
-                    "description": "Collect NPS scores, schedule interviews, and more with no-code surveys. Get your first 250 responses for free, every month!"
+                    "description": "Collect NPS scores, schedule interviews, and more with no-code surveys. Get your first 250 responses for free, every month!",
+                    "id": "255"
                 }
             ],
             "conditions": {
@@ -3455,7 +3588,8 @@
                         "No"
                     ],
                     "question": "Does pineapple belong on pizza?",
-                    "description": "🍍+ 🍕? 👍 or 👎?"
+                    "description": "🍍+ 🍕? 👍 or 👎?",
+                    "id": "256"
                 }
             ],
             "conditions": {
@@ -3492,7 +3626,8 @@
                         "Yes",
                         "No"
                     ],
-                    "question": "Do you like pineapple on pizza? 🍕"
+                    "question": "Do you like pineapple on pizza? 🍕",
+                    "id": "257"
                 }
             ],
             "conditions": {
@@ -3518,7 +3653,8 @@
                 {
                     "type": "open",
                     "question": "How can our onboarding be improved?",
-                    "description": "What is the most confusing or frustrating part of this onboarding flow? We just built this new flow, and we'd love to hear what you think. Feel free to answer this after you finish, too, just leave it here until you're ready!"
+                    "description": "What is the most confusing or frustrating part of this onboarding flow? We just built this new flow, and we'd love to hear what you think. Feel free to answer this after you finish, too, just leave it here until you're ready!",
+                    "id": "258"
                 }
             ],
             "conditions": {
@@ -3555,7 +3691,8 @@
                     "link": "https://cal.com/posthog-annika/posthog-user-interview",
                     "type": "link",
                     "question": "Help improve PostHog!",
-                    "description": "You are invited to a 30-minute user interview.\n\nHelp guide our roadmap and get $30 of PostHog merch."
+                    "description": "You are invited to a 30-minute user interview.\n\nHelp guide our roadmap and get $30 of PostHog merch.",
+                    "id": "259"
                 }
             ],
             "conditions": {
@@ -3584,7 +3721,8 @@
             "questions": [
                 {
                     "type": "open",
-                    "question": "Questions about billing?  Let the PostHog Customer Success team know!"
+                    "question": "Questions about billing?  Let the PostHog Customer Success team know!",
+                    "id": "260"
                 }
             ],
             "conditions": {
@@ -3608,7 +3746,8 @@
             "questions": [
                 {
                     "type": "open",
-                    "question": "What do you think of the new Surveys beta for PostHog?"
+                    "question": "What do you think of the new Surveys beta for PostHog?",
+                    "id": "261"
                 }
             ],
             "conditions": {
@@ -3625,6 +3764,14 @@
             "current_iteration_start_date": null
         }
     ],
+    "featureFlags": {
+        "linked-flag-enabled": true,
+        "linked-flag-disabled": false,
+        "survey-targeting-flag-enabled": true,
+        "survey-targeting-flag-disabled": false,
+        "internal-targeting-flag-enabled": true,
+        "internal-targeting-flag-disabled": false
+    },
     "defaultIdentifiedOnly": true,
     "siteApps": [
         {

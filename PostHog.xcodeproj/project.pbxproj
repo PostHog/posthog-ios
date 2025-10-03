@@ -345,6 +345,7 @@
 		DAB9E23F2DE8901D00E62DB9 /* URLSessionInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB9E2392DE8901D00E62DB9 /* URLSessionInterceptor.swift */; };
 		DAB9F6C42D6C49BB00A988A1 /* ApplicationEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB9F6C32D6C49B300A988A1 /* ApplicationEventPublisher.swift */; };
 		DABDF9C32E02994000C7E498 /* PostHogDisplaySurvey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DABDF9C22E02994000C7E498 /* PostHogDisplaySurvey.swift */; };
+		DABF95052E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DABF95042E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift */; };
 		DAC699D62CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */; };
 		DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */; };
 		DACB3ED22E0193B20061FC7D /* PostHogSurvey+Display.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACB3ED12E0193B20061FC7D /* PostHogSurvey+Display.swift */; };
@@ -872,6 +873,7 @@
 		DAB9E23A2DE8901D00E62DB9 /* URLSessionSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionSwizzler.swift; sourceTree = "<group>"; };
 		DAB9F6C32D6C49B300A988A1 /* ApplicationEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationEventPublisher.swift; sourceTree = "<group>"; };
 		DABDF9C22E02994000C7E498 /* PostHogDisplaySurvey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogDisplaySurvey.swift; sourceTree = "<group>"; };
+		DABF95042E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyEventsTest.swift; sourceTree = "<group>"; };
 		DAC699D52CC790D9000D1D6B /* PostHogAutocaptureIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureIntegration.swift; sourceTree = "<group>"; };
 		DAC699EB2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForwardingPickerViewDelegate.swift; sourceTree = "<group>"; };
 		DACB3ED12E0193B20061FC7D /* PostHogSurvey+Display.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PostHogSurvey+Display.swift"; sourceTree = "<group>"; };
@@ -1126,6 +1128,7 @@
 				DACF6D5C2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift */,
 				DA703C1D2D66346E0069097B /* PostHogAppLifeCycleIntegrationTest.swift */,
 				DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */,
+				DABF95042E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift */,
 				DA5E52EA2E0996C400159D20 /* PostHogSurveyEnumsTest.swift */,
 				DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */,
 				699C5FEE2C20242A007DB818 /* UUIDTest.swift */,
@@ -2296,6 +2299,7 @@
 				690FF0E12AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift in Sources */,
 				DA578E9C2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift in Sources */,
 				DA4FFBB52DAD5B01006BAEEA /* PostHogIdentityTests.swift in Sources */,
+				DABF95052E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift in Sources */,
 				DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */,
 				3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */,
 				699C5FEF2C20242A007DB818 /* UUIDTest.swift in Sources */,

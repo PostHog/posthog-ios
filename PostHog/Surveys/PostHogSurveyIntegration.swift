@@ -901,6 +901,30 @@
                 return nil
             }
 
+            func testSendSurveyShownEvent(survey: PostHogSurvey) {
+                sendSurveyShownEvent(survey: survey)
+            }
+
+            func testSendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse]) {
+                sendSurveySentEvent(survey: survey, responses: responses)
+            }
+
+            func testSendSurveyDismissedEvent(survey: PostHogSurvey) {
+                sendSurveyDismissedEvent(survey: survey)
+            }
+
+            func testGetBaseSurveyEventProperties(for survey: PostHogSurvey) -> [String: Any] {
+                getBaseSurveyEventProperties(for: survey)
+            }
+
+            func testGetSurveyInteractionProperty(survey: PostHogSurvey, property: String) -> String {
+                getSurveyInteractionProperty(survey: survey, property: property)
+            }
+
+            func testGetResponseKey(questionId: String) -> String {
+                getNewResponseKey(for: questionId)
+            }
+
             static func clearInstalls() {
                 integrationInstalledLock.withLock {
                     integrationInstalled = false

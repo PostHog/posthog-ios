@@ -602,4 +602,105 @@ enum PostHogFeatureFlagsTest {
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise' from group call")
         }
     }
+    
+    @Suite("Test Feature Flag Evaluation Tags")
+    class TestFeatureFlagEvaluationTags: BaseTestClass {
+        @Test("Feature flag with evaluation tags includes tags in capture event")
+        func featureFlagWithEvaluationTags() async {
+            // Setup PostHogSDK
+            let sut = PostHogSDK.with(config)
+            config.sendFeatureFlagEvent = true
+            
+            server.batchExpectation = expectation(description: "Batch sent to server")
+            server.batchExpectationCount = 2 // We expect at least 2 events: identify and feature_flag_called
+            
+            // Identify user to enable person processing
+            sut.identify("test_user")
+            
+            // Load feature flags
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+            
+            // Get the flag with tags (should trigger feature_flag_called event)
+            let flagValue = sut.getFeatureFlag("flag-with-tags")
+            #expect(flagValue as? String == "control", "Expected flag-with-tags to have variant 'control'")
+            
+            // Flush to ensure events are sent
+            sut.flush()
+            
+            // Wait for events to be sent to server
+            let events = getBatchedEvents(server)
+            
+            // Find the feature_flag_called event
+            let featureFlagEvent = events.first { event in
+                event.event == "$feature_flag_called" && 
+                (event.properties?["$feature_flag"] as? String) == "flag-with-tags"
+            }
+            
+            #expect(featureFlagEvent != nil, "Expected to find $feature_flag_called event for flag-with-tags")
+            
+            // Verify the evaluation tags are included
+            if let properties = featureFlagEvent?.properties,
+               let evaluationTags = properties["$feature_flag_evaluation_tags"] as? [String] {
+                #expect(evaluationTags.contains("tag1"), "Expected evaluation_tags to contain 'tag1'")
+                #expect(evaluationTags.contains("tag2"), "Expected evaluation_tags to contain 'tag2'") 
+                #expect(evaluationTags.contains("experiment"), "Expected evaluation_tags to contain 'experiment'")
+                #expect(evaluationTags.count == 3, "Expected exactly 3 evaluation tags")
+            } else {
+                #expect(Bool(false), "Expected $feature_flag_evaluation_tags to be present in event properties")
+            }
+            
+            // Also verify the flag response value
+            if let properties = featureFlagEvent?.properties {
+                #expect(properties["$feature_flag_response"] as? String == "control", "Expected flag response to be 'control'")
+            }
+        }
+        
+        @Test("Feature flag without evaluation tags does not include tags property")
+        func featureFlagWithoutEvaluationTags() async {
+            // Setup PostHogSDK
+            let sut = PostHogSDK.with(config)
+            config.sendFeatureFlagEvent = true
+            
+            server.batchExpectation = expectation(description: "Batch sent to server")
+            server.batchExpectationCount = 2 // We expect at least 2 events: identify and feature_flag_called
+            
+            // Identify user to enable person processing
+            sut.identify("test_user")
+            
+            // Load feature flags
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+            
+            // Get a flag without tags (should trigger feature_flag_called event)
+            let flagValue = sut.getFeatureFlag("bool-value")
+            #expect(flagValue as? Bool == true, "Expected bool-value to be true")
+            
+            // Flush to ensure events are sent
+            sut.flush()
+            
+            // Wait for events to be sent to server
+            let events = getBatchedEvents(server)
+            
+            // Find the feature_flag_called event
+            let featureFlagEvent = events.first { event in
+                event.event == "$feature_flag_called" && 
+                (event.properties?["$feature_flag"] as? String) == "bool-value"
+            }
+            
+            #expect(featureFlagEvent != nil, "Expected to find $feature_flag_called event for bool-value")
+            
+            // Verify that evaluation tags are NOT included  
+            if let properties = featureFlagEvent?.properties {
+                #expect(properties["$feature_flag_evaluation_tags"] == nil, "Expected $feature_flag_evaluation_tags to NOT be present for flag without tags")
+                #expect(properties["$feature_flag_response"] as? Bool == true, "Expected flag response to be true")
+            }
+        }
+    }
 }

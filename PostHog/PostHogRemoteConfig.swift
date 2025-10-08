@@ -592,24 +592,6 @@ class PostHogRemoteConfig {
                             featureFlagsPayloads[key] = payload
                         }
                     }
-                    
-                    // Extract and store evaluation_tags if present
-                    if let evaluationTags = flag["evaluation_tags"] as? [String] {
-                        // Store evaluation_tags in the flag metadata for later use
-                        var updatedFlag = flag
-                        if var metadata = updatedFlag["metadata"] as? [String: Any] {
-                            metadata["evaluation_tags"] = evaluationTags
-                            updatedFlag["metadata"] = metadata
-                        } else {
-                            updatedFlag["metadata"] = ["evaluation_tags": evaluationTags]
-                        }
-                        
-                        // Update the flag in flagsV4 to preserve evaluation_tags
-                        if var mutableFlagsV4 = data["flags"] as? [String: Any] {
-                            mutableFlagsV4[key] = updatedFlag
-                            data["flags"] = mutableFlagsV4
-                        }
-                    }
                 }
             }
             data["featureFlags"] = featureFlags

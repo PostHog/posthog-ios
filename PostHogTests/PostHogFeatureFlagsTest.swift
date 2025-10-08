@@ -602,105 +602,160 @@ enum PostHogFeatureFlagsTest {
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise' from group call")
         }
     }
-    
-    @Suite("Test Feature Flag Evaluation Tags")
-    class TestFeatureFlagEvaluationTags: BaseTestClass {
-        @Test("Feature flag with evaluation tags includes tags in capture event")
-        func featureFlagWithEvaluationTags() async {
-            // Setup PostHogSDK
+
+    @Suite("Test Evaluation Environments")
+    class TestEvaluationEnvironments: BaseTestClass {
+        @Test("Evaluation environments are included in flags request")
+        func evaluationEnvironmentsIncludedInRequest() async {
+            // Configure evaluation environments
+            config.evaluationEnvironments = ["production", "web", "checkout"]
             let sut = PostHogSDK.with(config)
-            config.sendFeatureFlagEvent = true
-            
-            server.batchExpectation = expectation(description: "Batch sent to server")
-            server.batchExpectationCount = 2 // We expect at least 2 events: identify and feature_flag_called
-            
-            // Identify user to enable person processing
+
+            // Enable person processing
             sut.identify("test_user")
-            
+
             // Load feature flags
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
-            
-            // Get the flag with tags (should trigger feature_flag_called event)
-            let flagValue = sut.getFeatureFlag("flag-with-tags")
-            #expect(flagValue as? String == "control", "Expected flag-with-tags to have variant 'control'")
-            
-            // Flush to ensure events are sent
-            sut.flush()
-            
-            // Wait for events to be sent to server
-            let events = getBatchedEvents(server)
-            
-            // Find the feature_flag_called event
-            let featureFlagEvent = events.first { event in
-                event.event == "$feature_flag_called" && 
-                (event.properties?["$feature_flag"] as? String) == "flag-with-tags"
+
+            // Verify the request included evaluation environments
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found")
+                return
             }
-            
-            #expect(featureFlagEvent != nil, "Expected to find $feature_flag_called event for flag-with-tags")
-            
-            // Verify the evaluation tags are included
-            if let properties = featureFlagEvent?.properties,
-               let evaluationTags = properties["$feature_flag_evaluation_tags"] as? [String] {
-                #expect(evaluationTags.contains("tag1"), "Expected evaluation_tags to contain 'tag1'")
-                #expect(evaluationTags.contains("tag2"), "Expected evaluation_tags to contain 'tag2'") 
-                #expect(evaluationTags.contains("experiment"), "Expected evaluation_tags to contain 'experiment'")
-                #expect(evaluationTags.count == 3, "Expected exactly 3 evaluation tags")
-            } else {
-                #expect(Bool(false), "Expected $feature_flag_evaluation_tags to be present in event properties")
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body")
+                return
             }
-            
-            // Also verify the flag response value
-            if let properties = featureFlagEvent?.properties {
-                #expect(properties["$feature_flag_response"] as? String == "control", "Expected flag response to be 'control'")
+
+            guard let evaluationEnvironments = requestBody["evaluation_environments"] as? [String] else {
+                #expect(Bool(false), "Evaluation environments not found in request body: \(requestBody)")
+                return
             }
+
+            #expect(evaluationEnvironments.count == 3, "Expected 3 evaluation environments")
+            #expect(evaluationEnvironments.contains("production"), "Expected 'production' in evaluation environments")
+            #expect(evaluationEnvironments.contains("web"), "Expected 'web' in evaluation environments")
+            #expect(evaluationEnvironments.contains("checkout"), "Expected 'checkout' in evaluation environments")
         }
-        
-        @Test("Feature flag without evaluation tags does not include tags property")
-        func featureFlagWithoutEvaluationTags() async {
-            // Setup PostHogSDK
+
+        @Test("Empty evaluation environments not included in request")
+        func emptyEvaluationEnvironmentsNotIncluded() async {
+            // Configure with empty evaluation environments
+            config.evaluationEnvironments = []
             let sut = PostHogSDK.with(config)
-            config.sendFeatureFlagEvent = true
-            
-            server.batchExpectation = expectation(description: "Batch sent to server")
-            server.batchExpectationCount = 2 // We expect at least 2 events: identify and feature_flag_called
-            
-            // Identify user to enable person processing
+
+            // Enable person processing
             sut.identify("test_user")
-            
+
             // Load feature flags
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
                     continuation.resume()
                 }
             }
-            
-            // Get a flag without tags (should trigger feature_flag_called event)
-            let flagValue = sut.getFeatureFlag("bool-value")
-            #expect(flagValue as? Bool == true, "Expected bool-value to be true")
-            
-            // Flush to ensure events are sent
-            sut.flush()
-            
-            // Wait for events to be sent to server
-            let events = getBatchedEvents(server)
-            
-            // Find the feature_flag_called event
-            let featureFlagEvent = events.first { event in
-                event.event == "$feature_flag_called" && 
-                (event.properties?["$feature_flag"] as? String) == "bool-value"
+
+            // Verify the request did NOT include evaluation environments
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found")
+                return
             }
-            
-            #expect(featureFlagEvent != nil, "Expected to find $feature_flag_called event for bool-value")
-            
-            // Verify that evaluation tags are NOT included  
-            if let properties = featureFlagEvent?.properties {
-                #expect(properties["$feature_flag_evaluation_tags"] == nil, "Expected $feature_flag_evaluation_tags to NOT be present for flag without tags")
-                #expect(properties["$feature_flag_response"] as? Bool == true, "Expected flag response to be true")
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body")
+                return
             }
+
+            #expect(requestBody["evaluation_environments"] == nil, "Expected evaluation_environments to NOT be present when empty")
+        }
+
+        @Test("Nil evaluation environments not included in request")
+        func nilEvaluationEnvironmentsNotIncluded() async {
+            // Don't set evaluation environments (leave as nil)
+            let sut = PostHogSDK.with(config)
+
+            // Enable person processing
+            sut.identify("test_user")
+
+            // Load feature flags
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            // Verify the request did NOT include evaluation environments
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found")
+                return
+            }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body")
+                return
+            }
+
+            #expect(requestBody["evaluation_environments"] == nil, "Expected evaluation_environments to NOT be present when nil")
+        }
+
+        @Test("Can update evaluation environments after initialization")
+        func canUpdateEvaluationEnvironments() async {
+            let sut = PostHogSDK.with(config)
+
+            // Enable person processing
+            sut.identify("test_user")
+
+            // Initially no evaluation environments
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            guard let firstRequest = server.flagsRequests.last,
+                  let firstRequestBody = server.parseRequest(firstRequest, gzip: false)
+            else {
+                #expect(Bool(false), "Failed to parse first request")
+                return
+            }
+
+            #expect(firstRequestBody["evaluation_environments"] == nil, "Expected no evaluation_environments in first request")
+
+            // Update evaluation environments
+            config.evaluationEnvironments = ["staging", "mobile"]
+
+            // Reload flags
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            guard let secondRequest = server.flagsRequests.last,
+                  let secondRequestBody = server.parseRequest(secondRequest, gzip: false)
+            else {
+                #expect(Bool(false), "Failed to parse second request")
+                return
+            }
+
+            guard let evaluationEnvironments = secondRequestBody["evaluation_environments"] as? [String] else {
+                #expect(Bool(false), "Evaluation environments not found in second request")
+                return
+            }
+
+            #expect(evaluationEnvironments.count == 2, "Expected 2 evaluation environments in second request")
+            #expect(evaluationEnvironments.contains("staging"), "Expected 'staging' in evaluation environments")
+            #expect(evaluationEnvironments.contains("mobile"), "Expected 'mobile' in evaluation environments")
         }
     }
 }

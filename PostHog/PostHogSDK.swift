@@ -1183,16 +1183,6 @@ let maxRetryDelay = 30.0
                 if let metadata = details["metadata"] as? [String: Any] {
                     properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
                     properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
-                    
-                    // Include evaluation_tags if present
-                    if let evaluationTags = metadata["evaluation_tags"] as? [String] {
-                        properties["$feature_flag_evaluation_tags"] = evaluationTags
-                    }
-                }
-                
-                // Also check for evaluation_tags at the details level
-                if let evaluationTags = details["evaluation_tags"] as? [String] {
-                    properties["$feature_flag_evaluation_tags"] = evaluationTags
                 }
             }
 

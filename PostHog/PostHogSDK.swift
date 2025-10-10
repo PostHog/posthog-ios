@@ -1396,6 +1396,12 @@ let maxRetryDelay = 30.0
         var installed: [PostHogIntegration] = []
 
         for integration in integrations {
+            // Skip integrations that require swizzling when swizzling is disabled
+            if integration.requiresSwizzling, !config.enableSwizzling {
+                hedgeLog("Integration \(type(of: integration)) skipped. Integration requires swizzling but enableSwizzling is disabled in config")
+                continue
+            }
+
             do {
                 try integration.install(self)
                 installed.append(integration)

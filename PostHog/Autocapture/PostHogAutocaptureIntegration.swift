@@ -11,6 +11,8 @@
     private let elementsChainDelimiter = ";"
 
     class PostHogAutocaptureIntegration: AutocaptureEventProcessing, PostHogIntegration {
+        var requiresSwizzling: Bool { true }
+
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 

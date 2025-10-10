@@ -17,6 +17,8 @@ import Foundation
  - captures an `App Backgrounded` event when the app moves to the background
  */
 final class PostHogAppLifeCycleIntegration: PostHogIntegration {
+    var requiresSwizzling: Bool { false }
+
     private static var integrationInstalledLock = NSLock()
     private static var integrationInstalled = false
     private static var didCaptureAppInstallOrUpdate = false

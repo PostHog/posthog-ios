@@ -233,6 +233,10 @@ class PostHogApi {
             toSend["group_properties"] = groupProperties
         }
 
+        if let evaluationEnvironments = self.config.evaluationEnvironments, !evaluationEnvironments.isEmpty {
+            toSend["evaluation_environments"] = evaluationEnvironments
+        }
+
         var data: Data?
 
         do {

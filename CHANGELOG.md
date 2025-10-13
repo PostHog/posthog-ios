@@ -1,8 +1,12 @@
 ## Next
 
+- feat: add config option to disable swizzling ([#388](https://github.com/PostHog/posthog-ios/pull/388))
+- feat: SDK instance now manages its own session ([#388](https://github.com/PostHog/posthog-ios/pull/388))
+> Note: In case of multiple SDK instances, each instance will now report and manage its own $session_id 
+
 ## 3.33.0 - 2025-10-13
 
-- add evaluation tags to iOS SDK ([#387](https://github.com/PostHog/posthog-ios/pull/387))
+- feat: add evaluation tags to iOS SDK ([#387](https://github.com/PostHog/posthog-ios/pull/387))
 
 ## 3.32.0 - 2025-10-03
 

@@ -12,10 +12,12 @@
         private let tasksLock = NSLock()
         private let shouldCapture: () -> Bool
         private let onCapture: (NetworkSample) -> Void
+        private let getSessionId: (Date) -> String?
 
-        init(shouldCapture: @escaping () -> Bool, onCapture: @escaping (NetworkSample) -> Void) {
+        init(shouldCapture: @escaping () -> Bool, onCapture: @escaping (NetworkSample) -> Void, getSessionId: @escaping (Date) -> String?) {
             self.shouldCapture = shouldCapture
             self.onCapture = onCapture
+            self.getSessionId = getSessionId
         }
 
         /// An internal queue for synchronising the access to `samplesByTask`.
@@ -42,7 +44,7 @@
 
             let date = now()
 
-            guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+            guard let sessionId = getSessionId(date) else {
                 return
             }
 

@@ -57,8 +57,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Enable method swizzling for SDK functionality that depends on it
     ///
-    /// When disabled, functionality that require swizzling (autocapture, screen views, session replay, surveys) will not be installed.
-    /// Note: The SDK may still use minimal internal swizzling for core functionality of managing sessions, but this will be kept to a minimum.
+    /// When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed.
     ///
     /// Default: true
     @objc public var enableSwizzling: Bool = true

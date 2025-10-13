@@ -1,6 +1,6 @@
 ## Next
 
-## 3.33.0 - 2025-10-10
+## 3.33.0 - 2025-10-13
 
 - add evaluation tags to iOS SDK ([#387](https://github.com/PostHog/posthog-ios/pull/387))
 

@@ -355,7 +355,6 @@ let maxRetryDelay = 30.0
             flagCallReported.removeAll()
         }
         sessionManager?.resetSession()
-        sessionManager = nil
 
         // Clear person and group properties for flags
         remoteConfig?.resetPersonPropertiesForFlags()

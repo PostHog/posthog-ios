@@ -68,6 +68,7 @@ class MockPostHogServer {
                 "number-value": true,
                 "recording-platform-check": "web",
                 "payload-json": true,
+                "flag-with-tags": "control",
             ]
 
             if let additionalFlags = self.featureFlags {
@@ -173,6 +174,23 @@ class MockPostHogServer {
                         "version": 1,
                         "payload": "{ \"foo\": \"bar\" }",
                         "description": "This is a payload json flag",
+                    ],
+                ],
+                "flag-with-tags": [
+                    "key": "flag-with-tags",
+                    "enabled": true,
+                    "variant": "control",
+                    "evaluation_tags": ["tag1", "tag2", "experiment"],
+                    "reason": [
+                        "type": "condition_match",
+                        "description": "Matched condition set 1",
+                        "condition_index": 0,
+                    ],
+                    "metadata": [
+                        "id": 8,
+                        "version": 1,
+                        "payload": nil,
+                        "description": "Flag with evaluation tags",
                     ],
                 ],
             ]

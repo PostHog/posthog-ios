@@ -32,7 +32,9 @@ import Foundation
 
     func setup(config: PostHogConfig) {
         self.config = config
-        reset()
+        didBecomeActiveToken = nil
+        didEnterBackgroundToken = nil
+        applicationEventToken = nil
         registerNotifications()
         registerApplicationSendEvent()
     }

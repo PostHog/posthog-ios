@@ -59,6 +59,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed.
     ///
+    /// Note: Disabling swizzling will limit session rotation logic to only detect application open and background events. 
+    /// Session rotation will still work, just with reduced granularity for detecting user activity.
+    ///
     /// Default: true
     @objc public var enableSwizzling: Bool = true
 

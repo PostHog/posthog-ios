@@ -46,7 +46,7 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
-    var sessionManager: PostHogSessionManager?
+    let sessionManager = PostHogSessionManager()
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -138,8 +138,8 @@ let maxRetryDelay = 30.0
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             // Create session manager instance for this PostHogSDK instance
-            sessionManager = PostHogSessionManager(config: config)
-            sessionManager?.startSession()
+            sessionManager.setup(config: config)
+            sessionManager.startSession()
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -173,7 +173,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        return sessionManager?.getSessionId(readOnly: true)
+        return sessionManager.getSessionId(readOnly: true)
     }
 
     @objc public func startSession() {
@@ -181,7 +181,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        sessionManager?.startSession()
+        sessionManager.startSession()
     }
 
     @objc public func endSession() {
@@ -189,7 +189,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        sessionManager?.endSession()
+        sessionManager.endSession()
     }
 
     // EVENT CAPTURE
@@ -306,7 +306,7 @@ let maxRetryDelay = 30.0
         // if not present, get a current or new session id at event timestamp
         let propSessionId = properties?["$session_id"] as? String
         let sessionId: String? = propSessionId.isNilOrEmpty
-            ? sessionManager?.getSessionId(at: timestamp ?? now())
+            ? sessionManager.getSessionId(at: timestamp ?? now())
             : propSessionId
 
         if let sessionId {
@@ -354,7 +354,7 @@ let maxRetryDelay = 30.0
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
-        sessionManager?.resetSession()
+        sessionManager.reset()
 
         // Clear person and group properties for flags
         remoteConfig?.resetPersonPropertiesForFlags()
@@ -1273,7 +1273,7 @@ let maxRetryDelay = 30.0
                 flagCallReported.removeAll()
             }
             context = nil
-            sessionManager?.endSession()
+            sessionManager.endSession()
             toggleHedgeLog(false)
 
             uninstallIntegrations()
@@ -1331,8 +1331,8 @@ let maxRetryDelay = 30.0
             }
 
             let sessionId = resumeCurrent
-                ? sessionManager?.getSessionId()
-                : sessionManager?.getNextSessionId()
+                ? sessionManager.getSessionId()
+                : sessionManager.getNextSessionId()
 
             guard let sessionId else {
                 return hedgeLog("Could not start recording. Missing session id.")
@@ -1373,7 +1373,7 @@ let maxRetryDelay = 30.0
                 return false
             }
 
-            guard let replayIntegration, let remoteConfig, let sessionManager else {
+            guard let replayIntegration, let remoteConfig else {
                 return false
             }
 

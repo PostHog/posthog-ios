@@ -21,7 +21,7 @@
                     shouldCapture: shouldCaptureNetworkSample,
                     onCapture: handleNetworkSample,
                     getSessionId: { [weak self] date in
-                        self?.postHog?.sessionManager?.getSessionId(at: date)
+                        self?.postHog?.sessionManager.getSessionId(at: date)
                     }
                 )
                 sessionSwizzler?.swizzle()

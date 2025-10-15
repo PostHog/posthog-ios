@@ -1,5 +1,7 @@
 ## Next
 
+## 3.34.0 - 2025-10-15
+
 - feat: add config option to disable swizzling ([#388](https://github.com/PostHog/posthog-ios/pull/388))
 - feat: SDK instance now manages its own session ([#388](https://github.com/PostHog/posthog-ios/pull/388))
 > **Note**: A potentially breaking change for users with multiple SDK instances. Each SDK instance now manages its own `$session_id` instead of sharing a global session across all instances.

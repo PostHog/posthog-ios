@@ -21,14 +21,29 @@ import Foundation
     }
 
     @objc public static var shared: PostHogSessionManager {
-        DI.main.sessionManager
+        PostHogSDK.shared.sessionManager
     }
 
-    // Private initializer to prevent multiple instances
+    private var config: PostHogConfig?
+
     override init() {
         super.init()
+    }
+
+    func setup(config: PostHogConfig) {
+        self.config = config
+        didBecomeActiveToken = nil
+        didEnterBackgroundToken = nil
+        applicationEventToken = nil
         registerNotifications()
         registerApplicationSendEvent()
+    }
+
+    func reset() {
+        resetSession()
+        didBecomeActiveToken = nil
+        didEnterBackgroundToken = nil
+        applicationEventToken = nil
     }
 
     private let queue = DispatchQueue(label: "com.posthog.PostHogSessionManager", target: .global(qos: .utility))
@@ -237,8 +252,10 @@ import Foundation
 
     private func registerApplicationSendEvent() {
         #if os(iOS) || os(tvOS)
-            let applicationEventPublisher = DI.main.applicationEventPublisher
-            applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] _, _ in
+            guard let config, config.enableSwizzling else {
+                return
+            }
+            applicationEventToken = DI.main.applicationEventPublisher.onApplicationEvent { [weak self] _, _ in
                 // update "last active" session
                 // we want to keep track of the idle time, so we need to maintain a timestamp on the last interactions of the user with the app. UIEvents are a good place to do so since it means that the user is actively interacting with the app (e.g not just noise background activity)
                 self?.queue.async {

@@ -49,7 +49,7 @@
                 isActive,
                 let postHog,
                 postHog.isSessionReplayActive(),
-                let sessionId = PostHogSessionManager.shared.getSessionId(at: output.timestamp)
+                let sessionId = postHog.sessionManager.getSessionId(at: output.timestamp)
             else {
                 return
             }

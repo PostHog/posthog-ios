@@ -10,8 +10,6 @@ enum DI {
     static var main = Container()
 
     final class Container {
-        // manages session rotation
-        lazy var sessionManager: PostHogSessionManager = .init()
         // publishes global app lifecycle events
         lazy var appLifecyclePublisher: AppLifecyclePublishing = ApplicationLifecyclePublisher.shared
         // publishes global screen view events (UIViewController.viewDidAppear)

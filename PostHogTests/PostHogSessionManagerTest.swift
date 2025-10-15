@@ -6,10 +6,8 @@
 //
 
 import Foundation
-import Testing
-
 @testable import PostHog
-import XCTest
+import Testing
 
 @Suite(.serialized)
 enum PostHogSessionManagerTest {
@@ -20,34 +18,39 @@ enum PostHogSessionManagerTest {
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-            DI.main.sessionManager = PostHogSessionManager()
+        }
+
+        func getSut() -> PostHogSDK {
+            let config = PostHogConfig(apiKey: "test-key")
+            return PostHogSDK.with(config)
         }
 
         @Test("Session id is cleared after 30 min of background time")
         func sessionClearedBackgrounded() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
+            let posthog = getSut()
 
-            let originalSessionId = PostHogSessionManager.shared.getNextSessionId()
+            let originalSessionId = posthog.getSessionManager()?.getNextSessionId()
 
             try #require(originalSessionId != nil)
 
-            PostHogSessionManager.shared.touchSession()
+            posthog.getSessionManager()?.touchSession()
             var newSessionId: String?
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == originalSessionId)
 
             mockAppLifecycle.simulateAppDidEnterBackground() // user backgrounds app
 
             mockNow.date.addTimeInterval(60 * 30) // +30 minutes (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId() // background activity
+            newSessionId = posthog.getSessionManager()?.getSessionId() // background activity
 
             #expect(newSessionId == originalSessionId)
 
             mockNow.date.addTimeInterval(60 * 1) // past 30 minutes (session should clear)
-            newSessionId = PostHogSessionManager.shared.getSessionId() // background activity, session should be cleared
+            newSessionId = posthog.getSessionManager()?.getSessionId() // background activity, session should be cleared
 
             #expect(newSessionId == nil)
         }
@@ -56,29 +59,30 @@ enum PostHogSessionManagerTest {
         func sessionClearedWhenMovingBetweenBackgroundAndForeground() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
+            let posthog = getSut()
 
-            let originalSessionId = PostHogSessionManager.shared.getNextSessionId()
+            let originalSessionId = posthog.getSessionManager()?.getNextSessionId()
 
             try #require(originalSessionId != nil)
 
-            PostHogSessionManager.shared.touchSession()
+            posthog.getSessionManager()?.touchSession()
             var newSessionId: String?
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == originalSessionId)
 
             mockAppLifecycle.simulateAppDidEnterBackground() // user backgrounds app
             mockNow.date.addTimeInterval(60 * 29) // waits 29 mins
             mockAppLifecycle.simulateAppDidBecomeActive() // user foregrounds app
-            newSessionId = PostHogSessionManager.shared.getSessionId() // should not rotate
+            newSessionId = posthog.getSessionManager()?.getSessionId() // should not rotate
 
             #expect(newSessionId == originalSessionId)
 
             mockAppLifecycle.simulateAppDidEnterBackground() // user backgrounds app
             mockNow.date.addTimeInterval(60 * 31) // waits 30+ mins
             mockAppLifecycle.simulateAppDidBecomeActive() // user foregrounds app
-            newSessionId = PostHogSessionManager.shared.getSessionId() // *should* rotate
+            newSessionId = posthog.getSessionManager()?.getSessionId() // *should* rotate
 
             #expect(newSessionId != originalSessionId)
         }
@@ -87,26 +91,27 @@ enum PostHogSessionManagerTest {
         func sessionRotatedWhenInactive() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
+            let posthog = getSut()
 
             // session start
-            let originalSessionId = PostHogSessionManager.shared.getNextSessionId()
+            let originalSessionId = posthog.getSessionManager()?.getNextSessionId()
             // app foregrounded
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             try #require(originalSessionId != nil)
 
             // activity
-            PostHogSessionManager.shared.touchSession()
+            posthog.getSessionManager()?.touchSession()
             var newSessionId: String?
 
             // inactivity
             mockNow.date.addTimeInterval(60 * 30) // 30 minutes inactivity (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == originalSessionId)
 
             mockNow.date.addTimeInterval(20) // past 30 minutes of inactivity (session should rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId != nil)
             #expect(newSessionId != originalSessionId)
@@ -116,9 +121,10 @@ enum PostHogSessionManagerTest {
         func sessionRotatedWhenPastMaxSessionLength() throws {
             let mockNow = MockDate()
             now = { mockNow.date }
+            let posthog = getSut()
 
             // session start
-            let originalSessionId = PostHogSessionManager.shared.getNextSessionId()
+            let originalSessionId = posthog.getSessionManager()?.getNextSessionId()
             // app foregrounded
             mockAppLifecycle.simulateAppDidBecomeActive()
 
@@ -129,20 +135,20 @@ enum PostHogSessionManagerTest {
             for _ in 0 ..< 49 {
                 // activity
                 mockNow.date.addTimeInterval(60 * 29) // +23 hours, 40 minutes (session should not rotate)
-                PostHogSessionManager.shared.touchSession()
+                posthog.getSessionManager()?.touchSession()
             }
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == originalSessionId)
 
             mockNow.date.addTimeInterval(60 * 10) // +10 minutes (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == originalSessionId)
 
             mockNow.date.addTimeInterval(60 * 10) // +10 minutes (session should rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId != originalSessionId)
         }
@@ -156,7 +162,6 @@ enum PostHogSessionManagerTest {
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-            DI.main.sessionManager = PostHogSessionManager()
 
             server = MockPostHogServer()
             server.start()
@@ -169,7 +174,6 @@ enum PostHogSessionManagerTest {
             now = { Date() }
             server.stop()
             server = nil
-            PostHogSessionManager.shared.endSession {}
         }
 
         func getSut(
@@ -210,7 +214,7 @@ enum PostHogSessionManagerTest {
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             // some activity
-            PostHogSessionManager.shared.touchSession()
+            sut.getSessionManager()?.touchSession()
             sut.capture("event captured", timestamp: mockNow.date)
 
             // background app
@@ -244,7 +248,7 @@ enum PostHogSessionManagerTest {
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             // some activity
-            PostHogSessionManager.shared.touchSession()
+            sut.getSessionManager()?.touchSession()
             sut.capture("event captured")
 
             mockNow.date.addTimeInterval(60 * 31) // +31 mins of inactivity
@@ -283,28 +287,28 @@ enum PostHogSessionManagerTest {
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             // activity
-            PostHogSessionManager.shared.touchSession()
+            sut.getSessionManager()?.touchSession()
             sut.capture("event 0 captured", timestamp: mockNow.date)
 
-            let originalSessionId = PostHogSessionManager.shared.getSessionId(readOnly: true)
+            let originalSessionId = sut.getSessionManager()?.getSessionId(readOnly: true)
 
             // 23 hours, 41 minutes worth of activity
             for i in 0 ..< 49 {
                 // activity
                 compoundedTime += 60 * 29
                 mockNow.date.addTimeInterval(60 * 29)
-                PostHogSessionManager.shared.touchSession()
+                sut.getSessionManager()?.touchSession()
                 sut.capture("event \(i) captured", timestamp: mockNow.date)
             }
 
             compoundedTime += 60 * 10
             mockNow.date.addTimeInterval(60 * 10)
-            PostHogSessionManager.shared.touchSession()
+            sut.getSessionManager()?.touchSession()
             sut.capture("event 51 captured", timestamp: mockNow.date)
 
             compoundedTime += 60 * 10
             mockNow.date.addTimeInterval(60 * 10)
-            PostHogSessionManager.shared.touchSession()
+            sut.getSessionManager()?.touchSession()
             sut.capture("event 52 captured", timestamp: mockNow.date)
 
             let events = try await getServerEvents(server)
@@ -372,12 +376,14 @@ enum PostHogSessionManagerTest {
     @Suite("Test React Native session management")
     struct ReactNativeTests {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
+        let posthog: PostHogSDK
 
         init() {
             postHogSdkName = "posthog-react-native"
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-            DI.main.sessionManager = PostHogSessionManager()
+            let config = PostHogConfig(apiKey: "test-key")
+            posthog = PostHogSDK.with(config)
         }
 
         @Test("Session id is NOT cleared after 30 min of background time")
@@ -387,23 +393,23 @@ enum PostHogSessionManagerTest {
 
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
-            PostHogSessionManager.shared.setSessionId(rnSessionId)
+            posthog.getSessionManager()?.setSessionId(rnSessionId)
 
-            PostHogSessionManager.shared.touchSession()
+            posthog.getSessionManager()?.touchSession()
             var newSessionId: String?
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             mockAppLifecycle.simulateAppDidEnterBackground()
             mockNow.date.addTimeInterval(60 * 30) // +30 minutes (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             mockNow.date.addTimeInterval(60 * 1) // past 30 minutes (session should clear)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
@@ -415,23 +421,23 @@ enum PostHogSessionManagerTest {
 
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
-            PostHogSessionManager.shared.setSessionId(rnSessionId)
+            posthog.getSessionManager()?.setSessionId(rnSessionId)
 
             // app foregrounded
             mockAppLifecycle.simulateAppDidBecomeActive()
 
             // activity
-            PostHogSessionManager.shared.touchSession()
+            posthog.getSessionManager()?.touchSession()
             var newSessionId: String?
 
             // inactivity
             mockNow.date.addTimeInterval(60 * 30) // 30 minutes inactivity (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             mockNow.date.addTimeInterval(20) // past 30 minutes of inactivity (session should rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
@@ -443,7 +449,7 @@ enum PostHogSessionManagerTest {
 
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
-            PostHogSessionManager.shared.setSessionId(rnSessionId)
+            posthog.getSessionManager()?.setSessionId(rnSessionId)
 
             // app foregrounded
             mockAppLifecycle.simulateAppDidBecomeActive()
@@ -453,20 +459,20 @@ enum PostHogSessionManagerTest {
             for _ in 0 ..< 49 {
                 // activity
                 mockNow.date.addTimeInterval(60 * 29) // +23 hours, 40 minutes (session should not rotate)
-                PostHogSessionManager.shared.touchSession()
+                posthog.getSessionManager()?.touchSession()
             }
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             mockNow.date.addTimeInterval(60 * 10) // +10 minutes (session should not rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
             mockNow.date.addTimeInterval(60 * 10) // +10 minutes (session should rotate)
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
@@ -478,15 +484,15 @@ enum PostHogSessionManagerTest {
 
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
-            PostHogSessionManager.shared.setSessionId(rnSessionId)
+            posthog.getSessionManager()?.setSessionId(rnSessionId)
 
-            var newSessionId = PostHogSessionManager.shared.getSessionId()
+            var newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
-            PostHogSessionManager.shared.startSession()
+            posthog.getSessionManager()?.startSession()
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
@@ -498,15 +504,15 @@ enum PostHogSessionManagerTest {
 
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
-            PostHogSessionManager.shared.setSessionId(rnSessionId)
+            posthog.getSessionManager()?.setSessionId(rnSessionId)
 
-            var newSessionId = PostHogSessionManager.shared.getSessionId()
+            var newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
-            PostHogSessionManager.shared.endSession()
+            posthog.getSessionManager()?.endSession()
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }
@@ -518,15 +524,15 @@ enum PostHogSessionManagerTest {
 
             // RN sets custom session id
             let rnSessionId = UUID().uuidString
-            PostHogSessionManager.shared.setSessionId(rnSessionId)
+            posthog.getSessionManager()?.setSessionId(rnSessionId)
 
-            var newSessionId = PostHogSessionManager.shared.getSessionId()
+            var newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
 
-            PostHogSessionManager.shared.resetSession()
+            posthog.getSessionManager()?.resetSession()
 
-            newSessionId = PostHogSessionManager.shared.getSessionId()
+            newSessionId = posthog.getSessionManager()?.getSessionId()
 
             #expect(newSessionId == rnSessionId)
         }

@@ -54,6 +54,17 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
+
+    /// Enable method swizzling for SDK functionality that depends on it
+    ///
+    /// When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed.
+    ///
+    /// Note: Disabling swizzling will limit session rotation logic to only detect application open and background events.
+    /// Session rotation will still work, just with reduced granularity for detecting user activity.
+    ///
+    /// Default: true
+    @objc public var enableSwizzling: Bool = true
+
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enable autocapture for iOS
         /// Default: false

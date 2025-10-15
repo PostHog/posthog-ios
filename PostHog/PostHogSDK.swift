@@ -46,6 +46,7 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
+    let sessionManager = PostHogSessionManager()
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -136,7 +137,9 @@ let maxRetryDelay = 30.0
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
-            PostHogSessionManager.shared.startSession()
+            // Create session manager instance for this PostHogSDK instance
+            sessionManager.setup(config: config)
+            sessionManager.startSession()
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -170,7 +173,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        return PostHogSessionManager.shared.getSessionId(readOnly: true)
+        return sessionManager.getSessionId(readOnly: true)
     }
 
     @objc public func startSession() {
@@ -178,7 +181,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        PostHogSessionManager.shared.startSession()
+        sessionManager.startSession()
     }
 
     @objc public func endSession() {
@@ -186,7 +189,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        PostHogSessionManager.shared.endSession()
+        sessionManager.endSession()
     }
 
     // EVENT CAPTURE
@@ -303,7 +306,7 @@ let maxRetryDelay = 30.0
         // if not present, get a current or new session id at event timestamp
         let propSessionId = properties?["$session_id"] as? String
         let sessionId: String? = propSessionId.isNilOrEmpty
-            ? PostHogSessionManager.shared.getSessionId(at: timestamp ?? now())
+            ? sessionManager.getSessionId(at: timestamp ?? now())
             : propSessionId
 
         if let sessionId {
@@ -351,7 +354,7 @@ let maxRetryDelay = 30.0
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
-        PostHogSessionManager.shared.resetSession()
+        sessionManager.reset()
 
         // Clear person and group properties for flags
         remoteConfig?.resetPersonPropertiesForFlags()
@@ -1270,7 +1273,7 @@ let maxRetryDelay = 30.0
                 flagCallReported.removeAll()
             }
             context = nil
-            PostHogSessionManager.shared.endSession()
+            sessionManager.endSession()
             toggleHedgeLog(false)
 
             uninstallIntegrations()
@@ -1328,8 +1331,8 @@ let maxRetryDelay = 30.0
             }
 
             let sessionId = resumeCurrent
-                ? PostHogSessionManager.shared.getSessionId()
-                : PostHogSessionManager.shared.getNextSessionId()
+                ? sessionManager.getSessionId()
+                : sessionManager.getNextSessionId()
 
             guard let sessionId else {
                 return hedgeLog("Could not start recording. Missing session id.")
@@ -1375,7 +1378,7 @@ let maxRetryDelay = 30.0
             }
 
             return replayIntegration.isActive()
-                && !PostHogSessionManager.shared.getSessionId(readOnly: true).isNilOrEmpty
+                && !sessionManager.getSessionId(readOnly: true).isNilOrEmpty
                 && remoteConfig.isSessionReplayFlagActive()
         }
     #endif
@@ -1396,6 +1399,12 @@ let maxRetryDelay = 30.0
         var installed: [PostHogIntegration] = []
 
         for integration in integrations {
+            // Skip integrations that require swizzling when swizzling is disabled
+            if integration.requiresSwizzling, !config.enableSwizzling {
+                hedgeLog("Integration \(type(of: integration)) skipped. Integration requires swizzling but enableSwizzling is disabled in config")
+                continue
+            }
+
             do {
                 try integration.install(self)
                 installed.append(integration)
@@ -1468,6 +1477,10 @@ let maxRetryDelay = 30.0
                 }.first
             }
         #endif
+
+        func getSessionManager() -> PostHogSessionManager? {
+            sessionManager
+        }
 
         func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
             installedIntegrations.compactMap {

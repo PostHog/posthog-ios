@@ -104,14 +104,12 @@ class PostHogSDKTest: QuickSpec {
             server = MockPostHogServer(version: 4)
             server.start()
 
-            DI.main.sessionManager = PostHogSessionManager()
             DI.main.appLifecyclePublisher = mockAppLifecycle
         }
         afterEach {
             now = { Date() }
             server.stop()
             server = nil
-            DI.main.sessionManager.endSession {}
         }
 
         it("captures the capture event") {

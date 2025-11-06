@@ -218,7 +218,7 @@ class PostHogApi {
         var toSend: [String: Any] = [
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
-            "$groups": groups,
+            "groups": groups,
         ]
 
         if let anonymousId {

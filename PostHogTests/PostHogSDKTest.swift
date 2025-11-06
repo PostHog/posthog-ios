@@ -912,7 +912,6 @@ class PostHogSDKTest: QuickSpec {
                 expect(personProperties["$device_type"]).toNot(beNil())
                 expect(personProperties["$lib"]).toNot(beNil())
                 expect(personProperties["$lib_version"]).toNot(beNil())
-                // expect(personProperties["$locale"]).toNot(beNil())
             }
 
             it("does not set default person properties when disabled") {

@@ -1,8 +1,8 @@
 ## Next
 
-- fix: call the flags api with the correct groups key name (the api has a back compatible fix already) ([#388](https://github.com/PostHog/posthog-ios/pull/388))
-- fix: only set getDefaultPersonProperties with person properties that are evaluated on the server ([#388](https://github.com/PostHog/posthog-ios/pull/388))
-- fix: set and reset PersonPropertiesForFlags and GroupPropertiesForFlags reload flags automatically (or set reloadFeatureFlags: false) ([#388](https://github.com/PostHog/posthog-ios/pull/388))
+- fix: call the flags api with the correct groups key name (the api has a back compatible fix already) ([#389](https://github.com/PostHog/posthog-ios/pull/389))
+- fix: only set getDefaultPersonProperties with person properties that are evaluated on the server ([#389](https://github.com/PostHog/posthog-ios/pull/389))
+- fix: set and reset PersonPropertiesForFlags and GroupPropertiesForFlags reload flags automatically (or set reloadFeatureFlags: false) ([#389](https://github.com/PostHog/posthog-ios/pull/389))
 
 ## 3.34.0 - 2025-10-15
 

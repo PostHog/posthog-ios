@@ -354,7 +354,7 @@ class PostHogSDKTest: QuickSpec {
             expect(requests.count) == 1
             let request = requests.first
 
-            let groups = request!["$groups"] as? [String: String] ?? [:]
+            let groups = request!["groups"] as? [String: String] ?? [:]
             expect(groups["some-type"]) == "some-key"
 
             sut.reset()
@@ -906,10 +906,12 @@ class PostHogSDKTest: QuickSpec {
                 // Verify expected default properties are set
                 expect(personProperties["$app_version"]).toNot(beNil())
                 expect(personProperties["$app_build"]).toNot(beNil())
+                expect(personProperties["$app_namespace"]).toNot(beNil())
                 expect(personProperties["$os_name"]).toNot(beNil())
                 expect(personProperties["$os_version"]).toNot(beNil())
                 expect(personProperties["$device_type"]).toNot(beNil())
-                expect(personProperties["$locale"]).toNot(beNil())
+                expect(personProperties["$lib"]).toNot(beNil())
+                expect(personProperties["$lib_version"]).toNot(beNil())
             }
 
             it("does not set default person properties when disabled") {

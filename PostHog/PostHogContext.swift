@@ -147,6 +147,41 @@ class PostHogContext {
         theSdkInfo
     }
 
+    private lazy var thePersonPropertiesContext: [String: Any] = {
+        let staticCtx = staticContext()
+        let sdkInfo = sdkInfo()
+        var personProperties: [String: Any] = [:]
+
+        // App information
+        if let appVersion = staticCtx["$app_version"] {
+            personProperties["$app_version"] = appVersion
+        }
+        if let appBuild = staticCtx["$app_build"] {
+            personProperties["$app_build"] = appBuild
+        }
+
+        if let appNamespace = staticCtx["$app_namespace"] {
+            personProperties["$app_namespace"] = appNamespace
+        }
+
+        // Operating system information
+        if let osName = staticCtx["$os_name"] {
+            personProperties["$os_name"] = osName
+        }
+        if let osVersion = staticCtx["$os_version"] {
+            personProperties["$os_version"] = osVersion
+        }
+
+        // Device information
+        if let deviceType = staticCtx["$device_type"] {
+            personProperties["$device_type"] = deviceType
+        }
+
+        personProperties.merge(sdkInfo) { _, new in new }
+
+        return personProperties
+    }()
+
     private func platform() -> String {
         var sysctlName = "hw.machine"
 
@@ -202,48 +237,7 @@ class PostHogContext {
     /// Returns person properties context by extracting relevant properties from static context.
     /// This centralizes the logic for determining which properties should be used as person properties.
     func personPropertiesContext() -> [String: Any] {
-        let staticCtx = staticContext()
-        var personProperties: [String: Any] = [:]
-
-        // App information
-        if let appVersion = staticCtx["$app_version"] {
-            personProperties["$app_version"] = appVersion
-        }
-        if let appBuild = staticCtx["$app_build"] {
-            personProperties["$app_build"] = appBuild
-        }
-
-        // Operating system information
-        if let osName = staticCtx["$os_name"] {
-            personProperties["$os_name"] = osName
-        }
-        if let osVersion = staticCtx["$os_version"] {
-            personProperties["$os_version"] = osVersion
-        }
-
-        // Device information
-        if let deviceType = staticCtx["$device_type"] {
-            personProperties["$device_type"] = deviceType
-        }
-        if let deviceManufacturer = staticCtx["$device_manufacturer"] {
-            personProperties["$device_manufacturer"] = deviceManufacturer
-        }
-        if let deviceModel = staticCtx["$device_model"] {
-            personProperties["$device_model"] = deviceModel
-        }
-
-        // Localization - read directly to avoid expensive dynamicContext call
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
-            if let languageCode = Locale.current.language.languageCode {
-                personProperties["$locale"] = languageCode.identifier
-            }
-        } else {
-            if let languageCode = Locale.current.languageCode {
-                personProperties["$locale"] = languageCode
-            }
-        }
-
-        return personProperties
+        thePersonPropertiesContext
     }
 
     private func registerNotifications() {

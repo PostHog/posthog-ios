@@ -18,22 +18,15 @@
         {
           "category": "Identification",
           "description": "alias method",
-          "details": "Detailed description of alias",
           "id": "alias",
           "showDocs": true,
           "title": "alias",
-          "examples": [
-            {
-              "id": "basic_alias",
-              "name": "Basic alias",
-              "code": "PostHogSDK.shared.alias(\"alias_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "alias",
               "type": "String",
+              "description": "The alias parameter",
               "isOptional": false
             }
           ],
@@ -46,22 +39,15 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"button_clicked\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             }
           ],
@@ -74,52 +60,51 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"__value\", distinctId: \"user_123\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\", groups: \"groups_value\", param6: \"param6_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             },
             {
               "name": "distinctId",
               "type": "String",
+              "description": "The distinctId parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             },
             {
               "name": "userPropertiesSetOnce",
               "type": "String",
+              "description": "The userPropertiesSetOnce parameter",
               "isOptional": false
             },
             {
               "name": "groups",
               "type": "String",
+              "description": "The groups parameter",
               "isOptional": false
             },
             {
-              "name": "param6",
+              "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             }
           ],
@@ -132,57 +117,57 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"__value\", distinctId: \"user_123\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\", groups: \"groups_value\", timestamp: \"timestamp_value\", param7: param7)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             },
             {
               "name": "distinctId",
               "type": "String",
+              "description": "The distinctId parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             },
             {
               "name": "userPropertiesSetOnce",
               "type": "String",
+              "description": "The userPropertiesSetOnce parameter",
               "isOptional": false
             },
             {
               "name": "groups",
               "type": "String",
+              "description": "The groups parameter",
+              "isOptional": false
+            },
+            {
+              "name": "properties",
+              "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             },
             {
               "name": "timestamp",
-              "type": "String",
-              "isOptional": false
-            },
-            {
-              "name": "param7",
               "type": "Date",
+              "description": "The timestamp parameter",
               "isOptional": false
             }
           ],
@@ -195,27 +180,21 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"__value\", properties: \"properties_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             }
           ],
@@ -228,32 +207,27 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"__value\", properties: \"properties_value\", userProperties: \"userProperties_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             }
           ],
@@ -266,37 +240,33 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"__value\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             },
             {
               "name": "userPropertiesSetOnce",
               "type": "String",
+              "description": "The userPropertiesSetOnce parameter",
               "isOptional": false
             }
           ],
@@ -309,47 +279,45 @@
         {
           "category": "Capture",
           "description": "capture method",
-          "details": "Detailed description of capture",
           "id": "capture",
           "showDocs": true,
           "title": "capture",
-          "examples": [
-            {
-              "id": "basic_capture",
-              "name": "Basic capture",
-              "code": "PostHogSDK.shared.capture(\"__value\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\", groups: \"groups_value\", param5: \"param5_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "event",
               "type": "String",
+              "description": "The event parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             },
             {
               "name": "userPropertiesSetOnce",
               "type": "String",
+              "description": "The userPropertiesSetOnce parameter",
               "isOptional": false
             },
             {
               "name": "groups",
               "type": "String",
+              "description": "The groups parameter",
               "isOptional": false
             },
             {
-              "name": "param5",
+              "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             }
           ],
@@ -362,17 +330,9 @@
         {
           "category": "Configuration",
           "description": "close method",
-          "details": "Detailed description of close",
           "id": "close",
           "showDocs": true,
           "title": "close",
-          "examples": [
-            {
-              "id": "basic_close",
-              "name": "Basic close",
-              "code": "PostHogSDK.shared.close()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -384,22 +344,15 @@
         {
           "category": "Configuration",
           "description": "debug method",
-          "details": "Detailed description of debug",
           "id": "debug",
           "showDocs": true,
           "title": "debug",
-          "examples": [
-            {
-              "id": "basic_debug",
-              "name": "Basic debug",
-              "code": "PostHogSDK.shared.debug(true)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "Bool",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -412,17 +365,9 @@
         {
           "category": "Session replay",
           "description": "endSession method",
-          "details": "Detailed description of endSession",
           "id": "endSession",
           "showDocs": true,
           "title": "endSession",
-          "examples": [
-            {
-              "id": "basic_endSession",
-              "name": "Basic endSession",
-              "code": "PostHogSDK.shared.endSession()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -432,19 +377,11 @@
           "path": "PostHog/PostHogSDK.swift"
         },
         {
-          "category": "Configuration",
+          "category": "Capture",
           "description": "flush method",
-          "details": "Detailed description of flush",
           "id": "flush",
           "showDocs": true,
           "title": "flush",
-          "examples": [
-            {
-              "id": "basic_flush",
-              "name": "Basic flush",
-              "code": "PostHogSDK.shared.flush()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -456,17 +393,9 @@
         {
           "category": "Identification",
           "description": "getAnonymousId method",
-          "details": "Detailed description of getAnonymousId",
           "id": "getAnonymousId",
           "showDocs": true,
           "title": "getAnonymousId",
-          "examples": [
-            {
-              "id": "basic_getAnonymousId",
-              "name": "Basic getAnonymousId",
-              "code": "PostHogSDK.shared.getAnonymousId()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -478,17 +407,9 @@
         {
           "category": "Identification",
           "description": "getDistinctId method",
-          "details": "Detailed description of getDistinctId",
           "id": "getDistinctId",
           "showDocs": true,
           "title": "getDistinctId",
-          "examples": [
-            {
-              "id": "basic_getDistinctId",
-              "name": "Basic getDistinctId",
-              "code": "PostHogSDK.shared.getDistinctId()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -500,22 +421,15 @@
         {
           "category": "Feature flags",
           "description": "getFeatureFlag method",
-          "details": "Detailed description of getFeatureFlag",
           "id": "getFeatureFlag",
           "showDocs": true,
           "title": "getFeatureFlag",
-          "examples": [
-            {
-              "id": "basic_getFeatureFlag",
-              "name": "Basic getFeatureFlag",
-              "code": "PostHogSDK.shared.getFeatureFlag(\"value_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "String",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -528,22 +442,15 @@
         {
           "category": "Feature flags",
           "description": "getFeatureFlagPayload method",
-          "details": "Detailed description of getFeatureFlagPayload",
           "id": "getFeatureFlagPayload",
           "showDocs": true,
           "title": "getFeatureFlagPayload",
-          "examples": [
-            {
-              "id": "basic_getFeatureFlagPayload",
-              "name": "Basic getFeatureFlagPayload",
-              "code": "PostHogSDK.shared.getFeatureFlagPayload(\"value_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "String",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -556,17 +463,9 @@
         {
           "category": "Session replay",
           "description": "getSessionId method",
-          "details": "Detailed description of getSessionId",
           "id": "getSessionId",
           "showDocs": true,
           "title": "getSessionId",
-          "examples": [
-            {
-              "id": "basic_getSessionId",
-              "name": "Basic getSessionId",
-              "code": "PostHogSDK.shared.getSessionId()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -578,27 +477,21 @@
         {
           "category": "Configuration",
           "description": "group method",
-          "details": "Detailed description of group",
           "id": "group",
           "showDocs": true,
           "title": "group",
-          "examples": [
-            {
-              "id": "basic_group",
-              "name": "Basic group",
-              "code": "PostHogSDK.shared.group(\"type_value\", key: \"group_feature\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "type",
               "type": "String",
+              "description": "The type parameter",
               "isOptional": false
             },
             {
               "name": "key",
               "type": "String",
+              "description": "The key parameter",
               "isOptional": false
             }
           ],
@@ -611,32 +504,27 @@
         {
           "category": "Configuration",
           "description": "group method",
-          "details": "Detailed description of group",
           "id": "group",
           "showDocs": true,
           "title": "group",
-          "examples": [
-            {
-              "id": "basic_group",
-              "name": "Basic group",
-              "code": "PostHogSDK.shared.group(\"type_value\", key: \"group_feature\", groupProperties: \"groupProperties_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "type",
               "type": "String",
+              "description": "The type parameter",
               "isOptional": false
             },
             {
               "name": "key",
               "type": "String",
+              "description": "The key parameter",
               "isOptional": false
             },
             {
               "name": "groupProperties",
               "type": "String",
+              "description": "The groupProperties parameter",
               "isOptional": false
             }
           ],
@@ -649,22 +537,15 @@
         {
           "category": "Identification",
           "description": "identify method",
-          "details": "Detailed description of identify",
           "id": "identify",
           "showDocs": true,
           "title": "identify",
-          "examples": [
-            {
-              "id": "basic_identify",
-              "name": "Basic identify",
-              "code": "PostHogSDK.shared.identify(\"user_123\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "distinctId",
               "type": "String",
+              "description": "The distinctId parameter",
               "isOptional": false
             }
           ],
@@ -677,27 +558,21 @@
         {
           "category": "Identification",
           "description": "identify method",
-          "details": "Detailed description of identify",
           "id": "identify",
           "showDocs": true,
           "title": "identify",
-          "examples": [
-            {
-              "id": "basic_identify",
-              "name": "Basic identify",
-              "code": "PostHogSDK.shared.identify(\"__value\", userProperties: \"userProperties_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "distinctId",
               "type": "String",
+              "description": "The distinctId parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             }
           ],
@@ -710,32 +585,27 @@
         {
           "category": "Identification",
           "description": "identify method",
-          "details": "Detailed description of identify",
           "id": "identify",
           "showDocs": true,
           "title": "identify",
-          "examples": [
-            {
-              "id": "basic_identify",
-              "name": "Basic identify",
-              "code": "PostHogSDK.shared.identify(\"__value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "distinctId",
               "type": "String",
+              "description": "The distinctId parameter",
               "isOptional": false
             },
             {
               "name": "userProperties",
               "type": "String",
+              "description": "The userProperties parameter",
               "isOptional": false
             },
             {
               "name": "userPropertiesSetOnce",
               "type": "String",
+              "description": "The userPropertiesSetOnce parameter",
               "isOptional": false
             }
           ],
@@ -748,27 +618,21 @@
         {
           "category": "Feature flags",
           "description": "isFeatureEnabled method",
-          "details": "Detailed description of isFeatureEnabled",
           "id": "isFeatureEnabled",
           "showDocs": true,
           "title": "isFeatureEnabled",
-          "examples": [
-            {
-              "id": "basic_isFeatureEnabled",
-              "name": "Basic isFeatureEnabled",
-              "code": "PostHogSDK.shared.isFeatureEnabled(\"value_value\", value: true)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "String",
+              "description": "The param0 parameter",
               "isOptional": false
             },
             {
-              "name": "value",
+              "name": "param1",
               "type": "Bool",
+              "description": "The param1 parameter",
               "isOptional": false
             }
           ],
@@ -781,17 +645,9 @@
         {
           "category": "Privacy",
           "description": "isOptOut method",
-          "details": "Detailed description of isOptOut",
           "id": "isOptOut",
           "showDocs": true,
           "title": "isOptOut",
-          "examples": [
-            {
-              "id": "basic_isOptOut",
-              "name": "Basic isOptOut",
-              "code": "PostHogSDK.shared.isOptOut()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -803,17 +659,9 @@
         {
           "category": "Privacy",
           "description": "optIn method",
-          "details": "Detailed description of optIn",
           "id": "optIn",
           "showDocs": true,
           "title": "optIn",
-          "examples": [
-            {
-              "id": "basic_optIn",
-              "name": "Basic optIn",
-              "code": "PostHogSDK.shared.optIn()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -825,17 +673,9 @@
         {
           "category": "Privacy",
           "description": "optOut method",
-          "details": "Detailed description of optOut",
           "id": "optOut",
           "showDocs": true,
           "title": "optOut",
-          "examples": [
-            {
-              "id": "basic_optOut",
-              "name": "Basic optOut",
-              "code": "PostHogSDK.shared.optOut()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -845,19 +685,11 @@
           "path": "PostHog/PostHogSDK.swift"
         },
         {
-          "category": "Configuration",
+          "category": "Capture",
           "description": "register method",
-          "details": "Detailed description of register",
           "id": "register",
           "showDocs": true,
           "title": "register",
-          "examples": [
-            {
-              "id": "basic_register",
-              "name": "Basic register",
-              "code": "PostHogSDK.shared.register()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -869,17 +701,9 @@
         {
           "category": "Feature flags",
           "description": "reloadFeatureFlags method",
-          "details": "Detailed description of reloadFeatureFlags",
           "id": "reloadFeatureFlags",
           "showDocs": true,
           "title": "reloadFeatureFlags",
-          "examples": [
-            {
-              "id": "basic_reloadFeatureFlags",
-              "name": "Basic reloadFeatureFlags",
-              "code": "PostHogSDK.shared.reloadFeatureFlags()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -891,17 +715,9 @@
         {
           "category": "Feature flags",
           "description": "reloadFeatureFlags method",
-          "details": "Detailed description of reloadFeatureFlags",
           "id": "reloadFeatureFlags",
           "showDocs": true,
           "title": "reloadFeatureFlags",
-          "examples": [
-            {
-              "id": "basic_reloadFeatureFlags",
-              "name": "Basic reloadFeatureFlags",
-              "code": "PostHogSDK.shared.reloadFeatureFlags()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -913,17 +729,9 @@
         {
           "category": "Privacy",
           "description": "reset method",
-          "details": "Detailed description of reset",
           "id": "reset",
           "showDocs": true,
           "title": "reset",
-          "examples": [
-            {
-              "id": "basic_reset",
-              "name": "Basic reset",
-              "code": "PostHogSDK.shared.reset()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -935,44 +743,30 @@
         {
           "category": "Feature flags",
           "description": "Clears all group properties for feature flag evaluation.",
-          "details": "Clears all group properties for feature flag evaluation.",
           "id": "resetGroupPropertiesForFlags",
           "showDocs": true,
           "title": "resetGroupPropertiesForFlags",
-          "examples": [
-            {
-              "id": "basic_resetGroupPropertiesForFlags",
-              "name": "Basic resetGroupPropertiesForFlags",
-              "code": "PostHogSDK.shared.resetGroupPropertiesForFlags()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "Clears all group properties for feature flag evaluation."
         },
         {
           "category": "Feature flags",
           "description": "Clears group properties for feature flag evaluation for a specific group type.",
-          "details": "Clears group properties for feature flag evaluation for a specific group type.",
           "id": "resetGroupPropertiesForFlags",
           "showDocs": true,
           "title": "resetGroupPropertiesForFlags",
-          "examples": [
-            {
-              "id": "basic_resetGroupPropertiesForFlags",
-              "name": "Basic resetGroupPropertiesForFlags",
-              "code": "PostHogSDK.shared.resetGroupPropertiesForFlags(\"type_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "type",
-              "type": "String",
+              "name": "groupType",
+              "type": "Any",
+              "description": "The group type to clear properties for",
               "isOptional": false
             }
           ],
@@ -980,49 +774,36 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "Clears group properties for feature flag evaluation for a specific group type."
         },
         {
           "category": "Feature flags",
           "description": "Resets all person properties that were set for feature flag evaluation.",
-          "details": "Resets all person properties that were set for feature flag evaluation.",
           "id": "resetPersonPropertiesForFlags",
           "showDocs": true,
           "title": "resetPersonPropertiesForFlags",
-          "examples": [
-            {
-              "id": "basic_resetPersonPropertiesForFlags",
-              "name": "Basic resetPersonPropertiesForFlags",
-              "code": "PostHogSDK.shared.resetPersonPropertiesForFlags()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "After calling this method, feature flag evaluation will only use server-side person properties   and will not include any locally overridden properties."
         },
         {
           "category": "Capture",
           "description": "screen method",
-          "details": "Detailed description of screen",
           "id": "screen",
           "showDocs": true,
           "title": "screen",
-          "examples": [
-            {
-              "id": "basic_screen",
-              "name": "Basic screen",
-              "code": "PostHogSDK.shared.screen(\"name_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "name",
               "type": "String",
+              "description": "The name parameter",
               "isOptional": false
             }
           ],
@@ -1035,27 +816,21 @@
         {
           "category": "Capture",
           "description": "screen method",
-          "details": "Detailed description of screen",
           "id": "screen",
           "showDocs": true,
           "title": "screen",
-          "examples": [
-            {
-              "id": "basic_screen",
-              "name": "Basic screen",
-              "code": "PostHogSDK.shared.screen(\"__value\", properties: \"properties_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
+              "name": "name",
               "type": "String",
+              "description": "The name parameter",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "The properties parameter",
               "isOptional": false
             }
           ],
@@ -1068,27 +843,21 @@
         {
           "category": "Feature flags",
           "description": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions.",
-          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions.",
           "id": "setGroupPropertiesForFlags",
           "showDocs": true,
           "title": "setGroupPropertiesForFlags",
-          "examples": [
-            {
-              "id": "basic_setGroupPropertiesForFlags",
-              "name": "Basic setGroupPropertiesForFlags",
-              "code": "PostHogSDK.shared.setGroupPropertiesForFlags(\"__value\", properties: \"properties_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
-              "type": "String",
+              "name": "groupType",
+              "type": "Any",
+              "description": "The group type identifier (e.g., \u201corganization\u201d, \u201cteam\u201d)",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "Dictionary of properties to set for this group type",
               "isOptional": false
             }
           ],
@@ -1096,37 +865,33 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions."
         },
         {
           "category": "Feature flags",
           "description": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions.",
-          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions.",
           "id": "setGroupPropertiesForFlags",
           "showDocs": true,
           "title": "setGroupPropertiesForFlags",
-          "examples": [
-            {
-              "id": "basic_setGroupPropertiesForFlags",
-              "name": "Basic setGroupPropertiesForFlags",
-              "code": "PostHogSDK.shared.setGroupPropertiesForFlags(\"__value\", properties: \"properties_value\", reloadFeatureFlags: true)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "_",
-              "type": "String",
+              "name": "groupType",
+              "type": "Any",
+              "description": "The group type identifier (e.g., \u201corganization\u201d, \u201cteam\u201d)",
               "isOptional": false
             },
             {
               "name": "properties",
               "type": "String",
+              "description": "Dictionary of properties to set for this group type",
               "isOptional": false
             },
             {
               "name": "reloadFeatureFlags",
               "type": "Bool",
+              "description": "Whether to automatically reload feature flags after setting properties",
               "isOptional": false
             }
           ],
@@ -1134,71 +899,71 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions."
         },
         {
           "category": "Feature flags",
           "description": "Sets person properties that will be included in feature flag evaluation requests.",
-          "details": "Sets person properties that will be included in feature flag evaluation requests.",
           "id": "setPersonPropertiesForFlags",
           "showDocs": true,
           "title": "setPersonPropertiesForFlags",
-          "examples": [
+          "releaseTag": "public",
+          "params": [
             {
-              "id": "basic_setPersonPropertiesForFlags",
-              "name": "Basic setPersonPropertiesForFlags",
-              "code": "PostHogSDK.shared.setPersonPropertiesForFlags()"
+              "name": "properties",
+              "type": "Any",
+              "description": "Dictionary of person properties to include in flag evaluation",
+              "isOptional": false
             }
           ],
-          "releaseTag": "public",
-          "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "This method allows you to override server-side person properties for immediate feature flag evaluation,   solving the race condition where person properties from   calls may not have been processed   by the server yet. Properties are merged additively with existing properties. Feature flags are automatically reloaded   after setting properties."
         },
         {
           "category": "Feature flags",
           "description": "Sets person properties that will be included in feature flag evaluation requests.",
-          "details": "Sets person properties that will be included in feature flag evaluation requests.",
           "id": "setPersonPropertiesForFlags",
           "showDocs": true,
           "title": "setPersonPropertiesForFlags",
-          "examples": [
+          "releaseTag": "public",
+          "params": [
             {
-              "id": "basic_setPersonPropertiesForFlags",
-              "name": "Basic setPersonPropertiesForFlags",
-              "code": "PostHogSDK.shared.setPersonPropertiesForFlags()"
+              "name": "properties",
+              "type": "Any",
+              "description": "Dictionary of person properties to include in flag evaluation",
+              "isOptional": false
+            },
+            {
+              "name": "reloadFeatureFlags",
+              "type": "Bool",
+              "description": "Whether to automatically reload feature flags after setting properties",
+              "isOptional": false
             }
           ],
-          "releaseTag": "public",
-          "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "details": "This method allows you to override server-side person properties for immediate feature flag evaluation,   solving the race condition where person properties from   calls may not have been processed   by the server yet. Properties are merged additively with existing properties."
         },
         {
           "category": "Initialization",
           "description": "setup method",
-          "details": "Detailed description of setup",
           "id": "setup",
           "showDocs": true,
           "title": "setup",
-          "examples": [
-            {
-              "id": "basic_setup",
-              "name": "Basic setup",
-              "code": "PostHogSDK.shared.setup(value)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "PostHogConfig",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -1211,17 +976,44 @@
         {
           "category": "Session replay",
           "description": "startSession method",
-          "details": "Detailed description of startSession",
           "id": "startSession",
           "showDocs": true,
           "title": "startSession",
-          "examples": [
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSDK.swift"
+        },
+        {
+          "category": "Capture",
+          "description": "unregister method",
+          "id": "unregister",
+          "showDocs": true,
+          "title": "unregister",
+          "releaseTag": "public",
+          "params": [
             {
-              "id": "basic_startSession",
-              "name": "Basic startSession",
-              "code": "PostHogSDK.shared.startSession()"
+              "name": "param0",
+              "type": "String",
+              "description": "The param0 parameter",
+              "isOptional": false
             }
           ],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSDK.swift"
+        },
+        {
+          "category": "Feature flags",
+          "description": "didReceiveFeatureFlags method",
+          "id": "didReceiveFeatureFlags",
+          "showDocs": true,
+          "title": "didReceiveFeatureFlags",
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -1232,26 +1024,26 @@
         },
         {
           "category": "Configuration",
-          "description": "unregister method",
-          "details": "Detailed description of unregister",
-          "id": "unregister",
+          "description": "didStartNotification method",
+          "id": "didStartNotification",
           "showDocs": true,
-          "title": "unregister",
-          "examples": [
-            {
-              "id": "basic_unregister",
-              "name": "Basic unregister",
-              "code": "PostHogSDK.shared.unregister(\"value_value\")"
-            }
-          ],
+          "title": "didStartNotification",
           "releaseTag": "public",
-          "params": [
-            {
-              "name": "value",
-              "type": "String",
-              "isOptional": false
-            }
-          ],
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSDK.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "shared method",
+          "id": "shared",
+          "showDocs": true,
+          "title": "shared",
+          "releaseTag": "public",
+          "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
@@ -1261,27 +1053,21 @@
         {
           "category": "Initialization",
           "description": "with method",
-          "details": "Detailed description of with",
           "id": "with",
           "showDocs": true,
           "title": "with",
-          "examples": [
-            {
-              "id": "basic_with",
-              "name": "Basic with",
-              "code": "PostHogSDK.shared.with(value, value: value)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "PostHogConfig",
+              "description": "The param0 parameter",
               "isOptional": false
             },
             {
-              "name": "value",
+              "name": "param1",
               "type": "PostHogSDK",
+              "description": "The param1 parameter",
               "isOptional": false
             }
           ],
@@ -1297,25 +1083,224 @@
       "description": "A model representing a PostHog survey to be displayed to users",
       "id": "PostHogDisplaySurvey",
       "title": "PostHogDisplaySurvey",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "Optional appearance configuration for customizing the survey\u2019s look and feel",
+          "id": "appearance",
+          "showDocs": true,
+          "title": "appearance",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurvey.swift",
+          "details": "Optional appearance configuration for customizing the survey\u2019s look and feel"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional date indicating when the survey should stop being shown",
+          "id": "endDate",
+          "showDocs": true,
+          "title": "endDate",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurvey.swift",
+          "details": "Optional date indicating when the survey should stop being shown"
+        },
+        {
+          "category": "Configuration",
+          "description": "Unique identifier for the survey",
+          "id": "id",
+          "showDocs": true,
+          "title": "id",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurvey.swift",
+          "details": "Unique identifier for the survey"
+        },
+        {
+          "category": "Configuration",
+          "description": "Name of the survey",
+          "id": "name",
+          "showDocs": true,
+          "title": "name",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurvey.swift",
+          "details": "Name of the survey"
+        },
+        {
+          "category": "Configuration",
+          "description": "Array of questions to be presented in the survey",
+          "id": "questions",
+          "showDocs": true,
+          "title": "questions",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurvey.swift",
+          "details": "Array of questions to be presented in the survey"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional date indicating when the survey should start being shown",
+          "id": "startDate",
+          "showDocs": true,
+          "title": "startDate",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurvey.swift",
+          "details": "Optional date indicating when the survey should start being shown"
+        }
+      ]
     },
     {
       "description": "Represents a question with a clickable link",
       "id": "PostHogDisplayLinkQuestion",
       "title": "PostHogDisplayLinkQuestion",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "The URL that will be opened when the link is clicked",
+          "id": "link",
+          "showDocs": true,
+          "title": "link",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayLinkQuestion.swift",
+          "details": "The URL that will be opened when the link is clicked"
+        }
+      ]
     },
     {
       "description": "Represents a multiple or single choice question where users can select one or more options",
       "id": "PostHogDisplayChoiceQuestion",
       "title": "PostHogDisplayChoiceQuestion",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "The list of options for the user to choose from",
+          "id": "choices",
+          "showDocs": true,
+          "title": "choices",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
+          "details": "The list of options for the user to choose from"
+        },
+        {
+          "category": "Configuration",
+          "description": "Whether the question includes an \u201cother\u201d option for users to input free-form text",
+          "id": "hasOpenChoice",
+          "showDocs": true,
+          "title": "hasOpenChoice",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
+          "details": "Whether the question includes an \u201cother\u201d option for users to input free-form text"
+        },
+        {
+          "category": "Configuration",
+          "description": "Whether the user can select multiple options",
+          "id": "isMultipleChoice",
+          "showDocs": true,
+          "title": "isMultipleChoice",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
+          "details": "Whether the user can select multiple options"
+        },
+        {
+          "category": "Configuration",
+          "description": "Whether the options should be shuffled to randomize the order",
+          "id": "shuffleOptions",
+          "showDocs": true,
+          "title": "shuffleOptions",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
+          "details": "Whether the options should be shuffled to randomize the order"
+        }
+      ]
     },
     {
       "description": "A model representing the next state of the survey progression.",
       "id": "PostHogNextSurveyQuestion",
       "title": "PostHogNextSurveyQuestion",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "Whether all questions have been answered and the survey is complete   Depending on the survey appearance configuration, you may want to show the \u201cThank you\u201d message or dismiss the survey at this point",
+          "id": "isSurveyCompleted",
+          "showDocs": true,
+          "title": "isSurveyCompleted",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogNextSurveyQuestion.swift",
+          "details": "Whether all questions have been answered and the survey is complete   Depending on the survey appearance configuration, you may want to show the \u201cThank you\u201d message or dismiss the survey at this point"
+        },
+        {
+          "category": "Configuration",
+          "description": "The index of the next question to be displayed (0-based)",
+          "id": "questionIndex",
+          "showDocs": true,
+          "title": "questionIndex",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogNextSurveyQuestion.swift",
+          "details": "The index of the next question to be displayed (0-based)"
+        }
+      ]
     },
     {
       "description": "The PostHogStorageManager class",
@@ -1325,17 +1310,9 @@
         {
           "category": "Identification",
           "description": "getAnonymousId method",
-          "details": "Detailed description of getAnonymousId",
           "id": "getAnonymousId",
           "showDocs": true,
           "title": "getAnonymousId",
-          "examples": [
-            {
-              "id": "basic_getAnonymousId",
-              "name": "Basic getAnonymousId",
-              "code": "PostHogStorageManager.shared.getAnonymousId()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -1347,17 +1324,9 @@
         {
           "category": "Identification",
           "description": "getDistinctId method",
-          "details": "Detailed description of getDistinctId",
           "id": "getDistinctId",
           "showDocs": true,
           "title": "getDistinctId",
-          "examples": [
-            {
-              "id": "basic_getDistinctId",
-              "name": "Basic getDistinctId",
-              "code": "PostHogStorageManager.shared.getDistinctId()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -1369,17 +1338,9 @@
         {
           "category": "Configuration",
           "description": "isIdentified method",
-          "details": "Detailed description of isIdentified",
           "id": "isIdentified",
           "showDocs": true,
           "title": "isIdentified",
-          "examples": [
-            {
-              "id": "basic_isIdentified",
-              "name": "Basic isIdentified",
-              "code": "PostHogStorageManager.shared.isIdentified()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -1391,17 +1352,9 @@
         {
           "category": "Configuration",
           "description": "isPersonProcessing method",
-          "details": "Detailed description of isPersonProcessing",
           "id": "isPersonProcessing",
           "showDocs": true,
           "title": "isPersonProcessing",
-          "examples": [
-            {
-              "id": "basic_isPersonProcessing",
-              "name": "Basic isPersonProcessing",
-              "code": "PostHogStorageManager.shared.isPersonProcessing()"
-            }
-          ],
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -1413,27 +1366,21 @@
         {
           "category": "Privacy",
           "description": "reset method",
-          "details": "Detailed description of reset",
           "id": "reset",
           "showDocs": true,
           "title": "reset",
-          "examples": [
-            {
-              "id": "basic_reset",
-              "name": "Basic reset",
-              "code": "PostHogStorageManager.shared.reset(true, _: true)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
               "name": "keepAnonymousId",
               "type": "Bool",
+              "description": "The keepAnonymousId parameter",
               "isOptional": false
             },
             {
-              "name": "_",
+              "name": "param1",
               "type": "Bool",
+              "description": "The param1 parameter",
               "isOptional": false
             }
           ],
@@ -1446,22 +1393,15 @@
         {
           "category": "Configuration",
           "description": "setAnonymousId method",
-          "details": "Detailed description of setAnonymousId",
           "id": "setAnonymousId",
           "showDocs": true,
           "title": "setAnonymousId",
-          "examples": [
-            {
-              "id": "basic_setAnonymousId",
-              "name": "Basic setAnonymousId",
-              "code": "PostHogStorageManager.shared.setAnonymousId(\"value_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "String",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -1474,22 +1414,15 @@
         {
           "category": "Configuration",
           "description": "setDistinctId method",
-          "details": "Detailed description of setDistinctId",
           "id": "setDistinctId",
           "showDocs": true,
           "title": "setDistinctId",
-          "examples": [
-            {
-              "id": "basic_setDistinctId",
-              "name": "Basic setDistinctId",
-              "code": "PostHogStorageManager.shared.setDistinctId(\"value_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "String",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -1502,22 +1435,15 @@
         {
           "category": "Configuration",
           "description": "setIdentified method",
-          "details": "Detailed description of setIdentified",
           "id": "setIdentified",
           "showDocs": true,
           "title": "setIdentified",
-          "examples": [
-            {
-              "id": "basic_setIdentified",
-              "name": "Basic setIdentified",
-              "code": "PostHogStorageManager.shared.setIdentified(true)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "Bool",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -1530,22 +1456,15 @@
         {
           "category": "Configuration",
           "description": "setPersonProcessing method",
-          "details": "Detailed description of setPersonProcessing",
           "id": "setPersonProcessing",
           "showDocs": true,
           "title": "setPersonProcessing",
-          "examples": [
-            {
-              "id": "basic_setPersonProcessing",
-              "name": "Basic setPersonProcessing",
-              "code": "PostHogStorageManager.shared.setPersonProcessing(true)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "Bool",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -1567,7 +1486,78 @@
       "description": "The PostHogEvent class",
       "id": "PostHogEvent",
       "title": "PostHogEvent",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "distinctId method",
+          "id": "distinctId",
+          "showDocs": true,
+          "title": "distinctId",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogEvent.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "event method",
+          "id": "event",
+          "showDocs": true,
+          "title": "event",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogEvent.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "properties method",
+          "id": "properties",
+          "showDocs": true,
+          "title": "properties",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogEvent.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "timestamp method",
+          "id": "timestamp",
+          "showDocs": true,
+          "title": "timestamp",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogEvent.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "uuid method",
+          "id": "uuid",
+          "showDocs": true,
+          "title": "uuid",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogEvent.swift"
+        }
+      ]
     },
     {
       "description": "The PostHogConfig class",
@@ -1575,24 +1565,410 @@
       "title": "PostHogConfig",
       "functions": [
         {
-          "category": "Configuration",
-          "description": "setBeforeSend method",
-          "details": "Detailed description of setBeforeSend",
-          "id": "setBeforeSend",
+          "category": "Initialization",
+          "description": "init method",
+          "id": "init",
           "showDocs": true,
-          "title": "setBeforeSend",
-          "examples": [
-            {
-              "id": "basic_setBeforeSend",
-              "name": "Basic setBeforeSend",
-              "code": "PostHogConfig.shared.setBeforeSend(value)"
-            }
-          ],
+          "title": "init",
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "apiKey",
+              "type": "String",
+              "description": "The apiKey parameter",
+              "isOptional": false
+            }
+          ],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Initialization",
+          "description": "init method",
+          "id": "init",
+          "showDocs": true,
+          "title": "init",
+          "releaseTag": "public",
+          "params": [
+            {
+              "name": "apiKey",
+              "type": "String",
+              "description": "The apiKey parameter",
+              "isOptional": false
+            },
+            {
+              "name": "host",
+              "type": "String",
+              "description": "The host parameter",
+              "isOptional": false
+            }
+          ],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "apiKey method",
+          "id": "apiKey",
+          "showDocs": true,
+          "title": "apiKey",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "The identifier of the App Group that should be used to store shared analytics data.   PostHog will try to get the physical location of the App Group\u2019s shared container, otherwise fallback to the default location   Default: nil",
+          "id": "appGroupIdentifier",
+          "showDocs": true,
+          "title": "appGroupIdentifier",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "The identifier of the App Group that should be used to store shared analytics data.   PostHog will try to get the physical location of the App Group\u2019s shared container, otherwise fallback to the default location   Default: nil"
+        },
+        {
+          "category": "Configuration",
+          "description": "captureApplicationLifecycleEvents method",
+          "id": "captureApplicationLifecycleEvents",
+          "showDocs": true,
+          "title": "captureApplicationLifecycleEvents",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "captureScreenViews method",
+          "id": "captureScreenViews",
+          "showDocs": true,
+          "title": "captureScreenViews",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "dataMode method",
+          "id": "dataMode",
+          "showDocs": true,
+          "title": "dataMode",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "debug method",
+          "id": "debug",
+          "showDocs": true,
+          "title": "debug",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "Enable method swizzling for SDK functionality that depends on it",
+          "id": "enableSwizzling",
+          "showDocs": true,
+          "title": "enableSwizzling",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed. Note: Disabling swizzling will limit session rotation logic to only detect application open and background events.   Session rotation will still work, just with reduced granularity for detecting user activity. Default: true"
+        },
+        {
+          "category": "Configuration",
+          "description": "Evaluation environments for feature flags.",
+          "id": "evaluationEnvironments",
+          "showDocs": true,
+          "title": "evaluationEnvironments",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "When configured, only feature flags that have at least one matching evaluation tag   will be evaluated. Feature flags with no evaluation tags will always be evaluated   for backward compatibility. Example usage: This helps ensure feature flags are only evaluated in the appropriate environments   for your SDK instance. Default: nil (all flags are evaluated)"
+        },
+        {
+          "category": "Configuration",
+          "description": "flushAt method",
+          "id": "flushAt",
+          "showDocs": true,
+          "title": "flushAt",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "flushIntervalSeconds method",
+          "id": "flushIntervalSeconds",
+          "showDocs": true,
+          "title": "flushIntervalSeconds",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Identification",
+          "description": "getAnonymousId method",
+          "id": "getAnonymousId",
+          "showDocs": true,
+          "title": "getAnonymousId",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "host method",
+          "id": "host",
+          "showDocs": true,
+          "title": "host",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "maxBatchSize method",
+          "id": "maxBatchSize",
+          "showDocs": true,
+          "title": "maxBatchSize",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "maxQueueSize method",
+          "id": "maxQueueSize",
+          "showDocs": true,
+          "title": "maxQueueSize",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Privacy",
+          "description": "optOut method",
+          "id": "optOut",
+          "showDocs": true,
+          "title": "optOut",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "Determines the behavior for processing user profiles.",
+          "id": "personProfiles",
+          "showDocs": true,
+          "title": "personProfiles",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "Determines the behavior for processing user profiles."
+        },
+        {
+          "category": "Feature flags",
+          "description": "preloadFeatureFlags method",
+          "id": "preloadFeatureFlags",
+          "showDocs": true,
+          "title": "preloadFeatureFlags",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "Hook that allows to sanitize the event properties   The hook is called before the event is cached or sent over the wire",
+          "id": "propertiesSanitizer",
+          "showDocs": true,
+          "title": "propertiesSanitizer",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "Hook that allows to sanitize the event properties   The hook is called before the event is cached or sent over the wire"
+        },
+        {
+          "category": "Configuration",
+          "description": "Preload PostHog remote config automatically   Default: true",
+          "id": "remoteConfig",
+          "showDocs": true,
+          "title": "remoteConfig",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "Note: Surveys rely on remote config. Disabling this will also disable Surveys"
+        },
+        {
+          "category": "Configuration",
+          "description": "Flag to reuse the anonymous Id between    and next    calls",
+          "id": "reuseAnonymousId",
+          "showDocs": true,
+          "title": "reuseAnonymousId",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "If enabled, the anonymous Id will be reused for all anonymous users on this device,   essentially creating a \u201cGuest user Id\u201d as long as this option is enabled. Note:   Events captured   call to   won\u2019t be linked to the identified user   Events captured    call to   won\u2019t be linked to the identified user Defaults to false."
+        },
+        {
+          "category": "Feature flags",
+          "description": "sendFeatureFlagEvent method",
+          "id": "sendFeatureFlagEvent",
+          "showDocs": true,
+          "title": "sendFeatureFlagEvent",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "Automatically set common device and app properties as person properties for feature flag evaluation.",
+          "id": "setDefaultPersonProperties",
+          "showDocs": true,
+          "title": "setDefaultPersonProperties",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "When enabled, the SDK will automatically set the following person properties: This helps ensure feature flags that rely on these properties work correctly   without waiting for server-side processing of identify() calls. Default: true"
+        },
+        {
+          "category": "Configuration",
+          "description": "Internal   Do not modify it, this flag is read and updated by the SDK via feature flags",
+          "id": "snapshotEndpoint",
+          "showDocs": true,
+          "title": "snapshotEndpoint",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "Internal   Do not modify it, this flag is read and updated by the SDK via feature flags"
+        },
+        {
+          "category": "Configuration",
+          "description": "storageManager method",
+          "id": "storageManager",
+          "showDocs": true,
+          "title": "storageManager",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "setBeforeSend method",
+          "id": "setBeforeSend",
+          "showDocs": true,
+          "title": "setBeforeSend",
+          "releaseTag": "public",
+          "params": [
+            {
+              "name": "param0",
               "type": "BeforeSendBlock",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
@@ -1605,17 +1981,38 @@
         {
           "category": "Configuration",
           "description": "setBeforeSend method",
-          "details": "Detailed description of setBeforeSend",
           "id": "setBeforeSend",
           "showDocs": true,
           "title": "setBeforeSend",
-          "examples": [
-            {
-              "id": "basic_setBeforeSend",
-              "name": "Basic setBeforeSend",
-              "code": "PostHogConfig.shared.setBeforeSend()"
-            }
-          ],
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "or EU Host: \u2018https://eu.i.posthog.com\u2019",
+          "id": "defaultHost",
+          "showDocs": true,
+          "title": "defaultHost",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogConfig.swift",
+          "details": "or EU Host: \u2018https://eu.i.posthog.com\u2019"
+        },
+        {
+          "category": "Configuration",
+          "description": "PostHogConfig.PostHogDataMode method",
+          "id": "PostHogConfig.PostHogDataMode",
+          "showDocs": true,
+          "title": "PostHogConfig.PostHogDataMode",
           "releaseTag": "public",
           "params": [],
           "returnType": {
@@ -1633,83 +2030,135 @@
       "functions": [
         {
           "category": "Configuration",
-          "description": "Creates a response for a link question",
-          "details": "Creates a response for a link question",
-          "id": "link",
+          "description": "Whether a link was clicked (for link questions)",
+          "id": "linkClicked",
           "showDocs": true,
-          "title": "link",
-          "examples": [
-            {
-              "id": "basic_link",
-              "name": "Basic link",
-              "code": "PostHogSurveyResponse.shared.link(true, value: value)"
-            }
-          ],
-          "releaseTag": "public",
-          "params": [
-            {
-              "name": "value",
-              "type": "Bool",
-              "isOptional": false
-            },
-            {
-              "name": "value",
-              "type": "PostHogSurveyResponse",
-              "isOptional": false
-            }
-          ],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogSurveyResponse.swift"
-        },
-        {
-          "category": "Configuration",
-          "description": "Creates a response for a multiple-choice question",
-          "details": "Creates a response for a multiple-choice question",
-          "id": "multipleChoice",
-          "showDocs": true,
-          "title": "multipleChoice",
-          "examples": [
-            {
-              "id": "basic_multipleChoice",
-              "name": "Basic multipleChoice",
-              "code": "PostHogSurveyResponse.shared.multipleChoice()"
-            }
-          ],
+          "title": "linkClicked",
           "releaseTag": "public",
           "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSurveyResponse.swift"
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "Whether a link was clicked (for link questions)"
+        },
+        {
+          "category": "Configuration",
+          "description": "The numeric rating value (for rating questions)",
+          "id": "ratingValue",
+          "showDocs": true,
+          "title": "ratingValue",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "The numeric rating value (for rating questions)"
+        },
+        {
+          "category": "Configuration",
+          "description": "The selected options (for multiple or single choice questions)",
+          "id": "selectedOptions",
+          "showDocs": true,
+          "title": "selectedOptions",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "The selected options (for multiple or single choice questions)"
+        },
+        {
+          "category": "Configuration",
+          "description": "The text response (for open questions)",
+          "id": "textValue",
+          "showDocs": true,
+          "title": "textValue",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "The text response (for open questions)"
+        },
+        {
+          "category": "Configuration",
+          "description": "The type of response (link, rating, text, or multiple choice)",
+          "id": "type",
+          "showDocs": true,
+          "title": "type",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "The type of response (link, rating, text, or multiple choice)"
+        },
+        {
+          "category": "Configuration",
+          "description": "Creates a response for a link question",
+          "id": "link",
+          "showDocs": true,
+          "title": "link",
+          "releaseTag": "public",
+          "params": [
+            {
+              "name": "clicked",
+              "type": "Any",
+              "description": "Whether the link was clicked",
+              "isOptional": false
+            }
+          ],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "Creates a response for a link question"
+        },
+        {
+          "category": "Configuration",
+          "description": "Creates a response for a multiple-choice question",
+          "id": "multipleChoice",
+          "showDocs": true,
+          "title": "multipleChoice",
+          "releaseTag": "public",
+          "params": [
+            {
+              "name": "multipleChoice",
+              "type": "Any",
+              "description": "The selected options",
+              "isOptional": false
+            }
+          ],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "Creates a response for a multiple-choice question"
         },
         {
           "category": "Configuration",
           "description": "Creates a response for an open-ended question",
-          "details": "Creates a response for an open-ended question",
           "id": "openEnded",
           "showDocs": true,
           "title": "openEnded",
-          "examples": [
-            {
-              "id": "basic_openEnded",
-              "name": "Basic openEnded",
-              "code": "PostHogSurveyResponse.shared.openEnded(\"value_value\", value: value)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
-              "type": "String",
-              "isOptional": false
-            },
-            {
-              "name": "value",
-              "type": "PostHogSurveyResponse",
+              "name": "openEnded",
+              "type": "Any",
+              "description": "The text response",
               "isOptional": false
             }
           ],
@@ -1717,32 +2166,21 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSurveyResponse.swift"
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "Creates a response for an open-ended question"
         },
         {
           "category": "Configuration",
           "description": "Creates a response for a rating question",
-          "details": "Creates a response for a rating question",
           "id": "rating",
           "showDocs": true,
           "title": "rating",
-          "examples": [
-            {
-              "id": "basic_rating",
-              "name": "Basic rating",
-              "code": "PostHogSurveyResponse.shared.rating(value, value: value)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
-              "type": "Int",
-              "isOptional": false
-            },
-            {
-              "name": "value",
-              "type": "PostHogSurveyResponse",
+              "name": "rating",
+              "type": "Any",
+              "description": "The selected rating value",
               "isOptional": false
             }
           ],
@@ -1750,32 +2188,21 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSurveyResponse.swift"
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "Creates a response for a rating question"
         },
         {
           "category": "Configuration",
           "description": "Creates a response for a single-choice question",
-          "details": "Creates a response for a single-choice question",
           "id": "singleChoice",
           "showDocs": true,
           "title": "singleChoice",
-          "examples": [
-            {
-              "id": "basic_singleChoice",
-              "name": "Basic singleChoice",
-              "code": "PostHogSurveyResponse.shared.singleChoice(\"value_value\", value: value)"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
-              "type": "String",
-              "isOptional": false
-            },
-            {
-              "name": "value",
-              "type": "PostHogSurveyResponse",
+              "name": "singleChoice",
+              "type": "Any",
+              "description": "The selected option",
               "isOptional": false
             }
           ],
@@ -1783,7 +2210,8 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSurveyResponse.swift"
+          "path": "PostHog/PostHogSurveyResponse.swift",
+          "details": "Creates a response for a single-choice question"
         }
       ]
     },
@@ -1791,7 +2219,98 @@
       "description": "Base class for all survey question types",
       "id": "PostHogDisplaySurveyQuestion",
       "title": "PostHogDisplaySurveyQuestion",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "Optional custom text for the question\u2019s action button",
+          "id": "buttonText",
+          "showDocs": true,
+          "title": "buttonText",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
+          "details": "Optional custom text for the question\u2019s action button"
+        },
+        {
+          "category": "Configuration",
+          "description": "The question ID, empty if none",
+          "id": "id",
+          "showDocs": true,
+          "title": "id",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
+          "details": "The question ID, empty if none"
+        },
+        {
+          "category": "Configuration",
+          "description": "Whether the question can be skipped",
+          "id": "isOptional",
+          "showDocs": true,
+          "title": "isOptional",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
+          "details": "Whether the question can be skipped"
+        },
+        {
+          "category": "Configuration",
+          "description": "The main question text to display",
+          "id": "question",
+          "showDocs": true,
+          "title": "question",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
+          "details": "The main question text to display"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional additional description or context for the question",
+          "id": "questionDescription",
+          "showDocs": true,
+          "title": "questionDescription",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
+          "details": "Optional additional description or context for the question"
+        },
+        {
+          "category": "Configuration",
+          "description": "Content type for the question description (HTML or plain text)",
+          "id": "questionDescriptionContentType",
+          "showDocs": true,
+          "title": "questionDescriptionContentType",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
+          "details": "Content type for the question description (HTML or plain text)"
+        }
+      ]
     },
     {
       "description": "The PostHogSessionManager class",
@@ -1801,25 +2320,32 @@
         {
           "category": "Session replay",
           "description": "setSessionId method",
-          "details": "Detailed description of setSessionId",
           "id": "setSessionId",
           "showDocs": true,
           "title": "setSessionId",
-          "examples": [
-            {
-              "id": "basic_setSessionId",
-              "name": "Basic setSessionId",
-              "code": "PostHogSessionManager.shared.setSessionId(\"value_value\")"
-            }
-          ],
           "releaseTag": "public",
           "params": [
             {
-              "name": "value",
+              "name": "param0",
               "type": "String",
+              "description": "The param0 parameter",
               "isOptional": false
             }
           ],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSessionManager.swift"
+        },
+        {
+          "category": "Configuration",
+          "description": "shared method",
+          "id": "shared",
+          "showDocs": true,
+          "title": "shared",
+          "releaseTag": "public",
+          "params": [],
           "returnType": {
             "id": "Void",
             "name": "Void"
@@ -1832,19 +2358,337 @@
       "description": "The PostHogSurveysConfig class",
       "id": "PostHogSurveysConfig",
       "title": "PostHogSurveysConfig",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "Delegate responsible for managing survey presentation in your app.   Handles survey rendering, response collection, and lifecycle events.   You can provide your own delegate for a custom survey presentation.",
+          "id": "surveysDelegate",
+          "showDocs": true,
+          "title": "surveysDelegate",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogSurveysConfig.swift",
+          "details": "Defaults to   which provides a standard survey UI."
+        }
+      ]
     },
     {
       "description": "Represents a rating question where users can select a rating from a scale",
       "id": "PostHogDisplayRatingQuestion",
       "title": "PostHogDisplayRatingQuestion",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "The label for the lower bound of the rating scale",
+          "id": "lowerBoundLabel",
+          "showDocs": true,
+          "title": "lowerBoundLabel",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayRatingQuestion.swift",
+          "details": "The label for the lower bound of the rating scale"
+        },
+        {
+          "category": "Configuration",
+          "description": "The type of rating scale (numbers, emoji)",
+          "id": "ratingType",
+          "showDocs": true,
+          "title": "ratingType",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayRatingQuestion.swift",
+          "details": "The type of rating scale (numbers, emoji)"
+        },
+        {
+          "category": "Configuration",
+          "description": "The lower bound of the rating scale",
+          "id": "scaleLowerBound",
+          "showDocs": true,
+          "title": "scaleLowerBound",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayRatingQuestion.swift",
+          "details": "The lower bound of the rating scale"
+        },
+        {
+          "category": "Configuration",
+          "description": "The upper bound of the rating scale",
+          "id": "scaleUpperBound",
+          "showDocs": true,
+          "title": "scaleUpperBound",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayRatingQuestion.swift",
+          "details": "The upper bound of the rating scale"
+        },
+        {
+          "category": "Configuration",
+          "description": "The label for the upper bound of the rating scale",
+          "id": "upperBoundLabel",
+          "showDocs": true,
+          "title": "upperBoundLabel",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplayRatingQuestion.swift",
+          "details": "The label for the upper bound of the rating scale"
+        }
+      ]
     },
     {
       "description": "Model that describes the appearance customization of a PostHog survey",
       "id": "PostHogDisplaySurveyAppearance",
       "title": "PostHogDisplaySurveyAppearance",
-      "functions": []
+      "functions": [
+        {
+          "category": "Configuration",
+          "description": "Optional background color as web color (e.g. \u201c#FFFFFF\u201d or \u201cwhite\u201d)",
+          "id": "backgroundColor",
+          "showDocs": true,
+          "title": "backgroundColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional background color as web color (e.g. \u201c#FFFFFF\u201d or \u201cwhite\u201d)"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional border color as web color",
+          "id": "borderColor",
+          "showDocs": true,
+          "title": "borderColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional border color as web color"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional color for description text as web color",
+          "id": "descriptionTextColor",
+          "showDocs": true,
+          "title": "descriptionTextColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional color for description text as web color"
+        },
+        {
+          "category": "Configuration",
+          "description": "Whether to show a thank you message after survey completion",
+          "id": "displayThankYouMessage",
+          "showDocs": true,
+          "title": "displayThankYouMessage",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Whether to show a thank you message after survey completion"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional font family to use throughout the survey",
+          "id": "fontFamily",
+          "showDocs": true,
+          "title": "fontFamily",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional font family to use throughout the survey"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional placeholder text for input fields",
+          "id": "placeholder",
+          "showDocs": true,
+          "title": "placeholder",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional placeholder text for input fields"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional color for active/selected rating buttons as web color",
+          "id": "ratingButtonActiveColor",
+          "showDocs": true,
+          "title": "ratingButtonActiveColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional color for active/selected rating buttons as web color"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional color for rating buttons as web color",
+          "id": "ratingButtonColor",
+          "showDocs": true,
+          "title": "ratingButtonColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional color for rating buttons as web color"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional background color for the submit button as web color",
+          "id": "submitButtonColor",
+          "showDocs": true,
+          "title": "submitButtonColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional background color for the submit button as web color"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional custom text for the submit button",
+          "id": "submitButtonText",
+          "showDocs": true,
+          "title": "submitButtonText",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional custom text for the submit button"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional text color for the submit button as web color",
+          "id": "submitButtonTextColor",
+          "showDocs": true,
+          "title": "submitButtonTextColor",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional text color for the submit button as web color"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional text for the close button in the thank you message",
+          "id": "thankYouMessageCloseButtonText",
+          "showDocs": true,
+          "title": "thankYouMessageCloseButtonText",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional text for the close button in the thank you message"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional description text for the thank you message",
+          "id": "thankYouMessageDescription",
+          "showDocs": true,
+          "title": "thankYouMessageDescription",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional description text for the thank you message"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional content type for the thank you message description",
+          "id": "thankYouMessageDescriptionContentType",
+          "showDocs": true,
+          "title": "thankYouMessageDescriptionContentType",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional content type for the thank you message description"
+        },
+        {
+          "category": "Configuration",
+          "description": "Optional header text for the thank you message",
+          "id": "thankYouMessageHeader",
+          "showDocs": true,
+          "title": "thankYouMessageHeader",
+          "releaseTag": "public",
+          "params": [],
+          "returnType": {
+            "id": "Void",
+            "name": "Void"
+          },
+          "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
+          "details": "Optional header text for the thank you message"
+        }
+      ]
     }
   ],
   "types": [

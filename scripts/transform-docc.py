@@ -771,6 +771,11 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
                                 if throws_info:
                                     method_info["throws"] = throws_info
                                 
+                                # Generate examples array
+                                examples = generate_method_examples(clean_method_name, params, return_type)
+                                if examples:
+                                    method_info["examples"] = examples
+                                
                                 classes[title]["functions"].append(method_info)
         
         # Handle enums/structs
@@ -850,6 +855,47 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
     print(f"📋 Generated {len(classes)} classes and {len(types)} types")
     
     return result
+
+def generate_method_examples(method_name: str, params: List[Dict], return_type: Dict) -> List[Dict]:
+    """Generate examples array with id, name, and code fields."""
+    examples = []
+    
+    if not params:
+        # No parameters - simple example
+        code = f"PostHogSDK.shared.{method_name}()"
+        examples.append({
+            "id": f"basic_{method_name}",
+            "name": f"Basic {method_name}",
+            "code": code
+        })
+    else:
+        # Build example with parameter values
+        param_parts = []
+        for param in params:
+            param_name = param.get("name", "")
+            param_type = param.get("type", "Any")
+            # Generate placeholder value based on type
+            if "String" in param_type:
+                placeholder = f'"{param_name}_value"'
+            elif "Int" in param_type or "Double" in param_type or "Float" in param_type:
+                placeholder = "0"
+            elif "Bool" in param_type:
+                placeholder = "true"
+            elif "[" in param_type:  # Array
+                placeholder = "[]"
+            else:
+                placeholder = f'"{param_name}_value"'
+            param_parts.append(f"{param_name}: {placeholder}")
+        
+        params_str = ", ".join(param_parts)
+        code = f"PostHogSDK.shared.{method_name}({params_str})"
+        examples.append({
+            "id": f"basic_{method_name}",
+            "name": f"Basic {method_name}",
+            "code": code
+        })
+    
+    return examples
 
 def generate_posthog_config_example(class_data: Dict, references: Dict, docc_data_dir: str) -> str:
     """

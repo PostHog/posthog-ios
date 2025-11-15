@@ -34,7 +34,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_alias",
+              "name": "Basic alias",
+              "code": "PostHogSDK.shared.alias(alias: \"alias_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -55,7 +62,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -112,7 +126,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\", distinctId: \"distinctId_value\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\", groups: \"groups_value\", properties: \"properties_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -175,7 +196,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\", distinctId: \"distinctId_value\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\", groups: \"groups_value\", properties: \"properties_value\", timestamp: \"timestamp_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -202,7 +230,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\", properties: \"properties_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -235,7 +270,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\", properties: \"properties_value\", userProperties: \"userProperties_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -274,7 +316,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -325,7 +374,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_capture",
+              "name": "Basic capture",
+              "code": "PostHogSDK.shared.capture(event: \"event_value\", properties: \"properties_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\", groups: \"groups_value\", properties: \"properties_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -339,7 +395,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_close",
+              "name": "Basic close",
+              "code": "PostHogSDK.shared.close()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -360,7 +423,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_debug",
+              "name": "Basic debug",
+              "code": "PostHogSDK.shared.debug(param0: true)"
+            }
+          ]
         },
         {
           "category": "Session replay",
@@ -374,7 +444,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_endSession",
+              "name": "Basic endSession",
+              "code": "PostHogSDK.shared.endSession()"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -388,7 +465,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_flush",
+              "name": "Basic flush",
+              "code": "PostHogSDK.shared.flush()"
+            }
+          ]
         },
         {
           "category": "Identification",
@@ -402,7 +486,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_getAnonymousId",
+              "name": "Basic getAnonymousId",
+              "code": "PostHogSDK.shared.getAnonymousId()"
+            }
+          ]
         },
         {
           "category": "Identification",
@@ -416,7 +507,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_getDistinctId",
+              "name": "Basic getDistinctId",
+              "code": "PostHogSDK.shared.getDistinctId()"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -437,7 +535,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_getFeatureFlag",
+              "name": "Basic getFeatureFlag",
+              "code": "PostHogSDK.shared.getFeatureFlag(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -458,7 +563,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_getFeatureFlagPayload",
+              "name": "Basic getFeatureFlagPayload",
+              "code": "PostHogSDK.shared.getFeatureFlagPayload(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Session replay",
@@ -472,7 +584,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_getSessionId",
+              "name": "Basic getSessionId",
+              "code": "PostHogSDK.shared.getSessionId()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -499,7 +618,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_group",
+              "name": "Basic group",
+              "code": "PostHogSDK.shared.group(type: \"type_value\", key: \"key_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -532,7 +658,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_group",
+              "name": "Basic group",
+              "code": "PostHogSDK.shared.group(type: \"type_value\", key: \"key_value\", groupProperties: \"groupProperties_value\")"
+            }
+          ]
         },
         {
           "category": "Identification",
@@ -553,7 +686,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_identify",
+              "name": "Basic identify",
+              "code": "PostHogSDK.shared.identify(distinctId: \"distinctId_value\")"
+            }
+          ]
         },
         {
           "category": "Identification",
@@ -580,7 +720,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_identify",
+              "name": "Basic identify",
+              "code": "PostHogSDK.shared.identify(distinctId: \"distinctId_value\", userProperties: \"userProperties_value\")"
+            }
+          ]
         },
         {
           "category": "Identification",
@@ -613,7 +760,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_identify",
+              "name": "Basic identify",
+              "code": "PostHogSDK.shared.identify(distinctId: \"distinctId_value\", userProperties: \"userProperties_value\", userPropertiesSetOnce: \"userPropertiesSetOnce_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -640,7 +794,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_isFeatureEnabled",
+              "name": "Basic isFeatureEnabled",
+              "code": "PostHogSDK.shared.isFeatureEnabled(param0: \"param0_value\", param1: true)"
+            }
+          ]
         },
         {
           "category": "Privacy",
@@ -654,7 +815,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_isOptOut",
+              "name": "Basic isOptOut",
+              "code": "PostHogSDK.shared.isOptOut()"
+            }
+          ]
         },
         {
           "category": "Privacy",
@@ -668,7 +836,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_optIn",
+              "name": "Basic optIn",
+              "code": "PostHogSDK.shared.optIn()"
+            }
+          ]
         },
         {
           "category": "Privacy",
@@ -682,7 +857,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_optOut",
+              "name": "Basic optOut",
+              "code": "PostHogSDK.shared.optOut()"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -696,7 +878,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_register",
+              "name": "Basic register",
+              "code": "PostHogSDK.shared.register()"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -710,7 +899,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_reloadFeatureFlags",
+              "name": "Basic reloadFeatureFlags",
+              "code": "PostHogSDK.shared.reloadFeatureFlags()"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -724,7 +920,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_reloadFeatureFlags",
+              "name": "Basic reloadFeatureFlags",
+              "code": "PostHogSDK.shared.reloadFeatureFlags()"
+            }
+          ]
         },
         {
           "category": "Privacy",
@@ -738,7 +941,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_reset",
+              "name": "Basic reset",
+              "code": "PostHogSDK.shared.reset()"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -753,7 +963,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "Clears all group properties for feature flag evaluation."
+          "details": "Clears all group properties for feature flag evaluation.",
+          "examples": [
+            {
+              "id": "basic_resetGroupPropertiesForFlags",
+              "name": "Basic resetGroupPropertiesForFlags",
+              "code": "PostHogSDK.shared.resetGroupPropertiesForFlags()"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -775,7 +992,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "Clears group properties for feature flag evaluation for a specific group type."
+          "details": "Clears group properties for feature flag evaluation for a specific group type.",
+          "examples": [
+            {
+              "id": "basic_resetGroupPropertiesForFlags",
+              "name": "Basic resetGroupPropertiesForFlags",
+              "code": "PostHogSDK.shared.resetGroupPropertiesForFlags(groupType: \"groupType_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -790,7 +1014,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "After calling this method, feature flag evaluation will only use server-side person properties   and will not include any locally overridden properties."
+          "details": "After calling this method, feature flag evaluation will only use server-side person properties   and will not include any locally overridden properties.",
+          "examples": [
+            {
+              "id": "basic_resetPersonPropertiesForFlags",
+              "name": "Basic resetPersonPropertiesForFlags",
+              "code": "PostHogSDK.shared.resetPersonPropertiesForFlags()"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -811,7 +1042,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_screen",
+              "name": "Basic screen",
+              "code": "PostHogSDK.shared.screen(name: \"name_value\")"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -838,7 +1076,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_screen",
+              "name": "Basic screen",
+              "code": "PostHogSDK.shared.screen(name: \"name_value\", properties: \"properties_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -866,7 +1111,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions."
+          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions.",
+          "examples": [
+            {
+              "id": "basic_setGroupPropertiesForFlags",
+              "name": "Basic setGroupPropertiesForFlags",
+              "code": "PostHogSDK.shared.setGroupPropertiesForFlags(groupType: \"groupType_value\", properties: \"properties_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -900,7 +1152,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions."
+          "details": "Sets properties for a specific group type to include when evaluating feature flags.   These properties supplement the standard group information sent to PostHog for flag evaluation,   providing additional context that can be used in flag targeting conditions.",
+          "examples": [
+            {
+              "id": "basic_setGroupPropertiesForFlags",
+              "name": "Basic setGroupPropertiesForFlags",
+              "code": "PostHogSDK.shared.setGroupPropertiesForFlags(groupType: \"groupType_value\", properties: \"properties_value\", reloadFeatureFlags: true)"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -922,7 +1181,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "This method allows you to override server-side person properties for immediate feature flag evaluation,   solving the race condition where person properties from   calls may not have been processed   by the server yet. Properties are merged additively with existing properties. Feature flags are automatically reloaded   after setting properties."
+          "details": "This method allows you to override server-side person properties for immediate feature flag evaluation,   solving the race condition where person properties from   calls may not have been processed   by the server yet. Properties are merged additively with existing properties. Feature flags are automatically reloaded   after setting properties.",
+          "examples": [
+            {
+              "id": "basic_setPersonPropertiesForFlags",
+              "name": "Basic setPersonPropertiesForFlags",
+              "code": "PostHogSDK.shared.setPersonPropertiesForFlags(properties: \"properties_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -950,7 +1216,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSDK.swift",
-          "details": "This method allows you to override server-side person properties for immediate feature flag evaluation,   solving the race condition where person properties from   calls may not have been processed   by the server yet. Properties are merged additively with existing properties."
+          "details": "This method allows you to override server-side person properties for immediate feature flag evaluation,   solving the race condition where person properties from   calls may not have been processed   by the server yet. Properties are merged additively with existing properties.",
+          "examples": [
+            {
+              "id": "basic_setPersonPropertiesForFlags",
+              "name": "Basic setPersonPropertiesForFlags",
+              "code": "PostHogSDK.shared.setPersonPropertiesForFlags(properties: \"properties_value\", reloadFeatureFlags: true)"
+            }
+          ]
         },
         {
           "category": "Initialization",
@@ -971,7 +1244,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_setup",
+              "name": "Basic setup",
+              "code": "PostHogSDK.shared.setup(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Session replay",
@@ -985,7 +1265,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_startSession",
+              "name": "Basic startSession",
+              "code": "PostHogSDK.shared.startSession()"
+            }
+          ]
         },
         {
           "category": "Capture",
@@ -1006,7 +1293,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_unregister",
+              "name": "Basic unregister",
+              "code": "PostHogSDK.shared.unregister(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Feature flags",
@@ -1020,7 +1314,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_didReceiveFeatureFlags",
+              "name": "Basic didReceiveFeatureFlags",
+              "code": "PostHogSDK.shared.didReceiveFeatureFlags()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1034,7 +1335,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_didStartNotification",
+              "name": "Basic didStartNotification",
+              "code": "PostHogSDK.shared.didStartNotification()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1048,7 +1356,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_shared",
+              "name": "Basic shared",
+              "code": "PostHogSDK.shared.shared()"
+            }
+          ]
         },
         {
           "category": "Initialization",
@@ -1075,7 +1390,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSDK.swift"
+          "path": "PostHog/PostHogSDK.swift",
+          "examples": [
+            {
+              "id": "basic_with",
+              "name": "Basic with",
+              "code": "PostHogSDK.shared.with(param0: \"param0_value\", param1: \"param1_value\")"
+            }
+          ]
         }
       ]
     },
@@ -1097,7 +1419,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurvey.swift",
-          "details": "Optional appearance configuration for customizing the survey\u2019s look and feel"
+          "details": "Optional appearance configuration for customizing the survey\u2019s look and feel",
+          "examples": [
+            {
+              "id": "basic_appearance",
+              "name": "Basic appearance",
+              "code": "PostHogSDK.shared.appearance()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1112,7 +1441,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurvey.swift",
-          "details": "Optional date indicating when the survey should stop being shown"
+          "details": "Optional date indicating when the survey should stop being shown",
+          "examples": [
+            {
+              "id": "basic_endDate",
+              "name": "Basic endDate",
+              "code": "PostHogSDK.shared.endDate()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1127,7 +1463,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurvey.swift",
-          "details": "Unique identifier for the survey"
+          "details": "Unique identifier for the survey",
+          "examples": [
+            {
+              "id": "basic_id",
+              "name": "Basic id",
+              "code": "PostHogSDK.shared.id()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1142,7 +1485,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurvey.swift",
-          "details": "Name of the survey"
+          "details": "Name of the survey",
+          "examples": [
+            {
+              "id": "basic_name",
+              "name": "Basic name",
+              "code": "PostHogSDK.shared.name()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1157,7 +1507,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurvey.swift",
-          "details": "Array of questions to be presented in the survey"
+          "details": "Array of questions to be presented in the survey",
+          "examples": [
+            {
+              "id": "basic_questions",
+              "name": "Basic questions",
+              "code": "PostHogSDK.shared.questions()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1172,7 +1529,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurvey.swift",
-          "details": "Optional date indicating when the survey should start being shown"
+          "details": "Optional date indicating when the survey should start being shown",
+          "examples": [
+            {
+              "id": "basic_startDate",
+              "name": "Basic startDate",
+              "code": "PostHogSDK.shared.startDate()"
+            }
+          ]
         }
       ]
     },
@@ -1194,7 +1558,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayLinkQuestion.swift",
-          "details": "The URL that will be opened when the link is clicked"
+          "details": "The URL that will be opened when the link is clicked",
+          "examples": [
+            {
+              "id": "basic_link",
+              "name": "Basic link",
+              "code": "PostHogSDK.shared.link()"
+            }
+          ]
         }
       ]
     },
@@ -1216,7 +1587,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
-          "details": "The list of options for the user to choose from"
+          "details": "The list of options for the user to choose from",
+          "examples": [
+            {
+              "id": "basic_choices",
+              "name": "Basic choices",
+              "code": "PostHogSDK.shared.choices()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1231,7 +1609,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
-          "details": "Whether the question includes an \u201cother\u201d option for users to input free-form text"
+          "details": "Whether the question includes an \u201cother\u201d option for users to input free-form text",
+          "examples": [
+            {
+              "id": "basic_hasOpenChoice",
+              "name": "Basic hasOpenChoice",
+              "code": "PostHogSDK.shared.hasOpenChoice()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1246,7 +1631,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
-          "details": "Whether the user can select multiple options"
+          "details": "Whether the user can select multiple options",
+          "examples": [
+            {
+              "id": "basic_isMultipleChoice",
+              "name": "Basic isMultipleChoice",
+              "code": "PostHogSDK.shared.isMultipleChoice()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1261,7 +1653,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayChoiceQuestion.swift",
-          "details": "Whether the options should be shuffled to randomize the order"
+          "details": "Whether the options should be shuffled to randomize the order",
+          "examples": [
+            {
+              "id": "basic_shuffleOptions",
+              "name": "Basic shuffleOptions",
+              "code": "PostHogSDK.shared.shuffleOptions()"
+            }
+          ]
         }
       ]
     },
@@ -1283,7 +1682,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogNextSurveyQuestion.swift",
-          "details": "Whether all questions have been answered and the survey is complete   Depending on the survey appearance configuration, you may want to show the \u201cThank you\u201d message or dismiss the survey at this point"
+          "details": "Whether all questions have been answered and the survey is complete   Depending on the survey appearance configuration, you may want to show the \u201cThank you\u201d message or dismiss the survey at this point",
+          "examples": [
+            {
+              "id": "basic_isSurveyCompleted",
+              "name": "Basic isSurveyCompleted",
+              "code": "PostHogSDK.shared.isSurveyCompleted()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1298,7 +1704,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogNextSurveyQuestion.swift",
-          "details": "The index of the next question to be displayed (0-based)"
+          "details": "The index of the next question to be displayed (0-based)",
+          "examples": [
+            {
+              "id": "basic_questionIndex",
+              "name": "Basic questionIndex",
+              "code": "PostHogSDK.shared.questionIndex()"
+            }
+          ]
         }
       ]
     },
@@ -1319,7 +1732,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_getAnonymousId",
+              "name": "Basic getAnonymousId",
+              "code": "PostHogSDK.shared.getAnonymousId()"
+            }
+          ]
         },
         {
           "category": "Identification",
@@ -1333,7 +1753,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_getDistinctId",
+              "name": "Basic getDistinctId",
+              "code": "PostHogSDK.shared.getDistinctId()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1347,7 +1774,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_isIdentified",
+              "name": "Basic isIdentified",
+              "code": "PostHogSDK.shared.isIdentified()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1361,7 +1795,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_isPersonProcessing",
+              "name": "Basic isPersonProcessing",
+              "code": "PostHogSDK.shared.isPersonProcessing()"
+            }
+          ]
         },
         {
           "category": "Privacy",
@@ -1388,7 +1829,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_reset",
+              "name": "Basic reset",
+              "code": "PostHogSDK.shared.reset(keepAnonymousId: true, param1: true)"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1409,7 +1857,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_setAnonymousId",
+              "name": "Basic setAnonymousId",
+              "code": "PostHogSDK.shared.setAnonymousId(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1430,7 +1885,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_setDistinctId",
+              "name": "Basic setDistinctId",
+              "code": "PostHogSDK.shared.setDistinctId(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1451,7 +1913,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_setIdentified",
+              "name": "Basic setIdentified",
+              "code": "PostHogSDK.shared.setIdentified(param0: true)"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1472,7 +1941,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogStorageManager.swift"
+          "path": "PostHog/PostHogStorageManager.swift",
+          "examples": [
+            {
+              "id": "basic_setPersonProcessing",
+              "name": "Basic setPersonProcessing",
+              "code": "PostHogSDK.shared.setPersonProcessing(param0: true)"
+            }
+          ]
         }
       ]
     },
@@ -1499,7 +1975,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogEvent.swift"
+          "path": "PostHog/PostHogEvent.swift",
+          "examples": [
+            {
+              "id": "basic_distinctId",
+              "name": "Basic distinctId",
+              "code": "PostHogSDK.shared.distinctId()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1513,7 +1996,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogEvent.swift"
+          "path": "PostHog/PostHogEvent.swift",
+          "examples": [
+            {
+              "id": "basic_event",
+              "name": "Basic event",
+              "code": "PostHogSDK.shared.event()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1527,7 +2017,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogEvent.swift"
+          "path": "PostHog/PostHogEvent.swift",
+          "examples": [
+            {
+              "id": "basic_properties",
+              "name": "Basic properties",
+              "code": "PostHogSDK.shared.properties()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1541,7 +2038,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogEvent.swift"
+          "path": "PostHog/PostHogEvent.swift",
+          "examples": [
+            {
+              "id": "basic_timestamp",
+              "name": "Basic timestamp",
+              "code": "PostHogSDK.shared.timestamp()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1555,7 +2059,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogEvent.swift"
+          "path": "PostHog/PostHogEvent.swift",
+          "examples": [
+            {
+              "id": "basic_uuid",
+              "name": "Basic uuid",
+              "code": "PostHogSDK.shared.uuid()"
+            }
+          ]
         }
       ]
     },
@@ -1577,7 +2088,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "Whether a link was clicked (for link questions)"
+          "details": "Whether a link was clicked (for link questions)",
+          "examples": [
+            {
+              "id": "basic_linkClicked",
+              "name": "Basic linkClicked",
+              "code": "PostHogSDK.shared.linkClicked()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1592,7 +2110,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "The numeric rating value (for rating questions)"
+          "details": "The numeric rating value (for rating questions)",
+          "examples": [
+            {
+              "id": "basic_ratingValue",
+              "name": "Basic ratingValue",
+              "code": "PostHogSDK.shared.ratingValue()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1607,7 +2132,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "The selected options (for multiple or single choice questions)"
+          "details": "The selected options (for multiple or single choice questions)",
+          "examples": [
+            {
+              "id": "basic_selectedOptions",
+              "name": "Basic selectedOptions",
+              "code": "PostHogSDK.shared.selectedOptions()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1622,7 +2154,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "The text response (for open questions)"
+          "details": "The text response (for open questions)",
+          "examples": [
+            {
+              "id": "basic_textValue",
+              "name": "Basic textValue",
+              "code": "PostHogSDK.shared.textValue()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1637,7 +2176,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "The type of response (link, rating, text, or multiple choice)"
+          "details": "The type of response (link, rating, text, or multiple choice)",
+          "examples": [
+            {
+              "id": "basic_type",
+              "name": "Basic type",
+              "code": "PostHogSDK.shared.type()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1659,7 +2205,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "Creates a response for a link question"
+          "details": "Creates a response for a link question",
+          "examples": [
+            {
+              "id": "basic_link",
+              "name": "Basic link",
+              "code": "PostHogSDK.shared.link(clicked: \"clicked_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1681,7 +2234,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "Creates a response for a multiple-choice question"
+          "details": "Creates a response for a multiple-choice question",
+          "examples": [
+            {
+              "id": "basic_multipleChoice",
+              "name": "Basic multipleChoice",
+              "code": "PostHogSDK.shared.multipleChoice(multipleChoice: \"multipleChoice_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1703,7 +2263,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "Creates a response for an open-ended question"
+          "details": "Creates a response for an open-ended question",
+          "examples": [
+            {
+              "id": "basic_openEnded",
+              "name": "Basic openEnded",
+              "code": "PostHogSDK.shared.openEnded(openEnded: \"openEnded_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1725,7 +2292,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "Creates a response for a rating question"
+          "details": "Creates a response for a rating question",
+          "examples": [
+            {
+              "id": "basic_rating",
+              "name": "Basic rating",
+              "code": "PostHogSDK.shared.rating(rating: \"rating_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1747,7 +2321,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveyResponse.swift",
-          "details": "Creates a response for a single-choice question"
+          "details": "Creates a response for a single-choice question",
+          "examples": [
+            {
+              "id": "basic_singleChoice",
+              "name": "Basic singleChoice",
+              "code": "PostHogSDK.shared.singleChoice(singleChoice: \"singleChoice_value\")"
+            }
+          ]
         }
       ]
     },
@@ -1769,7 +2350,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
-          "details": "Optional custom text for the question\u2019s action button"
+          "details": "Optional custom text for the question\u2019s action button",
+          "examples": [
+            {
+              "id": "basic_buttonText",
+              "name": "Basic buttonText",
+              "code": "PostHogSDK.shared.buttonText()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1784,7 +2372,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
-          "details": "The question ID, empty if none"
+          "details": "The question ID, empty if none",
+          "examples": [
+            {
+              "id": "basic_id",
+              "name": "Basic id",
+              "code": "PostHogSDK.shared.id()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1799,7 +2394,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
-          "details": "Whether the question can be skipped"
+          "details": "Whether the question can be skipped",
+          "examples": [
+            {
+              "id": "basic_isOptional",
+              "name": "Basic isOptional",
+              "code": "PostHogSDK.shared.isOptional()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1814,7 +2416,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
-          "details": "The main question text to display"
+          "details": "The main question text to display",
+          "examples": [
+            {
+              "id": "basic_question",
+              "name": "Basic question",
+              "code": "PostHogSDK.shared.question()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1829,7 +2438,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
-          "details": "Optional additional description or context for the question"
+          "details": "Optional additional description or context for the question",
+          "examples": [
+            {
+              "id": "basic_questionDescription",
+              "name": "Basic questionDescription",
+              "code": "PostHogSDK.shared.questionDescription()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1844,7 +2460,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyQuestion.swift",
-          "details": "Content type for the question description (HTML or plain text)"
+          "details": "Content type for the question description (HTML or plain text)",
+          "examples": [
+            {
+              "id": "basic_questionDescriptionContentType",
+              "name": "Basic questionDescriptionContentType",
+              "code": "PostHogSDK.shared.questionDescriptionContentType()"
+            }
+          ]
         }
       ]
     },
@@ -1872,7 +2495,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSessionManager.swift"
+          "path": "PostHog/PostHogSessionManager.swift",
+          "examples": [
+            {
+              "id": "basic_setSessionId",
+              "name": "Basic setSessionId",
+              "code": "PostHogSDK.shared.setSessionId(param0: \"param0_value\")"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1886,7 +2516,14 @@
             "id": "Void",
             "name": "Void"
           },
-          "path": "PostHog/PostHogSessionManager.swift"
+          "path": "PostHog/PostHogSessionManager.swift",
+          "examples": [
+            {
+              "id": "basic_shared",
+              "name": "Basic shared",
+              "code": "PostHogSDK.shared.shared()"
+            }
+          ]
         }
       ]
     },
@@ -1908,7 +2545,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogSurveysConfig.swift",
-          "details": "Defaults to   which provides a standard survey UI."
+          "details": "Defaults to   which provides a standard survey UI.",
+          "examples": [
+            {
+              "id": "basic_surveysDelegate",
+              "name": "Basic surveysDelegate",
+              "code": "PostHogSDK.shared.surveysDelegate()"
+            }
+          ]
         }
       ]
     },
@@ -1930,7 +2574,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayRatingQuestion.swift",
-          "details": "The label for the lower bound of the rating scale"
+          "details": "The label for the lower bound of the rating scale",
+          "examples": [
+            {
+              "id": "basic_lowerBoundLabel",
+              "name": "Basic lowerBoundLabel",
+              "code": "PostHogSDK.shared.lowerBoundLabel()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1945,7 +2596,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayRatingQuestion.swift",
-          "details": "The type of rating scale (numbers, emoji)"
+          "details": "The type of rating scale (numbers, emoji)",
+          "examples": [
+            {
+              "id": "basic_ratingType",
+              "name": "Basic ratingType",
+              "code": "PostHogSDK.shared.ratingType()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1960,7 +2618,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayRatingQuestion.swift",
-          "details": "The lower bound of the rating scale"
+          "details": "The lower bound of the rating scale",
+          "examples": [
+            {
+              "id": "basic_scaleLowerBound",
+              "name": "Basic scaleLowerBound",
+              "code": "PostHogSDK.shared.scaleLowerBound()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1975,7 +2640,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayRatingQuestion.swift",
-          "details": "The upper bound of the rating scale"
+          "details": "The upper bound of the rating scale",
+          "examples": [
+            {
+              "id": "basic_scaleUpperBound",
+              "name": "Basic scaleUpperBound",
+              "code": "PostHogSDK.shared.scaleUpperBound()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -1990,7 +2662,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplayRatingQuestion.swift",
-          "details": "The label for the upper bound of the rating scale"
+          "details": "The label for the upper bound of the rating scale",
+          "examples": [
+            {
+              "id": "basic_upperBoundLabel",
+              "name": "Basic upperBoundLabel",
+              "code": "PostHogSDK.shared.upperBoundLabel()"
+            }
+          ]
         }
       ]
     },
@@ -2012,7 +2691,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional background color as web color (e.g. \u201c#FFFFFF\u201d or \u201cwhite\u201d)"
+          "details": "Optional background color as web color (e.g. \u201c#FFFFFF\u201d or \u201cwhite\u201d)",
+          "examples": [
+            {
+              "id": "basic_backgroundColor",
+              "name": "Basic backgroundColor",
+              "code": "PostHogSDK.shared.backgroundColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2027,7 +2713,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional border color as web color"
+          "details": "Optional border color as web color",
+          "examples": [
+            {
+              "id": "basic_borderColor",
+              "name": "Basic borderColor",
+              "code": "PostHogSDK.shared.borderColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2042,7 +2735,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional color for description text as web color"
+          "details": "Optional color for description text as web color",
+          "examples": [
+            {
+              "id": "basic_descriptionTextColor",
+              "name": "Basic descriptionTextColor",
+              "code": "PostHogSDK.shared.descriptionTextColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2057,7 +2757,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Whether to show a thank you message after survey completion"
+          "details": "Whether to show a thank you message after survey completion",
+          "examples": [
+            {
+              "id": "basic_displayThankYouMessage",
+              "name": "Basic displayThankYouMessage",
+              "code": "PostHogSDK.shared.displayThankYouMessage()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2072,7 +2779,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional font family to use throughout the survey"
+          "details": "Optional font family to use throughout the survey",
+          "examples": [
+            {
+              "id": "basic_fontFamily",
+              "name": "Basic fontFamily",
+              "code": "PostHogSDK.shared.fontFamily()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2087,7 +2801,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional placeholder text for input fields"
+          "details": "Optional placeholder text for input fields",
+          "examples": [
+            {
+              "id": "basic_placeholder",
+              "name": "Basic placeholder",
+              "code": "PostHogSDK.shared.placeholder()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2102,7 +2823,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional color for active/selected rating buttons as web color"
+          "details": "Optional color for active/selected rating buttons as web color",
+          "examples": [
+            {
+              "id": "basic_ratingButtonActiveColor",
+              "name": "Basic ratingButtonActiveColor",
+              "code": "PostHogSDK.shared.ratingButtonActiveColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2117,7 +2845,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional color for rating buttons as web color"
+          "details": "Optional color for rating buttons as web color",
+          "examples": [
+            {
+              "id": "basic_ratingButtonColor",
+              "name": "Basic ratingButtonColor",
+              "code": "PostHogSDK.shared.ratingButtonColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2132,7 +2867,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional background color for the submit button as web color"
+          "details": "Optional background color for the submit button as web color",
+          "examples": [
+            {
+              "id": "basic_submitButtonColor",
+              "name": "Basic submitButtonColor",
+              "code": "PostHogSDK.shared.submitButtonColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2147,7 +2889,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional custom text for the submit button"
+          "details": "Optional custom text for the submit button",
+          "examples": [
+            {
+              "id": "basic_submitButtonText",
+              "name": "Basic submitButtonText",
+              "code": "PostHogSDK.shared.submitButtonText()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2162,7 +2911,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional text color for the submit button as web color"
+          "details": "Optional text color for the submit button as web color",
+          "examples": [
+            {
+              "id": "basic_submitButtonTextColor",
+              "name": "Basic submitButtonTextColor",
+              "code": "PostHogSDK.shared.submitButtonTextColor()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2177,7 +2933,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional text for the close button in the thank you message"
+          "details": "Optional text for the close button in the thank you message",
+          "examples": [
+            {
+              "id": "basic_thankYouMessageCloseButtonText",
+              "name": "Basic thankYouMessageCloseButtonText",
+              "code": "PostHogSDK.shared.thankYouMessageCloseButtonText()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2192,7 +2955,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional description text for the thank you message"
+          "details": "Optional description text for the thank you message",
+          "examples": [
+            {
+              "id": "basic_thankYouMessageDescription",
+              "name": "Basic thankYouMessageDescription",
+              "code": "PostHogSDK.shared.thankYouMessageDescription()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2207,7 +2977,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional content type for the thank you message description"
+          "details": "Optional content type for the thank you message description",
+          "examples": [
+            {
+              "id": "basic_thankYouMessageDescriptionContentType",
+              "name": "Basic thankYouMessageDescriptionContentType",
+              "code": "PostHogSDK.shared.thankYouMessageDescriptionContentType()"
+            }
+          ]
         },
         {
           "category": "Configuration",
@@ -2222,7 +2999,14 @@
             "name": "Void"
           },
           "path": "PostHog/PostHogDisplaySurveyAppearance.swift",
-          "details": "Optional header text for the thank you message"
+          "details": "Optional header text for the thank you message",
+          "examples": [
+            {
+              "id": "basic_thankYouMessageHeader",
+              "name": "Basic thankYouMessageHeader",
+              "code": "PostHogSDK.shared.thankYouMessageHeader()"
+            }
+          ]
         }
       ]
     }

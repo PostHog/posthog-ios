@@ -183,6 +183,287 @@ def infer_parameter_name(method_title: str, param_index: int) -> str:
     else:
         return f"param{param_index}"
 
+def extract_property_type_from_fragments(fragments: List[Dict]) -> str:
+    """Extract property type from declaration fragments, handling complex types."""
+    if not fragments:
+        return "Any"
+    
+    # Reconstruct the full type from fragments
+    type_parts = []
+    skip_until_colon = True
+    
+    for fragment in fragments:
+        text = fragment.get("text", "")
+        kind = fragment.get("kind", "")
+        
+        # Skip until we find the colon (which separates property name from type)
+        if skip_until_colon:
+            if text == ":":
+                skip_until_colon = False
+            continue
+        
+        # Collect type-related fragments
+        if kind == "typeIdentifier":
+            type_parts.append(text)
+        elif kind == "identifier" and text and (text[0].isupper() or text in ["string", "number", "boolean", "null", "undefined"]):
+            type_parts.append(text)
+        elif text in ["?", "!", "[", "]", "|", "<", ">", ",", "(", ")", " "]:
+            type_parts.append(text)
+        elif text and text.strip() and text not in ["=", "var", "let", ":"]:
+            # Include other relevant text
+            if not type_parts or text != type_parts[-1]:  # Avoid duplicates
+                type_parts.append(text)
+    
+    if type_parts:
+        # Join the type parts
+        prop_type = "".join(type_parts).strip()
+        
+        # Convert Swift Optional syntax to TypeScript-like (String? -> string | null)
+        if prop_type.endswith("?"):
+            base_type = prop_type[:-1].strip()
+            # Map Swift types to TypeScript-like
+            swift_to_ts = {
+                "String": "string",
+                "Int": "number",
+                "Double": "number",
+                "Float": "number",
+                "Bool": "boolean",
+            }
+            base_type_ts = swift_to_ts.get(base_type, base_type)
+            prop_type = f"{base_type_ts} | null"
+        # Convert Swift Array syntax to TypeScript-like
+        elif prop_type.startswith("[") and "]" in prop_type:
+            # Handle [String] syntax
+            inner_match = re.search(r'\[(.+?)\]', prop_type)
+            if inner_match:
+                inner_type = inner_match.group(1).strip()
+                swift_to_ts = {
+                    "String": "string",
+                    "Int": "number",
+                    "Bool": "boolean",
+                }
+                inner_type_ts = swift_to_ts.get(inner_type, inner_type)
+                prop_type = f"{inner_type_ts}[]"
+        # Convert basic Swift types
+        else:
+            swift_to_ts = {
+                "String": "string",
+                "Int": "number",
+                "Double": "number",
+                "Float": "number",
+                "Bool": "boolean",
+            }
+            if prop_type in swift_to_ts:
+                prop_type = swift_to_ts[prop_type]
+        
+        return prop_type
+    
+    # Fallback: look for any identifier that might be a type
+    for fragment in fragments:
+        text = fragment.get("text", "")
+        kind = fragment.get("kind", "")
+        if kind in ["identifier", "typeIdentifier"] and text and text[0].isupper():
+            return text
+    
+    return "Any"
+
+def extract_enum_cases_from_docc(type_data: Dict, references: Dict, docc_data_dir: str) -> List[Dict]:
+    """Extract enum cases from DocC type data."""
+    enum_cases = []
+    
+    # Look for topicSections which contain enum cases
+    topic_sections = type_data.get("topicSections", [])
+    
+    # Find the "Enumeration Cases" section
+    for section in topic_sections:
+        section_title = section.get("title", "")
+        identifiers = section.get("identifiers", [])
+        
+        # Look for the "Enumeration Cases" section
+        if section_title == "Enumeration Cases" and identifiers:
+            print(f"        Found Enumeration Cases section with {len(identifiers)} cases")
+            
+            for case_id in identifiers:
+                case_ref = references.get(case_id, {})
+                if not case_ref:
+                    continue
+                
+                # Extract case name from title (format: "EnumName.caseName")
+                case_title = case_ref.get("title", "")
+                fragments = case_ref.get("fragments", [])
+                
+                # Extract case name from fragments (look for identifier after "case" keyword)
+                case_name = None
+                if fragments:
+                    found_case_keyword = False
+                    for fragment in fragments:
+                        if fragment.get("kind") == "keyword" and fragment.get("text") == "case":
+                            found_case_keyword = True
+                        elif found_case_keyword and fragment.get("kind") == "identifier":
+                            case_name = fragment.get("text")
+                            break
+                
+                # Fallback: extract from title (remove enum prefix)
+                if not case_name and case_title:
+                    if "." in case_title:
+                        case_name = case_title.split(".")[-1]
+                    else:
+                        case_name = case_title
+                
+                if case_name:
+                    print(f"          Found enum case: {case_name}")
+                    
+                    # Extract enum case description
+                    case_abstract = case_ref.get("abstract", [])
+                    case_description = ""
+                    if case_abstract and isinstance(case_abstract, list):
+                        case_description = " ".join([item.get("text", "") for item in case_abstract if isinstance(item, dict)])
+                    elif isinstance(case_abstract, str):
+                        case_description = case_abstract
+                    
+                    # Try to load individual enum case file for detailed documentation
+                    if case_id.startswith("doc://"):
+                        # Convert doc URL to file path
+                        # doc://PostHog/documentation/PostHog/PostHogSurveyResponseType/link
+                        # -> posthog/posthogsurveyresponsetype/link.json
+                        # Remove the doc://PostHog/documentation/PostHog/ prefix
+                        case_path = case_id.replace("doc://PostHog/documentation/PostHog/", "")
+                        # Convert to lowercase and build path (prepend posthog/ since that's the directory structure)
+                        case_path_parts = ["posthog"] + [part.lower() for part in case_path.split("/") if part]
+                        case_file_path = os.path.join(docc_data_dir, *case_path_parts) + ".json"
+                        
+                        if os.path.exists(case_file_path):
+                            try:
+                                with open(case_file_path, 'r', encoding='utf-8') as f:
+                                    case_data = json.load(f)
+                                    
+                                # Look for detailed description in primaryContentSections
+                                primary_sections = case_data.get("primaryContentSections", [])
+                                for section in primary_sections:
+                                    if section.get("kind") == "content":
+                                        content_items = section.get("content", [])
+                                        description_parts = []
+                                        for item in content_items:
+                                            if isinstance(item, dict) and item.get("type") == "paragraph":
+                                                inline_content = item.get("inlineContent", [])
+                                                for inline_item in inline_content:
+                                                    if isinstance(inline_item, dict) and inline_item.get("type") == "text":
+                                                        description_parts.append(inline_item.get("text", ""))
+                                        if description_parts:
+                                            case_description = " ".join(description_parts)
+                                            break
+                            except Exception as e:
+                                print(f"          Error loading enum case file {case_file_path}: {e}")
+                    
+                    # Build enum case object
+                    case_obj = {
+                        "name": case_name
+                    }
+                    
+                    # Only add description if it exists
+                    if case_description:
+                        case_obj["description"] = case_description
+                    
+                    enum_cases.append(case_obj)
+    
+    print(f"        Extracted {len(enum_cases)} enum cases")
+    return enum_cases
+
+def extract_properties_from_docc(type_data: Dict, references: Dict, docc_data_dir: str) -> List[Dict]:
+    """Extract properties from DocC type data."""
+    properties = []
+    
+    # Look for topicSections which contain properties
+    topic_sections = type_data.get("topicSections", [])
+    for section in topic_sections:
+        section_title = section.get("title", "")
+        identifiers = section.get("identifiers", [])
+        
+        # Look for property-related sections
+        if section_title and identifiers:
+            # Check if this section contains properties (not methods)
+            for prop_id in identifiers:
+                prop_ref = references.get(prop_id, {})
+                if not prop_ref:
+                    continue
+                
+                prop_kind = prop_ref.get("kind", "")
+                prop_title = prop_ref.get("title", "")
+                
+                # Skip methods, initializers, enum cases, etc.
+                # Only include properties (var, let) and associated values
+                if any(kind in prop_kind for kind in ["method", "initializer", "func", "enum.case", "subscript"]):
+                    continue
+                
+                # Check if this is actually a property (has fragments that suggest a property declaration)
+                fragments = prop_ref.get("fragments", [])
+                has_property_indicators = False
+                for frag in fragments:
+                    frag_text = frag.get("text", "")
+                    if frag_text in ["var", "let"] or ":" in frag_text:
+                        has_property_indicators = True
+                        break
+                
+                # If no property indicators and it's not a type, skip it
+                if not has_property_indicators and "property" not in prop_kind.lower():
+                    continue
+                
+                # This should be a property
+                print(f"        Property: {prop_title}")
+                
+                # Extract property type from fragments
+                prop_type = extract_property_type_from_fragments(fragments)
+                
+                # Extract property description
+                prop_abstract = prop_ref.get("abstract", [])
+                prop_description = ""
+                if prop_abstract and isinstance(prop_abstract, list):
+                    prop_description = " ".join([item.get("text", "") for item in prop_abstract if isinstance(item, dict)])
+                elif isinstance(prop_abstract, str):
+                    prop_description = prop_abstract
+                
+                # Try to load individual property file for detailed documentation
+                if prop_id.startswith("doc://"):
+                    prop_path = prop_id.replace("doc://PostHog/documentation/", "").replace("/", "/").lower()
+                    prop_file_path = os.path.join(docc_data_dir, prop_path + ".json")
+                    
+                    if os.path.exists(prop_file_path):
+                        try:
+                            with open(prop_file_path, 'r', encoding='utf-8') as f:
+                                prop_data = json.load(f)
+                                
+                            # Look for detailed description in primaryContentSections
+                            primary_sections = prop_data.get("primaryContentSections", [])
+                            for section in primary_sections:
+                                if section.get("kind") == "content":
+                                    content_items = section.get("content", [])
+                                    description_parts = []
+                                    for item in content_items:
+                                        if isinstance(item, dict) and item.get("type") == "paragraph":
+                                            inline_content = item.get("inlineContent", [])
+                                            for inline_item in inline_content:
+                                                if isinstance(inline_item, dict) and inline_item.get("type") == "text":
+                                                    description_parts.append(inline_item.get("text", ""))
+                                    if description_parts:
+                                        prop_description = " ".join(description_parts)
+                                        break
+                        except Exception as e:
+                            print(f"          Error loading property file {prop_file_path}: {e}")
+                
+                # Build property object
+                prop_obj = {
+                    "type": prop_type,
+                    "name": prop_title
+                }
+                
+                # Only add description if it exists
+                if prop_description:
+                    prop_obj["description"] = prop_description
+                
+                properties.append(prop_obj)
+    
+    return properties
+
 def parse_class_json(class_file_path: str) -> Dict:
     """Parse a DocC class JSON file to extract methods and details."""
     
@@ -222,7 +503,7 @@ def parse_class_json(class_file_path: str) -> Dict:
             params = []
             declaration = member.get("declaration", {})
             if declaration and "declarationFragments" in declaration:
-                params = extract_parameters_from_declaration(declaration["declarationFragments"])
+                params = extract_parameters_from_declaration_fragments(declaration["declarationFragments"], method_name)
             
             method_info = {
                 "category": category,
@@ -332,6 +613,28 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
         symbol_kind = metadata.get("symbolKind", "")
         
         if (kind == "symbol" and symbol_kind == "class" and "PostHog" in title):
+            # Special case: PostHogConfig should be in types, not classes
+            if title == "PostHogConfig":
+                # Add PostHogConfig to types with example
+                abstract = data.get("abstract", [])
+                description = ""
+                if abstract and isinstance(abstract, list):
+                    description = " ".join([item.get("text", "") for item in abstract if isinstance(item, dict)])
+                elif isinstance(abstract, str):
+                    description = abstract
+                
+                references = data.get("references", {})
+                example = generate_posthog_config_example(data, references, docc_data_dir)
+                
+                types[title] = {
+                    "id": title,
+                    "name": title,
+                    "properties": [],
+                    "path": f"PostHog/{title}.swift",
+                    "example": example
+                }
+                continue  # Skip processing as a class
+            
             if title not in classes:
                 # Extract description
                 abstract = data.get("abstract", [])
@@ -471,7 +774,7 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
                                 classes[title]["functions"].append(method_info)
         
         # Handle enums/structs
-        elif (kind == "symbol" and symbol_kind in ["enum", "struct"] and "PostHog" in title):
+        elif (kind == "symbol" and symbol_kind in ["enum", "struct"]):
             abstract = data.get("abstract", [])
             description = ""
             if abstract and isinstance(abstract, list):
@@ -479,14 +782,66 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
             elif isinstance(abstract, str):
                 description = abstract
             
-            types[title] = {
+            # Extract properties or enum cases from DocC data
+            references = data.get("references", {})
+            enum_cases = []  # Store enum cases for later use in example
+            example = None  # Will be set for enums
+            
+            if symbol_kind == "enum":
+                # For enums, extract enum cases but keep properties empty
+                enum_cases = extract_enum_cases_from_docc(data, references, docc_data_dir)
+                properties = []  # Enums have empty properties
+                
+                # Generate Swift enum declaration example right here
+                enum_cases_for_example = [case["name"] for case in enum_cases] if enum_cases else []
+                if enum_cases_for_example:
+                    case_lines = "\n    ".join([f"case {case_name}" for case_name in enum_cases_for_example])
+                    example = f"enum {title} {{\n    {case_lines}\n}}"
+                else:
+                    example = f"enum {title} {{\n    // cases\n}}"
+            else:
+                # For structs, extract properties
+                properties = extract_properties_from_docc(data, references, docc_data_dir)
+            
+            # Build type object
+            type_obj = {
                 "id": title,
                 "name": title,
-                "description": description or f"{title} type",
-                "properties": [],
-                "path": f"PostHog/{title}.swift",
-                "example": f"{title}()"
+                "properties": properties,
+                "path": f"PostHog/{title}.swift"
             }
+            
+            # Add example if we generated one (for enums)
+            if example:
+                type_obj["example"] = example
+            # For structs and other types, generate example if no properties
+            elif not properties:
+                # Look for example in primaryContentSections or discussion
+                example = None
+                primary_sections = data.get("primaryContentSections", [])
+                for section in primary_sections:
+                    if section.get("kind") == "content":
+                        content_items = section.get("content", [])
+                        for item in content_items:
+                            if isinstance(item, dict):
+                                # Look for code blocks or examples
+                                inline_content = item.get("inlineContent", [])
+                                for inline_item in inline_content:
+                                    if isinstance(inline_item, dict) and inline_item.get("type") == "codeVoice":
+                                        example = inline_item.get("text", "")
+                                        break
+                                if example:
+                                    break
+                    if example:
+                        break
+                
+                # Default fallback
+                if not example:
+                    example = f"{title}()"
+                
+                type_obj["example"] = example
+            
+            types[title] = type_obj
     
     result["classes"] = list(classes.values())
     result["types"] = list(types.values())
@@ -495,6 +850,83 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
     print(f"📋 Generated {len(classes)} classes and {len(types)} types")
     
     return result
+
+def generate_posthog_config_example(class_data: Dict, references: Dict, docc_data_dir: str) -> str:
+    """
+    Generate example code for PostHogConfig initialization and setup.
+
+    TODO: DocC can't generate for iOS-only properties. 
+    We need to manually add them to the example in the future
+    """
+    init_line = "let config = PostHogConfig(apiKey: <ph_project_api_key>, host: <ph_app_host>)"
+    property_assignments = []
+    topic_sections = class_data.get("topicSections", [])
+    
+    for section in topic_sections:
+        if section.get("title") != "Instance Properties":
+            continue
+            
+        for prop_id in section.get("identifiers", []):
+            prop_ref = references.get(prop_id, {})
+            if not prop_ref:
+                continue
+            
+            fragments = prop_ref.get("fragments", [])
+            has_var = any(f.get("kind") == "keyword" and f.get("text") == "var" for f in fragments)
+            has_let = any(f.get("kind") == "keyword" and f.get("text") == "let" for f in fragments)
+            
+            if has_let and not has_var:
+                continue
+            if not has_var and not has_let:
+                continue
+            
+            prop_title = prop_ref.get("title", "")
+            prop_type = "Any"
+            
+            if prop_id.startswith("doc://"):
+                prop_path = prop_id.replace("doc://PostHog/documentation/", "").replace("/", "/").lower()
+                prop_file_path = os.path.join(docc_data_dir, prop_path + ".json")
+                
+                if os.path.exists(prop_file_path):
+                    try:
+                        with open(prop_file_path, 'r', encoding='utf-8') as f:
+                            prop_data = json.load(f)
+                        
+                        for section in prop_data.get("primaryContentSections", []):
+                            if section.get("kind") != "declarations":
+                                continue
+                            declarations = section.get("declarations", [])
+                            if not declarations:
+                                continue
+                            
+                            tokens = declarations[0].get("tokens", [])
+                            found_colon = False
+                            type_tokens = []
+                            
+                            for token in tokens:
+                                text = token.get("text", "")
+                                kind = token.get("kind", "")
+                                
+                                if ":" in text:
+                                    found_colon = True
+                                    continue
+                                
+                                if found_colon:
+                                    if kind in ["typeIdentifier", "text"]:
+                                        type_tokens.append(text)
+                                    elif text == ",":
+                                        break
+                            
+                            if type_tokens:
+                                prop_type = "".join(type_tokens).strip()
+                                break
+                    except Exception:
+                        pass
+            
+            property_assignments.append(f"config.{prop_title} = <{prop_type}>")
+    
+    lines = [init_line] + property_assignments + ["PostHogSDK.shared.setup(config)"]
+    return "\n".join(lines)
 
 def main():
     if len(sys.argv) != 4:

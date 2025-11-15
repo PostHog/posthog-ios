@@ -27,7 +27,8 @@ rm -rf "$PROJECT_ROOT/docs" 2>/dev/null || true
 
 echo -e "${YELLOW}📦 Generating documentation using Swift DocC Plugin...${NC}"
 
-# Generate documentation using Swift Package Manager and DocC Plugin (without custom output path)
+# Generate documentation using Swift Package Manager and DocC Plugin
+# Note: iOS-only properties may not appear if generated on macOS
 swift package generate-documentation \
     --target PostHog \
     --emit-digest \

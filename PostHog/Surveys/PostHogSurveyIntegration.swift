@@ -13,6 +13,8 @@
     #endif
 
     final class PostHogSurveyIntegration: PostHogIntegration {
+        var requiresSwizzling: Bool { true }
+
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
@@ -401,6 +403,16 @@
                 return nil
             }
 
+            // TODO: ideally the handleSurveyResponse should pass the question ID as param but it would break the Flutter SDK for older versions
+            let questionId: String
+            if index < survey.questions.count {
+                let question = survey.questions[index]
+                questionId = question.id
+            } else {
+                // this should not happen, its only for back compatibility
+                questionId = ""
+            }
+
             // 2. Get next step
             let nextStep = getNextSurveyStep(
                 survey: activeSurvey,
@@ -419,7 +431,7 @@
             )
 
             // update response, next question index and survey completion
-            let allResponses = setActiveSurveyResponse(index: index, response: response, nextQuestion: nextSurveyQuestion)
+            let allResponses = setActiveSurveyResponse(id: questionId, index: index, response: response, nextQuestion: nextSurveyQuestion)
 
             // send event if needed
             // TODO: Partial responses
@@ -470,13 +482,6 @@
         ///   - survey: The completed survey
         ///   - responses: Dictionary of collected responses for each question
         private func sendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse]) {
-            let questionProperties: [String: Any] = [
-                "$survey_questions": survey.questions.map(\.question),
-                "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
-            ]
-
-            // TODO: Should be doing some validation before sending the event?
-
             let responsesProperties: [String: Any] = responses.compactMapValues { resp in
                 switch resp.type {
                 case .link: resp.linkClicked == true ? "link clicked" : nil
@@ -486,6 +491,27 @@
                 case .rating: resp.ratingValue.map { "\($0)" }
                 }
             }
+
+            let surveyQuestions = survey.questions.enumerated().map { index, question in
+                let responseKey = question.id.isEmpty ? getOldResponseKey(for: index) : getNewResponseKey(for: question.id)
+                var questionData: [String: Any] = [
+                    "id": question.id,
+                    "question": question.question,
+                ]
+
+                if let response = responsesProperties[responseKey] {
+                    questionData["response"] = response
+                }
+
+                return questionData
+            }
+
+            let questionProperties: [String: Any] = [
+                "$survey_questions": surveyQuestions,
+                "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
+            ]
+
+            // TODO: Should be doing some validation before sending the event?
 
             let additionalProperties = questionProperties.merging(responsesProperties, uniquingKeysWith: { _, new in new })
 
@@ -499,7 +525,6 @@
         /// Sends a `survey dismissed` event to PostHog instance
         private func sendSurveyDismissedEvent(survey: PostHogSurvey) {
             let additionalProperties: [String: Any] = [
-                "$survey_questions": survey.questions.map(\.question),
                 "$set": [
                     getSurveyInteractionProperty(survey: survey, property: "dismissed"): true,
                 ],
@@ -567,16 +592,23 @@
 
         /// Stores a response for the current question in the active survey, and returns updated responses
         /// - Parameters:
+        ///   - id: The question ID, empty if none
         ///   - index: The index of the question being answered
         ///   - response: The user's response to store
         ///   - nextQuestion: The next question index and completion info
         private func setActiveSurveyResponse(
+            id: String,
             index: Int,
             response: PostHogSurveyResponse,
             nextQuestion: PostHogNextSurveyQuestion
         ) -> [String: PostHogSurveyResponse] {
             activeSurveyLock.withLock {
-                activeSurveyResponses[getResponseKey(for: index)] = response
+                // keeping the old response key format for back compatibility
+                activeSurveyResponses[getOldResponseKey(for: index)] = response
+                if !id.isEmpty {
+                    // setting the new response key format
+                    activeSurveyResponses[getNewResponseKey(for: id)] = response
+                }
                 activeSurveyQuestionIndex = nextQuestion.questionIndex
                 activeSurveyCompleted = nextQuestion.isSurveyCompleted
                 return activeSurveyResponses
@@ -728,9 +760,14 @@
             }
         }
 
-        // Returns the survey response key for a specific question index
-        private func getResponseKey(for index: Int) -> String {
+        // Returns the old survey response key for a specific question index
+        private func getOldResponseKey(for index: Int) -> String {
             index == 0 ? kSurveyResponseKey : "\(kSurveyResponseKey)_\(index)"
+        }
+
+        // Returns the new survey response key for a specific question id
+        private func getNewResponseKey(for questionId: String) -> String {
+            "\(kSurveyResponseKey)_\(questionId)"
         }
 
         func canShowNextSurvey() -> Bool {
@@ -864,6 +901,30 @@
                     return (next.questionIndex, next.isSurveyCompleted)
                 }
                 return nil
+            }
+
+            func testSendSurveyShownEvent(survey: PostHogSurvey) {
+                sendSurveyShownEvent(survey: survey)
+            }
+
+            func testSendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse]) {
+                sendSurveySentEvent(survey: survey, responses: responses)
+            }
+
+            func testSendSurveyDismissedEvent(survey: PostHogSurvey) {
+                sendSurveyDismissedEvent(survey: survey)
+            }
+
+            func testGetBaseSurveyEventProperties(for survey: PostHogSurvey) -> [String: Any] {
+                getBaseSurveyEventProperties(for: survey)
+            }
+
+            func testGetSurveyInteractionProperty(survey: PostHogSurvey, property: String) -> String {
+                getSurveyInteractionProperty(survey: survey, property: property)
+            }
+
+            func testGetResponseKey(questionId: String) -> String {
+                getNewResponseKey(for: questionId)
             }
 
             static func clearInstalls() {

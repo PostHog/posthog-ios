@@ -26,7 +26,7 @@
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
             var endMillis: UInt64?
-            let sessionId = PostHogSessionManager.shared.getSessionId(at: timestamp)
+            let sessionId = postHog?.sessionManager.getSessionId(at: timestamp)
             do {
                 let (data, response) = try await action()
                 endMillis = getMonotonicTimeInMilliseconds()
@@ -57,7 +57,7 @@
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
             var endMillis: UInt64?
-            let sessionId = PostHogSessionManager.shared.getSessionId(at: timestamp)
+            let sessionId = postHog?.sessionManager.getSessionId(at: timestamp)
             do {
                 let (url, response) = try await action()
                 endMillis = getMonotonicTimeInMilliseconds()

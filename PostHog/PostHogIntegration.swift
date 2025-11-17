@@ -8,6 +8,14 @@ import Foundation
 
 protocol PostHogIntegration {
     /**
+     * Indicates whether this integration requires method swizzling to function.
+     *
+     * When `enableSwizzling` is set to `false` in PostHogConfig, integrations
+     * that return `true` for this property will be skipped during installation.
+     */
+    var requiresSwizzling: Bool { get }
+
+    /**
      * Installs and initializes the integration with a PostHogSDK instance.
      *
      * This method should:

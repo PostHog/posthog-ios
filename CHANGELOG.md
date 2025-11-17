@@ -1,5 +1,27 @@
 ## Next
 
+## 3.35.0 - 2025-11-07
+
+- fix: call the flags api with the correct groups key name (the api has a back compatible fix already) ([#389](https://github.com/PostHog/posthog-ios/pull/389))
+- fix: only set getDefaultPersonProperties with person properties that are evaluated on the server ([#389](https://github.com/PostHog/posthog-ios/pull/389))
+- feat: set and reset PersonPropertiesForFlags and GroupPropertiesForFlags reload flags automatically (or set reloadFeatureFlags: false) ([#389](https://github.com/PostHog/posthog-ios/pull/389))
+
+## 3.34.0 - 2025-10-15
+
+- feat: add config option to disable swizzling ([#388](https://github.com/PostHog/posthog-ios/pull/388))
+- feat: SDK instance now manages its own session ([#388](https://github.com/PostHog/posthog-ios/pull/388))
+> **Note**: A potentially breaking change for users with multiple SDK instances. Each SDK instance now manages its own `$session_id` instead of sharing a global session across all instances.
+> This aligns with PostHog JS SDK behavior and ensures proper session isolation when using multiple SDK instances.
+> For single-instance usage (the common case), this change has no impact.
+
+## 3.33.0 - 2025-10-13
+
+- feat: add evaluation tags to iOS SDK ([#387](https://github.com/PostHog/posthog-ios/pull/387))
+
+## 3.32.0 - 2025-10-03
+
+- feat: iOS surveys use the new response question id format ([#383](https://github.com/PostHog/posthog-ios/pull/383))
+
 ## 3.31.0 - 2025-08-29
 
 - feat: surveys GA ([#381](https://github.com/PostHog/posthog-ios/pull/381))

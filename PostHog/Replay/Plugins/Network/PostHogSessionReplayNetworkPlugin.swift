@@ -19,7 +19,10 @@
             do {
                 sessionSwizzler = try URLSessionSwizzler(
                     shouldCapture: shouldCaptureNetworkSample,
-                    onCapture: handleNetworkSample
+                    onCapture: handleNetworkSample,
+                    getSessionId: { [weak self] date in
+                        self?.postHog?.sessionManager.getSessionId(at: date)
+                    }
                 )
                 sessionSwizzler?.swizzle()
                 hedgeLog("[Session Replay] Network telemetry plugin started")

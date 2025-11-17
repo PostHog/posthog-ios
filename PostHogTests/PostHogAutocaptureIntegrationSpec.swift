@@ -36,7 +36,7 @@ import Quick
                 server.stop()
                 server = nil
                 integration.stop()
-                PostHogSessionManager.shared.endSession {}
+                posthog.endSession()
                 posthog.close()
                 deleteSafely(applicationSupportDirectoryURL())
             }

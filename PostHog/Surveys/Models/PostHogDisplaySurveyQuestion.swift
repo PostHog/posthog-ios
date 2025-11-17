@@ -9,6 +9,8 @@ import Foundation
 
 /// Base class for all survey question types
 @objc public class PostHogDisplaySurveyQuestion: NSObject {
+    /// The question ID, empty if none
+    @objc public let id: String
     /// The main question text to display
     @objc public let question: String
     /// Optional additional description or context for the question
@@ -21,12 +23,14 @@ import Foundation
     @objc public let buttonText: String?
 
     init(
+        id: String,
         question: String,
         questionDescription: String?,
         questionDescriptionContentType: PostHogDisplaySurveyTextContentType?,
         isOptional: Bool,
         buttonText: String?
     ) {
+        self.id = id
         self.question = question
         self.questionDescription = questionDescription
         self.questionDescriptionContentType = questionDescriptionContentType ?? .text
@@ -45,6 +49,7 @@ import Foundation
     public let link: String?
 
     init(
+        id: String,
         question: String,
         questionDescription: String?,
         questionDescriptionContentType: PostHogDisplaySurveyTextContentType?,
@@ -54,6 +59,7 @@ import Foundation
     ) {
         self.link = link
         super.init(
+            id: id,
             question: question,
             questionDescription: questionDescription,
             questionDescriptionContentType: questionDescriptionContentType,
@@ -77,6 +83,7 @@ import Foundation
     public let upperBoundLabel: String
 
     init(
+        id: String,
         question: String,
         questionDescription: String?,
         questionDescriptionContentType: PostHogDisplaySurveyTextContentType?,
@@ -94,6 +101,7 @@ import Foundation
         self.lowerBoundLabel = lowerBoundLabel
         self.upperBoundLabel = upperBoundLabel
         super.init(
+            id: id,
             question: question,
             questionDescription: questionDescription,
             questionDescriptionContentType: questionDescriptionContentType,
@@ -115,6 +123,7 @@ import Foundation
     public let isMultipleChoice: Bool
 
     init(
+        id: String,
         question: String,
         questionDescription: String?,
         questionDescriptionContentType: PostHogDisplaySurveyTextContentType?,
@@ -130,6 +139,7 @@ import Foundation
         self.shuffleOptions = shuffleOptions
         self.isMultipleChoice = isMultipleChoice
         super.init(
+            id: id,
             question: question,
             questionDescription: questionDescription,
             questionDescriptionContentType: questionDescriptionContentType,

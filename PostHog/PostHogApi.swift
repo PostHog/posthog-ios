@@ -218,7 +218,7 @@ class PostHogApi {
         var toSend: [String: Any] = [
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
-            "$groups": groups,
+            "groups": groups,
         ]
 
         if let anonymousId {
@@ -231,6 +231,10 @@ class PostHogApi {
 
         if let groupProperties, !groupProperties.isEmpty {
             toSend["group_properties"] = groupProperties
+        }
+
+        if let evaluationEnvironments = self.config.evaluationEnvironments, !evaluationEnvironments.isEmpty {
+            toSend["evaluation_environments"] = evaluationEnvironments
         }
 
         var data: Data?

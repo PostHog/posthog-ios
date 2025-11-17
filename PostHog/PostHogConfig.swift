@@ -54,6 +54,17 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true
+
+    /// Enable method swizzling for SDK functionality that depends on it
+    ///
+    /// When disabled, functionality that require swizzling (like autocapture, screen views, session replay, surveys) will not be installed.
+    ///
+    /// Note: Disabling swizzling will limit session rotation logic to only detect application open and background events.
+    /// Session rotation will still work, just with reduced granularity for detecting user activity.
+    ///
+    /// Default: true
+    @objc public var enableSwizzling: Bool = true
+
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enable autocapture for iOS
         /// Default: false
@@ -98,6 +109,23 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: true
     @objc public var setDefaultPersonProperties: Bool = true
 
+    /// Evaluation environments for feature flags.
+    ///
+    /// When configured, only feature flags that have at least one matching evaluation tag
+    /// will be evaluated. Feature flags with no evaluation tags will always be evaluated
+    /// for backward compatibility.
+    ///
+    /// Example usage:
+    /// ```swift
+    /// config.evaluationEnvironments = ["production", "web", "checkout"]
+    /// ```
+    ///
+    /// This helps ensure feature flags are only evaluated in the appropriate environments
+    /// for your SDK instance.
+    ///
+    /// Default: nil (all flags are evaluated)
+    @objc public var evaluationEnvironments: [String]?
+
     /// The identifier of the App Group that should be used to store shared analytics data.
     /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location
     /// Default: nil
@@ -120,7 +148,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Enable mobile surveys
     ///
-    /// Default: false
+    /// Default: true
     ///
     /// Note: Event triggers will only work with the instance that first enables surveys.
     /// In case of multiple instances, please make sure you are capturing events on the instance that has config.surveys = true

@@ -46,6 +46,7 @@ let maxRetryDelay = 30.0
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
+    let sessionManager = PostHogSessionManager()
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -136,7 +137,9 @@ let maxRetryDelay = 30.0
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
-            PostHogSessionManager.shared.startSession()
+            // Create session manager instance for this PostHogSDK instance
+            sessionManager.setup(config: config)
+            sessionManager.startSession()
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -170,7 +173,7 @@ let maxRetryDelay = 30.0
             return nil
         }
 
-        return PostHogSessionManager.shared.getSessionId(readOnly: true)
+        return sessionManager.getSessionId(readOnly: true)
     }
 
     @objc public func startSession() {
@@ -178,7 +181,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        PostHogSessionManager.shared.startSession()
+        sessionManager.startSession()
     }
 
     @objc public func endSession() {
@@ -186,7 +189,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        PostHogSessionManager.shared.endSession()
+        sessionManager.endSession()
     }
 
     // EVENT CAPTURE
@@ -303,7 +306,7 @@ let maxRetryDelay = 30.0
         // if not present, get a current or new session id at event timestamp
         let propSessionId = properties?["$session_id"] as? String
         let sessionId: String? = propSessionId.isNilOrEmpty
-            ? PostHogSessionManager.shared.getSessionId(at: timestamp ?? now())
+            ? sessionManager.getSessionId(at: timestamp ?? now())
             : propSessionId
 
         if let sessionId {
@@ -351,7 +354,7 @@ let maxRetryDelay = 30.0
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }
-        PostHogSessionManager.shared.resetSession()
+        sessionManager.reset()
 
         // Clear person and group properties for flags
         remoteConfig?.resetPersonPropertiesForFlags()
@@ -980,10 +983,28 @@ let maxRetryDelay = 30.0
     /// // Feature flags will now use only server-side properties
     /// let flagValue = PostHogSDK.shared.isFeatureEnabled("feature")
     /// ```
-    ///
-    /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
-    ///         after resetting if you want to immediately refresh flags with the cleared properties.
     @objc public func resetPersonPropertiesForFlags() {
+        resetPersonPropertiesForFlags(reloadFeatureFlags: true)
+    }
+
+    /// Resets all person properties that were set for feature flag evaluation.
+    ///
+    /// After calling this method, feature flag evaluation will only use server-side person properties
+    /// and will not include any locally overridden properties.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Clear all locally set person properties for flags
+    /// PostHogSDK.shared.resetPersonPropertiesForFlags(reloadFeatureFlags: true)
+    ///
+    /// // Feature flags will now use only server-side properties
+    /// let flagValue = PostHogSDK.shared.isFeatureEnabled("feature")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after resetting properties
+    @objc(resetPersonPropertiesForFlagsWithReloadFeatureFlags:)
+    public func resetPersonPropertiesForFlags(reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
             return
         }
@@ -993,6 +1014,10 @@ let maxRetryDelay = 30.0
         }
 
         remoteConfig?.resetPersonPropertiesForFlags()
+
+        if reloadFeatureFlags {
+            remoteConfig?.reloadFeatureFlags()
+        }
     }
 
     /// Sets properties for a specific group type to include when evaluating feature flags.
@@ -1039,7 +1064,7 @@ let maxRetryDelay = 30.0
     ///   - properties: Dictionary of properties to set for this group type
     ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
     @objc(setGroupPropertiesForFlags:properties:reloadFeatureFlags:)
-    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool) {
+    public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
             return
         }
@@ -1064,11 +1089,20 @@ let maxRetryDelay = 30.0
     /// // Clear all group properties
     /// PostHogSDK.shared.resetGroupPropertiesForFlags()
     /// ```
-    ///
-    /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
-    ///         after resetting if you want to immediately refresh flags with the cleared properties.
     @objc public func resetGroupPropertiesForFlags() {
-        resetGroupPropertiesForFlags(groupType: nil)
+        internalResetGroupPropertiesForFlags(groupType: nil, reloadFeatureFlags: true)
+    }
+
+    /// Clears all group properties for feature flag evaluation.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Clear all group properties
+    /// PostHogSDK.shared.resetGroupPropertiesForFlags(reloadFeatureFlags: true)
+    /// ```
+    @objc(resetGroupPropertiesForFlagsWithReloadFeatureFlags:)
+    public func resetGroupPropertiesForFlags(reloadFeatureFlags: Bool = true) {
+        internalResetGroupPropertiesForFlags(groupType: nil, reloadFeatureFlags: reloadFeatureFlags)
     }
 
     /// Clears group properties for feature flag evaluation for a specific group type.
@@ -1080,15 +1114,29 @@ let maxRetryDelay = 30.0
     /// ```
     ///
     /// - Parameter groupType: The group type to clear properties for
-    /// - Note: This method does not automatically reload feature flags. Call `reloadFeatureFlags()`
-    ///         after resetting if you want to immediately refresh flags with the cleared properties.
     @objc(resetGroupPropertiesForFlagsWithGroupType:)
     public func resetGroupPropertiesForFlags(_ groupType: String) {
-        resetGroupPropertiesForFlags(groupType: groupType)
+        internalResetGroupPropertiesForFlags(groupType: groupType, reloadFeatureFlags: true)
+    }
+
+    /// Clears group properties for feature flag evaluation for a specific group type.
+    ///
+    /// ## Example Usage
+    /// ```swift
+    /// // Clear properties for specific group type
+    /// PostHogSDK.shared.resetGroupPropertiesForFlags("organization", reloadFeatureFlags: true)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - groupType: The group type to clear properties for
+    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
+    @objc(resetGroupPropertiesForFlagsWithGroupType:reloadFeatureFlags:)
+    public func resetGroupPropertiesForFlags(_ groupType: String, reloadFeatureFlags: Bool = true) {
+        internalResetGroupPropertiesForFlags(groupType: groupType, reloadFeatureFlags: reloadFeatureFlags)
     }
 
     /// Internal implementation for resetting group properties.
-    private func resetGroupPropertiesForFlags(groupType: String?) {
+    private func internalResetGroupPropertiesForFlags(groupType: String?, reloadFeatureFlags: Bool) {
         if !isEnabled() {
             return
         }
@@ -1098,6 +1146,10 @@ let maxRetryDelay = 30.0
         }
 
         remoteConfig?.resetGroupPropertiesForFlags(groupType)
+
+        if reloadFeatureFlags {
+            remoteConfig?.reloadFeatureFlags()
+        }
     }
 
     @objc public func reloadFeatureFlags() {
@@ -1270,7 +1322,7 @@ let maxRetryDelay = 30.0
                 flagCallReported.removeAll()
             }
             context = nil
-            PostHogSessionManager.shared.endSession()
+            sessionManager.endSession()
             toggleHedgeLog(false)
 
             uninstallIntegrations()
@@ -1328,8 +1380,8 @@ let maxRetryDelay = 30.0
             }
 
             let sessionId = resumeCurrent
-                ? PostHogSessionManager.shared.getSessionId()
-                : PostHogSessionManager.shared.getNextSessionId()
+                ? sessionManager.getSessionId()
+                : sessionManager.getNextSessionId()
 
             guard let sessionId else {
                 return hedgeLog("Could not start recording. Missing session id.")
@@ -1375,7 +1427,7 @@ let maxRetryDelay = 30.0
             }
 
             return replayIntegration.isActive()
-                && !PostHogSessionManager.shared.getSessionId(readOnly: true).isNilOrEmpty
+                && !sessionManager.getSessionId(readOnly: true).isNilOrEmpty
                 && remoteConfig.isSessionReplayFlagActive()
         }
     #endif
@@ -1396,6 +1448,12 @@ let maxRetryDelay = 30.0
         var installed: [PostHogIntegration] = []
 
         for integration in integrations {
+            // Skip integrations that require swizzling when swizzling is disabled
+            if integration.requiresSwizzling, !config.enableSwizzling {
+                hedgeLog("Integration \(type(of: integration)) skipped. Integration requires swizzling but enableSwizzling is disabled in config")
+                continue
+            }
+
             do {
                 try integration.install(self)
                 installed.append(integration)
@@ -1468,6 +1526,10 @@ let maxRetryDelay = 30.0
                 }.first
             }
         #endif
+
+        func getSessionManager() -> PostHogSessionManager? {
+            sessionManager
+        }
 
         func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
             installedIntegrations.compactMap {

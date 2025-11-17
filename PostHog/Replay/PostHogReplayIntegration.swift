@@ -14,6 +14,8 @@
     import WebKit
 
     class PostHogReplayIntegration: PostHogIntegration {
+        var requiresSwizzling: Bool { true }
+
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
@@ -140,7 +142,7 @@
 
             isEnabled = true
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
-            PostHogSessionManager.shared.onSessionIdChanged = { [weak self] in
+            postHog.sessionManager.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
             }
 
@@ -183,7 +185,7 @@
             guard isEnabled else { return }
             isEnabled = false
             resetViews()
-            PostHogSessionManager.shared.onSessionIdChanged = {}
+            postHog?.sessionManager.onSessionIdChanged = {}
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil
@@ -249,7 +251,7 @@
 
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
                 // always make sure we have a fresh session id as early as possible
-                guard let sessionId = PostHogSessionManager.shared.getSessionId(at: date) else {
+                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
                     return
                 }
 
@@ -341,7 +343,7 @@
 
             PostHogReplayIntegration.dispatchQueue.async {
                 // always make sure we have a fresh session id at correct timestamp
-                guard let sessionId = PostHogSessionManager.shared.getSessionId(at: timestampDate) else {
+                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
                     return
                 }
 

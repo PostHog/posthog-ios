@@ -1190,6 +1190,16 @@ let maxRetryDelay = 30.0
         return value
     }
 
+    @objc public func setSendFeatureFlagEvent(_ enabled: Bool) {
+        guard isEnabled() else {
+            return
+        }
+
+        setupLock.withLock {
+            config.sendFeatureFlagEvent = enabled
+        }
+    }
+
     @objc public func isFeatureEnabled(_ key: String) -> Bool {
         let result = getFeatureFlag(key)
         return result is String ? true : (result as? Bool) ?? false

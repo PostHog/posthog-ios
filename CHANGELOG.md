@@ -1,5 +1,8 @@
 ## Next
 
+- feat: allow user to manage feature_flag_called event ([#392](https://github.com/PostHog/posthog-ios/pull/392))
+- fix: move the feature_flag_called event filter to a better location (after the events filter) ([#392](https://github.com/PostHog/posthog-ios/pull/392))
+
 ## 3.35.0 - 2025-11-07
 
 - fix: call the flags api with the correct groups key name (the api has a back compatible fix already) ([#389](https://github.com/PostHog/posthog-ios/pull/389))

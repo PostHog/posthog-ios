@@ -1172,7 +1172,7 @@ let maxRetryDelay = 30.0
         }
     }
 
-    @objc public func getFeatureFlag(_ key: String) -> Any? {
+    @objc public func getFeatureFlag(_ key: String, sendEvent: Bool = true) -> Any? {
         if !isEnabled() {
             return nil
         }
@@ -1183,15 +1183,15 @@ let maxRetryDelay = 30.0
 
         let value = remoteConfig.getFeatureFlag(key)
 
-        if config.sendFeatureFlagEvent {
+        if config.sendFeatureFlagEvent, sendEvent {
             reportFeatureFlagCalled(flagKey: key, flagValue: value)
         }
 
         return value
     }
 
-    @objc public func isFeatureEnabled(_ key: String) -> Bool {
-        let result = getFeatureFlag(key)
+    @objc public func isFeatureEnabled(_ key: String, sendEvent: Bool = true) -> Bool {
+        let result = getFeatureFlag(key, sendEvent: sendEvent)
         return result is String ? true : (result as? Bool) ?? false
     }
 

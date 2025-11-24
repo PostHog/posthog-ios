@@ -77,6 +77,15 @@ func getBundleIdentifier() -> String {
 }
 
 /**
+ Determines if the current process is an extension target.
+
+ App extensions have bundle paths ending in ".appex"
+ */
+func isExtension() -> Bool {
+    Bundle.main.bundlePath.hasSuffix(".appex")
+}
+
+/**
  Merges content from a legacy container directory into the current app group container.
 
  This function handles the migration of PostHog data from the old storage location (using `bundleIdentifier`)
@@ -84,7 +93,7 @@ func getBundleIdentifier() -> String {
 
  Migration rules:
  - Files that already exist at the destination are skipped (no overwrite)
- - The anonymousId from the first processed container (legacy or current) is preserved to maintain user identity
+ - Identity-related keys (distinctId, anonymousId, etc.) are only migrated from the main app target
  - Successfully migrated files are deleted from the source
  - Empty directories are cleaned up after migration
  - The entire folder structure is preserved during migration
@@ -99,10 +108,26 @@ func mergeLegacyContainerIfNeeded(within libraryUrl: URL?, to destinationUrl: UR
         return
     }
 
-    hedgeLog("Legacy folder found at \(sourceUrl), merging...")
+    let skipKeys: [PostHogStorage.StorageKey]
+    if isExtension() {
+        // Extensions should skip migrating identity-related keys to ensure consistent user identity with main app target
+        skipKeys = [
+            .distinctId,
+            .anonymousId,
+            .isIdentified,
+            .groups,
+            .registerProperties,
+            .personPropertiesForFlags,
+            .groupPropertiesForFlags,
+        ]
+        hedgeLog("Legacy folder found at \(sourceUrl), merging from extension... (skipping \(skipKeys.count) identity keys)")
+    } else {
+        skipKeys = []
+        hedgeLog("Legacy folder found at \(sourceUrl), merging from main app... (migrating all keys)")
+    }
 
-    // Migrate all contents from the legacy container
-    migrateDirectoryContents(from: sourceUrl, to: destinationUrl)
+    // Migrate contents from the legacy container
+    migrateDirectoryContents(from: sourceUrl, to: destinationUrl, skipKeys: skipKeys)
 
     // Try to remove the source directory if it's empty
     if removeIfEmpty(sourceUrl) {
@@ -141,10 +166,11 @@ func removeIfEmpty(_ url: URL) -> Bool {
  - Parameters:
    - sourceFile: The source file URL
    - destinationFile: The destination file URL
+   - skipCopy: Wether to skip copying file to desitnation
  - Throws: Any errors that occur during file operations
  */
-func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
-    if !FileManager.default.fileExists(atPath: destinationFile.path) {
+func migrateFile(from sourceFile: URL, to destinationFile: URL, skipCopy: Bool) throws {
+    if !skipCopy, !FileManager.default.fileExists(atPath: destinationFile.path) {
         try FileManager.default.copyItem(at: sourceFile, to: destinationFile)
     }
     // Always delete source file after processing (whether copied or skipped)
@@ -157,8 +183,9 @@ func migrateFile(from sourceFile: URL, to destinationFile: URL) throws {
  - Parameters:
    - sourceDir: The source directory URL
    - destinationDir: The destination directory URL
+   - skipKeys: Array of storage keys that should be skipped during migration
  */
-func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
+func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL, skipKeys: [PostHogStorage.StorageKey] = []) {
     do {
         // Create destination directory if it doesn't exist (we need to call this here again as the function is recursive)
         createDirectoryAtURLIfNeeded(url: destinationDir)
@@ -174,13 +201,16 @@ func migrateDirectoryContents(from sourceDir: URL, to destinationDir: URL) {
             if FileManager.default.fileExists(atPath: item.path, isDirectory: &isDirectory) {
                 if isDirectory.boolValue {
                     // Recursively migrate subdirectory (preserving the folder structure)
-                    migrateDirectoryContents(from: item, to: destinationItem)
+                    migrateDirectoryContents(from: item, to: destinationItem, skipKeys: skipKeys)
                     // Remove empty directory after migration
                     removeIfEmpty(item)
                 } else {
+                    let fileName = item.lastPathComponent
+                    let shouldSkip = skipKeys.contains(where: { $0.rawValue == fileName })
+
                     // Migrate file
                     do {
-                        try migrateFile(from: item, to: destinationItem)
+                        try migrateFile(from: item, to: destinationItem, skipCopy: shouldSkip)
                     } catch {
                         hedgeLog("Failed to migrate file from \(item.path) to \(destinationItem.path): \(error)")
                     }

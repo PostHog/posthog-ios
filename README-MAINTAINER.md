@@ -111,8 +111,10 @@ env:
 
 1. **Revoke old sessions**:
    ```bash
-   # Clear current sessions (from the user that owned the previous token)
-   pod trunk me clean-sessions
+   # Register a new session (from the user/machine that owned the previous token)
+   pod trunk register your.email@posthog.com 'Your Name'
+   # Clear current sessions (from the user/machine that owned the previous token)
+   pod trunk me clean-sessions --all
    ```
 
 #### Step 4: Update workflow docs 

@@ -17,7 +17,7 @@ jobs:
     name: Release
     runs-on: macos-14
     env:
-      COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using Manoel's token for now
+      COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using @ioannisj token 
 
     steps:
       - name: Git checkout

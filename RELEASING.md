@@ -1,23 +1,29 @@
 # Releasing
 
+Since `main` is protected, releases are done via pull requests.
 
- 1. Update the CHANGELOG.md with the version and date.
- 2. Choose a tag name (e.g. `3.0.0`), this is the version number of the release.
-    1. Preview releases follow the pattern `3.0.0-alpha.1`, `3.0.0-beta.1`, `3.0.0-RC.1`
-    2. Execute the script with the tag's name, the script will update the version file and create a tag.
+1. Update `CHANGELOG.md` with the version and date
+2. Run: `./scripts/prepare-release.sh 3.26.0`
+   - This creates a release branch, bumps version, commits, and pushes
+   - Preview releases follow the pattern `3.0.0-alpha.1`, `3.0.0-beta.1`, `3.0.0-RC.1`
+3. Create a PR from the release branch to `main`
+4. Get approval and merge the PR
+5. After merge, create and push the tag from `main`:
 
-    ```bash
-    ./scripts/prepare-release.sh 3.0.0
-    ```
+   ```bash
+   git checkout main && git pull
+   git tag -a 3.26.0 -m "3.26.0"
+   git push --tags
+   ```
 
- 3. Go to [GH Releases](https://github.com/PostHog/posthog-ios/releases)
- 4. Choose a release name (e.g. `3.0.0`), and the tag you just created, ideally the same.
- 5. Write a description of the release.
- 6. Publish the release.
- 7. GH Action (release.yml) is doing everything else automatically.
-      1. SPM uses the tag name to determine the version, directly from the repo.
-      2. CocoaPods are published.
- 8. Done.
+6. Go to [GH Releases](https://github.com/PostHog/posthog-ios/releases) and draft a new release
+7. Choose the tag you just created (e.g. `3.26.0`) and use it as the release name
+8. Write a description of the release
+9. Publish the release
+10. A GitHub action (release.yml) triggers the release automatically:
+    - SPM uses the tag name to determine the version, directly from the repo
+    - CocoaPods are published
+11. Done
 
 # CocoaPods Management
 

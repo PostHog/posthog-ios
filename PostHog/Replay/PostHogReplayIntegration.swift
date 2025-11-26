@@ -276,8 +276,8 @@
                         continue
                     }
 
-                    let posX = touch.location.x.toInt()
-                    let posY = touch.location.y.toInt()
+                    let posX = touch.location.x.toInt() ?? 0
+                    let posY = touch.location.y.toInt() ?? 0
 
                     // if the id is 0, BE transformer will set it to the virtual bodyId
                     let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
@@ -318,8 +318,8 @@
 
             if !snapshotStatus.sentMetaEvent {
                 let size = window.bounds.size
-                let width = size.width.toInt()
-                let height = size.height.toInt()
+                let width = size.width.toInt() ?? 0
+                let height = size.height.toInt() ?? 0
 
                 var data: [String: Any] = ["width": width, "height": height]
 
@@ -393,10 +393,10 @@
             let frame = view.toAbsoluteRect(view.window)
 
             wireframe.id = view.hash
-            wireframe.posX = frame.origin.x.toInt()
-            wireframe.posY = frame.origin.y.toInt()
-            wireframe.width = frame.size.width.toInt()
-            wireframe.height = frame.size.height.toInt()
+            wireframe.posX = frame.origin.x.toInt() ?? 0
+            wireframe.posY = frame.origin.y.toInt() ?? 0
+            wireframe.width = frame.size.width.toInt() ?? 0
+            wireframe.height = frame.size.height.toInt() ?? 0
 
             return wireframe
         }

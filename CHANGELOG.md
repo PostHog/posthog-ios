@@ -1,5 +1,7 @@
 ## Next
 
+- fix: avoid memory leaks on foat conversions ([#401](https://github.com/PostHog/posthog-ios/pull/401))
+
 ## 3.35.0 - 2025-11-07
 
 - fix: call the flags api with the correct groups key name (the api has a back compatible fix already) ([#389](https://github.com/PostHog/posthog-ios/pull/389))

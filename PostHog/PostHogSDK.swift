@@ -756,6 +756,22 @@ let maxRetryDelay = 30.0
         return properties
     }
 
+    private func shouldDropFeatureFlagEvent(_ event: PostHogEvent?) -> Bool {
+        guard event?.event == "$feature_flag_called", let flagKey = event?.properties["$feature_flag"] as? String else {
+            return false
+        }
+
+        var shouldCapture = false
+        flagCallReportedLock.withLock {
+            if !flagCallReported.contains(flagKey) {
+                flagCallReported.insert(flagKey)
+                shouldCapture = true
+            }
+        }
+
+        return !shouldCapture
+    }
+
     @objc public func alias(_ alias: String) {
         if !isEnabled() {
             return
@@ -861,7 +877,12 @@ let maxRetryDelay = 30.0
             timestamp: timestamp
         )
 
-        let resultEvent = config.runBeforeSend(event)
+        var resultEvent = config.runBeforeSend(event)
+
+        // if feature $flag_called_event already sent with this key, don't send this event
+        if shouldDropFeatureFlagEvent(resultEvent) {
+            resultEvent = nil
+        }
 
         if resultEvent == nil {
             let originalMessage = "PostHog event \(eventName) was dropped"
@@ -1207,39 +1228,28 @@ let maxRetryDelay = 30.0
         return remoteConfig.getFeatureFlagPayload(key)
     }
 
-    private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
-        var shouldCapture = false
+    public func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
+        let requestId = remoteConfig?.lastRequestId ?? ""
+        let details = remoteConfig?.getFeatureFlagDetails(flagKey)
 
-        flagCallReportedLock.withLock {
-            if !flagCallReported.contains(flagKey) {
-                flagCallReported.insert(flagKey)
-                shouldCapture = true
+        var properties = [
+            "$feature_flag": flagKey,
+            "$feature_flag_response": flagValue ?? NSNull(),
+            "$feature_flag_request_id": requestId,
+        ]
+
+        if let details = details as? [String: Any] {
+            if let reason = details["reason"] as? [String: Any] {
+                properties["$feature_flag_reason"] = reason["description"] ?? NSNull()
+            }
+
+            if let metadata = details["metadata"] as? [String: Any] {
+                properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
+                properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
             }
         }
 
-        if shouldCapture {
-            let requestId = remoteConfig?.lastRequestId ?? ""
-            let details = remoteConfig?.getFeatureFlagDetails(flagKey)
-
-            var properties = [
-                "$feature_flag": flagKey,
-                "$feature_flag_response": flagValue ?? NSNull(),
-                "$feature_flag_request_id": requestId,
-            ]
-
-            if let details = details as? [String: Any] {
-                if let reason = details["reason"] as? [String: Any] {
-                    properties["$feature_flag_reason"] = reason["description"] ?? NSNull()
-                }
-
-                if let metadata = details["metadata"] as? [String: Any] {
-                    properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
-                    properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
-                }
-            }
-
-            capture("$feature_flag_called", properties: properties)
-        }
+        capture("$feature_flag_called", properties: properties)
     }
 
     private func isEnabled() -> Bool {

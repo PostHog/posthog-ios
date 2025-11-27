@@ -172,6 +172,9 @@
 		DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */; };
 		DA30AE812D3FE63F00465A64 /* PostHogSurvey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */; };
 		DA37933C2DBA571D005C6AA3 /* PostHogSurveysConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */; };
+		DA3BB4AA2ED82E410097A97A /* PostHogStackTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4A62ED82E410097A97A /* PostHogStackTrace.swift */; };
+		DA3BB4AC2ED82EE80097A97A /* PostHogExceptionProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */; };
+		DA3BB4AF2ED88DE90097A97A /* ExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */; };
 		DA4AF61F2D1195D20053EA38 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA4AF6202D1195D20053EA38 /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA4AF6242D119FC60053EA38 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
@@ -709,6 +712,12 @@
 		DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Util.swift"; sourceTree = "<group>"; };
 		DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurvey.swift; sourceTree = "<group>"; };
 		DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysConfig.swift; sourceTree = "<group>"; };
+		DA3BB4A52ED82E410097A97A /* PostHogBinaryImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBinaryImages.swift; sourceTree = "<group>"; };
+		DA3BB4A62ED82E410097A97A /* PostHogStackTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackTrace.swift; sourceTree = "<group>"; };
+		DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionProcessor.swift; sourceTree = "<group>"; };
+		DA3BB4AD2ED88DE90097A97A /* ExceptionHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExceptionHandler.h; sourceTree = "<group>"; };
+		DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ExceptionHandler.m; sourceTree = "<group>"; };
+		DA3BB4B02ED88DEC0097A97A /* PostHogExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogExample-Bridging-Header.h"; sourceTree = "<group>"; };
 		DA4FFB142DA93C78006BAEEA /* PostHogSessionReplayTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayTest.swift; sourceTree = "<group>"; };
 		DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogIdentityTests.swift; sourceTree = "<group>"; };
 		DA53DE702D3E299F00C38DCA /* fixture_remote_config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_remote_config.json; sourceTree = "<group>"; };
@@ -993,6 +1002,9 @@
 				3AA34CFB296D951A003398F4 /* ContentView.swift */,
 				3AA34CFD296D951B003398F4 /* Assets.xcassets */,
 				3AA34CFF296D951B003398F4 /* Preview Content */,
+				DA3BB4AD2ED88DE90097A97A /* ExceptionHandler.h */,
+				DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */,
+				DA3BB4B02ED88DEC0097A97A /* PostHogExample-Bridging-Header.h */,
 			);
 			path = PostHogExample;
 			sourceTree = "<group>";
@@ -1349,6 +1361,15 @@
 			path = Surveys;
 			sourceTree = "<group>";
 		};
+		DA3BB49E2ED82E250097A97A /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				DA3BB4A52ED82E410097A97A /* PostHogBinaryImages.swift */,
+				DA3BB4A62ED82E410097A97A /* PostHogStackTrace.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
 		DA578E912D6768A100B3A56C /* Screen Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -1383,7 +1404,9 @@
 		DA8C9B972EC633FA00C6EADB /* Error Tracking */ = {
 			isa = PBXGroup;
 			children = (
+				DA3BB49E2ED82E250097A97A /* Utils */,
 				DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */,
+				DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */,
 			);
 			path = "Error Tracking";
 			sourceTree = "<group>";
@@ -1863,6 +1886,7 @@
 				TargetAttributes = {
 					3AA34CF6296D951A003398F4 = {
 						CreatedOnToolsVersion = 14.2;
+						LastSwiftMigration = 2610;
 					};
 					3AC745B4296D6FE60025C109 = {
 						CreatedOnToolsVersion = 14.2;
@@ -2087,6 +2111,7 @@
 			files = (
 				3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */,
 				3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */,
+				DA3BB4AF2ED88DE90097A97A /* ExceptionHandler.m in Sources */,
 				3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */,
 				3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */,
 				3AA34CFA296D951A003398F4 /* PostHogExampleApp.swift in Sources */,
@@ -2121,6 +2146,7 @@
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
 				DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */,
 				69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */,
+				DA3BB4AA2ED82E410097A97A /* PostHogStackTrace.swift in Sources */,
 				69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */,
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
 				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
@@ -2240,6 +2266,7 @@
 				DA9CE3792D3108AD00DFE652 /* huffman_utils.c in Sources */,
 				DA9CE37A2D3108AD00DFE652 /* alpha_processing.c in Sources */,
 				DA9CE37B2D3108AD00DFE652 /* picture_rescale_enc.c in Sources */,
+				DA3BB4AC2ED82EE80097A97A /* PostHogExceptionProcessor.swift in Sources */,
 				DA9CE37C2D3108AD00DFE652 /* cost.c in Sources */,
 				DA9CE37D2D3108AD00DFE652 /* thread_utils.c in Sources */,
 				DA9CE37E2D3108AD00DFE652 /* filters_neon.c in Sources */,
@@ -2465,6 +2492,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
@@ -2491,6 +2519,8 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "PostHogExample/PostHogExample-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
@@ -2503,6 +2533,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -2529,6 +2560,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "PostHogExample/PostHogExample-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TVOS_DEPLOYMENT_TARGET = 13.0;
@@ -3260,6 +3292,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PostHogExample/PostHogExample.entitlements;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
@@ -3286,6 +3319,8 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "PostHogExample/PostHogExample-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TVOS_DEPLOYMENT_TARGET = 13.0;

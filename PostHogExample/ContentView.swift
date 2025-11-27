@@ -265,6 +265,85 @@ struct ContentView: View {
                     }
                 }
 
+                Section("Error tracking") {
+                    Button("Capture Swift Error") {
+                        do {
+                            throw SampleError.generic
+                        } catch {
+                            PostHogSDK.shared.captureError(error, properties: [
+                                "is_test": true,
+                                "error_type": "swift_error",
+                            ])
+                        }
+                    }
+
+                    Button("Capture NSException (Constructed)") {
+                        let exception = NSException(
+                            name: NSExceptionName("PostHogTestException"),
+                            reason: "Manual test exception for error tracking validation",
+                            userInfo: [
+                                "test_scenario": "manual_button_press",
+                                "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+                            ]
+                        )
+
+                        PostHogSDK.shared.captureException(exception, properties: [
+                            "is_test": true,
+                            "user_initiated": true,
+                            "exception_type": "safe_nsexception",
+                        ])
+                    }
+
+                    Button("Trigger Real NSRangeException") {
+                        ExceptionHandler.try({
+                            ExceptionHandler.triggerSampleRangeException()
+                        }, catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "real_nsrange_exception",
+                                "caught_by": "objective_c_wrapper",
+                            ])
+                        })
+                    }
+
+                    Button("Trigger Real NSInvalidArgumentException") {
+                        ExceptionHandler.try({
+                            ExceptionHandler.triggerSampleInvalidArgumentException()
+                        }, catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "real_invalid_argument_exception",
+                                "caught_by": "objective_c_wrapper",
+                            ])
+                        })
+                    }
+
+                    Button("Trigger Custom NSException") {
+                        ExceptionHandler.try({
+                            ExceptionHandler.triggerSampleGenericException()
+                        }, catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "real_custom_exception",
+                                "caught_by": "objective_c_wrapper",
+                            ])
+                        })
+                    }
+
+                    Button("Trigger Chained NSException") {
+                        ExceptionHandler.try({
+                            ExceptionHandler.triggerChainedException()
+                        }, catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "chained_exception",
+                                "caught_by": "objective_c_wrapper",
+                                "scenario": "network_database_business_chain"
+                            ])
+                        })
+                    }
+                }
+
                 Section("PostHog beers") {
                     if !api.beers.isEmpty {
                         ForEach(api.beers) { beer in
@@ -302,5 +381,19 @@ struct ContentView: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+private enum SampleError: Error {
+    case generic
+
+    var localizedDescription: String {
+        switch self {
+        case .generic:
+            return "This is a generic error"
+
+        @unknown default:
+            return "An unknown error occurred."
+        }
     }
 }

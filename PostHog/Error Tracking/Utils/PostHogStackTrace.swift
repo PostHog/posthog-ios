@@ -381,14 +381,14 @@ class PostHogStackTrace {
             // Binary image info
             if let imageName = info.dli_fname {
                 let path = String(cString: imageName)
-                let moduleName = (path as NSString).lastPathComponent
+                let module = (path as NSString).lastPathComponent
 
-                frame["module"] = moduleName
-                frame["package"] = moduleName
+                frame["module"] = module
+                frame["package"] = path // Full binary path for symbolication
                 frame["image_addr"] = String(format: "0x%016llx", UInt(bitPattern: info.dli_fbase))
 
                 // In-app detection based on binary image
-                frame["in_app"] = isInApp(module: moduleName, config: config)
+                frame["in_app"] = isInApp(module: module, config: config)
             }
 
             // Function/symbol info

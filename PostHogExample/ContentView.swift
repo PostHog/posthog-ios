@@ -270,7 +270,7 @@ struct ContentView: View {
                         do {
                             throw SampleError.generic
                         } catch {
-                            PostHogSDK.shared.captureError(error, properties: [
+                            PostHogSDK.shared.captureException(error, properties: [
                                 "is_test": true,
                                 "error_type": "swift_error",
                             ])
@@ -341,6 +341,13 @@ struct ContentView: View {
                                 "scenario": "network_database_business_chain"
                             ])
                         })
+                    }
+
+                    Button("Trigger with Message") {
+                        PostHogSDK.shared.captureException("Unexpected state detected", properties: [
+                            "is_test": true,
+                            "app_state": "some_state"
+                        ])
                     }
                 }
 

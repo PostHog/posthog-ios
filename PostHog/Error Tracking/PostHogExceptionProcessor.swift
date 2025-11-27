@@ -88,6 +88,41 @@ enum PostHogExceptionProcessor {
         return properties
     }
 
+    /// Convert a message string to properties
+    ///
+    /// - Parameters:
+    ///   - message: The error message to convert
+    ///   - type: Optional exception type name (defaults to "String")
+    ///   - config: Error tracking configuration for in-app detection
+    /// - Returns: Dictionary of properties in PostHog's $exception event format
+    static func messageToProperties(
+        _ message: String,
+        config: PostHogErrorTrackingConfig
+    ) -> [String: Any] {
+        var properties: [String: Any] = [:]
+
+        properties["$exception_level"] = "error"
+
+        var exception: [String: Any] = [:]
+        exception["type"] = "Message"
+        exception["value"] = message
+        exception["thread_id"] = Thread.current.threadId
+
+        exception["mechanism"] = [
+            "type": "generic-message",
+            "handled": true,
+            "synthetic": true,
+        ]
+
+        if let stacktrace = buildStacktrace(config: config) {
+            exception["stacktrace"] = stacktrace
+        }
+
+        properties["$exception_list"] = [exception]
+
+        return properties
+    }
+
     // MARK: - Internal Exception Building
 
     /// Build list of exceptions from NSException chain

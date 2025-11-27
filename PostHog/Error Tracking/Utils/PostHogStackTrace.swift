@@ -175,13 +175,6 @@ class PostHogStackTrace {
             if let dlisname = info.dli_sname {
                 let symbolName = String(cString: dlisname)
                 function = demangle(symbolName)
-
-                // Detect platform based on symbol naming
-//                if symbolName.hasPrefix("_$s") || symbolName.hasPrefix("$s") || symbolName.contains("Swift") {
-//                    platform = "swift"
-//                } else if symbolName.hasPrefix("-[") || symbolName.hasPrefix("+[") {
-//                    platform = "objc"
-//                }
             }
         }
 
@@ -200,14 +193,57 @@ class PostHogStackTrace {
         )
     }
 
-    /// Attempt to demangle a symbol name
+    // MARK: - Swift Symbol Demangling
+
+    /// Type alias for the swift_demangle function signature
+    private typealias SwiftDemangleFunc = @convention(c) (
+        _ mangledName: UnsafePointer<UInt8>?,
+        _ mangledNameLength: Int,
+        _ outputBuffer: UnsafeMutablePointer<UInt8>?,
+        _ outputBufferSize: UnsafeMutablePointer<Int>?,
+        _ flags: UInt32
+    ) -> UnsafeMutablePointer<Int8>?
+
+    /// Cached reference to the swift_demangle function
+    private static let swiftDemangleFunc: SwiftDemangleFunc? = {
+        guard let handle = dlopen(nil, RTLD_NOW),
+              let sym = dlsym(handle, "swift_demangle")
+        else {
+            return nil
+        }
+        return unsafeBitCast(sym, to: SwiftDemangleFunc.self)
+    }()
+
+    /// Attempt to demangle a Swift symbol name
     ///
-    /// Swift symbols are usually mangled (e.g., "_$s4MyApp0A5ClassC6methodyyF").
-    /// This attempts basic demangling for readability.
+    /// Swift symbols are mangled (e.g., "_$s4MyApp0A5ClassC6methodyyF").
+    /// This uses the Swift runtime's swift_demangle function to convert
+    /// them to human-readable form (e.g., "MyApp.MyClass.method() -> ()").
+    ///
+    /// - Parameter symbolName: The mangled symbol name
+    /// - Returns: The demangled name if successful, otherwise the original name
     private static func demangle(_ symbolName: String) -> String {
-        // For now, return the mangled name as-is
-        // TODO: Could use _stdlib_demangleName or swift-demangle for full demangling
-        symbolName
+        // Only attempt to demangle Swift symbols
+        // Swift mangled names start with "$s", "_$s", "$S", or "_$S"
+        guard symbolName.hasPrefix("$s") ||
+            symbolName.hasPrefix("_$s") ||
+            symbolName.hasPrefix("$S") ||
+            symbolName.hasPrefix("_$S")
+        else {
+            return symbolName
+        }
+
+        guard let demangleFunc = swiftDemangleFunc else {
+            return symbolName
+        }
+
+        // Call swift_demangle
+        if let demangledCString = demangleFunc(symbolName, symbolName.utf8.count, nil, nil, 0) {
+            defer { demangledCString.deallocate() }
+            return String(cString: demangledCString)
+        }
+
+        return symbolName
     }
 
 

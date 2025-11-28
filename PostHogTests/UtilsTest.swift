@@ -14,16 +14,22 @@ import Testing
 struct UtilsTest {
     @Suite("CGFloat Tests")
     struct CGFloatTests {
-        @Test("safely converts NaN to Int")
+        @Test("safely handles NaN value")
         func safelyConvertsNanToInt() {
             let nanNumber = CGFloat.nan
-            #expect(nanNumber.toInt() == 0)
+            #expect(nanNumber.toInt() == nil)
         }
 
-        @Test("safely converts Max to Int and deals with overflow")
+        @Test("safely handles Max values")
         func safelyConvertsMaxToIntAndDealsWithOverflow() {
             let gfmNumber = CGFloat.greatestFiniteMagnitude
-            #expect(gfmNumber.toInt() == Int.max)
+            #expect(gfmNumber.toInt() == nil)
+        }
+
+        @Test("safely handles infinity")
+        func safelyHandlesInfinity() {
+            let infNumber = CGFloat.infinity
+            #expect(infNumber.toInt() == nil)
         }
 
         @Test("safely converts to Int and rounds value")
@@ -38,19 +44,52 @@ struct UtilsTest {
         @Test("safely converts NaN to Int")
         func safelyConvertsNanToInt() {
             let nanNumber = Double.nan
-            #expect(nanNumber.toInt() == 0)
+            #expect(nanNumber.toInt() == nil)
         }
 
         @Test("safely converts Max to Int and deals with overflow")
         func safelyConvertsMaxToIntAndDealsWithOverflow() {
             let gfmNumber = Double.greatestFiniteMagnitude
-            #expect(gfmNumber.toInt() == Int.max)
+            #expect(gfmNumber.toInt() == nil)
+        }
+
+        @Test("safely handles infinity")
+        func safelyHandlesInfinity() {
+            let infNumber = Double.infinity
+            #expect(infNumber.toInt() == nil)
         }
 
         @Test("safely converts to Int and rounds value")
         func safelyConvertsToIntAndRoundsValue() {
             let frNumber = 1234567890.5
             #expect(frNumber.toInt() == 1234567891)
+        }
+    }
+
+    @Suite("Float Tests")
+    struct FloatTests {
+        @Test("safely converts NaN to Int")
+        func safelyConvertsNanToInt() {
+            let nanNumber = Float.nan
+            #expect(nanNumber.toInt() == nil)
+        }
+
+        @Test("safely converts Max to Int and deals with overflow")
+        func safelyConvertsMaxToIntAndDealsWithOverflow() {
+            let gfmNumber = Float.greatestFiniteMagnitude
+            #expect(gfmNumber.toInt() == nil)
+        }
+
+        @Test("safely handles infinity")
+        func safelyHandlesInfinity() {
+            let infNumber = Float.infinity
+            #expect(infNumber.toInt() == nil)
+        }
+
+        @Test("safely converts to Int and rounds value")
+        func safelyConvertsToIntAndRoundsValue() {
+            let frNumber: Float = 123456.5
+            #expect(frNumber.toInt() == 123457)
         }
     }
 

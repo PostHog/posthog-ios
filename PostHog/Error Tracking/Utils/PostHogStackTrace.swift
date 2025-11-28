@@ -14,7 +14,7 @@ import MachO
 /// This class provides methods to capture stack traces from the current thread
 /// and format them consistently for error tracking.
 ///
-class PostHogStackTrace {
+enum PostHogStackTrace {
     // MARK: - Swift Symbol Demangling
 
     /// Type alias for the swift_demangle function signature
@@ -223,11 +223,11 @@ class PostHogStackTrace {
         "libswift",
         "IOKit",
         "WebKit",
-        "GraphicsServices"
+        "GraphicsServices",
     ]
 
     /// Check if a module is a known system framework
     private static func isSystemFramework(_ module: String) -> Bool {
-        return systemPrefixes.contains { module.hasPrefix($0) }
+        systemPrefixes.contains { module.hasPrefix($0) }
     }
 }

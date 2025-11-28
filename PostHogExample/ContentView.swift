@@ -272,7 +272,6 @@ struct ContentView: View {
                         } catch {
                             PostHogSDK.shared.captureException(error, properties: [
                                 "is_test": true,
-                                "error_type": "swift_error",
                             ])
                         }
                     }
@@ -338,7 +337,7 @@ struct ContentView: View {
                                 "is_test": true,
                                 "exception_type": "chained_exception",
                                 "caught_by": "objective_c_wrapper",
-                                "scenario": "network_database_business_chain"
+                                "scenario": "network_database_business_chain",
                             ])
                         })
                     }
@@ -346,7 +345,7 @@ struct ContentView: View {
                     Button("Trigger with Message") {
                         PostHogSDK.shared.captureException("Unexpected state detected", properties: [
                             "is_test": true,
-                            "app_state": "some_state"
+                            "app_state": "some_state",
                         ])
                     }
                 }
@@ -391,7 +390,7 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
-private enum SampleError: Error {
+enum SampleError: Error {
     case generic
 
     var localizedDescription: String {

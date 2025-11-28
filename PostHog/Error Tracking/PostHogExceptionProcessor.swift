@@ -11,13 +11,7 @@ import Foundation
 /// Processes errors and exceptions into PostHog's $exception event format
 ///
 /// This class converts Swift Error and NSException instances into PostHog exception event properties.
-///
-/// **Note on Binary Images:**
-/// Currently, binary images (debug metadata) are NOT included in exception events.
-/// This is intentional until server-side symbolication is implemented. Binary images
-/// would be needed for server-side symbolication of raw instruction addresses, but
-/// without that capability, we won't know exactly what's needed or if there's something that can be reused from PLCrashReporter lib.
-/// When server-side symbolication is added, we should include binary images
+/// It automatically attaches binary image metadata (`$debug_images`) needed for server-side symbolication.
 ///
 enum PostHogExceptionProcessor {
     // MARK: - Public API
@@ -49,6 +43,12 @@ enum PostHogExceptionProcessor {
 
         if !exceptions.isEmpty {
             properties["$exception_list"] = exceptions
+
+            // Attach debug images for server-side symbolication
+            let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
+            if !debugImages.isEmpty {
+                properties["$debug_images"] = debugImages
+            }
         }
 
         return properties
@@ -83,6 +83,12 @@ enum PostHogExceptionProcessor {
 
         if !exceptions.isEmpty {
             properties["$exception_list"] = exceptions
+
+            // Attach debug images for server-side symbolication
+            let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
+            if !debugImages.isEmpty {
+                properties["$debug_images"] = debugImages
+            }
         }
 
         return properties
@@ -118,7 +124,14 @@ enum PostHogExceptionProcessor {
             exception["stacktrace"] = stacktrace
         }
 
-        properties["$exception_list"] = [exception]
+        let exceptions = [exception]
+        properties["$exception_list"] = exceptions
+
+        // Attach debug images for server-side symbolication
+        let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
+        if !debugImages.isEmpty {
+            properties["$debug_images"] = debugImages
+        }
 
         return properties
     }
@@ -209,14 +222,14 @@ enum PostHogExceptionProcessor {
     ) -> [String: Any]? {
         var exception: [String: Any] = [:]
 
-        exception["type"] = error.domain
+        exception["type"] = extractTypeName(from: error)
 
         if let message = extractErrorMessage(from: error) {
             exception["value"] = message
         }
 
-        if let module = extractModule(from: error) {
-            exception["module"] = module
+        if let moduleName = extractModule(from: error) {
+            exception["module"] = moduleName
         }
 
         exception["thread_id"] = Thread.current.threadId
@@ -280,7 +293,7 @@ enum PostHogExceptionProcessor {
     /// Extract user-friendly error message
     ///
     /// Priority:
-    /// 1. NSDebugDescriptionErrorKeyf
+    /// 1. NSDebugDescriptionErrorKey
     /// 2. NSLocalizedDescriptionKey
     /// 3. Code only
     private static func extractErrorMessage(from error: NSError) -> String? {
@@ -295,10 +308,39 @@ enum PostHogExceptionProcessor {
         return "Code: \(error.code)"
     }
 
+    /// Extract clean type name from error
+    ///
+    /// Uses Swift's type reflection to get the actual type name.
+    /// Falls back to error domain for Objective-C errors.
+    private static func extractTypeName(from error: NSError) -> String {
+        // Get the actual Swift type name using reflection
+        let typeName = String(describing: type(of: error as Error))
+
+        // If it's a plain NSError (not a Swift error bridged to NSError),
+        // the type will just be "NSError" - use domain instead
+        if typeName == "NSError" {
+            return error.domain
+        }
+
+        return typeName
+    }
+
     /// Extract module name from error domain
+    ///
+    /// For Swift errors, the domain contains the full module path (e.g., "MyApp.Networking.APIError").
+    /// We extract everything except the type name at the end.
     private static func extractModule(from error: NSError) -> String? {
         let domain = error.domain
-        return domain.contains(".") ? domain : nil
+
+        // For domains without dots (e.g., NSCocoaErrorDomain), return nil
+        guard let lastDot = domain.lastIndex(of: ".") else {
+            return nil
+        }
+
+        // For dotted domains, extract everything before the last component (the type name)
+        let module = String(domain[..<lastDot])
+
+        return module.isEmpty ? nil : module
     }
 
     // MARK: - Stack Trace Capture
@@ -306,7 +348,7 @@ enum PostHogExceptionProcessor {
     /// Build stacktrace dictionary from current thread (synthetic)
     static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
         let frames = PostHogStackTrace.captureCurrentStackTraceWithMetadata(config: config, skipFrames: 3)
-        
+
         guard !frames.isEmpty else { return nil }
 
         return [
@@ -329,7 +371,7 @@ enum PostHogExceptionProcessor {
         config: PostHogErrorTrackingConfig
     ) -> [String: Any]? {
         let frames = PostHogStackTrace.symbolicateAddresses(addresses, config: config, skipFrames: 0)
-        
+
         guard !frames.isEmpty else { return nil }
 
         return [
@@ -337,7 +379,6 @@ enum PostHogExceptionProcessor {
             "type": "raw",
         ]
     }
-
 }
 
 private extension Thread {

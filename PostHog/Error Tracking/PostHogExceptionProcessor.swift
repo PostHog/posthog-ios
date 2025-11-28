@@ -293,19 +293,14 @@ enum PostHogExceptionProcessor {
     /// Extract user-friendly error message
     ///
     /// Priority:
-    /// 1. NSDebugDescriptionErrorKey
-    /// 2. NSLocalizedDescriptionKey
-    /// 3. Code only
+    /// 1. Debug description (NSDebugDescriptionErrorKey)
+    /// 2. Localized description (NSLocalizedDescriptionKey)
     private static func extractErrorMessage(from error: NSError) -> String? {
         if let debugDesc = error.userInfo[NSDebugDescriptionErrorKey] as? String {
             return "\(debugDesc) (Code: \(error.code))"
         }
 
-        if let localizedDesc = error.userInfo[NSLocalizedDescriptionKey] as? String {
-            return "\(localizedDesc) (Code: \(error.code))"
-        }
-
-        return "Code: \(error.code)"
+        return "\(error.localizedDescription) (Code: \(error.code))"
     }
 
     /// Extract clean type name from error

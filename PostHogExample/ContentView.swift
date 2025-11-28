@@ -390,10 +390,10 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
-enum SampleError: Error {
+enum SampleError: LocalizedError {
     case generic
 
-    var localizedDescription: String {
+    var errorDescription: String? {
         switch self {
         case .generic:
             return "This is a generic error"

@@ -212,6 +212,7 @@ class PostHogStorage {
         case remoteConfig = "posthog.remoteConfig"
         case surveySeen = "posthog.surveySeen"
         case requestId = "posthog.requestId"
+        case evaluatedAt = "posthog.evaluatedAt"
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
     }

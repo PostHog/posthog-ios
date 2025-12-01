@@ -1,6 +1,7 @@
 ## Next
 
 - fix: avoid memory leaks on foat conversions ([#401](https://github.com/PostHog/posthog-ios/pull/401))
+- fix: app group migration now skips identity-related keys from extensions ([#402](https://github.com/PostHog/posthog-ios/pull/402))
 
 ## 3.35.0 - 2025-11-07
 

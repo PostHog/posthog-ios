@@ -30,7 +30,7 @@ struct PostHogBinaryImageInfo {
     /// Size of the binary image in bytes
     let size: UInt64
 
-    func toDictionary() -> [String: Any] {
+    var toDictionary: [String: Any] {
         var dict: [String: Any] = [
             "type": "macho",
             "code_file": name,

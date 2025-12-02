@@ -347,20 +347,12 @@ enum PostHogExceptionProcessor {
         guard !frames.isEmpty else { return nil }
 
         return [
-            "frames": frames,
+            "frames": frames.map(\.toDictionary),
             "type": "raw",
         ]
     }
 
     /// Build stacktrace dictionary from raw addresses (e.g., NSException.callStackReturnAddresses)
-    ///
-    /// This produces a non-synthetic stack trace since the addresses come from the actual
-    /// exception rather than being captured at the reporting site.
-    ///
-    /// - Parameters:
-    ///   - addresses: Array of return addresses (from NSException.callStackReturnAddresses)
-    ///   - config: Error tracking configuration for in-app detection
-    /// - Returns: Stacktrace dictionary or nil if no frames
     static func buildStacktraceFromAddresses(
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig
@@ -370,7 +362,7 @@ enum PostHogExceptionProcessor {
         guard !frames.isEmpty else { return nil }
 
         return [
-            "frames": frames,
+            "frames": frames.map(\.toDictionary),
             "type": "raw",
         ]
     }

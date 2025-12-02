@@ -76,38 +76,21 @@ enum PostHogStackTrace {
     // MARK: - Stack Trace Capture
 
     /// Captures current stack trace using dladdr() for rich metadata
-    ///
-    /// This approach is inspired by Sentry's implementation and provides:
-    /// - Instruction addresses (critical for server-side symbolication)
-    /// - Binary image addresses and names
-    /// - Symbol addresses for function resolution
-    /// - Proper in-app detection based on binary images
-    ///
-    /// - Parameters:
-    ///   - config: Error tracking configuration for in-app detection
-    ///   - skipFrames: Number of frames to skip from the beginning (default 3)
-    /// - Returns: Array of frame dictionaries with metadata
     static func captureCurrentStackTraceWithMetadata(
         config: PostHogErrorTrackingConfig,
         skipFrames: Int = 3
-    ) -> [[String: Any]] {
+    ) -> [PostHogStackFrame] {
         let addresses = Thread.callStackReturnAddresses
         return symbolicateAddresses(addresses, config: config, skipFrames: skipFrames)
     }
 
     /// Symbolicate an array of return addresses using dladdr()
-    ///
-    /// - Parameters:
-    ///   - addresses: Array of return addresses as NSNumber
-    ///   - config: Error tracking configuration for in-app detection
-    ///   - skipFrames: Number of frames to skip from the beginning
-    /// - Returns: Array of frame dictionaries with metadata
     static func symbolicateAddresses(
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig,
         skipFrames: Int
-    ) -> [[String: Any]] {
-        var frames: [[String: Any]] = []
+    ) -> [PostHogStackFrame] {
+        var frames: [PostHogStackFrame] = []
 
         for (index, addressNum) in addresses.enumerated() {
             guard index >= skipFrames else { continue }
@@ -119,37 +102,38 @@ enum PostHogStackTrace {
                 continue
             }
 
-            var frame: [String: Any] = [:]
-
-            // Instruction address (hex format for compatibility with PostHog backend)
-            frame["instruction_addr"] = String(format: "0x%016llx", address)
+            var module: String?
+            var package: String?
+            var imageAddress: UInt64?
+            var inApp = false
 
             // Binary image info
             if let imageName = info.dli_fname {
                 let path = String(cString: imageName)
-                let module = (path as NSString).lastPathComponent
-
-                frame["module"] = module
-                frame["package"] = path // Full binary path for symbolication
-                frame["image_addr"] = String(format: "0x%016llx", UInt(bitPattern: info.dli_fbase))
-
-                // In-app detection based on binary image
-                frame["in_app"] = isInApp(module: module, config: config)
+                module = (path as NSString).lastPathComponent
+                package = path
+                imageAddress = UInt64(UInt(bitPattern: info.dli_fbase))
+                inApp = isInApp(module: module!, config: config)
             }
 
             // Function/symbol info
-            // NOTE: dladdr() returns the nearest symbol it can find, which may be INCORRECT
-            // for stripped binaries. In production App Store builds, symbols are often stripped
-            // and dladdr() may return a wrong symbol (like a type metadata accessor) or nothing.
-            // Server-side symbolication with dSYMs is required for accurate function names
-            // in production crash reports.
+            var function: String?
+            var symbolAddress: UInt64?
             if let symbolName = info.dli_sname {
                 let rawSymbol = String(cString: symbolName)
-                frame["function"] = demangle(rawSymbol)
-                frame["symbol_addr"] = String(format: "0x%016llx", UInt(bitPattern: info.dli_saddr))
+                function = demangle(rawSymbol)
+                symbolAddress = UInt64(UInt(bitPattern: info.dli_saddr))
             }
 
-            frame["platform"] = "ios"
+            let frame = PostHogStackFrame(
+                instructionAddress: UInt64(address),
+                module: module,
+                package: package,
+                imageAddress: imageAddress,
+                inApp: inApp,
+                function: function,
+                symbolAddress: symbolAddress
+            )
 
             frames.append(frame)
         }

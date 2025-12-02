@@ -352,7 +352,6 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-
         it("don't send feature flag event for getFeatureFlag when config enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
@@ -360,7 +359,7 @@ class PostHogSDKTest: QuickSpec {
             expect(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false) as? Bool) == true
 
             let events = getBatchedEvents(server, failIfNotCompleted: false)
-            
+
             expect(events.count) == 0
 
             sut.reset()

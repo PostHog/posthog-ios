@@ -117,7 +117,7 @@ enum PostHogExceptionProcessor {
         exception["mechanism"] = [
             "type": "generic-message",
             "handled": true,
-            "synthetic": true,
+            "synthetic": true, // always true for message exceptions - we capture current stack
         ]
 
         if let stacktrace = buildStacktrace(config: config) {
@@ -237,7 +237,7 @@ enum PostHogExceptionProcessor {
         exception["mechanism"] = [
             "type": mechanismType,
             "handled": handled,
-            "synthetic": false,
+            "synthetic": true,  // Always true for NSError - we capture current stack
         ]
 
         if let stacktrace = buildStacktrace(config: config) {

@@ -417,4 +417,24 @@ class PostHogStorage {
     func setBool(forKey key: StorageKey, contents: Bool) {
         setJson(forKey: key, json: contents)
     }
+
+    func getInt(forKey key: StorageKey) -> Int? {
+        let value = getJson(forKey: key)
+        if let intValue = value as? Int {
+            return intValue
+        } else if let numberValue = value as? NSNumber {
+            return numberValue.intValue
+        } else if let dictValue = value as? [String: Any] {
+            if let intValue = dictValue[key.rawValue] as? Int {
+                return intValue
+            } else if let numberValue = dictValue[key.rawValue] as? NSNumber {
+                return numberValue.intValue
+            }
+        }
+        return nil
+    }
+
+    func setInt(forKey key: StorageKey, contents: Int) {
+        setJson(forKey: key, json: contents)
+    }
 }

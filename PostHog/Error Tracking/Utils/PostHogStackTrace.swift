@@ -149,7 +149,6 @@ enum PostHogStackTrace {
                 frame["symbol_addr"] = String(format: "0x%016llx", UInt(bitPattern: info.dli_saddr))
             }
 
-            // Platform detection (native for objective-c/swift compiled code)
             frame["platform"] = "ios"
 
             frames.append(frame)

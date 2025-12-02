@@ -266,9 +266,9 @@ struct ContentView: View {
                 }
 
                 Section("Error tracking") {
-                    Button("Capture Swift Error") {
+                    Button("Capture Swift Enum Error (with associated value)") {
                         do {
-                            throw SampleError.generic
+                            throw SampleAppError.generalAppError(ErrorDetails(code: 10, reason: "some reason"))
                         } catch {
                             PostHogSDK.shared.captureException(error, properties: [
                                 "is_test": true,
@@ -390,16 +390,18 @@ struct ContentView_Previews: PreviewProvider {
     }
 }
 
-enum SampleError: LocalizedError {
-    case generic
+enum SampleAppError: LocalizedError {
+    case generalAppError(ErrorDetails)
 
     var errorDescription: String? {
         switch self {
-        case .generic:
-            return "This is a generic error"
-
-        @unknown default:
-            return "An unknown error occurred."
+        case let .generalAppError(details):
+            return "Custom error description for SampleAppError.generalAppError with details: \(details)"
         }
     }
+}
+
+struct ErrorDetails {
+    let code: Int
+    let reason: String
 }

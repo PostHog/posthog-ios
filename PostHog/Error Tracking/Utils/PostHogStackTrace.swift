@@ -59,10 +59,11 @@ enum PostHogStackTrace {
             // Binary image info
             if let imageName = info.dli_fname {
                 let path = String(cString: imageName)
-                module = (path as NSString).lastPathComponent
+                let moduleName = (path as NSString).lastPathComponent
+                module = moduleName
                 package = path
                 imageAddress = UInt64(UInt(bitPattern: info.dli_fbase))
-                inApp = isInApp(module: module!, config: config)
+                inApp = isInApp(module: moduleName, config: config)
             }
 
             // Skip PostHog frames at the top of the stack

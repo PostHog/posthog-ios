@@ -41,15 +41,7 @@ enum PostHogExceptionProcessor {
             config: config
         )
 
-        if !exceptions.isEmpty {
-            properties["$exception_list"] = exceptions
-
-            // Attach debug images for server-side symbolication
-            let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
-            if !debugImages.isEmpty {
-                properties["$debug_images"] = debugImages
-            }
-        }
+        attachExceptionsAndDebugImages(exceptions, to: &properties)
 
         return properties
     }
@@ -81,15 +73,7 @@ enum PostHogExceptionProcessor {
             config: config
         )
 
-        if !exceptions.isEmpty {
-            properties["$exception_list"] = exceptions
-
-            // Attach debug images for server-side symbolication
-            let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
-            if !debugImages.isEmpty {
-                properties["$debug_images"] = debugImages
-            }
-        }
+        attachExceptionsAndDebugImages(exceptions, to: &properties)
 
         return properties
     }
@@ -125,13 +109,7 @@ enum PostHogExceptionProcessor {
         }
 
         let exceptions = [exception]
-        properties["$exception_list"] = exceptions
-
-        // Attach debug images for server-side symbolication
-        let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
-        if !debugImages.isEmpty {
-            properties["$debug_images"] = debugImages
-        }
+        attachExceptionsAndDebugImages(exceptions, to: &properties)
 
         return properties
     }
@@ -338,10 +316,26 @@ enum PostHogExceptionProcessor {
         return module.isEmpty ? nil : module
     }
 
+    // MARK: - Helpers
+
+    /// Attach exceptions and debug images to properties dictionary
+    private static func attachExceptionsAndDebugImages(
+        _ exceptions: [[String: Any]],
+        to properties: inout [String: Any]
+    ) {
+        guard !exceptions.isEmpty else { return }
+        properties["$exception_list"] = exceptions
+
+        let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
+        if !debugImages.isEmpty {
+            properties["$debug_images"] = debugImages
+        }
+    }
+
     // MARK: - Stack Trace Capture
 
     /// Build stacktrace dictionary from current thread (synthetic)
-    static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
+    private static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
         let frames = PostHogStackTrace.captureCurrentStackTraceWithMetadata(config: config)
 
         guard !frames.isEmpty else { return nil }
@@ -353,7 +347,7 @@ enum PostHogExceptionProcessor {
     }
 
     /// Build stacktrace dictionary from raw addresses (e.g., NSException.callStackReturnAddresses)
-    static func buildStacktraceFromAddresses(
+    private static func buildStacktraceFromAddresses(
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig
     ) -> [String: Any]? {

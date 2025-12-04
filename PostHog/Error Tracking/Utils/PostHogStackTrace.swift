@@ -29,7 +29,7 @@ enum PostHogStackTrace {
         return symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: true)
     }
 
-    /// Symbolicate an array of return addresses using dladdr()r
+    /// Symbolicate an array of return addresses using dladdr()
     ///
     /// - Parameters:
     ///   - addresses: Array of return addresses to symbolicate

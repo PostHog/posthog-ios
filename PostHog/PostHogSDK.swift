@@ -1438,6 +1438,115 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    // MARK: - Error Tracking
+
+    /// Capture a Swift Error or NSError
+    ///
+    /// Captures an error as a `$exception` event with full stack trace and error chain information.
+    /// The error will be marked as handled by default.
+    ///
+    /// Example:
+    /// ```swift
+    /// do {
+    ///     try FileManager.default.removeItem(at: badFileUrl)
+    /// } catch {
+    ///     PostHog.shared.captureException(error)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - error: The error to capture (can be any Error or NSError)
+    ///   - properties: Optional additional properties to attach to the event
+    @objc(captureExceptionWithError:properties:)
+    public func captureException(
+        _ error: Error,
+        properties: [String: Any]? = nil
+    ) {
+        guard isEnabled() else { return }
+
+        let errorProperties = PostHogExceptionProcessor.errorToProperties(
+            error,
+            handled: true,
+            mechanismType: "generic-error",
+            config: config.errorTrackingConfig
+        )
+
+        var mergedProperties = errorProperties
+        properties?.forEach { mergedProperties[$0.key] = $0.value }
+
+        capture("$exception", properties: mergedProperties)
+    }
+
+    /// Capture an NSException
+    ///
+    /// Captures an NSException as a `$exception` event with full stack trace.
+    /// This is useful for Objective-C code that uses NSException.
+    ///
+    /// Example:
+    /// ```objc
+    /// @try {
+    ///     [self riskyOperation];
+    /// } @catch (NSException *exception) {
+    ///     [[PostHog shared] captureExceptionWithNSException:exception properties:nil];
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - exception: The NSException to capture
+    ///   - properties: Optional additional properties to attach to the event
+    @objc(captureExceptionWithNSException:properties:)
+    public func captureException(
+        _ exception: NSException,
+        properties: [String: Any]? = nil
+    ) {
+        guard isEnabled() else { return }
+
+        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
+            exception,
+            handled: true,
+            mechanismType: "generic-nsexception",
+            config: config.errorTrackingConfig
+        )
+
+        var mergedProperties = exceptionProperties
+        properties?.forEach { mergedProperties[$0.key] = $0.value }
+
+        capture("$exception", properties: mergedProperties)
+    }
+
+    /// Capture an error message as an exception
+    ///
+    /// Captures a string message as a `$exception` event with stack trace from the capture point.
+    /// Useful when you want to report an error condition without an actual Error object.
+    ///
+    /// Example:
+    /// ```swift
+    /// if unexpectedCondition {
+    ///     PostHog.shared.captureException("Unexpected state detected")
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - message: The error message to capture
+    ///   - properties: Optional additional properties to attach to the event
+    @objc(captureExceptionWithMessage:properties:)
+    public func captureException(
+        _ message: String,
+        properties: [String: Any]? = nil
+    ) {
+        guard isEnabled() else { return }
+
+        let messageProperties = PostHogExceptionProcessor.messageToProperties(
+            message,
+            config: config.errorTrackingConfig
+        )
+
+        var mergedProperties = messageProperties
+        properties?.forEach { mergedProperties[$0.key] = $0.value }
+
+        capture("$exception", properties: mergedProperties)
+    }
+
     private func installIntegrations() {
         guard installedIntegrations.isEmpty else {
             hedgeLog("Integrations already installed. Call uninstallIntegrations() first.")

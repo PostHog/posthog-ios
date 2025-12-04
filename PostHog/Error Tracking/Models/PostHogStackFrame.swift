@@ -24,7 +24,7 @@ struct PostHogStackFrame {
     /// Whether this frame is considered part of the application code
     let inApp: Bool
     
-    /// Function or symbol name (demangled for Swift symbols)
+    /// Function or symbol name (raw symbol without demangling)
     let function: String?
     
     /// Address of the symbol/function

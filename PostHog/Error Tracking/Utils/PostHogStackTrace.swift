@@ -15,63 +15,6 @@ import MachO
 /// and format them consistently for error tracking.
 ///
 enum PostHogStackTrace {
-    // MARK: - Swift Symbol Demangling
-
-    /// Type alias for the swift_demangle function signature
-    private typealias SwiftDemangleFunc = @convention(c) (
-        _ mangledName: UnsafePointer<UInt8>?,
-        _ mangledNameLength: Int,
-        _ outputBuffer: UnsafeMutablePointer<UInt8>?,
-        _ outputBufferSize: UnsafeMutablePointer<Int>?,
-        _ flags: UInt32
-    ) -> UnsafeMutablePointer<Int8>?
-
-    /// Cached reference to the swift_demangle function
-    private static let swiftDemangleFunc: SwiftDemangleFunc? = {
-        guard let handle = dlopen(nil, RTLD_NOW),
-              let sym = dlsym(handle, "swift_demangle")
-        else {
-            return nil
-        }
-        return unsafeBitCast(sym, to: SwiftDemangleFunc.self)
-    }()
-
-    /// Attempt to demangle a Swift symbol name
-    ///
-    /// Swift symbols are mangled (e.g., "_$s4MyApp0A5ClassC6methodyyF").
-    /// This uses the Swift runtime's swift_demangle function to convert
-    /// them to human-readable form (e.g., "MyApp.MyClass.method() -> ()").
-    ///
-    /// - Parameter symbolName: The mangled symbol name
-    /// - Returns: The demangled name if successful, otherwise the original name
-    private static func demangle(_ symbolName: String) -> String {
-        // Only attempt to demangle Swift symbols
-        // Swift mangled names start with "$s", "_$s", "$S", or "_$S"
-        guard symbolName.hasPrefix("$s") ||
-            symbolName.hasPrefix("_$s") ||
-            symbolName.hasPrefix("$S") ||
-            symbolName.hasPrefix("_$S")
-        else {
-            return symbolName
-        }
-
-        guard let demangleFunc = swiftDemangleFunc else {
-            return symbolName
-        }
-
-        // Call swift_demangle - must use withCString to get proper pointer
-        let demangled = symbolName.withCString { cString -> String? in
-            // swift_demangle expects UnsafePointer<UInt8>, convert from Int8
-            let result = cString.withMemoryRebound(to: UInt8.self, capacity: symbolName.utf8.count) { ptr in
-                demangleFunc(ptr, symbolName.utf8.count, nil, nil, 0)
-            }
-            guard let demangledCString = result else { return nil }
-            defer { demangledCString.deallocate() }
-            return String(cString: demangledCString)
-        }
-
-        return demangled ?? symbolName
-    }
 
     // MARK: - Stack Trace Capture
 
@@ -116,12 +59,11 @@ enum PostHogStackTrace {
                 inApp = isInApp(module: module!, config: config)
             }
 
-            // Function/symbol info
+            // Function/symbol info (raw symbols without demangling)
             var function: String?
             var symbolAddress: UInt64?
             if let symbolName = info.dli_sname {
-                let rawSymbol = String(cString: symbolName)
-                function = demangle(rawSymbol)
+                function = String(cString: symbolName)  // Use raw symbol
                 symbolAddress = UInt64(UInt(bitPattern: info.dli_saddr))
             }
 

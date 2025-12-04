@@ -1759,7 +1759,6 @@
 				3AA34CF4296D951A003398F4 /* Frameworks */,
 				3AA34CF5296D951A003398F4 /* Resources */,
 				DA1044D82D0B34F200C4ACF3 /* Embed Frameworks */,
-				8204AFBF2A600CDF749AB4C1 /* Strip Symbols if Release (To simulate App Store distribution) */,
 			);
 			buildRules = (
 			);
@@ -2122,24 +2121,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		8204AFBF2A600CDF749AB4C1 /* Strip Symbols if Release (To simulate App Store distribution) */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Strip Symbols if Release (To simulate App Store distribution)";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "# Only strip in Release builds\nif [ \"$CONFIGURATION\" == \"Release\" ]; then\n    echo \"Stripping symbols to simulate App Store distribution...\"\n    \"${SRCROOT}/PostHogExample/scripts/strip-example-app.sh\" \"${CONFIGURATION}-${PLATFORM_NAME}\"\nelse\n    echo \"Skipping symbol stripping (Debug build)\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		3AA34CF3296D951A003398F4 /* Sources */ = {

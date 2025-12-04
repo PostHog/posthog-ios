@@ -175,17 +175,19 @@ enum PostHogDebugImageProvider {
     ) -> (vmaddr: UInt64, vmsize: UInt64)? {
         if is64Bit {
             let segCmd = cmdPtr.assumingMemoryBound(to: segment_command_64.self).pointee
-            let segName = withUnsafeBytes(of: segCmd.segname) { ptr -> String in
+            let segName = withUnsafeBytes(of: segCmd.segname) { ptr -> String? in
                 let bytes = ptr.bindMemory(to: CChar.self)
-                return String(cString: bytes.baseAddress!)
+                guard let baseAddress = bytes.baseAddress else { return nil }
+                return String(cString: baseAddress)
             }
             guard segName == segmentText else { return nil }
             return (segCmd.vmaddr, segCmd.vmsize)
         } else {
             let segCmd = cmdPtr.assumingMemoryBound(to: segment_command.self).pointee
-            let segName = withUnsafeBytes(of: segCmd.segname) { ptr -> String in
+            let segName = withUnsafeBytes(of: segCmd.segname) { ptr -> String? in
                 let bytes = ptr.bindMemory(to: CChar.self)
-                return String(cString: bytes.baseAddress!)
+                guard let baseAddress = bytes.baseAddress else { return nil }
+                return String(cString: baseAddress)
             }
             guard segName == segmentText else { return nil }
             return (UInt64(segCmd.vmaddr), UInt64(segCmd.vmsize))

@@ -342,7 +342,7 @@ enum PostHogExceptionProcessor {
 
     /// Build stacktrace dictionary from current thread (synthetic)
     static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
-        let frames = PostHogStackTrace.captureCurrentStackTraceWithMetadata(config: config, skipFrames: 3)
+        let frames = PostHogStackTrace.captureCurrentStackTraceWithMetadata(config: config)
 
         guard !frames.isEmpty else { return nil }
 
@@ -357,7 +357,8 @@ enum PostHogExceptionProcessor {
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig
     ) -> [String: Any]? {
-        let frames = PostHogStackTrace.symbolicateAddresses(addresses, config: config, skipFrames: 0)
+        // Don't strip PostHog frames for NSException - the addresses are from the exception itself
+        let frames = PostHogStackTrace.symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: false)
 
         guard !frames.isEmpty else { return nil }
 

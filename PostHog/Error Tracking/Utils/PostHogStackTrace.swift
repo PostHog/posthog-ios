@@ -19,25 +19,31 @@ enum PostHogStackTrace {
     // MARK: - Stack Trace Capture
 
     /// Captures current stack trace using dladdr() for rich metadata
+    ///
+    /// Automatically strips PostHog SDK frames from the top of the stack trace
+    /// so the trace starts at user code.
     static func captureCurrentStackTraceWithMetadata(
-        config: PostHogErrorTrackingConfig,
-        skipFrames: Int = 3
+        config: PostHogErrorTrackingConfig
     ) -> [PostHogStackFrame] {
         let addresses = Thread.callStackReturnAddresses
-        return symbolicateAddresses(addresses, config: config, skipFrames: skipFrames)
+        return symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: true)
     }
 
-    /// Symbolicate an array of return addresses using dladdr()
+    /// Symbolicate an array of return addresses using dladdr()r
+    ///
+    /// - Parameters:
+    ///   - addresses: Array of return addresses to symbolicate
+    ///   - config: Error tracking configuration
+    ///   - stripTopPostHogFrames: If true, strips PostHog SDK frames from the top of the stack
     static func symbolicateAddresses(
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig,
-        skipFrames: Int
+        stripTopPostHogFrames: Bool = false
     ) -> [PostHogStackFrame] {
         var frames: [PostHogStackFrame] = []
+        var shouldCollectFrame = !stripTopPostHogFrames
 
-        for (index, addressNum) in addresses.enumerated() {
-            guard index >= skipFrames else { continue }
-
+        for addressNum in addresses {
             let address = addressNum.uintValue
             var info = Dl_info()
 
@@ -57,6 +63,14 @@ enum PostHogStackTrace {
                 package = path
                 imageAddress = UInt64(UInt(bitPattern: info.dli_fbase))
                 inApp = isInApp(module: module!, config: config)
+            }
+
+            // Skip PostHog frames at the top of the stack
+            if !shouldCollectFrame {
+                if isPostHogModule(module) {
+                    continue
+                }
+                shouldCollectFrame = true
             }
 
             // Function/symbol info (raw symbols without demangling)
@@ -154,5 +168,13 @@ enum PostHogStackTrace {
     /// Check if a module is a known system framework
     private static func isSystemFramework(_ module: String) -> Bool {
         systemPrefixes.contains { module.hasPrefix($0) }
+    }
+
+    // MARK: - PostHog Frame Detection
+
+    /// Check if a module belongs to the PostHog SDK
+    private static func isPostHogModule(_ module: String?) -> Bool {
+        guard let module = module else { return false }
+        return module == "PostHog" || module.hasPrefix("PostHog.")
     }
 }

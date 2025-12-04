@@ -117,6 +117,42 @@ struct ContentView: View {
         }
     }
 
+    /// Creates a multi-level async call chain to test stack trace capture
+    func captureAsyncError() async {
+        do {
+            await try asyncLevel1()
+        } catch {
+            PostHogSDK.shared.captureException(error, properties: [
+                "is_test": true,
+                "error_type": "async_await_chain",
+                "capture_point": "top_level_catch",
+            ])
+        }
+    }
+
+    private func asyncLevel1() async throws {
+        // Simulate some async work
+        await Task.sleep(10_000_000) // 0.01 seconds
+        try await asyncLevel2()
+    }
+
+    private func asyncLevel2() async throws {
+        // Simulate more async work
+        await Task.sleep(20_000_000) // 0.02 seconds
+        try await asyncLevel3()
+    }
+
+    private func asyncLevel3() async throws {
+        // Simulate final async work before error
+        await Task.sleep(30_000_000) // 0.03 seconds
+        
+        // Throw an error from deep in the async chain
+        throw AsyncTestError.deepAsyncError(
+            message: "Error occurred in async level 3",
+            context: ["level": 3, "operation": "data_processing"]
+        )
+    }
+
     func triggerAuthentication() {
         signInViewModel.triggerAuthentication()
     }
@@ -348,6 +384,12 @@ struct ContentView: View {
                             "app_state": "some_state",
                         ])
                     }
+
+                    Button("Capture Async/Await Error") {
+                        Task {
+                            await captureAsyncError()
+                        }
+                    }
                 }
 
                 Section("PostHog beers") {
@@ -404,4 +446,15 @@ enum SampleAppError: LocalizedError {
 struct ErrorDetails {
     let code: Int
     let reason: String
+}
+
+enum AsyncTestError: LocalizedError {
+    case deepAsyncError(message: String, context: [String: Any])
+    
+    var errorDescription: String? {
+        switch self {
+        case let .deepAsyncError(message, context):
+            return "Async Error: \(message) | Context: \(context)"
+        }
+    }
 }

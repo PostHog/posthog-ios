@@ -1,5 +1,7 @@
 ## Next
 
+- chore: bump actions/checkout from 5 to 6 ([#397](https://github.com/PostHog/posthog-ios/pull/397))
+
 ## 3.35.1 - 2025-12-02
 
 - fix: avoid memory leaks on foat conversions ([#401](https://github.com/PostHog/posthog-ios/pull/401))

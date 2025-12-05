@@ -667,7 +667,7 @@ class PostHogSDKTest: QuickSpec {
             expect(event[1].event).to(equal("force_batch_flush"))
         }
 
-        it("captures $feature_flag_called when getFeatureFlag called twice after reloading flags") {
+        it("does not capture $feature_flag_called again when getFeatureFlag called twice after reloading flags") {
             let sut = self.getSut(
                 sendFeatureFlagEvent: true,
                 flushAt: 2
@@ -678,11 +678,12 @@ class PostHogSDKTest: QuickSpec {
             sut.reloadFeatureFlags {
                 _ = sut.getFeatureFlag("some_key")
             }
+            sut.capture("force_batch_flush")
 
             let event = getBatchedEvents(server)
             expect(event.count).to(equal(2))
             expect(event[0].event).to(equal("$feature_flag_called"))
-            expect(event[1].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("force_batch_flush"))
         }
 
         describe("beforeSend hook") {

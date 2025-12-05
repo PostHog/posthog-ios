@@ -1,6 +1,6 @@
 ## Next
 
-- chore: bump actions/checkout from 5 to 6 ([#397](https://github.com/PostHog/posthog-ios/pull/397))
+- fix: only report $feature_flag_called if the flag value has changed ([#397](https://github.com/PostHog/posthog-ios/pull/397))
 
 ## 3.35.1 - 2025-12-02
 

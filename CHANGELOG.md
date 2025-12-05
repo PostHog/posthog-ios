@@ -1,6 +1,6 @@
 ## Next
 
-- fix: only report $feature_flag_called if the flag value has changed ([#397](https://github.com/PostHog/posthog-ios/pull/397))
+- fix: only report $feature_flag_called if the flag value has changed ([#405](https://github.com/PostHog/posthog-ios/pull/405))
 
 ## 3.35.1 - 2025-12-02
 

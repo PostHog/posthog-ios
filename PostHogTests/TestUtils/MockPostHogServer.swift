@@ -47,6 +47,7 @@ class MockPostHogServer {
     var remoteConfigSurveys: String?
     var hasFeatureFlags: Bool? = true
     var featureFlags: [String: Any]?
+    var disabledFlag: Bool = false
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -114,7 +115,7 @@ class MockPostHogServer {
                 ],
                 "disabled-flag": [
                     "key": "disabled-flag",
-                    "enabled": false,
+                    "enabled": self.disabledFlag,
                     "variant": nil,
                     "reason": [
                         "type": "no_condition_match",

@@ -1238,13 +1238,18 @@ let maxRetryDelay = 30.0
 
         if shouldCapture {
             let requestId = remoteConfig?.lastRequestId ?? ""
+            let evaluatedAt = remoteConfig?.lastEvaluatedAt
             let details = remoteConfig?.getFeatureFlagDetails(flagKey)
 
-            var properties = [
+            var properties: [String: Any] = [
                 "$feature_flag": flagKey,
                 "$feature_flag_response": flagValue ?? NSNull(),
                 "$feature_flag_request_id": requestId,
             ]
+
+            if let evaluatedAt {
+                properties["$feature_flag_evaluated_at"] = evaluatedAt
+            }
 
             if let details = details as? [String: Any] {
                 if let reason = details["reason"] as? [String: Any] {

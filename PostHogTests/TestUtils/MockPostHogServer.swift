@@ -226,6 +226,7 @@ class MockPostHogServer {
                     "flags": flagsV4,
                     "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
                     "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
+                    "evaluatedAt": 1234567890,
                 ]
             } else {
                 obj = [
@@ -238,6 +239,7 @@ class MockPostHogServer {
                     ],
                     "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
                     "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
+                    "evaluatedAt": 1234567890,
                 ]
             }
 

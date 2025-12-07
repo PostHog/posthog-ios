@@ -1,8 +1,12 @@
 ## Next
 
-## 3.36.0 - 2025-12-03
+## 3.37.0 - 2025-12-08
 
 - feat: include `evaluated_at` properties in `$feature_flag_called` events ([#394](https://github.com/PostHog/posthog-ios/pull/394))
+
+## 3.36.0 - 2025-12-03
+
+- fix: only report $feature_flag_called if the flag value has changed ([#405](https://github.com/PostHog/posthog-ios/pull/405))
 
 ## 3.35.1 - 2025-12-02
 

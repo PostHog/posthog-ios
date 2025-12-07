@@ -454,10 +454,12 @@ class PostHogStorage {
             return intValue
         } else if let numberValue = value as? NSNumber {
             return numberValue.intValue
-        } else if let dictValue = value as? [String: Any] {
-            if let intValue = dictValue[key.rawValue] as? Int {
+        } else if let dictValue = value as? [String: Any],
+                  let nestedValue = dictValue[key.rawValue]
+        {
+            if let intValue = nestedValue as? Int {
                 return intValue
-            } else if let numberValue = dictValue[key.rawValue] as? NSNumber {
+            } else if let numberValue = nestedValue as? NSNumber {
                 return numberValue.intValue
             }
         }

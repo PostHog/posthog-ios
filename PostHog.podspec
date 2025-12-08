@@ -30,4 +30,7 @@ Pod::Spec.new do |s|
     'vendor/libwebp/**/*.{h,c}'
   ]
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
+  
+  # Include the upload script for dSYM uploads
+  s.preserve_paths = 'build-tools/upload-symbols'
 end

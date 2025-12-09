@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add ability to override sendFeatureFlagEvent for exact feature flag call ([#396](https://github.com/PostHog/posthog-ios/pull/396))
+
 ## 3.36.0 - 2025-12-08
 
 - feat: include `evaluated_at` properties in `$feature_flag_called` events ([#394](https://github.com/PostHog/posthog-ios/pull/394))

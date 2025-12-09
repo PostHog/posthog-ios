@@ -700,7 +700,7 @@ class PostHogSDKTest: QuickSpec {
             expect(event[1].event).to(equal("force_batch_flush"))
         }
 
-        it("captures $feature_flag_called when getFeatureFlag called twice after reloading flags") {
+        it("does not capture $feature_flag_called again when getFeatureFlag called twice after reloading flags") {
             let sut = self.getSut(
                 sendFeatureFlagEvent: true,
                 flushAt: 2
@@ -711,11 +711,40 @@ class PostHogSDKTest: QuickSpec {
             sut.reloadFeatureFlags {
                 _ = sut.getFeatureFlag("some_key")
             }
+            sut.capture("force_batch_flush")
 
             let event = getBatchedEvents(server)
             expect(event.count).to(equal(2))
             expect(event[0].event).to(equal("$feature_flag_called"))
-            expect(event[1].event).to(equal("$feature_flag_called"))
+            expect(event[1].event).to(equal("force_batch_flush"))
+        }
+
+        it("captures $feature_flag_called again when getFeatureFlag returns different value after reloading flags") {
+            let sut = self.getSut(
+                sendFeatureFlagEvent: true,
+                flushAt: 3
+            )
+
+            // First call gets a false value
+            _ = sut.getFeatureFlag("disabled-flag")
+
+            // Change the mock server to return a different value for the same key
+            server.disabledFlag = true
+
+            sut.reloadFeatureFlags {
+                // Second call gets a true value
+                _ = sut.getFeatureFlag("disabled-flag")
+                sut.capture("force_batch_flush")
+            }
+
+            waitFlagsRequest(server)
+
+            let events = getBatchedEvents(server)
+            expect(events.count).to(equal(3))
+
+            expect(events[0].event).to(equal("$feature_flag_called"))
+            expect(events[1].event).to(equal("$feature_flag_called"))
+            expect(events[2].event).to(equal("force_batch_flush"))
         }
 
         describe("beforeSend hook") {

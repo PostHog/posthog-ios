@@ -41,7 +41,7 @@ let maxRetryDelay = 30.0
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
-    private var flagCallReported = Set<String>()
+    private var flagCallReported: [String: [Any?]] = .init()
     private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
     private static var apiKeys = Set<String>()
@@ -1165,9 +1165,6 @@ let maxRetryDelay = 30.0
         }
 
         remoteConfig?.reloadFeatureFlags { _ in
-            self.flagCallReportedLock.withLock {
-                self.flagCallReported.removeAll()
-            }
             callback()
         }
     }
@@ -1226,25 +1223,52 @@ let maxRetryDelay = 30.0
         return remoteConfig.getFeatureFlagPayload(key)
     }
 
+    private func flagValuesEqual(_ lhs: Any?, _ rhs: Any?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (boolValue as Bool, flagBoolValue as Bool):
+            return boolValue == flagBoolValue
+        case let (stringValue as String, flagStringValue as String):
+            return stringValue == flagStringValue
+        default:
+            return false
+        }
+    }
+
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
-        var shouldCapture = false
+        var shouldCapture = true
 
         flagCallReportedLock.withLock {
-            if !flagCallReported.contains(flagKey) {
-                flagCallReported.insert(flagKey)
-                shouldCapture = true
+            var values = flagCallReported[flagKey] ?? []
+
+            for value in values {
+                if flagValuesEqual(value, flagValue) {
+                    shouldCapture = false
+                    break
+                }
+            }
+
+            if shouldCapture {
+                values.append(flagValue)
+                flagCallReported[flagKey] = values
             }
         }
 
         if shouldCapture {
             let requestId = remoteConfig?.lastRequestId ?? ""
+            let evaluatedAt = remoteConfig?.lastEvaluatedAt
             let details = remoteConfig?.getFeatureFlagDetails(flagKey)
 
-            var properties = [
+            var properties: [String: Any] = [
                 "$feature_flag": flagKey,
                 "$feature_flag_response": flagValue ?? NSNull(),
                 "$feature_flag_request_id": requestId,
             ]
+
+            if let evaluatedAt {
+                properties["$feature_flag_evaluated_at"] = evaluatedAt
+            }
 
             if let details = details as? [String: Any] {
                 if let reason = details["reason"] as? [String: Any] {

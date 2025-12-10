@@ -531,6 +531,13 @@ def parse_class_json(class_file_path: str) -> Dict:
     
     return class_info
 
+def is_internal_class(title: str) -> bool:
+    """Check if a class should be filtered out as internal."""
+    known_internal_classes = [
+        "PostHogStorageManager"
+    ]
+    return title in known_internal_classes
+
 def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
     """Process the entire DocC data directory structure."""
     
@@ -613,6 +620,11 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
         symbol_kind = metadata.get("symbolKind", "")
         
         if (kind == "symbol" and symbol_kind == "class" and "PostHog" in title):
+            # Filter out internal classes
+            if is_internal_class(title):
+                print(f"  ⏭️  Skipping internal class: {title}")
+                continue
+            
             # Special case: PostHogConfig should be in types, not classes
             if title == "PostHogConfig":
                 # Add PostHogConfig to types with example
@@ -772,7 +784,7 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
                                     method_info["throws"] = throws_info
                                 
                                 # Generate examples array
-                                examples = generate_method_examples(clean_method_name, params, return_type)
+                                examples = generate_method_examples(clean_method_name, params, return_type, title)
                                 if examples:
                                     method_info["examples"] = examples
                                 
@@ -856,13 +868,30 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
     
     return result
 
-def generate_method_examples(method_name: str, params: List[Dict], return_type: Dict) -> List[Dict]:
+def get_instance_for_class(class_name: str) -> str:
+    if not class_name:
+        # Fallback: use generic instance name when class name is unknown
+        return "instance"
+    
+    # Singleton pattern: classes ending with "SDK" typically use .shared
+    if class_name.endswith("SDK"):
+        return f"{class_name}.shared"
+    
+    # For all other types, use standard camelCase convention
+    if len(class_name) > 1:
+        return class_name[0].lower() + class_name[1:]
+    return class_name.lower()
+
+def generate_method_examples(method_name: str, params: List[Dict], return_type: Dict, class_name: str = "") -> List[Dict]:
     """Generate examples array with id, name, and code fields."""
     examples = []
     
+    # Determine the appropriate instance based on class/type name
+    instance = get_instance_for_class(class_name)
+    
     if not params:
         # No parameters - simple example
-        code = f"PostHogSDK.shared.{method_name}()"
+        code = f"{instance}.{method_name}()"
         examples.append({
             "id": f"basic_{method_name}",
             "name": f"Basic {method_name}",
@@ -888,7 +917,7 @@ def generate_method_examples(method_name: str, params: List[Dict], return_type: 
             param_parts.append(f"{param_name}: {placeholder}")
         
         params_str = ", ".join(param_parts)
-        code = f"PostHogSDK.shared.{method_name}({params_str})"
+        code = f"{instance}.{method_name}({params_str})"
         examples.append({
             "id": f"basic_{method_name}",
             "name": f"Basic {method_name}",

@@ -1424,7 +1424,7 @@
             {
               "id": "basic_appearance",
               "name": "Basic appearance",
-              "code": "PostHogSDK.shared.appearance()"
+              "code": "postHogDisplaySurvey.appearance()"
             }
           ]
         },
@@ -1446,7 +1446,7 @@
             {
               "id": "basic_endDate",
               "name": "Basic endDate",
-              "code": "PostHogSDK.shared.endDate()"
+              "code": "postHogDisplaySurvey.endDate()"
             }
           ]
         },
@@ -1468,7 +1468,7 @@
             {
               "id": "basic_id",
               "name": "Basic id",
-              "code": "PostHogSDK.shared.id()"
+              "code": "postHogDisplaySurvey.id()"
             }
           ]
         },
@@ -1490,7 +1490,7 @@
             {
               "id": "basic_name",
               "name": "Basic name",
-              "code": "PostHogSDK.shared.name()"
+              "code": "postHogDisplaySurvey.name()"
             }
           ]
         },
@@ -1512,7 +1512,7 @@
             {
               "id": "basic_questions",
               "name": "Basic questions",
-              "code": "PostHogSDK.shared.questions()"
+              "code": "postHogDisplaySurvey.questions()"
             }
           ]
         },
@@ -1534,7 +1534,7 @@
             {
               "id": "basic_startDate",
               "name": "Basic startDate",
-              "code": "PostHogSDK.shared.startDate()"
+              "code": "postHogDisplaySurvey.startDate()"
             }
           ]
         }
@@ -1563,7 +1563,7 @@
             {
               "id": "basic_link",
               "name": "Basic link",
-              "code": "PostHogSDK.shared.link()"
+              "code": "postHogDisplayLinkQuestion.link()"
             }
           ]
         }
@@ -1592,7 +1592,7 @@
             {
               "id": "basic_choices",
               "name": "Basic choices",
-              "code": "PostHogSDK.shared.choices()"
+              "code": "postHogDisplayChoiceQuestion.choices()"
             }
           ]
         },
@@ -1614,7 +1614,7 @@
             {
               "id": "basic_hasOpenChoice",
               "name": "Basic hasOpenChoice",
-              "code": "PostHogSDK.shared.hasOpenChoice()"
+              "code": "postHogDisplayChoiceQuestion.hasOpenChoice()"
             }
           ]
         },
@@ -1636,7 +1636,7 @@
             {
               "id": "basic_isMultipleChoice",
               "name": "Basic isMultipleChoice",
-              "code": "PostHogSDK.shared.isMultipleChoice()"
+              "code": "postHogDisplayChoiceQuestion.isMultipleChoice()"
             }
           ]
         },
@@ -1658,7 +1658,7 @@
             {
               "id": "basic_shuffleOptions",
               "name": "Basic shuffleOptions",
-              "code": "PostHogSDK.shared.shuffleOptions()"
+              "code": "postHogDisplayChoiceQuestion.shuffleOptions()"
             }
           ]
         }
@@ -1687,7 +1687,7 @@
             {
               "id": "basic_isSurveyCompleted",
               "name": "Basic isSurveyCompleted",
-              "code": "PostHogSDK.shared.isSurveyCompleted()"
+              "code": "postHogNextSurveyQuestion.isSurveyCompleted()"
             }
           ]
         },
@@ -1709,244 +1709,7 @@
             {
               "id": "basic_questionIndex",
               "name": "Basic questionIndex",
-              "code": "PostHogSDK.shared.questionIndex()"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "description": "The PostHogStorageManager class",
-      "id": "PostHogStorageManager",
-      "title": "PostHogStorageManager",
-      "functions": [
-        {
-          "category": "Identification",
-          "description": "getAnonymousId method",
-          "id": "getAnonymousId",
-          "showDocs": true,
-          "title": "getAnonymousId",
-          "releaseTag": "public",
-          "params": [],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_getAnonymousId",
-              "name": "Basic getAnonymousId",
-              "code": "PostHogSDK.shared.getAnonymousId()"
-            }
-          ]
-        },
-        {
-          "category": "Identification",
-          "description": "getDistinctId method",
-          "id": "getDistinctId",
-          "showDocs": true,
-          "title": "getDistinctId",
-          "releaseTag": "public",
-          "params": [],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_getDistinctId",
-              "name": "Basic getDistinctId",
-              "code": "PostHogSDK.shared.getDistinctId()"
-            }
-          ]
-        },
-        {
-          "category": "Configuration",
-          "description": "isIdentified method",
-          "id": "isIdentified",
-          "showDocs": true,
-          "title": "isIdentified",
-          "releaseTag": "public",
-          "params": [],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_isIdentified",
-              "name": "Basic isIdentified",
-              "code": "PostHogSDK.shared.isIdentified()"
-            }
-          ]
-        },
-        {
-          "category": "Configuration",
-          "description": "isPersonProcessing method",
-          "id": "isPersonProcessing",
-          "showDocs": true,
-          "title": "isPersonProcessing",
-          "releaseTag": "public",
-          "params": [],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_isPersonProcessing",
-              "name": "Basic isPersonProcessing",
-              "code": "PostHogSDK.shared.isPersonProcessing()"
-            }
-          ]
-        },
-        {
-          "category": "Privacy",
-          "description": "reset method",
-          "id": "reset",
-          "showDocs": true,
-          "title": "reset",
-          "releaseTag": "public",
-          "params": [
-            {
-              "name": "keepAnonymousId",
-              "type": "Bool",
-              "description": "The keepAnonymousId parameter",
-              "isOptional": false
-            },
-            {
-              "name": "param1",
-              "type": "Bool",
-              "description": "The param1 parameter",
-              "isOptional": false
-            }
-          ],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_reset",
-              "name": "Basic reset",
-              "code": "PostHogSDK.shared.reset(keepAnonymousId: true, param1: true)"
-            }
-          ]
-        },
-        {
-          "category": "Configuration",
-          "description": "setAnonymousId method",
-          "id": "setAnonymousId",
-          "showDocs": true,
-          "title": "setAnonymousId",
-          "releaseTag": "public",
-          "params": [
-            {
-              "name": "param0",
-              "type": "String",
-              "description": "The param0 parameter",
-              "isOptional": false
-            }
-          ],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_setAnonymousId",
-              "name": "Basic setAnonymousId",
-              "code": "PostHogSDK.shared.setAnonymousId(param0: \"param0_value\")"
-            }
-          ]
-        },
-        {
-          "category": "Configuration",
-          "description": "setDistinctId method",
-          "id": "setDistinctId",
-          "showDocs": true,
-          "title": "setDistinctId",
-          "releaseTag": "public",
-          "params": [
-            {
-              "name": "param0",
-              "type": "String",
-              "description": "The param0 parameter",
-              "isOptional": false
-            }
-          ],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_setDistinctId",
-              "name": "Basic setDistinctId",
-              "code": "PostHogSDK.shared.setDistinctId(param0: \"param0_value\")"
-            }
-          ]
-        },
-        {
-          "category": "Configuration",
-          "description": "setIdentified method",
-          "id": "setIdentified",
-          "showDocs": true,
-          "title": "setIdentified",
-          "releaseTag": "public",
-          "params": [
-            {
-              "name": "param0",
-              "type": "Bool",
-              "description": "The param0 parameter",
-              "isOptional": false
-            }
-          ],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_setIdentified",
-              "name": "Basic setIdentified",
-              "code": "PostHogSDK.shared.setIdentified(param0: true)"
-            }
-          ]
-        },
-        {
-          "category": "Configuration",
-          "description": "setPersonProcessing method",
-          "id": "setPersonProcessing",
-          "showDocs": true,
-          "title": "setPersonProcessing",
-          "releaseTag": "public",
-          "params": [
-            {
-              "name": "param0",
-              "type": "Bool",
-              "description": "The param0 parameter",
-              "isOptional": false
-            }
-          ],
-          "returnType": {
-            "id": "Void",
-            "name": "Void"
-          },
-          "path": "PostHog/PostHogStorageManager.swift",
-          "examples": [
-            {
-              "id": "basic_setPersonProcessing",
-              "name": "Basic setPersonProcessing",
-              "code": "PostHogSDK.shared.setPersonProcessing(param0: true)"
+              "code": "postHogNextSurveyQuestion.questionIndex()"
             }
           ]
         }
@@ -1980,7 +1743,7 @@
             {
               "id": "basic_distinctId",
               "name": "Basic distinctId",
-              "code": "PostHogSDK.shared.distinctId()"
+              "code": "postHogEvent.distinctId()"
             }
           ]
         },
@@ -2001,7 +1764,7 @@
             {
               "id": "basic_event",
               "name": "Basic event",
-              "code": "PostHogSDK.shared.event()"
+              "code": "postHogEvent.event()"
             }
           ]
         },
@@ -2022,7 +1785,7 @@
             {
               "id": "basic_properties",
               "name": "Basic properties",
-              "code": "PostHogSDK.shared.properties()"
+              "code": "postHogEvent.properties()"
             }
           ]
         },
@@ -2043,7 +1806,7 @@
             {
               "id": "basic_timestamp",
               "name": "Basic timestamp",
-              "code": "PostHogSDK.shared.timestamp()"
+              "code": "postHogEvent.timestamp()"
             }
           ]
         },
@@ -2064,7 +1827,7 @@
             {
               "id": "basic_uuid",
               "name": "Basic uuid",
-              "code": "PostHogSDK.shared.uuid()"
+              "code": "postHogEvent.uuid()"
             }
           ]
         }
@@ -2093,7 +1856,7 @@
             {
               "id": "basic_linkClicked",
               "name": "Basic linkClicked",
-              "code": "PostHogSDK.shared.linkClicked()"
+              "code": "postHogSurveyResponse.linkClicked()"
             }
           ]
         },
@@ -2115,7 +1878,7 @@
             {
               "id": "basic_ratingValue",
               "name": "Basic ratingValue",
-              "code": "PostHogSDK.shared.ratingValue()"
+              "code": "postHogSurveyResponse.ratingValue()"
             }
           ]
         },
@@ -2137,7 +1900,7 @@
             {
               "id": "basic_selectedOptions",
               "name": "Basic selectedOptions",
-              "code": "PostHogSDK.shared.selectedOptions()"
+              "code": "postHogSurveyResponse.selectedOptions()"
             }
           ]
         },
@@ -2159,7 +1922,7 @@
             {
               "id": "basic_textValue",
               "name": "Basic textValue",
-              "code": "PostHogSDK.shared.textValue()"
+              "code": "postHogSurveyResponse.textValue()"
             }
           ]
         },
@@ -2181,7 +1944,7 @@
             {
               "id": "basic_type",
               "name": "Basic type",
-              "code": "PostHogSDK.shared.type()"
+              "code": "postHogSurveyResponse.type()"
             }
           ]
         },
@@ -2210,7 +1973,7 @@
             {
               "id": "basic_link",
               "name": "Basic link",
-              "code": "PostHogSDK.shared.link(clicked: \"clicked_value\")"
+              "code": "postHogSurveyResponse.link(clicked: \"clicked_value\")"
             }
           ]
         },
@@ -2239,7 +2002,7 @@
             {
               "id": "basic_multipleChoice",
               "name": "Basic multipleChoice",
-              "code": "PostHogSDK.shared.multipleChoice(multipleChoice: \"multipleChoice_value\")"
+              "code": "postHogSurveyResponse.multipleChoice(multipleChoice: \"multipleChoice_value\")"
             }
           ]
         },
@@ -2268,7 +2031,7 @@
             {
               "id": "basic_openEnded",
               "name": "Basic openEnded",
-              "code": "PostHogSDK.shared.openEnded(openEnded: \"openEnded_value\")"
+              "code": "postHogSurveyResponse.openEnded(openEnded: \"openEnded_value\")"
             }
           ]
         },
@@ -2297,7 +2060,7 @@
             {
               "id": "basic_rating",
               "name": "Basic rating",
-              "code": "PostHogSDK.shared.rating(rating: \"rating_value\")"
+              "code": "postHogSurveyResponse.rating(rating: \"rating_value\")"
             }
           ]
         },
@@ -2326,7 +2089,7 @@
             {
               "id": "basic_singleChoice",
               "name": "Basic singleChoice",
-              "code": "PostHogSDK.shared.singleChoice(singleChoice: \"singleChoice_value\")"
+              "code": "postHogSurveyResponse.singleChoice(singleChoice: \"singleChoice_value\")"
             }
           ]
         }
@@ -2355,7 +2118,7 @@
             {
               "id": "basic_buttonText",
               "name": "Basic buttonText",
-              "code": "PostHogSDK.shared.buttonText()"
+              "code": "postHogDisplaySurveyQuestion.buttonText()"
             }
           ]
         },
@@ -2377,7 +2140,7 @@
             {
               "id": "basic_id",
               "name": "Basic id",
-              "code": "PostHogSDK.shared.id()"
+              "code": "postHogDisplaySurveyQuestion.id()"
             }
           ]
         },
@@ -2399,7 +2162,7 @@
             {
               "id": "basic_isOptional",
               "name": "Basic isOptional",
-              "code": "PostHogSDK.shared.isOptional()"
+              "code": "postHogDisplaySurveyQuestion.isOptional()"
             }
           ]
         },
@@ -2421,7 +2184,7 @@
             {
               "id": "basic_question",
               "name": "Basic question",
-              "code": "PostHogSDK.shared.question()"
+              "code": "postHogDisplaySurveyQuestion.question()"
             }
           ]
         },
@@ -2443,7 +2206,7 @@
             {
               "id": "basic_questionDescription",
               "name": "Basic questionDescription",
-              "code": "PostHogSDK.shared.questionDescription()"
+              "code": "postHogDisplaySurveyQuestion.questionDescription()"
             }
           ]
         },
@@ -2465,7 +2228,7 @@
             {
               "id": "basic_questionDescriptionContentType",
               "name": "Basic questionDescriptionContentType",
-              "code": "PostHogSDK.shared.questionDescriptionContentType()"
+              "code": "postHogDisplaySurveyQuestion.questionDescriptionContentType()"
             }
           ]
         }
@@ -2500,7 +2263,7 @@
             {
               "id": "basic_setSessionId",
               "name": "Basic setSessionId",
-              "code": "PostHogSDK.shared.setSessionId(param0: \"param0_value\")"
+              "code": "postHogSessionManager.setSessionId(param0: \"param0_value\")"
             }
           ]
         },
@@ -2521,7 +2284,7 @@
             {
               "id": "basic_shared",
               "name": "Basic shared",
-              "code": "PostHogSDK.shared.shared()"
+              "code": "postHogSessionManager.shared()"
             }
           ]
         }
@@ -2550,7 +2313,7 @@
             {
               "id": "basic_surveysDelegate",
               "name": "Basic surveysDelegate",
-              "code": "PostHogSDK.shared.surveysDelegate()"
+              "code": "postHogSurveysConfig.surveysDelegate()"
             }
           ]
         }
@@ -2579,7 +2342,7 @@
             {
               "id": "basic_lowerBoundLabel",
               "name": "Basic lowerBoundLabel",
-              "code": "PostHogSDK.shared.lowerBoundLabel()"
+              "code": "postHogDisplayRatingQuestion.lowerBoundLabel()"
             }
           ]
         },
@@ -2601,7 +2364,7 @@
             {
               "id": "basic_ratingType",
               "name": "Basic ratingType",
-              "code": "PostHogSDK.shared.ratingType()"
+              "code": "postHogDisplayRatingQuestion.ratingType()"
             }
           ]
         },
@@ -2623,7 +2386,7 @@
             {
               "id": "basic_scaleLowerBound",
               "name": "Basic scaleLowerBound",
-              "code": "PostHogSDK.shared.scaleLowerBound()"
+              "code": "postHogDisplayRatingQuestion.scaleLowerBound()"
             }
           ]
         },
@@ -2645,7 +2408,7 @@
             {
               "id": "basic_scaleUpperBound",
               "name": "Basic scaleUpperBound",
-              "code": "PostHogSDK.shared.scaleUpperBound()"
+              "code": "postHogDisplayRatingQuestion.scaleUpperBound()"
             }
           ]
         },
@@ -2667,7 +2430,7 @@
             {
               "id": "basic_upperBoundLabel",
               "name": "Basic upperBoundLabel",
-              "code": "PostHogSDK.shared.upperBoundLabel()"
+              "code": "postHogDisplayRatingQuestion.upperBoundLabel()"
             }
           ]
         }
@@ -2696,7 +2459,7 @@
             {
               "id": "basic_backgroundColor",
               "name": "Basic backgroundColor",
-              "code": "PostHogSDK.shared.backgroundColor()"
+              "code": "postHogDisplaySurveyAppearance.backgroundColor()"
             }
           ]
         },
@@ -2718,7 +2481,7 @@
             {
               "id": "basic_borderColor",
               "name": "Basic borderColor",
-              "code": "PostHogSDK.shared.borderColor()"
+              "code": "postHogDisplaySurveyAppearance.borderColor()"
             }
           ]
         },
@@ -2740,7 +2503,7 @@
             {
               "id": "basic_descriptionTextColor",
               "name": "Basic descriptionTextColor",
-              "code": "PostHogSDK.shared.descriptionTextColor()"
+              "code": "postHogDisplaySurveyAppearance.descriptionTextColor()"
             }
           ]
         },
@@ -2762,7 +2525,7 @@
             {
               "id": "basic_displayThankYouMessage",
               "name": "Basic displayThankYouMessage",
-              "code": "PostHogSDK.shared.displayThankYouMessage()"
+              "code": "postHogDisplaySurveyAppearance.displayThankYouMessage()"
             }
           ]
         },
@@ -2784,7 +2547,7 @@
             {
               "id": "basic_fontFamily",
               "name": "Basic fontFamily",
-              "code": "PostHogSDK.shared.fontFamily()"
+              "code": "postHogDisplaySurveyAppearance.fontFamily()"
             }
           ]
         },
@@ -2806,7 +2569,7 @@
             {
               "id": "basic_placeholder",
               "name": "Basic placeholder",
-              "code": "PostHogSDK.shared.placeholder()"
+              "code": "postHogDisplaySurveyAppearance.placeholder()"
             }
           ]
         },
@@ -2828,7 +2591,7 @@
             {
               "id": "basic_ratingButtonActiveColor",
               "name": "Basic ratingButtonActiveColor",
-              "code": "PostHogSDK.shared.ratingButtonActiveColor()"
+              "code": "postHogDisplaySurveyAppearance.ratingButtonActiveColor()"
             }
           ]
         },
@@ -2850,7 +2613,7 @@
             {
               "id": "basic_ratingButtonColor",
               "name": "Basic ratingButtonColor",
-              "code": "PostHogSDK.shared.ratingButtonColor()"
+              "code": "postHogDisplaySurveyAppearance.ratingButtonColor()"
             }
           ]
         },
@@ -2872,7 +2635,7 @@
             {
               "id": "basic_submitButtonColor",
               "name": "Basic submitButtonColor",
-              "code": "PostHogSDK.shared.submitButtonColor()"
+              "code": "postHogDisplaySurveyAppearance.submitButtonColor()"
             }
           ]
         },
@@ -2894,7 +2657,7 @@
             {
               "id": "basic_submitButtonText",
               "name": "Basic submitButtonText",
-              "code": "PostHogSDK.shared.submitButtonText()"
+              "code": "postHogDisplaySurveyAppearance.submitButtonText()"
             }
           ]
         },
@@ -2916,7 +2679,7 @@
             {
               "id": "basic_submitButtonTextColor",
               "name": "Basic submitButtonTextColor",
-              "code": "PostHogSDK.shared.submitButtonTextColor()"
+              "code": "postHogDisplaySurveyAppearance.submitButtonTextColor()"
             }
           ]
         },
@@ -2938,7 +2701,7 @@
             {
               "id": "basic_thankYouMessageCloseButtonText",
               "name": "Basic thankYouMessageCloseButtonText",
-              "code": "PostHogSDK.shared.thankYouMessageCloseButtonText()"
+              "code": "postHogDisplaySurveyAppearance.thankYouMessageCloseButtonText()"
             }
           ]
         },
@@ -2960,7 +2723,7 @@
             {
               "id": "basic_thankYouMessageDescription",
               "name": "Basic thankYouMessageDescription",
-              "code": "PostHogSDK.shared.thankYouMessageDescription()"
+              "code": "postHogDisplaySurveyAppearance.thankYouMessageDescription()"
             }
           ]
         },
@@ -2982,7 +2745,7 @@
             {
               "id": "basic_thankYouMessageDescriptionContentType",
               "name": "Basic thankYouMessageDescriptionContentType",
-              "code": "PostHogSDK.shared.thankYouMessageDescriptionContentType()"
+              "code": "postHogDisplaySurveyAppearance.thankYouMessageDescriptionContentType()"
             }
           ]
         },
@@ -3004,7 +2767,7 @@
             {
               "id": "basic_thankYouMessageHeader",
               "name": "Basic thankYouMessageHeader",
-              "code": "PostHogSDK.shared.thankYouMessageHeader()"
+              "code": "postHogDisplaySurveyAppearance.thankYouMessageHeader()"
             }
           ]
         }

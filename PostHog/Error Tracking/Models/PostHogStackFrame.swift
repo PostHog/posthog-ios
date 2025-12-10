@@ -37,7 +37,7 @@ struct PostHogStackFrame {
         var dict: [String: Any] = [:]
         
         dict["instruction_addr"] = String(format: Self.hexAddressFormat, instructionAddress)
-        dict["platform"] = "ios" // always the same for iOS SDK (may need to revisit)
+        dict["platform"] = "apple" // always the same for posthog-ios (may need to revisit)
         dict["in_app"] = inApp
         
         if let module = module {

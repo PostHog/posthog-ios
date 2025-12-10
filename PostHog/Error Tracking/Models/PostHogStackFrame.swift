@@ -9,6 +9,9 @@ import Foundation
 
 /// Information about a single stack frame
 struct PostHogStackFrame {
+    /// Format string for converting UInt64 addresses to hex strings (e.g., "0x7fff12345678")
+    static let hexAddressFormat = "0x%llx"
+    
     /// The instruction address where the frame was executing
     let instructionAddress: UInt64
     
@@ -33,7 +36,7 @@ struct PostHogStackFrame {
     var toDictionary: [String: Any] {
         var dict: [String: Any] = [:]
         
-        dict["instruction_addr"] = String(format: "0x%llx", instructionAddress)
+        dict["instruction_addr"] = String(format: Self.hexAddressFormat, instructionAddress)
         dict["platform"] = "ios" // always the same for iOS SDK (may need to revisit)
         dict["in_app"] = inApp
         
@@ -46,7 +49,7 @@ struct PostHogStackFrame {
         }
         
         if let imageAddress = imageAddress {
-            dict["image_addr"] = String(format: "0x%llx", imageAddress)
+            dict["image_addr"] = String(format: Self.hexAddressFormat, imageAddress)
         }
         
         if let function = function {
@@ -54,7 +57,7 @@ struct PostHogStackFrame {
         }
         
         if let symbolAddress = symbolAddress {
-            dict["symbol_addr"] = String(format: "0x%llx", symbolAddress)
+            dict["symbol_addr"] = String(format: Self.hexAddressFormat, symbolAddress)
         }
         
         return dict

@@ -34,7 +34,7 @@ struct PostHogBinaryImageInfo {
         var dict: [String: Any] = [
             "type": "macho",
             "code_file": name,
-            "image_addr": String(format: "0x%llx", address),
+            "image_addr": String(format: PostHogStackFrame.hexAddressFormat, address),
             "image_size": size,
         ]
 
@@ -43,7 +43,7 @@ struct PostHogBinaryImageInfo {
         }
 
         if vmAddress > 0 {
-            dict["image_vmaddr"] = String(format: "0x%llx", vmAddress)
+            dict["image_vmaddr"] = String(format: PostHogStackFrame.hexAddressFormat, vmAddress)
         }
 
         return dict

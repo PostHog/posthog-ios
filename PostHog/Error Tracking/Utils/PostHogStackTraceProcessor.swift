@@ -1,5 +1,5 @@
 //
-//  PostHogStackTrace.swift
+//  PostHogStackTraceProcessor.swift
 //  PostHog
 //
 //  Created by Ioannis Josephides on 13/11/2025.
@@ -9,12 +9,12 @@ import Darwin
 import Foundation
 import MachO
 
-/// Utility for capturing and processing stack traces
+/// Captures and processes stack traces for error tracking
 ///
 /// This class provides methods to capture stack traces from the current thread
 /// and format them consistently for error tracking.
 ///
-enum PostHogStackTrace {
+enum PostHogStackTraceProcessor {
     // MARK: - Stack Trace Capture
 
     /// Captures current stack trace using dladdr() for rich metadata

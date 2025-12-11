@@ -119,7 +119,15 @@ enum PostHogExceptionProcessor {
     /// Build list of exceptions from NSException chain
     ///
     /// Walks the NSException chain via NSUnderlyingErrorKey to capture all related exceptions.
-    /// The list is ordered from root exception to underlying exceptions (same as Android).
+    /// The list is ordered root-first, matching iOS console output format where the outermost
+    /// exception is displayed first with underlying exceptions nested inside.
+    ///
+    /// Example iOS console output:
+    /// ```
+    /// Error Domain=OuterErrorDomain Code=300 "Outer wrapper" UserInfo={
+    ///     NSUnderlyingError=0x... {Error Domain=InnerErrorDomain Code=100 "Root cause" ...}
+    /// }
+    /// ```
     private static func buildExceptionList(
         from exception: NSException,
         handled: Bool,
@@ -138,7 +146,8 @@ enum PostHogExceptionProcessor {
             current = underlying
         }
 
-        // Build exceptions (same order as Android)
+        // Build exceptions in order: root first, deepest underlying last
+        // This matches iOS console output format
         for exc in nsExceptions {
             if let exceptionDict = buildException(
                 from: exc,
@@ -156,7 +165,15 @@ enum PostHogExceptionProcessor {
     /// Build list of exceptions from error chain
     ///
     /// Walks the error chain via NSUnderlyingErrorKey to capture all related errors.
-    /// The list is ordered from root error to underlying errors (same as Android).
+    /// The list is ordered root-first, matching iOS console output format where the outermost
+    /// error is displayed first with underlying errors nested inside.
+    ///
+    /// Example iOS console output:
+    /// ```
+    /// Error Domain=OuterErrorDomain Code=300 "Outer wrapper" UserInfo={
+    ///     NSUnderlyingError=0x... {Error Domain=InnerErrorDomain Code=100 "Root cause" ...}
+    /// }
+    /// ```
     private static func buildExceptionList(
         from error: Error,
         handled: Bool,
@@ -176,7 +193,8 @@ enum PostHogExceptionProcessor {
             current = underlying
         }
 
-        // Build exceptions (same order as Android)
+        // Build exceptions in order: root first, deepest underlying last
+        // This matches iOS console output format
         for err in errors {
             if let exception = buildException(
                 from: err,
@@ -215,7 +233,7 @@ enum PostHogExceptionProcessor {
         exception["mechanism"] = [
             "type": mechanismType,
             "handled": handled,
-            "synthetic": true,  // Always true for NSError - we capture current stack
+            "synthetic": true, // Always true for NSError - we capture current stack
         ]
 
         if let stacktrace = buildStacktrace(config: config) {
@@ -235,8 +253,10 @@ enum PostHogExceptionProcessor {
         var exceptionDict: [String: Any] = [:]
 
         exceptionDict["type"] = exception.name.rawValue
-        exceptionDict["value"] = exception.reason ?? "Unknown exception"
         exceptionDict["thread_id"] = Thread.current.threadId
+        if let reason = exception.reason {
+            exceptionDict["value"] = reason
+        }
 
         // Use exception's real stack if available, otherwise capture current (synthetic)
         let exceptionAddresses = exception.callStackReturnAddresses

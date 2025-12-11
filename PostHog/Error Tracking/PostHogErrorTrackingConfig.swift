@@ -23,8 +23,8 @@ import Foundation
     /// Example:
     /// ```swift
     /// config.errorTrackingConfig.inAppIncludes = [
-    ///     "com.mycompany.MyApp",
-    ///     "com.mycompany.SharedUtils"
+    ///     "MyApp",
+    ///     "SharedUtils"
     /// ]
     /// ```
     ///
@@ -43,8 +43,8 @@ import Foundation
     /// Example:
     /// ```swift
     /// config.errorTrackingConfig.inAppExcludes = [
-    ///     "ThirdPartySDK",
-    ///     "AnalyticsLib"
+    ///     "Alamofire",
+    ///     "SDWebImage"
     /// ]
     /// ```
     ///
@@ -72,9 +72,7 @@ import Foundation
         super.init()
 
         // Auto-add main bundle identifier
-        if let bundleId = Bundle.main.bundleIdentifier {
-            inAppIncludes.append(bundleId)
-        }
+        inAppIncludes.append(getBundleIdentifier())
 
         // Auto-add executable name
         // This helps catch app code when bundle ID might not be in module name

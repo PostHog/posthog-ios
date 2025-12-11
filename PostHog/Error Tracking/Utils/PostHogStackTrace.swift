@@ -15,7 +15,6 @@ import MachO
 /// and format them consistently for error tracking.
 ///
 enum PostHogStackTrace {
-
     // MARK: - Stack Trace Capture
 
     /// Captures current stack trace using dladdr() for rich metadata
@@ -78,7 +77,7 @@ enum PostHogStackTrace {
             var function: String?
             var symbolAddress: UInt64?
             if let symbolName = info.dli_sname {
-                function = String(cString: symbolName)  // Use raw symbol
+                function = String(cString: symbolName) // Use raw symbol
                 symbolAddress = UInt64(UInt(bitPattern: info.dli_saddr))
             }
 

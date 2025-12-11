@@ -145,7 +145,7 @@ struct ContentView: View {
     private func asyncLevel3() async throws {
         // Simulate final async work before error
         await Task.sleep(30_000_000) // 0.03 seconds
-        
+
         // Throw an error from deep in the async chain
         throw AsyncTestError.deepAsyncError(
             message: "Error occurred in async level 3",
@@ -450,7 +450,7 @@ struct ErrorDetails {
 
 enum AsyncTestError: LocalizedError {
     case deepAsyncError(message: String, context: [String: Any])
-    
+
     var errorDescription: String? {
         switch self {
         case let .deepAsyncError(message, context):

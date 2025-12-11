@@ -330,52 +330,52 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Real NSRangeException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerSampleRangeException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "real_nsrange_exception",
                                 "caught_by": "objective_c_wrapper",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger Real NSInvalidArgumentException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerSampleInvalidArgumentException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "real_invalid_argument_exception",
                                 "caught_by": "objective_c_wrapper",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger Custom NSException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerSampleGenericException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "real_custom_exception",
                                 "caught_by": "objective_c_wrapper",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger Chained NSException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerChainedException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "chained_exception",
                                 "caught_by": "objective_c_wrapper",
                                 "scenario": "network_database_business_chain",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger with Message") {

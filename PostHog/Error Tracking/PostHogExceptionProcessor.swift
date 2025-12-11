@@ -314,7 +314,7 @@ enum PostHogExceptionProcessor {
         // localizedDescription should always return something, but let's be safe jic
         let localizedDesc = error.localizedDescription
         let errorDesc = localizedDesc.isEmpty ? "Error" : localizedDesc
-        
+
         return "\(errorDesc) (Code: \(error.code))"
     }
 

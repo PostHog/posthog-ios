@@ -126,6 +126,7 @@ def extract_parameters_from_declaration_fragments(declaration_fragments: List[Di
     in_params = False
     param_index = 0
     current_param_name = None
+    current_internal_name = None
     
     for i, fragment in enumerate(declaration_fragments):
         text = fragment.get("text", "")
@@ -139,25 +140,87 @@ def extract_parameters_from_declaration_fragments(declaration_fragments: List[Di
         elif not in_params:
             continue
         elif kind == "externalParam":
-            current_param_name = text
-        elif kind == "typeIdentifier" and current_param_name:
-            params.append({
-                "name": current_param_name,
-                "type": text,
-                "description": f"The {current_param_name} parameter",
-                "isOptional": "?" in text
-            })
-            current_param_name = None
-            param_index += 1
-        elif kind == "typeIdentifier" and not current_param_name:
-            # Unnamed parameter
-            param_name = infer_parameter_name(method_title, param_index)
+            # If external param is "_", we'll use the internal name
+            current_param_name = text if text != "_" else None
+        elif kind == "internalParam":
+            # Save internal parameter name (used when external is "_")
+            current_internal_name = text
+        elif kind == "text" and (": [" in text or ":[" in text):
+            # Start of a dictionary or array type - collect until closing bracket
+            type_parts = [text]
+            j = i + 1
+            bracket_depth = text.count("[") - text.count("]")
+            
+            while j < len(declaration_fragments) and bracket_depth > 0:
+                next_frag = declaration_fragments[j]
+                next_text = next_frag.get("text", "")
+                
+                # Stop if we hit closing paren before balancing brackets
+                if ")" in next_text:
+                    # Only take the part before the closing paren
+                    before_paren = next_text.split(")")[0]
+                    if before_paren:
+                        type_parts.append(before_paren)
+                    bracket_depth += before_paren.count("[") - before_paren.count("]")
+                    break
+                
+                type_parts.append(next_text)
+                bracket_depth += next_text.count("[") - next_text.count("]")
+                j += 1
+            
+            full_type = "".join(type_parts).strip()
+            # Remove leading colon and space if present
+            if full_type.startswith(":"):
+                full_type = full_type[1:].strip()
+            
+            # Determine the parameter name to use
+            param_name = current_param_name or current_internal_name or infer_parameter_name(method_title, param_index)
+            
             params.append({
                 "name": param_name,
-                "type": text,
+                "type": full_type,
                 "description": f"The {param_name} parameter",
-                "isOptional": "?" in text
+                "isOptional": "?" in full_type
             })
+            current_param_name = None
+            current_internal_name = None
+            param_index += 1
+            
+            # Skip to after the closing paren to avoid re-processing
+            break
+        elif kind == "typeIdentifier" or kind == "keyword":
+            # Extract the type - collect all type-related fragments
+            type_parts = [text]
+            # Look ahead to collect the full type (e.g., String?, Optional<String>)
+            j = i + 1
+            while j < len(declaration_fragments):
+                next_frag = declaration_fragments[j]
+                next_text = next_frag.get("text", "")
+                next_kind = next_frag.get("kind", "")
+                
+                # Continue collecting type parts for simple types
+                if next_text in ["?", "!", " "] and next_kind == "text":
+                    type_parts.append(next_text)
+                    j += 1
+                # Stop at comma, closing paren, or colon (next parameter or end)
+                elif next_text.strip() and next_text[0] in [",", ")", ":"]:
+                    break
+                else:
+                    break
+            
+            full_type = "".join(type_parts).strip()
+            
+            # Determine the parameter name to use
+            param_name = current_param_name or current_internal_name or infer_parameter_name(method_title, param_index)
+            
+            params.append({
+                "name": param_name,
+                "type": full_type,
+                "description": f"The {param_name} parameter",
+                "isOptional": "?" in full_type
+            })
+            current_param_name = None
+            current_internal_name = None
             param_index += 1
     
     return params
@@ -266,6 +329,70 @@ def extract_property_type_from_fragments(fragments: List[Dict]) -> str:
             return text
     
     return "Any"
+
+def extract_return_type_from_fragments(fragments: List[Dict]) -> Dict:
+    """Extract return type from method declaration fragments/tokens."""
+    if not fragments:
+        return {"id": "Void", "name": "Void"}
+    
+    # Look for "->" in fragments to find the return type
+    found_arrow = False
+    type_parts = []
+    
+    for i, fragment in enumerate(fragments):
+        text = fragment.get("text", "")
+        kind = fragment.get("kind", "")
+        
+        # Check if text contains "->" (common in tokens from declarations section)
+        if "->" in text or "→" in text:
+            found_arrow = True
+            # Extract the part after the arrow
+            if "->" in text:
+                after_arrow = text.split("->", 1)[1].strip()
+            else:
+                after_arrow = text.split("→", 1)[1].strip()
+            
+            if after_arrow:
+                type_parts.append(after_arrow)
+            continue
+        
+        # Look for the arrow operator as a separate fragment
+        if text == "->" or text == "→":
+            found_arrow = True
+            continue
+        
+        # If we haven't found the arrow yet, skip
+        if not found_arrow:
+            continue
+        
+        # Collect type-related fragments after the arrow
+        if kind == "typeIdentifier":
+            type_parts.append(text)
+        elif kind == "keyword" and text in ["Any", "Void"]:
+            type_parts.append(text)
+        elif text in ["?", "!"]:
+            # For optional types, make sure we have the base type
+            if not type_parts and i > 0:
+                # Look back for the type
+                prev = fragments[i-1]
+                if prev.get("kind") in ["typeIdentifier", "keyword"]:
+                    type_parts.append(prev.get("text", ""))
+            type_parts.append(text)
+        elif text in ["[", "]", "<", ">", ",", " ", ":"]:
+            type_parts.append(text)
+        # Stop if we hit certain keywords or punctuation that indicate end of return type
+        elif text in ["{", "where", "throws"]:
+            break
+    
+    # If no arrow found, it's a Void return type
+    if not found_arrow or not type_parts:
+        return {"id": "Void", "name": "Void"}
+    
+    # Join the type parts
+    return_type_str = "".join(type_parts).strip()
+    
+    # Return the type info
+    return {"id": return_type_str, "name": return_type_str}
 
 def extract_enum_cases_from_docc(type_data: Dict, references: Dict, docc_data_dir: str) -> List[Dict]:
     """Extract enum cases from DocC type data."""
@@ -711,7 +838,21 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
                                         except Exception as e:
                                             print(f"          Error loading method file {method_file_path}: {e}")
                                 
-                                params = extract_parameters_from_docc(method_data, fragments, method_title)
+                                # Extract declaration tokens from method_data if available
+                                declaration_tokens = []
+                                if method_data:
+                                    primary_sections = method_data.get("primaryContentSections", [])
+                                    for section in primary_sections:
+                                        if section.get("kind") == "declarations":
+                                            declarations = section.get("declarations", [])
+                                            if declarations:
+                                                declaration_tokens = declarations[0].get("tokens", [])
+                                                break
+                                
+                                # Use declaration_tokens if available, otherwise fall back to fragments
+                                tokens_to_use = declaration_tokens if declaration_tokens else fragments
+                                
+                                params = extract_parameters_from_docc(method_data, tokens_to_use, method_title)
                                 print(f"          Extracted params: {params}")
                                 
                                 # Extract description following DocC format
@@ -741,19 +882,8 @@ def process_docc_directory(docc_data_dir: str, version: str) -> Dict:
                                                 method_details = " ".join(discussion_parts)
                                                 break
                                 
-                                # Extract return type from DocC returns section
-                                return_type = {"id": "Void", "name": "Void"}
-                                method_returns = method_ref.get("returns", {})
-                                if method_returns:
-                                    return_content = method_returns.get("content", [])
-                                    if return_content:
-                                        return_description = " ".join([item.get("text", "") for item in return_content if isinstance(item, dict)])
-                                        # Try to extract return type from description or fragments
-                                        if "Bool" in return_description:
-                                            return_type = {"id": "Bool", "name": "Bool"}
-                                        elif "String" in return_description:
-                                            return_type = {"id": "String", "name": "String"}
-                                        # Add more type detection as needed
+                                # Extract return type from declaration tokens (preferred method)
+                                return_type = extract_return_type_from_fragments(tokens_to_use)
                                 
                                 # Extract throws information
                                 throws_info = None
@@ -904,14 +1034,16 @@ def generate_method_examples(method_name: str, params: List[Dict], return_type: 
             param_name = param.get("name", "")
             param_type = param.get("type", "Any")
             # Generate placeholder value based on type
-            if "String" in param_type:
+            if "[" in param_type and ":" in param_type:  # Dictionary like [String: Any]
+                placeholder = '["key": "value"]'
+            elif "[" in param_type:  # Array
+                placeholder = "[]"
+            elif "String" in param_type:
                 placeholder = f'"{param_name}_value"'
             elif "Int" in param_type or "Double" in param_type or "Float" in param_type:
                 placeholder = "0"
             elif "Bool" in param_type:
                 placeholder = "true"
-            elif "[" in param_type:  # Array
-                placeholder = "[]"
             else:
                 placeholder = f'"{param_name}_value"'
             param_parts.append(f"{param_name}: {placeholder}")

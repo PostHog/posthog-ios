@@ -142,7 +142,10 @@ enum PostHogExceptionProcessor {
         nsExceptions.append(exception)
 
         var current = exception
+        var seen = Set<ObjectIdentifier>([ObjectIdentifier(exception)])
         while let underlying = current.userInfo?[NSUnderlyingErrorKey] as? NSException {
+            let id = ObjectIdentifier(underlying)
+            guard seen.insert(id).inserted else { break } // avoid circular references
             nsExceptions.append(underlying)
             current = underlying
         }
@@ -189,7 +192,10 @@ enum PostHogExceptionProcessor {
         errors.append(nsError)
 
         var current = nsError
+        var seen = Set<ObjectIdentifier>([ObjectIdentifier(nsError)])
         while let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError {
+            let id = ObjectIdentifier(underlying)
+            guard seen.insert(id).inserted else { break } // avoid circular references
             errors.append(underlying)
             current = underlying
         }
@@ -253,9 +259,15 @@ enum PostHogExceptionProcessor {
     ) -> [String: Any]? {
         var exceptionDict: [String: Any] = [:]
 
-        exceptionDict["type"] = exception.name.rawValue
         exceptionDict["thread_id"] = Thread.current.threadId
-        if let reason = exception.reason {
+
+        let typeName = exception.name.rawValue
+        // NSExceptionName should always return something, but let's be safe jic
+        if !typeName.isEmpty {
+            exceptionDict["type"] = typeName
+        }
+
+        if let reason = exception.reason, !reason.isEmpty {
             exceptionDict["value"] = reason
         }
 
@@ -295,11 +307,15 @@ enum PostHogExceptionProcessor {
     /// 1. Debug description (NSDebugDescriptionErrorKey)
     /// 2. Localized description (NSLocalizedDescriptionKey)
     private static func extractErrorMessage(from error: NSError) -> String? {
-        if let debugDesc = error.userInfo[NSDebugDescriptionErrorKey] as? String {
+        if let debugDesc = error.userInfo[NSDebugDescriptionErrorKey] as? String, !debugDesc.isEmpty {
             return "\(debugDesc) (Code: \(error.code))"
         }
 
-        return "\(error.localizedDescription) (Code: \(error.code))"
+        // localizedDescription should always return something, but let's be safe jic
+        let localizedDesc = error.localizedDescription
+        let errorDesc = localizedDesc.isEmpty ? "Error" : localizedDesc
+        
+        return "\(errorDesc) (Code: \(error.code))"
     }
 
     /// Extract clean type name from error
@@ -326,6 +342,11 @@ enum PostHogExceptionProcessor {
     private static func extractModule(from error: NSError) -> String? {
         let domain = error.domain
 
+        // Guard against empty domain
+        guard !domain.isEmpty else {
+            return nil
+        }
+
         // For domains without dots (e.g., NSCocoaErrorDomain), return nil
         guard let lastDot = domain.lastIndex(of: ".") else {
             return nil
@@ -340,6 +361,7 @@ enum PostHogExceptionProcessor {
     // MARK: - Helpers
 
     /// Attach exceptions and debug images to properties dictionary
+    ///
     private static func attachExceptionsAndDebugImages(
         _ exceptions: [[String: Any]],
         to properties: inout [String: Any]
@@ -356,29 +378,41 @@ enum PostHogExceptionProcessor {
     // MARK: - Stack Trace Capture
 
     /// Build stacktrace dictionary from current thread (synthetic)
+    ///
     private static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
         let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
 
         guard !frames.isEmpty else { return nil }
 
+        let frameDicts = frames.compactMap(\.toDictionary)
+
+        guard !frameDicts.isEmpty else { return nil }
+
         return [
-            "frames": frames.map(\.toDictionary),
+            "frames": frameDicts,
             "type": "raw",
         ]
     }
 
     /// Build stacktrace dictionary from raw addresses (e.g., NSException.callStackReturnAddresses)
+    ///
     private static func buildStacktraceFromAddresses(
         _ addresses: [NSNumber],
         config: PostHogErrorTrackingConfig
     ) -> [String: Any]? {
+        guard !addresses.isEmpty else { return nil }
+
         // Don't strip PostHog frames for NSException - the addresses are from the exception itself
         let frames = PostHogStackTraceProcessor.symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: false)
 
         guard !frames.isEmpty else { return nil }
 
+        let frameDicts = frames.compactMap(\.toDictionary)
+
+        guard !frameDicts.isEmpty else { return nil }
+
         return [
-            "frames": frames.map(\.toDictionary),
+            "frames": frameDicts,
             "type": "raw",
         ]
     }

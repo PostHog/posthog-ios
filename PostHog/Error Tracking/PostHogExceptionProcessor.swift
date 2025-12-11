@@ -21,18 +21,18 @@ enum PostHogExceptionProcessor {
     /// - Parameters:
     ///   - error: The error to convert
     ///   - handled: Whether the error was caught/handled
-    ///   - mechanismType: The mechanism that captured the error (e.g., "generic", "NSException")
+    ///   - mechanismType: The mechanism that captured the error (e.g., "generic", "onunhandledexception")
     ///   - config: Error tracking configuration for in-app detection
     /// - Returns: Dictionary of properties in PostHog's $exception event format
     static func errorToProperties(
         _ error: Error,
         handled: Bool,
-        mechanismType: String,
+        mechanismType: String = "generic",
         config: PostHogErrorTrackingConfig
     ) -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        properties["$exception_level"] = "error" // TODO: figure this out from error wrapped type
+        properties["$exception_level"] = "error" // TODO: figure if error or fatal based on wrapper error type when
 
         let exceptions = buildExceptionList(
             from: error,
@@ -60,7 +60,7 @@ enum PostHogExceptionProcessor {
     static func exceptionToProperties(
         _ exception: NSException,
         handled: Bool,
-        mechanismType: String,
+        mechanismType: String = "generic",
         config: PostHogErrorTrackingConfig
     ) -> [String: Any] {
         var properties: [String: Any] = [:]
@@ -87,6 +87,7 @@ enum PostHogExceptionProcessor {
     /// - Returns: Dictionary of properties in PostHog's $exception event format
     static func messageToProperties(
         _ message: String,
+        mechanismType: String = "generic",
         config: PostHogErrorTrackingConfig
     ) -> [String: Any] {
         var properties: [String: Any] = [:]
@@ -99,7 +100,7 @@ enum PostHogExceptionProcessor {
         exception["thread_id"] = Thread.current.threadId
 
         exception["mechanism"] = [
-            "type": "generic-message",
+            "type": mechanismType,
             "handled": true,
             "synthetic": true, // always true for message exceptions - we capture current stack
         ]
@@ -356,7 +357,7 @@ enum PostHogExceptionProcessor {
 
     /// Build stacktrace dictionary from current thread (synthetic)
     private static func buildStacktrace(config: PostHogErrorTrackingConfig) -> [String: Any]? {
-        let frames = PostHogStackTrace.captureCurrentStackTraceWithMetadata(config: config)
+        let frames = PostHogStackTraceProcessor.captureCurrentStackTraceWithMetadata(config: config)
 
         guard !frames.isEmpty else { return nil }
 
@@ -372,7 +373,7 @@ enum PostHogExceptionProcessor {
         config: PostHogErrorTrackingConfig
     ) -> [String: Any]? {
         // Don't strip PostHog frames for NSException - the addresses are from the exception itself
-        let frames = PostHogStackTrace.symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: false)
+        let frames = PostHogStackTraceProcessor.symbolicateAddresses(addresses, config: config, stripTopPostHogFrames: false)
 
         guard !frames.isEmpty else { return nil }
 

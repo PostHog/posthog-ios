@@ -1467,7 +1467,6 @@ let maxRetryDelay = 30.0
         let errorProperties = PostHogExceptionProcessor.errorToProperties(
             error,
             handled: true,
-            mechanismType: "generic-error",
             config: config.errorTrackingConfig
         )
 
@@ -1504,7 +1503,6 @@ let maxRetryDelay = 30.0
         let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
             exception,
             handled: true,
-            mechanismType: "generic-nsexception",
             config: config.errorTrackingConfig
         )
 

@@ -1,5 +1,9 @@
 ## Next
 
+- fix: SwiftUI view masking on iOS 26 ([#409](https://github.com/PostHog/posthog-ios/pull/409))
+> Note: If you are building with Xcode 26, update to this version to fix the SwiftUI view masking issue.
+> Note: Because of the changes of the SwiftUI rendering engine, the SwiftUI modifiers .posthogMask() and .posthogNoMask() may behave inconsistently for SwiftUI primitive views. Use with caution.
+
 ## 3.36.0 - 2025-12-08
 
 - feat: include `evaluated_at` properties in `$feature_flag_called` events ([#394](https://github.com/PostHog/posthog-ios/pull/394))

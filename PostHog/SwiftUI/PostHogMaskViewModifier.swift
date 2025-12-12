@@ -13,6 +13,11 @@
         /**
          Marks a SwiftUI View to be masked in PostHog session replay recordings.
 
+         Note: On iOS 26+ (Xcode 26 SwiftUI rendering engine), SwiftUI views may no longer map
+         reliably to a backing `UIView`, so this modifier may behave inconsistently. A future SDK
+         update will try to address this limitation, but for now, we recommend using this modifier
+         with caution.
+
          Because of the nature of how we intercept SwiftUI view hierarchy (and how it maps to UIKit),
          we can't always be 100% confident that a view should be masked and may accidentally mark a
          sensitive view as non-sensitive instead.

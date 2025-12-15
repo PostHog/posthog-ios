@@ -535,19 +535,7 @@
             // I could not find a consistent pattern to limit this layer search approach,
             // so for iOS 26 we'll need to iterate over the view's sublayers as well to find maskable elements.
             if #available(iOS 26.0, *) {
-                for layer in view.layer.sublayers ?? [] {
-                    if swiftUITextBasedViewTypes.contains(where: layer.isKind(of:)) {
-                        if isTextInputSensitive(view) {
-                            maskableWidgets.append(layer.toAbsoluteRect(window))
-                        }
-                    }
-
-                    if swiftUIImageLayerTypes.contains(where: layer.isKind(of:)) {
-                        if isSwiftUIImageSensitive(view) {
-                            maskableWidgets.append(layer.toAbsoluteRect(window))
-                        }
-                    }
-                }
+                findMaskableLayers(view.layer, view, window, &maskableWidgets)
             }
 
             // this can be anything, so better to be conservative
@@ -588,6 +576,31 @@
                 }
             }
             maskChildren = false
+        }
+
+        /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
+        @available(iOS 26.0, *)
+        private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
+            for sublayer in layer.sublayers ?? [] {
+                // Text-based layers
+                if swiftUITextBasedViewTypes.contains(where: sublayer.isKind(of:)) {
+                    if isTextInputSensitive(view) {
+                        maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    }
+                }
+
+                // Image layers
+                if swiftUIImageLayerTypes.contains(where: sublayer.isKind(of:)) {
+                    if isSwiftUIImageSensitive(view) {
+                        maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    }
+                }
+
+                // Recursively check sublayers
+                if let sublayers = sublayer.sublayers, !sublayers.isEmpty {
+                    findMaskableLayers(sublayer, view, window, &maskableWidgets)
+                }
+            }
         }
 
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {

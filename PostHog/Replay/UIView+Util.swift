@@ -67,4 +67,10 @@
             convert(bounds, to: window)
         }
     }
+
+    extension CALayer {
+        func toAbsoluteRect(_ window: UIWindow?) -> CGRect {
+            convert(bounds, to: window?.layer)
+        }
+    }
 #endif

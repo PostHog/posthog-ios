@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add ability to override sendFeatureFlagEvent for exact feature flag call ([#396](https://github.com/PostHog/posthog-ios/pull/396))
+
 ## 3.36.1 - 2025-12-16
 
 - fix: SwiftUI view masking on iOS 26 ([#409](https://github.com/PostHog/posthog-ios/pull/409))

@@ -1,5 +1,7 @@
 ## Next
 
+## 3.36.1 - 2025-12-16
+
 - fix: SwiftUI view masking on iOS 26 ([#409](https://github.com/PostHog/posthog-ios/pull/409))
 > Note: If you are building with Xcode 26, update to this version to fix the SwiftUI view masking issue.
 > Note: Because of the changes of the SwiftUI rendering engine, the SwiftUI modifiers .posthogMask() and .posthogNoMask() may behave inconsistently for SwiftUI primitive views. Use with caution.

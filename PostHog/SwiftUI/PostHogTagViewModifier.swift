@@ -471,6 +471,7 @@
     final class PostHogTagUIView: UIView {
         let id: UUID
         var handler: (() -> Void)?
+        private var ancestorObserver: AncestorSubviewObserver?
 
         init(
             id: UUID,
@@ -504,11 +505,60 @@
         override func didMoveToWindow() {
             super.didMoveToWindow()
             handler?()
+            setupAncestorObserver()
         }
 
         override func layoutSubviews() {
             super.layoutSubviews()
             handler?()
+        }
+
+        private func setupAncestorObserver() {
+            // Find the common ancestor and observe its subview changes
+            // This handles cases like AsyncImage where content views change after initial setup
+            guard
+                let anchorView = postHogAnchor,
+                let commonAncestor = anchorView.nearestCommonAncestor(with: self)
+            else {
+                return
+            }
+
+            // Remove any existing observer
+            ancestorObserver?.stopObserving()
+
+            // Create new observer for the common ancestor
+            ancestorObserver = AncestorSubviewObserver(ancestor: commonAncestor) { [weak self] in
+                self?.handler?()
+            }
+        }
+    }
+
+    /// Observes subview changes on an ancestor view by swizzling didAddSubview.
+    /// This is used to detect when SwiftUI replaces content (e.g., AsyncImage loading).
+    private final class AncestorSubviewObserver {
+        private weak var ancestor: UIView?
+        private var observation: NSKeyValueObservation?
+
+        init(ancestor: UIView, onChange: @escaping () -> Void) {
+            self.ancestor = ancestor
+
+            // Use KVO on the layer's sublayers to detect hierarchy changes
+            // This is more reliable than trying to swizzle didAddSubview
+            observation = ancestor.layer.observe(\.sublayers, options: [.new, .old]) { _, _ in
+                // Dispatch async to allow the view hierarchy to settle
+                DispatchQueue.main.async {
+                    onChange()
+                }
+            }
+        }
+
+        func stopObserving() {
+            observation?.invalidate()
+            observation = nil
+        }
+
+        deinit {
+            stopObserving()
         }
     }
 

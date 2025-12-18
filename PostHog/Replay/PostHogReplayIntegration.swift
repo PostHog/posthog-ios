@@ -586,6 +586,11 @@
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
+                // Skip layers tagged with .postHogNoMask()
+                if sublayer.postHogNoMask {
+                    continue
+                }
+
                 // Check if layer is manually tagged with .postHogMask()
                 if sublayer.postHogNoCapture {
                     maskableWidgets.append(sublayer.toAbsoluteRect(window))
@@ -649,7 +654,8 @@
                 let isTextLayer = swiftUITextBasedViewTypes.contains(where: layer.isKind(of:)) ? " [TEXT]" : ""
                 let isImageLayer = swiftUIImageLayerTypes.contains(where: layer.isKind(of:)) ? " [IMAGE]" : ""
                 let noCapture = layer.postHogNoCapture ? " [noCapture]" : ""
-                print("\(indentStr)├─ [Layer] \(layerType)\(isTextLayer)\(isImageLayer)\(noCapture)")
+                let noMask = layer.postHogNoMask ? " [noMask]" : ""
+                print("\(indentStr)├─ [Layer] \(layerType)\(isTextLayer)\(isImageLayer)\(noCapture)\(noMask)")
             }
 
             for sublayer in layer.sublayers ?? [] {
@@ -668,7 +674,8 @@
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
 
             // Uncomment to debug view hierarchy
-            // printViewHierarchy(window)
+             printViewHierarchy(window)
+            print(maskableWidgets)
 
             let wireframe = createBasicWireframe(window)
 

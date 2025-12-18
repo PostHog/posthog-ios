@@ -114,6 +114,7 @@
 
         // These layer types should be safe to ignore while masking
         private let swiftUISafeLayerTypes: [AnyClass] = [
+            "SwiftUI.ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
             "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
         ].compactMap(NSClassFromString)
 

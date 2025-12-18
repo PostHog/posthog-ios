@@ -579,9 +579,19 @@
         }
 
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
+        ///
+        /// On iOS 26, SwiftUI primitives (Text, Image, Button) are rendered as CALayer sublayers
+        /// of parent views rather than having their own backing UIView. When `.postHogMask()` is applied,
+        /// the flag is set directly on the CALayers via the PostHogTagViewModifier.
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
+                // Check if layer is manually tagged with .postHogMask()
+                if sublayer.postHogNoCapture {
+                    maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    continue
+                }
+
                 // Text-based layers
                 if swiftUITextBasedViewTypes.contains(where: sublayer.isKind(of:)) {
                     if isTextInputSensitive(view) {
@@ -603,6 +613,50 @@
             }
         }
 
+        /// Debug helper to print the view hierarchy with indentation
+        private func printViewHierarchy(_ view: UIView) {
+            print("=== PostHog View Hierarchy Debug ===")
+            printViewHierarchyRecursive(view, indent: 0)
+            print("====================================")
+        }
+        
+        private func printViewHierarchyRecursive(_ view: UIView, indent: Int) {
+            let indentStr = String(repeating: "  ", count: indent)
+            let viewType = String(describing: type(of: view))
+            let noMask = view.postHogNoMask ? " [noMask]" : ""
+            let noCapture = view.postHogNoCapture ? " [noCapture]" : ""
+            let isNoCaptureClass = view.isNoCapture() ? " [ph-no-capture]" : ""
+
+            print("\(indentStr)└─ \(viewType)\(noMask)\(noCapture)\(isNoCaptureClass)")
+
+            // For iOS 26, also print sublayers
+            if #available(iOS 26.0, *) {
+                printLayerHierarchy(view.layer, indent: indent + 1, isRoot: true)
+            }
+
+            for child in view.subviews {
+                printViewHierarchyRecursive(child, indent: indent + 1)
+            }
+        }
+
+        /// Debug helper to print the layer hierarchy (iOS 26+)
+        @available(iOS 26.0, *)
+        private func printLayerHierarchy(_ layer: CALayer, indent: Int, isRoot: Bool = false) {
+            // Skip root layer as it's the view's own layer
+            if !isRoot {
+                let indentStr = String(repeating: "  ", count: indent)
+                let layerType = String(describing: type(of: layer))
+                let isTextLayer = swiftUITextBasedViewTypes.contains(where: layer.isKind(of:)) ? " [TEXT]" : ""
+                let isImageLayer = swiftUIImageLayerTypes.contains(where: layer.isKind(of:)) ? " [IMAGE]" : ""
+                let noCapture = layer.postHogNoCapture ? " [noCapture]" : ""
+                print("\(indentStr)├─ [Layer] \(layerType)\(isTextLayer)\(isImageLayer)\(noCapture)")
+            }
+
+            for sublayer in layer.sublayers ?? [] {
+                printLayerHierarchy(sublayer, indent: indent + 1)
+            }
+        }
+
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
             // this will bail on view controller animations (interactive or not)
             if !window.isVisible() || isAnimatingTransition(window) {
@@ -612,6 +666,9 @@
             var maskableWidgets: [CGRect] = []
             var maskChildren = false
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+
+            // Uncomment to debug view hierarchy
+            // printViewHierarchy(window)
 
             let wireframe = createBasicWireframe(window)
 

@@ -40,16 +40,32 @@
          */
         func postHogMask(_ isEnabled: Bool = true) -> some View {
             modifier(
-                PostHogTagViewModifier { uiViews in
-                    uiViews.forEach { $0.postHogNoCapture = isEnabled }
-                } onRemove: { uiViews in
-                    uiViews.forEach { $0.postHogNoCapture = false }
-                }
+                PostHogTagViewModifier(
+                    onChange: { uiViews in
+                        uiViews.forEach { $0.postHogNoCapture = isEnabled }
+                    },
+                    onRemove: { uiViews in
+                        uiViews.forEach { $0.postHogNoCapture = false }
+                    },
+                    onLayerChange: { layers in
+                        layers.forEach { $0.postHogNoCapture = isEnabled }
+                    },
+                    onLayerRemove: { layers in
+                        layers.forEach { $0.postHogNoCapture = false }
+                    }
+                )
             )
         }
     }
 
     extension UIView {
+        var postHogNoCapture: Bool {
+            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoCapture) as? Bool ?? false }
+            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoCapture, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+        }
+    }
+
+    extension CALayer {
         var postHogNoCapture: Bool {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phNoCapture) as? Bool ?? false }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phNoCapture, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }

@@ -114,7 +114,7 @@
 
         // These layer types should be safe to ignore while masking
         private let swiftUISafeLayerTypes: [AnyClass] = [
-            "SwiftUI.ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
+            "_TtC7SwiftUIP33_E19F490D25D5E0EC8A24903AF958E34115ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
             "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
         ].compactMap(NSClassFromString)
 
@@ -625,7 +625,7 @@
             printViewHierarchyRecursive(view, indent: 0)
             print("====================================")
         }
-        
+
         private func printViewHierarchyRecursive(_ view: UIView, indent: Int) {
             let indentStr = String(repeating: "  ", count: indent)
             let viewType = String(describing: type(of: view))
@@ -675,8 +675,7 @@
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
 
             // Uncomment to debug view hierarchy
-             printViewHierarchy(window)
-            print(maskableWidgets)
+            // printViewHierarchy(window)
 
             let wireframe = createBasicWireframe(window)
 

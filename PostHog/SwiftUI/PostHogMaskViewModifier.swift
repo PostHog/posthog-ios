@@ -41,16 +41,12 @@
         func postHogMask(_ isEnabled: Bool = true) -> some View {
             modifier(
                 PostHogTagViewModifier(
-                    onChange: { uiViews in
-                        uiViews.forEach { $0.postHogNoCapture = isEnabled }
-                    },
-                    onRemove: { uiViews in
-                        uiViews.forEach { $0.postHogNoCapture = false }
-                    },
-                    onLayerChange: { layers in
+                    onChange: { views, layers in
+                        views.forEach { $0.postHogNoCapture = isEnabled }
                         layers.forEach { $0.postHogNoCapture = isEnabled }
                     },
-                    onLayerRemove: { layers in
+                    onRemove: { views, layers in
+                        views.forEach { $0.postHogNoCapture = false }
                         layers.forEach { $0.postHogNoCapture = false }
                     }
                 )

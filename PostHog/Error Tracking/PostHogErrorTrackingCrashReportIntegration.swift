@@ -1,5 +1,5 @@
 //
-//  PostHogCrashReportIntegration.swift
+//  PostHogErrorTrackingCrashReportIntegration.swift
 //  PostHog
 //
 //  Created by Ioannis Josephides on 14/12/2025.
@@ -10,7 +10,7 @@ import Foundation
 #if os(iOS) || os(macOS) || os(tvOS)
     import CrashReporter
 
-    class PostHogCrashReportIntegration: PostHogIntegration {
+    class PostHogErrorTrackingCrashReportIntegration: PostHogIntegration {
         private static let integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
@@ -20,11 +20,11 @@ import Foundation
         private var crashReporter: PLCrashReporter?
 
         func install(_ postHog: PostHogSDK) throws {
-            try PostHogCrashReportIntegration.integrationInstalledLock.withLock {
-                if PostHogCrashReportIntegration.integrationInstalled {
+            try PostHogErrorTrackingCrashReportIntegration.integrationInstalledLock.withLock {
+                if PostHogErrorTrackingCrashReportIntegration.integrationInstalled {
                     throw InternalPostHogError(description: "Crash report integration already installed to another PostHogSDK instance.")
                 }
-                PostHogCrashReportIntegration.integrationInstalled = true
+                PostHogErrorTrackingCrashReportIntegration.integrationInstalled = true
             }
 
             self.postHog = postHog
@@ -36,6 +36,39 @@ import Foundation
             }
         }
 
+        func uninstall(_ postHog: PostHogSDK) {
+            if self.postHog === postHog || self.postHog == nil {
+                stop()
+                crashReporter = nil
+                self.postHog = nil
+                PostHogErrorTrackingCrashReportIntegration.integrationInstalledLock.withLock {
+                    PostHogErrorTrackingCrashReportIntegration.integrationInstalled = false
+                }
+            }
+        }
+
+        func start() {
+            // No-op for crash reporting. Always active once installed
+        }
+
+        func stop() {
+            // No-op for crash reporting. Always active once installed
+        }
+
+        func contextDidChange(_ context: [String: Any]) {
+            guard let crashReporter else { return }
+
+            // Serialize context to JSON and set as customData
+            do {
+                let jsonData = try JSONSerialization.data(withJSONObject: context, options: [])
+                crashReporter.customData = jsonData
+            } catch {
+                hedgeLog("Failed to serialize crash context: \(error)")
+            }
+        }
+
+        // MARK: - Private Methods
+        
         private func setupCrashReporter() -> PLCrashReporter? {
             // Check for debugger - crash handler won't work when debugging
             if PostHogDebugUtils.isDebuggerAttached() {
@@ -74,39 +107,6 @@ import Foundation
                 hedgeLog("Failed to enable PLCrashReporter: \(error)")
             }
         }
-
-        func uninstall(_ postHog: PostHogSDK) {
-            if self.postHog === postHog || self.postHog == nil {
-                stop()
-                crashReporter = nil
-                self.postHog = nil
-                PostHogCrashReportIntegration.integrationInstalledLock.withLock {
-                    PostHogCrashReportIntegration.integrationInstalled = false
-                }
-            }
-        }
-
-        func start() {
-            // No-op for crash reporting. Always active once installed
-        }
-
-        func stop() {
-            // No-op for crash reporting. Always active once installed
-        }
-
-        func contextDidChange(_ context: [String: Any]) {
-            guard let crashReporter else { return }
-
-            // Serialize context to JSON and set as customData
-            do {
-                let jsonData = try JSONSerialization.data(withJSONObject: context, options: [])
-                crashReporter.customData = jsonData
-            } catch {
-                hedgeLog("Failed to serialize crash context: \(error)")
-            }
-        }
-
-        // MARK: - Private Methods
 
         private func processPendingCrashReport() {
             guard let crashReporter, let postHog else {
@@ -156,7 +156,7 @@ import Foundation
 
 #else
     // watchOS stub - crash reporting is not available
-    class PostHogCrashReportIntegration: PostHogIntegration {
+    class PostHogErrorTrackingCrashReportIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) throws {

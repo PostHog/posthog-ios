@@ -1,5 +1,7 @@
 ## Next
 
+## 3.36.2 - 2025-12-19
+
 - fix: SwiftUI view modifiers .postHogMask() and .postHogNoMask() on iOS 26 ([#415](https://github.com/PostHog/posthog-ios/pull/415))
 
 ## 3.36.1 - 2025-12-16

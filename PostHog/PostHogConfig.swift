@@ -202,6 +202,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     func getIntegrations() -> [PostHogIntegration] {
         var integrations: [PostHogIntegration] = []
 
+        // Crash reporting should be installed FIRST to process any pending crash reports
+        // before other integrations modify the context
+        if errorTrackingConfig.enableCrashHandler {
+            integrations.append(PostHogCrashReportIntegration())
+        }
+
         if captureScreenViews {
             integrations.append(PostHogScreenViewIntegration())
         }

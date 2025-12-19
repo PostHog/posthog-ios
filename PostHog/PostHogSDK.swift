@@ -144,6 +144,9 @@ let maxRetryDelay = 30.0
             if !config.optOut {
                 // don't install integrations if in opt-out state
                 installIntegrations()
+
+                // Notify integrations of initial context (e.g., for crash reporting)
+                notifyContextDidChange()
             }
 
             DispatchQueue.main.async {
@@ -362,6 +365,9 @@ let maxRetryDelay = 30.0
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     private func getGroups() -> [String: String] {
@@ -395,6 +401,9 @@ let maxRetryDelay = 30.0
             let mergedProps = props.merging(sanitizedProps!) { _, new in new }
             storage?.setDictionary(forKey: .registerProperties, contents: mergedProps)
         }
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     @objc(unregisterProperties:)
@@ -408,6 +417,9 @@ let maxRetryDelay = 30.0
             props.removeValue(forKey: key)
             storage?.setDictionary(forKey: .registerProperties, contents: props)
         }
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     @objc public func identify(_ distinctId: String) {
@@ -481,6 +493,9 @@ let maxRetryDelay = 30.0
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
             remoteConfig?.reloadFeatureFlags()
+
+            // Notify integrations of context change (e.g., for crash reporting)
+            notifyContextDidChange()
 
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
@@ -897,6 +912,9 @@ let maxRetryDelay = 30.0
         _ = groups([type: key])
 
         groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties))
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     // FEATURE FLAGS
@@ -1613,6 +1631,29 @@ let maxRetryDelay = 30.0
             replayIntegration = nil
             surveysIntegration = nil
         #endif
+    }
+
+    /// Notifies all installed integrations that the event context has changed.
+    ///
+    /// This is called after operations that modify the context (identify, reset, group, register).
+    /// Integrations like crash reporting use this to persist context for crash-time capture.
+    private func notifyContextDidChange() {
+        guard isEnabled() else { return }
+
+        let distinctId = getDistinctId()
+        let context = buildProperties(
+            distinctId: distinctId,
+            properties: nil,
+            userProperties: nil,
+            userPropertiesSetOnce: nil,
+            groups: nil,
+            appendSharedProps: true,
+            timestamp: nil
+        )
+
+        for integration in installedIntegrations {
+            integration.contextDidChange(context)
+        }
     }
 }
 

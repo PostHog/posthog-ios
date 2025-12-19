@@ -190,7 +190,7 @@
 		DA5063D22EF5918200C51DA0 /* PostHogCrashReportProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */; };
 		DA5063D62EF591CB00C51DA0 /* CrashReporter in Frameworks */ = {isa = PBXBuildFile; productRef = DA5063D52EF591CB00C51DA0 /* CrashReporter */; };
 		DA5064412EF5E40300C51DA0 /* ApplicationScreenViewPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */; };
-		DA5064432EF5E58D00C51DA0 /* PostHogErrorTrackingCrashReportIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5064422EF5E58D00C51DA0 /* PostHogErrorTrackingCrashReportIntegration.swift */; };
+		DA5064432EF5E58D00C51DA0 /* PostHogCrashReporterIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5064422EF5E58D00C51DA0 /* PostHogCrashReporterIntegration.swift */; };
 		DA53DE762D3E29A900C38DCA /* fixture_remote_config.json in Resources */ = {isa = PBXBuildFile; fileRef = DA53DE702D3E299F00C38DCA /* fixture_remote_config.json */; };
 		DA53DE7E2D3E66AA00C38DCA /* PostHogRemoteConfigTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA53DE7D2D3E66A300C38DCA /* PostHogRemoteConfigTest.swift */; };
 		DA578E982D6768BC00B3A56C /* PostHogScreenViewIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */; };
@@ -732,7 +732,7 @@
 		DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogIdentityTests.swift; sourceTree = "<group>"; };
 		DA5063C82EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingUtils.swift; sourceTree = "<group>"; };
 		DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogCrashReportProcessor.swift; sourceTree = "<group>"; };
-		DA5064422EF5E58D00C51DA0 /* PostHogErrorTrackingCrashReportIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingCrashReportIntegration.swift; sourceTree = "<group>"; };
+		DA5064422EF5E58D00C51DA0 /* PostHogCrashReporterIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogCrashReporterIntegration.swift; sourceTree = "<group>"; };
 		DA53DE702D3E299F00C38DCA /* fixture_remote_config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_remote_config.json; sourceTree = "<group>"; };
 		DA53DE7D2D3E66A300C38DCA /* PostHogRemoteConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRemoteConfigTest.swift; sourceTree = "<group>"; };
 		DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenViewIntegration.swift; sourceTree = "<group>"; };
@@ -1434,7 +1434,7 @@
 				DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */,
 				DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */,
 				DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */,
-				DA5064422EF5E58D00C51DA0 /* PostHogErrorTrackingCrashReportIntegration.swift */,
+				DA5064422EF5E58D00C51DA0 /* PostHogCrashReporterIntegration.swift */,
 			);
 			path = "Error Tracking";
 			sourceTree = "<group>";
@@ -2270,7 +2270,7 @@
 				DA9CE3652D3108AD00DFE652 /* alpha_processing_neon.c in Sources */,
 				DA0F989B2D94081A009AB6F5 /* ApplicationViewLayoutPublisher.swift in Sources */,
 				DA9CE3662D3108AD00DFE652 /* sharpyuv_gamma.c in Sources */,
-				DA5064432EF5E58D00C51DA0 /* PostHogErrorTrackingCrashReportIntegration.swift in Sources */,
+				DA5064432EF5E58D00C51DA0 /* PostHogCrashReporterIntegration.swift in Sources */,
 				DA37933C2DBA571D005C6AA3 /* PostHogSurveysConfig.swift in Sources */,
 				DA9CE3672D3108AD00DFE652 /* picture_tools_enc.c in Sources */,
 				DA9CE3682D3108AD00DFE652 /* sharpyuv_cpu.c in Sources */,

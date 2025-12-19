@@ -70,7 +70,7 @@ protocol PostHogIntegration {
 }
 
 extension PostHogIntegration {
-    func contextDidChange(_ context: [String: Any]) {
+    func contextDidChange(_: [String: Any]) {
         // Default empty implementation since most integrations won't need this
     }
 }

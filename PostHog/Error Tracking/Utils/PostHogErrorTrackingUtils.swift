@@ -17,13 +17,13 @@ extension String {
         guard clean.count == 32 else { return self }
 
         let idx = clean.startIndex
-        let p1 = clean[idx ..< clean.index(idx, offsetBy: 8)]
-        let p2 = clean[clean.index(idx, offsetBy: 8) ..< clean.index(idx, offsetBy: 12)]
-        let p3 = clean[clean.index(idx, offsetBy: 12) ..< clean.index(idx, offsetBy: 16)]
-        let p4 = clean[clean.index(idx, offsetBy: 16) ..< clean.index(idx, offsetBy: 20)]
-        let p5 = clean[clean.index(idx, offsetBy: 20) ..< clean.index(idx, offsetBy: 32)]
+        let part1 = clean[idx ..< clean.index(idx, offsetBy: 8)]
+        let part2 = clean[clean.index(idx, offsetBy: 8) ..< clean.index(idx, offsetBy: 12)]
+        let part3 = clean[clean.index(idx, offsetBy: 12) ..< clean.index(idx, offsetBy: 16)]
+        let part4 = clean[clean.index(idx, offsetBy: 16) ..< clean.index(idx, offsetBy: 20)]
+        let part5 = clean[clean.index(idx, offsetBy: 20) ..< clean.index(idx, offsetBy: 32)]
 
-        return "\(p1)-\(p2)-\(p3)-\(p4)-\(p5)"
+        return "\(part1)-\(part2)-\(part3)-\(part4)-\(part5)"
     }
 }
 
@@ -31,7 +31,7 @@ extension String {
 
 enum PostHogCPUArchitecture {
     /// Convert CPU type and subtype to architecture string
-    /// 
+    ///
     /// - Parameters:
     ///   - cpuType: Mach-O CPU type
     ///   - cpuSubtype: Mach-O CPU subtype

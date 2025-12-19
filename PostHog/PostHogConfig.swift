@@ -203,7 +203,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         var integrations: [PostHogIntegration] = []
 
         if errorTrackingConfig.enableCrashHandler {
-            integrations.append(PostHogErrorTrackingCrashReportIntegration())
+            integrations.append(PostHogCrashReporterIntegration())
         }
 
         if captureScreenViews {

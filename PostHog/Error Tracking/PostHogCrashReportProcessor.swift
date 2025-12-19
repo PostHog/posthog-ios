@@ -13,15 +13,10 @@ import Foundation
     enum PostHogCrashReportProcessor {
         /// Process a PLCrashReport and convert it to PostHog $exception event properties
         ///
-        /// - Parameters:
-        ///   - report: The PLCrashReport to process
-        ///   - crashContext: The event context captured at crash time (from customData)
-        /// - Returns: Dictionary of properties for the $exception event
-        static func processReport(
-            _ report: PLCrashReport,
-            crashContext: [String: Any]
-        ) -> [String: Any] {
-            var properties: [String: Any] = crashContext
+        /// - Parameter report: The PLCrashReport to process
+        /// - Returns: Dictionary of exception-specific properties for the $exception event
+        static func processReport(_ report: PLCrashReport) -> [String: Any] {
+            var properties: [String: Any] = [:]
 
             // Fatal crash
             properties["$exception_level"] = "fatal"
@@ -52,6 +47,11 @@ import Foundation
             }
 
             return properties
+        }
+
+        /// Get the crash timestamp from the report
+        static func getCrashTimestamp(_ report: PLCrashReport) -> Date? {
+            report.systemInfo?.timestamp
         }
 
         // MARK: - Exception Building
@@ -213,23 +213,24 @@ import Foundation
 
         // MARK: - Helpers
 
+        private static let machExceptionNames: [UInt64: String] = [
+            1: "EXC_BAD_ACCESS",
+            2: "EXC_BAD_INSTRUCTION",
+            3: "EXC_ARITHMETIC",
+            4: "EXC_EMULATION",
+            5: "EXC_SOFTWARE",
+            6: "EXC_BREAKPOINT",
+            7: "EXC_SYSCALL",
+            8: "EXC_MACH_SYSCALL",
+            9: "EXC_RPC_ALERT",
+            10: "EXC_CRASH",
+            11: "EXC_RESOURCE",
+            12: "EXC_GUARD",
+            13: "EXC_CORPSE_NOTIFY",
+        ]
+
         private static func machExceptionName(_ type: UInt64) -> String {
-            switch type {
-            case 1: "EXC_BAD_ACCESS"
-            case 2: "EXC_BAD_INSTRUCTION"
-            case 3: "EXC_ARITHMETIC"
-            case 4: "EXC_EMULATION"
-            case 5: "EXC_SOFTWARE"
-            case 6: "EXC_BREAKPOINT"
-            case 7: "EXC_SYSCALL"
-            case 8: "EXC_MACH_SYSCALL"
-            case 9: "EXC_RPC_ALERT"
-            case 10: "EXC_CRASH"
-            case 11: "EXC_RESOURCE"
-            case 12: "EXC_GUARD"
-            case 13: "EXC_CORPSE_NOTIFY"
-            default: "EXC_UNKNOWN(\(type))"
-            }
+            machExceptionNames[type] ?? "EXC_UNKNOWN(\(type))"
         }
 
         private static func machExceptionMessage(_ exception: PLCrashReportMachExceptionInfo) -> String {

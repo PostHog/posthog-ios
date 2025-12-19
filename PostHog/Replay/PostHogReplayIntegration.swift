@@ -114,6 +114,7 @@
 
         // These layer types should be safe to ignore while masking
         private let swiftUISafeLayerTypes: [AnyClass] = [
+            "_TtC7SwiftUIP33_E19F490D25D5E0EC8A24903AF958E34115ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
             "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
         ].compactMap(NSClassFromString)
 
@@ -579,9 +580,24 @@
         }
 
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
+        ///
+        /// On iOS 26, SwiftUI primitives (Text, Image, Button) are rendered as CALayer sublayers
+        /// of parent views rather than having their own backing UIView. When `.postHogMask()` is applied,
+        /// the flag is set directly on the CALayers via the PostHogTagViewModifier.
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
+                // Skip layers tagged with .postHogNoMask()
+                if sublayer.postHogNoMask {
+                    continue
+                }
+
+                // Check if layer is manually tagged with .postHogMask()
+                if sublayer.postHogNoCapture {
+                    maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    continue
+                }
+
                 // Text-based layers
                 if swiftUITextBasedViewTypes.contains(where: sublayer.isKind(of:)) {
                     if isTextInputSensitive(view) {

@@ -29,10 +29,10 @@ import Foundation
 
             self.postHog = postHog
             if let crashReporter = setupCrashReporter() {
+                self.crashReporter = crashReporter
                 // Note: Order here matters, we need to process any pending crash report before enabling the crash reporter
                 processPendingCrashReportIfNeeded(reporter: crashReporter)
                 enableCrashReporter(reporter: crashReporter)
-                self.crashReporter = crashReporter
             }
         }
 
@@ -129,7 +129,7 @@ import Foundation
                 let crashEventProperties = savedContext["event_properties"] as? [String: Any] ?? [:]
 
                 // Collect crash-specific event properties (stack traces, exceptions etc)
-                let exceptionProperties = PostHogCrashReportProcessor.processReport(crashReport)
+                let exceptionProperties = PostHogCrashReportProcessor.processReport(crashReport, config: postHog.config.errorTrackingConfig)
 
                 // Merge: crash-time event properties as base, exception properties on top
                 let finalProperties = crashEventProperties.merging(exceptionProperties) { _, new in new }

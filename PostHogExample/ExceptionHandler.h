@@ -38,6 +38,34 @@ NS_ASSUME_NONNULL_BEGIN
 /// This demonstrates how exceptions can be caught and rethrown with additional context
 + (void)triggerChainedException;
 
+// MARK: - Crash Triggers for Testing
+
+/// Trigger a null pointer dereference (EXC_BAD_ACCESS / KERN_INVALID_ADDRESS)
++ (void)triggerNullPointerCrash;
+
+/// Trigger a stack overflow (EXC_BAD_ACCESS / KERN_PROTECTION_FAILURE)
++ (void)triggerStackOverflowCrash;
+
+/// Trigger an abort signal (SIGABRT)
++ (void)triggerAbortCrash;
+
+/// Trigger an illegal instruction (SIGILL / EXC_BAD_INSTRUCTION)
++ (void)triggerIllegalInstructionCrash;
+
+/// Trigger an uncaught NSException
++ (void)triggerUncaughtNSException;
+
+/// Trigger a SIGSEGV (segmentation fault)
++ (void)triggerSegfaultCrash;
+
+/// Trigger a SIGBUS (bus error)
++ (void)triggerBusErrorCrash;
+
+/// Trigger a SIGFPE (floating point exception / divide by zero)
++ (void)triggerDivideByZeroCrash;
+
+/// Trigger a SIGTRAP (breakpoint/debugger trap)
++ (void)triggerTrapCrash;
 
 @end
 

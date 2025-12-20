@@ -116,5 +116,85 @@
                                  }];
 }
 
+// MARK: - Crash Triggers for Testing
+
++ (void)triggerNullPointerCrash {
+    // Trigger a null pointer dereference (EXC_BAD_ACCESS / KERN_INVALID_ADDRESS)
+    int *nullPointer = NULL;
+    *nullPointer = 42;
+}
+
++ (void)triggerStackOverflowCrash {
+    // Trigger stack overflow via infinite recursion (EXC_BAD_ACCESS / KERN_PROTECTION_FAILURE)
+    [self triggerStackOverflowCrash];
+}
+
++ (void)triggerAbortCrash {
+    // Trigger SIGABRT
+    abort();
+}
+
++ (void)triggerIllegalInstructionCrash {
+    // Trigger SIGILL / EXC_BAD_INSTRUCTION by executing invalid instruction
+    // This uses inline assembly to execute an undefined instruction
+#if defined(__arm64__)
+    __asm__ volatile(".word 0x00000000"); // Undefined instruction on ARM64
+#elif defined(__x86_64__)
+    __asm__ volatile("ud2"); // Undefined instruction on x86_64
+#else
+    // Fallback: raise SIGILL directly
+    raise(SIGILL);
+#endif
+}
+
++ (void)triggerUncaughtNSException {
+    // Trigger an uncaught NSException (will be caught by PLCrashReporter)
+    @throw [NSException exceptionWithName:@"UncaughtTestException"
+                                   reason:@"This is an intentionally uncaught exception for crash testing"
+                                 userInfo:@{
+                                     @"test_type": @"uncaught_exception",
+                                     @"timestamp": [NSDate date]
+                                 }];
+}
+
++ (void)triggerSegfaultCrash {
+    // Trigger SIGSEGV by accessing unmapped memory
+    volatile int *badAddress = (int *)0xDEADBEEF;
+    *badAddress = 42;
+}
+
++ (void)triggerBusErrorCrash {
+    // Trigger SIGBUS via misaligned memory access
+    // On ARM, misaligned access to certain types causes SIGBUS
+#if defined(__arm64__)
+    char *ptr = malloc(10);
+    volatile int *misaligned = (int *)(ptr + 1); // Misaligned address
+    *misaligned = 42;
+    free(ptr);
+#else
+    // On x86, misaligned access is usually allowed, so raise signal directly
+    raise(SIGBUS);
+#endif
+}
+
++ (void)triggerDivideByZeroCrash {
+    // Trigger SIGFPE via integer divide by zero
+    // Note: On ARM, integer divide by zero doesn't trap by default
+    // We use volatile to prevent compiler optimization
+    volatile int zero = 0;
+    volatile int result = 1 / zero;
+    (void)result; // Suppress unused variable warning
+}
+
++ (void)triggerTrapCrash {
+    // Trigger SIGTRAP (debugger trap / breakpoint)
+#if defined(__arm64__)
+    __asm__ volatile("brk #0"); // Breakpoint on ARM64
+#elif defined(__x86_64__)
+    __asm__ volatile("int3"); // Breakpoint on x86_64
+#else
+    raise(SIGTRAP);
+#endif
+}
 
 @end

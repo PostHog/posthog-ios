@@ -306,8 +306,7 @@ struct ContentView: View {
                     Button("Uncaught NSException") {
                         ExceptionHandler.triggerUncaughtNSException()
                     }
-                    // SIGTRAP - Swift prints message to stderr then triggers trap
-                    // Note: Message is NOT captured. See: https://github.com/getsentry/sentry-cocoa/issues/662
+                    // SIGTRAP - message not captured (see PostHogCrashReportProcessor for details)
                     Button("fatalError()") {
                         SwiftCrashTriggers.triggerFatalError()
                     }

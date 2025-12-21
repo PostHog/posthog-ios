@@ -23,10 +23,13 @@ import Foundation
             // Fatal crash
             properties["$exception_level"] = "fatal"
 
+            // Build stack frames once, reuse for both exception info and debug images
+            let stackFrames = buildStackFrames(from: report, config: config)
+
             // Build exception list
             var exceptions: [[String: Any]] = []
 
-            if let exceptionInfo = buildExceptionInfo(from: report, config: config) {
+            if let exceptionInfo = buildExceptionInfo(from: report, stackFrames: stackFrames) {
                 exceptions.append(exceptionInfo)
             }
 
@@ -34,8 +37,8 @@ import Foundation
                 properties["$exception_list"] = exceptions
             }
 
-            // Build debug images for symbolication
-            let debugImages = buildDebugImages(from: report)
+            // Build debug images for symbolication (only images referenced in stack trace)
+            let debugImages = buildDebugImages(from: report, stackFrames: stackFrames)
             if !debugImages.isEmpty {
                 properties["$debug_images"] = debugImages
             }
@@ -55,7 +58,7 @@ import Foundation
 
         // MARK: - Exception Building
 
-        private static func buildExceptionInfo(from report: PLCrashReport, config: PostHogErrorTrackingConfig) -> [String: Any]? {
+        private static func buildExceptionInfo(from report: PLCrashReport, stackFrames: [PostHogStackFrame]) -> [String: Any]? {
             var exception: [String: Any] = [:]
 
             // Determine exception type and value based on crash type
@@ -106,9 +109,12 @@ import Foundation
                 return nil
             }
 
-            // Add stack trace from crashed thread
-            if let stacktrace = buildStacktrace(from: report, config: config) {
-                exception["stacktrace"] = stacktrace
+            // Add stack trace from frames
+            if !stackFrames.isEmpty {
+                exception["stacktrace"] = [
+                    "frames": stackFrames.map(\.toDictionary),
+                    "type": "raw",
+                ]
             }
 
             // Add thread ID of crashed thread
@@ -124,11 +130,16 @@ import Foundation
             return exception
         }
 
-        // MARK: - Stack Trace Building
+        // MARK: - Stack Frames
 
-        private static func buildStacktrace(from report: PLCrashReport, config: PostHogErrorTrackingConfig) -> [String: Any]? {
+        /// Builds stack frames from the crashed thread.
+
+        private static func buildStackFrames(
+            from report: PLCrashReport,
+            config: PostHogErrorTrackingConfig
+        ) -> [PostHogStackFrame] {
             guard let crashedThread = findCrashedThread(in: report) else {
-                return nil
+                return []
             }
 
             var frames: [PostHogStackFrame] = []
@@ -171,14 +182,7 @@ import Foundation
                 frames.append(stackFrame)
             }
 
-            guard !frames.isEmpty else { return nil }
-
-            let frameDicts = frames.map(\.toDictionary)
-
-            return [
-                "frames": frameDicts,
-                "type": "raw",
-            ]
+            return frames
         }
 
         private static func findCrashedThread(in report: PLCrashReport) -> PLCrashReportThreadInfo? {
@@ -191,11 +195,21 @@ import Foundation
 
         // MARK: - Debug Images
 
-        private static func buildDebugImages(from report: PLCrashReport) -> [[String: Any]] {
+        /// Build debug images for symbolication, including only images referenced in the stack frames.
+        private static func buildDebugImages(
+            from report: PLCrashReport,
+            stackFrames: [PostHogStackFrame]
+        ) -> [[String: Any]] {
+            // Extract unique image addresses from stack frames
+            let referencedImageAddresses = Set(stackFrames.compactMap(\.imageAddress))
+            guard !referencedImageAddresses.isEmpty else { return [] }
+
             var debugImages: [PostHogBinaryImageInfo] = []
 
             for case let image as PLCrashReportBinaryImageInfo in report.images {
-                guard let imageName = image.imageName else { continue }
+                guard referencedImageAddresses.contains(image.imageBaseAddress),
+                      let imageName = image.imageName
+                else { continue }
 
                 let arch: String?
                 if let codeType = image.codeType {

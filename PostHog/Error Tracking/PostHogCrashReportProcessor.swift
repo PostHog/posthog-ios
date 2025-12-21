@@ -65,6 +65,10 @@ import Foundation
             // Priority: NSException (richest info) → Signal (more familiar) → Mach (lowest level)
             if report.hasExceptionInfo, let nsExceptionInfo = report.exceptionInfo {
                 // NSException - has actual exception name and reason
+                //
+                // Limitation: Unfortunately we cannot walk the exception chain via NSUnderlyingErrorKey because 
+                // PLCrashReportExceptionInfo only exposes name, reason, and stackFrames. The original userInfo dictionary is not serialized. 
+                // The chain information is lost at crash time.
                 exception["type"] = nsExceptionInfo.exceptionName
                 exception["value"] = nsExceptionInfo.exceptionReason
 
@@ -76,11 +80,12 @@ import Foundation
             } else if let signalInfo = report.signalInfo {
                 // POSIX signal - more familiar to developers (SIGTRAP, SIGABRT, etc.)
                 //
-                // Note: Swift crashes (fatalError, preconditionFailure, force unwrap, etc.) appear as SIGTRAP.
+                // Limitation: Swift crashes (fatalError, preconditionFailure, force unwrap, etc.) appear as SIGTRAP.
                 // The actual error message is stored in the __crash_info Mach-O section of libswiftCore.dylib,
                 // which PLCrashReporter doesn't expose. Sentry/Bugsnag parse this section to get the message.
                 // See: https://github.com/getsentry/sentry-cocoa/pull/1596
-                // Future enhancement: implement __crash_info parsing for richer Swift crash messages.
+                //      https://github.com/bugsnag/bugsnag-cocoa/pull/948
+                // Future enhancement: implement __crash_info parsing in PLCrashReporter for richer Swift crash messages.
                 exception["type"] = signalInfo.name
                 exception["value"] = signalMessage(signalInfo)
 

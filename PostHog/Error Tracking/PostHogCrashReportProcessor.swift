@@ -62,25 +62,19 @@ import Foundation
             var exception: [String: Any] = [:]
 
             // Determine exception type and value based on crash type
-            if let machException = report.machExceptionInfo {
-                // Mach exception
-                exception["type"] = machExceptionName(machException.type)
-                exception["value"] = machExceptionMessage(machException)
+            // Priority: NSException (richest info) → Signal (more familiar) → Mach (lowest level)
+            if report.hasExceptionInfo, let nsExceptionInfo = report.exceptionInfo {
+                // NSException - has actual exception name and reason
+                exception["type"] = nsExceptionInfo.exceptionName
+                exception["value"] = nsExceptionInfo.exceptionReason
 
                 exception["mechanism"] = [
-                    "type": "mach_exception",
+                    "type": "nsexception",
                     "handled": false,
                     "synthetic": false,
-                    "meta": [
-                        "mach": [
-                            "exception": machException.type,
-                            "code": machException.codes.first,
-                            "subcode": machException.codes.count > 1 ? machException.codes[1] : nil,
-                        ].compactMapValues { $0 },
-                    ].compactMapValues { $0 },
                 ]
             } else if let signalInfo = report.signalInfo {
-                // POSIX signal
+                // POSIX signal - more familiar to developers (SIGTRAP, SIGABRT, etc.)
                 exception["type"] = signalInfo.name
                 exception["value"] = signalMessage(signalInfo)
 
@@ -95,15 +89,22 @@ import Foundation
                     "synthetic": false,
                     "meta": ["signal": signalMeta].compactMapValues { $0 },
                 ]
-            } else if report.hasExceptionInfo, let nsExceptionInfo = report.exceptionInfo {
-                // NSException
-                exception["type"] = nsExceptionInfo.exceptionName
-                exception["value"] = nsExceptionInfo.exceptionReason
+            } else if let machException = report.machExceptionInfo {
+                // Mach exception - lowest level, fallback
+                exception["type"] = machExceptionName(machException.type)
+                exception["value"] = machExceptionMessage(machException)
 
                 exception["mechanism"] = [
-                    "type": "nsexception",
+                    "type": "mach_exception",
                     "handled": false,
                     "synthetic": false,
+                    "meta": [
+                        "mach": [
+                            "exception": machException.type,
+                            "code": machException.codes.first,
+                            "subcode": machException.codes.count > 1 ? machException.codes[1] : nil,
+                        ].compactMapValues { $0 },
+                    ].compactMapValues { $0 },
                 ]
             } else {
                 return nil
@@ -257,6 +258,28 @@ import Foundation
             machExceptionNames[type] ?? "EXC_UNKNOWN(\(type))"
         }
 
+        // Exception codes for EXC_BREAKPOINT (from mach/arm/exception.h)
+        private static let breakpointCodeNames: [Int64: String] = [
+            1: "EXC_ARM_BREAKPOINT",
+        ]
+
+        // Exception codes for EXC_BAD_INSTRUCTION (from mach/arm/exception.h)
+        private static let badInstructionCodeNames: [Int64: String] = [
+            1: "EXC_ARM_UNDEFINED",
+            2: "EXC_ARM_SME_DISALLOWED",
+        ]
+
+        // Exception codes for EXC_ARITHMETIC (from mach/arm/exception.h)
+        private static let arithmeticCodeNames: [Int64: String] = [
+            0: "EXC_ARM_FP_UNDEFINED",
+            1: "EXC_ARM_FP_IO",
+            2: "EXC_ARM_FP_DZ",
+            3: "EXC_ARM_FP_OF",
+            4: "EXC_ARM_FP_UF",
+            5: "EXC_ARM_FP_IX",
+            6: "EXC_ARM_FP_ID",
+        ]
+
         // Kernel return codes (used as first code for EXC_BAD_ACCESS)
         // From mach/kern_return.h
         private static let kernelReturnCodeNames: [Int64: String] = [
@@ -319,10 +342,6 @@ import Foundation
             0x105: "EXC_ARM_PAC_FAIL", // 261
         ]
 
-        private static func kernelReturnCodeName(_ code: Int64) -> String? {
-            kernelReturnCodeNames[code]
-        }
-
         private static func machExceptionMessage(_ exception: PLCrashReportMachExceptionInfo) -> String {
             let typeName = machExceptionName(exception.type)
 
@@ -333,11 +352,34 @@ import Foundation
             let code = codesArray[0].int64Value
             let subcode = codesArray.count > 1 ? codesArray[1].int64Value : nil
 
-            // Format code with name if available
+            // Format code with name if available (exception-type-specific)
             let codeStr: String
-            if let codeName = kernelReturnCodeName(code) {
-                codeStr = "\(codeName) (\(code))"
-            } else {
+            switch exception.type {
+            case 1: // EXC_BAD_ACCESS
+                if let codeName = kernelReturnCodeNames[code] {
+                    codeStr = "\(codeName) (\(code))"
+                } else {
+                    codeStr = String(code)
+                }
+            case 2: // EXC_BAD_INSTRUCTION
+                if let codeName = badInstructionCodeNames[code] {
+                    codeStr = "\(codeName) (\(code))"
+                } else {
+                    codeStr = String(code)
+                }
+            case 3: // EXC_ARITHMETIC
+                if let codeName = arithmeticCodeNames[code] {
+                    codeStr = "\(codeName) (\(code))"
+                } else {
+                    codeStr = String(code)
+                }
+            case 6: // EXC_BREAKPOINT
+                if let codeName = breakpointCodeNames[code] {
+                    codeStr = "\(codeName) (\(code))"
+                } else {
+                    codeStr = String(code)
+                }
+            default:
                 codeStr = String(code)
             }
 

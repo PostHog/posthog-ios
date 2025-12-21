@@ -70,12 +70,6 @@ import Foundation
         // MARK: - Private Methods
 
         private func setupCrashReporter() -> PLCrashReporter? {
-            // Check for debugger - crash handler won't work when debugging
-            if PostHogDebugUtils.isDebuggerAttached() {
-                hedgeLog("Crash handler is disabled because a debugger is attached. Crashes will be caught by the debugger instead.")
-                return nil
-            }
-
             // Configure PLCrashReporter
             let config = PLCrashReporterConfig(
                 signalHandlerType: .mach,
@@ -100,6 +94,12 @@ import Foundation
         }
 
         private func enableCrashReporter(reporter: PLCrashReporter) {
+            // Check for debugger first. Crash handler won't work when debugging
+            if PostHogDebugUtils.isDebuggerAttached() {
+                hedgeLog("Crash handler is disabled because a debugger is attached. Crashes will be caught by the debugger instead.")
+                return
+            }
+            
             // Enable crash reporter for this session
             do {
                 try reporter.enableAndReturnError()

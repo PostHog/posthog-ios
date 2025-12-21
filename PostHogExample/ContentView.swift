@@ -61,18 +61,12 @@ class FeatureFlagsModel: ObservableObject {
     }
 }
 
-enum CrashTriggerType: String, CaseIterable {
-    case swift = "Swift"
-    case lowLevel = "Low-level"
-}
-
 struct ContentView: View {
     @State var counter: Int = 0
     @State private var name: String = "Max"
     @State private var showingSheet = false
     @State private var showingRedactedSheet = false
     @State private var refreshStatusID = UUID()
-    @State private var crashTriggerType: CrashTriggerType = .swift
     @StateObject var api = Api()
 
     @StateObject var signInViewModel = SignInViewModel()
@@ -308,63 +302,26 @@ struct ContentView: View {
                 }
 
                 Section("Crash Triggers") {
-                    Picker("Type", selection: $crashTriggerType) {
-                        Text("Swift").tag(CrashTriggerType.swift)
-                        Text("Low-level").tag(CrashTriggerType.lowLevel)
+                    // NSException - richest info with name + reason
+                    Button("Uncaught NSException") {
+                        ExceptionHandler.triggerUncaughtNSException()
                     }
-                    .pickerStyle(.segmented)
-
-                    if crashTriggerType == .swift {
-                        Button("throw()") {
-                            SwiftCrashTriggers.triggerThrowingFunction()
-                        }
-                        
-                        Button("fatalError()") {
-                            SwiftCrashTriggers.triggerFatalError()
-                        }
-                        Button("preconditionFailure()") {
-                            SwiftCrashTriggers.triggerPreconditionFailure()
-                        }
-                        Button("assertionFailure() - Debug only") {
-                            SwiftCrashTriggers.triggerAssertionFailure()
-                        }
-                        Button("Force unwrap nil") {
-                            SwiftCrashTriggers.triggerForceUnwrapNil()
-                        }
-                        Button("Array out of bounds") {
-                            SwiftCrashTriggers.triggerArrayOutOfBounds()
-                        }
-                        Button("Implicit unwrap nil") {
-                            SwiftCrashTriggers.triggerImplicitUnwrapNil()
-                        }
-                    } else {
-                        Button("Null Pointer (EXC_BAD_ACCESS)") {
-                            ExceptionHandler.triggerNullPointerCrash()
-                        }
-                        Button("Stack Overflow (EXC_BAD_ACCESS)") {
-                            ExceptionHandler.triggerStackOverflowCrash()
-                        }
-                        Button("Abort (SIGABRT)") {
-                            ExceptionHandler.triggerAbortCrash()
-                        }
-                        Button("Illegal Instruction (SIGILL)") {
-                            ExceptionHandler.triggerIllegalInstructionCrash()
-                        }
-                        Button("Uncaught NSException") {
-                            ExceptionHandler.triggerUncaughtNSException()
-                        }
-                        Button("Segfault (SIGSEGV)") {
-                            ExceptionHandler.triggerSegfaultCrash()
-                        }
-                        Button("Bus Error (SIGBUS)") {
-                            ExceptionHandler.triggerBusErrorCrash()
-                        }
-                        Button("Divide by Zero (SIGFPE)") {
-                            ExceptionHandler.triggerDivideByZeroCrash()
-                        }
-                        Button("Trap (SIGTRAP)") {
-                            ExceptionHandler.triggerTrapCrash()
-                        }
+                    // SIGTRAP - Swift prints message to stderr then triggers trap
+                    // Note: Message is NOT captured. See: https://github.com/getsentry/sentry-cocoa/issues/662
+                    Button("fatalError()") {
+                        SwiftCrashTriggers.triggerFatalError()
+                    }
+                    // SIGTRAP - Swift runtime trap on nil unwrap
+                    Button("Force unwrap nil") {
+                        SwiftCrashTriggers.triggerForceUnwrapNil()
+                    }
+                    // EXC_BAD_ACCESS - null pointer dereference
+                    Button("Null Pointer") {
+                        ExceptionHandler.triggerNullPointerCrash()
+                    }
+                    // SIGABRT - explicit abort() call
+                    Button("Abort") {
+                        ExceptionHandler.triggerAbortCrash()
                     }
                 }
 

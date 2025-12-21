@@ -25,7 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
            catch:(void(^)(NSException *exception))catchBlock
          finally:(nullable void(^)(void))finallyBlock;
 
-/// Trigger a sample NSRangeException for testing purposes
+/// Trigger a sample NSRangeException for testing purposes  
 + (void)triggerSampleRangeException;
 
 /// Trigger a sample NSInvalidArgumentException for testing purposes
@@ -40,32 +40,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 // MARK: - Crash Triggers for Testing
 
-/// Trigger a null pointer dereference (EXC_BAD_ACCESS / KERN_INVALID_ADDRESS)
-+ (void)triggerNullPointerCrash;
-
-/// Trigger a stack overflow (EXC_BAD_ACCESS / KERN_PROTECTION_FAILURE)
-+ (void)triggerStackOverflowCrash;
-
-/// Trigger an abort signal (SIGABRT)
-+ (void)triggerAbortCrash;
-
-/// Trigger an illegal instruction (SIGILL / EXC_BAD_INSTRUCTION)
-+ (void)triggerIllegalInstructionCrash;
-
 /// Trigger an uncaught NSException
 + (void)triggerUncaughtNSException;
 
-/// Trigger a SIGSEGV (segmentation fault)
-+ (void)triggerSegfaultCrash;
+/// Trigger a null pointer dereference (EXC_BAD_ACCESS)
++ (void)triggerNullPointerCrash;
 
-/// Trigger a SIGBUS (bus error)
-+ (void)triggerBusErrorCrash;
-
-/// Trigger a SIGFPE (floating point exception / divide by zero)
-+ (void)triggerDivideByZeroCrash;
-
-/// Trigger a SIGTRAP (breakpoint/debugger trap)
-+ (void)triggerTrapCrash;
+/// Trigger an abort signal (SIGABRT)
++ (void)triggerAbortCrash;
 
 @end
 

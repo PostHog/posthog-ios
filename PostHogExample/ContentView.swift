@@ -120,7 +120,7 @@ struct ContentView: View {
     /// Creates a multi-level async call chain to test stack trace capture
     func captureAsyncError() async {
         do {
-            await try asyncLevel1()
+            try await asyncLevel1()
         } catch {
             PostHogSDK.shared.captureException(error, properties: [
                 "is_test": true,
@@ -298,6 +298,29 @@ struct ContentView: View {
                         if featureFlagsModel.isReloading {
                             ProgressView()
                         }
+                    }
+                }
+
+                Section("Crash Triggers") {
+                    // NSException - richest info with name + reason
+                    Button("Uncaught NSException") {
+                        ExceptionHandler.triggerUncaughtNSException()
+                    }
+                    // SIGTRAP - message not captured (see PostHogCrashReportProcessor for details)
+                    Button("fatalError()") {
+                        SwiftCrashTriggers.triggerFatalError()
+                    }
+                    // SIGTRAP - Swift runtime trap on nil unwrap
+                    Button("Force unwrap nil") {
+                        SwiftCrashTriggers.triggerForceUnwrapNil()
+                    }
+                    // EXC_BAD_ACCESS - null pointer dereference
+                    Button("Null Pointer") {
+                        ExceptionHandler.triggerNullPointerCrash()
+                    }
+                    // SIGABRT - explicit abort() call
+                    Button("Abort") {
+                        ExceptionHandler.triggerAbortCrash()
                     }
                 }
 

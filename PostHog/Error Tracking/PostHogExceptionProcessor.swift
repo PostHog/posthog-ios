@@ -32,7 +32,7 @@ enum PostHogExceptionProcessor {
     ) -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        properties["$exception_level"] = "error" // TODO: figure if error or fatal based on wrapper error type when
+        properties["$exception_level"] = "error"
 
         let exceptions = buildExceptionList(
             from: error,

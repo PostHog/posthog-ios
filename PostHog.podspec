@@ -25,6 +25,12 @@ Pod::Spec.new do |s|
 
   s.frameworks = 'Foundation'
 
+  # PLCrashReporter dependency (not available on watchOS)
+  # Using ~> 1.8 for minimum compatibility with host apps
+  s.ios.dependency 'PLCrashReporter', '~> 1.8'
+  s.osx.dependency 'PLCrashReporter', '~> 1.8'
+  s.tvos.dependency 'PLCrashReporter', '~> 1.8'
+
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
     'vendor/libwebp/**/*.{h,c}'

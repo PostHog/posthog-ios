@@ -31,7 +31,6 @@
 		3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */; };
 		3AE3FB4B2993A68500AFFC18 /* PostHogStorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4A2993A68500AFFC18 /* PostHogStorageTest.swift */; };
 		3AE3FB4E2993D1D600AFFC18 /* PostHogStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4D2993D1D600AFFC18 /* PostHogStorageManager.swift */; };
-		628564DE224D783306683EEE /* PostHogDebugImageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34EA6EED2443DFD84061990F /* PostHogDebugImageProvider.swift */; };
 		690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */; };
 		690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */; };
 		690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */; };
@@ -540,7 +539,6 @@
 
 /* Begin PBXFileReference section */
 		1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMergeTest.swift; sourceTree = "<group>"; };
-		34EA6EED2443DFD84061990F /* PostHogDebugImageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PostHogDebugImageProvider.swift; path = "PostHog/Error Tracking/Utils/PostHogDebugImageProvider.swift"; sourceTree = "<group>"; };
 		3A0F108229C47940002C0084 /* UIViewExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIViewExample.swift; sourceTree = "<group>"; };
 		3A0F108429C9ABB6002C0084 /* ReadWriteLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadWriteLock.swift; sourceTree = "<group>"; };
 		3A0F108829C9BD76002C0084 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
@@ -1065,7 +1063,6 @@
 				3AC745B6296D6FE60025C109 /* Products */,
 				69261D152AD92D6C00232EC7 /* Frameworks */,
 				DAE8AEC02D9D0E7700A1FE3A /* Recovered References */,
-				34EA6EED2443DFD84061990F /* PostHogDebugImageProvider.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1090,12 +1087,12 @@
 				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				DA1D29612D115E13003A31DA /* DI.swift */,
-				DA578E912D6768A100B3A56C /* Screen Views */,
-				DA703C132D6615300069097B /* App Life Cycle */,
+				DA578E912D6768A100B3A56C /* ScreenViews */,
+				DA703C132D6615300069097B /* AppLifeCycle */,
 				DA26419B2CC0499300CB427B /* Autocapture */,
 				69EE82B82BA9C4DA00EB9542 /* Replay */,
 				DA30AE872D40173D00465A64 /* Surveys */,
-				DA8C9B972EC633FA00C6EADB /* Error Tracking */,
+				DA8C9B972EC633FA00C6EADB /* ErrorTracking */,
 				69BA38E62B893F2200AA69D6 /* Resources */,
 				69779BED2AE6B29E00D7A48E /* Models */,
 				3AA4C09B2988315D006C4731 /* Utils */,
@@ -1387,13 +1384,13 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		DA578E912D6768A100B3A56C /* Screen Views */ = {
+		DA578E912D6768A100B3A56C /* ScreenViews */ = {
 			isa = PBXGroup;
 			children = (
 				DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */,
 				DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */,
 			);
-			path = "Screen Views";
+			path = ScreenViews;
 			sourceTree = "<group>";
 		};
 		DA690C7A2DA54DDD0045FF4E /* Surveys */ = {
@@ -1409,16 +1406,16 @@
 			path = Surveys;
 			sourceTree = "<group>";
 		};
-		DA703C132D6615300069097B /* App Life Cycle */ = {
+		DA703C132D6615300069097B /* AppLifeCycle */ = {
 			isa = PBXGroup;
 			children = (
 				DA703C1B2D6616F20069097B /* PostHogAppLifeCycleIntegration.swift */,
 				DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */,
 			);
-			path = "App Life Cycle";
+			path = AppLifeCycle;
 			sourceTree = "<group>";
 		};
-		DA8C9B972EC633FA00C6EADB /* Error Tracking */ = {
+		DA8C9B972EC633FA00C6EADB /* ErrorTracking */ = {
 			isa = PBXGroup;
 			children = (
 				DA3BB4E72ED9929C0097A97A /* Models */,
@@ -1426,7 +1423,7 @@
 				DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */,
 				DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */,
 			);
-			path = "Error Tracking";
+			path = ErrorTracking;
 			sourceTree = "<group>";
 		};
 		DA8D37252CBEAC02005EBD27 /* Products */ = {
@@ -2346,7 +2343,6 @@
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,
 				3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */,
 				69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */,
-				628564DE224D783306683EEE /* PostHogDebugImageProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

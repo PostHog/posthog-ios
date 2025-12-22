@@ -378,13 +378,6 @@ struct ContentView: View {
                         }
                     }
 
-                    Button("Trigger with Message") {
-                        PostHogSDK.shared.captureException("Unexpected state detected", properties: [
-                            "is_test": true,
-                            "app_state": "some_state",
-                        ])
-                    }
-
                     Button("Capture Async/Await Error") {
                         Task {
                             await captureAsyncError()

@@ -125,7 +125,7 @@ import Foundation
                 }
 
                 // Extract identity and event properties from saved context
-                let crashDistinctId = savedContext["distinct_id"] as? String ?? postHog.getDistinctId()
+                let crashDistinctId = savedContext["distinct_id"] as? String
                 let crashEventProperties = savedContext["event_properties"] as? [String: Any] ?? [:]
 
                 // Collect crash-specific event properties (stack traces, exceptions etc)

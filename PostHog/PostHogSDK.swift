@@ -142,7 +142,7 @@ let maxRetryDelay = 30.0
             // Create session manager instance for this PostHogSDK instance
             sessionManager.setup(config: config)
             sessionManager.startSession()
-            // Listen for session changes to update crash context (register before startSession)
+            // Listen for session changes to update crash context
             sessionIdChangedToken = sessionManager.onSessionIdChanged { [weak self] in
                 self?.notifyContextDidChange()
             }

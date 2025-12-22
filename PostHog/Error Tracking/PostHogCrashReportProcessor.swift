@@ -47,7 +47,7 @@ import Foundation
             if let uuidRef = report.uuidRef {
                 properties["$crash_report_id"] = CFUUIDCreateString(nil, uuidRef) as String
             }
-            
+
             return properties
         }
 
@@ -66,8 +66,8 @@ import Foundation
             if report.hasExceptionInfo, let nsExceptionInfo = report.exceptionInfo {
                 // NSException - has actual exception name and reason
                 //
-                // Limitation: Unfortunately we cannot walk the exception chain via NSUnderlyingErrorKey because 
-                // PLCrashReportExceptionInfo only exposes name, reason, and stackFrames. The original userInfo dictionary is not serialized. 
+                // Limitation: Unfortunately we cannot walk the exception chain via NSUnderlyingErrorKey because
+                // PLCrashReportExceptionInfo only exposes name, reason, and stackFrames. The original userInfo dictionary is not serialized.
                 // The chain information is lost at crash time.
                 exception["type"] = nsExceptionInfo.exceptionName
                 exception["value"] = nsExceptionInfo.exceptionReason
@@ -245,7 +245,7 @@ import Foundation
         }
 
         // MARK: - Helpers
-        
+
         /// Format string for zero-padded 64-bit hex addresses (e.g., "0x00007fff12345678")
         static let hexAddressPaddedFormat = "0x%016llx"
 
@@ -353,6 +353,13 @@ import Foundation
             0x105: "EXC_ARM_PAC_FAIL", // 261
         ]
 
+        private static let exceptionCodeNameMappings: [Int64: [Int64: String]] = [
+            1: kernelReturnCodeNames, // EXC_BAD_ACCESS
+            2: badInstructionCodeNames, // EXC_BAD_INSTRUCTION
+            3: arithmeticCodeNames, // EXC_ARITHMETIC
+            6: breakpointCodeNames, // EXC_BREAKPOINT
+        ]
+
         private static func machExceptionMessage(_ exception: PLCrashReportMachExceptionInfo) -> String {
             let typeName = machExceptionName(exception.type)
 
@@ -365,32 +372,11 @@ import Foundation
 
             // Format code with name if available (exception-type-specific)
             let codeStr: String
-            switch exception.type {
-            case 1: // EXC_BAD_ACCESS
-                if let codeName = kernelReturnCodeNames[code] {
-                    codeStr = "\(codeName) (\(code))"
-                } else {
-                    codeStr = String(code)
-                }
-            case 2: // EXC_BAD_INSTRUCTION
-                if let codeName = badInstructionCodeNames[code] {
-                    codeStr = "\(codeName) (\(code))"
-                } else {
-                    codeStr = String(code)
-                }
-            case 3: // EXC_ARITHMETIC
-                if let codeName = arithmeticCodeNames[code] {
-                    codeStr = "\(codeName) (\(code))"
-                } else {
-                    codeStr = String(code)
-                }
-            case 6: // EXC_BREAKPOINT
-                if let codeName = breakpointCodeNames[code] {
-                    codeStr = "\(codeName) (\(code))"
-                } else {
-                    codeStr = String(code)
-                }
-            default:
+            if let codeNames = exceptionCodeNameMappings[Int64(exception.type)],
+               let codeName = codeNames[code]
+            {
+                codeStr = "\(codeName) (\(code))"
+            } else {
                 codeStr = String(code)
             }
 
@@ -404,7 +390,7 @@ import Foundation
         }
 
         private static func signalMessage(_ signal: PLCrashReportSignalInfo) -> String? {
-            guard let name = signal.name,  let code = signal.code else {
+            guard let name = signal.name, let code = signal.code else {
                 return nil
             }
 

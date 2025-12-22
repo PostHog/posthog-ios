@@ -99,7 +99,7 @@ import Foundation
                 hedgeLog("Crash handler is disabled because a debugger is attached. Crashes will be caught by the debugger instead.")
                 return
             }
-            
+
             // Enable crash reporter for this session
             do {
                 try reporter.enableAndReturnError()

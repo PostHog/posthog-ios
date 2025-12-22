@@ -325,7 +325,6 @@ struct ContentView: View {
                 }
 
                 Section("Error tracking") {
-
                     Button("Capture Swift Enum Error (with associated value)") {
                         do {
                             throw SampleAppError.generalAppError(ErrorDetails(code: 10, reason: "some reason"))

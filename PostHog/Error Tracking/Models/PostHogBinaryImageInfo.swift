@@ -42,9 +42,7 @@ struct PostHogBinaryImageInfo {
             dict["debug_id"] = uuid
         }
 
-        if vmAddress > 0 {
-            dict["image_vmaddr"] = String(format: PostHogStackFrame.hexAddressFormat, vmAddress)
-        }
+        dict["image_vmaddr"] = String(format: PostHogStackFrame.hexAddressFormat, vmAddress)
 
         return dict
     }

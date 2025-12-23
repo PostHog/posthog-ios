@@ -10,7 +10,7 @@ name: Security
 permissions:
     contents: read
     actions: read
-    security-events: write
+    security-events: write # for uploading security scan results
 
 env:
     SEMGREP_ENABLE_VERSION_CHECK: 'false'
@@ -27,3 +27,4 @@ jobs:
                   allowlist: |
                       actions/
                       PostHog/
+                      github/

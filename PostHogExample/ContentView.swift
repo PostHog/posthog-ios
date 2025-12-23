@@ -117,6 +117,42 @@ struct ContentView: View {
         }
     }
 
+    /// Creates a multi-level async call chain to test stack trace capture
+    func captureAsyncError() async {
+        do {
+            await try asyncLevel1()
+        } catch {
+            PostHogSDK.shared.captureException(error, properties: [
+                "is_test": true,
+                "error_type": "async_await_chain",
+                "capture_point": "top_level_catch",
+            ])
+        }
+    }
+
+    private func asyncLevel1() async throws {
+        // Simulate some async work
+        await Task.sleep(10_000_000) // 0.01 seconds
+        try await asyncLevel2()
+    }
+
+    private func asyncLevel2() async throws {
+        // Simulate more async work
+        await Task.sleep(20_000_000) // 0.02 seconds
+        try await asyncLevel3()
+    }
+
+    private func asyncLevel3() async throws {
+        // Simulate final async work before error
+        await Task.sleep(30_000_000) // 0.03 seconds
+
+        // Throw an error from deep in the async chain
+        throw AsyncTestError.deepAsyncError(
+            message: "Error occurred in async level 3",
+            context: ["level": 3, "operation": "data_processing"]
+        )
+    }
+
     func triggerAuthentication() {
         signInViewModel.triggerAuthentication()
     }
@@ -265,6 +301,90 @@ struct ContentView: View {
                     }
                 }
 
+                Section("Error tracking") {
+                    Button("Capture Swift Enum Error (with associated value)") {
+                        do {
+                            throw SampleAppError.generalAppError(ErrorDetails(code: 10, reason: "some reason"))
+                        } catch {
+                            PostHogSDK.shared.captureException(error, properties: [
+                                "is_test": true,
+                            ])
+                        }
+                    }
+
+                    Button("Capture NSException (Constructed)") {
+                        let exception = NSException(
+                            name: NSExceptionName("PostHogTestException"),
+                            reason: "Manual test exception for error tracking validation",
+                            userInfo: [
+                                "test_scenario": "manual_button_press",
+                                "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+                            ]
+                        )
+
+                        PostHogSDK.shared.captureException(exception, properties: [
+                            "is_test": true,
+                            "user_initiated": true,
+                            "exception_type": "safe_nsexception",
+                        ])
+                    }
+
+                    Button("Trigger Real NSRangeException") {
+                        ExceptionHandler.try {
+                            ExceptionHandler.triggerSampleRangeException()
+                        } catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "real_nsrange_exception",
+                                "caught_by": "objective_c_wrapper",
+                            ])
+                        }
+                    }
+
+                    Button("Trigger Real NSInvalidArgumentException") {
+                        ExceptionHandler.try {
+                            ExceptionHandler.triggerSampleInvalidArgumentException()
+                        } catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "real_invalid_argument_exception",
+                                "caught_by": "objective_c_wrapper",
+                            ])
+                        }
+                    }
+
+                    Button("Trigger Custom NSException") {
+                        ExceptionHandler.try {
+                            ExceptionHandler.triggerSampleGenericException()
+                        } catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "real_custom_exception",
+                                "caught_by": "objective_c_wrapper",
+                            ])
+                        }
+                    }
+
+                    Button("Trigger Chained NSException") {
+                        ExceptionHandler.try {
+                            ExceptionHandler.triggerChainedException()
+                        } catch: { exception in
+                            PostHogSDK.shared.captureException(exception, properties: [
+                                "is_test": true,
+                                "exception_type": "chained_exception",
+                                "caught_by": "objective_c_wrapper",
+                                "scenario": "network_database_business_chain",
+                            ])
+                        }
+                    }
+
+                    Button("Capture Async/Await Error") {
+                        Task {
+                            await captureAsyncError()
+                        }
+                    }
+                }
+
                 Section("PostHog beers") {
                     if !api.beers.isEmpty {
                         ForEach(api.beers) { beer in
@@ -302,5 +422,32 @@ struct ContentView: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+enum SampleAppError: LocalizedError {
+    case generalAppError(ErrorDetails)
+
+    var errorDescription: String? {
+        switch self {
+        case let .generalAppError(details):
+            return "Custom error description for SampleAppError.generalAppError with details: \(details)"
+        }
+    }
+}
+
+struct ErrorDetails {
+    let code: Int
+    let reason: String
+}
+
+enum AsyncTestError: LocalizedError {
+    case deepAsyncError(message: String, context: [String: Any])
+
+    var errorDescription: String? {
+        switch self {
+        case let .deepAsyncError(message, context):
+            return "Async Error: \(message) | Context: \(context)"
+        }
     }
 }

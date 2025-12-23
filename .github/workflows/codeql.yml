@@ -28,7 +28,7 @@ jobs:
           build-mode: manual
           queries: security-and-quality
       - name: Build
-        run: xcodebuild build -scheme PostHog -destination generic/platform=macos
+        run: make buildSdk
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:

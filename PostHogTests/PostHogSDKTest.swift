@@ -333,6 +333,39 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("force send feature flag event for getFeatureFlag when config disabled") {
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: false)
+
+            waitFlagsRequest(server)
+            expect(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: true) as? Bool) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            expect(event.properties["$feature_flag"] as? String) == "bool-value"
+            expect(event.properties["$feature_flag_response"] as? Bool) == true
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("don't send feature flag event for getFeatureFlag when config enabled") {
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitFlagsRequest(server)
+            expect(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false) as? Bool) == true
+
+            let events = getBatchedEvents(server, failIfNotCompleted: false)
+
+            expect(events.count) == 0
+
+            sut.reset()
+            sut.close()
+        }
+
         it("reloadFeatureFlags adds groups if any") {
             let sut = self.getSut()
             // group reloads flags when there are new groups

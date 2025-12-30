@@ -40,16 +40,28 @@
          */
         func postHogNoMask() -> some View {
             modifier(
-                PostHogTagViewModifier { uiViews in
-                    uiViews.forEach { $0.postHogNoMask = true }
-                } onRemove: { uiViews in
-                    uiViews.forEach { $0.postHogNoMask = false }
-                }
+                PostHogTagViewModifier(
+                    onChange: { views, layers in
+                        views.forEach { $0.postHogNoMask = true }
+                        layers.forEach { $0.postHogNoMask = true }
+                    },
+                    onRemove: { views, layers in
+                        views.forEach { $0.postHogNoMask = false }
+                        layers.forEach { $0.postHogNoMask = false }
+                    }
+                )
             )
         }
     }
 
     extension UIView {
+        var postHogNoMask: Bool {
+            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoMask) as? Bool ?? false }
+            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoMask, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+        }
+    }
+
+    extension CALayer {
         var postHogNoMask: Bool {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phNoMask) as? Bool ?? false }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phNoMask, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }

@@ -6,6 +6,10 @@ on:
   pull_request:
     paths-ignore:
       - "**/*.md"
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-14

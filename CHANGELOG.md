@@ -1,5 +1,7 @@
 ## Next
 
+## 3.37.0 - 2025-12-30
+
 - feat: add ability to override sendFeatureFlagEvent for exact feature flag call ([#396](https://github.com/PostHog/posthog-ios/pull/396))
 
 ## 3.36.2 - 2025-12-19

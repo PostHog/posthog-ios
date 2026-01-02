@@ -37,8 +37,12 @@ class PostHogContext {
         if let appVersion = infoDictionary?["CFBundleShortVersionString"] {
             properties["$app_version"] = appVersion
         }
-        if let appBuild = infoDictionary?["CFBundleVersion"] {
-            properties["$app_build"] = appBuild
+        if let appBuild = infoDictionary?["CFBundleVersion"] as? String {
+            if let appBuildInt = Int(appBuild) {
+                properties["$app_build"] = appBuildInt
+            } else {
+                properties["$app_build"] = appBuild
+            }
         }
 
         if Bundle.main.bundleIdentifier != nil {
@@ -211,6 +215,9 @@ class PostHogContext {
 
     /// Converts Mac hardware identifiers to user-friendly names
     /// For example: "MacBookPro18,3" -> "MacBook Pro"
+    /// - Parameter model: The hardware model identifier string
+    /// - Returns: A user-friendly name for the Mac model
+    // swiftlint:disable:next cyclomatic_complexity orphaned_doc_comment
     private func macModelToFriendlyName(_ model: String) -> String {
         // Handle empty or invalid input
         guard !model.isEmpty else { return "Mac" }

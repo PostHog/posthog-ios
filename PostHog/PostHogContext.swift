@@ -38,7 +38,13 @@ class PostHogContext {
             properties["$app_version"] = appVersion
         }
         if let appBuild = infoDictionary?["CFBundleVersion"] {
-            properties["$app_build"] = appBuild
+            // Try to parse as Int first, then fallback to original value
+            if let appBuildString = appBuild as? String,
+               let appBuildInt = Int(appBuildString) {
+                properties["$app_build"] = appBuildInt
+            } else {
+                properties["$app_build"] = appBuild
+            }
         }
 
         if Bundle.main.bundleIdentifier != nil {

@@ -19,7 +19,7 @@ class PostHogFileBackedQueueTest: QuickSpec {
             "$groups": {
               "some-group": "id:4"
             },
-            "$app_build": "1",
+            "$app_build": 1,
             "$os_name": "iOS",
             "$feature/multivariant": "payload",
             "$screen_width": 852,

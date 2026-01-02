@@ -40,7 +40,8 @@ class PostHogContext {
         if let appBuild = infoDictionary?["CFBundleVersion"] {
             // Try to parse as Int first, then fallback to original value
             if let appBuildString = appBuild as? String,
-               let appBuildInt = Int(appBuildString) {
+               let appBuildInt = Int(appBuildString)
+            {
                 properties["$app_build"] = appBuildInt
             } else {
                 properties["$app_build"] = appBuild

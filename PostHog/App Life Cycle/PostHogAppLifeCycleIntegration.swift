@@ -123,7 +123,12 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             if previousVersion != nil {
                 props["previous_version"] = previousVersion
             }
-            props["previous_build"] = previousVersionCode
+            // Try to parse as Int first, then fallback to String
+            if let prevBuildInt = Int(previousVersionCode) {
+                props["previous_build"] = prevBuildInt
+            } else {
+                props["previous_build"] = previousVersionCode
+            }
         }
 
         var syncDefaults = false
@@ -134,7 +139,12 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         }
 
         if versionCode != nil {
-            props["build"] = versionCode
+            // Try to parse as Int first, then fallback to String
+            if let buildInt = Int(versionCode) {
+                props["build"] = buildInt
+            } else {
+                props["build"] = versionCode
+            }
             userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
             syncDefaults = true
         }

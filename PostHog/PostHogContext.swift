@@ -236,8 +236,9 @@ class PostHogContext {
             // Mac13,x is Mac Studio
             // Future models might follow similar patterns
             if model.hasPrefix("Mac14,2") || model.hasPrefix("Mac14,15") ||
-               model.hasPrefix("Mac15,3") || model.hasPrefix("Mac15,6") ||
-               model.hasPrefix("Mac15,7") {
+                model.hasPrefix("Mac15,3") || model.hasPrefix("Mac15,6") ||
+                model.hasPrefix("Mac15,7")
+            {
                 return "MacBook Air"
             } else if model.hasPrefix("Mac14") || model.hasPrefix("Mac15") {
                 // Default newer Mac models to MacBook Pro if not Air

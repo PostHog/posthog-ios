@@ -18,10 +18,10 @@ on:
 
 jobs:
   compliance-tests:
-    # NOTE: Using macos-13 (Intel) instead of macos-14 (Apple Silicon)
+    # NOTE: Using macos-15-intel (Intel) instead of macos-latest (Apple Silicon)
     # Reason: Apple Silicon runners don't support nested virtualization needed for Docker
     # See: https://github.com/actions/runner-images/issues/9460
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 20
     permissions:
       contents: read

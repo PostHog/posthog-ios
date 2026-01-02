@@ -1,3 +1,5 @@
+// swiftlint:disable cyclomatic_complexity
+
 //
 //  PostHogAppLifeCycleIntegration.swift
 //  PostHog

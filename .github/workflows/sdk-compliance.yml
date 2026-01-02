@@ -1,0 +1,154 @@
+name: SDK Compliance Tests
+
+# NOTE: This workflow is adapted from PostHog/posthog-sdk-test-harness/.github/workflows/test-sdk-action.yml
+# Key difference: Uses HYBRID RUNNER architecture because iOS SDK requires macOS (Darwin frameworks)
+# - Standard action: Runs everything in Docker on ubuntu-latest
+# - This workflow: Runs adapter natively on macos-latest, test harness in Docker
+#
+# Why: iOS SDK depends on SystemConfiguration, Foundation, UIKit which don't exist on Linux
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    paths:
+      - 'PostHog/**'
+      - 'sdk_compliance_adapter/**'
+      - '.github/workflows/sdk-compliance.yml'
+
+jobs:
+  compliance-tests:
+    runs-on: macos-14  # iOS SDK requires macOS
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Verify Docker is available
+        run: |
+          docker --version
+          docker-compose --version
+
+      - name: Pull test harness image
+        run: |
+          # Using debug tag for now, should use versioned releases in production
+          # TODO: Change to ghcr.io/posthog/sdk-test-harness:latest once published
+          docker pull ghcr.io/posthog/sdk-test-harness:latest || \
+          (echo "Test harness image not found, building locally..." && \
+           git clone --depth 1 https://github.com/PostHog/posthog-sdk-test-harness.git /tmp/test-harness && \
+           cd /tmp/test-harness && \
+           docker build -t posthog-sdk-test-harness:debug .)
+
+      - name: Build iOS compliance adapter
+        run: |
+          cd sdk_compliance_adapter
+          # Build with TESTING flag to avoid Bundle.main.bundleIdentifier crash in CLI
+          swift build -c release -Xswiftc -DTESTING
+
+      - name: Create report directory
+        run: mkdir -p ${{ github.workspace }}/report
+
+      - name: Run compliance tests
+        id: run-tests
+        continue-on-error: true
+        run: |
+          cd sdk_compliance_adapter
+
+          # Start adapter in background
+          .build/release/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > adapter.log 2>&1 &
+          ADAPTER_PID=$!
+
+          # Wait for adapter to be ready
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✅ Adapter ready"
+              break
+            fi
+            sleep 1
+          done
+
+          # Run tests via docker-compose
+          # Test harness connects to adapter via host.docker.internal:8080
+          # Mock server runs in Docker, accessible via localhost:8081
+          docker-compose up --abort-on-container-exit
+
+          # Capture exit code
+          TEST_EXIT_CODE=$?
+
+          # Stop adapter
+          kill $ADAPTER_PID || true
+
+          exit $TEST_EXIT_CODE
+
+      - name: Upload adapter logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adapter-logs
+          path: sdk_compliance_adapter/adapter*.log
+          retention-days: 7
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-compliance-report
+          path: report/sdk-compliance-report.md
+          retention-days: 30
+
+      - name: Comment on PR with results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = '${{ github.workspace }}/report/sdk-compliance-report.md';
+
+            if (!fs.existsSync(reportPath)) {
+              console.log('Report file not found, skipping PR comment');
+              return;
+            }
+
+            const report = fs.readFileSync(reportPath, 'utf8');
+            const commentMarker = `<!-- posthog-sdk-compliance-report-posthog-ios -->`;
+            const body = `${commentMarker}\n${report}`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(comment =>
+              comment.body.includes(commentMarker)
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Fail if tests failed
+        if: steps.run-tests.outcome != 'success'
+        run: exit 1

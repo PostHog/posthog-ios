@@ -18,7 +18,8 @@ class PostHogApi {
     }
 
     func sessionConfig() -> URLSessionConfiguration {
-        let config = URLSessionConfiguration.default
+        // Use custom configuration if provided, otherwise use default
+        let config = self.config.urlSessionConfiguration ?? URLSessionConfiguration.default
 
         config.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",

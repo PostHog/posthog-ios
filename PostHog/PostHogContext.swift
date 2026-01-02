@@ -1,3 +1,5 @@
+// swiftlint:disable cyclomatic_complexity
+
 //
 //  PostHogContext.swift
 //  PostHog
@@ -37,11 +39,8 @@ class PostHogContext {
         if let appVersion = infoDictionary?["CFBundleShortVersionString"] {
             properties["$app_version"] = appVersion
         }
-        if let appBuild = infoDictionary?["CFBundleVersion"] {
-            // Try to parse as Int first, then fallback to original value
-            if let appBuildString = appBuild as? String,
-               let appBuildInt = Int(appBuildString)
-            {
+        if let appBuild = infoDictionary?["CFBundleVersion"] as? String {
+            if let appBuildInt = Int(appBuild) {
                 properties["$app_build"] = appBuildInt
             } else {
                 properties["$app_build"] = appBuild

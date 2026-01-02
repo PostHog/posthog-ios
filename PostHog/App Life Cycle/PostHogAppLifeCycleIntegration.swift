@@ -124,10 +124,12 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
                 props["previous_version"] = previousVersion
             }
             // Try to parse as Int first, then fallback to String
-            if let prevBuildInt = Int(previousVersionCode) {
-                props["previous_build"] = prevBuildInt
-            } else {
-                props["previous_build"] = previousVersionCode
+            if let previousVersionCode = previousVersionCode {
+                if let prevBuildInt = Int(previousVersionCode) {
+                    props["previous_build"] = prevBuildInt
+                } else {
+                    props["previous_build"] = previousVersionCode
+                }
             }
         }
 
@@ -138,7 +140,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             syncDefaults = true
         }
 
-        if versionCode != nil {
+        if let versionCode = versionCode {
             // Try to parse as Int first, then fallback to String
             if let buildInt = Int(versionCode) {
                 props["build"] = buildInt

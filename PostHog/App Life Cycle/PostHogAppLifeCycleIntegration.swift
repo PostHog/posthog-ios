@@ -1,5 +1,3 @@
-// swiftlint:disable cyclomatic_complexity
-
 //
 //  PostHogAppLifeCycleIntegration.swift
 //  PostHog
@@ -86,6 +84,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         didEnterBackgroundToken = nil
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func captureAppInstallOrUpdated() {
         // Check if Application Installed or Application Updated was already checked in the lifecycle of this app
         // This can be called multiple times in case of optOut, multiple instances or start/stop integration
@@ -126,7 +125,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
                 props["previous_version"] = previousVersion
             }
             // Try to parse as Int first, then fallback to String
-            if let previousVersionCode = previousVersionCode {
+            if let previousVersionCode {
                 if let prevBuildInt = Int(previousVersionCode) {
                     props["previous_build"] = prevBuildInt
                 } else {

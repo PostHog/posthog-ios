@@ -1,5 +1,3 @@
-// swiftlint:disable cyclomatic_complexity
-
 //
 //  PostHogContext.swift
 //  PostHog
@@ -217,6 +215,9 @@ class PostHogContext {
 
     /// Converts Mac hardware identifiers to user-friendly names
     /// For example: "MacBookPro18,3" -> "MacBook Pro"
+    /// - Parameter model: The hardware model identifier string
+    /// - Returns: A user-friendly name for the Mac model
+    // swiftlint:disable:next cyclomatic_complexity orphaned_doc_comment
     private func macModelToFriendlyName(_ model: String) -> String {
         // Handle empty or invalid input
         guard !model.isEmpty else { return "Mac" }

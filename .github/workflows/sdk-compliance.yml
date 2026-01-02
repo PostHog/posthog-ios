@@ -33,21 +33,28 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Install Docker
+      - name: Install and Start Docker
         run: |
           # Install Docker Desktop for Mac
           brew install --cask docker
 
-          # Start Docker Desktop
-          open -a Docker
+          # Start Docker Desktop (application is named "Docker.app" after install)
+          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components &
 
-          # Wait for Docker to be ready
-          echo "Waiting for Docker to start..."
-          while ! docker info >/dev/null 2>&1; do
+          # Wait for Docker daemon to be ready
+          echo "Waiting for Docker daemon to start..."
+          for i in {1..60}; do
+            if docker info >/dev/null 2>&1; then
+              echo "✅ Docker is ready"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "❌ Docker failed to start"
+              exit 1
+            fi
             sleep 5
           done
 
-          echo "Docker is ready"
           docker --version
           docker-compose --version
 

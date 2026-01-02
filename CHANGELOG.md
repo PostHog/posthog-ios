@@ -1,6 +1,6 @@
 ## Next
 
-- fix: parse $app_build as integer when possible
+- fix: parse $app_build as integer when possible ([#423](https://github.com/PostHog/posthog-ios/pull/423))
 
 ## 3.37.0 - 2025-12-30
 

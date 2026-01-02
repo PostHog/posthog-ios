@@ -18,7 +18,10 @@ on:
 
 jobs:
   compliance-tests:
-    runs-on: macos-14  # iOS SDK requires macOS
+    # NOTE: Using macos-13 (Intel) instead of macos-14 (Apple Silicon)
+    # Reason: Apple Silicon runners don't support nested virtualization needed for Docker
+    # See: https://github.com/actions/runner-images/issues/9460
+    runs-on: macos-13
     timeout-minutes: 20
     permissions:
       contents: read
@@ -33,28 +36,19 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Install and Start Docker
+      - name: Install and Start Docker via Colima
         run: |
-          # Install Docker Desktop for Mac
-          brew install --cask docker
+          # Install Docker CLI and Colima (lightweight Docker runtime for macOS)
+          brew install docker colima docker-compose
 
-          # Start Docker Desktop (application is named "Docker.app" after install)
-          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components &
+          # Start Colima with modest resources
+          colima start --cpu 2 --memory 4 --disk 10
 
-          # Wait for Docker daemon to be ready
-          echo "Waiting for Docker daemon to start..."
-          for i in {1..60}; do
-            if docker info >/dev/null 2>&1; then
-              echo "✅ Docker is ready"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "❌ Docker failed to start"
-              exit 1
-            fi
-            sleep 5
-          done
+          # Link the socket so docker-compose can find it
+          sudo ln -sf $HOME/.colima/default/docker.sock /var/run/docker.sock
 
+          # Verify Docker is working
+          docker info
           docker --version
           docker-compose --version
 

@@ -1,6 +1,6 @@
 import Foundation
-import Vapor
 import PostHog
+import Vapor
 
 // Global state for the adapter
 class AdapterState {
@@ -30,7 +30,7 @@ app.get("health") { req async throws -> Response in
     let health = [
         "sdk_name": "posthog-ios",
         "sdk_version": packageVersion,
-        "adapter_version": "1.0.0"
+        "adapter_version": "1.0.0",
     ]
 
     print("[ADAPTER] GET /health")
@@ -61,7 +61,7 @@ app.post("init") { req async throws -> Response in
 
     // Configure for fast flushing in tests
     config.flushAt = initReq.flush_at ?? 1
-    config.flushIntervalSeconds = TimeInterval((initReq.flush_interval_ms ?? 100)) / 1000.0
+    config.flushIntervalSeconds = TimeInterval(initReq.flush_interval_ms ?? 100) / 1000.0
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false
@@ -72,10 +72,10 @@ app.post("init") { req async throws -> Response in
     config.enableSwizzling = false
 
     #if os(iOS)
-    config.sessionReplay = false
-    if #available(iOS 15.0, *) {
-        config.surveys = false
-    }
+        config.sessionReplay = false
+        if #available(iOS 15.0, *) {
+            config.surveys = false
+        }
     #endif
 
     // Configure custom URLSession with our RequestInterceptor
@@ -164,9 +164,9 @@ app.get("state") { req async throws -> Response in
                 "status_code": request.status_code,
                 "retry_attempt": request.retry_attempt,
                 "event_count": request.event_count,
-                "uuid_list": request.uuid_list
+                "uuid_list": request.uuid_list,
             ]
-        }
+        },
     ]
 
     print("[ADAPTER] State - total_events_sent: \(RequestInterceptor.totalEventsSent), requests: \(RequestInterceptor.trackedRequests.count)")
@@ -200,7 +200,7 @@ struct RouteLoggingMiddleware: AsyncMiddleware {
 
 // Helper for encoding dictionaries as JSON
 extension Dictionary where Key == String, Value == Any {
-    func encodeResponse(for req: Request) async throws -> Response {
+    func encodeResponse(for _: Request) async throws -> Response {
         let data = try JSONSerialization.data(withJSONObject: self)
         var headers = HTTPHeaders()
         headers.add(name: .contentType, value: "application/json")
@@ -210,7 +210,7 @@ extension Dictionary where Key == String, Value == Any {
 
 // Helper for encoding arrays as JSON
 extension Array where Element == [String: Any] {
-    func encodeResponse(for req: Request) async throws -> Response {
+    func encodeResponse(for _: Request) async throws -> Response {
         let data = try JSONSerialization.data(withJSONObject: self)
         var headers = HTTPHeaders()
         headers.add(name: .contentType, value: "application/json")
@@ -238,7 +238,7 @@ struct AnyCodable: Codable {
         } else if let string = try? container.decode(String.self) {
             value = string
         } else if let array = try? container.decode([AnyCodable].self) {
-            value = array.map { $0.value }
+            value = array.map(\.value)
         } else if let dict = try? container.decode([String: AnyCodable].self) {
             value = dict.mapValues { $0.value }
         } else {

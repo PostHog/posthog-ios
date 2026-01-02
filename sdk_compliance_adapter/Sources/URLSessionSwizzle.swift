@@ -8,7 +8,8 @@ class URLSessionSwizzler {
         let swizzledSelector = #selector(URLSession.init(swizzled_configuration:))
 
         guard let originalMethod = class_getInstanceMethod(URLSession.self, originalSelector),
-              let swizzledMethod = class_getInstanceMethod(URLSession.self, swizzledSelector) else {
+              let swizzledMethod = class_getInstanceMethod(URLSession.self, swizzledSelector)
+        else {
             print("[SWIZZLE] Failed to get methods for swizzling")
             return
         }

@@ -27,9 +27,10 @@ class RequestInterceptor: URLProtocol {
 
         // Intercept /batch and /e/ endpoints, but not /flags/ or /config
         let urlString = url.absoluteString
-        if (urlString.contains("/batch") || urlString.contains("/e/") || urlString.contains("/s/"))
-            && !urlString.contains("/flags")
-            && !urlString.contains("/config") {
+        if urlString.contains("/batch") || urlString.contains("/e/") || urlString.contains("/s/"),
+           !urlString.contains("/flags"),
+           !urlString.contains("/config")
+        {
             print("[INTERCEPTOR] Can handle: \(urlString)")
             return true
         }
@@ -38,7 +39,7 @@ class RequestInterceptor: URLProtocol {
     }
 
     override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        return request
+        request
     }
 
     override func startLoading() {
@@ -100,7 +101,8 @@ class RequestInterceptor: URLProtocol {
                 // Try to decompress if it's gzipped using the PostHog SDK's gunzipped() method
                 let decompressed: Data
                 if let contentEncoding = request.allHTTPHeaderFields?["Content-Encoding"],
-                   contentEncoding.contains("gzip") {
+                   contentEncoding.contains("gzip")
+                {
                     // Use the same gunzipped() method that PostHog SDK uses
                     decompressed = try bodyData.gunzipped()
                     print("[INTERCEPTOR] Decompressed gzipped payload")
@@ -134,7 +136,8 @@ class RequestInterceptor: URLProtocol {
         if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
            let retryParam = components.queryItems?.first(where: { $0.name == "retry_count" }),
            let retryValue = retryParam.value,
-           let retry = Int(retryValue) {
+           let retry = Int(retryValue)
+        {
             retryCount = retry
         } else {
             retryCount = 0
@@ -164,6 +167,7 @@ class RequestInterceptor: URLProtocol {
 }
 
 // MARK: - Gzip Decompression Extension
+
 // Based on https://github.com/1024jp/GzipSwift (MIT License)
 // Also used in PostHog SDK at PostHog/Utils/Data+Gzip.swift
 

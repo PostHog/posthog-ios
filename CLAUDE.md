@@ -57,27 +57,16 @@ vendor/libwebp/             # Embedded libwebp for image processing
 
 ### Setup Commands
 - `make bootstrap` - Install all required development tools (CocoaPods, xcpretty, SwiftLint, SwiftFormat, Periphery)
-- `make releaseCocoaPods` - Prepare and release CocoaPods version
 
 ## Testing Guidelines
 - Use `make test` for running the main test suite (Swift Package Manager based)
 - Tests use Quick/Nimble framework for behavior-driven testing
 - Network requests are mocked using OHHTTPStubs
 - Test files are located in `PostHogTests/` directory
-- Add `-test-iterations 10` to Makefile commands to run tests multiple times
-- Use `-only-testing:PostHogTests/SpecificTest` to run specific tests
 
 ## Important Notes
-- This project supports all Apple platforms including the newer visionOS
-- Swift Package Manager is the preferred package manager over CocoaPods
-- The project includes multiple example applications demonstrating different integration methods
-- Privacy manifest is included at `PostHog/Resources/PrivacyInfo.xcprivacy`
 - libwebp is embedded as a vendor dependency for image processing capabilities
 - Always test changes across all supported platforms using `make build`
-
-## Known Issues
-- visionOS support in SPM requires Swift tools version >= 5.9 (currently commented out)
-- CocoaPods examples require specific USE_FRAMEWORKS settings for different linking methods
 
 ## Instructions for Claude
 
@@ -91,14 +80,11 @@ vendor/libwebp/             # Embedded libwebp for image processing
 ### Code Style Preferences
 - Follow existing Swift conventions in the codebase
 - Use SwiftLint and SwiftFormat rules as defined in the project
-- Prefer Swift Package Manager over CocoaPods for new development
 - Maintain compatibility across all supported Apple platforms
 
 ### Development Approach
 - Test changes thoroughly across iOS, macOS, tvOS, watchOS, and visionOS
-- Use the provided example applications for manual testing
 - Mock network requests in tests using OHHTTPStubs
-- Follow the existing pattern for lifecycle integrations and screen tracking
 
 ### Error Handling
 - Use existing error handling patterns found in the codebase

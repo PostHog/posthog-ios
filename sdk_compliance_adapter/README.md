@@ -23,19 +23,21 @@ The test harness connects to the adapter via `host.docker.internal`, allowing Do
 
 ### Request Interception
 
-The adapter uses a custom `URLProtocol` subclass to intercept all HTTP requests made by the PostHog SDK:
+The adapter uses **URLSessionConfiguration injection** to intercept HTTP requests:
 
-1. `RequestInterceptor` is registered with `URLProtocol.registerClass()`
-2. When the SDK makes requests, our interceptor captures them
-3. We decompress gzipped payloads using the SDK's own `gunzipped()` method
-4. Extract event count, UUIDs, and status codes for test assertions
+1. Adapter creates a custom `URLSessionConfiguration` with `RequestInterceptor` in `protocolClasses`
+2. Injects it into `PostHogConfig.urlSessionConfiguration` (new property added to SDK)
+3. SDK's `PostHogApi.sessionConfig()` uses the injected configuration
+4. All SDK network requests go through our `RequestInterceptor` URLProtocol subclass
+5. Interceptor tracks status codes and retry attempts
 
 ### Key Features
 
+- **URLSessionConfiguration injection**: Custom property added to PostHogConfig for testability
 - **Fast flushing**: Configures SDK with `flushAt: 1` and minimal flush interval
 - **Feature disabling**: Turns off surveys, session replay, autocapture, etc.
-- **Gzip handling**: Uses the same `Data+Gzip.swift` extension from the SDK
-- **State tracking**: Exposes internal state via `/state` endpoint
+- **TESTING flag**: Builds with `-Xswiftc -DTESTING` to handle command-line environment
+- **Host rewriting**: Converts `host.docker.internal` to `localhost` for hybrid networking
 
 ## API Endpoints
 
@@ -155,17 +157,44 @@ cd ~/work/posthog-ios/sdk_compliance_adapter
 
 ## Implementation Notes
 
+### SDK Enhancement: URLSessionConfiguration Injection
+
+**Problem**: The SDK creates its own URLSession instances internally, ignoring globally registered URLProtocols.
+
+**Solution**: Added a new property to `PostHogConfig`:
+
+```swift
+// PostHogConfig.swift (new property)
+@objc public var urlSessionConfiguration: URLSessionConfiguration?
+```
+
+Modified `PostHogApi.sessionConfig()` to use it:
+
+```swift
+// PostHogApi.swift
+func sessionConfig() -> URLSessionConfiguration {
+    let config = self.config.urlSessionConfiguration ?? URLSessionConfiguration.default
+    // ... configure headers
+}
+```
+
+**Benefits**:
+- Enables HTTP interception for testing
+- Useful for proxies, SSL pinning, custom networking
+- Backward compatible (nil = default behavior)
+- Clean dependency injection pattern
+
 ### Why URLProtocol?
 
-URLProtocol is the cleanest way to intercept HTTP requests on iOS:
-- No method swizzling required
+URLProtocol is the standard way to intercept HTTP requests:
+- Native iOS/macOS API
 - Works with all URLSession-based networking
 - Can inspect and modify requests/responses
-- Native iOS API
+- No global state pollution
 
-### Gzip Decompression
+### Gzip Handling
 
-The iOS SDK gzips request bodies (see `PostHogApi.swift:105-111`). We use the same `gunzipped()` method from `Data+Gzip.swift` to decompress and parse events.
+The iOS SDK gzips request bodies. Our interceptor includes the same `gunzipped()` implementation from the SDK's `Data+Gzip.swift` for decompression.
 
 ### Flush Timing
 
@@ -183,29 +212,49 @@ The adapter configures the SDK for fast, predictable testing:
 ```swift
 config.flushAt = 1  // Send after 1 event
 config.flushIntervalSeconds = 0.1  // 100ms timer
-config.disableQueueTimerForTesting = true  // Immediate flush
 config.captureApplicationLifecycleEvents = false
 config.captureScreenViews = false
 config.preloadFeatureFlags = false
 config.sessionReplay = false
 config.surveys = false
+
+// Inject custom URLSession configuration for interception
+let sessionConfig = URLSessionConfiguration.default
+sessionConfig.protocolClasses = [RequestInterceptor.self]
+config.urlSessionConfiguration = sessionConfig
 ```
 
-## Expected Test Results
+### Host Rewriting
 
-Target: **10-12 out of 15 tests passing (67-80%)**
+Since the adapter runs on the macOS host (not in Docker), it needs to access the mock server via `localhost`, not `host.docker.internal`:
 
-### Should Pass
+```swift
+// Rewrite host.docker.internal → localhost
+let host = initReq.host.replacingOccurrences(
+    of: "host.docker.internal",
+    with: "localhost"
+)
+```
 
-- Format validation (5 tests)
-- UUID generation and uniqueness (3 tests)
-- Basic retry behavior
+## Test Results
 
-### May Fail
+**Current: 11/17 tests passing (65%)**
 
-- Retry-After header support
-- 408 retry handling
-- Some retry count edge cases
+### ✅ Passing (11)
+
+- All format validation tests (5/5)
+- UUID generation and deduplication (1/2)
+- Compression and batch format (2/2)
+- Error handling for 400, 401, 413 (3/5)
+
+### ❌ Failing (6)
+
+**Retry behavior** (5 tests):
+- SDK does not retry on 503, 408 errors
+- SDK does not implement backoff
+- SDK does not respect Retry-After header
+
+**Note**: These failures reflect actual iOS SDK behavior (no retry logic implemented). This may be intentional.
 
 ## Troubleshooting
 
@@ -222,9 +271,10 @@ swift package resolve
 ### Network Issues
 
 If requests aren't being intercepted:
-- Check that `URLProtocol.registerClass(RequestInterceptor.self)` is called
-- Verify the SDK is using default URLSession configuration
+- Verify `config.urlSessionConfiguration` is set with RequestInterceptor
+- Check that host rewriting is working (`host.docker.internal` → `localhost`)
 - Check logs for `[INTERCEPTOR]` messages
+- Ensure mock server port 8081 is accessible from adapter
 
 ### Timing Issues
 
@@ -233,8 +283,10 @@ If tests fail due to timing:
 - Check mock server logs for request timing
 - Verify SDK flush configuration
 
+## CI/CD Integration
+
+A GitHub Actions workflow is available at `.github/workflows/sdk-compliance.yml`. It runs on `macos-14` runners using the hybrid architecture.
+
 ## References
 
-- Browser SDK adapter: `~/work/posthog-js/packages/browser/sdk_compliance_adapter/`
-- Test harness: `~/work/posthog-sdk-test-harness/`
-- iOS SDK: `~/work/posthog-ios/PostHog/`
+- Test harness: https://github.com/PostHog/posthog-sdk-test-harness

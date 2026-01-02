@@ -141,7 +141,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             syncDefaults = true
         }
 
-        if let versionCode = versionCode {
+        if let versionCode {
             // Try to parse as Int first, then fallback to String
             if let buildInt = Int(versionCode) {
                 props["build"] = buildInt

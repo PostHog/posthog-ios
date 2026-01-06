@@ -1,6 +1,6 @@
 ## Next
 
-## 3.37.1 - 2026-01-05
+## 3.37.1 - 2026-01-06
 
 - fix: parse $app_build as integer when possible ([#423](https://github.com/PostHog/posthog-ios/pull/423))
 - fix: macOS device name now uses hardware model instead of hostname to avoid blocking DNS lookups ([#422](https://github.com/PostHog/posthog-ios/pull/422))

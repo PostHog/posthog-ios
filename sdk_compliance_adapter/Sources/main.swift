@@ -40,10 +40,17 @@ app.get("health") { req async throws -> Response in
 // Init endpoint
 app.post("init") { req async throws -> Response in
     struct InitRequest: Content {
-        let api_key: String
+        let apiKey: String
         let host: String
-        let flush_at: Int?
-        let flush_interval_ms: Int?
+        let flushAt: Int?
+        let flushIntervalMs: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case apiKey = "api_key"
+            case host
+            case flushAt = "flush_at"
+            case flushIntervalMs = "flush_interval_ms"
+        }
     }
 
     let initReq = try req.content.decode(InitRequest.self)
@@ -51,17 +58,17 @@ app.post("init") { req async throws -> Response in
     // Rewrite host.docker.internal to localhost since adapter runs on macOS host
     let host = initReq.host.replacingOccurrences(of: "host.docker.internal", with: "localhost")
 
-    print("[ADAPTER] POST /init - api_key: \(initReq.api_key), host: \(host) (original: \(initReq.host))")
+    print("[ADAPTER] POST /init - api_key: \(initReq.apiKey), host: \(host) (original: \(initReq.host))")
 
     // Reset state
     state.reset()
 
     // Create PostHog configuration
-    let config = PostHogConfig(apiKey: initReq.api_key, host: host)
+    let config = PostHogConfig(apiKey: initReq.apiKey, host: host)
 
     // Configure for fast flushing in tests
-    config.flushAt = initReq.flush_at ?? 1
-    config.flushIntervalSeconds = TimeInterval(initReq.flush_interval_ms ?? 100) / 1000.0
+    config.flushAt = initReq.flushAt ?? 1
+    config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? 100) / 1000.0
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false
@@ -100,12 +107,18 @@ app.post("init") { req async throws -> Response in
 app.post("capture") { req async throws -> Response in
     struct CaptureRequest: Content {
         let event: String
-        let distinct_id: String?
+        let distinctId: String?
         let properties: [String: AnyCodable]?
+
+        enum CodingKeys: String, CodingKey {
+            case event
+            case distinctId = "distinct_id"
+            case properties
+        }
     }
 
     let captureReq = try req.content.decode(CaptureRequest.self)
-    print("[ADAPTER] POST /capture - event: \(captureReq.event), distinct_id: \(captureReq.distinct_id ?? "nil")")
+    print("[ADAPTER] POST /capture - event: \(captureReq.event), distinct_id: \(captureReq.distinctId ?? "nil")")
 
     guard let sdk = state.posthogSDK else {
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
@@ -121,7 +134,7 @@ app.post("capture") { req async throws -> Response in
 
     // Capture the event with distinct_id parameter (don't use identify())
     // This ensures the distinct_id is set for THIS event, not globally
-    sdk.capture(captureReq.event, distinctId: captureReq.distinct_id, properties: props)
+    sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props)
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
     print("[ADAPTER] SDK should flush immediately (flushAt=1)")

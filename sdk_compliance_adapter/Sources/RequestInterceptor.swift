@@ -9,11 +9,19 @@ import PostHog
 
 /// Tracks HTTP requests made by the PostHog SDK
 struct TrackedRequest: Codable {
-    let timestamp_ms: Int64
-    let status_code: Int
-    let retry_attempt: Int
-    let event_count: Int
-    let uuid_list: [String]
+    let timestampMs: Int64
+    let statusCode: Int
+    let retryAttempt: Int
+    let eventCount: Int
+    let uuidList: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case timestampMs = "timestamp_ms"
+        case statusCode = "status_code"
+        case retryAttempt = "retry_attempt"
+        case eventCount = "event_count"
+        case uuidList = "uuid_list"
+    }
 }
 
 /// URLProtocol subclass that intercepts all HTTP requests
@@ -144,11 +152,11 @@ class RequestInterceptor: URLProtocol {
         }
 
         let trackedRequest = TrackedRequest(
-            timestamp_ms: Int64(Date().timeIntervalSince1970 * 1000),
-            status_code: response.statusCode,
-            retry_attempt: retryCount,
-            event_count: eventCount,
-            uuid_list: uuidList
+            timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
+            statusCode: response.statusCode,
+            retryAttempt: retryCount,
+            eventCount: eventCount,
+            uuidList: uuidList
         )
 
         RequestInterceptor.trackedRequests.append(trackedRequest)
@@ -209,7 +217,9 @@ extension Data {
 
                 withUnsafeBytes { (inputPointer: UnsafeRawBufferPointer) in
                     let inputStartPosition = totalIn + stream.total_in
-                    stream.next_in = UnsafeMutablePointer<Bytef>(mutating: inputPointer.bindMemory(to: Bytef.self).baseAddress!).advanced(by: Int(inputStartPosition))
+                    let baseAddress = inputPointer.bindMemory(to: Bytef.self).baseAddress!
+                    stream.next_in = UnsafeMutablePointer<Bytef>(mutating: baseAddress)
+                        .advanced(by: Int(inputStartPosition))
                     stream.avail_in = uInt(inputCount) - uInt(inputStartPosition)
 
                     data.withUnsafeMutableBytes { (outputPointer: UnsafeMutableRawBufferPointer) in

@@ -18,8 +18,7 @@ let state = AdapterState()
 // Configure and create the Vapor application
 var env = try Environment.detect()
 try LoggingSystem.bootstrap(from: &env)
-let app = Application(env)
-defer { app.shutdown() }
+let app = try await Application.make(env)
 
 // Middleware to log all requests
 app.middleware.use(RouteLoggingMiddleware())
@@ -173,11 +172,11 @@ app.get("state") { req async throws -> Response in
         "total_events_sent": RequestInterceptor.totalEventsSent,
         "requests_made": RequestInterceptor.trackedRequests.map { request in
             [
-                "timestamp_ms": request.timestamp_ms,
-                "status_code": request.status_code,
-                "retry_attempt": request.retry_attempt,
-                "event_count": request.event_count,
-                "uuid_list": request.uuid_list,
+                "timestamp_ms": request.timestampMs,
+                "status_code": request.statusCode,
+                "retry_attempt": request.retryAttempt,
+                "event_count": request.eventCount,
+                "uuid_list": request.uuidList,
             ]
         },
     ]
@@ -283,4 +282,5 @@ struct AnyCodable: Codable {
 
 // Run the server
 print("[ADAPTER] Starting server on port 8080...")
-try app.run()
+try await app.execute()
+try await app.asyncShutdown()

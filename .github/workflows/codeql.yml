@@ -9,7 +9,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: macos-14
+    runs-on: macos-14-xlarge
     permissions:
       security-events: write # for uploading CodeQL results
       packages: read

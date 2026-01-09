@@ -1,5 +1,7 @@
 ## Next
 
+- fix: remove person processing requirements for flag property overrides ([#431](https://github.com/PostHog/posthog-ios/pull/431))
+
 ## 3.37.1 - 2026-01-06
 
 - fix: parse $app_build as integer when possible ([#423](https://github.com/PostHog/posthog-ios/pull/423))

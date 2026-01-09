@@ -243,9 +243,6 @@ enum PostHogFeatureFlagsTest {
         func personPropertiesAreAdditive() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set first batch of properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
 
@@ -284,9 +281,6 @@ enum PostHogFeatureFlagsTest {
         func resetPersonPropertiesClearsAll() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set some properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
 
@@ -322,9 +316,6 @@ enum PostHogFeatureFlagsTest {
         @Test("Group properties are stored and retrieved correctly")
         func storeAndRetrieveGroupProperties() async {
             let sut = PostHogSDK.with(config)
-
-            // Enable person processing
-            sut.identify("test_user")
 
             let properties = [
                 "plan": "enterprise",
@@ -372,9 +363,6 @@ enum PostHogFeatureFlagsTest {
         func multipleGroupTypesHandled() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set properties for different group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
             sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
@@ -409,9 +397,6 @@ enum PostHogFeatureFlagsTest {
         @Test("Reset group properties for specific type")
         func resetGroupPropertiesSpecificType() async {
             let sut = PostHogSDK.with(config)
-
-            // Enable person processing
-            sut.identify("test_user")
 
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -451,9 +436,6 @@ enum PostHogFeatureFlagsTest {
         func resetAllGroupProperties() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
             sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
@@ -485,9 +467,6 @@ enum PostHogFeatureFlagsTest {
         @Test("Both person and group properties sent together")
         func bothPersonAndGroupPropertiesSent() async {
             let sut = PostHogSDK.with(config)
-
-            // Enable person processing
-            sut.identify("test_user")
 
             // Set both types of properties
             sut.setPersonPropertiesForFlags(["user_plan": "premium"])

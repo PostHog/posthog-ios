@@ -172,6 +172,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         set { setSurveysConfig(newValue) }
     }
 
+    /// Optional custom URLSessionConfiguration for network requests
+    /// If not set, uses URLSessionConfiguration.default
+    /// Useful for testing, proxying, or custom network configurations
+    @objc public var urlSessionConfiguration: URLSessionConfiguration?
+
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false

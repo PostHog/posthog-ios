@@ -1,4 +1,5 @@
 ## Next
+- Generate ios sdk references ([#391](https://github.com/PostHog/posthog-ios/pull/391))
 
 ## 3.37.2 - 2026-01-09
 

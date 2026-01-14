@@ -7,7 +7,6 @@ PostHog iOS SDK is a Swift Package Manager and CocoaPods compatible analytics li
 - **Language**: Swift 5.3+
 - **Platforms**: iOS 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1.0+
 - **Package Management**: Swift Package Manager (primary), CocoaPods (legacy)
-- **Testing**: Quick + Nimble, OHHTTPStubs for network mocking
 - **Build Tools**: Xcode, xcpretty for formatted output
 - **Dependencies**: libwebp (embedded), Quick/Nimble (testing only)
 
@@ -27,7 +26,11 @@ PostHog/                     # Main SDK source code
 ├── Resources/               # Privacy manifest and resources
 ├── Capture/                 # Event capture implementation
 ├── Utils/                   # Utility classes and extensions
-└── PostHog.swift           # Main SDK interface
+├── PostHog.swift            # Main SDK interface
+├── Autocapture/             # Autocapture implementation
+├── Replay/                  # Session replay implementation
+├── Surveys/                 # Surveys implementation
+├── SwiftUI/                 # SwiftUI modifiers and extensions for Session replay
 
 PostHogTests/               # Unit and integration tests
 PostHogExample*/            # Various example applications
@@ -57,8 +60,6 @@ vendor/libwebp/             # Embedded libwebp for image processing
 
 ### Setup Commands
 - `make bootstrap` - Install all required development tools (CocoaPods, xcpretty, SwiftLint, SwiftFormat, Periphery)
-
-## Testing Guidelines
 
 ### Testing Framework
 - **For new tests**: Use Apple's Swift Testing framework (preferred for all new test development)
@@ -102,3 +103,20 @@ vendor/libwebp/             # Embedded libwebp for image processing
 - Use existing error handling patterns found in the codebase
 - Ensure graceful degradation on unsupported platforms/versions
 - Log errors appropriately without exposing sensitive user data
+
+## Common Pitfalls
+- Don't use `@available` checks without also adding the platform to Package.swift's platforms array
+- The SDK must remain thread-safe - all public APIs should be callable from any thread
+- Avoid adding new dependencies - the SDK aims to stay lightweight
+- Session recording has different availability per platform - check `#if os()` guards
+- The SDK must work offline - don't assume network availability
+
+## Architecture Notes
+- The SDK uses a queue-based architecture for event batching
+- The main `PostHog` class is a singleton accessed via `PostHog.shared`
+
+## API Design Principles
+- Public API changes require careful consideration for backwards compatibility
+- Prefer optional parameters with sensible defaults over method overloads
+- All public methods should have documentation comments
+- Deprecated methods should use `@available(*, deprecated, message:)` with migration guidance

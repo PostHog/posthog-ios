@@ -59,9 +59,21 @@ vendor/libwebp/             # Embedded libwebp for image processing
 - `make bootstrap` - Install all required development tools (CocoaPods, xcpretty, SwiftLint, SwiftFormat, Periphery)
 
 ## Testing Guidelines
+
+### Testing Framework
+- **For new tests**: Use Apple's Swift Testing framework (preferred for all new test development)
+  - Use `@Test` macro for test functions
+  - Use `#expect` and similar macros for assertions
+  - Follow Swift Testing best practices
+- **Existing tests**: Currently use Quick/Nimble framework for behavior-driven testing
+
+### Network Mocking
+- Use `MockPostHogServer` class for mocking network requests
+  - Located in `PostHogTests/TestUtils/MockPostHogServer.swift`
+  - Built on top of OHHTTPStubs for HTTP stubbing
+
+### Running Tests
 - Use `make test` for running the main test suite (Swift Package Manager based)
-- Tests use Quick/Nimble framework for behavior-driven testing
-- Network requests are mocked using OHHTTPStubs
 - Test files are located in `PostHogTests/` directory
 
 ## Important Notes

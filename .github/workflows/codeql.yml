@@ -8,28 +8,36 @@ on:
       - main
 jobs:
   analyze:
-    name: Analyze Swift
-    runs-on: macos-14
+    name: Analyze (${{ matrix.language }})
+    runs-on: macos-14-xlarge
     permissions:
       security-events: write # for uploading CodeQL results
       packages: read
-      actions: read
-      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: swift
+            build-mode: manual
+          - language: actions
+            build-mode: none
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
       - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        if: ${{ matrix.language == 'swift' }}
         with:
           xcode-version: latest-stable
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: swift
-          build-mode: manual
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
           queries: security-and-quality
       - name: Build
+        if: ${{ matrix.language == 'swift' }}
         run: make buildSdk
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:swift"
+          category: '/language:${{matrix.language}}'

@@ -512,10 +512,6 @@ let maxRetryDelay = 30.0
         _ userProperties: [String: Any]?,
         userPropertiesSetOnce: [String: Any]? = nil
     ) {
-        guard hasPersonProcessing() else {
-            return
-        }
-
         let sanitizedUserProperties = sanitizeDictionary(userProperties) ?? [:]
         let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce) ?? [:]
 
@@ -533,10 +529,6 @@ let maxRetryDelay = 30.0
         type: String,
         groupProperties: [String: Any]?
     ) {
-        guard hasPersonProcessing() else {
-            return
-        }
-
         let sanitizedGroupProperties = sanitizeDictionary(groupProperties) ?? [:]
 
         guard !sanitizedGroupProperties.isEmpty else {
@@ -957,10 +949,6 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard hasPersonProcessing() else {
-            return
-        }
-
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
         guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
@@ -1006,10 +994,6 @@ let maxRetryDelay = 30.0
     @objc(resetPersonPropertiesForFlagsWithReloadFeatureFlags:)
     public func resetPersonPropertiesForFlags(reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
-            return
-        }
-
-        guard hasPersonProcessing() else {
             return
         }
 
@@ -1066,10 +1050,6 @@ let maxRetryDelay = 30.0
     @objc(setGroupPropertiesForFlags:properties:reloadFeatureFlags:)
     public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
-            return
-        }
-
-        guard hasPersonProcessing() else {
             return
         }
 
@@ -1138,10 +1118,6 @@ let maxRetryDelay = 30.0
     /// Internal implementation for resetting group properties.
     private func internalResetGroupPropertiesForFlags(groupType: String?, reloadFeatureFlags: Bool) {
         if !isEnabled() {
-            return
-        }
-
-        guard hasPersonProcessing() else {
             return
         }
 

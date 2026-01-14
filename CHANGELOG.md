@@ -1,6 +1,7 @@
 ## Next
 
-### Changed
+## 3.38.0 - 2026-01-14
+
 - Renamed `evaluationEnvironments` to `evaluationContexts` for clearer semantics. The term "contexts" better reflects that this feature is for specifying evaluation contexts (e.g., "web", "mobile", "checkout") rather than deployment environments (e.g., "staging", "production").
 - The API now sends `evaluation_contexts` instead of `evaluation_environments` to the server.
 

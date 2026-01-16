@@ -1,5 +1,5 @@
 ## Next
-- support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
+- feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
 
 ## 3.37.2 - 2026-01-09
 

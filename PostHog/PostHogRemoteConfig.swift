@@ -285,11 +285,13 @@ class PostHogRemoteConfig {
                    quotaLimited.contains("feature_flags")
                 {
                     // swiftlint:disable:next line_length
-                    hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads. See https://posthog.com/docs/billing/limits-alerts for more information.")
+                    hedgeLog("Warning: Feature flags quota limit reached - flags could not be updated. See https://posthog.com/docs/billing/limits-alerts for more information.")
 
-                    self.clearFeatureFlags()
-                    self.notifyFeatureFlagsAndRelease([:])
-                    return callback([:])
+                    let cachedFeatureFlags = self.featureFlagsLock.withLock {
+                        self.getCachedFeatureFlags() ?? [:]
+                    }
+                    self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
+                    return callback(cachedFeatureFlags)
                 }
 
                 // Safely handle optional data

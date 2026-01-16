@@ -374,6 +374,150 @@
         }
     }
 
+    struct ThumbsUpEmoji: Shape {
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            let width = rect.size.width
+            let height = rect.size.height
+
+            path.move(to: CGPoint(x: 0.08333 * width, y: 0.83333 * height))
+            path.addLine(to: CGPoint(x: 0.16667 * width, y: 0.83333 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.20833 * width, y: 0.79167 * height),
+                control1: CGPoint(x: 0.18958 * width, y: 0.83333 * height),
+                control2: CGPoint(x: 0.20833 * width, y: 0.81458 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.20833 * width, y: 0.41667 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.16667 * width, y: 0.375 * height),
+                control1: CGPoint(x: 0.20833 * width, y: 0.39375 * height),
+                control2: CGPoint(x: 0.18958 * width, y: 0.375 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.08333 * width, y: 0.375 * height))
+            path.closeSubpath()
+
+            path.move(to: CGPoint(x: 0.91208 * width, y: 0.53667 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.91917 * width, y: 0.50333 * height),
+                control1: CGPoint(x: 0.91667 * width, y: 0.52625 * height),
+                control2: CGPoint(x: 0.91917 * width, y: 0.51500 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.91917 * width, y: 0.45833 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.83333 * width, y: 0.375 * height),
+                control1: CGPoint(x: 0.91917 * width, y: 0.4125 * height),
+                control2: CGPoint(x: 0.87917 * width, y: 0.375 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.60417 * width, y: 0.375 * height))
+            path.addLine(to: CGPoint(x: 0.6425 * width, y: 0.18125 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.63917 * width, y: 0.15375 * height),
+                control1: CGPoint(x: 0.64458 * width, y: 0.17208 * height),
+                control2: CGPoint(x: 0.64333 * width, y: 0.16292 * height)
+            )
+            path.addCurve(
+                to: CGPoint(x: 0.60250 * width, y: 0.10292 * height),
+                control1: CGPoint(x: 0.62958 * width, y: 0.13500 * height),
+                control2: CGPoint(x: 0.61750 * width, y: 0.11792 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.58333 * width, y: 0.08333 * height))
+            path.addLine(to: CGPoint(x: 0.31625 * width, y: 0.35042 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.29167 * width, y: 0.40958 * height),
+                control1: CGPoint(x: 0.30042 * width, y: 0.36625 * height),
+                control2: CGPoint(x: 0.29167 * width, y: 0.3875 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.29167 * width, y: 0.73625 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.38917 * width, y: 0.83333 * height),
+                control1: CGPoint(x: 0.29167 * width, y: 0.78958 * height),
+                control2: CGPoint(x: 0.33542 * width, y: 0.83333 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.72708 * width, y: 0.83333 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.79875 * width, y: 0.79292 * height),
+                control1: CGPoint(x: 0.75625 * width, y: 0.83333 * height),
+                control2: CGPoint(x: 0.78542 * width, y: 0.81792 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.90958 * width, y: 0.53667 * height))
+            path.closeSubpath()
+
+            return path
+        }
+    }
+
+    struct ThumbsDownEmoji: Shape {
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            let width = rect.size.width
+            let height = rect.size.height
+
+            path.move(to: CGPoint(x: 0.91667 * width, y: 0.16667 * height))
+            path.addLine(to: CGPoint(x: 0.83333 * width, y: 0.16667 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.79167 * width, y: 0.20833 * height),
+                control1: CGPoint(x: 0.81042 * width, y: 0.16667 * height),
+                control2: CGPoint(x: 0.79167 * width, y: 0.18542 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.79167 * width, y: 0.58333 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.83333 * width, y: 0.625 * height),
+                control1: CGPoint(x: 0.79167 * width, y: 0.60625 * height),
+                control2: CGPoint(x: 0.81042 * width, y: 0.625 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.91667 * width, y: 0.625 * height))
+            path.closeSubpath()
+
+            path.move(to: CGPoint(x: 0.09042 * width, y: 0.46333 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.08333 * width, y: 0.49667 * height),
+                control1: CGPoint(x: 0.08583 * width, y: 0.47375 * height),
+                control2: CGPoint(x: 0.08333 * width, y: 0.485 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.08333 * width, y: 0.54167 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.16667 * width, y: 0.625 * height),
+                control1: CGPoint(x: 0.08333 * width, y: 0.5875 * height),
+                control2: CGPoint(x: 0.12083 * width, y: 0.625 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.39583 * width, y: 0.625 * height))
+            path.addLine(to: CGPoint(x: 0.3575 * width, y: 0.81875 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.36083 * width, y: 0.84625 * height),
+                control1: CGPoint(x: 0.35542 * width, y: 0.82792 * height),
+                control2: CGPoint(x: 0.35667 * width, y: 0.83708 * height)
+            )
+            path.addCurve(
+                to: CGPoint(x: 0.3975 * width, y: 0.89708 * height),
+                control1: CGPoint(x: 0.37042 * width, y: 0.865 * height),
+                control2: CGPoint(x: 0.3825 * width, y: 0.88208 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.41667 * width, y: 0.91667 * height))
+            path.addLine(to: CGPoint(x: 0.68375 * width, y: 0.64958 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.70833 * width, y: 0.59042 * height),
+                control1: CGPoint(x: 0.69958 * width, y: 0.63375 * height),
+                control2: CGPoint(x: 0.70833 * width, y: 0.6125 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.70833 * width, y: 0.26417 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.61083 * width, y: 0.16667 * height),
+                control1: CGPoint(x: 0.70833 * width, y: 0.21042 * height),
+                control2: CGPoint(x: 0.66458 * width, y: 0.16667 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.27292 * width, y: 0.16667 * height))
+            path.addCurve(
+                to: CGPoint(x: 0.20125 * width, y: 0.20708 * height),
+                control1: CGPoint(x: 0.24375 * width, y: 0.16667 * height),
+                control2: CGPoint(x: 0.21458 * width, y: 0.18208 * height)
+            )
+            path.addLine(to: CGPoint(x: 0.09042 * width, y: 0.46333 * height))
+            path.closeSubpath()
+
+            return path
+        }
+    }
+
     struct CheckIcon: Shape {
         func path(in rect: CGRect) -> Path {
             var path = Path()
@@ -421,6 +565,10 @@
                 NeutralEmoji().frame(width: 48, height: 48)
                 SatisfiedEmoji().frame(width: 48, height: 48)
                 VerySatisfiedEmoji().frame(width: 48, height: 48)
+            }
+            HStack {
+                ThumbsUpEmoji().frame(width: 48, height: 48)
+                ThumbsDownEmoji().frame(width: 48, height: 48)
             }
             HStack {
                 CheckIcon().frame(width: 16, height: 12)

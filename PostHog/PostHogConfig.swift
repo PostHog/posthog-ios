@@ -109,7 +109,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: true
     @objc public var setDefaultPersonProperties: Bool = true
 
-    /// Evaluation environments for feature flags.
+    /// Evaluation contexts for feature flags.
     ///
     /// When configured, only feature flags that have at least one matching evaluation tag
     /// will be evaluated. Feature flags with no evaluation tags will always be evaluated
@@ -117,14 +117,27 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Example usage:
     /// ```swift
-    /// config.evaluationEnvironments = ["production", "web", "checkout"]
+    /// config.evaluationContexts = ["production", "web", "checkout"]
     /// ```
     ///
-    /// This helps ensure feature flags are only evaluated in the appropriate environments
+    /// This helps ensure feature flags are only evaluated in the appropriate contexts
     /// for your SDK instance.
     ///
     /// Default: nil (all flags are evaluated)
-    @objc public var evaluationEnvironments: [String]?
+    @objc public var evaluationContexts: [String]?
+
+    /// Evaluation environments for feature flags.
+    /// @deprecated Use evaluationContexts instead. This property will be removed in a future version.
+    @available(*, deprecated, message: "Use evaluationContexts instead. This property will be removed in a future version.")
+    @objc public var evaluationEnvironments: [String]? {
+        get { evaluationContexts }
+        set {
+            if newValue != nil {
+                print("⚠️ PostHog: evaluationEnvironments is deprecated. Use evaluationContexts instead.")
+            }
+            evaluationContexts = newValue
+        }
+    }
 
     /// The identifier of the App Group that should be used to store shared analytics data.
     /// PostHog will try to get the physical location of the App Group’s shared container, otherwise fallback to the default location

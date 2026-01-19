@@ -736,5 +736,54 @@ enum PostHogFeatureFlagsTest {
             #expect(evaluationContexts.contains("staging"), "Expected 'staging' in evaluation contexts")
             #expect(evaluationContexts.contains("mobile"), "Expected 'mobile' in evaluation contexts")
         }
+
+        @Test("Deprecated evaluationEnvironments property still works")
+        func deprecatedEvaluationEnvironmentsStillWorks() async {
+            // Use the deprecated property
+            config.evaluationEnvironments = ["production", "api"]
+            let sut = PostHogSDK.with(config)
+
+            // Verify the deprecated property maps to evaluationContexts
+            #expect(config.evaluationContexts?.count == 2, "Expected evaluationContexts to be set via deprecated property")
+            #expect(config.evaluationContexts?.contains("production") == true, "Expected 'production' in evaluationContexts")
+            #expect(config.evaluationContexts?.contains("api") == true, "Expected 'api' in evaluationContexts")
+
+            // Verify reading from deprecated property returns same values
+            #expect(config.evaluationEnvironments?.count == 2, "Expected evaluationEnvironments getter to return same values")
+            #expect(config.evaluationEnvironments?.contains("production") == true, "Expected 'production' from evaluationEnvironments getter")
+            #expect(config.evaluationEnvironments?.contains("api") == true, "Expected 'api' from evaluationEnvironments getter")
+
+            // Enable person processing
+            sut.identify("test_user")
+
+            // Load feature flags
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            // Verify the request included evaluation contexts (set via deprecated property)
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found")
+                return
+            }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body")
+                return
+            }
+
+            guard let evaluationContexts = requestBody["evaluation_contexts"] as? [String] else {
+                #expect(Bool(false), "Evaluation contexts not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(evaluationContexts.count == 2, "Expected 2 evaluation contexts")
+            #expect(evaluationContexts.contains("production"), "Expected 'production' in evaluation contexts")
+            #expect(evaluationContexts.contains("api"), "Expected 'api' in evaluation contexts")
+        }
     }
 }

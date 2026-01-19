@@ -128,12 +128,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Evaluation environments for feature flags.
     /// @deprecated Use evaluationContexts instead. This property will be removed in a future version.
-    @available(*, deprecated, message: "Use evaluationContexts instead. This property will be removed in a future version.")
+    @available(*, deprecated, message: "Use evaluationContexts instead. This property will continue to work but will be removed in a future version.")
     @objc public var evaluationEnvironments: [String]? {
         get { evaluationContexts }
         set {
             if newValue != nil {
-                print("⚠️ PostHog: evaluationEnvironments is deprecated. Use evaluationContexts instead.")
+                hedgeLog("evaluationEnvironments is deprecated. Use evaluationContexts instead.")
             }
             evaluationContexts = newValue
         }

@@ -1,4 +1,6 @@
 ## Next
+- chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
+
 - feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
 
 - fix: Retain cached flags when quota limited ([#438](https://github.com/PostHog/posthog-ios/pull/438))

@@ -25,24 +25,28 @@
                     contentType: question.questionDescriptionContentType
                 )
 
-                TextEditor(text: $text)
+                textEditorView
                     .frame(height: 80)
+                    .foregroundColor(inputTextColor)
                     .overlay(
                         Group {
                             if text.isEmpty {
                                 Text(appearance.placeholder ?? "Start typing...")
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(inputTextColor.opacity(0.5))
                                     .offset(x: 5, y: 8)
                             }
                         },
                         alignment: .topLeading
                     )
                     .padding(8)
-                    .tint(.black)
+                    .tint(inputTextColor)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color(uiColor: .secondaryLabel), lineWidth: 1)
-                            .background(Color.white)
+                            .fill(inputBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(appearance.borderColor, lineWidth: 1)
                     )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
@@ -56,6 +60,24 @@
         private var canSubmit: Bool {
             if question.isOptional { return true }
             return !text.isEmpty
+        }
+
+        private var inputBackground: Color {
+            appearance.effectiveInputBackground
+        }
+
+        private var inputTextColor: Color {
+            appearance.effectiveInputTextColor
+        }
+
+        @ViewBuilder
+        private var textEditorView: some View {
+            if #available(iOS 16.0, *) {
+                TextEditor(text: $text)
+                    .scrollContentBackground(.hidden)
+            } else {
+                TextEditor(text: $text)
+            }
         }
     }
 

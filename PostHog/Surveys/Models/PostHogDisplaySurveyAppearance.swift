@@ -26,6 +26,8 @@ import Foundation
     public let submitButtonTextColor: String?
 
     // Text colors
+    /// Optional primary text color as web color (for questions, close button, etc.)
+    public let textColor: String?
     /// Optional color for description text as web color
     public let descriptionTextColor: String?
 
@@ -36,6 +38,10 @@ import Foundation
     public let ratingButtonActiveColor: String?
 
     // Input
+    /// Optional background color for input fields as web color
+    public let inputBackground: String?
+    /// Optional text color for input fields as web color
+    public let inputTextColor: String?
     /// Optional placeholder text for input fields
     public let placeholder: String?
 
@@ -58,9 +64,12 @@ import Foundation
         submitButtonColor: String?,
         submitButtonText: String?,
         submitButtonTextColor: String?,
+        textColor: String?,
         descriptionTextColor: String?,
         ratingButtonColor: String?,
         ratingButtonActiveColor: String?,
+        inputBackground: String?,
+        inputTextColor: String?,
         placeholder: String?,
         displayThankYouMessage: Bool,
         thankYouMessageHeader: String?,
@@ -74,9 +83,12 @@ import Foundation
         self.submitButtonColor = submitButtonColor
         self.submitButtonText = submitButtonText
         self.submitButtonTextColor = submitButtonTextColor
+        self.textColor = textColor
         self.descriptionTextColor = descriptionTextColor
         self.ratingButtonColor = ratingButtonColor
         self.ratingButtonActiveColor = ratingButtonActiveColor
+        self.inputBackground = inputBackground
+        self.inputTextColor = inputTextColor
         self.placeholder = placeholder
         self.displayThankYouMessage = displayThankYouMessage
         self.thankYouMessageHeader = thankYouMessageHeader

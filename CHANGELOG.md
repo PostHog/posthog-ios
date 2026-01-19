@@ -1,6 +1,8 @@
 ## Next
 - feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
 
+- fix: Retain cached flags when quota limited ([#438](https://github.com/PostHog/posthog-ios/pull/438))
+
 ## 3.37.2 - 2026-01-09
 
 - fix: remove person processing requirements for flag property overrides ([#431](https://github.com/PostHog/posthog-ios/pull/431))

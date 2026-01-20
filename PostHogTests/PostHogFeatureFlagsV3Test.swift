@@ -159,8 +159,8 @@ enum PostHogFeatureFlagsV3Test {
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
 
-        @Test("clears feature flags when quota limited")
-        func clearsFeatureFlagsWhenQuotaLimited() async {
+        @Test("retains feature flags when quota limited")
+        func retainsFeatureFlagsWhenQuotaLimited() async {
             let sut = getSut()
 
             // First load some feature flags normally
@@ -184,9 +184,9 @@ enum PostHogFeatureFlagsV3Test {
                 })
             }
 
-            // Verify flags are cleared
-            #expect(sut.getFeatureFlag("bool-value") == nil)
-            #expect(sut.getFeatureFlag("string-value") == nil)
+            // Verify flags are retained (not cleared)
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
+            #expect(sut.getFeatureFlag("string-value") as? String == "test")
         }
     }
 }

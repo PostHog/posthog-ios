@@ -1,4 +1,39 @@
 ## Next
+- chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
+
+- feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
+
+- fix: Retain cached flags when quota limited ([#438](https://github.com/PostHog/posthog-ios/pull/438))
+
+- Renamed `evaluationEnvironments` to `evaluationContexts` for clearer semantics ([#434](https://github.com/PostHog/posthog-ios/pull/434)). The term "contexts" better reflects that this feature is for specifying evaluation contexts (e.g., "web", "mobile", "checkout") rather than deployment environments (e.g., "staging", "production").
+- The API now sends `evaluation_contexts` instead of `evaluation_environments` to the server.
+
+### Deprecated
+- `PostHogConfig.evaluationEnvironments` is now deprecated in favor of `PostHogConfig.evaluationContexts`. The old property will continue to work and will print a deprecation warning. It will be removed in a future major version.
+
+### Migration Guide
+```swift
+// Before
+config.evaluationEnvironments = ["production", "web", "checkout"]
+
+// After
+config.evaluationContexts = ["production", "web", "checkout"]
+```
+
+No immediate action required - existing code using `evaluationEnvironments` will continue to work with a deprecation warning.
+
+## 3.37.2 - 2026-01-09
+
+- fix: remove person processing requirements for flag property overrides ([#431](https://github.com/PostHog/posthog-ios/pull/431))
+
+## 3.37.1 - 2026-01-06
+
+- fix: parse $app_build as integer when possible ([#423](https://github.com/PostHog/posthog-ios/pull/423))
+- fix: macOS device name now uses hardware model instead of hostname to avoid blocking DNS lookups ([#422](https://github.com/PostHog/posthog-ios/pull/422))
+
+## 3.37.0 - 2025-12-30
+
+- feat: add ability to override sendFeatureFlagEvent for exact feature flag call ([#396](https://github.com/PostHog/posthog-ios/pull/396))
 
 ## 3.36.2 - 2025-12-19
 
@@ -7,8 +42,8 @@
 ## 3.36.1 - 2025-12-16
 
 - fix: SwiftUI view masking on iOS 26 ([#409](https://github.com/PostHog/posthog-ios/pull/409))
-> Note: If you are building with Xcode 26, update to this version to fix the SwiftUI view masking issue.
-> Note: Because of the changes of the SwiftUI rendering engine, the SwiftUI modifiers .posthogMask() and .posthogNoMask() may behave inconsistently for SwiftUI primitive views. Use with caution.
+  > Note: If you are building with Xcode 26, update to this version to fix the SwiftUI view masking issue.
+  > Note: Because of the changes of the SwiftUI rendering engine, the SwiftUI modifiers .posthogMask() and .posthogNoMask() may behave inconsistently for SwiftUI primitive views. Use with caution.
 
 ## 3.36.0 - 2025-12-08
 
@@ -30,9 +65,9 @@
 
 - feat: add config option to disable swizzling ([#388](https://github.com/PostHog/posthog-ios/pull/388))
 - feat: SDK instance now manages its own session ([#388](https://github.com/PostHog/posthog-ios/pull/388))
-> **Note**: A potentially breaking change for users with multiple SDK instances. Each SDK instance now manages its own `$session_id` instead of sharing a global session across all instances.
-> This aligns with PostHog JS SDK behavior and ensures proper session isolation when using multiple SDK instances.
-> For single-instance usage (the common case), this change has no impact.
+  > **Note**: A potentially breaking change for users with multiple SDK instances. Each SDK instance now manages its own `$session_id` instead of sharing a global session across all instances.
+  > This aligns with PostHog JS SDK behavior and ensures proper session isolation when using multiple SDK instances.
+  > For single-instance usage (the common case), this change has no impact.
 
 ## 3.33.0 - 2025-10-13
 
@@ -45,7 +80,7 @@
 ## 3.31.0 - 2025-08-29
 
 - feat: surveys GA ([#381](https://github.com/PostHog/posthog-ios/pull/381))
-> Note: Surveys are now enabled by default
+  > Note: Surveys are now enabled by default
 
 ## 3.30.1 - 2025-08-12
 
@@ -141,10 +176,10 @@
 ## 3.21.0 - 2025-03-28
 
 - fix: visionOS builds ([#291](https://github.com/PostHog/posthog-ios/pull/291))
-Thanks @harlanhaskins ❤️
+  Thanks @harlanhaskins ❤️
 
 - feat: improve session replay throttle logic ([#322](https://github.com/PostHog/posthog-ios/pull/322))
-> Note: `debouncerDelay` is deprecated and will be removed in next major update. Use `throttleDelay` instead which provides identical functionality for controlling session replay capture frequency.
+  > Note: `debouncerDelay` is deprecated and will be removed in next major update. Use `throttleDelay` instead which provides identical functionality for controlling session replay capture frequency.
 
 ## 3.20.1 - 2025-03-13
 
@@ -154,7 +189,7 @@ Thanks @harlanhaskins ❤️
 ## 3.20.0 - 2025-03-04
 
 - feat: support multiple SDK instances ([#310](https://github.com/PostHog/posthog-ios/pull/310))
-> Note: Now event storage is per API key. Any pending events in legacy storage will be migrated to the first API key used.  
+  > Note: Now event storage is per API key. Any pending events in legacy storage will be migrated to the first API key used.
 
 ## 3.19.9 - 2025-02-28
 
@@ -239,12 +274,12 @@ Thanks @harlanhaskins ❤️
 ## 3.15.7 - 2024-11-25
 
 - fix: detect and mask out system photo library and user photos ([#261](https://github.com/PostHog/posthog-ios/pull/261))
-    - This can be disabled through the following `sessionReplayConfig` options: 
-    
-    ```swift
-    config.sessionReplayConfig.maskAllSandboxedViews = false
-    config.sessionReplayConfig.maskPhotoLibraryImages = false
-    ```
+  - This can be disabled through the following `sessionReplayConfig` options:
+  ```swift
+  config.sessionReplayConfig.maskAllSandboxedViews = false
+  config.sessionReplayConfig.maskPhotoLibraryImages = false
+  ```
+
 ## 3.15.6 - 2024-11-20
 
 - fix: read accessibilityLabel from parent's view to avoid performance hit on RN ([#259](https://github.com/PostHog/posthog-ios/pull/259))
@@ -277,7 +312,7 @@ Thanks @harlanhaskins ❤️
 
 ## 3.14.2 - 2024-11-08
 
-- fix issue with resetting accent color in SwiftUI app ([#238](https://github.com/PostHog/posthog-ios/pull/238)) 
+- fix issue with resetting accent color in SwiftUI app ([#238](https://github.com/PostHog/posthog-ios/pull/238))
 - fix $feature_flag_called not captured after reloading flags ([#232](https://github.com/PostHog/posthog-ios/pull/232))
 
 ## 3.14.1 - 2024-11-05
@@ -287,7 +322,7 @@ Thanks @harlanhaskins ❤️
 ## 3.14.0 - 2024-11-05
 
 - add option to pass a custom timestamp when calling capture() ([#228](https://github.com/PostHog/posthog-ios/pull/228))
-- fix crash when loading dynamic colors from storyboards ([#229](https://github.com/PostHog/posthog-ios/pull/229)) 
+- fix crash when loading dynamic colors from storyboards ([#229](https://github.com/PostHog/posthog-ios/pull/229))
 
 ## 3.13.3 - 2024-10-25
 

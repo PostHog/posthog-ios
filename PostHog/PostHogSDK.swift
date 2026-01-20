@@ -512,10 +512,6 @@ let maxRetryDelay = 30.0
         _ userProperties: [String: Any]?,
         userPropertiesSetOnce: [String: Any]? = nil
     ) {
-        guard hasPersonProcessing() else {
-            return
-        }
-
         let sanitizedUserProperties = sanitizeDictionary(userProperties) ?? [:]
         let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce) ?? [:]
 
@@ -533,10 +529,6 @@ let maxRetryDelay = 30.0
         type: String,
         groupProperties: [String: Any]?
     ) {
-        guard hasPersonProcessing() else {
-            return
-        }
-
         let sanitizedGroupProperties = sanitizeDictionary(groupProperties) ?? [:]
 
         guard !sanitizedGroupProperties.isEmpty else {
@@ -957,10 +949,6 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard hasPersonProcessing() else {
-            return
-        }
-
         let sanitizedProperties = sanitizeDictionary(properties) ?? [:]
         guard !sanitizedProperties.isEmpty else { return }
         remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
@@ -1006,10 +994,6 @@ let maxRetryDelay = 30.0
     @objc(resetPersonPropertiesForFlagsWithReloadFeatureFlags:)
     public func resetPersonPropertiesForFlags(reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
-            return
-        }
-
-        guard hasPersonProcessing() else {
             return
         }
 
@@ -1066,10 +1050,6 @@ let maxRetryDelay = 30.0
     @objc(setGroupPropertiesForFlags:properties:reloadFeatureFlags:)
     public func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any], reloadFeatureFlags: Bool = true) {
         if !isEnabled() {
-            return
-        }
-
-        guard hasPersonProcessing() else {
             return
         }
 
@@ -1141,10 +1121,6 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard hasPersonProcessing() else {
-            return
-        }
-
         remoteConfig?.resetGroupPropertiesForFlags(groupType)
 
         if reloadFeatureFlags {
@@ -1170,6 +1146,15 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func getFeatureFlag(_ key: String) -> Any? {
+        getFeatureFlag(key, sendEvent: nil)
+    }
+
+    @objc(getFeatureFlagWithKey:sendFeatureFlagEvent:)
+    public func getFeatureFlag(_ key: String, sendFeatureFlagEvent: Bool) -> Any? {
+        getFeatureFlag(key, sendEvent: sendFeatureFlagEvent)
+    }
+
+    private func getFeatureFlag(_ key: String, sendEvent sendFeatureFlagEvent: Bool? = nil) -> Any? {
         if !isEnabled() {
             return nil
         }
@@ -1180,7 +1165,8 @@ let maxRetryDelay = 30.0
 
         let value = remoteConfig.getFeatureFlag(key)
 
-        if config.sendFeatureFlagEvent {
+        let shouldSendEvent = sendFeatureFlagEvent ?? config.sendFeatureFlagEvent
+        if shouldSendEvent {
             reportFeatureFlagCalled(flagKey: key, flagValue: value)
         }
 
@@ -1188,7 +1174,16 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func isFeatureEnabled(_ key: String) -> Bool {
-        let result = getFeatureFlag(key)
+        isFeatureEnabled(key, sendEvent: nil)
+    }
+
+    @objc(isFeatureEnabledWithKey:sendFeatureFlagEvent:)
+    public func isFeatureEnabled(_ key: String, sendFeatureFlagEvent: Bool) -> Bool {
+        isFeatureEnabled(key, sendEvent: sendFeatureFlagEvent)
+    }
+
+    private func isFeatureEnabled(_ key: String, sendEvent: Bool? = nil) -> Bool {
+        let result = getFeatureFlag(key, sendEvent: sendEvent)
         return result is String ? true : (result as? Bool) ?? false
     }
 

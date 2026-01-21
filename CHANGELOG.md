@@ -1,6 +1,6 @@
 ## Next
 
-- feat: add `$app_install_source` property ([#442](https://github.com/PostHog/posthog-ios/pull/442))
+- feat: add `$app_install_source` property ([#443](https://github.com/PostHog/posthog-ios/pull/443))
 
 - chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
 

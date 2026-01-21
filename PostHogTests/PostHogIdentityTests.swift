@@ -20,6 +20,7 @@ class PostHogIdentityTests {
         flushAt: Int = 1
     ) -> PostHogSDK {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        config.captureApplicationLifecycleEvents = false
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
@@ -310,5 +311,251 @@ class PostHogIdentityTests {
 
         #expect(sut.getAnonymousId() != "")
         #expect(sut.getDistinctId() == sut.getAnonymousId())
+    }
+
+    // MARK: - setPersonProperties tests
+
+    @Test("setPersonProperties sends $set event with properties")
+    func setPersonPropertiesSendsSetEvent() async throws {
+        let sut = getSut()
+
+        sut.setPersonProperties(
+            userPropertiesToSet: ["name": "John", "age": 30],
+            userPropertiesToSetOnce: ["created_at": "2024-01-01"]
+        )
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 1)
+
+        let event = events.first!
+        #expect(event.event == "$set")
+
+        let set = event.properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["name"] as? String == "John")
+        #expect(set["age"] as? Int == 30)
+
+        let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+        #expect(setOnce["created_at"] as? String == "2024-01-01")
+    }
+
+    @Test("setPersonProperties deduplicates identical calls")
+    func setPersonPropertiesDeduplicatesIdenticalCalls() async throws {
+        let sut = getSut(flushAt: 2)
+
+        // Call twice with same properties
+        sut.setPersonProperties(userPropertiesToSet: ["name": "John"])
+        sut.setPersonProperties(userPropertiesToSet: ["name": "John"])
+
+        // Add a different event to trigger flush
+        sut.capture("test_event")
+
+        let events = try await getServerEvents(server)
+
+        // Should only have 1 $set event + 1 test_event
+        #expect(events.count == 2)
+        #expect(events[0].event == "$set")
+        #expect(events[1].event == "test_event")
+    }
+
+    @Test("setPersonProperties allows different property values")
+    func setPersonPropertiesAllowsDifferentPropertyValues() async throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.setPersonProperties(userPropertiesToSet: ["name": "John"])
+        sut.setPersonProperties(userPropertiesToSet: ["name": "Jane"])
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(events[0].event == "$set")
+        #expect(events[1].event == "$set")
+
+        let set0 = events[0].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set0["name"] as? String == "John")
+
+        let set1 = events[1].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set1["name"] as? String == "Jane")
+    }
+
+    @Test("setPersonProperties with only setOnce properties")
+    func setPersonPropertiesWithOnlySetOnceProperties() async throws {
+        let sut = getSut()
+
+        sut.setPersonProperties(
+            userPropertiesToSet: nil,
+            userPropertiesToSetOnce: ["first_seen": "2024-01-01"]
+        )
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 1)
+
+        let event = events.first!
+        #expect(event.event == "$set")
+
+        let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+        #expect(setOnce["first_seen"] as? String == "2024-01-01")
+    }
+
+    @Test("setPersonProperties ignores empty properties")
+    func setPersonPropertiesIgnoresEmptyProperties() async throws {
+        let sut = getSut(flushAt: 1)
+
+        sut.setPersonProperties(userPropertiesToSet: [:], userPropertiesToSetOnce: [:])
+        sut.setPersonProperties(userPropertiesToSet: nil, userPropertiesToSetOnce: nil)
+
+        // Add event to ensure flush happens
+        sut.capture("test_event")
+
+        let events = try await getServerEvents(server)
+
+        // Should only have the test_event, no $set events
+        #expect(events.count == 1)
+        #expect(events[0].event == "test_event")
+    }
+
+    @Test("setPersonProperties uses current distinctId")
+    func setPersonPropertiesUsesCurrentDistinctId() async throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.identify("my_user_id")
+        sut.setPersonProperties(userPropertiesToSet: ["plan": "premium"])
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(events[0].event == "$identify")
+        #expect(events[1].event == "$set")
+        #expect(events[1].distinctId == "my_user_id")
+    }
+
+    @Test("setPersonProperties deduplicates nested dictionaries with different key order")
+    func setPersonPropertiesDeduplicatesNestedDictionariesWithDifferentKeyOrder() async throws {
+        let sut = getSut(flushAt: 2)
+
+        // First call with nested dictionary in one key order
+        sut.setPersonProperties(userPropertiesToSet: [
+            "z_key": "value",
+            "a_key": "value",
+            "nested": [
+                "z_inner": 1,
+                "a_inner": 2,
+            ] as [String: Any],
+        ])
+
+        // Second call with same values but different key insertion order
+        sut.setPersonProperties(userPropertiesToSet: [
+            "z_key": "value",
+            "nested": [
+                "a_inner": 2,
+                "z_inner": 1,
+            ] as [String: Any],
+            "a_key": "value",
+        ])
+
+        // Add a different event to trigger flush
+        sut.capture("test_event")
+
+        let events = try await getServerEvents(server)
+
+        // Should only have 1 $set event (second was deduplicated) + 1 test_event
+        #expect(events.count == 2)
+        #expect(events[0].event == "$set")
+        #expect(events[1].event == "test_event")
+    }
+
+    // MARK: - Identify Deduplication Tests
+
+    @Test("identify deduplicates $set event when called with same properties for same user")
+    func identifyDeduplicatesSetEventWithSameProperties() async throws {
+        let sut = getSut(flushAt: 2)
+
+        // First identify creates the user
+        sut.identify("user123")
+
+        // Second identify with same distinctId sends $set
+        sut.identify("user123", userProperties: ["name": "John"])
+
+        // Third identify with same properties should be deduplicated
+        sut.identify("user123", userProperties: ["name": "John"])
+
+        let events = try await getServerEvents(server)
+
+        // Should have: $identify + 1 $set (second $set deduplicated)
+        #expect(events.count == 2)
+        #expect(events[0].event == "$identify")
+        #expect(events[1].event == "$set")
+    }
+
+    @Test("identify does not deduplicate $set event when properties differ")
+    func identifyDoesNotDeduplicateSetEventWithDifferentProperties() async throws {
+        let sut = getSut(flushAt: 3)
+
+        // First identify creates the user
+        sut.identify("user123")
+
+        // Second identify with properties
+        sut.identify("user123", userProperties: ["name": "John"])
+
+        // Third identify with different properties - should NOT be deduplicated
+        sut.identify("user123", userProperties: ["name": "Jane"])
+
+        let events = try await getServerEvents(server)
+
+        // Should have: $identify + 2 $set events
+        #expect(events.count == 3)
+        #expect(events[0].event == "$identify")
+        #expect(events[1].event == "$set")
+        #expect(events[2].event == "$set")
+
+        let set1 = events[1].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set1["name"] as? String == "John")
+
+        let set2 = events[2].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set2["name"] as? String == "Jane")
+    }
+
+    @Test("identify and setPersonProperties share deduplication cache")
+    func identifyAndSetPersonPropertiesShareDeduplicationCache() async throws {
+        let sut = getSut(flushAt: 2)
+
+        // First identify creates the user
+        sut.identify("user123")
+
+        // Set properties via identify
+        sut.identify("user123", userProperties: ["name": "John"])
+
+        // Same properties via setPersonProperties - should be deduplicated
+        sut.setPersonProperties(userPropertiesToSet: ["name": "John"])
+
+        let events = try await getServerEvents(server)
+
+        // Should have: $identify + 1 $set (setPersonProperties deduplicated)
+        #expect(events.count == 2)
+        #expect(events[0].event == "$identify")
+        #expect(events[1].event == "$set")
+    }
+
+    @Test("identify deduplicates with setOnce properties")
+    func identifyDeduplicatesWithSetOnceProperties() async throws {
+        let sut = getSut(flushAt: 2)
+
+        sut.identify("user123")
+
+        sut.identify("user123",
+                     userProperties: ["name": "John"],
+                     userPropertiesSetOnce: ["first_seen": "2024-01-01"])
+
+        // Same properties again - should be deduplicated
+        sut.identify("user123",
+                     userProperties: ["name": "John"],
+                     userPropertiesSetOnce: ["first_seen": "2024-01-01"])
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(events[0].event == "$identify")
+        #expect(events[1].event == "$set")
     }
 }

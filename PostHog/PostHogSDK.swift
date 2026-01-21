@@ -34,6 +34,8 @@ let maxRetryDelay = 30.0
     private let groupsLock = NSLock()
     private let flagCallReportedLock = NSLock()
     private let personPropsLock = NSLock()
+    private let cachedPersonPropertiesLock = NSLock()
+    private var cachedPersonPropertiesHash: String?
 
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
@@ -485,19 +487,160 @@ let maxRetryDelay = 30.0
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+            let sanitizedUserProperties = sanitizeDictionary(userProperties)
+            let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce)
+
+            if !shouldCapturePersonPropertiesEvent(
+                distinctId: distinctId,
+                userPropertiesToSet: sanitizedUserProperties,
+                userPropertiesToSetOnce: sanitizedUserPropertiesSetOnce
+            ) {
+                hedgeLog("A duplicate identify call was made with the same properties. The $set event has been ignored.")
+                return
+            }
+
             capture("$set",
                     distinctId: distinctId,
-                    userProperties: userProperties,
-                    userPropertiesSetOnce: userPropertiesSetOnce)
+                    userProperties: sanitizedUserProperties,
+                    userPropertiesSetOnce: sanitizedUserPropertiesSetOnce)
 
             // Automatically set person properties for feature flags during user property updates
-            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+            setPersonPropertiesForFlagsIfNeeded(sanitizedUserProperties, userPropertiesSetOnce: sanitizedUserPropertiesSetOnce)
 
             // Note we don't reload flags on property changes as these get processed async
 
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }
+    }
+
+    /// Sets properties on the person profile associated with the current distinct_id.
+    ///
+    /// Updates user properties that are stored with the person profile in PostHog.
+    /// If `personProfiles` is set to `never` and no profile exists, this call will be ignored.
+    ///
+    /// This method sends a `$set` event to PostHog.
+    ///
+    /// - Parameters:
+    ///   - userPropertiesToSet: Properties to store about the user. These will overwrite existing values.
+    @objc(setPersonPropertiesWithUserPropertiesToSet:)
+    public func setPersonProperties(
+        userPropertiesToSet: [String: Any]?
+    ) {
+        setPersonProperties(userPropertiesToSet: userPropertiesToSet, userPropertiesToSetOnce: nil)
+    }
+
+    /// Sets properties on the person profile associated with the current distinct_id.
+    ///
+    /// Updates user properties that are stored with the person profile in PostHog.
+    /// If `personProfiles` is set to `never` and no profile exists, this call will be ignored.
+    ///
+    /// This method sends a `$set` event to PostHog.
+    ///
+    /// - Parameters:
+    ///   - userPropertiesToSet: Properties to store about the user. These will overwrite existing values.
+    ///   - userPropertiesToSetOnce: Properties to store about the user only if not previously set.
+    ///     Note: For feature flag evaluations, if the same key is present in both parameters,
+    ///     the value from userPropertiesToSet will take precedence.
+    @objc(setPersonPropertiesWithUserPropertiesToSet:userPropertiesToSetOnce:)
+    public func setPersonProperties(
+        userPropertiesToSet: [String: Any]?,
+        userPropertiesToSetOnce: [String: Any]?
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        let sanitizedSet = sanitizeDictionary(userPropertiesToSet)
+        let sanitizedSetOnce = sanitizeDictionary(userPropertiesToSetOnce)
+
+        if sanitizedSet?.isEmpty ?? true, sanitizedSetOnce?.isEmpty ?? true {
+            return
+        }
+
+        if !requirePersonProcessing() {
+            return
+        }
+
+        let currentDistinctId = getDistinctId()
+
+        if !shouldCapturePersonPropertiesEvent(
+            distinctId: currentDistinctId,
+            userPropertiesToSet: sanitizedSet,
+            userPropertiesToSetOnce: sanitizedSetOnce
+        ) {
+            hedgeLog("A duplicate setPersonProperties call was made with the same properties. It has been ignored.")
+            return
+        }
+
+        // Update person properties for flags (setOnce properties are applied first, then set properties override)
+        var allProperties: [String: Any] = [:]
+        if let sanitizedSetOnce {
+            allProperties.merge(sanitizedSetOnce) { _, new in new }
+        }
+        if let sanitizedSet {
+            allProperties.merge(sanitizedSet) { _, new in new }
+        }
+        if !allProperties.isEmpty {
+            setPersonPropertiesForFlags(allProperties, reloadFeatureFlags: false)
+        }
+
+        // Send the $set event
+        capture(
+            "$set",
+            distinctId: currentDistinctId,
+            userProperties: sanitizedSet,
+            userPropertiesSetOnce: sanitizedSetOnce
+        )
+    }
+
+    /// Checks if person properties have changed by comparing hash values.
+    /// Updates the cached hash if different and returns true if the event should be captured.
+    /// Returns false if the hash matches (duplicate call).
+    private func shouldCapturePersonPropertiesEvent(
+        distinctId: String,
+        userPropertiesToSet: [String: Any]?,
+        userPropertiesToSetOnce: [String: Any]?
+    ) -> Bool {
+        let hash = getPersonPropertiesHash(
+            distinctId: distinctId,
+            userPropertiesToSet: userPropertiesToSet,
+            userPropertiesToSetOnce: userPropertiesToSetOnce
+        )
+
+        return cachedPersonPropertiesLock.withLock {
+            if cachedPersonPropertiesHash == hash {
+                return false
+            }
+            cachedPersonPropertiesHash = hash
+            return true
+        }
+    }
+
+    /// Computes a hash for deduplicating person properties calls.
+    private func getPersonPropertiesHash(
+        distinctId: String,
+        userPropertiesToSet: [String: Any]?,
+        userPropertiesToSetOnce: [String: Any]?
+    ) -> String {
+        var hashData: [String: Any] = ["distinct_id": distinctId]
+
+        if let userPropertiesToSet {
+            hashData["userPropertiesToSet"] = userPropertiesToSet
+        }
+        if let userPropertiesToSetOnce {
+            hashData["userPropertiesToSetOnce"] = userPropertiesToSetOnce
+        }
+
+        // .sortedKeys option handles recursive key sorting for deterministic hashing
+        if let jsonData = try? JSONSerialization.data(withJSONObject: hashData, options: [.sortedKeys]),
+           let jsonString = String(data: jsonData, encoding: .utf8)
+        {
+            return jsonString
+        }
+
+        // fallback
+        return hashData.description
     }
 
     private func isOptOutState() -> Bool {

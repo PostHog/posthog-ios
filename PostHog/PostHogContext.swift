@@ -44,6 +44,7 @@ class PostHogContext {
                 properties["$app_build"] = appBuild
             }
         }
+        properties["$app_install_source"] = PostHogContext.installSource.rawValue
 
         if Bundle.main.bundleIdentifier != nil {
             properties["$app_namespace"] = Bundle.main.bundleIdentifier
@@ -213,11 +214,12 @@ class PostHogContext {
         return String(cString: machine)
     }
 
+    // swiftlint:disable:next orphaned_doc_comment
     /// Converts Mac hardware identifiers to user-friendly names
     /// For example: "MacBookPro18,3" -> "MacBook Pro"
     /// - Parameter model: The hardware model identifier string
     /// - Returns: A user-friendly name for the Mac model
-    // swiftlint:disable:next cyclomatic_complexity orphaned_doc_comment
+    // swiftlint:disable:next cyclomatic_complexity
     private func macModelToFriendlyName(_ model: String) -> String {
         // Handle empty or invalid input
         guard !model.isEmpty else { return "Mac" }
@@ -460,4 +462,94 @@ class PostHogContext {
             false
         #endif
     }()
+
+    // MARK: - Install Source Detection
+
+    /// Represents how the app was installed and distributed.
+    enum InstallSource: String {
+        /// App Store
+        case store
+        /// TestFlight
+        case testing
+        /// Enterprise/In-House distribution via MDM (Mobile Device Management)
+        case enterprise
+        /// Ad-hoc distribution provisioned for specific devices
+        case sideloaded
+        /// Development build
+        case development
+        /// Running on iOS Simulator
+        case emulator
+        /// Detection failed or unknown distribution method
+        case unknown
+    }
+
+    /// Detects how the app was installed.
+    static let installSource: InstallSource = {
+        #if targetEnvironment(simulator)
+            return .simulator
+        #else
+            let mobileProvision = PostHogMobileProvisionParser.parse()
+
+            // No profile: App Store or TestFlight since Apple re-signs these
+            guard let mobileProvision, !mobileProvision.isEmpty else {
+                return installSourceFromReceipt()
+            }
+
+            // Enterprise distribution: ProvisionsAllDevices is true
+            if checkProvisionsAllDevices(mobileProvision) {
+                return .enterprise
+            }
+
+            // Has provisioned devices list (ad-hoc or development)
+            if checkProvisionedDevices(mobileProvision) {
+                // Development: get-task-allow entitlement is true
+                // Ad-hoc: get-task-allow is false or missing
+                return checkGetTaskAllow(mobileProvision) ? .development : .sideloaded
+            }
+
+            // Has profile but no devices, fallback (shouldn't really happen)
+            return .unknown
+        #endif
+    }()
+
+    // MARK: - Install Source Helpers
+
+    private static func installSourceFromReceipt() -> InstallSource {
+        guard let receiptURL = Bundle.main.appStoreReceiptURL else {
+            return .unknown
+        }
+
+        if receiptURL.lastPathComponent == "sandboxReceipt" {
+            return .testing // TestFlight
+        }
+
+        if FileManager.default.fileExists(atPath: receiptURL.path) {
+            // App Store
+            return .store
+        }
+
+        return .unknown
+    }
+
+    private static func checkProvisionsAllDevices(_ provision: [String: Any]) -> Bool {
+        // Enterprise provisions all devices
+        provision["ProvisionsAllDevices"] as? Bool ?? false
+    }
+
+    // Ad-hoc and development builds have a ProvisionedDevices array containing
+    // specific device UDIDs the app is allowed to run
+    private static func checkProvisionedDevices(_ provision: [String: Any]) -> Bool {
+        guard let devices = provision["ProvisionedDevices"] as? [Any] else {
+            return false
+        }
+        return !devices.isEmpty
+    }
+
+    // Development has get-task-allow true
+    private static func checkGetTaskAllow(_ provision: [String: Any]) -> Bool {
+        guard let entitlements = provision["Entitlements"] as? [String: Any] else {
+            return false
+        }
+        return entitlements["get-task-allow"] as? Bool ?? false
+    }
 }

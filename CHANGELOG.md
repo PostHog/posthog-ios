@@ -1,4 +1,7 @@
 ## Next
+
+## 3.38.0 - 2026-01-22
+
 - chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
 
 - feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))

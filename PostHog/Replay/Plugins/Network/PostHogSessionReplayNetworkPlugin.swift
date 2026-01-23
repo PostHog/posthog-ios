@@ -52,6 +52,18 @@
             hedgeLog("[Session Replay] Network telemetry plugin paused")
         }
 
+        func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
+            guard let capturePerformanceValue = remoteConfig?["capturePerformance"] else {
+                return true
+            }
+            // When disabled, capturePerformance is `false` (boolean)
+            if let isEnabled = capturePerformanceValue as? Bool {
+                return isEnabled
+            }
+            // When enabled, capturePerformance is an object
+            return true
+        }
+
         private func shouldCaptureNetworkSample() -> Bool {
             guard let postHog else { return false }
             return isActive && postHog.config.sessionReplayConfig.captureNetworkTelemetry && postHog.isSessionReplayActive()

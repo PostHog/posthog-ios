@@ -67,8 +67,8 @@
         /// Each log entry will be tagged with a level (info/warning/error) based on the message content
         /// and the source.
         ///
-        /// Defaults to `false`
-        @objc public var captureLogs: Bool = false
+        /// Defaults to `true`. Can be disabled remotely via `consoleLogRecordingEnabled` in remote config.
+        @objc public var captureLogs: Bool = true
 
         /// Further configuration for capturing console output
         @objc public var captureLogsConfig: PostHogSessionReplayConsoleLogConfig = .init()

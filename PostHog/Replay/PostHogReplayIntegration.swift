@@ -34,7 +34,6 @@
         private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
         private var remoteConfigLoadedToken: RegistrationToken?
-        private var featureFlagsLoadedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
@@ -144,8 +143,6 @@
         func uninstall(_ postHog: PostHogSDK) {
             if self.postHog === postHog || self.postHog == nil {
                 stop()
-                remoteConfigLoadedToken = nil
-                featureFlagsLoadedToken = nil
                 self.postHog = nil
                 PostHogReplayIntegration.integrationInstalledLock.withLock {
                     PostHogReplayIntegration.integrationInstalled = false
@@ -207,10 +204,6 @@
             remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
                 self?.applyRemoteConfig(remoteConfig: config)
             }
-            featureFlagsLoadedToken = postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] _ in
-                guard let config = self?.postHog?.remoteConfig?.getRemoteConfig() else { return }
-                self?.applyRemoteConfig(remoteConfig: config)
-            }
         }
 
         func stop() {
@@ -226,6 +219,8 @@
             applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
+            // stop listening to remote config loaded
+            remoteConfigLoadedToken = nil
 
             // stop plugins
             for plugin in installedPlugins {

@@ -61,7 +61,7 @@ class MulticastCallbackTests {
         var token: RegistrationToken? = callback.subscribe { _ in
             receivedCount += 1
         }
-        
+
         callback.invoke(1)
         #expect(receivedCount == 1)
         #expect(callback.subscriberCount == 1)
@@ -72,7 +72,7 @@ class MulticastCallbackTests {
         callback.invoke(2)
         #expect(receivedCount == 1) // Should not have received second invoke
         #expect(callback.subscriberCount == 0)
-        
+
         _ = token // silence read warnings
     }
 
@@ -91,7 +91,7 @@ class MulticastCallbackTests {
         #expect(receivedValues.count == 2)
         #expect(receivedValues[0] == "value")
         #expect(receivedValues[1] == nil)
-        
+
         _ = token // silence read warnings
     }
 }

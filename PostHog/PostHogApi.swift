@@ -19,11 +19,11 @@ class PostHogApi {
 
     func sessionConfig() -> URLSessionConfiguration {
         let config = URLSessionConfiguration.default
-        
+
         #if DEBUG
             config.requestCachePolicy = .reloadIgnoringLocalCacheData
         #endif
-        
+
         config.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",
             "User-Agent": "\(postHogSdkName)/\(postHogVersion)",

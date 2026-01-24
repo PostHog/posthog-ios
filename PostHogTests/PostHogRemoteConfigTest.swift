@@ -78,7 +78,7 @@ enum PostHogRemoteConfigTest {
 
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() != nil)
-            
+
             _ = (token1, token2) // silence read warnings
         }
 
@@ -109,7 +109,7 @@ enum PostHogRemoteConfigTest {
             #expect(featureFlagsLoaded == false)
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() == nil)
-            
+
             _ = (token1, token2) // silence read warnings
         }
 
@@ -190,7 +190,7 @@ enum PostHogRemoteConfigTest {
             #expect(storage.getDictionary(forKey: .flags).isNilOrEmpty == true)
             #expect(storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty == true)
             #expect(storage.getDictionary(forKey: .enabledFeatureFlagPayloads).isNilOrEmpty == true)
-            
+
             _ = token // silence read warnings
         }
 
@@ -227,7 +227,7 @@ enum PostHogRemoteConfigTest {
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
-            
+
             _ = token // silence read warnings
         }
 
@@ -264,7 +264,7 @@ enum PostHogRemoteConfigTest {
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
-            
+
             _ = token // silence read warnings
         }
     }

@@ -67,7 +67,7 @@
             let config: [String: Any] = [
                 "capturePerformance": [
                     "network_timing": true,
-                    "web_vitals": false
+                    "web_vitals": false,
                 ],
             ]
             #expect(plugin.isEnabledRemotely(remoteConfig: config) == true)

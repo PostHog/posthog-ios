@@ -43,7 +43,6 @@
         /// Returns whether this plugin should be enabled based on remote config.
         ///
         /// Each plugin checks its own relevant key from the full remote config.
-        /// Default implementation returns true (no remote control).
         ///
         /// - Parameter remoteConfig: The full remote config dictionary, may be nil
         /// - Returns: true if plugin should be enabled, false if disabled by remote config

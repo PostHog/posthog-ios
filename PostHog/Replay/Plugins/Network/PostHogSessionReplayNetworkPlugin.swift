@@ -60,7 +60,7 @@
             if let isEnabled = capturePerformanceValue as? Bool {
                 return isEnabled
             }
-            // When enabled, capturePerformance is an object
+            // When enabled, capturePerformance is an object (we ignore the keys for now)
             return true
         }
 

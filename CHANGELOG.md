@@ -1,5 +1,7 @@
 ## Next
 
+- feat: session replay plugins (sessionReplayConfig.captureLogs, sessionReplayConfig.captureNetworkTelemetry) now respect remote config settings ([#452](https://github.com/PostHog/posthog-ios/pull/452))
+
 ## 3.38.0 - 2026-01-22
 
 - chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))

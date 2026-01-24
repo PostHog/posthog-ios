@@ -30,6 +30,8 @@
 
         /// Enable capturing network telemetry
         /// Default: true
+        ///
+        /// Note: When enabled, can be disabled remotely via session replay settings in project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
         /// By default Session replay will capture all the views on the screen as a wireframe,
@@ -67,8 +69,10 @@
         /// Each log entry will be tagged with a level (info/warning/error) based on the message content
         /// and the source.
         ///
-        /// Defaults to `true`. Can be disabled remotely via `consoleLogRecordingEnabled` in remote config.
-        @objc public var captureLogs: Bool = true
+        /// Defaults to `false`
+        ///
+        /// Note: When enabled, can be disabled remotely via session replay settings in project settings
+        @objc public var captureLogs: Bool = false
 
         /// Further configuration for capturing console output
         @objc public var captureLogsConfig: PostHogSessionReplayConsoleLogConfig = .init()

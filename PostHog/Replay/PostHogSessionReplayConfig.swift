@@ -31,7 +31,7 @@
         /// Enable capturing network telemetry
         /// Default: true
         ///
-        /// Note: When enabled, can be disabled remotely via session replay settings in project settings
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureNetworkTelemetry: Bool = true
 
         /// By default Session replay will capture all the views on the screen as a wireframe,
@@ -71,7 +71,7 @@
         ///
         /// Defaults to `false`
         ///
-        /// Note: When enabled, can be disabled remotely via session replay settings in project settings
+        /// Note: When enabled, can be disabled remotely via project settings
         @objc public var captureLogs: Bool = false
 
         /// Further configuration for capturing console output

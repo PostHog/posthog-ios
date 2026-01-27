@@ -4,6 +4,7 @@
 //
 //  Created by Ioannis Josephides on 20/01/25.
 //
+//  see: https://github.com/Shopify/tophat/blob/201b914b6a38eab142cbd926a50492e192aceeef/Tophat/Models/ProvisioningProfile.swift
 
 import Foundation
 
@@ -17,7 +18,6 @@ enum PostHogMobileProvisionParser {
             return nil
         }
 
-        // The file is a CMS (PKCS#7) signed container with a plist embedded as plain text.
         let scanner = Scanner(string: binaryString)
         guard scanner.scanUpToString("<plist") != nil,
               let plistString = scanner.scanUpToString("</plist>")

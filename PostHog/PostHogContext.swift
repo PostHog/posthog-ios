@@ -514,11 +514,13 @@ class PostHogContext {
 
     private static func installSourceFromReceipt() -> InstallSource {
         guard let receiptURL = Bundle.main.appStoreReceiptURL else {
+            // No receipt, no provisioning profile -> unknown
             return .unknown
         }
 
         if receiptURL.lastPathComponent == "sandboxReceipt" {
-            return .testing // TestFlight
+            // TestFlight
+            return .testing 
         }
 
         if FileManager.default.fileExists(atPath: receiptURL.path) {

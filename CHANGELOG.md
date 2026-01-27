@@ -1,6 +1,10 @@
 ## Next
 
 - feat: add `$app_install_source` property ([#443](https://github.com/PostHog/posthog-ios/pull/443))
+- feat: add `setPersonProperties` method to update person profile properties ([#441](https://github.com/PostHog/posthog-ios/pull/441))
+- fix: do not capture $set events if user props have not changed ([#441](https://github.com/PostHog/posthog-ios/pull/441))
+
+## 3.38.0 - 2026-01-22
 
 - chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
 

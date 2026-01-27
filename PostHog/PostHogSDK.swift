@@ -247,9 +247,9 @@ let maxRetryDelay = 30.0
     }
 
     @discardableResult
-    private func requirePersonProcessing() -> Bool {
+    private func requirePersonProcessing(functionName: String = #function) -> Bool {
         if config.personProfiles == .never {
-            hedgeLog("personProfiles is set to `never`. This call will be ignored.")
+            hedgeLog("\(functionName) was called, but `personProfiles` is set to `never`. This call will be ignored.")
             return false
         }
         config.storageManager?.setPersonProcessing(true)

@@ -46,9 +46,8 @@ class PostHogContext {
         }
         properties["$app_install_source"] = PostHogContext.installSource.rawValue
 
-        if Bundle.main.bundleIdentifier != nil {
-            properties["$app_namespace"] = Bundle.main.bundleIdentifier
-        }
+        properties["$app_namespace"] = getBundleIdentifier()
+
         properties["$device_manufacturer"] = "Apple"
         let deviceModel = platform()
         properties["$device_model"] = deviceModel
@@ -477,39 +476,38 @@ class PostHogContext {
         case sideloaded
         /// Development build
         case development
-        /// Running on iOS Simulator
-        case emulator
         /// Detection failed or unknown distribution method
         case unknown
     }
 
     /// Detects how the app was installed.
     static let installSource: InstallSource = {
-        #if targetEnvironment(simulator)
-            return .simulator
-        #else
-            let mobileProvision = PostHogMobileProvisionParser.parse()
+        // We consider simulators always a development build
+        if isSimulator {
+            return .development
+        }
 
-            // No profile: App Store or TestFlight since Apple re-signs these
-            guard let mobileProvision, !mobileProvision.isEmpty else {
-                return installSourceFromReceipt()
-            }
+        let mobileProvision = PostHogMobileProvisionParser.parse()
 
-            // Enterprise distribution: ProvisionsAllDevices is true
-            if checkProvisionsAllDevices(mobileProvision) {
-                return .enterprise
-            }
+        // No profile: App Store or TestFlight since Apple re-signs these
+        guard let mobileProvision, !mobileProvision.isEmpty else {
+            return installSourceFromReceipt()
+        }
 
-            // Has provisioned devices list (ad-hoc or development)
-            if checkProvisionedDevices(mobileProvision) {
-                // Development: get-task-allow entitlement is true
-                // Ad-hoc: get-task-allow is false or missing
-                return checkGetTaskAllow(mobileProvision) ? .development : .sideloaded
-            }
+        // Enterprise distribution: ProvisionsAllDevices is true
+        if checkProvisionsAllDevices(mobileProvision) {
+            return .enterprise
+        }
 
-            // Has profile but no devices, fallback (shouldn't really happen)
-            return .unknown
-        #endif
+        // Has provisioned devices list (ad-hoc or development)
+        if checkProvisionedDevices(mobileProvision) {
+            // Development: get-task-allow entitlement is true
+            // Ad-hoc: get-task-allow is false or missing
+            return checkGetTaskAllow(mobileProvision) ? .development : .sideloaded
+        }
+
+        // Has profile but no devices, fallback (shouldn't really happen)
+        return .unknown
     }()
 
     // MARK: - Install Source Helpers

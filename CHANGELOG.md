@@ -1,5 +1,29 @@
 ## Next
+
+## 3.38.0 - 2026-01-22
+
+- chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
+
 - feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
+
+- fix: Retain cached flags when quota limited ([#438](https://github.com/PostHog/posthog-ios/pull/438))
+
+- Renamed `evaluationEnvironments` to `evaluationContexts` for clearer semantics ([#434](https://github.com/PostHog/posthog-ios/pull/434)). The term "contexts" better reflects that this feature is for specifying evaluation contexts (e.g., "web", "mobile", "checkout") rather than deployment environments (e.g., "staging", "production").
+- The API now sends `evaluation_contexts` instead of `evaluation_environments` to the server.
+
+### Deprecated
+- `PostHogConfig.evaluationEnvironments` is now deprecated in favor of `PostHogConfig.evaluationContexts`. The old property will continue to work and will print a deprecation warning. It will be removed in a future major version.
+
+### Migration Guide
+```swift
+// Before
+config.evaluationEnvironments = ["production", "web", "checkout"]
+
+// After
+config.evaluationContexts = ["production", "web", "checkout"]
+```
+
+No immediate action required - existing code using `evaluationEnvironments` will continue to work with a deprecation warning.
 
 ## 3.37.2 - 2026-01-09
 

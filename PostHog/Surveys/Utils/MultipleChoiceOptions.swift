@@ -10,6 +10,8 @@
 
     @available(iOS 15.0, *)
     struct MultipleChoiceOptions: View {
+        @Environment(\.surveyAppearance) private var appearance
+
         let allowsMultipleSelection: Bool
         let hasOpenChoiceQuestion: Bool
         let options: [String]
@@ -18,6 +20,10 @@
         @Binding var openChoiceInput: String
         @State private var textFieldRect: CGRect = .zero
         @FocusState private var isTextFieldFocused: Bool
+
+        private var inputTextColor: Color {
+            appearance.effectiveInputTextColor
+        }
 
         var body: some View {
             VStack {
@@ -43,11 +49,11 @@
                                     }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .modifier(SurveyOptionStyle(isChecked: isSelected))
+                            .modifier(SurveyOptionStyle(isChecked: isSelected, textColor: inputTextColor))
                             .coordinateSpace(name: "SurveyButton")
                         } else {
                             Text(option)
-                                .modifier(SurveyOptionStyle(isChecked: isSelected))
+                                .modifier(SurveyOptionStyle(isChecked: isSelected, textColor: inputTextColor))
                                 .multilineTextAlignment(.leading)
                         }
                     }
@@ -88,7 +94,7 @@
             if isOpenChoice(option) {
                 TextField("", text: $openChoiceInput)
                     .focused($isTextFieldFocused)
-                    .foregroundColor(isSelected(option) ? Color.black : Color.black.opacity(0.5))
+                    .foregroundColor(isSelected(option) ? inputTextColor : inputTextColor.opacity(0.5))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(maxWidth: textFieldRect.size.width)
                     .disabled(!isSelected(option))
@@ -103,6 +109,7 @@
     @available(iOS 15.0, *)
     private struct SurveyOptionStyle: ViewModifier {
         let isChecked: Bool
+        let textColor: Color
 
         func body(content: Content) -> some View {
             HStack(alignment: .center, spacing: 8) {
@@ -121,9 +128,9 @@
             .frame(minHeight: 48)
             .background(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(isChecked ? Color.black : Color.black.opacity(0.5), lineWidth: 1)
+                    .stroke(isChecked ? textColor : textColor.opacity(0.5), lineWidth: 1)
             )
-            .foregroundColor(isChecked ? Color.black : Color.black.opacity(0.5))
+            .foregroundColor(isChecked ? textColor : textColor.opacity(0.5))
             .contentShape(Rectangle())
         }
     }

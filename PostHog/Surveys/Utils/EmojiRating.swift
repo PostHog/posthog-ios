@@ -86,11 +86,19 @@
         }
 
         private func foregroundColor(selected: Bool) -> Color {
-            selected ? Color(uiColor: .label) : Color(uiColor: .tertiaryLabel)
+            if selected {
+                return ratingButtonActiveColor.getContrastingTextColor()
+            } else {
+                return inputTextColor.opacity(0.5)
+            }
         }
 
         private var ratingButtonActiveColor: Color {
             appearance.ratingButtonActiveColor ?? .black
+        }
+
+        private var inputTextColor: Color {
+            appearance.effectiveInputTextColor
         }
     }
 

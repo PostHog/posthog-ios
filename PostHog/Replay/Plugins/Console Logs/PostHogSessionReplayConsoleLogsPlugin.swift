@@ -12,6 +12,8 @@
         private weak var postHog: PostHogSDK?
         private var isActive = false
 
+        required init() { /**/ }
+
         func start(postHog: PostHogSDK) {
             self.postHog = postHog
             isActive = true
@@ -42,6 +44,13 @@
             isActive = false
             PostHogConsoleLogInterceptor.shared.stopCapturing()
             hedgeLog("[Session Replay] Console logs plugin paused")
+        }
+
+        static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
+            guard let sessionRecording = remoteConfig?["sessionRecording"] as? [String: Any] else {
+                return true
+            }
+            return sessionRecording["consoleLogRecordingEnabled"] as? Bool ?? true
         }
 
         private func handleConsoleLog(_ output: PostHogConsoleLogInterceptor.ConsoleOutput) {

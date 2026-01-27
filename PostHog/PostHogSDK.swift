@@ -487,13 +487,11 @@ let maxRetryDelay = 30.0
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-            let sanitizedUserProperties = sanitizeDictionary(userProperties)
-            let sanitizedUserPropertiesSetOnce = sanitizeDictionary(userPropertiesSetOnce)
-
+            
             if !shouldCapturePersonPropertiesEvent(
                 distinctId: distinctId,
-                userPropertiesToSet: sanitizedUserProperties,
-                userPropertiesToSetOnce: sanitizedUserPropertiesSetOnce
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
             ) {
                 hedgeLog("A duplicate identify call was made with the same properties. The $set event has been ignored.")
                 return
@@ -501,11 +499,11 @@ let maxRetryDelay = 30.0
 
             capture("$set",
                     distinctId: distinctId,
-                    userProperties: sanitizedUserProperties,
-                    userPropertiesSetOnce: sanitizedUserPropertiesSetOnce)
+                    userProperties: userProperties,
+                    userPropertiesSetOnce: userPropertiesSetOnce)
 
             // Automatically set person properties for feature flags during user property updates
-            setPersonPropertiesForFlagsIfNeeded(sanitizedUserProperties, userPropertiesSetOnce: sanitizedUserPropertiesSetOnce)
+            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
             // Note we don't reload flags on property changes as these get processed async
 
@@ -551,10 +549,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        let sanitizedSet = sanitizeDictionary(userPropertiesToSet)
-        let sanitizedSetOnce = sanitizeDictionary(userPropertiesToSetOnce)
-
-        if sanitizedSet?.isEmpty ?? true, sanitizedSetOnce?.isEmpty ?? true {
+        if userPropertiesToSet?.isEmpty ?? true, userPropertiesToSetOnce?.isEmpty ?? true {
             return
         }
 
@@ -566,8 +561,8 @@ let maxRetryDelay = 30.0
 
         if !shouldCapturePersonPropertiesEvent(
             distinctId: currentDistinctId,
-            userPropertiesToSet: sanitizedSet,
-            userPropertiesToSetOnce: sanitizedSetOnce
+            userPropertiesToSet: userPropertiesToSet,
+            userPropertiesToSetOnce: userPropertiesToSetOnce
         ) {
             hedgeLog("A duplicate setPersonProperties call was made with the same properties. It has been ignored.")
             return
@@ -575,11 +570,11 @@ let maxRetryDelay = 30.0
 
         // Update person properties for flags (setOnce properties are applied first, then set properties override)
         var allProperties: [String: Any] = [:]
-        if let sanitizedSetOnce {
-            allProperties.merge(sanitizedSetOnce) { _, new in new }
+        if let userPropertiesToSetOnce {
+            allProperties.merge(userPropertiesToSetOnce) { _, new in new }
         }
-        if let sanitizedSet {
-            allProperties.merge(sanitizedSet) { _, new in new }
+        if let userPropertiesToSet {
+            allProperties.merge(userPropertiesToSet) { _, new in new }
         }
         if !allProperties.isEmpty {
             setPersonPropertiesForFlags(allProperties, reloadFeatureFlags: false)
@@ -589,8 +584,8 @@ let maxRetryDelay = 30.0
         capture(
             "$set",
             distinctId: currentDistinctId,
-            userProperties: sanitizedSet,
-            userPropertiesSetOnce: sanitizedSetOnce
+            userProperties: userPropertiesToSet,
+            userPropertiesSetOnce: userPropertiesToSetOnce
         )
     }
 

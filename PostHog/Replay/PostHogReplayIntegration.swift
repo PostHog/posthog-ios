@@ -177,14 +177,15 @@
             }
 
             // Install plugins
-            let plugins = postHog.config.sessionReplayConfig.getPlugins()
+            let pluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
             let remoteConfig = postHog.remoteConfig?.getRemoteConfig()
             installedPlugins = []
-            for plugin in plugins {
-                if !plugin.isEnabledRemotely(remoteConfig: remoteConfig) {
-                    hedgeLog("[Session Replay] Plugin \(type(of: plugin)) skipped - disabled by cached remote config")
+            for pluginType in pluginTypes {
+                if !pluginType.isEnabledRemotely(remoteConfig: remoteConfig) {
+                    hedgeLog("[Session Replay] Plugin \(pluginType) skipped - disabled by cached remote config")
                     continue
                 }
+                let plugin = pluginType.init()
                 plugin.start(postHog: postHog)
                 installedPlugins.append(plugin)
             }
@@ -255,22 +256,23 @@
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
             guard let postHog else { return }
 
-            let allPlugins = postHog.config.sessionReplayConfig.getPlugins()
+            let allPluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
 
-            for plugin in allPlugins {
-                let isEnabled = plugin.isEnabledRemotely(remoteConfig: remoteConfig)
-                let installedIndex = installedPlugins.firstIndex { type(of: $0) == type(of: plugin) }
+            for pluginType in allPluginTypes {
+                let isEnabled = pluginType.isEnabledRemotely(remoteConfig: remoteConfig)
+                let installedIndex = installedPlugins.firstIndex { type(of: $0) == pluginType }
 
                 if let index = installedIndex, !isEnabled {
                     // Installed, but disabled in remote
                     installedPlugins[index].stop()
                     installedPlugins.remove(at: index)
-                    hedgeLog("[Session Replay] Plugin \(type(of: plugin)) uninstalled - disabled by remote config")
+                    hedgeLog("[Session Replay] Plugin \(pluginType) uninstalled - disabled by remote config")
                 } else if installedIndex == nil, isEnabled {
                     // Not installed, but enabled in remote
+                    let plugin = pluginType.init()
                     plugin.start(postHog: postHog)
                     installedPlugins.append(plugin)
-                    hedgeLog("[Session Replay] Plugin \(type(of: plugin)) installed - enabled by remote config")
+                    hedgeLog("[Session Replay] Plugin \(pluginType) installed - enabled by remote config")
                 }
             }
         }

@@ -9,10 +9,12 @@
     import Foundation
 
     /// Session replay plugin that captures network requests using URLSession swizzling.
-    class PostHogSessionReplayNetworkPlugin: PostHogSessionReplayPlugin {
+    final class PostHogSessionReplayNetworkPlugin: PostHogSessionReplayPlugin {
         private var sessionSwizzler: URLSessionSwizzler?
-        private var postHog: PostHogSDK?
+        private weak var postHog: PostHogSDK?
         private var isActive = false
+
+        required init() { /**/ }
 
         func start(postHog: PostHogSDK) {
             self.postHog = postHog
@@ -52,7 +54,7 @@
             hedgeLog("[Session Replay] Network telemetry plugin paused")
         }
 
-        func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
+        static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
             guard let capturePerformanceValue = remoteConfig?["capturePerformance"] else {
                 return true
             }

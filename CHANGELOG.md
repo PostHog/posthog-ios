@@ -1,6 +1,7 @@
 ## Next
 
-- feat: session replay plugins (sessionReplayConfig.captureLogs, sessionReplayConfig.captureNetworkTelemetry) now respect remote config settings ([#452](https://github.com/PostHog/posthog-ios/pull/452))
+- feat: session replay config `sessionReplayConfig.captureLogs` and `sessionReplayConfig.captureNetworkTelemetry` now respect project settings ([#452](https://github.com/PostHog/posthog-ios/pull/452))
+  > **Note**: requires `PostHogConfig.remoteConfig` to be enabled (default)
 
 ## 3.38.0 - 2026-01-22
 

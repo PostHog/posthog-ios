@@ -12,6 +12,8 @@
         private weak var postHog: PostHogSDK?
         private var isActive = false
 
+        required init() { /**/ }
+
         func start(postHog: PostHogSDK) {
             self.postHog = postHog
             isActive = true
@@ -44,7 +46,7 @@
             hedgeLog("[Session Replay] Console logs plugin paused")
         }
 
-        func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
+        static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
             guard let sessionRecording = remoteConfig?["sessionRecording"] as? [String: Any] else {
                 return true
             }

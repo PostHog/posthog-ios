@@ -487,7 +487,6 @@ let maxRetryDelay = 30.0
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-            
             if !shouldCapturePersonPropertiesEvent(
                 distinctId: distinctId,
                 userPropertiesToSet: userProperties,

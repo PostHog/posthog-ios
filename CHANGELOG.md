@@ -1,5 +1,6 @@
 ## Next
 
+- feat: add `$app_install_source` property ([#443](https://github.com/PostHog/posthog-ios/pull/443))
 - feat: add `setPersonProperties` method to update person profile properties ([#441](https://github.com/PostHog/posthog-ios/pull/441))
 - fix: do not capture $set events if user props have not changed ([#441](https://github.com/PostHog/posthog-ios/pull/441))
 

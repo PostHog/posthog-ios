@@ -15,7 +15,7 @@ version: '3.8'
 
 services:
   test-harness:
-    image: posthog-sdk-test-harness:debug
+    image: ${TEST_HARNESS_IMAGE:-ghcr.io/posthog/sdk-test-harness:latest}
     command: ["run", "--adapter-url", "http://host.docker.internal:8080", "--mock-url", "http://host.docker.internal:8081", "--sdk-type", "server", "--output", "text", "--report", "/report/sdk-compliance-report.md", "--debug"]
     ports:
       - "8081:8081"

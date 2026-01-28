@@ -52,16 +52,6 @@ jobs:
           docker --version
           docker-compose --version
 
-      - name: Pull test harness image
-        run: |
-          # Using debug tag for now, should use versioned releases in production
-          # TODO: Change to ghcr.io/posthog/sdk-test-harness:latest once published
-          docker pull ghcr.io/posthog/sdk-test-harness:latest || \
-          (echo "Test harness image not found, building locally..." && \
-           git clone --depth 1 https://github.com/PostHog/posthog-sdk-test-harness.git /tmp/test-harness && \
-           cd /tmp/test-harness && \
-           docker build -t posthog-sdk-test-harness:debug .)
-
       - name: Build iOS compliance adapter
         run: |
           cd sdk_compliance_adapter

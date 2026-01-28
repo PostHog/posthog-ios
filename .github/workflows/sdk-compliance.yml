@@ -93,7 +93,8 @@ jobs:
           # Run tests via docker-compose
           # Test harness connects to adapter via host.docker.internal:8080
           # Mock server runs in Docker, accessible via localhost:8081
-          docker-compose up --abort-on-container-exit
+          # Mount the report directory from the workspace
+          REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit
 
           # Capture exit code
           TEST_EXIT_CODE=$?
@@ -119,7 +120,19 @@ jobs:
           path: report/sdk-compliance-report.md
           retention-days: 30
 
-      - name: Comment on PR with results
+      - name: Extract SDK name from report
+        id: extract-sdk-name
+        if: always()
+        run: |
+          if [ -f "${{ github.workspace }}/report/sdk-compliance-report.md" ]; then
+            # Extract SDK name from the first line of the report (e.g., "# posthog-js Compliance Report")
+            SDK_NAME=$(head -n 1 "${{ github.workspace }}/report/sdk-compliance-report.md" | sed 's/# \(.*\) Compliance Report/\1/' | tr -d ' ')
+            echo "sdk-name=${SDK_NAME}" >> $GITHUB_OUTPUT
+          else
+            echo "sdk-name=posthog-ios" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
@@ -133,10 +146,12 @@ jobs:
             }
 
             const report = fs.readFileSync(reportPath, 'utf8');
-            const commentMarker = `<!-- posthog-sdk-compliance-report-posthog-ios -->`;
+            const sdkName = '${{ steps.extract-sdk-name.outputs.sdk-name }}' || 'posthog-ios';
+            // Use SDK-specific marker so multiple adapters don't overwrite each other
+            const commentMarker = `<!-- posthog-sdk-compliance-report-${sdkName} -->`;
             const body = `${commentMarker}\n${report}`;
 
-            // Find existing comment
+            // Find existing comment for this specific SDK
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -148,19 +163,23 @@ jobs:
             );
 
             if (existingComment) {
+              // Update existing comment for this SDK
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existingComment.id,
                 body: body
               });
+              console.log(`Updated existing comment for ${sdkName}`);
             } else {
+              // Create new comment for this SDK
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
                 body: body
               });
+              console.log(`Created new comment for ${sdkName}`);
             }
 
       # TODO: Enable this once SDK compliance tests are stable

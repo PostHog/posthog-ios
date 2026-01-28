@@ -16,9 +16,12 @@ version: '3.8'
 services:
   test-harness:
     image: posthog-sdk-test-harness:debug
-    command: ["run", "--adapter-url", "http://host.docker.internal:8080", "--mock-url", "http://host.docker.internal:8081", "--sdk-type", "server", "--debug"]
+    command: ["run", "--adapter-url", "http://host.docker.internal:8080", "--mock-url", "http://host.docker.internal:8081", "--sdk-type", "server", "--output", "text", "--report", "/report/sdk-compliance-report.md", "--debug"]
     ports:
       - "8081:8081"
+    volumes:
+      # Mount the report directory so the test harness can write the report
+      - ${REPORT_DIR:-./report}:/report
     networks:
       - test-network
     extra_hosts:

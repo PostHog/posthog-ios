@@ -22,7 +22,7 @@ jobs:
     # Reason: Apple Silicon runners don't support nested virtualization needed for Docker
     # See: https://github.com/actions/runner-images/issues/9460
     runs-on: macos-15-intel
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: write
@@ -52,11 +52,21 @@ jobs:
           docker --version
           docker-compose --version
 
+      - name: Cache Swift build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            sdk_compliance_adapter/.build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-swift-${{ hashFiles('sdk_compliance_adapter/Package.swift', 'sdk_compliance_adapter/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swift-
+
       - name: Build iOS compliance adapter
         run: |
           cd sdk_compliance_adapter
-          # Build with TESTING flag to avoid Bundle.main.bundleIdentifier crash in CLI
-          swift build -c release -Xswiftc -DTESTING
+          # Build in debug mode (much faster than release, still works for tests)
+          swift build -Xswiftc -DTESTING
 
       - name: Create report directory
         run: mkdir -p ${{ github.workspace }}/report
@@ -67,11 +77,12 @@ jobs:
         run: |
           cd sdk_compliance_adapter
 
-          # Start adapter in background
-          .build/release/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > adapter.log 2>&1 &
+          # Start adapter in background (using debug build)
+          .build/debug/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > adapter.log 2>&1 &
           ADAPTER_PID=$!
 
           # Wait for adapter to be ready
+          echo "Waiting for adapter to start..."
           for i in {1..30}; do
             if curl -s http://localhost:8080/health > /dev/null 2>&1; then
               echo "✅ Adapter ready"
@@ -83,7 +94,6 @@ jobs:
           # Run tests via docker-compose
           # Test harness connects to adapter via host.docker.internal:8080
           # Mock server runs in Docker, accessible via localhost:8081
-          # Mount the report directory from the workspace
           REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit
 
           # Capture exit code

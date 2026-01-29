@@ -38,6 +38,22 @@ struct PostHogSurvey: Decodable, Identifiable {
     let startDate: Date?
     /// End date of the survey (optional)
     let endDate: Date?
+    /// Schedule type for the survey (e.g., "once", "recurring", "always")
+    let schedule: PostHogSurveySchedule?
+}
+
+/// Schedule type for the survey
+enum PostHogSurveySchedule: String, Decodable {
+    case once
+    case recurring
+    case always
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = PostHogSurveySchedule(rawValue: rawValue) ?? .unknown
+    }
 }
 
 struct PostHogSurveyFeatureFlagKeyValue: Equatable, Decodable {

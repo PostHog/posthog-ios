@@ -45,8 +45,6 @@
 
         /// Returns whether this plugin type should be enabled based on remote config.
         ///
-        /// Each plugin checks its own relevant key from the full remote config.
-        ///
         /// - Parameter remoteConfig: The full remote config dictionary, may be nil
         /// - Returns: true if plugin should be enabled, false if disabled by remote config
         static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool

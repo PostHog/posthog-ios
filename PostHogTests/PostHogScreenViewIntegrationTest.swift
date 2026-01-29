@@ -5,9 +5,8 @@
 //  Created by Ioannis Josephides on 21/02/2025.
 //
 
-import Testing
-
 @testable import PostHog
+import Testing
 
 @Suite("Screen view integration tests", .serialized)
 final class ScreenViewIntegrationTest {

@@ -6,12 +6,10 @@
 //
 
 import Foundation
-import XCTest
-
 import OHHTTPStubs
 import OHHTTPStubsSwift
-
 @testable import PostHog
+import XCTest
 
 class MockPostHogServer {
     var batchRequests = [URLRequest]()

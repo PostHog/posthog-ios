@@ -1,5 +1,5 @@
 //
-//  MulticastCallback.swift
+//  PostHogMulticastCallback.swift
 //  PostHog
 //
 //  Created by Ioannis Josephides on 23/01/2025.
@@ -12,7 +12,7 @@ import Foundation
 ///
 /// Usage:
 /// ```swift
-/// let onConfigLoaded = MulticastCallback<[String: Any]?>()
+/// let onConfigLoaded = PostHogMulticastCallback<[String: Any]?>()
 ///
 /// // Subscribe
 /// let token = onConfigLoaded.subscribe { config in
@@ -24,7 +24,7 @@ import Foundation
 ///
 /// // Token automatically unsubscribes when deallocated
 /// ```
-final class MulticastCallback<T> {
+final class PostHogMulticastCallback<T> {
     private var callbacks: [UUID: (T) -> Void] = [:]
     private let lock = NSLock()
 

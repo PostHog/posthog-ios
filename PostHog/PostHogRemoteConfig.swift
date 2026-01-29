@@ -41,8 +41,8 @@ class PostHogRemoteConfig {
     /// Internal, only used for testing
     var canReloadFlagsForTesting = true
 
-    let onRemoteConfigLoaded = MulticastCallback<[String: Any]?>()
-    let onFeatureFlagsLoaded = MulticastCallback<[String: Any]?>()
+    let onRemoteConfigLoaded = PostHogMulticastCallback<[String: Any]?>()
+    let onFeatureFlagsLoaded = PostHogMulticastCallback<[String: Any]?>()
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))

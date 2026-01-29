@@ -1,11 +1,11 @@
 @testable import PostHog
 import Testing
 
-@Suite("MulticastCallback Tests")
-class MulticastCallbackTests {
+@Suite("PostHogMulticastCallback Tests")
+class PostHogMulticastCallbackTests {
     @Test("Single subscriber receives value")
     func singleSubscriber() {
-        let callback = MulticastCallback<Int>()
+        let callback = PostHogMulticastCallback<Int>()
         var receivedValue: Int?
 
         let token = callback.subscribe { value in
@@ -20,7 +20,7 @@ class MulticastCallbackTests {
 
     @Test("Multiple subscribers all receive value")
     func multipleSubscribers() {
-        let callback = MulticastCallback<String>()
+        let callback = PostHogMulticastCallback<String>()
         var values: [String] = []
 
         let token1 = callback.subscribe { value in
@@ -40,7 +40,7 @@ class MulticastCallbackTests {
 
     @Test("Subscriber count is correct")
     func subscriberCount() {
-        let callback = MulticastCallback<Int>()
+        let callback = PostHogMulticastCallback<Int>()
 
         #expect(callback.subscriberCount == 0)
 
@@ -55,7 +55,7 @@ class MulticastCallbackTests {
 
     @Test("Token deallocation removes subscriber")
     func tokenDeallocationRemovesSubscriber() {
-        let callback = MulticastCallback<Int>()
+        let callback = PostHogMulticastCallback<Int>()
         var receivedCount = 0
 
         var token: RegistrationToken? = callback.subscribe { _ in
@@ -78,7 +78,7 @@ class MulticastCallbackTests {
 
     @Test("Optional value can be invoked")
     func optionalValue() {
-        let callback = MulticastCallback<String?>()
+        let callback = PostHogMulticastCallback<String?>()
         var receivedValues: [String?] = []
 
         let token = callback.subscribe { value in

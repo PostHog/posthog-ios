@@ -21,6 +21,7 @@ let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
+// swiftlint:disable:next type_body_length <- Should be removed once PostHogSDK is refactored
 @objc public class PostHogSDK: NSObject {
     private(set) var config: PostHogConfig
 

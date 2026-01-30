@@ -571,6 +571,33 @@ class PostHogRemoteConfig {
         return value
     }
 
+    func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? {
+        let flagValue = getFeatureFlag(key)
+        guard flagValue != nil else { return nil }
+
+        let payload = getFeatureFlagPayload(key)
+        let isEnabled: Bool
+        let variant: String?
+
+        if let stringValue = flagValue as? String {
+            isEnabled = true
+            variant = stringValue
+        } else if let boolValue = flagValue as? Bool {
+            isEnabled = boolValue
+            variant = nil
+        } else {
+            isEnabled = false
+            variant = nil
+        }
+
+        return PostHogFeatureFlagResult(
+            key: key,
+            enabled: isEnabled,
+            variant: variant,
+            payload: payload
+        )
+    }
+
     // To be called after acquiring `featureFlagsLock`
     private func setCachedRequestId(_ value: String?) {
         requestId = value

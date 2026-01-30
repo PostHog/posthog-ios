@@ -1108,8 +1108,8 @@
 				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				DA1D29612D115E13003A31DA /* DI.swift */,
-				DA578E912D6768A100B3A56C /* Screen Views */,
-				DA703C132D6615300069097B /* App Life Cycle */,
+				DA578E912D6768A100B3A56C /* ScreenViews */,
+				DA703C132D6615300069097B /* AppLifeCycle */,
 				DA26419B2CC0499300CB427B /* Autocapture */,
 				69EE82B82BA9C4DA00EB9542 /* Replay */,
 				DA30AE872D40173D00465A64 /* Surveys */,
@@ -1411,13 +1411,13 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		DA578E912D6768A100B3A56C /* Screen Views */ = {
+		DA578E912D6768A100B3A56C /* ScreenViews */ = {
 			isa = PBXGroup;
 			children = (
 				DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */,
 				DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */,
 			);
-			path = "Screen Views";
+			path = ScreenViews;
 			sourceTree = "<group>";
 		};
 		DA690C7A2DA54DDD0045FF4E /* Surveys */ = {
@@ -1433,13 +1433,13 @@
 			path = Surveys;
 			sourceTree = "<group>";
 		};
-		DA703C132D6615300069097B /* App Life Cycle */ = {
+		DA703C132D6615300069097B /* AppLifeCycle */ = {
 			isa = PBXGroup;
 			children = (
 				DA703C1B2D6616F20069097B /* PostHogAppLifeCycleIntegration.swift */,
 				DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */,
 			);
-			path = "App Life Cycle";
+			path = AppLifeCycle;
 			sourceTree = "<group>";
 		};
 		DA8C9B972EC633FA00C6EADB /* ErrorTracking */ = {

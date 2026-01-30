@@ -266,7 +266,7 @@ import Foundation
         ]
 
         private static func machExceptionName(_ type: UInt64) -> String {
-            machExceptionNames[type] ?? "EXC_UNKNOWN(\(type))"
+            machExceptionNames[type] ?? "EXC_UNKNOWN_\(type)"
         }
 
         // Exception codes for EXC_BREAKPOINT (from mach/arm/exception.h)

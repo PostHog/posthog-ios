@@ -24,6 +24,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         config.flushAt = 1
         config.sendFeatureFlagEvent = false
 
+        #if os(iOS) || os(macOS) || os(tvOS)
+            config.errorTrackingConfig.autoCapture = false
+        #endif
+
         #if os(iOS)
             config.sessionReplay = false
             config.sessionReplayConfig.screenshotMode = true

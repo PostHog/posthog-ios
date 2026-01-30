@@ -169,7 +169,7 @@ import Foundation
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) throws {
-            hedgeLog("Crash reporting is not available on watchOS")
+            hedgeLog("Crash reporting is only available on iOS, macOS and tvOS")
         }
 
         func uninstall(_: PostHogSDK) { /* no-op */ }

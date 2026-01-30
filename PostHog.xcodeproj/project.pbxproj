@@ -187,7 +187,7 @@
 		DA4FFBB52DAD5B01006BAEEA /* PostHogIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */; };
 		DA5063C92EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063C82EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift */; };
 		DA5063D22EF5918200C51DA0 /* PostHogCrashReportProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */; };
-		DA5063D62EF591CB00C51DA0 /* CrashReporter in Frameworks */ = {isa = PBXBuildFile; productRef = DA5063D52EF591CB00C51DA0 /* CrashReporter */; };
+		DA5063D62EF591CB00C51DA0 /* CrashReporter in Frameworks */ = {isa = PBXBuildFile; platformFilters = (ios, maccatalyst, macos, tvos, ); productRef = DA5063D52EF591CB00C51DA0 /* CrashReporter */; };
 		DA5064412EF5E40300C51DA0 /* ApplicationScreenViewPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */; };
 		DA5064432EF5E58D00C51DA0 /* PostHogErrorTrackingAutoCaptureIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5064422EF5E58D00C51DA0 /* PostHogErrorTrackingAutoCaptureIntegration.swift */; };
 		DA5064572EF6171900C51DA0 /* SwiftCrashTriggers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5064562EF6171900C51DA0 /* SwiftCrashTriggers.swift */; };

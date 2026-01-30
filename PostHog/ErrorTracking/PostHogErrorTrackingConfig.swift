@@ -23,12 +23,18 @@ import Foundation
     ///
     /// Crashes are persisted to disk and sent as `$exception` events with level "fatal" **on the next app launch**
     ///
-    /// - Note: Crash reporting is not available on watchOS (this will be a no-op).
     /// - Note: Crash reporting is automatically disabled when a debugger is attached,
     ///   as the debugger intercepts signals before the crash handler can process them.
     ///
     /// Default: false
-    @objc public var autoCapture: Bool = false
+    private var _autoCapture: Bool = false
+
+    @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
+    @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
+    @objc public var autoCapture: Bool {
+        get { _autoCapture }
+        set { _autoCapture = newValue }
+    }
 
     // MARK: - In-App Detection Configuration
 

@@ -1,0 +1,30 @@
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+    merge_group:
+
+name: Security
+
+permissions:
+    contents: read
+    actions: read
+    security-events: write # for uploading security scan results
+
+env:
+    SEMGREP_ENABLE_VERSION_CHECK: 'false'
+
+jobs:
+    ensure-pinned-actions:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v6
+            - name: Ensure SHA pinned actions
+              uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6124774845927d14c601359ab8138699fa5b70c3 # v4.0.1
+              with:
+                  allowlist: |
+                      actions/
+                      PostHog/
+                      github/

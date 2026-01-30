@@ -16,6 +16,7 @@ class PostHogQueueTest: QuickSpec {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
+        config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
         return PostHogQueue(config, storage, api, .batch, nil)

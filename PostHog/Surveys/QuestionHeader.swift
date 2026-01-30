@@ -34,7 +34,7 @@
         }
 
         private var foregroundTextColor: Color {
-            appearance.backgroundColor.getContrastingTextColor()
+            appearance.textColor ?? appearance.backgroundColor.getContrastingTextColor()
         }
     }
 

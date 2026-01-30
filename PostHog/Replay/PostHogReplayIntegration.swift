@@ -36,7 +36,7 @@
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
-         ### Mapping of SwiftUI Views to UIKit
+         ### Mapping of SwiftUI Views to UIKit (up until iOS 18)
 
          This section summarizes findings on how SwiftUI views map to UIKit components
 
@@ -76,6 +76,18 @@
          SwiftUI Image Types:
            - [StackOverflow: Subviews of a Window or View in SwiftUI](https://stackoverflow.com/questions/57554590/how-to-get-all-the-subviews-of-a-window-or-view-in-latest-swiftui-app)
            - [StackOverflow: Detect SwiftUI Usage Programmatically](https://stackoverflow.com/questions/58336045/how-to-detect-swiftui-usage-programmatically-in-an-ios-application)
+
+         ### Mapping of SwiftUI Views to UIKit (iOS 26)
+
+         Starting on iOS 26 (Xcode 26 SwiftUI rendering engine), some SwiftUI primitives can be drawn
+         without a dedicated backing `UIView` and may instead appear as `CALayer` sublayers of parent
+         views.
+
+         Observed additions/changes with iOS 26:
+         - Text / Button drawing may appear as the sublayer class `_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914CGDrawingLayer`.
+         - Image and AsyncImage appear as sublayer class `SwiftUI.ImageLayer` (instead of a host view).
+         - `TextField` and `SecureTextField` are not affected by this change and still map to `UITextField`
+         - `TextEditor` is not affected by this change and still maps to `UITextView`
          */
 
         /// `AsyncImage` and `Image`
@@ -85,6 +97,7 @@
 
         /// `Text`, `Button`, `TextEditor` views
         private let swiftUITextBasedViewTypes = [
+            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914CGDrawingLayer", // Text, Button (iOS 26+)
             "SwiftUI.CGDrawingView", // Text, Button
             "SwiftUI.TextEditorTextView", // TextEditor
             "SwiftUI.VerticalTextView", // TextField, vertical axis
@@ -101,6 +114,7 @@
 
         // These layer types should be safe to ignore while masking
         private let swiftUISafeLayerTypes: [AnyClass] = [
+            "_TtC7SwiftUIP33_E19F490D25D5E0EC8A24903AF958E34115ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
             "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
         ].compactMap(NSClassFromString)
 
@@ -276,8 +290,8 @@
                         continue
                     }
 
-                    let posX = touch.location.x.toInt()
-                    let posY = touch.location.y.toInt()
+                    let posX = touch.location.x.toInt() ?? 0
+                    let posY = touch.location.y.toInt() ?? 0
 
                     // if the id is 0, BE transformer will set it to the virtual bodyId
                     let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
@@ -318,8 +332,8 @@
 
             if !snapshotStatus.sentMetaEvent {
                 let size = window.bounds.size
-                let width = size.width.toInt()
-                let height = size.height.toInt()
+                let width = size.width.toInt() ?? 0
+                let height = size.height.toInt() ?? 0
 
                 var data: [String: Any] = ["width": width, "height": height]
 
@@ -393,10 +407,10 @@
             let frame = view.toAbsoluteRect(view.window)
 
             wireframe.id = view.hash
-            wireframe.posX = frame.origin.x.toInt()
-            wireframe.posY = frame.origin.y.toInt()
-            wireframe.width = frame.size.width.toInt()
-            wireframe.height = frame.size.height.toInt()
+            wireframe.posX = frame.origin.x.toInt() ?? 0
+            wireframe.posY = frame.origin.y.toInt() ?? 0
+            wireframe.width = frame.size.width.toInt() ?? 0
+            wireframe.height = frame.size.height.toInt() ?? 0
 
             return wireframe
         }
@@ -512,6 +526,19 @@
                 }
             }
 
+            // SwiftUI iOS 26 (new SwiftUI rendering engine in Xcode 26)
+            //
+            // Note: prior to iOS 26, primitive views like Text, Image, Button were drawn
+            // inside a host view (subclass of UIView), however starting iOS 26 this seems
+            // to no longer be the case and all SwiftUI primitives seem to be somehow drawn
+            // without an underlying UIView host view (but as sublayers of other parent views).
+            //
+            // I could not find a consistent pattern to limit this layer search approach,
+            // so for iOS 26 we'll need to iterate over the view's sublayers as well to find maskable elements.
+            if #available(iOS 26.0, *) {
+                findMaskableLayers(view.layer, view, window, &maskableWidgets)
+            }
+
             // this can be anything, so better to be conservative
             if swiftUIGenericTypes.contains(where: { view.isKind(of: $0) }), !isSwiftUILayerSafe(view.layer) {
                 if isTextInputSensitive(view), !hasSubViews {
@@ -550,6 +577,46 @@
                 }
             }
             maskChildren = false
+        }
+
+        /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
+        ///
+        /// On iOS 26, SwiftUI primitives (Text, Image, Button) are rendered as CALayer sublayers
+        /// of parent views rather than having their own backing UIView. When `.postHogMask()` is applied,
+        /// the flag is set directly on the CALayers via the PostHogTagViewModifier.
+        @available(iOS 26.0, *)
+        private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
+            for sublayer in layer.sublayers ?? [] {
+                // Skip layers tagged with .postHogNoMask()
+                if sublayer.postHogNoMask {
+                    continue
+                }
+
+                // Check if layer is manually tagged with .postHogMask()
+                if sublayer.postHogNoCapture {
+                    maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    continue
+                }
+
+                // Text-based layers
+                if swiftUITextBasedViewTypes.contains(where: sublayer.isKind(of:)) {
+                    if isTextInputSensitive(view) {
+                        maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    }
+                }
+
+                // Image layers
+                if swiftUIImageLayerTypes.contains(where: sublayer.isKind(of:)) {
+                    if isSwiftUIImageSensitive(view) {
+                        maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    }
+                }
+
+                // Recursively check sublayers
+                if let sublayers = sublayer.sublayers, !sublayers.isEmpty {
+                    findMaskableLayers(sublayer, view, window, &maskableWidgets)
+                }
+            }
         }
 
         private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {

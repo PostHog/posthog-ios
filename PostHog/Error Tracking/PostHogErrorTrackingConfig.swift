@@ -14,7 +14,7 @@ import Foundation
 @objc public class PostHogErrorTrackingConfig: NSObject {
     // MARK: - Crash Reporting
 
-    /// Enable automatic crash reporting
+    /// Enable crash autocapture
     ///
     /// When enabled, the SDK will capture the following crash types:
     /// - Mach exceptions (e.g., `EXC_BAD_ACCESS`, `EXC_CRASH`)
@@ -28,7 +28,7 @@ import Foundation
     ///   as the debugger intercepts signals before the crash handler can process them.
     ///
     /// Default: false
-    @objc public var enableCrashHandler: Bool = false
+    @objc public var autoCapture: Bool = false
 
     // MARK: - In-App Detection Configuration
 

@@ -1,5 +1,5 @@
 //
-//  PostHogCrashReporterIntegration.swift
+//  PostHogErrorTrackingAutoCaptureIntegration.swift
 //  PostHog
 //
 //  Created by Ioannis Josephides on 14/12/2025.
@@ -10,7 +10,7 @@ import Foundation
 #if os(iOS) || os(macOS) || os(tvOS)
     import CrashReporter
 
-    class PostHogCrashReporterIntegration: PostHogIntegration {
+    class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
 
@@ -20,11 +20,11 @@ import Foundation
         private var crashReporter: PLCrashReporter?
 
         func install(_ postHog: PostHogSDK) throws {
-            try PostHogCrashReporterIntegration.integrationInstalledLock.withLock {
-                if PostHogCrashReporterIntegration.integrationInstalled {
+            try PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
+                if PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled {
                     throw InternalPostHogError(description: "Crash report integration already installed to another PostHogSDK instance.")
                 }
-                PostHogCrashReporterIntegration.integrationInstalled = true
+                PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = true
             }
 
             self.postHog = postHog
@@ -41,8 +41,8 @@ import Foundation
                 stop()
                 crashReporter = nil
                 self.postHog = nil
-                PostHogCrashReporterIntegration.integrationInstalledLock.withLock {
-                    PostHogCrashReporterIntegration.integrationInstalled = false
+                PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
+                    PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = false
                 }
             }
         }
@@ -165,7 +165,7 @@ import Foundation
 
 #else
     // watchOS stub - crash reporting is not available
-    class PostHogCrashReporterIntegration: PostHogIntegration {
+    class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { false }
 
         func install(_: PostHogSDK) throws {

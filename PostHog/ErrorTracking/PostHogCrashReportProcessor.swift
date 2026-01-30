@@ -247,7 +247,7 @@ import Foundation
         // MARK: - Helpers
 
         /// Format string for zero-padded 64-bit hex addresses (e.g., "0x00007fff12345678")
-        static let hexAddressPaddedFormat = "0x%016llx"
+        private static let hexAddressPaddedFormat = "0x%016llx"
 
         private static let machExceptionNames: [UInt64: String] = [
             1: "EXC_BAD_ACCESS",

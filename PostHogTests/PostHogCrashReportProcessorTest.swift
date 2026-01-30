@@ -6,9 +6,8 @@
 //
 
 import Foundation
-import Testing
-
 @testable import PostHog
+import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
     import CrashReporter

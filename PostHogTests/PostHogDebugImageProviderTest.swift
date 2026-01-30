@@ -6,9 +6,8 @@
 //
 
 import Foundation
-import Testing
-
 @testable import PostHog
+import Testing
 
 @Suite("PostHogDebugImageProvider Tests")
 struct PostHogDebugImageProviderTest {

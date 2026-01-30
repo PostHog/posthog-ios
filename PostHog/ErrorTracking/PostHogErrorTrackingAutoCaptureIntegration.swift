@@ -71,8 +71,15 @@ import Foundation
 
         private func setupCrashReporter() -> PLCrashReporter? {
             // Configure PLCrashReporter
+            // Note: Mach exception handling is not available on tvOS, so we fall back to BSD signal handlers
+            #if os(tvOS)
+                let signalHandlerType: PLCrashReporterSignalHandlerType = .BSD
+            #else
+                let signalHandlerType: PLCrashReporterSignalHandlerType = .mach
+            #endif
+
             let config = PLCrashReporterConfig(
-                signalHandlerType: .mach,
+                signalHandlerType: signalHandlerType,
                 symbolicationStrategy: [], // No local symbolication, we'll be doing server-side
                 shouldRegisterUncaughtExceptionHandler: true
             )

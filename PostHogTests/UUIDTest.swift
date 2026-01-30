@@ -6,8 +6,6 @@
 //
 
 import Foundation
-
-import Foundation
 import Nimble
 @testable import PostHog
 import Quick

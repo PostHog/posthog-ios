@@ -20,6 +20,9 @@
         var body: some View {
             VStack {
                 HStack {
+                    if scale == .twoPoint {
+                        Spacer()
+                    }
                     ForEach(scale.range, id: \.self) { value in
                         Button {
                             withAnimation(.linear(duration: 0.25)) {
@@ -31,22 +34,24 @@
                                 .frame(width: 48, height: 48)
                                 .font(.body.bold())
                                 .foregroundColor(foregroundColor(selected: isSelected))
+                        }
 
-                            if value != scale.range.upperBound {
-                                Spacer()
-                            }
+                        if scale == .twoPoint || value != scale.range.upperBound {
+                            Spacer()
                         }
                     }
                 }
 
-                HStack(spacing: 0) {
-                    Text(lowerBoundLabel)
-                        .foregroundStyle(appearance.descriptionTextColor)
-                        .frame(alignment: .leading)
-                    Spacer()
-                    Text(upperBoundLabel)
-                        .foregroundStyle(appearance.descriptionTextColor)
-                        .frame(alignment: .trailing)
+                if scale != .twoPoint {
+                    HStack(spacing: 0) {
+                        Text(lowerBoundLabel)
+                            .foregroundStyle(appearance.descriptionTextColor)
+                            .frame(alignment: .leading)
+                        Spacer()
+                        Text(upperBoundLabel)
+                            .foregroundStyle(appearance.descriptionTextColor)
+                            .frame(alignment: .trailing)
+                    }
                 }
             }
         }
@@ -54,6 +59,12 @@
         // swiftlint:disable:next cyclomatic_complexity
         @ViewBuilder private func emoji(for value: Int) -> some View {
             switch scale {
+            case .twoPoint:
+                switch value {
+                case 1: ThumbsUpEmoji()
+                case 2: ThumbsDownEmoji()
+                default: EmptyView()
+                }
             case .threePoint:
                 switch value {
                 case 1: DissatisfiedEmoji()
@@ -75,11 +86,19 @@
         }
 
         private func foregroundColor(selected: Bool) -> Color {
-            selected ? Color(uiColor: .label) : Color(uiColor: .tertiaryLabel)
+            if selected {
+                return ratingButtonActiveColor.getContrastingTextColor()
+            } else {
+                return inputTextColor.opacity(0.5)
+            }
         }
 
         private var ratingButtonActiveColor: Color {
             appearance.ratingButtonActiveColor ?? .black
+        }
+
+        private var inputTextColor: Color {
+            appearance.effectiveInputTextColor
         }
     }
 

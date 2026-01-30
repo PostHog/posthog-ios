@@ -7,14 +7,11 @@
 
 import Foundation
 
-extension CGFloat {
-    func toInt() -> Int {
-        NSNumber(value: rounded()).intValue
-    }
-}
-
-extension Double {
-    func toInt() -> Int {
-        NSNumber(value: rounded()).intValue
+extension BinaryFloatingPoint {
+    func toInt() -> Int? {
+        guard isFinite else { return nil }
+        guard self >= Self(Int.min), self <= Self(Int.max) else { return nil }
+        // Since this is used primarily for UI size & position, rounding vs truncating makes sense
+        return Int(rounded())
     }
 }

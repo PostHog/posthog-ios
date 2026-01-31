@@ -33,6 +33,7 @@
         private var applicationBackgroundedToken: RegistrationToken?
         private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
+        private var sessionIdChangedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
@@ -156,7 +157,7 @@
 
             isEnabled = true
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
-            postHog.sessionManager.onSessionIdChanged = { [weak self] in
+            sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged { [weak self] in
                 self?.resetViews()
             }
 
@@ -199,7 +200,7 @@
             guard isEnabled else { return }
             isEnabled = false
             resetViews()
-            postHog?.sessionManager.onSessionIdChanged = {}
+            sessionIdChangedToken = nil
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil

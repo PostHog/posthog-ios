@@ -116,5 +116,24 @@
                                  }];
 }
 
+// MARK: - Crash Triggers for Testing
+
++ (void)triggerUncaughtNSException {
+    @throw [NSException exceptionWithName:@"UncaughtTestException"
+                                   reason:@"This is an intentionally uncaught exception for crash testing"
+                                 userInfo:@{
+                                     @"test_type": @"uncaught_exception",
+                                     @"timestamp": [NSDate date]
+                                 }];
+}
+
++ (void)triggerNullPointerCrash {
+    int *nullPointer = NULL;
+    *nullPointer = 42;
+}
+
++ (void)triggerAbortCrash {
+    abort();
+}
 
 @end

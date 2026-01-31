@@ -12,6 +12,30 @@ import Foundation
 /// This class controls how exceptions are captured and processed,
 /// including which stack trace frames are marked as "in-app" code.
 @objc public class PostHogErrorTrackingConfig: NSObject {
+    // MARK: - Crash Reporting
+
+    /// Enable crash autocapture
+    ///
+    /// When enabled, the SDK will capture the following crash types:
+    /// - Mach exceptions (e.g., `EXC_BAD_ACCESS`, `EXC_CRASH`)
+    /// - POSIX signals (e.g., `SIGSEGV`, `SIGABRT`, `SIGBUS`)
+    /// - Uncaught `NSException`s
+    ///
+    /// Crashes are persisted to disk and sent as `$exception` events with level "fatal" **on the next app launch**
+    ///
+    /// - Note: Crash reporting is automatically disabled when a debugger is attached,
+    ///   as the debugger intercepts signals before the crash handler can process them.
+    ///
+    /// Default: false
+    private var _autoCapture: Bool = false
+
+    @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
+    @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
+    @objc public var autoCapture: Bool {
+        get { _autoCapture }
+        set { _autoCapture = newValue }
+    }
+
     // MARK: - In-App Detection Configuration
 
     /// List of package/bundle identifiers to be considered in-app frames

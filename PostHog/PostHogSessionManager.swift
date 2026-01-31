@@ -56,8 +56,33 @@ import Foundation
     private let sessionActivityThreshold: TimeInterval = 60 * 30
     // 24 hours in seconds
     private let sessionMaxLengthThreshold: TimeInterval = 24 * 60 * 60
-    // Called when session id is cleared or changes
-    var onSessionIdChanged: () -> Void = {}
+    // Callbacks when session id is cleared or changes
+    private var sessionIdChangedCallbacks: [UUID: () -> Void] = [:]
+    private let callbacksLock = NSLock()
+
+    /// Register a callback for session ID changes
+    /// - Parameter callback: Closure to call when session ID changes
+    /// - Returns: A RegistrationToken that removes the callback when deallocated
+    func onSessionIdChanged(_ callback: @escaping () -> Void) -> RegistrationToken {
+        let id = UUID()
+        callbacksLock.withLock {
+            sessionIdChangedCallbacks[id] = callback
+        }
+
+        return RegistrationToken { [weak self] in
+            guard let self else { return }
+            self.callbacksLock.withLock {
+                _ = self.sessionIdChangedCallbacks.removeValue(forKey: id)
+            }
+        }
+    }
+
+    private func notifySessionIdChanged() {
+        let callbacks = callbacksLock.withLock { Array(sessionIdChangedCallbacks.values) }
+        for callback in callbacks {
+            callback()
+        }
+    }
 
     @objc public func setSessionId(_ sessionId: String) {
         setSessionIdInternal(sessionId, at: now(), reason: .customSessionId)
@@ -214,7 +239,7 @@ import Foundation
             self.sessionActivityTimestamp = timestamp
         }
 
-        onSessionIdChanged()
+        notifySessionIdChanged()
 
         if let sessionId {
             hedgeLog("New session id created \(sessionId) (\(reason))")

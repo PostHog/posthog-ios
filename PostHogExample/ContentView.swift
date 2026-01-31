@@ -120,7 +120,7 @@ struct ContentView: View {
     /// Creates a multi-level async call chain to test stack trace capture
     func captureAsyncError() async {
         do {
-            await try asyncLevel1()
+            try await asyncLevel1()
         } catch {
             PostHogSDK.shared.captureException(error, properties: [
                 "is_test": true,
@@ -301,6 +301,29 @@ struct ContentView: View {
                     }
                 }
 
+                Section("Crash Triggers") {
+                    // NSException - richest info with name + reason
+                    Button("Uncaught NSException") {
+                        ExceptionHandler.triggerUncaughtNSException()
+                    }
+                    // SIGTRAP - message not captured (see PostHogCrashReportProcessor for details)
+                    Button("fatalError()") {
+                        SwiftCrashTriggers.triggerFatalError()
+                    }
+                    // SIGTRAP - Swift runtime trap on nil unwrap
+                    Button("Force unwrap nil") {
+                        SwiftCrashTriggers.triggerForceUnwrapNil()
+                    }
+                    // EXC_BAD_ACCESS - null pointer dereference
+                    Button("Null Pointer") {
+                        ExceptionHandler.triggerNullPointerCrash()
+                    }
+                    // SIGABRT - explicit abort() call
+                    Button("Abort") {
+                        ExceptionHandler.triggerAbortCrash()
+                    }
+                }
+
                 Section("Error tracking") {
                     Button("Capture Swift Enum Error (with associated value)") {
                         do {
@@ -376,6 +399,13 @@ struct ContentView: View {
                                 "scenario": "network_database_business_chain",
                             ])
                         }
+                    }
+
+                    Button("Trigger with Message") {
+                        PostHogSDK.shared.captureException("Unexpected state detected", properties: [
+                            "is_test": true,
+                            "app_state": "some_state",
+                        ])
                     }
 
                     Button("Capture Async/Await Error") {

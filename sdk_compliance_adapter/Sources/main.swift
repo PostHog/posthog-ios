@@ -25,10 +25,9 @@ app.middleware.use(RouteLoggingMiddleware())
 
 // Health endpoint
 app.get("health") { req async throws -> Response in
-    let packageVersion = "3.0.0" // TODO: Read from Package.swift or version file
     let health = [
-        "sdk_name": "posthog-ios",
-        "sdk_version": packageVersion,
+        "sdk_name": postHogiOSSdkName,
+        "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
     ]
 

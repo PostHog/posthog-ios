@@ -19,9 +19,9 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
-# Build the adapter with TESTING flag
+# Build the adapter with TESTING flag (debug mode is faster)
 echo "📦 Building iOS adapter..."
-swift build -c release -Xswiftc -DTESTING
+swift build -Xswiftc -DTESTING
 echo "✅ Adapter built successfully"
 echo ""
 
@@ -29,7 +29,7 @@ echo ""
 ADAPTER_LOG="adapter_$(date +%Y%m%d_%H%M%S).log"
 echo "🏃 Starting adapter on port 8080..."
 echo "📝 Adapter logs: $ADAPTER_LOG"
-.build/release/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > "$ADAPTER_LOG" 2>&1 &
+.build/debug/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > "$ADAPTER_LOG" 2>&1 &
 ADAPTER_PID=$!
 
 # Wait for adapter to start

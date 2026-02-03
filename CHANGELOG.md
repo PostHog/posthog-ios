@@ -4,15 +4,13 @@
 
 - feat: add `setPersonProperties` method to update person profile properties ([#441](https://github.com/PostHog/posthog-ios/pull/441))
 - fix: do not capture $set events if user props have not changed ([#441](https://github.com/PostHog/posthog-ios/pull/441))
+- feat: Add `getFeatureFlagResult` method to client ([#455](https://github.com/PostHog/posthog-ios/pull/455))
 
 ## 3.38.0 - 2026-01-22
 
 - chore: support new surveys color options for ios+flutter ([#440](https://github.com/PostHog/posthog-ios/pull/440))
-
 - feat: support thumbs up/down surveys for ios ([#437](https://github.com/PostHog/posthog-ios/pull/437))
-
 - fix: Retain cached flags when quota limited ([#438](https://github.com/PostHog/posthog-ios/pull/438))
-
 - Renamed `evaluationEnvironments` to `evaluationContexts` for clearer semantics ([#434](https://github.com/PostHog/posthog-ios/pull/434)). The term "contexts" better reflects that this feature is for specifying evaluation contexts (e.g., "web", "mobile", "checkout") rather than deployment environments (e.g., "staging", "production").
 - The API now sends `evaluation_contexts` instead of `evaluation_environments` to the server.
 

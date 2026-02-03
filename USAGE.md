@@ -148,6 +148,31 @@ Read feature flags variant/payload
 let premium = PostHogSDK.shared.getFeatureFlagPayload("premium") as? Bool
 ```
 
+Get all feature flag information at once
+
+```swift
+if let result = PostHogSDK.shared.getFeatureFlagResult("my-feature") {
+    if result.enabled {
+        print("Flag is enabled")
+    }
+
+    // Presence of a variant also indicates it's enabled
+    if let variant = result.variant {
+        print("Variant: \(variant)")
+    }
+
+    // Access payload directly
+    if let config = result.payload as? [String: Any] {
+        print("Config: \(config)")
+    }
+
+    // Or decode payload to a specific type
+    if let settings: FeatureSettings = result.payloadAs(FeatureSettings.self) {
+        print("Settings: \(settings)")
+    }
+}
+```
+
 Read the current `distinctId`
 
 ```swift

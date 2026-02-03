@@ -1,5 +1,7 @@
 ## Next
 
+## 3.39.0 - 2026-02-03
+
 - feat: add `setPersonProperties` method to update person profile properties ([#441](https://github.com/PostHog/posthog-ios/pull/441))
 - fix: do not capture $set events if user props have not changed ([#441](https://github.com/PostHog/posthog-ios/pull/441))
 

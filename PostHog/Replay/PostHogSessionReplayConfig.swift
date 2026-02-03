@@ -30,6 +30,8 @@
 
         /// Enable capturing network telemetry
         /// Default: true
+        ///
+        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
         @objc public var captureNetworkTelemetry: Bool = true
 
         /// By default Session replay will capture all the views on the screen as a wireframe,
@@ -68,6 +70,8 @@
         /// and the source.
         ///
         /// Defaults to `false`
+        ///
+        /// Note: When enabled, can be disabled remotely via project settings (requires `PostHogConfig.remoteConfig` to be enabled)
         @objc public var captureLogs: Bool = false
 
         /// Further configuration for capturing console output
@@ -75,19 +79,19 @@
 
         // TODO: sessionRecording config such as networkPayloadCapture, sampleRate, etc
 
-        /// Returns an array of plugins to be installed based on current configuration
-        func getPlugins() -> [PostHogSessionReplayPlugin] {
-            var plugins: [PostHogSessionReplayPlugin] = []
+        /// Returns an array of plugin types based on current configuration
+        func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
+            var types: [PostHogSessionReplayPlugin.Type] = []
 
             if captureLogs {
-                plugins.append(PostHogSessionReplayConsoleLogsPlugin())
+                types.append(PostHogSessionReplayConsoleLogsPlugin.self)
             }
 
             if captureNetworkTelemetry {
-                plugins.append(PostHogSessionReplayNetworkPlugin())
+                types.append(PostHogSessionReplayNetworkPlugin.self)
             }
 
-            return plugins
+            return types
         }
     }
 #endif

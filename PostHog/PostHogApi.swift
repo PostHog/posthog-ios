@@ -21,6 +21,10 @@ class PostHogApi {
         // Use custom configuration if provided, otherwise use default
         let config = self.config.urlSessionConfiguration ?? URLSessionConfiguration.default
 
+        #if DEBUG
+            config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        #endif
+
         config.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",
             "User-Agent": "\(postHogSdkName)/\(postHogVersion)",

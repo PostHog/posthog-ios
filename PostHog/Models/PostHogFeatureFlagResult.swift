@@ -36,7 +36,7 @@ public class PostHogFeatureFlagResult: NSObject {
     ///
     /// This is `true` if the flag value is:
     /// - A boolean `true`
-    /// - A non-empty string (variant)
+    /// - A non-null string (variant)
     @objc public let enabled: Bool
 
     /// The variant name if this is a multivariate flag, otherwise `nil`.

@@ -572,10 +572,28 @@ class PostHogRemoteConfig {
     }
 
     func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? {
-        let flagValue = getFeatureFlag(key)
+        var flagValue: Any?
+        var payloadValue: Any?
+
+        featureFlagsLock.withLock {
+            flagValue = getCachedFeatureFlags()?[key]
+            payloadValue = getCachedFeatureFlagPayload()?[key]
+        }
+
         guard flagValue != nil else { return nil }
 
-        let payload = getFeatureFlagPayload(key)
+        let payload: Any?
+        if let stringValue = payloadValue as? String {
+            do {
+                payload = try JSONSerialization.jsonObject(with: stringValue.data(using: .utf8)!, options: .fragmentsAllowed)
+            } catch {
+                hedgeLog("Error parsing the object \(String(describing: payloadValue)): \(error)")
+                payload = payloadValue
+            }
+        } else {
+            payload = payloadValue
+        }
+
         let isEnabled: Bool
         let variant: String?
 

@@ -1,6 +1,6 @@
 ## Next
 
-- feat: add `$is_testflight` and `$is_sideloaded` context properties ([#443](https://github.com/PostHog/posthog-ios/pull/443))
+- feat: add `$is_testflight` and `$is_sideloaded` event properties ([#443](https://github.com/PostHog/posthog-ios/pull/443))
 
 ## 3.40.0 - 2026-02-05
 

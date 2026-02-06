@@ -1,5 +1,7 @@
 ## Next
 
+- feat: add `$is_testflight` and `$is_sideloaded` event properties ([#443](https://github.com/PostHog/posthog-ios/pull/443))
+
 ## 3.40.0 - 2026-02-05
 
 - feat: Add `getFeatureFlagResult` method to client ([#455](https://github.com/PostHog/posthog-ios/pull/455))

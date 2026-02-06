@@ -520,7 +520,7 @@ class PostHogContext {
 
         if receiptURL.lastPathComponent == "sandboxReceipt" {
             // TestFlight
-            return .testing 
+            return .testing
         }
 
         if FileManager.default.fileExists(atPath: receiptURL.path) {

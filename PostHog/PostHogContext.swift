@@ -44,7 +44,8 @@ class PostHogContext {
                 properties["$app_build"] = appBuild
             }
         }
-        properties["$app_install_source"] = PostHogContext.installSource.rawValue
+        properties["$is_testflight"] = PostHogContext.isTestFlight
+        properties["$is_sideloaded"] = PostHogContext.isSideloaded
 
         properties["$app_namespace"] = getBundleIdentifier()
 
@@ -464,92 +465,24 @@ class PostHogContext {
 
     // MARK: - Install Source Detection
 
-    /// Represents how the app was installed and distributed.
-    enum InstallSource: String {
-        /// App Store
-        case store
-        /// TestFlight
-        case testing
-        /// Enterprise/In-House distribution via MDM (Mobile Device Management)
-        case enterprise
-        /// Ad-hoc distribution provisioned for specific devices
-        case sideloaded
-        /// Development build
-        case development
-        /// Detection failed or unknown distribution method
-        case unknown
-    }
-
-    /// Detects how the app was installed.
-    static let installSource: InstallSource = {
-        // We consider simulators always a development build
-        if isSimulator {
-            return .development
-        }
-
-        let mobileProvision = PostHogMobileProvisionParser.parse()
-
-        // No profile: App Store or TestFlight since Apple re-signs these
-        guard let mobileProvision, !mobileProvision.isEmpty else {
-            return installSourceFromReceipt()
-        }
-
-        // Enterprise distribution: ProvisionsAllDevices is true
-        if checkProvisionsAllDevices(mobileProvision) {
-            return .enterprise
-        }
-
-        // Has provisioned devices list (ad-hoc or development)
-        if checkProvisionedDevices(mobileProvision) {
-            // Development: get-task-allow entitlement is true
-            // Ad-hoc: get-task-allow is false or missing
-            return checkGetTaskAllow(mobileProvision) ? .development : .sideloaded
-        }
-
-        // Has profile but no devices, fallback (shouldn't really happen)
-        return .unknown
+    /// Returns true if the app was installed via TestFlight.
+    /// Detected by checking for sandboxReceipt in the app store receipt URL.
+    static let isTestFlight: Bool = {
+        guard let receiptURL = Bundle.main.appStoreReceiptURL else { return false }
+        return receiptURL.lastPathComponent == "sandboxReceipt"
     }()
 
-    // MARK: - Install Source Helpers
-
-    private static func installSourceFromReceipt() -> InstallSource {
-        guard let receiptURL = Bundle.main.appStoreReceiptURL else {
-            // No receipt, no provisioning profile -> unknown
-            return .unknown
-        }
-
-        if receiptURL.lastPathComponent == "sandboxReceipt" {
-            // TestFlight
-            return .testing
-        }
-
-        if FileManager.default.fileExists(atPath: receiptURL.path) {
-            // App Store
-            return .store
-        }
-
-        return .unknown
-    }
-
-    private static func checkProvisionsAllDevices(_ provision: [String: Any]) -> Bool {
-        // Enterprise provisions all devices
-        provision["ProvisionsAllDevices"] as? Bool ?? false
-    }
-
-    // Ad-hoc and development builds have a ProvisionedDevices array containing
-    // specific device UDIDs the app is allowed to run
-    private static func checkProvisionedDevices(_ provision: [String: Any]) -> Bool {
-        guard let devices = provision["ProvisionedDevices"] as? [Any] else {
-            return false
-        }
-        return !devices.isEmpty
-    }
-
-    // Development has get-task-allow true
-    private static func checkGetTaskAllow(_ provision: [String: Any]) -> Bool {
-        guard let entitlements = provision["Entitlements"] as? [String: Any] else {
-            return false
-        }
-        return entitlements["get-task-allow"] as? Bool ?? false
-    }
+    /// Returns true if the app was sideloaded (ad-hoc, enterprise, or development build).
+    /// Detected by checking for an embedded provisioning profile, which is only present
+    /// in sideloaded builds. App Store and TestFlight builds are re-signed by Apple
+    /// and have no embedded profile.
+    static let isSideloaded: Bool = {
+        if isSimulator { return false }
+        #if targetEnvironment(macCatalyst)
+            let ext = "provisionprofile"
+        #else
+            let ext = "mobileprovision"
+        #endif
+        return Bundle.main.path(forResource: "embedded", ofType: ext) != nil
+    }()
 }

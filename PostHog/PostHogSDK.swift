@@ -627,7 +627,7 @@ let maxRetryDelay = 30.0
         }
 
         // .sortedKeys option handles recursive key sorting for deterministic hashing
-        if let jsonData = try? JSONSerialization.data(withJSONObject: hashData, options: [.sortedKeys]),
+        if let jsonData = toJSONData(hashData, options: [.sortedKeys]),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
             return jsonString

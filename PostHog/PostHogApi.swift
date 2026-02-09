@@ -94,18 +94,14 @@ class PostHogApi {
             "sent_at": toISO8601String(Date()),
         ]
 
-        var data: Data?
-
-        do {
-            data = try JSONSerialization.data(withJSONObject: toSend)
-        } catch {
-            hedgeLog("Error parsing the batch body: \(error)")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+        guard let data = toJSONData(toSend) else {
+            hedgeLog("Error parsing the batch body")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
 
         var gzippedPayload: Data?
         do {
-            gzippedPayload = try data!.gzipped()
+            gzippedPayload = try data.gzipped()
         } catch {
             hedgeLog("Error gzipping the batch body: \(error).")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
@@ -238,16 +234,12 @@ class PostHogApi {
             toSend["evaluation_contexts"] = evaluationContexts
         }
 
-        var data: Data?
-
-        do {
-            data = try JSONSerialization.data(withJSONObject: toSend)
-        } catch {
-            hedgeLog("Error parsing the flags body: \(error)")
-            return completion(nil, error)
+        guard let data = toJSONData(toSend) else {
+            hedgeLog("Error parsing the flags body")
+            return completion(nil, nil)
         }
 
-        URLSession(configuration: config).uploadTask(with: request, from: data!) { data, response, error in
+        URLSession(configuration: config).uploadTask(with: request, from: data) { data, response, error in
             if error != nil {
                 hedgeLog("Error calling the flags API: \(String(describing: error))")
                 return completion(nil, error)

@@ -1,6 +1,10 @@
 ## Next
 
+- fix: prevent crashes from non JSON-serializable property types (Date, URL, Data, infinity, NaN, etc.) ([#466](https://github.com/PostHog/posthog-ios/pull/466))
+
 ## 3.40.0 - 2026-02-05
+
+> ⚠️ **Warning**: This version contains a crash when using `setPersonProperties` with non-JSON-serializable types like `Date` in properties. Please upgrade to the next version.
 
 - feat: Add `getFeatureFlagResult` method to client ([#455](https://github.com/PostHog/posthog-ios/pull/455))
 

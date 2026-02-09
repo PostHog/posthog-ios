@@ -20,6 +20,19 @@ func toJSONData(_ dict: [String: Any]?, options: JSONSerialization.WritingOption
     }
 }
 
+func toJSONData(_ dicts: [[String: Any]?], options: JSONSerialization.WritingOptions = []) -> Data? {
+    let sanitized = dicts.compactMap { sanitizeDictionary($0) }
+    guard !sanitized.isEmpty else {
+        return nil
+    }
+    do {
+        return try JSONSerialization.data(withJSONObject: sanitized, options: options)
+    } catch {
+        hedgeLog("Failed to serialize array to JSON: \(error)")
+        return nil
+    }
+}
+
 public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     if dict == nil || dict!.isEmpty {
         return nil

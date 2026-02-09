@@ -44,10 +44,11 @@ class PostHogContext {
                 properties["$app_build"] = appBuild
             }
         }
+        properties["$is_testflight"] = PostHogContext.isTestFlight
+        properties["$is_sideloaded"] = PostHogContext.isSideloaded
 
-        if Bundle.main.bundleIdentifier != nil {
-            properties["$app_namespace"] = Bundle.main.bundleIdentifier
-        }
+        properties["$app_namespace"] = getBundleIdentifier()
+
         properties["$device_manufacturer"] = "Apple"
         let deviceModel = platform()
         properties["$device_model"] = deviceModel
@@ -213,11 +214,12 @@ class PostHogContext {
         return String(cString: machine)
     }
 
+    // swiftlint:disable:next orphaned_doc_comment
     /// Converts Mac hardware identifiers to user-friendly names
     /// For example: "MacBookPro18,3" -> "MacBook Pro"
     /// - Parameter model: The hardware model identifier string
     /// - Returns: A user-friendly name for the Mac model
-    // swiftlint:disable:next cyclomatic_complexity orphaned_doc_comment
+    // swiftlint:disable:next cyclomatic_complexity
     private func macModelToFriendlyName(_ model: String) -> String {
         // Handle empty or invalid input
         guard !model.isEmpty else { return "Mac" }
@@ -459,5 +461,28 @@ class PostHogContext {
         #else
             false
         #endif
+    }()
+
+    // MARK: - Install Source Detection
+
+    /// Returns true if the app was installed via TestFlight.
+    /// Detected by checking for sandboxReceipt in the app store receipt URL.
+    static let isTestFlight: Bool = {
+        guard let receiptURL = Bundle.main.appStoreReceiptURL else { return false }
+        return receiptURL.lastPathComponent == "sandboxReceipt"
+    }()
+
+    /// Returns true if the app was sideloaded (ad-hoc, enterprise, or development build).
+    /// Detected by checking for an embedded provisioning profile, which is only present
+    /// in sideloaded builds. App Store and TestFlight builds are re-signed by Apple
+    /// and have no embedded profile.
+    static let isSideloaded: Bool = {
+        if isSimulator { return false }
+        #if targetEnvironment(macCatalyst)
+            let ext = "provisionprofile"
+        #else
+            let ext = "mobileprovision"
+        #endif
+        return Bundle.main.path(forResource: "embedded", ofType: ext) != nil
     }()
 }

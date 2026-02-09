@@ -72,7 +72,9 @@ func getBundleIdentifier() -> String {
     #if TESTING // only visible to test targets
         return Bundle.main.bundleIdentifier ?? "com.posthog.test"
     #else
-        return Bundle.main.bundleIdentifier!
+        // Can be nil for command-line tools, XCTest hosts, Swift Playgrounds etc
+        // Should theoretically never be nil for a shipping app
+        return Bundle.main.bundleIdentifier ?? "com.posthog.unknown"
     #endif
 }
 

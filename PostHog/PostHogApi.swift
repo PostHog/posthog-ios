@@ -94,7 +94,7 @@ class PostHogApi {
             "sent_at": toISO8601String(Date()),
         ]
 
-        guard let data = toJSONData(toSend) else {
+        guard let data = try JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the batch body")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
@@ -147,7 +147,7 @@ class PostHogApi {
 
         let toSend = events.map { $0.toJSON() }
 
-        guard let data = toJSONData(toSend) else {
+        guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the snapshot body")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
@@ -225,7 +225,7 @@ class PostHogApi {
             toSend["evaluation_contexts"] = evaluationContexts
         }
 
-        guard let data = toJSONData(toSend) else {
+        guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the flags body")
             return completion(nil, nil)
         }

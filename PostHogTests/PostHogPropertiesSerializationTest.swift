@@ -243,6 +243,8 @@ struct PostHogPropertiesSerializationTests {
 
             sut.setPersonPropertiesForFlags(payload.properties(), reloadFeatureFlags: false)
 
+            // No-crash test: verifies non-JSON-serializable types don't crash
+
             sut.reset()
             sut.close()
         }
@@ -257,6 +259,8 @@ struct PostHogPropertiesSerializationTests {
             let sut = getSut()
 
             sut.setGroupPropertiesForFlags("company", properties: payload.properties(), reloadFeatureFlags: false)
+
+            // No-crash test: verifies non-JSON-serializable types don't crash
 
             sut.reset()
             sut.close()

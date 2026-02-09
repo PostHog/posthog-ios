@@ -627,7 +627,7 @@ let maxRetryDelay = 30.0
         }
 
         // .sortedKeys option handles recursive key sorting for deterministic hashing
-        if let jsonData = try? JSONSerialization.data(withJSONObject: hashData, options: [.sortedKeys]),
+        if let jsonData = toJSONData(hashData, options: [.sortedKeys]),
            let jsonString = String(data: jsonData, encoding: .utf8)
         {
             return jsonString
@@ -1282,6 +1282,43 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Returns the feature flag result containing the flag value, variant, and payload.
+    ///
+    /// This is the recommended method for retrieving feature flags as it provides
+    /// all flag information in a single call and properly tracks flag usage.
+    ///
+    /// - Parameter key: The feature flag key
+    /// - Returns: A `PostHogFeatureFlagResult` containing the flag's enabled state,
+    ///   variant (if any), and payload (if any), or `nil` if the flag doesn't exist.
+    @objc public func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? {
+        getFeatureFlagResult(key, sendEvent: nil)
+    }
+
+    @objc(getFeatureFlagResultWithKey:sendFeatureFlagEvent:)
+    public func getFeatureFlagResult(_ key: String, sendFeatureFlagEvent: Bool) -> PostHogFeatureFlagResult? {
+        getFeatureFlagResult(key, sendEvent: sendFeatureFlagEvent)
+    }
+
+    private func getFeatureFlagResult(_ key: String, sendEvent sendFeatureFlagEvent: Bool? = nil) -> PostHogFeatureFlagResult? {
+        if !isEnabled() {
+            return nil
+        }
+
+        guard let remoteConfig else {
+            return nil
+        }
+
+        let result = remoteConfig.getFeatureFlagResult(key)
+
+        let shouldSendEvent = sendFeatureFlagEvent ?? config.sendFeatureFlagEvent
+        if shouldSendEvent {
+            let flagValue: Any? = result?.variant ?? result?.enabled
+            reportFeatureFlagCalled(flagKey: key, flagValue: flagValue)
+        }
+
+        return result
+    }
+
     @objc public func getFeatureFlag(_ key: String) -> Any? {
         getFeatureFlag(key, sendEvent: nil)
     }
@@ -1292,22 +1329,8 @@ let maxRetryDelay = 30.0
     }
 
     private func getFeatureFlag(_ key: String, sendEvent sendFeatureFlagEvent: Bool? = nil) -> Any? {
-        if !isEnabled() {
-            return nil
-        }
-
-        guard let remoteConfig else {
-            return nil
-        }
-
-        let value = remoteConfig.getFeatureFlag(key)
-
-        let shouldSendEvent = sendFeatureFlagEvent ?? config.sendFeatureFlagEvent
-        if shouldSendEvent {
-            reportFeatureFlagCalled(flagKey: key, flagValue: value)
-        }
-
-        return value
+        let result = getFeatureFlagResult(key, sendEvent: sendFeatureFlagEvent)
+        return result?.variant ?? result?.enabled
     }
 
     @objc public func isFeatureEnabled(_ key: String) -> Bool {
@@ -1324,16 +1347,15 @@ let maxRetryDelay = 30.0
         return result is String ? true : (result as? Bool) ?? false
     }
 
+    /// Returns the payload for a feature flag.
+    ///
+    /// - Warning: This method does not send the `$feature_flag_called` event.
+    ///   Use `getFeatureFlagResult(_:)` instead for proper analytics tracking.
+    @available(*, deprecated, message: "Use getFeatureFlagResult(_:) instead which properly tracks feature flag usage")
     @objc public func getFeatureFlagPayload(_ key: String) -> Any? {
-        if !isEnabled() {
-            return nil
-        }
-
-        guard let remoteConfig else {
-            return nil
-        }
-
-        return remoteConfig.getFeatureFlagPayload(key)
+        // Don't send event to maintain backwards compatibility
+        let result = getFeatureFlagResult(key, sendEvent: false)
+        return result?.payload
     }
 
     private func flagValuesEqual(_ lhs: Any?, _ rhs: Any?) -> Bool {

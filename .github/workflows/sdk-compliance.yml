@@ -1,0 +1,188 @@
+name: SDK Compliance Tests
+
+# NOTE: This workflow is adapted from PostHog/posthog-sdk-test-harness/.github/workflows/test-sdk-action.yml
+# Key difference: Uses HYBRID RUNNER architecture because iOS SDK requires macOS (Darwin frameworks)
+# - Standard action: Runs everything in Docker on ubuntu-latest
+# - This workflow: Runs adapter natively on macos-latest, test harness in Docker
+#
+# Why: iOS SDK depends on SystemConfiguration, Foundation, UIKit which don't exist on Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'PostHog/**'
+      - 'sdk_compliance_adapter/**'
+      - '.github/workflows/sdk-compliance.yml'
+
+jobs:
+  compliance-tests:
+    # NOTE: Using macos-15-intel (Intel) instead of macos-latest (Apple Silicon)
+    # Reason: Apple Silicon runners don't support nested virtualization needed for Docker
+    # See: https://github.com/actions/runner-images/issues/9460
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install and Start Docker via Colima
+        run: |
+          # Install Docker CLI and Colima (lightweight Docker runtime for macOS)
+          brew install docker colima docker-compose
+
+          # Start Colima with modest resources
+          colima start --cpu 2 --memory 4 --disk 10
+
+          # Link the socket so docker-compose can find it
+          sudo ln -sf $HOME/.colima/default/docker.sock /var/run/docker.sock
+
+          # Verify Docker is working
+          docker info
+          docker --version
+          docker-compose --version
+
+      - name: Cache Swift build artifacts
+        uses: actions/cache@v5
+        with:
+          path: |
+            sdk_compliance_adapter/.build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-swift-${{ hashFiles('sdk_compliance_adapter/Package.swift', 'sdk_compliance_adapter/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swift-
+
+      - name: Build iOS compliance adapter
+        run: |
+          cd sdk_compliance_adapter
+          # Build in debug mode (much faster than release, still works for tests)
+          swift build -Xswiftc -DTESTING
+
+      - name: Create report directory
+        run: mkdir -p ${{ github.workspace }}/report
+
+      - name: Run compliance tests
+        id: run-tests
+        continue-on-error: true
+        run: |
+          cd sdk_compliance_adapter
+
+          # Start adapter in background (using debug build)
+          .build/debug/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080 > adapter.log 2>&1 &
+          ADAPTER_PID=$!
+
+          # Wait for adapter to be ready
+          echo "Waiting for adapter to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✅ Adapter ready"
+              break
+            fi
+            sleep 1
+          done
+
+          # Run tests via docker-compose
+          # Test harness connects to adapter via host.docker.internal:8080
+          # Mock server runs in Docker, accessible via localhost:8081
+          REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit
+
+          # Capture exit code
+          TEST_EXIT_CODE=$?
+
+          # Stop adapter
+          kill $ADAPTER_PID || true
+
+          exit $TEST_EXIT_CODE
+
+      - name: Upload adapter logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: adapter-logs
+          path: sdk_compliance_adapter/adapter*.log
+          retention-days: 7
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: sdk-compliance-report
+          path: report/sdk-compliance-report.md
+          retention-days: 30
+
+      - name: Extract SDK name from report
+        id: extract-sdk-name
+        if: always()
+        run: |
+          if [ -f "${{ github.workspace }}/report/sdk-compliance-report.md" ]; then
+            # Extract SDK name from the first line of the report (e.g., "# posthog-js Compliance Report")
+            SDK_NAME=$(head -n 1 "${{ github.workspace }}/report/sdk-compliance-report.md" | sed 's/# \(.*\) Compliance Report/\1/' | tr -d ' ')
+            echo "sdk-name=${SDK_NAME}" >> $GITHUB_OUTPUT
+          else
+            echo "sdk-name=posthog-ios" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = '${{ github.workspace }}/report/sdk-compliance-report.md';
+
+            if (!fs.existsSync(reportPath)) {
+              console.log('Report file not found, skipping PR comment');
+              return;
+            }
+
+            const report = fs.readFileSync(reportPath, 'utf8');
+            const sdkName = '${{ steps.extract-sdk-name.outputs.sdk-name }}' || 'posthog-ios';
+            // Use SDK-specific marker so multiple adapters don't overwrite each other
+            const commentMarker = `<!-- posthog-sdk-compliance-report-${sdkName} -->`;
+            const body = `${commentMarker}\n${report}`;
+
+            // Find existing comment for this specific SDK
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(comment =>
+              comment.body.includes(commentMarker)
+            );
+
+            if (existingComment) {
+              // Update existing comment for this SDK
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+              console.log(`Updated existing comment for ${sdkName}`);
+            } else {
+              // Create new comment for this SDK
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+              console.log(`Created new comment for ${sdkName}`);
+            }
+
+      # TODO: Enable this once SDK compliance tests are stable
+      # - name: Fail if tests failed
+      #   if: steps.run-tests.outcome != 'success'
+      #   run: exit 1

@@ -76,8 +76,13 @@ testOniOSSimulator:
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
+# Usage: make test filter=<pattern>
+# Examples:
+#   make test                              						# Run all tests
+#   make test filter=PostHogPropertiesSerializationTests        # Run specific test suite, class or method
 test:
-	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING
+	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
+
 
 lint:
 	swiftformat . --lint --swiftversion 5.3 && swiftlint

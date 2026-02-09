@@ -1,0 +1,33 @@
+version: '3.8'
+
+# HYBRID RUNNER ARCHITECTURE
+# The iOS adapter runs NATIVELY on macOS (not in Docker) because:
+# 1. iOS SDK requires Darwin frameworks (SystemConfiguration, Foundation, etc.)
+# 2. Docker only supports Linux containers, not macOS
+# 3. GitHub Actions uses macos-latest runners for iOS builds
+#
+# To run tests:
+# 1. Start the adapter on macOS host:
+#    cd ~/work/posthog-ios/sdk_compliance_adapter
+#    swift run
+# 2. Run this docker-compose (test harness connects to host):
+#    docker-compose up --abort-on-container-exit
+
+services:
+  test-harness:
+    image: ${TEST_HARNESS_IMAGE:-ghcr.io/posthog/sdk-test-harness:latest}
+    command: ["run", "--adapter-url", "http://host.docker.internal:8080", "--mock-url", "http://host.docker.internal:8081", "--sdk-type", "server", "--output", "text", "--report", "/report/sdk-compliance-report.md", "--debug"]
+    ports:
+      - "8081:8081"
+    volumes:
+      # Mount the report directory so the test harness can write the report
+      - ${REPORT_DIR:-./report}:/report
+    networks:
+      - test-network
+    extra_hosts:
+      # This allows Docker containers to reach the macOS host
+      - "host.docker.internal:host-gateway"
+
+networks:
+  test-network:
+    driver: bridge

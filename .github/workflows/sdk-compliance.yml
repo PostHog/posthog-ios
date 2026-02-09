@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload adapter logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: adapter-logs
           path: sdk_compliance_adapter/adapter*.log
@@ -114,7 +114,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sdk-compliance-report
           path: report/sdk-compliance-report.md

@@ -22,9 +22,6 @@ func toJSONData(_ dict: [String: Any]?, options: JSONSerialization.WritingOption
 
 func toJSONData(_ dicts: [[String: Any]?], options: JSONSerialization.WritingOptions = []) -> Data? {
     let sanitized = dicts.compactMap { sanitizeDictionary($0) }
-    guard !sanitized.isEmpty else {
-        return nil
-    }
     do {
         return try JSONSerialization.data(withJSONObject: sanitized, options: options)
     } catch {

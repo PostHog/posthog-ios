@@ -146,7 +146,7 @@ class PostHogApi {
         let request = getURLRequest(url)
 
         let toSend = events.map { $0.toJSON() }
-        
+
         guard let data = toJSONData(toSend) else {
             hedgeLog("Error parsing the snapshot body")
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))

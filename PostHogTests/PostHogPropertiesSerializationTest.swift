@@ -15,8 +15,8 @@ struct PropertyTestCase: CustomTestStringConvertible, Sendable {
     let properties: @Sendable () -> [String: Any]
 
     var testDescription: String { name }
-    
-    init(_ name: String, _ properties: @Sendable @escaping () -> [String : Any]) {
+
+    init(_ name: String, _ properties: @Sendable @escaping () -> [String: Any]) {
         self.name = name
         self.properties = properties
     }
@@ -26,7 +26,6 @@ struct PropertyTestCase: CustomTestStringConvertible, Sendable {
 
 @Suite(.serialized)
 struct PostHogPropertiesSerializationTests {
-
     // MARK: - Test Payloads
 
     static let propertyPayloads: [PropertyTestCase] = [
@@ -319,7 +318,6 @@ struct PostHogPropertiesSerializationTests {
     }
 }
 
-
 // MARK: - Test Types
 
 private struct EncodableUser: Encodable {
@@ -329,7 +327,9 @@ private struct EncodableUser: Encodable {
 
 private class NonEncodableObject {
     let value: String
-    init(value: String) { self.value = value }
+    init(value: String) {
+        self.value = value
+    }
 }
 
 private class CustomNSObject: NSObject {

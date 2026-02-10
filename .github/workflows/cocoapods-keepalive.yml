@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Install CocoaPods
-        run: gem install cocoapods
+        run: sudo gem install cocoapods
 
       - name: Refresh CocoaPods Session
         run: pod trunk me

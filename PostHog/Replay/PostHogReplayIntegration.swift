@@ -29,10 +29,12 @@
 
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        private let installedPluginsLock = NSLock()
         private var applicationEventToken: RegistrationToken?
         private var applicationBackgroundedToken: RegistrationToken?
         private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
+        private var remoteConfigLoadedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
@@ -176,11 +178,23 @@
             }
 
             // Install plugins
-            let plugins = postHog.config.sessionReplayConfig.getPlugins()
-            installedPlugins = []
-            for plugin in plugins {
+            let pluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
+            let remoteConfig = postHog.remoteConfig?.getRemoteConfig()
+            let pluginsToStart = installedPluginsLock.withLock {
+                installedPlugins = []
+                for pluginType in pluginTypes {
+                    if !pluginType.isEnabledRemotely(remoteConfig: remoteConfig) {
+                        hedgeLog("[Session Replay] Plugin \(pluginType) skipped - disabled by cached remote config")
+                        continue
+                    }
+                    let plugin = pluginType.init()
+                    installedPlugins.append(plugin)
+                }
+                return installedPlugins
+            }
+
+            for plugin in pluginsToStart {
                 plugin.start(postHog: postHog)
-                installedPlugins.append(plugin)
             }
 
             // Start listening to application background events and pause all plugins
@@ -192,6 +206,11 @@
             // Start listening to application foreground events and resume all plugins
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive { [weak self] in
                 self?.resumeAllPlugins()
+            }
+
+            // Start listening to remote config changes to apply plugin enablement
+            remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
+                self?.applyRemoteConfig(remoteConfig: config)
             }
         }
 
@@ -208,12 +227,18 @@
             applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
+            // stop listening to remote config loaded
+            remoteConfigLoadedToken = nil
 
             // stop plugins
-            for plugin in installedPlugins {
+            let pluginsToStop = installedPluginsLock.withLock {
+                defer { installedPlugins = [] }
+                return installedPlugins
+            }
+
+            for plugin in pluginsToStop {
                 plugin.stop()
             }
-            installedPlugins = []
         }
 
         func isActive() -> Bool {
@@ -228,14 +253,52 @@
         }
 
         private func pauseAllPlugins() {
-            for plugin in installedPlugins {
+            let pluginsToPause = installedPluginsLock.withLock { installedPlugins }
+            for plugin in pluginsToPause {
                 plugin.pause()
             }
         }
 
         private func resumeAllPlugins() {
-            for plugin in installedPlugins {
+            let pluginsToResume = installedPluginsLock.withLock { installedPlugins }
+            for plugin in pluginsToResume {
                 plugin.resume()
+            }
+        }
+
+        func applyRemoteConfig(remoteConfig: [String: Any]?) {
+            guard let postHog else { return }
+
+            let allPluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
+
+            var pluginsToStop: [PostHogSessionReplayPlugin] = []
+            var pluginsToStart: [PostHogSessionReplayPlugin] = []
+
+            installedPluginsLock.withLock {
+                for pluginType in allPluginTypes {
+                    let isEnabled = pluginType.isEnabledRemotely(remoteConfig: remoteConfig)
+                    let installedIndex = installedPlugins.firstIndex { type(of: $0) == pluginType }
+
+                    if let index = installedIndex, !isEnabled {
+                        // Installed, but disabled in remote
+                        pluginsToStop.append(installedPlugins[index])
+                        installedPlugins.remove(at: index)
+                    } else if installedIndex == nil, isEnabled {
+                        // Not installed, but enabled in remote
+                        let plugin = pluginType.init()
+                        installedPlugins.append(plugin)
+                        pluginsToStart.append(plugin)
+                    }
+                }
+            }
+
+            for plugin in pluginsToStop {
+                plugin.stop()
+                hedgeLog("[Session Replay] Plugin \(type(of: plugin)) uninstalled - disabled by remote config")
+            }
+            for plugin in pluginsToStart {
+                plugin.start(postHog: postHog)
+                hedgeLog("[Session Replay] Plugin \(type(of: plugin)) installed - enabled by remote config")
             }
         }
 

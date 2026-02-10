@@ -41,8 +41,8 @@ class PostHogRemoteConfig {
     /// Internal, only used for testing
     var canReloadFlagsForTesting = true
 
-    var onRemoteConfigLoaded: (([String: Any]?) -> Void)?
-    var onFeatureFlagsLoaded: (([String: Any]?) -> Void)?
+    let onRemoteConfigLoaded = PostHogMulticastCallback<[String: Any]?>()
+    let onFeatureFlagsLoaded = PostHogMulticastCallback<[String: Any]?>()
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))
@@ -163,7 +163,7 @@ class PostHogRemoteConfig {
 
                 // notify
                 DispatchQueue.main.async {
-                    self.onRemoteConfigLoaded?(config)
+                    self.onRemoteConfigLoaded.invoke(config)
                 }
             }
 
@@ -397,7 +397,7 @@ class PostHogRemoteConfig {
 
     private func notifyFeatureFlags(_ featureFlags: [String: Any]?) {
         DispatchQueue.main.async {
-            self.onFeatureFlagsLoaded?(featureFlags)
+            self.onFeatureFlagsLoaded.invoke(featureFlags)
             NotificationCenter.default.post(name: PostHogSDK.didReceiveFeatureFlags, object: nil)
         }
     }

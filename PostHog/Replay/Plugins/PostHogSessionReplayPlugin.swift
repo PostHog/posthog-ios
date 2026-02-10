@@ -14,6 +14,9 @@
     ///
     /// Plugins are installed automatically based on the session replay configuration.
     protocol PostHogSessionReplayPlugin {
+        /// Required parameterless initializer for plugin instantiation via types
+        init()
+
         /// Starts the plugin and begins data capture.
         ///
         /// Called when session replay is started. The plugin should set up any required
@@ -39,5 +42,11 @@
         /// Called by session replay integration when plugin is requested to resume normal capturing data
         /// The plugin should resume data capture from its previous state.
         func resume()
+
+        /// Returns whether this plugin type should be enabled based on remote config.
+        ///
+        /// - Parameter remoteConfig: The full remote config dictionary, may be nil
+        /// - Returns: true if plugin should be enabled, false if disabled by remote config
+        static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool
     }
 #endif

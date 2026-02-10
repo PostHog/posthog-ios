@@ -21,6 +21,11 @@ class PostHogApi {
         // Use custom configuration if provided, otherwise use default
         let config = self.config.urlSessionConfiguration ?? URLSessionConfiguration.default
 
+        // Sends a conditional request (If-Modified-Since/If-None-Match) to the server.
+        // If server returns 304 Not Modified, uses cache; otherwise downloads fresh data.
+        // This only affects static resources like /config and it ensures that we don't operate with stale config or flags.
+        config.requestCachePolicy = .reloadRevalidatingCacheData
+
         config.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",
             "User-Agent": "\(postHogSdkName)/\(postHogVersion)",

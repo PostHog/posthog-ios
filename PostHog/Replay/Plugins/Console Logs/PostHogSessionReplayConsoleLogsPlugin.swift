@@ -46,7 +46,7 @@
             hedgeLog("[Session Replay] Console logs plugin paused")
         }
 
-        // see: https://github.com/PostHog/posthog-js/blob/main/packages/browser/src/extensions/replay/external/lazy-loaded-session-recorder.ts#L457-L461
+        // see: https://github.com/PostHog/posthog-js/blob/c81ee34096a780b13e97a862197d4a6fdedb749a/packages/browser/src/extensions/replay/external/lazy-loaded-session-recorder.ts#L462-L466
         static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
             guard let sessionRecording = remoteConfig?["sessionRecording"] as? [String: Any] else {
                 return false

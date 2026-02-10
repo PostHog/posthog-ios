@@ -1,5 +1,7 @@
 ## Next
 
+## 3.41.0 - 2026-02-10
+
 - feat: session replay config `sessionReplayConfig.captureLogs` and `sessionReplayConfig.captureNetworkTelemetry` now respect project settings ([#452](https://github.com/PostHog/posthog-ios/pull/452))
   > **Note**: requires `PostHogConfig.remoteConfig` to be enabled (default)
 - fix: prevent crashes from non JSON-serializable property types (Date, URL, Data, infinity, NaN, etc.) ([#466](https://github.com/PostHog/posthog-ios/pull/466))

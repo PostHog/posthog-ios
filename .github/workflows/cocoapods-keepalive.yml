@@ -14,13 +14,10 @@ permissions:
 jobs:
   keepalive:
     name: Refresh CocoaPods Session
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     env:
       COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
 
     steps:
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
       - name: Refresh CocoaPods Session
         run: pod trunk me > /dev/null 2>&1

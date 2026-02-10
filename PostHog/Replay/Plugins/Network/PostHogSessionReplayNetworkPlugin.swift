@@ -54,7 +54,7 @@
             hedgeLog("[Session Replay] Network telemetry plugin paused")
         }
 
-        // see: https://github.com/PostHog/posthog-js/blob/main/packages/browser/src/extensions/replay/external/lazy-loaded-session-recorder.ts#L465-L486
+        // see: https://github.com/PostHog/posthog-js/blob/c81ee34096a780b13e97a862197d4a6fdedb749a/packages/browser/src/extensions/replay/external/lazy-loaded-session-recorder.ts#L470-L492
         static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
             guard let capturePerformanceValue = remoteConfig?["capturePerformance"] else {
                 // No remote config means disabled
@@ -65,8 +65,14 @@
             if let isEnabled = capturePerformanceValue as? Bool {
                 return isEnabled
             }
-            // When enabled, capturePerformance is an object (we ignore the keys for now)
-            return true
+            // When enabled, capturePerformance is an object, check network_timing key
+            if let perfConfig = capturePerformanceValue as? [String: Any],
+               let networkTiming = perfConfig["network_timing"] as? Bool
+            {
+                return networkTiming
+            }
+            // fallback to disabled
+            return false
         }
 
         private func shouldCaptureNetworkSample() -> Bool {

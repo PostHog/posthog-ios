@@ -157,6 +157,7 @@ enum PostHogSessionManagerTest {
     @Suite("Test $session_id property in events")
     class PostHogSDKEvents {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
+        let storageTracker = TestStorageTracker()
         var server: MockPostHogServer!
 
         init() {
@@ -165,12 +166,10 @@ enum PostHogSessionManagerTest {
 
             server = MockPostHogServer()
             server.start()
-
-            // important!
-            deleteSafely(applicationSupportDirectoryURL())
         }
 
         deinit {
+            storageTracker.cleanup()
             now = { Date() }
             server.stop()
             server = nil
@@ -185,7 +184,8 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
+            storageTracker.track(config)
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
             config.sendFeatureFlagEvent = sendFeatureFlagEvent

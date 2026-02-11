@@ -12,10 +12,11 @@ import XCTest
 @Suite("Test Feature Flags V3", .serialized)
 enum PostHogFeatureFlagsV3Test {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config: PostHogConfig
         var server: MockPostHogServer!
 
         init() {
+            config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
             server = MockPostHogServer()
             server.start()
             // important!
@@ -24,6 +25,8 @@ enum PostHogFeatureFlagsV3Test {
         }
 
         deinit {
+            let storage = PostHogStorage(config)
+            storage.reset()
             server.stop()
             server = nil
         }

@@ -13,6 +13,7 @@ import Testing
 final class PostHogAppLifeCycleIntegrationTest {
     var server: MockPostHogServer!
     let mockAppLifecycle: MockApplicationLifecyclePublisher
+    let storageTracker = TestStorageTracker()
 
     init() {
         PostHogAppLifeCycleIntegration.clearInstalls()
@@ -25,6 +26,7 @@ final class PostHogAppLifeCycleIntegrationTest {
     }
 
     deinit {
+        storageTracker.cleanup()
         server.stop()
         server = nil
         DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
@@ -34,7 +36,8 @@ final class PostHogAppLifeCycleIntegrationTest {
         flushAt: Int = 1,
         captureApplicationLifecycleEvents: Bool = true
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "app_lifecycle", host: "http://localhost:9000")
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9000")
+        storageTracker.track(config)
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt

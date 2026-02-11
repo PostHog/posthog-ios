@@ -12,6 +12,7 @@ import Testing
 final class ScreenViewIntegrationTest {
     var server: MockPostHogServer!
     let mockScreenView = MockScreenViewPublisher()
+    let storageTracker = TestStorageTracker()
 
     init() {
         PostHogScreenViewIntegration.clearInstalls()
@@ -22,13 +23,15 @@ final class ScreenViewIntegrationTest {
     }
 
     deinit {
+        storageTracker.cleanup()
         server.stop()
         server = nil
         DI.main.screenViewPublisher = ApplicationScreenViewPublisher.shared
     }
 
     private func getSut(captureScreenViews: Bool = true) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "screen_test", host: "https://localhost:9090")
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: "https://localhost:9090")
+        storageTracker.track(config)
         config.captureScreenViews = captureScreenViews
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1

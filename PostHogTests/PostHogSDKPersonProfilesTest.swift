@@ -6,15 +6,40 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogSDKPersonProfilesTest: QuickSpec {
+@Suite("PostHogSDK Person Profiles Tests", .serialized)
+class PostHogSDKPersonProfilesTest {
+    let server: MockPostHogServer
+    let apiKey: String
+
+    init() {
+        apiKey = uniqueApiKey()
+        server = MockPostHogServer()
+
+        Self.deleteDefaults()
+        server.start()
+    }
+
+    deinit {
+        deleteSafely(applicationSupportDirectoryURL())
+        server.stop()
+    }
+
+    static func deleteDefaults() {
+        let userDefaults = UserDefaults.standard
+        userDefaults.removeObject(forKey: "PHGVersionKey")
+        userDefaults.removeObject(forKey: "PHGBuildKeyV2")
+        userDefaults.synchronize()
+
+        deleteSafely(applicationSupportDirectoryURL())
+    }
+
     func getSut(flushAt: Int = 1,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = false
         config.sendFeatureFlagEvent = false
@@ -25,231 +50,219 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
         return PostHogSDK.with(config)
     }
 
-    override func spec() {
-        var server: MockPostHogServer!
+    @Test("capture sets process person to false if identified only and not identified")
+    func captureProcessPersonFalseIfIdentifiedOnlyAndNotIdentified() async throws {
+        let sut = getSut()
 
-        func deleteDefaults() {
-            let userDefaults = UserDefaults.standard
-            userDefaults.removeObject(forKey: "PHGVersionKey")
-            userDefaults.removeObject(forKey: "PHGBuildKeyV2")
-            userDefaults.synchronize()
+        sut.capture("test event")
 
-            deleteSafely(applicationSupportDirectoryURL())
-        }
+        let events = try await getServerEvents(server)
 
-        beforeEach {
-            deleteDefaults()
-            server = MockPostHogServer()
-            server.start()
-        }
-        afterEach {
-            server.stop()
-            server = nil
-        }
+        #expect(events.count == 1)
 
-        it("capture sets process person to false if identified only and not identified") {
-            let sut = self.getSut()
+        let event = events.first!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 1
+    @Test("capture sets process person to true if identified only and with user props")
+    func captureProcessPersonTrueIfIdentifiedOnlyAndWithUserProps() async throws {
+        let sut = getSut()
 
-            let event = events.first!
+        sut.capture("test event",
+                    userProperties: ["userProp": "value"])
 
-            expect(event.properties["$process_person_profile"] as? Bool) == false
+        let events = try await getServerEvents(server)
 
-            sut.reset()
-            sut.close()
-        }
+        #expect(events.count == 1)
 
-        it("capture sets process person to true if identified only and with user props") {
-            let sut = self.getSut()
+        let event = events.first!
 
-            sut.capture("test event",
-                        userProperties: ["userProp": "value"])
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 1
+    @Test("capture sets process person to true if identified only and with user set once props")
+    func captureProcessPersonTrueIfIdentifiedOnlyAndWithUserSetOnceProps() async throws {
+        let sut = getSut()
 
-            let event = events.first!
+        sut.capture("test event",
+                    userPropertiesSetOnce: ["userProp": "value"])
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        let events = try await getServerEvents(server)
 
-            sut.reset()
-            sut.close()
-        }
+        #expect(events.count == 1)
 
-        it("capture sets process person to true if identified only and with user set once props") {
-            let sut = self.getSut()
+        let event = events.first!
 
-            sut.capture("test event",
-                        userPropertiesSetOnce: ["userProp": "value"])
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 1
+    @Test("capture sets process person to true if identified only and with group props")
+    func captureProcessPersonTrueIfIdentifiedOnlyAndWithGroupProps() async throws {
+        let sut = getSut()
 
-            let event = events.first!
+        sut.capture("test event",
+                    groups: ["groupProp": "value"])
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        let events = try await getServerEvents(server)
 
-            sut.reset()
-            sut.close()
-        }
+        #expect(events.count == 1)
 
-        it("capture sets process person to true if identified only and with group props") {
-            let sut = self.getSut()
+        let event = events.first!
 
-            sut.capture("test event",
-                        groups: ["groupProp": "value"])
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 1
+    @Test("capture sets process person to true if identified only and identified")
+    func captureProcessPersonTrueIfIdentifiedOnlyAndIdentified() async throws {
+        let sut = getSut(flushAt: 2)
 
-            let event = events.first!
+        sut.identify("distinctId")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        sut.capture("test event")
 
-            sut.reset()
-            sut.close()
-        }
+        let events = try await getServerEvents(server)
 
-        it("capture sets process person to true if identified only and identified") {
-            let sut = self.getSut(flushAt: 2)
+        #expect(events.count == 2)
 
-            sut.identify("distinctId")
+        let event = events.last!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 2
+    @Test("capture sets process person to true if identified only and with alias")
+    func captureProcessPersonTrueIfIdentifiedOnlyAndWithAlias() async throws {
+        let sut = getSut(flushAt: 2)
 
-            let event = events.last!
+        sut.alias("distinctId")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        sut.capture("test event")
 
-            sut.reset()
-            sut.close()
-        }
+        let events = try await getServerEvents(server)
 
-        it("capture sets process person to true if identified only and with alias") {
-            let sut = self.getSut(flushAt: 2)
+        #expect(events.count == 2)
 
-            sut.alias("distinctId")
+        let event = events.last!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 2
+    @Test("capture sets process person to true if identified only and with groups")
+    func captureProcessPersonTrueIfIdentifiedOnlyAndWithGroups() async throws {
+        let sut = getSut(flushAt: 2)
 
-            let event = events.last!
+        sut.group(type: "theType", key: "theKey")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        sut.capture("test event")
 
-            sut.reset()
-            sut.close()
-        }
+        let events = try await getServerEvents(server)
 
-        it("capture sets process person to true if identified only and with groups") {
-            let sut = self.getSut(flushAt: 2)
+        #expect(events.count == 2)
 
-            sut.group(type: "theType", key: "theKey")
+        let event = events.last!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 2
+    @Test("capture sets process person to true if always")
+    func captureProcessPersonTrueIfAlways() async throws {
+        let sut = getSut(personProfiles: .always)
 
-            let event = events.last!
+        sut.capture("test event")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        let events = try await getServerEvents(server)
 
-            sut.reset()
-            sut.close()
-        }
+        #expect(events.count == 1)
 
-        it("capture sets process person to true if always") {
-            let sut = self.getSut(personProfiles: .always)
+        let event = events.first!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            expect(events.count) == 1
+    @Test("capture sets process person to false if never and identify called")
+    func captureProcessPersonFalseIfNeverAndIdentifyCalled() async throws {
+        let sut = getSut(personProfiles: .never)
 
-            let event = events.first!
+        sut.identify("distinctId")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == true
+        sut.capture("test event")
 
-            sut.reset()
-            sut.close()
-        }
+        let events = try await getServerEvents(server)
 
-        it("capture sets process person to false if never and identify called") {
-            let sut = self.getSut(personProfiles: .never)
+        // identify will be ignored here hence only 1
+        #expect(events.count == 1)
 
-            sut.identify("distinctId")
+        let event = events.first!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            // identify will be ignored here hence only 1
-            expect(events.count) == 1
+    @Test("capture sets process person to false if never and alias called")
+    func captureProcessPersonFalseIfNeverAndAliasCalled() async throws {
+        let sut = getSut(personProfiles: .never)
 
-            let event = events.first!
+        sut.alias("distinctId")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == false
+        sut.capture("test event")
 
-            sut.reset()
-            sut.close()
-        }
+        let events = try await getServerEvents(server)
 
-        it("capture sets process person to false if never and alias called") {
-            let sut = self.getSut(personProfiles: .never)
+        // alias will be ignored here hence only 1
+        #expect(events.count == 1)
 
-            sut.alias("distinctId")
+        let event = events.first!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-            let events = getBatchedEvents(server)
+        sut.reset()
+        sut.close()
+    }
 
-            // alias will be ignored here hence only 1
-            expect(events.count) == 1
+    @Test("capture sets process person to false if never and group called")
+    func captureProcessPersonFalseIfNeverAndGroupCalled() async throws {
+        let sut = getSut(personProfiles: .never)
 
-            let event = events.first!
+        sut.group(type: "theType", key: "theKey")
 
-            expect(event.properties["$process_person_profile"] as? Bool) == false
+        sut.capture("test event")
 
-            sut.reset()
-            sut.close()
-        }
+        let events = try await getServerEvents(server)
 
-        it("capture sets process person to false if never and group called") {
-            let sut = self.getSut(personProfiles: .never)
+        // group will be ignored here hence only 1
+        #expect(events.count == 1)
 
-            sut.group(type: "theType", key: "theKey")
+        let event = events.first!
 
-            sut.capture("test event")
+        #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-            let events = getBatchedEvents(server)
-
-            // group will be ignored here hence only 1
-            expect(events.count) == 1
-
-            let event = events.first!
-
-            expect(event.properties["$process_person_profile"] as? Bool) == false
-
-            sut.reset()
-            sut.close()
-        }
+        sut.reset()
+        sut.close()
     }
 }

@@ -18,10 +18,11 @@ private struct TestPayload: Decodable, Equatable {
 @Suite("Test Feature Flags", .serialized)
 enum PostHogFeatureFlagsTest {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config: PostHogConfig
         var server: MockPostHogServer!
 
         init() {
+            config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
             server = MockPostHogServer(version: 4)
             server.start()
             // important!
@@ -30,6 +31,8 @@ enum PostHogFeatureFlagsTest {
         }
 
         deinit {
+            let storage = PostHogStorage(config)
+            storage.reset()
             server.stop()
             server = nil
         }
@@ -243,17 +246,20 @@ enum PostHogFeatureFlagsTest {
             #expect(personProperties["test_property"] as? String == "test_value", "Expected test_property to be 'test_value'")
             #expect(personProperties["plan"] as? String == "premium", "Expected plan to be 'premium'")
             #expect(personProperties["age"] as? Int == 25, "Expected age to be 25")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Person properties are additive")
         func personPropertiesAreAdditive() async {
             let sut = PostHogSDK.with(config)
 
-            // Set first batch of properties
-            sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
+            // Set first batch of properties (disable intermediate reloads to avoid race conditions)
+            sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"], reloadFeatureFlags: false)
 
             // Set second batch that overlaps
-            sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"])
+            sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"], reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -281,17 +287,20 @@ enum PostHogFeatureFlagsTest {
             #expect(personProperties["property1"] as? String == "value1", "Expected property1 to be 'value1'")
             #expect(personProperties["property2"] as? String == "value2", "Expected property2 to be 'value2'")
             #expect(personProperties["shared"] as? String == "updated", "Expected shared property to be 'updated' (latest value)")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Reset person properties clears all properties")
         func resetPersonPropertiesClearsAll() async {
             let sut = PostHogSDK.with(config)
 
-            // Set some properties
-            sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
+            // Set some properties (disable intermediate reloads to avoid race conditions)
+            sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"], reloadFeatureFlags: false)
 
-            // Reset them
-            sut.resetPersonPropertiesForFlags()
+            // Reset them (disable intermediate reload to avoid race conditions)
+            sut.resetPersonPropertiesForFlags(reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -317,6 +326,9 @@ enum PostHogFeatureFlagsTest {
                 #expect(personProperties["property2"] == nil, "Expected property2 to be removed after reset")
                 // Device properties like $device_manufacturer, $os_name etc. are expected to remain
             }
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Group properties are stored and retrieved correctly")
@@ -363,15 +375,18 @@ enum PostHogFeatureFlagsTest {
             #expect(orgProperties["plan"] as? String == "enterprise", "Expected organization plan to be 'enterprise'")
             #expect(orgProperties["seats"] as? Int == 50, "Expected organization seats to be 50")
             #expect(orgProperties["industry"] as? String == "technology", "Expected organization industry to be 'technology'")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Multiple group types are handled correctly")
         func multipleGroupTypesHandled() async {
             let sut = PostHogSDK.with(config)
 
-            // Set properties for different group types
-            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
-            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+            // Set properties for different group types (disable intermediate reloads to avoid race conditions)
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"], reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -398,18 +413,21 @@ enum PostHogFeatureFlagsTest {
 
             #expect(groupProperties["organization"]?["plan"] as? String == "enterprise", "Expected organization plan to be 'enterprise'")
             #expect(groupProperties["team"]?["role"] as? String == "engineering", "Expected team role to be 'engineering'")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Reset group properties for specific type")
         func resetGroupPropertiesSpecificType() async {
             let sut = PostHogSDK.with(config)
 
-            // Set properties for multiple group types
-            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
-            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+            // Set properties for multiple group types (disable intermediate reloads to avoid race conditions)
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"], reloadFeatureFlags: false)
 
-            // Reset only organization properties
-            sut.resetGroupPropertiesForFlags("organization")
+            // Reset only organization properties (disable intermediate reload to avoid race conditions)
+            sut.resetGroupPropertiesForFlags("organization", reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -436,18 +454,21 @@ enum PostHogFeatureFlagsTest {
 
             #expect(groupProperties["organization"] == nil, "Expected organization properties to be cleared")
             #expect(groupProperties["team"]?["role"] as? String == "engineering", "Expected team role to still be 'engineering'")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Reset all group properties")
         func resetAllGroupProperties() async {
             let sut = PostHogSDK.with(config)
 
-            // Set properties for multiple group types
-            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
-            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+            // Set properties for multiple group types (disable intermediate reloads to avoid race conditions)
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"], reloadFeatureFlags: false)
 
-            // Reset all group properties
-            sut.resetGroupPropertiesForFlags()
+            // Reset all group properties (disable intermediate reload to avoid race conditions)
+            sut.resetGroupPropertiesForFlags(reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -468,15 +489,18 @@ enum PostHogFeatureFlagsTest {
             }
 
             #expect(requestBody["group_properties"] == nil, "Expected group_properties to be nil after reset")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Both person and group properties sent together")
         func bothPersonAndGroupPropertiesSent() async {
             let sut = PostHogSDK.with(config)
 
-            // Set both types of properties
-            sut.setPersonPropertiesForFlags(["user_plan": "premium"])
-            sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"])
+            // Set both types of properties (disable intermediate reloads to avoid race conditions)
+            sut.setPersonPropertiesForFlags(["user_plan": "premium"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"], reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -511,6 +535,9 @@ enum PostHogFeatureFlagsTest {
             }
 
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise'")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Capture with userProperties automatically sets person properties for flags")
@@ -548,6 +575,9 @@ enum PostHogFeatureFlagsTest {
             }
 
             #expect(personProperties["user_plan"] as? String == "premium", "Expected user_plan to be 'premium' from capture call")
+
+            sut.reset()
+            sut.close()
         }
 
         @Test("Group with groupProperties automatically sets group properties for flags")
@@ -585,6 +615,9 @@ enum PostHogFeatureFlagsTest {
             }
 
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise' from group call")
+
+            sut.reset()
+            sut.close()
         }
     }
 

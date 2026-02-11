@@ -6,111 +6,130 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
 #if os(iOS)
-    class PostHogAutocaptureIntegrationSpec: QuickSpec {
-        override func spec() {
-            var server: MockPostHogServer!
-            var integration: PostHogAutocaptureIntegration!
-            var posthog: PostHogSDK!
+    @Suite("PostHogAutocaptureIntegration Tests", .serialized)
+    class PostHogAutocaptureIntegrationSpec {
+        let server: MockPostHogServer
+        var integration: PostHogAutocaptureIntegration!
+        var posthog: PostHogSDK!
+        let apiKey: String
 
-            beforeEach {
-                let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        init() {
+            apiKey = uniqueApiKey()
+            server = MockPostHogServer()
+            server.start()
+
+            let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+            config.captureElementInteractions = true
+            config.flushIntervalSeconds = 0.2
+            config.maxBatchSize = 1
+
+            posthog = PostHogSDK.with(config)
+            integration = posthog.getAutocaptureIntegration()
+            integration.start()
+        }
+
+        deinit {
+            server.stop()
+            integration.stop()
+            posthog.endSession()
+            posthog.close()
+            deleteSafely(applicationSupportDirectoryURL())
+        }
+
+        @Suite("when initialized")
+        struct WhenInitialized {
+            @Test("should set the eventProcessor to itself on start")
+            func shouldSetEventProcessorToItselfOnStart() {
+                let apiKey = uniqueApiKey()
+                let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
                 config.captureElementInteractions = true
-                config.flushIntervalSeconds = 0.2
-                config.maxBatchSize = 1
+                let posthog = PostHogSDK.with(config)
+                let integration = posthog.getAutocaptureIntegration()
 
-                server = MockPostHogServer()
-                server.start()
+                integration?.start()
+                #expect(PostHogAutocaptureEventTracker.eventProcessor === integration)
 
-                posthog = PostHogSDK.with(config)
-
-                integration = posthog.getAutocaptureIntegration()
-                integration.start()
-            }
-
-            afterEach {
-                server.stop()
-                server = nil
-                integration.stop()
-                posthog.endSession()
+                integration?.stop()
                 posthog.close()
-                deleteSafely(applicationSupportDirectoryURL())
             }
 
-            context("when initialized") {
-                it("should set the eventProcessor to itself on start") {
-                    integration.start()
-                    expect(PostHogAutocaptureEventTracker.eventProcessor).to(beIdenticalTo(integration))
-                }
+            @Test("should clear the eventProcessor on stop")
+            func shouldClearEventProcessorOnStop() {
+                let apiKey = uniqueApiKey()
+                let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+                config.captureElementInteractions = true
+                let posthog = PostHogSDK.with(config)
+                let integration = posthog.getAutocaptureIntegration()
 
-                it("should clear the eventProcessor on stop") {
-                    integration.start()
-                    integration.stop()
-                    expect(PostHogAutocaptureEventTracker.eventProcessor).to(beNil())
-                }
+                integration?.start()
+                integration?.stop()
+                #expect(PostHogAutocaptureEventTracker.eventProcessor == nil)
+
+                posthog.close()
             }
+        }
 
-            context("processing events") {
-                it("should process an event") {
-                    let event = createTestEventData()
-                    integration.process(source: .actionMethod(description: "buttonPress"), event: event)
-                    integration.process(source: .actionMethod(description: "buttonPress"), event: event)
+        @Test("should process an event")
+        func shouldProcessAnEvent() async throws {
+            let event = createTestEventData()
+            integration.process(source: .actionMethod(description: "buttonPress"), event: event)
+            integration.process(source: .actionMethod(description: "buttonPress"), event: event)
 
-                    let events = getBatchedEvents(server)
+            let events = try await getServerEvents(server)
 
-                    expect(events.count).to(equal(1))
-                }
+            #expect(events.count == 1)
+        }
 
-                it("should respect shouldProcess based on configuration") {
-                    let event = createTestEventData()
+        @Test("should respect shouldProcess based on configuration")
+        func shouldRespectShouldProcessBasedOnConfiguration() async throws {
+            let event = createTestEventData()
 
-                    server.start(batchCount: 2)
+            server.start(batchCount: 2)
 
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .gestureRecognizer(description: "gesture1"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .gestureRecognizer(description: "gesture1"), event: event)
 
-                    let events = getBatchedEvents(server)
+            let events = try await getServerEvents(server)
 
-                    expect(events.count).to(equal(2))
-                }
+            #expect(events.count == 2)
+        }
 
-                it("should debounce events if debounceInterval is greater than 0") {
-                    let debouncedEvent = createTestEventData(debounceInterval: 0.2)
+        @Test("should debounce events if debounceInterval is greater than 0")
+        func shouldDebounceEventsIfDebounceIntervalIsGreaterThan0() async throws {
+            let debouncedEvent = createTestEventData(debounceInterval: 0.2)
 
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
-                    integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
+            integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
 
-                    posthog.flush()
+            posthog.flush()
 
-                    let debouncedEvents = getBatchedEvents(server)
+            let debouncedEvents = try await getServerEvents(server)
 
-                    expect(debouncedEvents.count).to(equal(1))
+            #expect(debouncedEvents.count == 1)
 
-                    server.start(batchCount: 6)
-                    let event = createTestEventData()
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
-                    integration.process(source: .actionMethod(description: "action"), event: event)
+            server.start(batchCount: 6)
+            let event = createTestEventData()
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
+            integration.process(source: .actionMethod(description: "action"), event: event)
 
-                    posthog.flush()
+            posthog.flush()
 
-                    let events = getBatchedEvents(server)
+            let events = try await getServerEvents(server)
 
-                    expect(events.count).to(equal(6))
-                }
-            }
+            #expect(events.count == 6)
         }
     }
 

@@ -12,6 +12,7 @@ import Testing
 @Suite("Test Survey Events", .serialized)
 class PostHogSurveyEventsTest {
     let server: MockPostHogServer
+    let storageTracker = TestStorageTracker()
 
     init() {
         server = MockPostHogServer()
@@ -19,6 +20,7 @@ class PostHogSurveyEventsTest {
     }
 
     deinit {
+        storageTracker.cleanup()
         server.stop()
     }
 
@@ -88,7 +90,8 @@ class PostHogSurveyEventsTest {
     }
 
     func getSut() -> PostHogSDK {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9090")
+        storageTracker.track(config)
         config._surveys = true
         config.flushAt = 1
         config.disableReachabilityForTesting = true

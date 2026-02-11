@@ -6,11 +6,11 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class UUIDTest: QuickSpec {
+@Suite("UUID Tests")
+struct UUIDTest {
     private func compareULongs(_ l1: UInt64, _ l2: UInt64) -> Int {
         let high1 = Int32(bitPattern: UInt32((l1 >> 32) & 0xFFFF_FFFF))
         let high2 = Int32(bitPattern: UInt32((l2 >> 32) & 0xFFFF_FFFF))
@@ -30,40 +30,40 @@ class UUIDTest: QuickSpec {
         return Int(i2 < 0 ? -1 : (i1 - i2))
     }
 
-    override func spec() {
-        it("mostSignificantBits") {
-            let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
-            expect(uuid.mostSignificantBits) == 112_631_663_430_041_152
+    @Test("mostSignificantBits")
+    func mostSignificantBits() {
+        let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
+        #expect(uuid.mostSignificantBits == 112_631_663_430_041_152)
+    }
+
+    @Test("leastSignificantBits")
+    func leastSignificantBits() {
+        let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
+        #expect(uuid.leastSignificantBits == -7_503_087_083_654_801_332)
+    }
+
+    @Test("test sorted and duplicated")
+    func testSortedAndDuplicated() throws {
+        let count = 10000
+
+        var created: [UUID] = []
+        for _ in 0 ..< count {
+            created.append(UUID.v7())
         }
 
-        it("leastSignificantBits") {
-            let uuid = UUID(uuidString: "019025e6-b135-7e40-97df-ae0cebef184c")!
-            expect(uuid.leastSignificantBits) == -7_503_087_083_654_801_332
+        let sortedUUIDs = created.sorted { uuid1, uuid2 in
+            if uuid1.mostSignificantBits != uuid2.mostSignificantBits {
+                return uuid1.mostSignificantBits < uuid2.mostSignificantBits
+            }
+            return uuid1.leastSignificantBits < uuid2.leastSignificantBits
         }
 
-        it("test sorted and duplicated") {
-            let count = 10000
+        var unique: Set<UUID> = Set(minimumCapacity: count)
 
-            var created: [UUID] = []
-            for _ in 0 ..< count {
-                created.append(UUID.v7())
-            }
-
-            let sortedUUIDs = created.sorted { uuid1, uuid2 in
-                if uuid1.mostSignificantBits != uuid2.mostSignificantBits {
-                    return uuid1.mostSignificantBits < uuid2.mostSignificantBits
-                }
-                return uuid1.leastSignificantBits < uuid2.leastSignificantBits
-            }
-
-            var unique: Set<UUID> = Set(minimumCapacity: count)
-
-            for i in 0 ..< created.count {
-                expect(sortedUUIDs[i]) == created[i]
-                if !unique.insert(created[i]).inserted {
-                    fatalError("Duplicate at index \(i)")
-                }
-            }
+        for i in 0 ..< created.count {
+            #expect(sortedUUIDs[i] == created[i])
+            let inserted = unique.insert(created[i]).inserted
+            try #require(inserted, "Duplicate at index \(i)")
         }
     }
 }

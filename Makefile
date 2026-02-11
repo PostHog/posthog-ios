@@ -71,10 +71,11 @@ swiftFormat:
 # use -test-iterations 10 if you want to run the tests multiple times
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
 testOniOSSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' | xcpretty
+	$(eval SIMULATOR_UDID := $(shell xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(dev['udid'] for r,devs in sorted(d.items(),reverse=True) if 'iOS' in r for dev in devs if 'iPhone' in dev['name']))"))
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,id=$(SIMULATOR_UDID)'
 
 testOnMacSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS'
 
 # Usage: make test filter=<pattern>
 # Examples:

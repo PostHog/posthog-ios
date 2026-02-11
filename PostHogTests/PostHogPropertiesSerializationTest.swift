@@ -90,6 +90,7 @@ struct PostHogPropertiesSerializationTests {
 
     class BaseTestSuite {
         var server: MockPostHogServer
+        let storageTracker = TestStorageTracker()
 
         init() {
             server = MockPostHogServer(version: 4)
@@ -97,11 +98,13 @@ struct PostHogPropertiesSerializationTests {
         }
 
         deinit {
+            storageTracker.cleanup()
             server.stop()
         }
 
         func getSut(flushAt: Int = 1) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
+            storageTracker.track(config)
             config.flushAt = flushAt
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
@@ -109,7 +112,8 @@ struct PostHogPropertiesSerializationTests {
             config.personProfiles = .always
             config.preloadFeatureFlags = false
 
-            deleteSafely(applicationSupportDirectoryURL())
+            let storage = PostHogStorage(config)
+            storage.reset()
 
             return PostHogSDK.with(config)
         }

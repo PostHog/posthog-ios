@@ -11,8 +11,15 @@ import Testing
 
 @Suite("PostHogStorage Tests", .serialized)
 class PostHogStorageTest {
-    func getSut(config: PostHogConfig = PostHogConfig(apiKey: "123")) -> PostHogStorage {
-        PostHogStorage(config)
+    let storageTracker = TestStorageTracker()
+
+    deinit {
+        storageTracker.cleanup()
+    }
+
+    func getSut(config: PostHogConfig = PostHogConfig(apiKey: uniqueApiKey())) -> PostHogStorage {
+        storageTracker.track(config)
+        return PostHogStorage(config)
     }
 
     @Test("returns the application support dir URL")
@@ -129,6 +136,7 @@ class PostHogStorageTest {
     @Test("writes to disk in an api key folder under application support directory")
     func writesToDiskInAnApiKeyFolderUnderApplicationSupportDirectory() {
         let config = PostHogConfig(apiKey: "test_key")
+        storageTracker.track(config)
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
@@ -151,6 +159,7 @@ class PostHogStorageTest {
     @Test("writes to disk in an api key folder under a group container directory")
     func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
         let config = PostHogConfig(apiKey: "test_key")
+        storageTracker.track(config)
         config.appGroupIdentifier = testAppGroupIdentifier
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
@@ -176,12 +185,13 @@ class PostHogStorageTest {
 
     @Test("falls back to application support directory when app group identifier is not provided")
     func fallsBackToApplicationSupportDirectoryWhenAppGroupIdentifierIsNotProvided() {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(apiKey: uniqueApiKey())
+        storageTracker.track(config)
         config.appGroupIdentifier = nil
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "123"]
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, config.apiKey]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 

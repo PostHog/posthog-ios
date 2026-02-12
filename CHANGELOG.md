@@ -1,5 +1,7 @@
 ## Next
 
+## 3.41.1 - 2026-02-12
+
 fix: Session Replay now correctly checks the `network_timing` flag in remote config when `capturePerformance` is an object ([#470](https://github.com/PostHog/posthog-ios/pull/470))
 
 ## 3.41.0 - 2026-02-10

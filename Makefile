@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnTvOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api
 
 build: buildSdk buildExamples
 
@@ -71,8 +71,12 @@ swiftFormat:
 # use -test-iterations 10 if you want to run the tests multiple times
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
 testOniOSSimulator:
-	$(eval SIMULATOR_UDID := $(shell ./bin/helpers/find-simulator.sh))
+	$(eval SIMULATOR_UDID := $(shell ./bin/helpers/find-simulator.sh ios))
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,id=$(SIMULATOR_UDID)'
+
+testOnTvOSSimulator:
+	$(eval SIMULATOR_UDID := $(shell ./bin/helpers/find-simulator.sh tvos))
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=tvOS Simulator,id=$(SIMULATOR_UDID)'
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS'

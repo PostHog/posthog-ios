@@ -18,5 +18,11 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
         with:
           xcode-version: latest-stable
-      - name: Test SDK
+      - name: Test SDK (Swift Package)
         run: make test
+      - name: Test SDK (iOS Simulator)
+        run: make testOniOSSimulator
+      - name: Test SDK (tvOS Simulator)
+        run: make testOnTvOSSimulator
+      - name: Test SDK (macOS)
+        run: make testOnMacSimulator

@@ -1,6 +1,25 @@
 version: 2
 updates:
+  # Swift Package Manager dependencies
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+    groups:
+      development-dependencies:
+        dependency-type: "development"
+      production-dependencies:
+        dependency-type: "production"
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: weekly
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "github-actions"

@@ -17,34 +17,9 @@ private struct TestPayload: Decodable, Equatable {
 
 @Suite("Test Feature Flags", .serialized)
 enum PostHogFeatureFlagsTest {
-    class BaseTestClass {
-        let config: PostHogConfig
-        var server: MockPostHogServer!
-
+    class BaseTestClass: PostHogRemoteConfigBaseTest {
         init() {
-            config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
-            server = MockPostHogServer(version: 4)
-            server.start()
-            // important!
-            let storage = PostHogStorage(config)
-            storage.reset()
-        }
-
-        deinit {
-            let storage = PostHogStorage(config)
-            storage.reset()
-            server.stop()
-            server = nil
-        }
-
-        func getSut(
-            storage: PostHogStorage? = nil,
-            config: PostHogConfig? = nil
-        ) -> PostHogRemoteConfig {
-            let theConfig = config ?? self.config
-            let theStorage = storage ?? PostHogStorage(theConfig)
-            let api = PostHogApi(theConfig)
-            return PostHogRemoteConfig(theConfig, theStorage, api) { [:] }
+            super.init(serverVersion: 4)
         }
     }
 
@@ -136,12 +111,9 @@ enum PostHogFeatureFlagsTest {
     class TestLoadFeatureFlagsLoading: BaseTestClass {
         @Test("loads cached feature flags")
         func loadsCachedFeatureFlags() {
-            let storage = PostHogStorage(config)
-            defer { storage.reset() }
-
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": "bar"])
 
-            let sut = getSut(storage: storage)
+            let sut = getSut()
 
             #expect(sut.getFeatureFlags() as? [String: String] == ["foo": "bar"])
         }

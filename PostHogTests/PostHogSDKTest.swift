@@ -543,6 +543,7 @@ class PostHogSDKTest {
     @Test("reset deletes posthog files but not other folders")
     func resetDeletesPosthogFilesButNotOtherFolders() {
         let appFolder = applicationSupportDirectoryURL()
+        deleteSafely(appFolder)
         #expect(FileManager.default.fileExists(atPath: appFolder.path) == false)
 
         let sut = getSut()

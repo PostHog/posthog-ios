@@ -11,36 +11,7 @@ import XCTest
 
 @Suite("Test Feature Flags V3", .serialized)
 enum PostHogFeatureFlagsV3Test {
-    class BaseTestClass {
-        let config: PostHogConfig
-        var server: MockPostHogServer!
-
-        init() {
-            config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
-            server = MockPostHogServer()
-            server.start()
-            // important!
-            let storage = PostHogStorage(config)
-            storage.reset()
-        }
-
-        deinit {
-            let storage = PostHogStorage(config)
-            storage.reset()
-            server.stop()
-            server = nil
-        }
-
-        func getSut(
-            storage: PostHogStorage? = nil,
-            config: PostHogConfig? = nil
-        ) -> PostHogRemoteConfig {
-            let theConfig = config ?? self.config
-            let theStorage = storage ?? PostHogStorage(theConfig)
-            let api = PostHogApi(theConfig)
-            return PostHogRemoteConfig(theConfig, theStorage, api) { [:] }
-        }
-    }
+    typealias BaseTestClass = PostHogRemoteConfigBaseTest
 
     @Suite("Test getFeatureFlag")
     class TestGetFeatureFlagValue: BaseTestClass {
@@ -130,12 +101,9 @@ enum PostHogFeatureFlagsV3Test {
     class TestLoadFeatureFlagsLoading: BaseTestClass {
         @Test("loads cached feature flags")
         func loadsCachedFeatureFlags() {
-            let storage = PostHogStorage(config)
-            defer { storage.reset() }
-
             storage.setDictionary(forKey: .enabledFeatureFlags, contents: ["foo": "bar"])
 
-            let sut = getSut(storage: storage)
+            let sut = getSut()
 
             #expect(sut.getFeatureFlags() as? [String: String] == ["foo": "bar"])
         }

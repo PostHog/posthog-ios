@@ -46,10 +46,12 @@ class PostHogFileBackedQueue {
     }
 
     func delete(index: Int) {
-        if items.isEmpty { return }
-        let removed = items.remove(at: index)
-
-        deleteSafely(queue.appendingPathComponent(removed))
+        if let removed = _items.mutate({ items -> String? in
+            guard index < items.count else { return nil }
+            return items.remove(at: index)
+        }) {
+            deleteSafely(queue.appendingPathComponent(removed))
+        }
     }
 
     func pop(_ count: Int) {
@@ -60,7 +62,7 @@ class PostHogFileBackedQueue {
         do {
             let filename = "\(Date().timeIntervalSince1970)"
             try contents.write(to: queue.appendingPathComponent(filename))
-            items.append(filename)
+            _items.mutate { $0.append(filename) }
         } catch {
             hedgeLog("Could not write file \(error)")
         }

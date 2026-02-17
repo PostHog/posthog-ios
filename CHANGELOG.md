@@ -1,5 +1,7 @@
 ## Next
 
+- chore: use remote config as sole config loading mechanism, remove `config=true` from flags endpoint ([#475](https://github.com/PostHog/posthog-ios/pull/475))
+
 ## 3.41.1 - 2026-02-12
 
 fix: Session Replay now correctly checks the `network_timing` flag in remote config when `capturePerformance` is an object ([#470](https://github.com/PostHog/posthog-ios/pull/470))

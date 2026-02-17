@@ -144,19 +144,29 @@ import Foundation
 
         // MARK: - Stack Frames
 
-        /// Builds stack frames from the crashed thread.
+        /// Builds stack frames from the crash report.
+        /// For NSExceptions, uses the exception's original stack frames (the throw location).
+        /// For signals/mach exceptions, uses the crashed thread's stack frames.
 
         private static func buildStackFrames(
             from report: PLCrashReport,
             config: PostHogErrorTrackingConfig
         ) -> [PostHogStackFrame] {
-            guard let crashedThread = findCrashedThread(in: report) else {
+            // For NSExceptions, prefer the exception's original stack frames
+            let rawFrames: [PLCrashReportStackFrameInfo]
+            if report.hasExceptionInfo,
+               let exceptionFrames = report.exceptionInfo?.stackFrames as? [PLCrashReportStackFrameInfo],
+               !exceptionFrames.isEmpty {
+                rawFrames = exceptionFrames
+            } else if let crashedThread = findCrashedThread(in: report) {
+                rawFrames = crashedThread.stackFrames as? [PLCrashReportStackFrameInfo] ?? []
+            } else {
                 return []
             }
 
             var frames: [PostHogStackFrame] = []
 
-            for case let frame as PLCrashReportStackFrameInfo in crashedThread.stackFrames {
+            for frame in rawFrames {
                 var module: String?
                 var package: String?
                 var imageAddress: UInt64?

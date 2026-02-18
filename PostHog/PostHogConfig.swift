@@ -215,6 +215,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     func getIntegrations() -> [PostHogIntegration] {
         var integrations: [PostHogIntegration] = []
 
+        #if os(iOS) || os(macOS) || os(tvOS)
+            if errorTrackingConfig.autoCapture {
+                integrations.append(PostHogErrorTrackingAutoCaptureIntegration())
+            }
+        #endif
+
         if captureScreenViews {
             integrations.append(PostHogScreenViewIntegration())
         }

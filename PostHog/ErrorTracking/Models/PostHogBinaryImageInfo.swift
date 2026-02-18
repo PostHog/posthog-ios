@@ -22,13 +22,25 @@ struct PostHogBinaryImageInfo {
     let uuid: String?
 
     /// Virtual memory address from the Mach-O headers (preferred load address)
-    let vmAddress: UInt64
+    let vmAddress: UInt64?
 
     /// Actual load address in memory (may differ from vmAddress due to ASLR)
     let address: UInt64
 
     /// Size of the binary image in bytes
     let size: UInt64
+
+    /// CPU architecture (e.g., "arm64", "x86_64")
+    let arch: String?
+
+    init(name: String, uuid: String?, vmAddress: UInt64?, address: UInt64, size: UInt64, arch: String? = nil) {
+        self.name = name
+        self.uuid = uuid
+        self.vmAddress = vmAddress
+        self.address = address
+        self.size = size
+        self.arch = arch
+    }
 
     var toDictionary: [String: Any] {
         var dict: [String: Any] = [
@@ -42,7 +54,13 @@ struct PostHogBinaryImageInfo {
             dict["debug_id"] = uuid
         }
 
-        dict["image_vmaddr"] = String(format: PostHogStackFrame.hexAddressFormat, vmAddress)
+        if let vmAddress, vmAddress > 0 {
+            dict["image_vmaddr"] = String(format: PostHogStackFrame.hexAddressFormat, vmAddress)
+        }
+
+        if let arch = arch {
+            dict["arch"] = arch
+        }
 
         return dict
     }

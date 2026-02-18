@@ -15,6 +15,8 @@ import MachO
 /// - Text segment address and size (for address range calculation)
 /// - Load addresses (for offset calculation)
 ///
+/// Note: Now that we have a PLCrashReporter integration, we could generate a live crash report using their API
+/// and extract the debug images from there, to be consistent with crash reporting. Will keep this for now
 enum PostHogDebugImageProvider {
     private static let segmentText = "__TEXT"
 

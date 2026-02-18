@@ -25,7 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
            catch:(void(^)(NSException *exception))catchBlock
          finally:(nullable void(^)(void))finallyBlock;
 
-/// Trigger a sample NSRangeException for testing purposes
+/// Trigger a sample NSRangeException for testing purposes  
 + (void)triggerSampleRangeException;
 
 /// Trigger a sample NSInvalidArgumentException for testing purposes
@@ -38,6 +38,16 @@ NS_ASSUME_NONNULL_BEGIN
 /// This demonstrates how exceptions can be caught and rethrown with additional context
 + (void)triggerChainedException;
 
+// MARK: - Crash Triggers for Testing
+
+/// Trigger an uncaught NSException
++ (void)triggerUncaughtNSException;
+
+/// Trigger a null pointer dereference (EXC_BAD_ACCESS)
++ (void)triggerNullPointerCrash;
+
+/// Trigger an abort signal (SIGABRT)
++ (void)triggerAbortCrash;
 
 @end
 

@@ -94,6 +94,7 @@ struct PostHogPropertiesSerializationTests {
         }
 
         func getSut(flushAt: Int = 1) -> PostHogSDK {
+            server.reset(batchCount: flushAt)
             let config = makeConfig()
             config.flushAt = flushAt
             config.personProfiles = .always

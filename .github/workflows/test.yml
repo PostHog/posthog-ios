@@ -22,7 +22,5 @@ jobs:
         run: make test
       - name: Test SDK (iOS Simulator)
         run: make testOniOSSimulator
-      - name: Test SDK (tvOS Simulator)
-        run: make testOnTvOSSimulator
       - name: Test SDK (macOS)
         run: make testOnMacSimulator

@@ -275,8 +275,9 @@ enum PostHogRemoteConfigTest {
 
             @Test("returns isSessionReplayFlagActive true if feature flag active")
             func returnIsSessionReplayFlagActiveTrueIfFeatureFlagActive() async {
-                super.config.sessionReplay = true
-                let sut = getSut()
+                let sut = getSut { config in
+                    config.sessionReplay = true
+                }
 
                 #expect(sut.isSessionReplayFlagActive() == false)
 
@@ -295,8 +296,9 @@ enum PostHogRemoteConfigTest {
 
             @Test("returns isSessionReplayFlagActive true if bool linked flag is enabled")
             func returnsIsSessionReplayFlagActiveTrueIfBoolLinkedFlagIsEnabled() async {
-                super.config.sessionReplay = true
-                let sut = getSut()
+                let sut = getSut { config in
+                    config.sessionReplay = true
+                }
 
                 #expect(sut.isSessionReplayFlagActive() == false)
 
@@ -337,8 +339,9 @@ enum PostHogRemoteConfigTest {
 
             @Test("returns isSessionReplayFlagActive true if multi variant linked flag is a match")
             func returnsIsSessionReplayFlagActiveTrueIfMultiVariantLinkedFlagIsAMatch() async {
-                super.config.sessionReplay = true
-                let sut = getSut()
+                let sut = getSut { config in
+                    config.sessionReplay = true
+                }
 
                 #expect(sut.isSessionReplayFlagActive() == false)
 

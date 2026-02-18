@@ -71,9 +71,11 @@ class PostHogRemoteConfigBaseTest {
 
     func getSut(
         storage: PostHogStorage? = nil,
-        config: PostHogConfig? = nil
+        config: PostHogConfig? = nil,
+        configureConfig: ((PostHogConfig) -> Void)? = nil
     ) -> PostHogRemoteConfig {
         let theConfig = config ?? self.config
+        configureConfig?(theConfig)
         let theStorage = storage ?? self.storage
         let api = PostHogApi(theConfig)
         return PostHogRemoteConfig(theConfig, theStorage, api) { [:] }

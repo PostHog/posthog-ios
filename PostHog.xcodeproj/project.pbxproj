@@ -2283,8 +2283,6 @@
 				DA578E9A2D676AF100B3A56C /* ApplicationScreenViewPublisher.swift in Sources */,
 				69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */,
 				DA9AE8F42D89AFD7002F1B44 /* BottomSection.swift in Sources */,
-				DA578E9A2D676AF100B3A56C /* ApplicationScreenViewPublisher.swift in Sources */,
-				69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */,
 				699C5FE62C20178E007DB818 /* UUIDUtils.swift in Sources */,
 				690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */,
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,

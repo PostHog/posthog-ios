@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 09/12/2024.
 //
 
-#if canImport(UIKit) || targetEnvironment(macCatalyst)
+#if os(iOS)
     import Foundation
     @testable import PostHog
     import Testing

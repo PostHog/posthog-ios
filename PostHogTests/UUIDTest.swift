@@ -42,8 +42,8 @@ struct UUIDTest {
         #expect(uuid.leastSignificantBits == -7_503_087_083_654_801_332)
     }
 
-    @Test("test sorted and duplicated")
-    func testSortedAndDuplicated() throws {
+    @Test("sorted and duplicated")
+    func sortedAndDuplicated() throws {
         let count = 10000
 
         var created: [UUID] = []

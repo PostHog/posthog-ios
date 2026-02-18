@@ -405,7 +405,6 @@ enum PostHogRemoteConfigTest {
                 #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
                 #expect(config.snapshotEndpoint == "/newS/")
                 #expect(sut.isSessionReplayFlagActive() == false)
-
             }
         }
     #endif

@@ -207,7 +207,11 @@ struct PostHogPropertiesSerializationTests {
     class SetPersonPropertiesTests: BaseTestSuite {
         @Test("setPersonProperties with property type", arguments: propertyPayloads)
         func setPersonPropertiesWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut(flushAt: 2)
+            server.reset(batchCount: 1)
+            let config = makeConfig()
+            config.flushAt = 2
+            config.personProfiles = .always
+            let sut = makeSDK(config: config)
 
             sut.identify("user123")
             sut.setPersonProperties(userPropertiesToSet: payload.properties())

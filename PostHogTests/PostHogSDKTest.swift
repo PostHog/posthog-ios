@@ -53,6 +53,7 @@ class PostHogSDKTest {
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
+        server.reset()
         let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = preloadFeatureFlags
@@ -103,7 +104,6 @@ class PostHogSDKTest {
         let groupProps = event.properties["$groups"] as? [String: String] ?? [:]
         #expect(groupProps["groupProp"] == "value")
 
-        sut.reset()
         sut.close()
     }
 
@@ -123,7 +123,6 @@ class PostHogSDKTest {
         #expect(event.properties["$screen_name"] as? String == "theScreen")
         #expect(event.properties["prop"] as? String == "value")
 
-        sut.reset()
         sut.close()
     }
 
@@ -145,7 +144,6 @@ class PostHogSDKTest {
         #expect(groupEvent.properties["$group_key"] as? String == "some-key")
         #expect((groupEvent.properties["$group_set"] as? [String: Any])?["name"] as? String == "some-company-name")
 
-        sut.reset()
         sut.close()
     }
 
@@ -161,7 +159,6 @@ class PostHogSDKTest {
 
         #expect(sut.isOptOut() == false)
 
-        sut.reset()
         sut.close()
     }
 
@@ -173,7 +170,6 @@ class PostHogSDKTest {
 
         #expect(sut.isOptOut() == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -190,7 +186,6 @@ class PostHogSDKTest {
 
         #expect(sut.getAppLifeCycleIntegration() == nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -215,7 +210,6 @@ class PostHogSDKTest {
             // Expected timeout
         }
 
-        sut.reset()
         sut.close()
     }
 
@@ -231,7 +225,6 @@ class PostHogSDKTest {
 
         #expect(sut.isFeatureEnabled("bool-value") == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -242,7 +235,6 @@ class PostHogSDKTest {
         waitFlagsRequest(server)
         #expect(sut.isFeatureEnabled("bool-value") == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -266,7 +258,6 @@ class PostHogSDKTest {
         #expect(event.properties["$feature_flag_version"] as? Int == 23)
         #expect(event.properties["$feature_flag_reason"] as? String == "Matched condition set 3")
 
-        sut.reset()
         sut.close()
     }
 
@@ -290,7 +281,6 @@ class PostHogSDKTest {
         #expect(event.properties["$feature_flag_version"] as? Int == 1)
         #expect(event.properties["$feature_flag_reason"] as? String == "Matched condition set 1")
 
-        sut.reset()
         sut.close()
     }
 
@@ -310,7 +300,6 @@ class PostHogSDKTest {
         #expect(event.properties["$feature_flag"] as? String == "bool-value")
         #expect(event.properties["$feature_flag_response"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -330,7 +319,6 @@ class PostHogSDKTest {
         #expect(event.properties["$feature_flag"] as? String == "bool-value")
         #expect(event.properties["$feature_flag_response"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -359,7 +347,6 @@ class PostHogSDKTest {
         let groups = request!["groups"] as? [String: String] ?? [:]
         #expect(groups["some-type"] == "some-key")
 
-        sut.reset()
         sut.close()
     }
 
@@ -382,7 +369,6 @@ class PostHogSDKTest {
         #expect(groups!["some-type"] == "some-key")
         #expect(groups!["some-type-2"] == "some-key-2")
 
-        sut.reset()
         sut.close()
     }
 
@@ -406,7 +392,6 @@ class PostHogSDKTest {
         #expect(event.properties["test3"] as? String == "test")
         #expect(event.properties["test2"] as? String == nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -431,7 +416,6 @@ class PostHogSDKTest {
         #expect(event.properties["$feature/bool-value"] as? Bool == true)
         #expect(event.properties["$feature/disabled-flag"] as? Bool == false)
 
-        sut.reset()
         sut.close()
     }
 
@@ -466,7 +450,6 @@ class PostHogSDKTest {
         #expect(event.properties["dictIsOk"] != nil)
         #expect(event.properties["boolIsOk"] != nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -483,7 +466,6 @@ class PostHogSDKTest {
         let event = events.first!
         #expect(event.properties["$session_id"] != nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -512,7 +494,6 @@ class PostHogSDKTest {
         #expect(events[1].properties["$session_id"] as? String == sessionId)
         #expect(events[2].properties["$session_id"] as? String == sessionId)
 
-        sut.reset()
         sut.close()
     }
 
@@ -536,7 +517,6 @@ class PostHogSDKTest {
         #expect(events[0].properties["$session_id"] as? String != nil)
         #expect(events[1].properties["$session_id"] as? String == nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -567,7 +547,6 @@ class PostHogSDKTest {
 
         #expect(events[0].properties["empty"] as? String == nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -615,7 +594,6 @@ class PostHogSDKTest {
 
         #expect(toISO8601String(event.timestamp) == toISO8601String(eventDate))
 
-        sut.reset()
         sut.close()
     }
 
@@ -631,7 +609,6 @@ class PostHogSDKTest {
         let events = try await getServerEvents(server)
         #expect(events.first!.event == "$feature_flag_called")
 
-        sut.reset()
         sut.close()
     }
 
@@ -651,7 +628,6 @@ class PostHogSDKTest {
         #expect(events[0].event == "$feature_flag_called")
         #expect(events[1].event == "force_batch_flush")
 
-        sut.reset()
         sut.close()
     }
 
@@ -686,7 +662,6 @@ class PostHogSDKTest {
         #expect(personProperties["$lib"] != nil)
         #expect(personProperties["$lib_version"] != nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -708,7 +683,6 @@ class PostHogSDKTest {
         // person_properties should be nil when default properties are disabled
         #expect(lastRequest["person_properties"] == nil)
 
-        sut.reset()
         sut.close()
     }
 
@@ -721,7 +695,6 @@ class PostHogSDKTest {
 
             #expect(sut.isAutocaptureActive() == false)
 
-            sut.reset()
             sut.close()
         }
 

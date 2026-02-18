@@ -219,7 +219,6 @@ enum PostHogFeatureFlagsTest {
             #expect(personProperties["plan"] as? String == "premium", "Expected plan to be 'premium'")
             #expect(personProperties["age"] as? Int == 25, "Expected age to be 25")
 
-            sut.reset()
             sut.close()
         }
 
@@ -260,7 +259,6 @@ enum PostHogFeatureFlagsTest {
             #expect(personProperties["property2"] as? String == "value2", "Expected property2 to be 'value2'")
             #expect(personProperties["shared"] as? String == "updated", "Expected shared property to be 'updated' (latest value)")
 
-            sut.reset()
             sut.close()
         }
 
@@ -299,7 +297,6 @@ enum PostHogFeatureFlagsTest {
                 // Device properties like $device_manufacturer, $os_name etc. are expected to remain
             }
 
-            sut.reset()
             sut.close()
         }
 
@@ -348,7 +345,6 @@ enum PostHogFeatureFlagsTest {
             #expect(orgProperties["seats"] as? Int == 50, "Expected organization seats to be 50")
             #expect(orgProperties["industry"] as? String == "technology", "Expected organization industry to be 'technology'")
 
-            sut.reset()
             sut.close()
         }
 
@@ -386,7 +382,6 @@ enum PostHogFeatureFlagsTest {
             #expect(groupProperties["organization"]?["plan"] as? String == "enterprise", "Expected organization plan to be 'enterprise'")
             #expect(groupProperties["team"]?["role"] as? String == "engineering", "Expected team role to be 'engineering'")
 
-            sut.reset()
             sut.close()
         }
 
@@ -427,7 +422,6 @@ enum PostHogFeatureFlagsTest {
             #expect(groupProperties["organization"] == nil, "Expected organization properties to be cleared")
             #expect(groupProperties["team"]?["role"] as? String == "engineering", "Expected team role to still be 'engineering'")
 
-            sut.reset()
             sut.close()
         }
 
@@ -462,7 +456,6 @@ enum PostHogFeatureFlagsTest {
 
             #expect(requestBody["group_properties"] == nil, "Expected group_properties to be nil after reset")
 
-            sut.reset()
             sut.close()
         }
 
@@ -508,7 +501,6 @@ enum PostHogFeatureFlagsTest {
 
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise'")
 
-            sut.reset()
             sut.close()
         }
 
@@ -548,7 +540,6 @@ enum PostHogFeatureFlagsTest {
 
             #expect(personProperties["user_plan"] as? String == "premium", "Expected user_plan to be 'premium' from capture call")
 
-            sut.reset()
             sut.close()
         }
 
@@ -588,7 +579,6 @@ enum PostHogFeatureFlagsTest {
 
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise' from group call")
 
-            sut.reset()
             sut.close()
         }
     }

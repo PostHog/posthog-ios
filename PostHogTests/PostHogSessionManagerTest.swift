@@ -177,6 +177,7 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
+            server.reset()
             let config = makeConfig()
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
@@ -196,7 +197,6 @@ enum PostHogSessionManagerTest {
             now = { mockNow.date }
 
             defer {
-                sut.reset()
                 sut.close()
             }
 
@@ -229,7 +229,6 @@ enum PostHogSessionManagerTest {
             now = { mockNow.date }
 
             defer {
-                sut.reset()
                 sut.close()
             }
 
@@ -256,7 +255,6 @@ enum PostHogSessionManagerTest {
 
             #expect(sessionId1 != sessionId2)
 
-            sut.reset()
             sut.close()
         }
 
@@ -268,7 +266,6 @@ enum PostHogSessionManagerTest {
             now = { mockNow.date }
 
             defer {
-                sut.reset()
                 sut.close()
             }
 

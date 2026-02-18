@@ -120,7 +120,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "test_event")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -139,7 +138,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "$screen")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -158,7 +156,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "$identify")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -177,7 +174,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "$groupidentify")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -196,7 +192,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
     }
@@ -219,7 +214,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 2)
 
-            sut.reset()
             sut.close()
         }
     }
@@ -236,7 +230,6 @@ struct PostHogPropertiesSerializationTests {
 
             // No-crash test: verifies non-JSON-serializable types don't crash
 
-            sut.reset()
             sut.close()
         }
     }
@@ -253,7 +246,6 @@ struct PostHogPropertiesSerializationTests {
 
             // No-crash test: verifies non-JSON-serializable types don't crash
 
-            sut.reset()
             sut.close()
         }
     }
@@ -271,7 +263,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
 
@@ -284,7 +275,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
 
@@ -307,7 +297,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
     }

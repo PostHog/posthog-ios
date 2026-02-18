@@ -21,6 +21,7 @@ class PostHogIdentityTests {
         reuseAnonymousId: Bool = false,
         flushAt: Int = 1
     ) -> PostHogSDK {
+        server.reset()
         let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
         storageTracker.track(config)
         config.captureApplicationLifecycleEvents = false

@@ -39,6 +39,7 @@ class PostHogSDKPersonProfilesTest {
     func getSut(flushAt: Int = 1,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
+        server.reset()
         let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = false
@@ -64,7 +65,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-        sut.reset()
         sut.close()
     }
 
@@ -83,7 +83,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -102,7 +101,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -121,7 +119,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -141,7 +138,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -161,7 +157,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -181,7 +176,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -199,7 +193,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == true)
 
-        sut.reset()
         sut.close()
     }
 
@@ -220,7 +213,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-        sut.reset()
         sut.close()
     }
 
@@ -241,7 +233,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-        sut.reset()
         sut.close()
     }
 
@@ -262,7 +253,6 @@ class PostHogSDKPersonProfilesTest {
 
         #expect(event.properties["$process_person_profile"] as? Bool == false)
 
-        sut.reset()
         sut.close()
     }
 }

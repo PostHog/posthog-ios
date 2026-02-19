@@ -2,7 +2,7 @@
 //  PostHogDeepLinkIntegration.swift
 //  PostHog
 //
-//  Created by PostHog on 27.02.25.
+//  Created by Jeremiah Erinola on 18.02.26.
 //
 
 import Foundation
@@ -11,7 +11,7 @@ import Foundation
     import UIKit
 #endif
 
-class PostHogDeepLinkIntegration: PostHogIntegration {
+class PostHogDeepLinkIntegration: NSObject, PostHogIntegration {
     var requiresSwizzling: Bool { true }
 
     private static var integrationInstalledLock = NSLock()
@@ -97,19 +97,19 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
 
         // application(_:open:options:)
         let openURLSelector = #selector(UIApplicationDelegate.application(_:open:options:))
-        let swizzledOpenURLSelector = #selector(UIApplicationDelegate.ph_swizzled_application(_:open:options:))
+        let swizzledOpenURLSelector = #selector(NSObject.ph_swizzled_application(_:open:options:))
 
         // Add the swizzled implementation to the delegate class
-        let openURLMethod = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_swizzled_application(_:open:options:)))
+        let openURLMethod = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_swizzled_application(_:open:options:)))
         if let method = openURLMethod {
-            addMethod(forClass: delegateClass, selector: swizzledOpenURLSelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+            addMethod(forClass: delegateClass, selector: swizzledOpenURLSelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
         }
 
         // Check if the delegate implements the original method, if not add a fallback
         if class_getInstanceMethod(delegateClass, openURLSelector) == nil {
-            let method = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_fallback_application(_:open:options:)))
+            let method = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_fallback_application(_:open:options:)))
             if let method = method {
-                addMethod(forClass: delegateClass, selector: openURLSelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+                addMethod(forClass: delegateClass, selector: openURLSelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
             }
         }
 
@@ -121,18 +121,18 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
 
         // application(_:continue:restorationHandler:)
         let continueActivitySelector = #selector(UIApplicationDelegate.application(_:continue:restorationHandler:))
-        let swizzledContinueActivitySelector = #selector(UIApplicationDelegate.ph_swizzled_application(_:continue:restorationHandler:))
+        let swizzledContinueActivitySelector = #selector(NSObject.ph_swizzled_application(_:continue:restorationHandler:))
 
         // Add the swizzled implementation to the delegate class
-        let continueActivityMethod = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_swizzled_application(_:continue:restorationHandler:)))
+        let continueActivityMethod = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_swizzled_application(_:continue:restorationHandler:)))
         if let method = continueActivityMethod {
-            addMethod(forClass: delegateClass, selector: swizzledContinueActivitySelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+            addMethod(forClass: delegateClass, selector: swizzledContinueActivitySelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
         }
 
         if class_getInstanceMethod(delegateClass, continueActivitySelector) == nil {
-            let method = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_fallback_application(_:continue:restorationHandler:)))
+            let method = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_fallback_application(_:continue:restorationHandler:)))
             if let method = method {
-                addMethod(forClass: delegateClass, selector: continueActivitySelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+                addMethod(forClass: delegateClass, selector: continueActivitySelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
             }
         }
 
@@ -162,18 +162,18 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
 
         // scene(_:openURLContexts:)
         let openURLContextsSelector = #selector(UISceneDelegate.scene(_:openURLContexts:))
-        let swizzledOpenURLContextsSelector = #selector(UISceneDelegate.ph_swizzled_scene(_:openURLContexts:))
+        let swizzledOpenURLContextsSelector = #selector(NSObject.ph_swizzled_scene(_:openURLContexts:))
 
         // Add the swizzled implementation to the delegate class
-        let openURLContextsMethod = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_swizzled_scene(_:openURLContexts:)))
+        let openURLContextsMethod = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_swizzled_scene(_:openURLContexts:)))
         if let method = openURLContextsMethod {
-            addMethod(forClass: delegateClass, selector: swizzledOpenURLContextsSelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+            addMethod(forClass: delegateClass, selector: swizzledOpenURLContextsSelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
         }
 
         if class_getInstanceMethod(delegateClass, openURLContextsSelector) == nil {
-             let method = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_fallback_scene(_:openURLContexts:)))
+             let method = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_fallback_scene(_:openURLContexts:)))
              if let method = method {
-                 addMethod(forClass: delegateClass, selector: openURLContextsSelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+                 addMethod(forClass: delegateClass, selector: openURLContextsSelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
              }
          }
 
@@ -185,18 +185,18 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
 
         // scene(_:continue:)
         let continueActivitySelector = #selector(UISceneDelegate.scene(_:continue:))
-        let swizzledContinueActivitySelector = #selector(UISceneDelegate.ph_swizzled_scene(_:continue:))
+        let swizzledContinueActivitySelector = #selector(NSObject.ph_swizzled_scene(_:continue:))
 
         // Add the swizzled implementation to the delegate class
-        let continueActivityMethod = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_swizzled_scene(_:continue:)))
+        let continueActivityMethod = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_swizzled_scene(_:continue:)))
         if let method = continueActivityMethod {
-            addMethod(forClass: delegateClass, selector: swizzledContinueActivitySelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+            addMethod(forClass: delegateClass, selector: swizzledContinueActivitySelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
         }
 
         if class_getInstanceMethod(delegateClass, continueActivitySelector) == nil {
-             let method = class_getInstanceMethod(PostHogDeepLinkIntegration.self, #selector(PostHogDeepLinkIntegration.ph_fallback_scene(_:continue:)))
+             let method = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_fallback_scene(_:continue:)))
              if let method = method {
-                 addMethod(forClass: delegateClass, selector: continueActivitySelector, implementation: method_getImplementation(method), types: method_getTypeEncoding(method)!)
+                 addMethod(forClass: delegateClass, selector: continueActivitySelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
              }
          }
 
@@ -205,6 +205,34 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
             original: continueActivitySelector,
             new: swizzledContinueActivitySelector
         )
+
+        // scene(_:willConnectTo:options:)
+        // Only swizzle if the delegate implements it, to avoid breaking default Storyboard behavior
+        let willConnectSelector = #selector(UISceneDelegate.scene(_:willConnectTo:options:))
+        let swizzledWillConnectSelector = #selector(NSObject.ph_swizzled_scene(_:willConnectTo:options:))
+
+        if class_getInstanceMethod(delegateClass, willConnectSelector) != nil {
+            let willConnectMethod = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_swizzled_scene(_:willConnectTo:options:)))
+
+            if let method = willConnectMethod {
+                addMethod(forClass: delegateClass, selector: swizzledWillConnectSelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
+            }
+
+            // Fallback is theoretically needed if we exchange, but here we ONLY swizzle if method exists.
+            // However, to be consistent and safe if logic changes:
+             if class_getInstanceMethod(delegateClass, willConnectSelector) == nil {
+                 let method = class_getInstanceMethod(NSObject.self, #selector(NSObject.ph_fallback_scene(_:willConnectTo:options:)))
+                 if let method = method {
+                     addMethod(forClass: delegateClass, selector: willConnectSelector, implementation: method_getImplementation(method), types: String(cString: method_getTypeEncoding(method)!))
+                 }
+             }
+
+            swizzle(
+                forClass: delegateClass,
+                original: willConnectSelector,
+                new: swizzledWillConnectSelector
+            )
+        }
     }
 
     @objc private func sceneWillConnect(_ notification: Notification) {
@@ -215,26 +243,15 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
         }
     }
 
+    #endif
+}
+
+extension NSObject {
+    #if os(iOS) || os(tvOS)
     // MARK: - Swizzled Implementations (to be added to delegate classes)
 
     @objc func ph_swizzled_application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         PostHogDeepLinkIntegration.trackDeepLink(url: url, options: options)
-        // Call the original implementation (which is now swizzled to this method, but the selector points to the original implementation due to the exchange)
-        // However, since we are adding this method to the delegate class, 'self' will be the delegate instance.
-        // The original selector now points to this implementation.
-        // The swizzled selector points to the original implementation.
-        // So we need to call the method corresponding to the swizzled selector on self.
-
-        // Wait, standard swizzling:
-        // original -> originalImp
-        // swizzled -> swizzledImp
-        // exchange:
-        // original -> swizzledImp
-        // swizzled -> originalImp
-
-        // Inside swizzledImp (this function):
-        // calling self.swizzled() calls originalImp.
-
         return ph_swizzled_application(app, open: url, options: options)
     }
 
@@ -257,6 +274,23 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
         ph_swizzled_scene(scene, continue: userActivity)
     }
 
+    @available(iOS 13.0, tvOS 13.0, *)
+    @objc func ph_swizzled_scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        for context in connectionOptions.urlContexts {
+            PostHogDeepLinkIntegration.trackDeepLink(url: context.url, options: context.options)
+        }
+        for userActivity in connectionOptions.userActivities {
+            PostHogDeepLinkIntegration.trackDeepLink(userActivity: userActivity)
+        }
+        ph_forward_sceneWillConnect(scene, session, connectionOptions)
+    }
+
+    @available(iOS 13.0, tvOS 13.0, *)
+    @inline(never)
+    private func ph_forward_sceneWillConnect(_ scene: UIScene, _ session: UISceneSession, _ options: UIScene.ConnectionOptions) {
+        ph_swizzled_scene(scene, willConnectTo: session, options: options)
+    }
+
     // MARK: - Fallback implementations for adding methods
 
     @objc func ph_fallback_application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
@@ -273,6 +307,10 @@ class PostHogDeepLinkIntegration: PostHogIntegration {
 
     @available(iOS 13.0, tvOS 13.0, *)
     @objc func ph_fallback_scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    }
+
+    @available(iOS 13.0, tvOS 13.0, *)
+    @objc func ph_fallback_scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
     }
     #endif
 }
@@ -298,10 +336,13 @@ extension PostHogDeepLinkIntegration {
     }
     #endif
 
-    static func trackDeepLink(url: URL, referrer: String?) {
-        guard let postHog = PostHogDeepLinkIntegration.currentInstance,
-              postHog.config.captureDeepLinks else { return }
-
+    /// Builds the properties dictionary for a deep link event.
+    /// Extracted for unit testing of property extraction logic.
+    /// - Parameters:
+    ///   - url: The deep link URL opened.
+    ///   - referrer: The referrer string (may be a URL or other identifier).
+    /// - Returns: A dictionary of event properties including `url`, optional `$referrer` and `$referring_domain`.
+    static func buildDeepLinkProperties(url: URL, referrer: String?) -> [String: Any] {
         var properties: [String: Any] = ["url": url.absoluteString]
 
         if let referrer = referrer {
@@ -313,6 +354,15 @@ extension PostHogDeepLinkIntegration {
             }
         }
 
+        return properties
+    }
+
+    static func trackDeepLink(url: URL, referrer: String?) {
+        guard let postHog = PostHogDeepLinkIntegration.currentInstance,
+              postHog.config.captureDeepLinks else { return }
+
+        let properties = buildDeepLinkProperties(url: url, referrer: referrer)
         postHog.capture("Deep Link Opened", properties: properties)
     }
 }
+

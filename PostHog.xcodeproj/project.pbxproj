@@ -105,6 +105,7 @@
 		69F5181A2BAC81FC00F52C14 /* UITextInputTraits+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */; };
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		CL000001CDE129010001FF01 /* PostHogFeatureFlagResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = CL000001CDE129010001FF00 /* PostHogFeatureFlagResult.swift */; };
+		D9D9AC0C89F3174A30EE52DC /* PostHogDeepLinkIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E6F62BC941AF59AF44595C /* PostHogDeepLinkIntegration.swift */; };
 		DA0B66A52D64EC00006F5FF3 /* ph_sharpyuv_csp.h in Headers */ = {isa = PBXBuildFile; fileRef = DA0B66982D64EC00006F5FF3 /* ph_sharpyuv_csp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DA0B66A62D64EC00006F5FF3 /* ph_sharpyuv_dsp.h in Headers */ = {isa = PBXBuildFile; fileRef = DA0B66992D64EC00006F5FF3 /* ph_sharpyuv_dsp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DA0B66A72D64EC00006F5FF3 /* ph_huffman_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = DA0B668A2D64EC00006F5FF3 /* ph_huffman_utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -647,6 +648,7 @@
 		69F518172BAC80A300F52C14 /* String+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Util.swift"; sourceTree = "<group>"; };
 		69F518192BAC81FC00F52C14 /* UITextInputTraits+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UITextInputTraits+Util.swift"; sourceTree = "<group>"; };
 		69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSwizzler.swift; sourceTree = "<group>"; };
+		83E6F62BC941AF59AF44595C /* PostHogDeepLinkIntegration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogDeepLinkIntegration.swift; sourceTree = "<group>"; };
 		CL000001CDE129010001FF00 /* PostHogFeatureFlagResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagResult.swift; sourceTree = "<group>"; };
 		DA0B66792D64EC00006F5FF3 /* ph_backward_references_enc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ph_backward_references_enc.h; sourceTree = "<group>"; };
 		DA0B667A2D64EC00006F5FF3 /* ph_bit_reader_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ph_bit_reader_utils.h; sourceTree = "<group>"; };
@@ -904,6 +906,7 @@
 		DAFEC4582E03F93A0064535E /* PostHogDisplaySurveyAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogDisplaySurveyAppearance.swift; sourceTree = "<group>"; };
 		DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveysRootView.swift; sourceTree = "<group>"; };
 		DAFF026C2D7B2F8D00BD5B1D /* SurveyDisplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyDisplayController.swift; sourceTree = "<group>"; };
+		F2C7A6141B3B17BBBC836CAD /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1001,6 +1004,7 @@
 				3AA34CFB296D951A003398F4 /* ContentView.swift */,
 				3AA34CFD296D951B003398F4 /* Assets.xcassets */,
 				3AA34CFF296D951B003398F4 /* Preview Content */,
+				F2C7A6141B3B17BBBC836CAD /* Info.plist */,
 			);
 			path = PostHogExample;
 			sourceTree = "<group>";
@@ -1388,6 +1392,7 @@
 			children = (
 				DA703C1B2D6616F20069097B /* PostHogAppLifeCycleIntegration.swift */,
 				DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */,
+				83E6F62BC941AF59AF44595C /* PostHogDeepLinkIntegration.swift */,
 			);
 			path = "App Life Cycle";
 			sourceTree = "<group>";
@@ -1747,8 +1752,6 @@
 			dependencies = (
 			);
 			name = PostHog;
-			packageProductDependencies = (
-			);
 			productName = PostHog;
 			productReference = 3AC745B5296D6FE60025C109 /* PostHog.framework */;
 			productType = "com.apple.product-type.framework";
@@ -2303,6 +2306,7 @@
 				69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */,
 				3AE3FB432992985A00AFFC18 /* Reachability.swift in Sources */,
 				69F518122BAC783300F52C14 /* CGColor+Util.swift in Sources */,
+				D9D9AC0C89F3174A30EE52DC /* PostHogDeepLinkIntegration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2480,15 +2484,17 @@
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PostHogExample/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PostHogExample;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
@@ -2518,15 +2524,17 @@
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PostHogExample/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PostHogExample;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;
@@ -3275,15 +3283,17 @@
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
 				DEVELOPMENT_TEAM = PNC2XCH2XP;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PostHogExample/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PostHogExample;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogExample;

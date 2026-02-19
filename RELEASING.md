@@ -196,3 +196,12 @@ env:
    # Clear current sessions (from the user that owned the previous token)
    pod trunk me clean-sessions
    ```
+
+#### Step 4: Update workflow docs
+
+Update `./.github/workflows/release.yml` with a comment on the new token owner.
+
+```yaml
+env:
+  COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using @username token
+```

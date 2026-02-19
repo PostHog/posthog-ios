@@ -182,8 +182,8 @@ env:
 
 1. **Go to GitHub repository settings**:
    - Request temp access if needed
-   - Navigate to `https://github.com/PostHog/posthog-ios/settings/secrets/actions`
-   - Or: Repository → Settings → Secrets and variables → Actions
+   - Navigate to `https://github.com/organizations/PostHog/settings/secrets/actions`
+   - Or: Org → Settings → Secrets and variables → Actions
 
 2. **Update the secret**:
    - Find `COCOAPODS_TRUNK_TOKEN` in the list

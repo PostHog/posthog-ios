@@ -4,4 +4,4 @@
 source bin/helpers/_utils.sh
 set_source_and_root_dir
 
-make buildSdk
+make buildIOS

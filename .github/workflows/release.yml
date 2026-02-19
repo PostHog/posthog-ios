@@ -200,15 +200,11 @@ jobs:
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Version to publish: $NEW_VERSION"
 
-      - name: Tag repository
+      # Tag must be pushed to remote before CocoaPods publish, because
+      # `pod trunk push` validates by cloning the repo at this tag from GitHub.
+      - name: Tag and push to GitHub
         run: |
           git tag -a "${{ steps.get-version.outputs.version }}" -m "${{ steps.get-version.outputs.version }}"
-
-      - name: Publish to CocoaPods
-        run: make releaseCocoaPods
-
-      - name: Push tag to GitHub
-        run: |
           git push origin "${{ steps.get-version.outputs.version }}"
 
       - name: Create GitHub release
@@ -229,6 +225,9 @@ jobs:
             -F draft=false \
             -F prerelease=false \
             -F generate_release_notes=false
+
+      - name: Publish to CocoaPods
+        run: make releaseCocoaPods
 
       # Notify in case of failure
       - name: Send failure event to PostHog

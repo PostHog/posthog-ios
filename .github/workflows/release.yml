@@ -207,9 +207,6 @@ jobs:
           git tag -a "${{ steps.get-version.outputs.version }}" -m "${{ steps.get-version.outputs.version }}"
           git push origin "${{ steps.get-version.outputs.version }}"
 
-      - name: Publish to CocoaPods
-        run: make releaseCocoaPods
-
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -228,6 +225,9 @@ jobs:
             -F draft=false \
             -F prerelease=false \
             -F generate_release_notes=false
+
+      - name: Publish to CocoaPods
+        run: make releaseCocoaPods
 
       # Notify in case of failure
       - name: Send failure event to PostHog

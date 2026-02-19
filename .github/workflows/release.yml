@@ -181,7 +181,7 @@ jobs:
     permissions:
       contents: write
     env:
-      COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+      COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }} # Using @ioannisj token
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

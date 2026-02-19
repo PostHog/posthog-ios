@@ -1282,6 +1282,40 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Captures a $feature_view event for the specified feature flag.
+    ///
+    /// - Parameter featureFlag: The key of the feature flag being viewed.
+    @objc public func captureFeatureView(_ featureFlag: String) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        capture("$feature_view", properties: ["feature_flag": featureFlag])
+    }
+
+    /// Captures a $feature_interaction event for the specified feature flag.
+    ///
+    /// - Parameter featureFlag: The key of the feature flag being interacted with.
+    @objc public func captureFeatureInteraction(_ featureFlag: String) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        capture(
+            "$feature_interaction",
+            properties: ["feature_flag": featureFlag],
+            userProperties: ["$feature_interaction/\(featureFlag)": true]
+        )
+    }
+
     /// Returns the feature flag result containing the flag value, variant, and payload.
     ///
     /// This is the recommended method for retrieving feature flags as it provides

@@ -212,7 +212,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Read from the first until the second header in the changelog file
-          LAST_CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## /{if (flag) exit; flag=1} flag && /^##$/{exit} flag; END{if (!flag) print defText}' CHANGELOG.md)
+          LAST_CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## Next$/{next} /^## /{if (flag) exit; flag=1; next} flag; END{if (!flag) print defText}' CHANGELOG.md)
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \

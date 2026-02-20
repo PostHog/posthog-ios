@@ -7,6 +7,7 @@ class PostHogEnrichedAnalyticsTest: QuickSpec {
     func getSut(optOut: Bool = false) -> PostHogSDK {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = 1
+        config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.optOut = optOut

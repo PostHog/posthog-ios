@@ -9,11 +9,13 @@ import Foundation
 
 class PostHogFileBackedQueue {
     let queue: URL
-    @ReadWriteLock
     private var items = [String]()
+    private let itemsLock = NSLock()
 
     var depth: Int {
-        items.count
+        itemsLock.lock()
+        defer { itemsLock.unlock() }
+        return items.count
     }
 
     init(queue: URL, oldQueue: URL? = nil) {
@@ -33,9 +35,12 @@ class PostHogFileBackedQueue {
         }
 
         do {
+            itemsLock.lock()
             items = try FileManager.default.contentsOfDirectory(atPath: queue.path)
             items.sort { Double($0)! < Double($1)! }
+            itemsLock.unlock()
         } catch {
+            itemsLock.unlock()
             hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
         }
@@ -46,12 +51,15 @@ class PostHogFileBackedQueue {
     }
 
     func delete(index: Int) {
-        if let removed = _items.mutate({ items -> String? in
-            guard index < items.count else { return nil }
-            return items.remove(at: index)
-        }) {
-            deleteSafely(queue.appendingPathComponent(removed))
+        itemsLock.lock()
+        guard index < items.count else {
+            itemsLock.unlock()
+            return
         }
+        let removed = items.remove(at: index)
+        itemsLock.unlock()
+
+        deleteSafely(queue.appendingPathComponent(removed))
     }
 
     func pop(_ count: Int) {
@@ -62,7 +70,10 @@ class PostHogFileBackedQueue {
         do {
             let filename = "\(Date().timeIntervalSince1970)"
             try contents.write(to: queue.appendingPathComponent(filename))
-            _items.mutate { $0.append(filename) }
+            
+            itemsLock.lock()
+            items.append(filename)
+            itemsLock.unlock()
         } catch {
             hedgeLog("Could not write file \(error)")
         }
@@ -77,7 +88,11 @@ class PostHogFileBackedQueue {
     private func loadFiles(_ count: Int) -> [Data] {
         var results = [Data]()
 
-        for item in items {
+        itemsLock.lock()
+        let itemsCopy = items
+        itemsLock.unlock()
+
+        for item in itemsCopy {
             let itemURL = queue.appendingPathComponent(item)
             do {
                 if !FileManager.default.fileExists(atPath: itemURL.path) {
@@ -103,14 +118,15 @@ class PostHogFileBackedQueue {
 
     private func deleteFiles(_ count: Int) {
         for _ in 0 ..< count {
-            if let removed: String = _items.mutate({ items in
-                if items.isEmpty {
-                    return nil
-                }
-                return items.remove(at: 0) // We always remove from the top of the queue
-            }) {
-                deleteSafely(queue.appendingPathComponent(removed))
+            itemsLock.lock()
+            if items.isEmpty {
+                itemsLock.unlock()
+                return
             }
+            let removed = items.remove(at: 0) // We always remove from the top of the queue
+            itemsLock.unlock()
+
+            deleteSafely(queue.appendingPathComponent(removed))
         }
     }
 }

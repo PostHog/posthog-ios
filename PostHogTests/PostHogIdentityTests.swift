@@ -12,14 +12,18 @@ import Testing
 @Suite("Identity tests", .serialized)
 class PostHogIdentityTests {
     let server: MockPostHogServer
+    let storageTracker = TestStorageTracker()
 
     var cleanupJobs: [() -> Void]
 
     func getSut(
+        apiKey: String = uniqueApiKey(),
         reuseAnonymousId: Bool = false,
         flushAt: Int = 1
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        server.reset()
+        let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+        storageTracker.track(config)
         config.captureApplicationLifecycleEvents = false
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
@@ -28,7 +32,6 @@ class PostHogIdentityTests {
         cleanupJobs.append {
             sut.reset()
             sut.close()
-            deleteSafely(applicationSupportDirectoryURL())
         }
         return sut
     }
@@ -44,6 +47,7 @@ class PostHogIdentityTests {
         for cleanup in cleanupJobs {
             cleanup()
         }
+        storageTracker.cleanup()
     }
 
     @Test("does not clear anonymousId on reset()")
@@ -57,12 +61,13 @@ class PostHogIdentityTests {
 
     @Test("does not clear anonymousId on close()")
     func doesNotClearAnonymousIdOnClose() async throws {
-        var sut = getSut(reuseAnonymousId: true)
+        let sharedKey = uniqueApiKey()
+        var sut = getSut(apiKey: sharedKey, reuseAnonymousId: true)
 
         let oldAnonId = sut.getAnonymousId()
         sut.close()
 
-        sut = getSut(reuseAnonymousId: true)
+        sut = getSut(apiKey: sharedKey, reuseAnonymousId: true)
         let newAnonId = sut.getAnonymousId()
 
         #expect(oldAnonId == newAnonId)
@@ -84,14 +89,15 @@ class PostHogIdentityTests {
 
     @Test("anonymousId is retained across series of identify() and reset() reuseAnonymousId is true")
     func anonymousIdIsRetailainedAcrossSeriesOfIdentifyAndResetReuseAnonymousIdIsTrue() async throws {
-        var sut = getSut(reuseAnonymousId: true)
+        let sharedKey = uniqueApiKey()
+        var sut = getSut(apiKey: sharedKey, reuseAnonymousId: true)
         let oldAnonId = sut.getAnonymousId()
         sut.identify("my_user_id")
         #expect(sut.getDistinctId() == "my_user_id")
         sut.reset()
         #expect(oldAnonId == sut.getAnonymousId())
 
-        sut = getSut(reuseAnonymousId: true)
+        sut = getSut(apiKey: sharedKey, reuseAnonymousId: true)
         sut.identify("my_user_id2")
         #expect(sut.getDistinctId() == "my_user_id2")
         sut.reset()

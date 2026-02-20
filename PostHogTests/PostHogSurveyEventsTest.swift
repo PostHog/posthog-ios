@@ -10,18 +10,7 @@ import Foundation
 import Testing
 
 @Suite("Test Survey Events", .serialized)
-class PostHogSurveyEventsTest {
-    let server: MockPostHogServer
-
-    init() {
-        server = MockPostHogServer()
-        server.start()
-    }
-
-    deinit {
-        server.stop()
-    }
-
+class PostHogSurveyEventsTest: PostHogSDKBaseTest {
     var defaultQuestions: [PostHogSurveyQuestion] = [
         .open(PostHogOpenSurveyQuestion(
             id: "qID1",
@@ -88,17 +77,10 @@ class PostHogSurveyEventsTest {
     }
 
     func getSut() -> PostHogSDK {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+        let config = makeConfig(host: "http://localhost:9090")
         config._surveys = true
         config.flushAt = 1
-        config.disableReachabilityForTesting = true
-        config.disableQueueTimerForTesting = true
-        config.captureApplicationLifecycleEvents = false
-
-        let storage = PostHogStorage(config)
-        storage.reset()
-
-        return PostHogSDK.with(config)
+        return makeSDK(config: config)
     }
 
     func getSurveyIntegration(_ postHog: PostHogSDK) throws -> PostHogSurveyIntegration {

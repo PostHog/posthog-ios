@@ -10,23 +10,17 @@ import Foundation
 import Testing
 
 @Suite("Test App Lifecycle integration", .serialized)
-final class PostHogAppLifeCycleIntegrationTest {
-    var server: MockPostHogServer!
+final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
     let mockAppLifecycle: MockApplicationLifecyclePublisher
 
     init() {
-        PostHogAppLifeCycleIntegration.clearInstalls()
-
         mockAppLifecycle = MockApplicationLifecyclePublisher()
+        super.init()
+        PostHogAppLifeCycleIntegration.clearInstalls()
         DI.main.appLifecyclePublisher = mockAppLifecycle
-
-        server = MockPostHogServer()
-        server.start()
     }
 
     deinit {
-        server.stop()
-        server = nil
         DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
     }
 
@@ -34,15 +28,11 @@ final class PostHogAppLifeCycleIntegrationTest {
         flushAt: Int = 1,
         captureApplicationLifecycleEvents: Bool = true
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "app_lifecycle", host: "http://localhost:9000")
+        let config = makeConfig(host: "http://localhost:9000")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
-
-        let storage = PostHogStorage(config)
-        storage.reset()
-
-        return PostHogSDK.with(config)
+        return makeSDK(config: config)
     }
 
     func setVersionDefaultsToCurrent() {

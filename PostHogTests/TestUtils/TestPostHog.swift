@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import PostHog
+@testable import PostHog
 import XCTest
 
 func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
@@ -85,3 +85,25 @@ let testAppGroupIdentifier = "group.com.posthog.test"
 final class BundleLocator {}
 
 let testAPIKey = "test_api_key"
+
+func uniqueApiKey() -> String {
+    "test_\(UUID().uuidString)"
+}
+
+/// Tracks PostHogConfig instances created during tests and cleans their storage.
+/// Call `track(_:)` for each config created, and `cleanup()` in deinit.
+final class TestStorageTracker {
+    private var configs: [PostHogConfig] = []
+
+    func track(_ config: PostHogConfig) {
+        configs.append(config)
+    }
+
+    func cleanup() {
+        for config in configs {
+            let storage = PostHogStorage(config)
+            storage.reset()
+        }
+        configs.removeAll()
+    }
+}

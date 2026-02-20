@@ -3,27 +3,13 @@
     import Testing
 
     @Suite("Session Replay tests", .serialized)
-    class PostHogSessionReplayTests {
-        let testAPIKey = "test_api_key"
-        let server: MockPostHogServer
-
-        init() {
-            server = MockPostHogServer()
-            server.start()
-        }
-
-        deinit {
-            server.stop()
-        }
-
+    class PostHogSessionReplayTests: PostHogSDKBaseTest {
         private func getSut(
             sessionReplay: Bool
         ) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = makeConfig()
             config.sessionReplay = sessionReplay
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            return PostHogSDK.with(config)
+            return makeSDK(config: config)
         }
 
         @Test("Session replay can be manually started when disabled in config")

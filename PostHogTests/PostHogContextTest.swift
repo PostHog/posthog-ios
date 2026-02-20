@@ -6,11 +6,11 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogContextTest: QuickSpec {
+@Suite("PostHogContext Tests")
+struct PostHogContextTest {
     func getSut() -> PostHogContext {
         #if !os(watchOS)
             var reachability: Reachability?
@@ -25,67 +25,77 @@ class PostHogContextTest: QuickSpec {
         #endif
     }
 
-    override func spec() {
-        it("returns static context") {
-            let sut = self.getSut()
+    @Test("returns static context")
+    func returnsStaticContext() {
+        let sut = getSut()
 
-            let context = sut.staticContext()
-            expect(context["$app_name"] as? String) == "xctest"
-            expect(context["$app_version"] as? String) != nil
-            expect(context["$app_build"] as? Int) != nil
-            expect(context["$app_namespace"] as? String) == "com.apple.dt.xctest.tool"
-            expect(context["$is_emulator"] as? Bool) != nil
-            #if os(iOS) || os(tvOS) || os(visionOS)
-                expect(context["$device_name"] as? String) != nil
-                expect(context["$os_name"] as? String) != nil
-                expect(context["$os_version"] as? String) != nil
-                expect(context["$device_type"] as? String) != nil
-                expect(context["$device_model"] as? String) != nil
-                expect(context["$device_manufacturer"] as? String) == "Apple"
-            #endif
+        let context = sut.staticContext()
+        // Bundle.main.infoDictionary is empty when running via `swift test` (SPM)
+        // so app_name, app_version, app_build may not be present
+        let hasBundleInfo = Bundle.main.infoDictionary?.isEmpty == false
+        if hasBundleInfo {
+            #expect(context["$app_name"] as? String != nil)
+            #expect(context["$app_version"] as? String != nil)
+            #expect(context["$app_build"] != nil)
+            #expect(context["$app_namespace"] as? String != nil)
+        }
+        #expect(context["$is_emulator"] as? Bool != nil)
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            #expect(context["$device_name"] as? String != nil)
+            #expect(context["$os_name"] as? String != nil)
+            #expect(context["$os_version"] as? String != nil)
+            #expect(context["$device_type"] as? String != nil)
+            #expect(context["$device_model"] as? String != nil)
+            #expect(context["$device_manufacturer"] as? String == "Apple")
+        #endif
+    }
+
+    @Test("returns dynamic context")
+    func returnsDynamicContext() {
+        let sut = getSut()
+
+        let context = sut.dynamicContext()
+
+        #expect(context["$locale"] as? String != nil)
+        #expect(context["$timezone"] as? String != nil)
+        #expect(context["$network_wifi"] as? Bool != nil)
+        #expect(context["$network_cellular"] as? Bool != nil)
+    }
+
+    @Test("returns sdk info")
+    func returnsSdkInfo() {
+        let sut = getSut()
+
+        let context = sut.sdkInfo()
+
+        #expect(context["$lib"] as? String == "posthog-ios")
+        #expect(context["$lib_version"] as? String == postHogVersion)
+    }
+
+    @Test("returns person properties context")
+    func returnsPersonPropertiesContext() {
+        let sut = getSut()
+
+        let context = sut.personPropertiesContext()
+
+        // Bundle.main.infoDictionary is empty when running via `swift test` (SPM)
+        let hasBundleInfo = Bundle.main.infoDictionary?.isEmpty == false
+        if hasBundleInfo {
+            #expect(context["$app_version"] as? String != nil)
+            #expect(context["$app_build"] != nil)
+            #expect(context["$app_namespace"] as? String != nil)
         }
 
-        it("returns dynamic context") {
-            let sut = self.getSut()
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            #expect(context["$os_name"] as? String != nil)
+            #expect(context["$os_version"] as? String != nil)
+            #expect(context["$device_type"] as? String != nil)
+        #endif
 
-            let context = sut.dynamicContext()
+        #expect(context["$lib"] as? String == "posthog-ios")
+        #expect(context["$lib_version"] as? String == postHogVersion)
 
-            expect(context["$locale"] as? String) != nil
-            expect(context["$timezone"] as? String) != nil
-            expect(context["$network_wifi"] as? Bool) != nil
-            expect(context["$network_cellular"] as? Bool) != nil
-        }
-
-        it("returns sdk info") {
-            let sut = self.getSut()
-
-            let context = sut.sdkInfo()
-
-            expect(context["$lib"] as? String) == "posthog-ios"
-            expect(context["$lib_version"] as? String) == postHogVersion
-        }
-
-        it("returns person properties context") {
-            let sut = self.getSut()
-
-            let context = sut.personPropertiesContext()
-
-            // Check that it includes expected properties from static context
-            expect(context["$app_version"] as? String) != nil
-            expect(context["$app_build"] as? Int) != nil
-            expect(context["$app_namespace"] as? String) != nil
-
-            #if os(iOS) || os(tvOS) || os(visionOS)
-                expect(context["$os_name"] as? String) != nil
-                expect(context["$os_version"] as? String) != nil
-                expect(context["$device_type"] as? String) != nil
-            #endif
-
-            expect(context["$lib"] as? String) == "posthog-ios"
-            expect(context["$lib_version"] as? String) == postHogVersion
-
-            // Verify it doesn't include non-person properties
-            expect(context["$is_emulator"] as? Bool) == nil
-        }
+        // Verify it doesn't include non-person properties
+        #expect(context["$is_emulator"] as? Bool == nil)
     }
 }

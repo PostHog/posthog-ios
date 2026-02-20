@@ -9,34 +9,24 @@
 import Testing
 
 @Suite("Screen view integration tests", .serialized)
-final class ScreenViewIntegrationTest {
-    var server: MockPostHogServer!
+final class ScreenViewIntegrationTest: PostHogSDKBaseTest {
     let mockScreenView = MockScreenViewPublisher()
 
     init() {
+        super.init()
         PostHogScreenViewIntegration.clearInstalls()
-
-        server = MockPostHogServer()
-        server.start()
         DI.main.screenViewPublisher = mockScreenView
     }
 
     deinit {
-        server.stop()
-        server = nil
         DI.main.screenViewPublisher = ApplicationScreenViewPublisher.shared
     }
 
     private func getSut(captureScreenViews: Bool = true) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "screen_test", host: "https://localhost:9090")
+        let config = makeConfig(host: "https://localhost:9090")
         config.captureScreenViews = captureScreenViews
-        config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
-
-        let storage = PostHogStorage(config)
-        storage.reset()
-
-        return PostHogSDK.with(config)
+        return makeSDK(config: config)
     }
 
     @Test("captures $screen event when a screen appears")

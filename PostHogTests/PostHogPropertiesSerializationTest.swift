@@ -88,30 +88,17 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - Base Test Class
 
-    class BaseTestSuite {
-        var server: MockPostHogServer
-
+    class BaseTestSuite: PostHogSDKBaseTest {
         init() {
-            server = MockPostHogServer(version: 4)
-            server.start()
-        }
-
-        deinit {
-            server.stop()
+            super.init(serverVersion: 4)
         }
 
         func getSut(flushAt: Int = 1) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            server.reset()
+            let config = makeConfig()
             config.flushAt = flushAt
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.captureApplicationLifecycleEvents = false
             config.personProfiles = .always
-            config.preloadFeatureFlags = false
-
-            deleteSafely(applicationSupportDirectoryURL())
-
-            return PostHogSDK.with(config)
+            return makeSDK(config: config)
         }
 
         func getEvents() async throws -> [PostHogEvent] {
@@ -133,7 +120,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "test_event")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -152,7 +138,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "$screen")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -171,7 +156,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "$identify")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -190,7 +174,6 @@ struct PostHogPropertiesSerializationTests {
             #expect(events.count == 1)
             #expect(events.first?.event == "$groupidentify")
 
-            sut.reset()
             sut.close()
         }
     }
@@ -209,7 +192,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
     }
@@ -220,7 +202,11 @@ struct PostHogPropertiesSerializationTests {
     class SetPersonPropertiesTests: BaseTestSuite {
         @Test("setPersonProperties with property type", arguments: propertyPayloads)
         func setPersonPropertiesWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut(flushAt: 2)
+            server.reset(batchCount: 1)
+            let config = makeConfig()
+            config.flushAt = 2
+            config.personProfiles = .always
+            let sut = makeSDK(config: config)
 
             sut.identify("user123")
             sut.setPersonProperties(userPropertiesToSet: payload.properties())
@@ -228,7 +214,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 2)
 
-            sut.reset()
             sut.close()
         }
     }
@@ -245,7 +230,6 @@ struct PostHogPropertiesSerializationTests {
 
             // No-crash test: verifies non-JSON-serializable types don't crash
 
-            sut.reset()
             sut.close()
         }
     }
@@ -262,7 +246,6 @@ struct PostHogPropertiesSerializationTests {
 
             // No-crash test: verifies non-JSON-serializable types don't crash
 
-            sut.reset()
             sut.close()
         }
     }
@@ -280,7 +263,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
 
@@ -293,7 +275,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
 
@@ -316,7 +297,6 @@ struct PostHogPropertiesSerializationTests {
             let events = try await getEvents()
             #expect(events.count == 1)
 
-            sut.reset()
             sut.close()
         }
     }

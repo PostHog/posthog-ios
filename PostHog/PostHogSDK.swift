@@ -1282,6 +1282,73 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Captures a $feature_view event for the specified feature flag.
+    ///
+    /// - Parameter flag: The key of the feature flag being viewed.
+    /// - Parameter flagVariant: The variant of the feature flag being viewed.
+    @objc public func captureFeatureView(flag: String, flagVariant: String?) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) ?? true
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_view/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_view",
+            properties: props,
+            userProperties: userProps
+        )
+    }
+
+    /// Captures a $feature_interaction event for the specified feature flag.
+    ///
+    /// - Parameter flag: The key of the feature flag being interacted with.
+    /// - Parameter flagVariant: The variant of the feature flag being interacted with.
+    @objc public func captureFeatureInteraction(flag: String,
+        flagVariant: String?) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) ?? true
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_interaction/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_interaction",
+            properties: props,
+            userProperties: userProps
+        )
+    }
+
     /// Returns the feature flag result containing the flag value, variant, and payload.
     ///
     /// This is the recommended method for retrieving feature flags as it provides
@@ -1724,3 +1791,4 @@ let maxRetryDelay = 30.0
 #endif
 
 // swiftlint:enable file_length cyclomatic_complexity
+

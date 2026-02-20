@@ -10,6 +10,9 @@ endef
 
 build: buildSdk buildExamples
 
+buildIOS:
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
+
 buildSdk:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun swift build --arch arm64 #macOS

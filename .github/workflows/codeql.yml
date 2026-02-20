@@ -36,7 +36,7 @@ jobs:
           queries: security-and-quality
       - name: Build
         if: ${{ matrix.language == 'swift' }}
-        run: make buildSdk
+        run: make buildIOS
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:

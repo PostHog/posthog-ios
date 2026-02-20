@@ -65,10 +65,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: true
     @objc public var enableSwizzling: Bool = true
 
-    /// Enable capturing deep links
-    /// Default: true
-    @objc public var captureDeepLinks: Bool = true
-
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enable autocapture for iOS
         /// Default: false
@@ -227,10 +223,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         if captureApplicationLifecycleEvents {
             integrations.append(PostHogAppLifeCycleIntegration())
-        }
-
-        if captureDeepLinks {
-            integrations.append(PostHogDeepLinkIntegration())
         }
 
         #if os(iOS)

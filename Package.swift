@@ -29,9 +29,6 @@ let package = Package(
             path: "PostHog",
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy"),
-            ],
-            swiftSettings: [
-                .define("TESTING", .when(configuration: .debug))
             ]
         ),
         .target(

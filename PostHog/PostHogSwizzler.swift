@@ -12,3 +12,7 @@ func swizzle(forClass: AnyClass, original: Selector, new: Selector) {
     guard let swizzledMethod = class_getInstanceMethod(forClass, new) else { return }
     method_exchangeImplementations(originalMethod, swizzledMethod)
 }
+
+func addMethod(forClass: AnyClass, selector: Selector, implementation: IMP, types: String) {
+    class_addMethod(forClass, selector, implementation, types)
+}

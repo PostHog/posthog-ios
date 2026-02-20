@@ -130,7 +130,11 @@
         @objc func ph_swizzled_uiapplication_sendAction(_ action: Selector, to target: Any?, from sender: Any?, for event: UIEvent?) -> Bool {
             defer {
                 // Currently, the action methods pointing to a SwiftUI target are blocked.
-                let targetClass = String(describing: object_getClassName(target))
+                let targetClass: String = {
+                    guard let target else { return "(nil)" }
+                    let cname = object_getClassName(target)
+                    return String(cString: cname)
+                }()
                 if targetClass.contains("SwiftUI") {
                     hedgeLog("Action methods on SwiftUI targets are not yet supported.")
                 } else if let control = sender as? UIControl,
@@ -604,3 +608,4 @@
     }
 
 #endif
+

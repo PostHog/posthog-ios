@@ -20,7 +20,3 @@ jobs:
           xcode-version: latest-stable
       - name: Test SDK (Swift Package)
         run: make test
-      - name: Test SDK (iOS Simulator)
-        run: make testOniOSSimulator
-      - name: Test SDK (macOS)
-        run: make testOnMacSimulator

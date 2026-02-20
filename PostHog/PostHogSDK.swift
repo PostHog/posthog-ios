@@ -1284,8 +1284,9 @@ let maxRetryDelay = 30.0
 
     /// Captures a $feature_view event for the specified feature flag.
     ///
-    /// - Parameter featureFlag: The key of the feature flag being viewed.
-    @objc public func captureFeatureView(_ featureFlag: String) {
+    /// - Parameter flag: The key of the feature flag being viewed.
+    /// - Parameter flagVariant: The variant of the feature flag being viewed.
+    @objc public func captureFeatureView(flag: String, flagVariant: String?) {
         if !isEnabled() {
             return
         }
@@ -1294,13 +1295,32 @@ let maxRetryDelay = 30.0
             return
         }
 
-        capture("$feature_view", properties: ["feature_flag": featureFlag])
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) ?? true
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_view/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_view",
+            properties: props,
+            userProperties: userProps
+        )
     }
 
     /// Captures a $feature_interaction event for the specified feature flag.
     ///
-    /// - Parameter featureFlag: The key of the feature flag being interacted with.
-    @objc public func captureFeatureInteraction(_ featureFlag: String) {
+    /// - Parameter flag: The key of the feature flag being interacted with.
+    /// - Parameter flagVariant: The variant of the feature flag being interacted with.
+    @objc public func captureFeatureInteraction(flag: String,
+        flagVariant: String?) {
         if !isEnabled() {
             return
         }
@@ -1309,10 +1329,23 @@ let maxRetryDelay = 30.0
             return
         }
 
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) ?? true
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_interaction/\(flag)": variant,
+        ]
+
         capture(
             "$feature_interaction",
-            properties: ["feature_flag": featureFlag],
-            userProperties: ["$feature_interaction/\(featureFlag)": true]
+            properties: props,
+            userProperties: userProps
         )
     }
 
@@ -1758,3 +1791,4 @@ let maxRetryDelay = 30.0
 #endif
 
 // swiftlint:enable file_length cyclomatic_complexity
+

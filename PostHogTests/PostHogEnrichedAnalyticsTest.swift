@@ -1,9 +1,30 @@
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogEnrichedAnalyticsTest: QuickSpec {
+@Suite("PostHogEnrichedAnalytics Tests", .serialized)
+class PostHogEnrichedAnalyticsTest {
+    let server: MockPostHogServer
+
+    init() {
+        Self.deleteDefaults()
+        server = MockPostHogServer(version: 4)
+        server.start()
+    }
+
+    deinit {
+        server.stop()
+    }
+
+    private static func deleteDefaults() {
+        let userDefaults = UserDefaults.standard
+        userDefaults.removeObject(forKey: "PHGVersionKey")
+        userDefaults.removeObject(forKey: "PHGBuildKeyV2")
+        userDefaults.synchronize()
+
+        deleteSafely(applicationSupportDirectoryURL())
+    }
+
     func getSut(optOut: Bool = false) -> PostHogSDK {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         config.flushAt = 1
@@ -18,108 +39,90 @@ class PostHogEnrichedAnalyticsTest: QuickSpec {
         return PostHogSDK.with(config)
     }
 
-    override func spec() {
-        var server: MockPostHogServer!
+    @Test("captures $feature_view event")
+    func capturesFeatureViewEvent() {
+        let sut = getSut()
 
-        func deleteDefaults() {
-            let userDefaults = UserDefaults.standard
-            userDefaults.removeObject(forKey: "PHGVersionKey")
-            userDefaults.removeObject(forKey: "PHGBuildKeyV2")
-            userDefaults.synchronize()
+        sut.captureFeatureView(flag: "test-flag", flagVariant: nil)
 
-            deleteSafely(applicationSupportDirectoryURL())
-        }
+        let events = getBatchedEvents(server)
+        #expect(events.count == 1)
 
-        beforeEach {
-            deleteDefaults()
-            server = MockPostHogServer(version: 4)
-            server.start()
-        }
-        afterEach {
-            server.stop()
-            server = nil
-        }
+        let event = events.first!
+        #expect(event.event == "$feature_view")
+        #expect(event.properties["feature_flag"] as? String == "test-flag")
+        let setProps = event.properties["$set"] as? [String: Any]
+        #expect(setProps?["$feature_view/test-flag"] as? Bool == true)
 
-        it("captures $feature_view event") {
-            let sut = self.getSut()
+        sut.reset()
+        sut.close()
+    }
 
-            sut.captureFeatureView(flag: "test-flag", flagVariant: nil)
+    @Test("captures $feature_interaction event")
+    func capturesFeatureInteractionEvent() {
+        let sut = getSut()
 
-            let events = getBatchedEvents(server)
-            expect(events.count) == 1
+        sut.captureFeatureInteraction(flag: "test-flag", flagVariant: nil)
 
-            let event = events.first!
-            expect(event.event) == "$feature_view"
-            expect(event.properties["feature_flag"] as? String) == "test-flag"
-            let setProps = event.properties["$set"] as? [String: Any]
-            expect(setProps?["$feature_view/test-flag"] as? Bool) == true
+        let events = getBatchedEvents(server)
+        #expect(events.count == 1)
 
-            sut.reset()
-            sut.close()
-        }
+        let event = events.first!
+        #expect(event.event == "$feature_interaction")
+        #expect(event.properties["feature_flag"] as? String == "test-flag")
 
-        it("captures $feature_interaction event") {
-            let sut = self.getSut()
+        let setProps = event.properties["$set"] as? [String: Any]
+        #expect(setProps?["$feature_interaction/test-flag"] as? Bool == true)
 
-            sut.captureFeatureInteraction(flag: "test-flag", flagVariant: nil)
+        sut.reset()
+        sut.close()
+    }
 
-            let events = getBatchedEvents(server)
-            expect(events.count) == 1
+    @Test("does not capture feature view if opt out")
+    func doesNotCaptureFeatureViewIfOptOut() {
+        let sut = getSut(optOut: true)
 
-            let event = events.first!
-            expect(event.event) == "$feature_interaction"
-            expect(event.properties["feature_flag"] as? String) == "test-flag"
+        sut.captureFeatureView(flag: "test-flag", flagVariant: nil)
 
-            let setProps = event.properties["$set"] as? [String: Any]
-            expect(setProps?["$feature_interaction/test-flag"] as? Bool) == true
+        let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+        #expect(events.count == 0)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.reset()
+        sut.close()
+    }
 
-        it("does not capture feature view if opt out") {
-            let sut = self.getSut(optOut: true)
+    @Test("does not capture feature interaction if opt out")
+    func doesNotCaptureFeatureInteractionIfOptOut() {
+        let sut = getSut(optOut: true)
 
-            sut.captureFeatureView(flag: "test-flag", flagVariant: nil)
+        sut.captureFeatureInteraction(flag: "test-flag", flagVariant: nil)
 
-            let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
-            expect(events.count) == 0
+        let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+        #expect(events.count == 0)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.reset()
+        sut.close()
+    }
 
-        it("does not capture feature interaction if opt out") {
-            let sut = self.getSut(optOut: true)
+    @Test("does not capture feature view if disabled")
+    func doesNotCaptureFeatureViewIfDisabled() {
+        let sut = getSut()
+        sut.close() // Disable SDK
 
-            sut.captureFeatureInteraction(flag: "test-flag", flagVariant: nil)
+        sut.captureFeatureView(flag: "test-flag", flagVariant: nil)
 
-            let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
-            expect(events.count) == 0
+        let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+        #expect(events.count == 0)
+    }
 
-            sut.reset()
-            sut.close()
-        }
+    @Test("does not capture feature interaction if disabled")
+    func doesNotCaptureFeatureInteractionIfDisabled() {
+        let sut = getSut()
+        sut.close() // Disable SDK
 
-        it("does not capture feature view if disabled") {
-            let sut = self.getSut()
-            sut.close() // Disable SDK
+        sut.captureFeatureInteraction(flag: "test-flag", flagVariant: nil)
 
-            sut.captureFeatureView(flag: "test-flag", flagVariant: nil)
-
-            let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
-            expect(events.count) == 0
-        }
-
-        it("does not capture feature interaction if disabled") {
-            let sut = self.getSut()
-            sut.close() // Disable SDK
-
-            sut.captureFeatureInteraction(flag: "test-flag", flagVariant: nil)
-
-            let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
-            expect(events.count) == 0
-        }
+        let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+        #expect(events.count == 0)
     }
 }
-

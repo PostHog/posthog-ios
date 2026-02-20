@@ -1,0 +1,10 @@
+{
+  "name": "posthog-ios",
+  "version": "3.41.2",
+  "private": true,
+  "description": "This file exists solely for @changesets/cli to track the SDK version. It is not used for any Node.js functionality.",
+  "packageManager": "pnpm@10.29.3",
+  "devDependencies": {
+    "@changesets/cli": "^2.29.4"
+  }
+}

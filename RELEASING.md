@@ -1,29 +1,88 @@
 # Releasing
 
-Since `main` is protected, releases are done via pull requests.
+This repository uses [Changesets](https://github.com/changesets/changesets) for version management and an automated GitHub Actions workflow for releases.
 
-1. Update `CHANGELOG.md` with the version and date
-2. Run: `./scripts/prepare-release.sh 3.26.0`
-   - This creates a release branch, bumps version, commits, and pushes
-   - Preview releases follow the pattern `3.0.0-alpha.1`, `3.0.0-beta.1`, `3.0.0-RC.1`
-3. Create a PR from the release branch to `main`
-4. Get approval and merge the PR
-5. After merge, create and push the tag from `main`:
+## How to Release
 
-   ```bash
-   git checkout main && git pull
-   git tag -a 3.26.0 -m "3.26.0"
-   git push --tags
-   ```
+### 1. Add a Changeset
 
-6. Go to [GH Releases](https://github.com/PostHog/posthog-ios/releases) and draft a new release
-7. Choose the tag you just created (e.g. `3.26.0`) and use it as the release name
-8. Write a description of the release
-9. Publish the release
-10. A GitHub action (release.yml) triggers the release automatically:
-    - SPM uses the tag name to determine the version, directly from the repo
-    - CocoaPods are published
-11. Done
+When making changes that should be released, add a changeset:
+
+```bash
+pnpm changeset
+```
+
+This will prompt you to:
+- Select the type of version bump (patch, minor, major)
+- Write a summary of the changes
+
+The changeset file will be created in the `.changeset/` directory.
+
+### 2. Create a Pull Request
+
+Create a PR with your changes and the changeset file(s). Add the `release` label to the PR.
+
+### 3. Merge the PR
+
+When the PR is merged to `main`, the release workflow will automatically:
+
+1. Check for changesets
+2. Notify the client libraries team in Slack for approval
+3. Wait for approval from a maintainer (via GitHub environment protection)
+4. Once approved:
+   - Apply changesets and bump the version (in `package.json`, `PostHogVersion.swift`, and `PostHog.podspec`)
+   - Update the `CHANGELOG.md`
+   - Commit the version bump to `main`
+   - Create a git tag and GitHub release
+   - Publish the pod to CocoaPods
+   - SPM uses the tag name to determine the version, directly from the repo
+
+### Manual Trigger
+
+You can also manually trigger the release workflow from the [Actions tab](https://github.com/PostHog/posthog-ios/actions/workflows/release.yml) by clicking "Run workflow".
+
+## Version Bumping
+
+Changesets handles version bumping automatically based on the changesets you create:
+
+- **patch**: Bug fixes, documentation updates, internal changes (e.g., `3.41.1` → `3.41.2`)
+- **minor**: New features, non-breaking changes (e.g., `3.41.1` → `3.42.0`)
+- **major**: Breaking changes (e.g., `3.41.1` → `4.0.0`)
+
+## Pre-release Versions
+
+For pre-release versions (alpha, beta, RC), you can manually enter pre-release mode:
+
+```bash
+pnpm changeset pre enter alpha  # or beta, rc
+pnpm changeset version
+```
+
+To exit pre-release mode:
+
+```bash
+pnpm changeset pre exit
+```
+
+## Troubleshooting
+
+### No changesets found
+
+If the release workflow fails with "No changesets found", ensure your PR includes at least one changeset file in the `.changeset/` directory.
+
+### Release not triggered
+
+Make sure the PR has the `release` label applied before merging.
+
+### Manual CocoaPods publish (emergency only)
+
+In case of automation failure, you can manually publish:
+
+```bash
+make releaseCocoaPods
+```
+
+You'll need to be authenticated with CocoaPods trunk and have push access to the `PostHog` pod.
 
 # CocoaPods Management
 
@@ -103,8 +162,8 @@ env:
 
 #### Step 1: Create a new session
 
-1. **Login to CocoaPods Trunk** 
-   As the account that will own the token, create a new session with: 
+1. **Login to CocoaPods Trunk**
+   As the account that will own the token, create a new session with:
    ```bash
    pod trunk register your.email@posthog.com 'Your Name'
    # Verify email if needed
@@ -123,8 +182,8 @@ env:
 
 1. **Go to GitHub repository settings**:
    - Request temp access if needed
-   - Navigate to `https://github.com/PostHog/posthog-ios/settings/secrets/actions`
-   - Or: Repository → Settings → Secrets and variables → Actions
+   - Navigate to `https://github.com/organizations/PostHog/settings/secrets/actions`
+   - Or: Org → Settings → Secrets and variables → Actions
 
 2. **Update the secret**:
    - Find `COCOAPODS_TRUNK_TOKEN` in the list
@@ -138,9 +197,9 @@ env:
    pod trunk me clean-sessions
    ```
 
-#### Step 4: Update workflow docs 
+#### Step 4: Update workflow docs
 
-Update `./.github/workflows/release.yml` with a comment on the new token owner.   
+Update `./.github/workflows/release.yml` with a comment on the new token owner.
 
 ```yaml
 env:

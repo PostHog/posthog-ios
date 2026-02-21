@@ -83,7 +83,8 @@ class PostHogSurveyEventsTest {
             currentIteration: currentIteration,
             currentIterationStartDate: currentIterationStartDate,
             startDate: Date(),
-            endDate: nil
+            endDate: nil,
+            schedule: nil
         )
     }
 

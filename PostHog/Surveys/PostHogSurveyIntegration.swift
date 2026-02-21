@@ -796,7 +796,8 @@
         }
 
         var canActivateRepeatedly: Bool {
-            conditions?.events?.repeatedActivation == true && hasEvents
+            (conditions?.events?.repeatedActivation == true && hasEvents) ||
+                schedule == .always
         }
     }
 

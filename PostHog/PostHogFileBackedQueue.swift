@@ -9,11 +9,11 @@ import Foundation
 
 class PostHogFileBackedQueue {
     let queue: URL
-    @ReadWriteLock
     private var items = [String]()
+    private let itemsLock = NSLock()
 
     var depth: Int {
-        items.count
+        itemsLock.withLock { items.count }
     }
 
     init(queue: URL, oldQueue: URL? = nil) {
@@ -33,8 +33,9 @@ class PostHogFileBackedQueue {
         }
 
         do {
-            items = try FileManager.default.contentsOfDirectory(atPath: queue.path)
-            items.sort { Double($0)! < Double($1)! }
+            var loadedItems = try FileManager.default.contentsOfDirectory(atPath: queue.path)
+            loadedItems.sort { Double($0)! < Double($1)! }
+            itemsLock.withLock { items = loadedItems }
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
@@ -46,10 +47,11 @@ class PostHogFileBackedQueue {
     }
 
     func delete(index: Int) {
-        if let removed = _items.mutate({ items -> String? in
+        let removed: String? = itemsLock.withLock {
             guard index < items.count else { return nil }
             return items.remove(at: index)
-        }) {
+        }
+        if let removed {
             deleteSafely(queue.appendingPathComponent(removed))
         }
     }
@@ -62,7 +64,7 @@ class PostHogFileBackedQueue {
         do {
             let filename = "\(Date().timeIntervalSince1970)"
             try contents.write(to: queue.appendingPathComponent(filename))
-            _items.mutate { $0.append(filename) }
+            itemsLock.withLock { items.append(filename) }
         } catch {
             hedgeLog("Could not write file \(error)")
         }
@@ -75,9 +77,10 @@ class PostHogFileBackedQueue {
     }
 
     private func loadFiles(_ count: Int) -> [Data] {
+        let currentItems = itemsLock.withLock { items }
         var results = [Data]()
 
-        for item in items {
+        for item in currentItems {
             let itemURL = queue.appendingPathComponent(item)
             do {
                 if !FileManager.default.fileExists(atPath: itemURL.path) {
@@ -103,12 +106,13 @@ class PostHogFileBackedQueue {
 
     private func deleteFiles(_ count: Int) {
         for _ in 0 ..< count {
-            if let removed: String = _items.mutate({ items in
+            let removed: String? = itemsLock.withLock {
                 if items.isEmpty {
                     return nil
                 }
                 return items.remove(at: 0) // We always remove from the top of the queue
-            }) {
+            }
+            if let removed {
                 deleteSafely(queue.appendingPathComponent(removed))
             }
         }

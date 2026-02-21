@@ -133,5 +133,7 @@ struct PostHogFileBackedQueueConcurrencyTest {
 
         #expect(queue.depth >= addCount - deleteCount,
                 "Queue depth \(queue.depth) is less than minimum expected \(addCount - deleteCount)")
+        #expect(queue.depth <= addCount,
+                "Queue depth \(queue.depth) exceeds maximum expected \(addCount)")
     }
 }

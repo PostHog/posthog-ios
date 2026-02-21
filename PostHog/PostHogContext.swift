@@ -16,8 +16,8 @@ import Foundation
 #endif
 
 class PostHogContext {
-    @ReadWriteLock
     private var screenSize: CGSize?
+    private let screenSizeLock = NSLock()
 
     #if !os(watchOS)
         private let reachability: Reachability?
@@ -268,7 +268,7 @@ class PostHogContext {
     func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        if let screenSize {
+        if let screenSize = screenSizeLock.withLock({ screenSize }) {
             properties["$screen_width"] = Float(screenSize.width)
             properties["$screen_height"] = Float(screenSize.height)
         }
@@ -401,7 +401,8 @@ class PostHogContext {
 
     private func updateScreenSize(_ getSize: @escaping () -> CGSize?) {
         let block = {
-            self.screenSize = getSize()
+            let size = getSize()
+            self.screenSizeLock.withLock { self.screenSize = size }
         }
         // ensure block is executed on `main` since closure accesses non thread-safe UI objects like UIApplication
         if Thread.isMainThread {

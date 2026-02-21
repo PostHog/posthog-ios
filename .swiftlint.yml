@@ -3,7 +3,6 @@ excluded: # case-sensitive paths to ignore during linting. Takes precedence over
   - PostHogExampleWithSPM
   - PostHogExampleAutocapture
   - PostHogTests
-  - PostHog/Utils/ReadWriteLock.swift
   - PostHog/Utils/Reachability.swift
   - PostHog/Utils/Data+Gzip.swift
   - .build

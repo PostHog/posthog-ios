@@ -124,3 +124,6 @@ xcuserdata
 # End of https://www.toptal.com/developers/gitignore/api/cocoapods,carthage,swiftpm,swiftpackagemanager,swift,xcode
 
 .DS_Store
+
+# Node.js (used by @changesets/cli for versioning)
+node_modules/

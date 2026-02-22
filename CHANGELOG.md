@@ -5,6 +5,12 @@
   - Removes ReadWriteLock property wrapper in favor of explicit NSLock for clearer intent
   - Updates PostHogContext to use same locking pattern for consistency
 
+## 3.41.2
+
+### Patch Changes
+
+- 9b67e4c: test new release process
+
 ## 3.41.1 - 2026-02-12
 
 fix: Session Replay now correctly checks the `network_timing` flag in remote config when `capturePerformance` is an object ([#470](https://github.com/PostHog/posthog-ios/pull/470))
@@ -36,9 +42,11 @@ fix: Session Replay now correctly checks the `network_timing` flag in remote con
 - The API now sends `evaluation_contexts` instead of `evaluation_environments` to the server.
 
 ### Deprecated
+
 - `PostHogConfig.evaluationEnvironments` is now deprecated in favor of `PostHogConfig.evaluationContexts`. The old property will continue to work and will print a deprecation warning. It will be removed in a future major version.
 
 ### Migration Guide
+
 ```swift
 // Before
 config.evaluationEnvironments = ["production", "web", "checkout"]

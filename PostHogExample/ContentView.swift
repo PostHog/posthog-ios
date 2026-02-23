@@ -285,7 +285,9 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("PostHog")
-        }.onAppear {
+        }
+        .postHogDeepLinkListener()
+        .onAppear {
             api.listBeers(completion: { beers in
                 api.beers = beers
             })

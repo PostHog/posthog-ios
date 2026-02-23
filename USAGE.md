@@ -81,6 +81,45 @@ PostHogSDK.shared.setup(config)
 PostHogSDK.shared.screen("Dashboard", properties: ["url": "...", "background": "blue"])
 ```
 
+Capture a deep link (with referrals)
+
+### SwiftUI Apps
+
+Attach the `.postHogDeepLinkHandler()` modifier to your root view.
+
+```swift
+import SwiftUI
+
+@main
+struct MyApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .postHogDeepLinkHandler() // Capture deep links automatically
+        }
+    }
+}
+```
+
+### UIKit (AppDelegate / SceneDelegate)
+
+Call `PostHogSDK.shared.captureDeepLink` manually in your delegate methods.
+
+```swift
+func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    let referrer = options[.sourceApplication] as? String
+    PostHogSDK.shared.captureDeepLink(url: url, referrer: referrer)
+    return true
+}
+
+func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        PostHogSDK.shared.captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
+    }
+    return true
+}
+```
+
 Capture an event
 
 ```swift
@@ -204,7 +243,7 @@ PostHogSDK.shared.close()
 - `handleActionWithIdentifier` has been removed.
 - `continueUserActivity` has been removed.
 - `openURL` has been removed.
-- `captureDeepLinks` has been removed.
+- `captureDeepLinks` automatic swizzling has been removed. Use the `PostHogSDK.shared.captureDeepLink` method or the `.postHogDeepLinkHandler()` SwiftUI modifier instead.
 - `captureInAppPurchases` has been removed.
 - `capturePushNotifications` has been removed.
 - `shouldUseLocationServices` config has been removed.

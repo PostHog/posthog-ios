@@ -19,6 +19,7 @@ class PostHogRemoteConfig {
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
     private var sessionReplayFlagActive = false
+    private var recordingSampleRate: Double?
 
     private var flags: [String: Any]?
     private var featureFlags: [String: Any]?
@@ -215,6 +216,10 @@ class PostHogRemoteConfig {
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint
             }
+
+            #if os(iOS)
+                recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
+            #endif
         }
     }
 
@@ -389,9 +394,38 @@ class PostHogRemoteConfig {
                 if let endpoint = sessionRecording["endpoint"] as? String {
                     config.snapshotEndpoint = endpoint
                 }
+                recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
                 sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
                 storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
             }
+        }
+
+        /// Parses and validates a sample rate value which may come as a String (from the API JSON)
+        /// or as a Number (from cached storage). Returns `nil` if the value is absent, unparseable,
+        /// or outside the 0.0–1.0 range.
+        private func parseSampleRate(_ raw: Any?) -> Double? {
+            let value: Double?
+            if let number = raw as? Double {
+                value = number
+            } else if let number = raw as? NSNumber {
+                value = number.doubleValue
+            } else if let string = raw as? String {
+                value = Double(string)
+            } else {
+                return nil
+            }
+
+            guard let value, value >= 0.0, value <= 1.0 else {
+                if let value {
+                    hedgeLog("Remote config sampleRate must be between 0.0 and 1.0, got \(value). Ignoring.")
+                }
+                return nil
+            }
+            return value
+        }
+
+        func getRecordingSampleRate() -> Double? {
+            recordingSampleRate
         }
     #endif
 

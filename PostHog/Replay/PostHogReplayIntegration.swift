@@ -26,6 +26,7 @@
         private weak var postHog: PostHogSDK?
 
         private var isEnabled: Bool = false
+        private var isSampledIn: Bool = true
 
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
@@ -160,7 +161,10 @@
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
             postHog.sessionManager.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
+                self?.evaluateSampling()
             }
+
+            evaluateSampling()
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
@@ -242,13 +246,40 @@
         }
 
         func isActive() -> Bool {
-            isEnabled
+            isEnabled && isSampledIn
         }
 
         private func resetViews() {
             // Ensure thread-safe access to windowViews
             windowViewsLock.withLock {
                 windowViews.removeAllObjects()
+            }
+        }
+
+        private func evaluateSampling() {
+            guard let postHog else {
+                isSampledIn = false
+                return
+            }
+
+            guard let sessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
+                isSampledIn = false
+                return
+            }
+
+            // local config takes precedence over remote config
+            let sampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
+                ?? postHog.remoteConfig?.getRecordingSampleRate()
+
+            guard let sampleRate else {
+                isSampledIn = true
+                return
+            }
+
+            isSampledIn = sampleOnProperty(sessionId, sampleRate)
+
+            if !isSampledIn {
+                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording (rate: \(sampleRate))")
             }
         }
 
@@ -268,6 +299,8 @@
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
             guard let postHog else { return }
+
+            evaluateSampling()
 
             let allPluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
 

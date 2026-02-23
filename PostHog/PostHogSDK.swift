@@ -194,6 +194,34 @@ let maxRetryDelay = 30.0
         sessionManager.endSession()
     }
 
+    // DEEP LINKS
+
+    /// Manually capture a deep link opened event.
+    ///
+    /// - Parameters:
+    ///   - url: The URL that was opened.
+    ///   - referrer: The referrer that triggered the deep link (optional).
+    @objc public func captureDeepLink(url: URL?, referrer: String? = nil) {
+        if !isEnabled() {
+            return
+        }
+
+        guard let url = url else { return }
+
+        var properties: [String: Any] = ["url": url.absoluteString]
+
+        if let referrer = referrer {
+            properties["$referrer"] = referrer
+
+            // Try to extract domain from referrer if it looks like a URL
+            if let referrerURL = URL(string: referrer), let host = referrerURL.host {
+                properties["$referring_domain"] = host
+            }
+        }
+
+        capture("Deep Link Opened", properties: properties)
+    }
+
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {

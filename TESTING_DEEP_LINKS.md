@@ -1,40 +1,99 @@
 # Testing Deep Link Capture
 
-This document outlines how to verify that the automatic deep link capture feature works as expected.
+This document outlines how to use and verify the deep link capture feature.
 
-## 1. Unit Testing
+> **Note:** Deep link capture is no longer automatic via swizzling. You must manually call `captureDeepLink` or use the SwiftUI modifier.
 
-Since the feature relies on swizzling `UIApplicationDelegate` and `UISceneDelegate`, unit tests need to ensure that the integration installs correctly and that the tracking logic produces the correct events.
+## 1. Integration
 
-### Example Test Case (Swift)
+### SwiftUI Apps
 
-You can add a test case to `PostHogTests` to verify the property extraction logic.
+Attach the `.postHogDeepLinkHandler()` modifier to your root view (e.g., `ContentView` or your main `WindowGroup` scene).
 
 ```swift
-import XCTest
-@testable import PostHog
+import SwiftUI
+import PostHog
 
-class PostHogDeepLinkTests: XCTestCase {
+@main
+struct MyApp: App {
+    init() {
+        // Setup PostHog
+        let config = PostHogConfig(apiKey: "API_KEY")
+        PostHogSDK.shared.setup(config)
+    }
 
-    func testTrackDeepLinkWithReferrer() {
-        // Setup
-        let config = PostHogConfig(apiKey: "test_api_key")
-        config.captureDeepLinks = true
-        let postHog = PostHogSDK.with(config)
-
-        // Mock URL and Referrer
-        let url = URL(string: "https://myapp.com/product/123?utm_source=newsletter")!
-        let referrer = "https://www.google.com"
-
-        // Trigger tracking manually (since we can't easily mock the swizzling in a simple unit test without a host app)
-        // Note: internal access to PostHogDeepLinkIntegration might be needed or test via the public side effect
-        PostHogDeepLinkIntegration.trackDeepLink(url: url, referrer: referrer)
-
-        // Verify (Mocking the Queue/Network would be required for a real assertion)
-        // Check logs or use a mock server to verify "Deep Link Opened" event was sent
-        // Properties should include:
-        // - url: "https://myapp.com/product/123?utm_source=newsletter"
-        // - $referrer: "https://www.google.com"
-        // - $referring_domain: "www.google.com"
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .postHogDeepLinkHandler() // Capture deep links automatically
+        }
     }
 }
+```
+
+### UIKit (AppDelegate/SceneDelegate)
+
+Call `PostHogSDK.shared.captureDeepLink` manually in your delegate methods.
+
+**AppDelegate:**
+
+```swift
+func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    let referrer = options[.sourceApplication] as? String
+    PostHogSDK.shared.captureDeepLink(url: url, referrer: referrer)
+    return true
+}
+
+func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        PostHogSDK.shared.captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
+    }
+    return true
+}
+```
+
+**SceneDelegate:**
+
+```swift
+func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    for context in URLContexts {
+        let referrer = context.options.sourceApplication
+        PostHogSDK.shared.captureDeepLink(url: context.url, referrer: referrer)
+    }
+}
+
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        PostHogSDK.shared.captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
+    }
+}
+```
+
+## 2. Verification
+
+### Scenario A: Custom URL Scheme via Terminal (Simulator)
+1.  Build and run the app on the iOS Simulator.
+2.  Background the app.
+3.  Open Terminal and run:
+    ```bash
+    xcrun simctl openurl booted "my-app://path/to/content?foo=bar"
+    ```
+4.  **Verification:**
+    - Watch the Xcode console logs (if `config.debug = true`).
+    - Verify `Deep Link Opened` event in PostHog.
+    - **Properties:** `url` should be `my-app://path/to/content?foo=bar`.
+
+### Scenario B: Universal Link via Safari
+1.  Install the app on a device or simulator.
+2.  Open Safari.
+3.  Navigate to a supported URL (e.g., `https://your-site.com/link`).
+4.  Open in App.
+5.  **Verification:**
+    - Verify `Deep Link Opened` event.
+    - **Properties:** `$referrer` should be the Safari URL (if available).
+
+### Scenario C: App-to-App Referrer
+1.  Open a link to your app from another app (e.g., Messages).
+2.  **Verification:**
+    - Verify `Deep Link Opened` event.
+    - **Properties:** `$referrer` should be the bundle ID (e.g., `com.apple.MobileSMS`).

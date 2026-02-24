@@ -25,7 +25,20 @@ struct PropertyTestCase: CustomTestStringConvertible, Sendable {
 // MARK: - Test Suite
 
 @Suite(.serialized)
-struct PostHogPropertiesSerializationTests {
+class PostHogPropertiesSerializationTests {
+    let server: MockPostHogServer
+    let storageTracker = TestStorageTracker()
+
+    init() {
+        server = MockPostHogServer(version: 4)
+        server.start()
+    }
+
+    deinit {
+        storageTracker.cleanup()
+        server.stop()
+    }
+
     // MARK: - Test Payloads
 
     static let propertyPayloads: [PropertyTestCase] = [
@@ -86,16 +99,44 @@ struct PostHogPropertiesSerializationTests {
         },
     ]
 
+    func makeConfig() -> PostHogConfig {
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
+        storageTracker.track(config)
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.captureApplicationLifecycleEvents = false
+        config.preloadFeatureFlags = false
+        config.sendFeatureFlagEvent = false
+        return config
+    }
+
+    func makeSDK(config: PostHogConfig) -> PostHogSDK {
+        let storage = PostHogStorage(config)
+        storage.reset()
+        return PostHogSDK.with(config)
+    }
+
+    func getSut(flushAt: Int = 1) -> PostHogSDK {
+        server.reset()
+        let config = makeConfig()
+        config.flushAt = flushAt
+        config.personProfiles = .always
+        return makeSDK(config: config)
+    }
+
+    func getEvents() async throws -> [PostHogEvent] {
+        try await getServerEvents(server)
+    }
+
     // MARK: - capture() with properties
 
     @Test("capture with property type", arguments: propertyPayloads)
     func captureWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.capture("test_event", properties: payload.properties())
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
         #expect(events.first?.event == "test_event")
 
@@ -106,12 +147,11 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("screen with property type", arguments: propertyPayloads)
     func screenWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.screen("TestScreen", properties: payload.properties())
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
         #expect(events.first?.event == "$screen")
 
@@ -122,12 +162,11 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("identify with property type", arguments: propertyPayloads)
     func identifyWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.identify("user123", userProperties: payload.properties())
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
         #expect(events.first?.event == "$identify")
 
@@ -138,12 +177,11 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("group with property type", arguments: propertyPayloads)
     func groupWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.group(type: "company", key: "posthog", groupProperties: payload.properties())
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
         #expect(events.first?.event == "$groupidentify")
 
@@ -154,13 +192,12 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("register with property type", arguments: propertyPayloads)
     func registerWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.register(payload.properties())
         sut.capture("test_event")
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
 
         sut.close()
@@ -170,17 +207,16 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("setPersonProperties with property type", arguments: propertyPayloads)
     func setPersonPropertiesWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        helper.server.reset(batchCount: 1)
-        let config = helper.makeConfig()
+        server.reset(batchCount: 1)
+        let config = makeConfig()
         config.flushAt = 2
         config.personProfiles = .always
-        let sut = helper.makeSDK(config: config)
+        let sut = makeSDK(config: config)
 
         sut.identify("user123")
         sut.setPersonProperties(userPropertiesToSet: payload.properties())
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 2)
 
         sut.close()
@@ -190,8 +226,7 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("setPersonPropertiesForFlags with property type", arguments: propertyPayloads)
     func setPersonPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.setPersonPropertiesForFlags(payload.properties(), reloadFeatureFlags: false)
 
@@ -204,8 +239,7 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("setGroupPropertiesForFlags with property type", arguments: propertyPayloads)
     func setGroupPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.setGroupPropertiesForFlags("company", properties: payload.properties(), reloadFeatureFlags: false)
 
@@ -218,12 +252,11 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("handles empty properties")
     func handlesEmptyProperties() async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.capture("test_event", properties: [:])
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
 
         sut.close()
@@ -231,12 +264,11 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("handles nil properties")
     func handlesNilProperties() async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         sut.capture("test_event", properties: nil)
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
 
         sut.close()
@@ -244,8 +276,7 @@ struct PostHogPropertiesSerializationTests {
 
     @Test("handles deeply nested structures with Date")
     func handlesDeeplyNestedStructuresWithDate() async throws {
-        let helper = TestHelper()
-        let sut = helper.getSut()
+        let sut = getSut()
 
         let deeplyNested: [String: Any] = [
             "level1": [
@@ -259,30 +290,10 @@ struct PostHogPropertiesSerializationTests {
 
         sut.capture("test_event", properties: deeplyNested)
 
-        let events = try await helper.getEvents()
+        let events = try await getEvents()
         #expect(events.count == 1)
 
         sut.close()
-    }
-}
-
-// MARK: - Test Helper
-
-private class TestHelper: PostHogSDKBaseTest {
-    init() {
-        super.init(serverVersion: 4)
-    }
-
-    func getSut(flushAt: Int = 1) -> PostHogSDK {
-        server.reset()
-        let config = makeConfig()
-        config.flushAt = flushAt
-        config.personProfiles = .always
-        return makeSDK(config: config)
-    }
-
-    func getEvents() async throws -> [PostHogEvent] {
-        try await getServerEvents(server)
     }
 }
 

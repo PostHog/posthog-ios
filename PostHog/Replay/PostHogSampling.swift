@@ -8,14 +8,18 @@
 import Foundation
 
 /// Deterministic hash function matching the JS SDK's `simpleHash`.
-/// Uses 32-bit arithmetic to match JavaScript's bitwise operation behavior.
+/// Uses 32-bit arithmetic and UTF-16 encoding to match JavaScript's
+/// `charCodeAt` behavior (which returns UTF-16 code units).
 func simpleHash(_ str: String) -> Int {
     var hash: Int32 = 0
-    for scalar in str.unicodeScalars {
-        let charValue = Int32(truncatingIfNeeded: scalar.value)
-        hash = (hash &<< 5) &- hash &+ charValue
+
+    for codeUnit in str.utf16 {
+        let v = Int32(codeUnit)
+        hash = (hash &<< 5) &- hash &+ v   // hash = hash * 31 + v, wrapping
     }
-    return abs(Int(hash))
+
+    // Match JS: return hash & 0x7fffffff
+    return Int(hash & 0x7fffffff)
 }
 
 /// Determines whether a property (typically a session ID) should be sampled in,

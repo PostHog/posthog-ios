@@ -1,7 +1,5 @@
 ## Next
 
-- chore: use remote config as sole config loading mechanism, remove `config=true` from flags endpoint ([#475](https://github.com/PostHog/posthog-ios/pull/475))
-
 ## 3.41.2
 
 ### Patch Changes

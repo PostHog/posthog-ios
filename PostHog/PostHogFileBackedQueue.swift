@@ -70,7 +70,7 @@ class PostHogFileBackedQueue {
         do {
             let filename = "\(Date().timeIntervalSince1970)"
             try contents.write(to: queue.appendingPathComponent(filename))
-            
+
             itemsLock.lock()
             items.append(filename)
             itemsLock.unlock()

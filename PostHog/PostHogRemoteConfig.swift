@@ -314,7 +314,9 @@ class PostHogRemoteConfig {
                 }
 
                 #if os(iOS)
-                    self.processSessionRecordingConfig(data, featureFlags: featureFlags)
+                    // Use cached remote config for session recording settings since /flags no longer returns config data
+                    let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
+                    self.processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags)
                 #endif
 
                 // Grab the request ID and evaluated timestamp from the response

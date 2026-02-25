@@ -14,8 +14,8 @@ func simpleHash(_ str: String) -> Int {
     var hash: Int32 = 0
 
     for codeUnit in str.utf16 {
-        let v = Int32(codeUnit)
-        hash = (hash &<< 5) &- hash &+ v // hash = hash * 31 + v, wrapping
+        let codeUnitValue = Int32(codeUnit)
+        hash = (hash &<< 5) &- hash &+ codeUnitValue // hash = hash * 31 + codeUnitValue, wrapping
     }
 
     // Match JS: return hash & 0x7fffffff

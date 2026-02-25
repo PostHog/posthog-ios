@@ -67,7 +67,7 @@ class MockPostHogServer {
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
-        self.port = MockPostHogServer.allocatePort()
+        port = MockPostHogServer.allocatePort()
         self.version = version
 
         stub(condition: pathEndsWith("/flags") && isPort(port)) { request in
@@ -346,7 +346,6 @@ class MockPostHogServer {
 
             return HTTPStubsResponse(data: configData, statusCode: 200, headers: nil)
         }
-
     }
 
     func start(batchCount: Int = 1) {

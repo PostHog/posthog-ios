@@ -12,7 +12,7 @@ import UIKit
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_6lqCaCDCBEWdIGieihq5R2dZpPVbAUFISA75vFZow06"
+            apiKey: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false
@@ -25,8 +25,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #if os(iOS)
             config.sessionReplay = true
             config.sessionReplayConfig.screenshotMode = true
-            config.sessionReplayConfig.maskAllTextInputs = false
-            config.sessionReplayConfig.maskAllImages = false
+            config.sessionReplayConfig.maskAllTextInputs = true
+            config.sessionReplayConfig.maskAllImages = true
             config.sessionReplayConfig.captureLogs = true
             config.sessionReplayConfig.captureLogsConfig.minLogLevel = .info
             config.sessionReplayConfig.captureLogsConfig.logSanitizer = { log in

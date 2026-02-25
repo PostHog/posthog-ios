@@ -17,6 +17,7 @@ class MockPostHogServer {
 
     let port: Int
     var url: String { "http://localhost:\(port)" }
+    private var stubDescriptors: [HTTPStubsDescriptor] = []
 
     var batchRequests = [URLRequest]()
     var batchExpectation: XCTestExpectation?
@@ -70,7 +71,7 @@ class MockPostHogServer {
         port = MockPostHogServer.allocatePort()
         self.version = version
 
-        stub(condition: pathEndsWith("/flags") && isPort(port)) { request in
+        stubDescriptors.append(stub(condition: pathEndsWith("/flags") && isPort(port)) { request in
             self.trackFlags(request)
 
             if self.quotaLimitFeatureFlags {
@@ -281,26 +282,26 @@ class MockPostHogServer {
             }
 
             return HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
-        }
+        })
 
-        stub(condition: pathEndsWith("/batch") && isPort(port)) { request in
+        stubDescriptors.append(stub(condition: pathEndsWith("/batch") && isPort(port)) { request in
             self.trackBatchRequest(request)
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             } else {
                 return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
             }
-        }
+        })
 
-        stub(condition: pathEndsWith("/s") && isPort(port)) { _ in
+        stubDescriptors.append(stub(condition: pathEndsWith("/s") && isPort(port)) { _ in
             if self.return500 {
                 HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             } else {
                 HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
             }
-        }
+        })
 
-        stub(condition: pathEndsWith("/config") && isPort(port)) { _ in
+        stubDescriptors.append(stub(condition: pathEndsWith("/config") && isPort(port)) { _ in
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
             }
@@ -345,7 +346,7 @@ class MockPostHogServer {
                 """.data(using: .utf8)!
 
             return HTTPStubsResponse(data: configData, statusCode: 200, headers: nil)
-        }
+        })
     }
 
     func start(batchCount: Int = 1) {
@@ -357,7 +358,10 @@ class MockPostHogServer {
     func stop() {
         reset()
 
-        HTTPStubs.removeAllStubs()
+        for descriptor in stubDescriptors {
+            HTTPStubs.removeStub(descriptor)
+        }
+        stubDescriptors.removeAll()
     }
 
     func reset(batchCount: Int = 1) {

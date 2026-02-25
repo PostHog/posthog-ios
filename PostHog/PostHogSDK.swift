@@ -1295,11 +1295,17 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
+        // If neither is available, there is no meaningful variant to record, so we skip the event.
+        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
+            hedgeLog("captureFeatureView called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            return
+        }
+
         var props: [String: Any] = [
             "feature_flag": flag,
         ]
 
-        let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) ?? true
         if let variantStr = variant as? String {
             props["feature_flag_variant"] = variantStr
         }
@@ -1329,11 +1335,17 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
+        // If neither is available, there is no meaningful variant to record, so we skip the event.
+        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
+            hedgeLog("captureFeatureInteraction called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            return
+        }
+
         var props: [String: Any] = [
             "feature_flag": flag,
         ]
 
-        let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) ?? true
         if let variantStr = variant as? String {
             props["feature_flag_variant"] = variantStr
         }
@@ -1791,4 +1803,3 @@ let maxRetryDelay = 30.0
 #endif
 
 // swiftlint:enable file_length cyclomatic_complexity
-

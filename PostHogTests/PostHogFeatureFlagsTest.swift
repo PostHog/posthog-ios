@@ -250,10 +250,10 @@ enum PostHogFeatureFlagsTest {
             let sut = PostHogSDK.with(config)
 
             // Set first batch of properties
-            sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
+            sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"], reloadFeatureFlags: false)
 
             // Set second batch that overlaps
-            sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"])
+            sut.setPersonPropertiesForFlags(["property2": "value2", "shared": "updated"], reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -288,7 +288,7 @@ enum PostHogFeatureFlagsTest {
             let sut = PostHogSDK.with(config)
 
             // Set some properties
-            sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
+            sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"], reloadFeatureFlags: false)
 
             // Reset them
             sut.resetPersonPropertiesForFlags()
@@ -370,8 +370,8 @@ enum PostHogFeatureFlagsTest {
             let sut = PostHogSDK.with(config)
 
             // Set properties for different group types
-            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
-            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"], reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -405,8 +405,8 @@ enum PostHogFeatureFlagsTest {
             let sut = PostHogSDK.with(config)
 
             // Set properties for multiple group types
-            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
-            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"], reloadFeatureFlags: false)
 
             // Reset only organization properties
             sut.resetGroupPropertiesForFlags("organization")
@@ -443,8 +443,8 @@ enum PostHogFeatureFlagsTest {
             let sut = PostHogSDK.with(config)
 
             // Set properties for multiple group types
-            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
-            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
+            sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"], reloadFeatureFlags: false)
 
             // Reset all group properties
             sut.resetGroupPropertiesForFlags()
@@ -475,8 +475,8 @@ enum PostHogFeatureFlagsTest {
             let sut = PostHogSDK.with(config)
 
             // Set both types of properties
-            sut.setPersonPropertiesForFlags(["user_plan": "premium"])
-            sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"])
+            sut.setPersonPropertiesForFlags(["user_plan": "premium"], reloadFeatureFlags: false)
+            sut.setGroupPropertiesForFlags("organization", properties: ["org_plan": "enterprise"], reloadFeatureFlags: false)
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {

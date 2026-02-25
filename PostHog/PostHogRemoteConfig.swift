@@ -74,11 +74,8 @@ class PostHogRemoteConfig {
 
         preloadSessionReplayFlag()
 
-        if config.remoteConfig {
-            preloadRemoteConfig()
-        } else if config.preloadFeatureFlags {
-            preloadFeatureFlags()
-        }
+        // Remote config is always loaded (config.remoteConfig is now a no-op)
+        preloadRemoteConfig()
     }
 
     private func preloadRemoteConfig() {
@@ -135,11 +132,7 @@ class PostHogRemoteConfig {
     func reloadRemoteConfig(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
-        guard config.remoteConfig else {
-            callback?(nil)
-            return
-        }
-
+        // Remote config is always loaded (config.remoteConfig is now a no-op)
         loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
                 return

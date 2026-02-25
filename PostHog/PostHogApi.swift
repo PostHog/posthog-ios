@@ -212,6 +212,7 @@ class PostHogApi {
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
             "groups": groups,
+            "timezone": TimeZone.current.identifier,
         ]
 
         if let anonymousId {

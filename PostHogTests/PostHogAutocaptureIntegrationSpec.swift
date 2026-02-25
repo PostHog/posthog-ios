@@ -24,6 +24,8 @@ import Testing
 
             let config = PostHogConfig(apiKey: apiKey, host: server.url)
             config.captureElementInteractions = true
+            config.captureApplicationLifecycleEvents = false
+            config.preloadFeatureFlags = false
             config.flushIntervalSeconds = 0.2
             config.maxBatchSize = 1
 
@@ -50,6 +52,8 @@ import Testing
 
                 let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
                 config.captureElementInteractions = true
+                config.captureApplicationLifecycleEvents = false
+                config.preloadFeatureFlags = false
                 let posthog = PostHogSDK.with(config)
                 let integration = posthog.getAutocaptureIntegration()
 
@@ -68,6 +72,8 @@ import Testing
 
                 let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
                 config.captureElementInteractions = true
+                config.captureApplicationLifecycleEvents = false
+                config.preloadFeatureFlags = false
                 let posthog = PostHogSDK.with(config)
                 let integration = posthog.getAutocaptureIntegration()
 
@@ -107,7 +113,7 @@ import Testing
 
         @Test("should debounce events if debounceInterval is greater than 0")
         func shouldDebounceEventsIfDebounceIntervalIsGreaterThan0() async throws {
-            let debouncedEvent = createTestEventData(debounceInterval: 0.2)
+            let debouncedEvent = createTestEventData(debounceInterval: 2.0)
 
             integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)
             integration.process(source: .actionMethod(description: "action"), event: debouncedEvent)

@@ -29,8 +29,11 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: 15)
 
     if result != XCTWaiter.Result.completed {
-        XCTFail("The expected requests never arrived")
+        XCTFail("The expected flag request never arrived")
     }
+
+    // Small delay to allow the SDK to process the response and store the flags
+    Thread.sleep(forTimeInterval: 0.5)
 }
 
 func getFlagsRequest(_ server: MockPostHogServer) -> [[String: Any]] {

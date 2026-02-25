@@ -1548,14 +1548,6 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            let sessionId = resumeCurrent
-                ? sessionManager.getSessionId()
-                : sessionManager.getNextSessionId()
-
-            guard let sessionId else {
-                return hedgeLog("Could not start recording. Missing session id.")
-            }
-
             if resumeCurrent, replayIntegration.isActive() {
                 // nothing to resume, already active
                 return

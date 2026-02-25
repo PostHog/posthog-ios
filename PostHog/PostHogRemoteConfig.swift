@@ -217,9 +217,7 @@ class PostHogRemoteConfig {
                 config.snapshotEndpoint = endpoint
             }
 
-            #if os(iOS)
-                recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
-            #endif
+            recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
         }
     }
 

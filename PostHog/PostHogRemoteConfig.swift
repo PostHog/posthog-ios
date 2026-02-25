@@ -73,7 +73,7 @@ class PostHogRemoteConfig {
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
 
-        preloadSessionReplayFlag()
+        preloadSessionReplay()
 
         if config.remoteConfig {
             preloadRemoteConfig()
@@ -202,7 +202,7 @@ class PostHogRemoteConfig {
         )
     }
 
-    private func preloadSessionReplayFlag() {
+    private func preloadSessionReplay() {
         var sessionReplay: [String: Any]?
         var featureFlags: [String: Any]?
         featureFlagsLock.withLock {

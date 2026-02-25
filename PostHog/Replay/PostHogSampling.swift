@@ -15,11 +15,11 @@ func simpleHash(_ str: String) -> Int {
 
     for codeUnit in str.utf16 {
         let v = Int32(codeUnit)
-        hash = (hash &<< 5) &- hash &+ v   // hash = hash * 31 + v, wrapping
+        hash = (hash &<< 5) &- hash &+ v // hash = hash * 31 + v, wrapping
     }
 
     // Match JS: return hash & 0x7fffffff
-    return Int(hash & 0x7fffffff)
+    return Int(hash & 0x7FFFFFFF)
 }
 
 /// Determines whether a property (typically a session ID) should be sampled in,

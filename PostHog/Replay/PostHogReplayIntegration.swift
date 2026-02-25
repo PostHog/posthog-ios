@@ -26,7 +26,6 @@
         private weak var postHog: PostHogSDK?
 
         private var isEnabled: Bool = false
-        private var isSampledIn: Bool = true
 
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
@@ -157,14 +156,20 @@
                 return
             }
 
+            // Check sampling before starting timers and listeners
+            if let sessionId = postHog.sessionManager.getSessionId(readOnly: true),
+               !shouldRecordSession(postHog: postHog, sessionId: sessionId)
+            {
+                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Skipping start.")
+                return
+            }
+
             isEnabled = true
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
             postHog.sessionManager.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
-                self?.evaluateSampling()
+                self?.stopIfNotSampled()
             }
-
-            evaluateSampling()
 
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
@@ -246,7 +251,7 @@
         }
 
         func isActive() -> Bool {
-            isEnabled && isSampledIn
+            isEnabled
         }
 
         private func resetViews() {
@@ -256,30 +261,30 @@
             }
         }
 
-        private func evaluateSampling() {
-            guard let postHog else {
-                isSampledIn = false
-                return
+        /// Determines whether the given session should be recorded based on sample rate configuration.
+        /// Local config sample rate takes precedence over remote config.
+        /// Returns `true` if no sample rate is configured (record everything).
+        private func shouldRecordSession(postHog: PostHogSDK, sessionId: String) -> Bool {
+            let localSampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
+            let remoteSampleRate = postHog.remoteConfig?.getRecordingSampleRate()
+
+            guard let sampleRate = localSampleRate ?? remoteSampleRate else {
+                return true
             }
+
+            return sampleOnProperty(sessionId, sampleRate)
+        }
+
+        private func stopIfNotSampled() {
+            guard let postHog else { return }
 
             guard let sessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
-                isSampledIn = false
                 return
             }
 
-            // local config takes precedence over remote config
-            let sampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
-                ?? postHog.remoteConfig?.getRecordingSampleRate()
-
-            guard let sampleRate else {
-                isSampledIn = true
-                return
-            }
-
-            isSampledIn = sampleOnProperty(sessionId, sampleRate)
-
-            if !isSampledIn {
-                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording (rate: \(sampleRate))")
+            if !shouldRecordSession(postHog: postHog, sessionId: sessionId) {
+                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Stopping.")
+                stop()
             }
         }
 
@@ -299,8 +304,6 @@
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
             guard let postHog else { return }
-
-            evaluateSampling()
 
             let allPluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
 

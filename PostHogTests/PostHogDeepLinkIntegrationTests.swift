@@ -9,7 +9,7 @@ final class PostHogDeepLinkIntegrationTests: XCTestCase {
         let referrer = "https://www.google.com/path?q=search"
 
         // When
-        let props = PostHogDeepLinkIntegration.buildDeepLinkProperties(url: url, referrer: referrer)
+        let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
 
         // Then
         XCTAssertEqual(props["url"] as? String, url.absoluteString)
@@ -23,7 +23,7 @@ final class PostHogDeepLinkIntegrationTests: XCTestCase {
         let referrer = "com.example.sourceApp" // not a URL, should not produce $referring_domain
 
         // When
-        let props = PostHogDeepLinkIntegration.buildDeepLinkProperties(url: url, referrer: referrer)
+        let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
 
         // Then
         XCTAssertEqual(props["url"] as? String, url.absoluteString)
@@ -36,7 +36,7 @@ final class PostHogDeepLinkIntegrationTests: XCTestCase {
         let url = URL(string: "https://myapp.com/welcome")!
 
         // When
-        let props = PostHogDeepLinkIntegration.buildDeepLinkProperties(url: url, referrer: nil)
+        let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: nil)
 
         // Then
         XCTAssertEqual(props["url"] as? String, url.absoluteString)
@@ -48,7 +48,7 @@ final class PostHogDeepLinkIntegrationTests: XCTestCase {
         // This test validates the helper behavior indirectly for the userActivity flow.
         let url = URL(string: "https://myapp.com/article/42")!
         let referrer = "https://news.ycombinator.com/item?id=42"
-        let props = PostHogDeepLinkIntegration.buildDeepLinkProperties(url: url, referrer: referrer)
+        let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
         XCTAssertEqual(props["$referring_domain"] as? String, "news.ycombinator.com")
     }
 }

@@ -16,23 +16,22 @@ import UIKit
 private struct PostHogDeepLinkListener: ViewModifier {
     let posthog: PostHogSDK?
 
+        @ViewBuilder
     func body(content: Content) -> some View {
         #if os(iOS) || os(tvOS)
         if #available(iOS 14.0, tvOS 14.0, *) {
-            return AnyView(
-                content
-                    .onOpenURL { url in
-                        posthog?.handleOpenURL(url)
-                    }
-                    .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-                        posthog?.handleUserActivity(activity)
-                    }
-            )
+            content
+                .onOpenURL { url in
+                    posthog?.captureDeepLink(url: url)
+                }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    posthog?.captureDeepLink(userActivity: activity)
+                }
         } else {
-            return AnyView(content)
+            content
         }
         #else
-        return AnyView(content)
+        content
         #endif
     }
 }
@@ -43,8 +42,7 @@ public extension View {
     /// - Parameter posthog: The PostHogSDK instance to use for tracking. If not provided,
     ///   the currently installed instance will be used if available.
     func postHogDeepLinkListener(_ posthog: PostHogSDK? = nil) -> some View {
-        let sdk = posthog ?? PostHogDeepLinkIntegration.currentInstance
+        let sdk = posthog ?? PostHogSDK.shared
         return modifier(PostHogDeepLinkListener(posthog: sdk))
     }
 }
-

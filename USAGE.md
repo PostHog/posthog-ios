@@ -107,15 +107,12 @@ Call `PostHogSDK.shared.captureDeepLink` manually in your delegate methods.
 
 ```swift
 func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-    let referrer = options[.sourceApplication] as? String
-    PostHogSDK.shared.captureDeepLink(url: url, referrer: referrer)
+    PostHogSDK.shared.captureDeepLink(url: url, options: options)
     return true
 }
 
 func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-    if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
-        PostHogSDK.shared.captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
-    }
+    PostHogSDK.shared.captureDeepLink(userActivity: userActivity)
     return true
 }
 ```

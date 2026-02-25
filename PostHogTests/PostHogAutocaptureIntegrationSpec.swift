@@ -22,7 +22,7 @@ import Testing
             server = MockPostHogServer()
             server.start()
 
-            let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+            let config = PostHogConfig(apiKey: apiKey, host: server.url)
             config.captureElementInteractions = true
             config.flushIntervalSeconds = 0.2
             config.maxBatchSize = 1
@@ -44,8 +44,11 @@ import Testing
         struct WhenInitialized {
             @Test("should set the eventProcessor to itself on start")
             func shouldSetEventProcessorToItselfOnStart() {
-                let apiKey = uniqueApiKey()
-                let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+                let server = MockPostHogServer()
+                server.start()
+                defer { server.stop() }
+
+                let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
                 config.captureElementInteractions = true
                 let posthog = PostHogSDK.with(config)
                 let integration = posthog.getAutocaptureIntegration()
@@ -59,8 +62,11 @@ import Testing
 
             @Test("should clear the eventProcessor on stop")
             func shouldClearEventProcessorOnStop() {
-                let apiKey = uniqueApiKey()
-                let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+                let server = MockPostHogServer()
+                server.start()
+                defer { server.stop() }
+
+                let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
                 config.captureElementInteractions = true
                 let posthog = PostHogSDK.with(config)
                 let integration = posthog.getAutocaptureIntegration()

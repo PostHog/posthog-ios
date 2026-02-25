@@ -564,12 +564,12 @@ enum PostHogSurveysTest {
         let postHog: PostHogSDK
 
         init() {
-            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+            server = MockPostHogServer()
+            let config = PostHogConfig(apiKey: "test", host: server.url)
             config._surveys = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()
-            server = MockPostHogServer()
             server.featureFlags = [
                 "linked-flag-enabled": true,
                 "linked-flag-disabled": false,

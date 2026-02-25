@@ -27,8 +27,9 @@ class PostHogSDKBaseTest {
 
     func makeConfig(
         apiKey: String = uniqueApiKey(),
-        host: String = "http://localhost:9001"
+        host: String? = nil
     ) -> PostHogConfig {
+        let host = host ?? server.url
         let config = PostHogConfig(apiKey: apiKey, host: host)
         storageTracker.track(config)
         config.disableReachabilityForTesting = true
@@ -54,10 +55,10 @@ class PostHogRemoteConfigBaseTest {
     var server: MockPostHogServer!
 
     init(serverVersion: Int = 3) {
-        config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
+        server = MockPostHogServer(version: serverVersion)
+        config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
         config.preloadFeatureFlags = false
         config.remoteConfig = false
-        server = MockPostHogServer(version: serverVersion)
         server.start()
         // important!
         storage.reset()

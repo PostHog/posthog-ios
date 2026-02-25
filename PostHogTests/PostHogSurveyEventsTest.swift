@@ -77,7 +77,7 @@ class PostHogSurveyEventsTest: PostHogSDKBaseTest {
     }
 
     func getSut() -> PostHogSDK {
-        let config = makeConfig(host: "http://localhost:9090")
+        let config = makeConfig()
         config._surveys = true
         config.flushAt = 1
         return makeSDK(config: config)

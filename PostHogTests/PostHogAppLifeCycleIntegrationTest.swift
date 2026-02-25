@@ -28,7 +28,7 @@ final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
         flushAt: Int = 1,
         captureApplicationLifecycleEvents: Bool = true
     ) -> PostHogSDK {
-        let config = makeConfig(host: "http://localhost:9000")
+        let config = makeConfig()
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt

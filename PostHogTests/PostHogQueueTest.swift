@@ -28,7 +28,7 @@ class PostHogQueueTest {
     }
 
     func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000) -> PostHogQueue {
-        let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: apiKey, host: server.url)
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.sendFeatureFlagEvent = false

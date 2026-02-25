@@ -100,7 +100,7 @@ class PostHogPropertiesSerializationTests {
     ]
 
     func makeConfig() -> PostHogConfig {
-        let config = PostHogConfig(apiKey: uniqueApiKey(), host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
         storageTracker.track(config)
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true

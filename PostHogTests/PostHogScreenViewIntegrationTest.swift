@@ -23,7 +23,7 @@ final class ScreenViewIntegrationTest: PostHogSDKBaseTest {
     }
 
     private func getSut(captureScreenViews: Bool = true) -> PostHogSDK {
-        let config = makeConfig(host: "https://localhost:9090")
+        let config = makeConfig()
         config.captureScreenViews = captureScreenViews
         config.flushAt = 1
         return makeSDK(config: config)

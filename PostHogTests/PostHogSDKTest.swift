@@ -54,7 +54,7 @@ class PostHogSDKTest {
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
         server.reset()
-        let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: apiKey, host: server.url)
         config.flushAt = flushAt
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent

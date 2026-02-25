@@ -40,7 +40,7 @@ class PostHogSDKPersonProfilesTest {
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
         server.reset()
-        let config = PostHogConfig(apiKey: apiKey, host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: apiKey, host: server.url)
         config.flushAt = flushAt
         config.preloadFeatureFlags = false
         config.sendFeatureFlagEvent = false

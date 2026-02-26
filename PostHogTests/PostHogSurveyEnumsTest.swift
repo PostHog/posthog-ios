@@ -319,6 +319,44 @@ struct PostHogSurveyEnumsTest {
         }
     }
 
+    @Test("PostHogSurveySchedule handles unknown values")
+    func surveyScheduleHandlesUnknownValues() throws {
+        // Known values
+        let knownSchedules = ["once", "recurring", "always"]
+        for scheduleString in knownSchedules {
+            let data = """
+            "\(scheduleString)"
+            """.data(using: .utf8)!
+
+            let decodedSchedule = try PostHogApi.jsonDecoder.decode(PostHogSurveySchedule.self, from: data)
+
+            switch scheduleString {
+            case "once":
+                #expect(decodedSchedule == .once)
+            case "recurring":
+                #expect(decodedSchedule == .recurring)
+            case "always":
+                #expect(decodedSchedule == .always)
+            default:
+                throw TestError("Unexpected schedule string: \(scheduleString)")
+            }
+        }
+
+        // Unknown value
+        let unknownScheduleString = "biweekly"
+        let unknownData = """
+        "\(unknownScheduleString)"
+        """.data(using: .utf8)!
+
+        let decodedUnknownSchedule = try PostHogApi.jsonDecoder.decode(PostHogSurveySchedule.self, from: unknownData)
+
+        if case let .unknown(schedule) = decodedUnknownSchedule {
+            #expect(schedule == unknownScheduleString)
+        } else {
+            throw TestError("Expected unknown schedule")
+        }
+    }
+
     @Test("PostHogSurveyQuestionBranchingType handles unknown values")
     func surveyQuestionBranchingTypeHandlesUnknownValues() throws {
         // Known values

@@ -134,7 +134,7 @@ enum PostHogSessionManagerTest {
 
             for _ in 0 ..< 49 {
                 // activity
-                mockNow.date.addTimeInterval(60 * 29) // +23 hours, 40 minutes (session should not rotate)
+                mockNow.date.addTimeInterval(60 * 29) // +23 hours, 41 minutes (session should not rotate)
                 posthog.getSessionManager()?.touchSession()
             }
 

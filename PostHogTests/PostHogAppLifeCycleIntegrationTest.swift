@@ -103,7 +103,6 @@ final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -137,7 +136,6 @@ final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -170,7 +168,6 @@ final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
 
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
-            #expect(events.first?.properties["build"] != nil)
             #expect(events.first?.properties["build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)

@@ -197,19 +197,11 @@ class PostHogSDKTest {
 
         sut.capture("event")
 
-        // Use a short timeout since we don't expect events
-        do {
-            _ = try await withThrowingTaskGroup(of: [PostHogEvent].self) { group in
-                group.addTask {
-                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                    return []
-                }
-                return try await group.next() ?? []
-            }
-        } catch {
-            // Expected timeout
-        }
+        // no need to await 15s
+        let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+        #expect(events.count == 0)
 
+        sut.reset()
         sut.close()
     }
 

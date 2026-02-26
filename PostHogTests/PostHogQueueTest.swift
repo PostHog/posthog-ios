@@ -59,20 +59,24 @@ class PostHogQueueTest {
 
     @Test("add item to queue and flush respecting flushAt")
     func addItemToQueueAndFlushRespectingFlushAt() async throws {
-        let sut = getSut(maxBatchSize: 1)
+        let sut = getSut(flushAt: 2)
 
         let event = PostHogEvent(event: "event", distinctId: "distinctId")
-        let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
         sut.add(event)
+
+        // Below flushAt threshold — no flush should happen
+        #expect(sut.depth == 1)
+        #expect(server.batchRequests.isEmpty)
+
+        let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
         sut.add(event2)
 
-        #expect(sut.depth == 2)
-
+        // At flushAt threshold, flush should trigger
         let events = try await getServerEvents(server)
-        #expect(events.count == 1)
+        #expect(events.count == 2)
 
-        try await waitForCondition { sut.depth == 1 }
-        #expect(sut.depth == 1)
+        try await waitForCondition { sut.depth == 0 }
+        #expect(sut.depth == 0)
 
         sut.clear()
     }

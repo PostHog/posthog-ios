@@ -67,6 +67,16 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
     }
 }
 
+func waitForCondition(timeout: TimeInterval = 5.0, condition: () -> Bool) async throws {
+    let start = Date()
+    while !condition() {
+        if Date().timeIntervalSince(start) > timeout {
+            throw TestError("waitForCondition timed out after \(timeout)s")
+        }
+        try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+    }
+}
+
 final class MockDate {
     var date = Date()
 }
@@ -86,8 +96,6 @@ let testBundleIdentifier = Bundle.main.bundleIdentifier ?? "com.posthog.test"
 let testAppGroupIdentifier = "group.com.posthog.test"
 
 final class BundleLocator {}
-
-let testAPIKey = "test_api_key"
 
 func uniqueApiKey() -> String {
     "test_\(UUID().uuidString)"

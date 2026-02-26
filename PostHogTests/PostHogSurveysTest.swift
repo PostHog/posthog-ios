@@ -565,7 +565,7 @@ enum PostHogSurveysTest {
 
         init() {
             server = MockPostHogServer()
-            let config = PostHogConfig(apiKey: "test", host: server.url)
+            let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
             config._surveys = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)

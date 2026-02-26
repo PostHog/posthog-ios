@@ -21,7 +21,7 @@ enum PostHogSessionManagerTest {
         }
 
         func getSut() -> PostHogSDK {
-            let config = PostHogConfig(apiKey: "test-key")
+            let config = PostHogConfig(apiKey: uniqueApiKey())
             return PostHogSDK.with(config)
         }
 
@@ -369,7 +369,7 @@ enum PostHogSessionManagerTest {
             postHogSdkName = "posthog-react-native"
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-            let config = PostHogConfig(apiKey: "test-key")
+            let config = PostHogConfig(apiKey: uniqueApiKey())
             posthog = PostHogSDK.with(config)
         }
 

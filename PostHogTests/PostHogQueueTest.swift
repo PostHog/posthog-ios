@@ -27,10 +27,11 @@ class PostHogQueueTest {
         server.stop()
     }
 
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000) -> PostHogQueue {
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50) -> PostHogQueue {
         let config = PostHogConfig(apiKey: apiKey, host: server.url)
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
+        config.maxBatchSize = maxBatchSize
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
@@ -49,6 +50,8 @@ class PostHogQueueTest {
         let events = try await getServerEvents(server)
         #expect(events.count == 1)
 
+        // Wait for the queue to finish processing the response (pop happens in URLSession callback)
+        try await waitForCondition { sut.depth == 0 }
         #expect(sut.depth == 0)
 
         sut.clear()
@@ -56,7 +59,7 @@ class PostHogQueueTest {
 
     @Test("add item to queue and flush respecting flushAt")
     func addItemToQueueAndFlushRespectingFlushAt() async throws {
-        let sut = getSut()
+        let sut = getSut(maxBatchSize: 1)
 
         let event = PostHogEvent(event: "event", distinctId: "distinctId")
         let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
@@ -68,6 +71,7 @@ class PostHogQueueTest {
         let events = try await getServerEvents(server)
         #expect(events.count == 1)
 
+        try await waitForCondition { sut.depth == 1 }
         #expect(sut.depth == 1)
 
         sut.clear()

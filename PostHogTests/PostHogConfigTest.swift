@@ -13,7 +13,7 @@ import Testing
 struct PostHogConfigTest {
     @Test("init config with default values")
     func initConfigWithDefaultValues() {
-        let config = PostHogConfig(apiKey: testAPIKey)
+        let config = PostHogConfig(apiKey: uniqueApiKey())
 
         #expect(config.host == URL(string: PostHogConfig.defaultHost))
         #expect(config.flushAt == 20)
@@ -31,14 +31,15 @@ struct PostHogConfigTest {
 
     @Test("init takes api key")
     func initTakesApiKey() {
-        let config = PostHogConfig(apiKey: testAPIKey)
+        let apiKey = uniqueApiKey()
+        let config = PostHogConfig(apiKey: apiKey)
 
-        #expect(config.apiKey == testAPIKey)
+        #expect(config.apiKey == apiKey)
     }
 
     @Test("init takes host")
     func initTakesHost() {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "localhost:9000")
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: "localhost:9000")
 
         #expect(config.host == URL(string: "localhost:9000")!)
     }
@@ -48,7 +49,7 @@ struct PostHogConfigTest {
         struct DefaultCaptureElementInteractions {
             @Test("should have autocapture disabled by default")
             func shouldHaveAutocaptureDisabledByDefault() {
-                let sut = PostHogConfig(apiKey: testAPIKey)
+                let sut = PostHogConfig(apiKey: uniqueApiKey())
                 #expect(sut.captureElementInteractions == false)
             }
         }
@@ -57,7 +58,7 @@ struct PostHogConfigTest {
         struct WhenCustomized {
             @Test("should allow disabling autocapture")
             func shouldAllowDisablingAutocapture() {
-                let config = PostHogConfig(apiKey: testAPIKey)
+                let config = PostHogConfig(apiKey: uniqueApiKey())
                 config.captureElementInteractions = false
                 #expect(config.captureElementInteractions == false)
             }

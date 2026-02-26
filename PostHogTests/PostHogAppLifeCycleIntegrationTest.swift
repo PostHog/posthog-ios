@@ -22,6 +22,7 @@ final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
 
     deinit {
         DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
+        setVersionDefaultsToCurrent()
     }
 
     private func getSut(

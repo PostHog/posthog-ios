@@ -32,7 +32,7 @@ class PostHogStorageTest {
 
     @Test("returns the app group container dir URL")
     func returnsTheAppGroupContainerDirURL() {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(apiKey: uniqueApiKey())
         config.appGroupIdentifier = testAppGroupIdentifier
         let url = appGroupContainerUrl(config: config)!
 
@@ -135,14 +135,14 @@ class PostHogStorageTest {
 
     @Test("writes to disk in an api key folder under application support directory")
     func writesToDiskInAnApiKeyFolderUnderApplicationSupportDirectory() {
-        let config = PostHogConfig(apiKey: "test_key")
+        let config = PostHogConfig(apiKey: uniqueApiKey())
         storageTracker.track(config)
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
         sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_key"]
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, config.apiKey]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 
@@ -158,7 +158,7 @@ class PostHogStorageTest {
 
     @Test("writes to disk in an api key folder under a group container directory")
     func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
-        let config = PostHogConfig(apiKey: "test_key")
+        let config = PostHogConfig(apiKey: uniqueApiKey())
         storageTracker.track(config)
         config.appGroupIdentifier = testAppGroupIdentifier
         let sut = PostHogStorage(config)
@@ -166,7 +166,7 @@ class PostHogStorageTest {
 
         sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-        let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier, "test_key"]
+        let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier, config.apiKey]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 

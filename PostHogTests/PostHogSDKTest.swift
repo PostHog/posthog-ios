@@ -678,6 +678,319 @@ class PostHogSDKTest {
         sut.close()
     }
 
+    @Test("don't send feature flag event for getFeatureFlag when config enabled")
+    func dontSendFeatureFlagEventForGetFeatureFlagWhenConfigEnabled() {
+        let sut = getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+        waitFlagsRequest(server)
+        #expect(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false) as? Bool == true)
+
+        let events = getBatchedEvents(server, timeout: 1.0, failIfNotCompleted: false)
+
+        #expect(events.count == 0)
+
+        sut.close()
+    }
+
+    @Test("reset sessionId after reset")
+    func resetSessionIdAfterReset() async throws {
+        let sut = getSut(captureApplicationLifecycleEvents: false, flushAt: 1)
+        let mockNow = MockDate()
+        now = { mockNow.date }
+
+        sut.capture("event captured with session")
+
+        var events = try await getServerEvents(server)
+        #expect(events.count == 1)
+
+        let currentSessionId = events[0].properties["$session_id"] as? String
+        #expect(currentSessionId != nil)
+
+        sut.reset()
+
+        server.reset()
+
+        sut.capture("event captured w/o session")
+
+        events = try await getServerEvents(server)
+        #expect(events.count == 1)
+
+        let newSessionId = events[0].properties["$session_id"] as? String
+        #expect(newSessionId != nil)
+
+        #expect(currentSessionId != newSessionId)
+
+        sut.close()
+    }
+
+    @Test("does not capture $feature_flag_called again when getFeatureFlag called twice after reloading flags")
+    func doesNotCaptureFeatureFlagCalledAgainAfterReloadingFlags() async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 2
+        )
+
+        _ = sut.getFeatureFlag("some_key")
+
+        await withCheckedContinuation { continuation in
+            sut.reloadFeatureFlags {
+                _ = sut.getFeatureFlag("some_key")
+                continuation.resume()
+            }
+        }
+        sut.capture("force_batch_flush")
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == 2)
+        #expect(events[0].event == "$feature_flag_called")
+        #expect(events[1].event == "force_batch_flush")
+
+        sut.close()
+    }
+
+    @Test("captures $feature_flag_called again when getFeatureFlag returns different value after reloading flags")
+    func capturesFeatureFlagCalledAgainWhenValueChanges() async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 3
+        )
+
+        // First call gets a false value
+        _ = sut.getFeatureFlag("disabled-flag")
+
+        // Change the mock server to return a different value for the same key
+        server.disabledFlag = true
+
+        await withCheckedContinuation { continuation in
+            sut.reloadFeatureFlags {
+                // Second call gets a true value
+                _ = sut.getFeatureFlag("disabled-flag")
+                sut.capture("force_batch_flush")
+                continuation.resume()
+            }
+        }
+
+        waitFlagsRequest(server)
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == 3)
+
+        #expect(events[0].event == "$feature_flag_called")
+        #expect(events[1].event == "$feature_flag_called")
+        #expect(events[2].event == "force_batch_flush")
+
+        sut.close()
+    }
+
+    // MARK: - beforeSend hook tests
+
+    @Test("beforeSend skip hook skips the event", arguments: BeforeSendEventType.allCases)
+    func beforeSendSkipHookSkipsTheEvent(eventType: BeforeSendEventType) async throws {
+        let targetKey = eventType.targetKey
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 1,
+            beforeSend: [{ event in event.event == targetKey ? nil : event }]
+        )
+
+        eventType.trigger(sut)
+        sut.capture("other_test_event")
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == 1)
+        #expect(events[0].event == "other_test_event")
+
+        sut.close()
+    }
+
+    @Test("beforeSend skip hook preserves other events", arguments: BeforeSendEventType.allCases)
+    func beforeSendSkipHookPreservesOtherEvents(eventType: BeforeSendEventType) async throws {
+        let targetKey = eventType.targetKey
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 1,
+            beforeSend: [{ event in event.event == targetKey ? nil : event }]
+        )
+
+        sut.capture("other_test_event")
+        eventType.trigger(sut)
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == 1)
+        #expect(events[0].event == "other_test_event")
+
+        sut.close()
+    }
+
+    @Test("beforeSend update hook updates the event", arguments: BeforeSendEventType.allCases)
+    func beforeSendUpdateHookUpdatesTheEvent(eventType: BeforeSendEventType) async throws {
+        let targetKey = eventType.targetKey
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 2,
+            beforeSend: [{
+                if $0.event == targetKey {
+                    $0.event = "updated_event_key"
+                }
+                return $0
+            }]
+        )
+
+        sut.capture("other_test_event")
+        eventType.trigger(sut)
+
+        let events = try await getServerEvents(server)
+        let eventNames = events.map(\.event)
+
+        #expect(events.count == 2)
+        #expect(eventNames.contains("updated_event_key"))
+
+        sut.close()
+    }
+
+    @Test("beforeSend update hook preserves all events", arguments: BeforeSendEventType.allCases)
+    func beforeSendUpdateHookPreservesAllEvents(eventType: BeforeSendEventType) async throws {
+        let targetKey = eventType.targetKey
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 2,
+            beforeSend: [{
+                if $0.event == targetKey {
+                    $0.event = "updated_event_key"
+                }
+                return $0
+            }]
+        )
+
+        sut.capture("other_test_event")
+        eventType.trigger(sut)
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(events[0].event == "other_test_event")
+
+        sut.close()
+    }
+
+    @Test("beforeSend default hook keeps events intact", arguments: BeforeSendEventType.allCases)
+    func beforeSendDefaultHookKeepsEventsIntact(eventType: BeforeSendEventType) async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 2
+        )
+
+        sut.capture("other_test_event")
+        eventType.trigger(sut)
+
+        let events = try await getServerEvents(server)
+        let eventNames = events.map(\.event)
+
+        #expect(events.count == 2)
+        #expect(eventNames[0] == "other_test_event")
+        #expect(eventNames[1] == eventType.targetKey)
+
+        sut.close()
+    }
+
+    @Test("beforeSend skip updated to $session event")
+    func beforeSendSkipUpdatedToSessionEvent() async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 1,
+            beforeSend: [{
+                if $0.event == "test_key" {
+                    $0.event = "$snapshot"
+                }
+                return $0
+            }]
+        )
+
+        sut.capture("test_key")
+        sut.capture("other_test")
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == 1)
+        #expect(events[0].event == "other_test")
+
+        sut.close()
+    }
+
+    @Test("beforeSend properly handles empty beforeSend array")
+    func beforeSendProperlyHandlesEmptyArray() async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 2,
+            beforeSend: []
+        )
+
+        let expectedEvents = [
+            "first_event",
+            "second_event",
+        ]
+
+        for event in expectedEvents {
+            sut.capture(event)
+        }
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == expectedEvents.count)
+        #expect(events.map(\.event) == expectedEvents)
+
+        sut.close()
+    }
+
+    @Test("beforeSend supports trailing closure syntax for single block")
+    func beforeSendSupportsTrailingClosureSyntax() async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 1
+        )
+
+        sut.config.setBeforeSend { $0.event == "first_event" ? nil : $0 }
+
+        sut.capture("first_event")
+        sut.capture("second_event")
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == 1)
+        #expect(events[0].event == "second_event")
+
+        sut.close()
+    }
+
+    @Test("beforeSend supports multiple beforeSend blocks")
+    func beforeSendSupportsMultipleBlocks() async throws {
+        let sut = getSut(
+            sendFeatureFlagEvent: true,
+            flushAt: 2,
+            beforeSend: [
+                { $0.event == "first_event" ? nil : $0 },
+                { $0.event = "modified_event"
+                    return $0 },
+                { $0.event == "second_event" ? nil : $0 },
+            ]
+        )
+
+        sut.capture("first_event")
+        sut.capture("second_event")
+        sut.capture("third_event")
+
+        // first event is skipped by the first block
+        // second event is modified by the second block and not skipped by the third block (because it became "modified_event")
+        // third event is modified by the second block
+        let expectedEvents = [
+            "modified_event",
+            "modified_event",
+        ]
+
+        let events = try await getServerEvents(server)
+        #expect(events.count == expectedEvents.count)
+        #expect(events.map(\.event) == expectedEvents)
+
+        sut.close()
+    }
+
     #if os(iOS)
         @Test("isAutocaptureActive() should be false if disabled by config")
         func isAutocaptureActiveShouldBeFalseIfDisabledByConfig() {
@@ -705,4 +1018,40 @@ struct BeforeSendTestEventContext {
     let triggerClosure: (PostHogSDK) -> Void
     let targetKey: String
     let testName: String
+}
+
+enum BeforeSendEventType: String, CaseIterable, CustomTestStringConvertible {
+    case capture
+    case screen
+    case autocapture
+    case identify
+    case group
+    case alias
+    case getFeatureFlag = "get feature flag"
+
+    var testDescription: String { rawValue }
+
+    var targetKey: String {
+        switch self {
+        case .capture: return "test_event"
+        case .screen: return "$screen"
+        case .autocapture: return "$autocapture"
+        case .identify: return "$identify"
+        case .group: return "$groupidentify"
+        case .alias: return "$create_alias"
+        case .getFeatureFlag: return "$feature_flag_called"
+        }
+    }
+
+    func trigger(_ sut: PostHogSDK) {
+        switch self {
+        case .capture: sut.capture("test_event")
+        case .screen: sut.screen("screen_name")
+        case .autocapture: sut.autocapture(eventType: "test_type", elementsChain: "chain", properties: [:])
+        case .identify: sut.identify("user_id")
+        case .group: sut.group(type: "test_type", key: "test_key")
+        case .alias: sut.alias("test_alias")
+        case .getFeatureFlag: _ = sut.getFeatureFlag("key")
+        }
+    }
 }

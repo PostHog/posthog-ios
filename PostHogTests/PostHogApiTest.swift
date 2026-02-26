@@ -66,7 +66,9 @@ enum PostHogApiTests {
         }
 
         func getSut(host: String) -> PostHogApi {
-            PostHogApi(PostHogConfig(apiKey: "123", host: host))
+            var components = URLComponents(string: host)!
+            components.port = server.port
+            return PostHogApi(PostHogConfig(apiKey: uniqueApiKey(), host: components.string!))
         }
     }
 
@@ -74,22 +76,37 @@ enum PostHogApiTests {
     class TestBatchEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func hostWithNoPath() async throws {
-            try await testBatchEndpoint(forHost: server.url)
+            try await testBatchEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func hostWithNoPathAndTrailingSlash() async throws {
-            try await testBatchEndpoint(forHost: "\(server.url)/")
+            try await testBatchEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func hostWithPath() async throws {
-            try await testBatchEndpoint(forHost: "\(server.url)/api/v1")
+            try await testBatchEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func hostWithPathAndTrailingSlash() async throws {
-            try await testBatchEndpoint(forHost: "\(server.url)/api/v1/")
+            try await testBatchEndpoint(forHost: "http://localhost/api/v1/")
+        }
+
+        @Test("with host containing port number")
+        func hostWithPortNumber() async throws {
+            try await testBatchEndpoint(forHost: "http://localhost:9000")
+        }
+
+        @Test("with host containing port number and path")
+        func hostWithPortNumberAndPath() async throws {
+            try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func hostWithPortNumberAndTrailingSlash() async throws {
+            try await testBatchEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 
@@ -97,22 +114,37 @@ enum PostHogApiTests {
     class TestSnapshotEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
-            try await testSnapshotEndpoint(forHost: server.url)
+            try await testSnapshotEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func testHostWithNoPathAndTrailingSlash() async throws {
-            try await testSnapshotEndpoint(forHost: "\(server.url)/")
+            try await testSnapshotEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func testHostWithPath() async throws {
-            try await testSnapshotEndpoint(forHost: "\(server.url)/api/v1")
+            try await testSnapshotEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func testHostWithPathAndTrailingSlash() async throws {
-            try await testSnapshotEndpoint(forHost: "\(server.url)/api/v1/")
+            try await testSnapshotEndpoint(forHost: "http://localhost/api/v1/")
+        }
+
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testSnapshotEndpoint(forHost: "http://localhost:9000")
+        }
+
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testSnapshotEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testSnapshotEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 
@@ -120,22 +152,37 @@ enum PostHogApiTests {
     class TestFlagsEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
-            try await testFlagsEndpoint(forHost: server.url)
+            try await testFlagsEndpoint(forHost: "http://localhost")
         }
 
         @Test("with host containing no path and trailing slash")
         func testHostWithNoPathAndTrailingSlash() async throws {
-            try await testFlagsEndpoint(forHost: "\(server.url)/")
+            try await testFlagsEndpoint(forHost: "http://localhost/")
         }
 
         @Test("with host containing path")
         func testHostWithPath() async throws {
-            try await testFlagsEndpoint(forHost: "\(server.url)/api/v1")
+            try await testFlagsEndpoint(forHost: "http://localhost/api/v1")
         }
 
         @Test("with host containing path and trailing slash")
         func testHostWithPathAndTrailingSlash() async throws {
-            try await testFlagsEndpoint(forHost: "\(server.url)/api/v1/")
+            try await testFlagsEndpoint(forHost: "http://localhost/api/v1/")
+        }
+
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testFlagsEndpoint(forHost: "http://localhost:9000")
+        }
+
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 }

@@ -268,9 +268,7 @@ class PostHogContext {
     func dynamicContext() -> [String: Any] {
         var properties: [String: Any] = [:]
 
-        screenSizeLock.lock()
-        let currentScreenSize = screenSize
-        screenSizeLock.unlock()
+        let currentScreenSize = screenSizeLock.withLock { screenSize }
 
         if let currentScreenSize {
             properties["$screen_width"] = Float(currentScreenSize.width)
@@ -406,9 +404,7 @@ class PostHogContext {
     private func updateScreenSize(_ getSize: @escaping () -> CGSize?) {
         let block = {
             let newSize = getSize()
-            self.screenSizeLock.lock()
-            self.screenSize = newSize
-            self.screenSizeLock.unlock()
+            self.screenSizeLock.withLock { self.screenSize = newSize }
         }
         // ensure block is executed on `main` since closure accesses non thread-safe UI objects like UIApplication
         if Thread.isMainThread {

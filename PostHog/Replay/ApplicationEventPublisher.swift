@@ -12,20 +12,20 @@ import Foundation
 
 protocol ApplicationEventPublishing: AnyObject {
     /// Registers a callback for a `UIApplication.sendEvent`
-    var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> {get set}
+    var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> { get }
 }
 
 typealias ApplicationEventData = (UIEvent, Date)
 
 final class ApplicationEventPublisher: ApplicationEventPublishing {
-        lazy var onApplicationEvent = PostHogMulticastCallback<ApplicationEventData> { [weak self] subscriberCount in
+        private(set) lazy var onApplicationEvent = PostHogMulticastCallback<ApplicationEventData> { [weak self] subscriberCount in
             if subscriberCount > 0 {
                 self?.swizzleSendEvent()
             } else {
                 self?.unswizzleSendEvent()
             }
         }
-        
+
         static let shared = ApplicationEventPublisher()
 
         private var hasSwizzled: Bool = false

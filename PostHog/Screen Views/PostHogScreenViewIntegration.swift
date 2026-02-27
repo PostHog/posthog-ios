@@ -45,7 +45,7 @@ final class PostHogScreenViewIntegration: PostHogIntegration {
      */
     func start() {
         let screenViewPublisher = DI.main.screenViewPublisher
-        screenViewToken = screenViewPublisher.onScreenView { [weak self] screen in
+        screenViewToken = screenViewPublisher.onScreenView.subscribe { [weak self] screen in
             self?.captureScreenView(screen: screen)
         }
     }

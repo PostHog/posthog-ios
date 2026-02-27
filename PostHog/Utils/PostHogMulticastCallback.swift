@@ -27,19 +27,31 @@ import Foundation
 final class PostHogMulticastCallback<T> {
     private var callbacks: [UUID: (T) -> Void] = [:]
     private let lock = NSLock()
+    private let onSubscriberCountChanged: ((Int) -> Void)?
+
+    /// Creates a new multicast callback.
+    /// - Parameter onSubscriberCountChanged: Optional closure called when subscriber count changes.
+    init(onSubscriberCountChanged: ((Int) -> Void)? = nil) {
+        self.onSubscriberCountChanged = onSubscriberCountChanged
+    }
 
     /// Subscribe to this callback.
     /// - Parameter callback: The callback to invoke when `invoke()` is called.
     /// - Returns: A `RegistrationToken` that unsubscribes when deallocated.
     func subscribe(_ callback: @escaping (T) -> Void) -> RegistrationToken {
         let id = UUID()
-        lock.withLock {
+        let newCount = lock.withLock {
             callbacks[id] = callback
+            return callbacks.count
         }
+        onSubscriberCountChanged?(newCount)
         return RegistrationToken { [weak self] in
-            self?.lock.withLock {
-                self?.callbacks[id] = nil
+            guard let self else { return }
+            let newCount = self.lock.withLock {
+                self.callbacks[id] = nil
+                return self.callbacks.count
             }
+            self.onSubscriberCountChanged?(newCount)
         }
     }
 

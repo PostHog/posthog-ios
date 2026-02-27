@@ -173,7 +173,7 @@
 
             // start listening to `UIApplication.sendEvent`
             let applicationEventPublisher = DI.main.applicationEventPublisher
-            applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] event, date in
+            applicationEventToken = applicationEventPublisher.onApplicationEvent.subscribe { [weak self] event, date in
                 self?.handleApplicationEvent(event: event, date: date)
             }
 

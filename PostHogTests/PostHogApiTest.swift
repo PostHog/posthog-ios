@@ -66,7 +66,9 @@ enum PostHogApiTests {
         }
 
         func getSut(host: String) -> PostHogApi {
-            PostHogApi(PostHogConfig(apiKey: "123", host: host))
+            var components = URLComponents(string: host)!
+            components.port = server.port
+            return PostHogApi(PostHogConfig(apiKey: uniqueApiKey(), host: components.string!))
         }
     }
 

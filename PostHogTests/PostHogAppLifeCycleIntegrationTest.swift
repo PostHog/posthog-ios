@@ -10,39 +10,30 @@ import Foundation
 import Testing
 
 @Suite("Test App Lifecycle integration", .serialized)
-final class PostHogAppLifeCycleIntegrationTest {
-    var server: MockPostHogServer!
+final class PostHogAppLifeCycleIntegrationTest: PostHogSDKBaseTest {
     let mockAppLifecycle: MockApplicationLifecyclePublisher
 
     init() {
-        PostHogAppLifeCycleIntegration.clearInstalls()
-
         mockAppLifecycle = MockApplicationLifecyclePublisher()
+        super.init()
+        PostHogAppLifeCycleIntegration.clearInstalls()
         DI.main.appLifecyclePublisher = mockAppLifecycle
-
-        server = MockPostHogServer()
-        server.start()
     }
 
     deinit {
-        server.stop()
-        server = nil
         DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
+        setVersionDefaultsToCurrent()
     }
 
     private func getSut(
         flushAt: Int = 1,
         captureApplicationLifecycleEvents: Bool = true
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: "app_lifecycle", host: "http://localhost:9000")
+        let config = makeConfig()
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
-
-        let storage = PostHogStorage(config)
-        storage.reset()
-
-        return PostHogSDK.with(config)
+        return makeSDK(config: config)
     }
 
     func setVersionDefaultsToCurrent() {
@@ -112,7 +103,6 @@ final class PostHogAppLifeCycleIntegrationTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -146,7 +136,6 @@ final class PostHogAppLifeCycleIntegrationTest {
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
             #expect(events.first?.properties["build"] != nil)
-            #expect(events.first?.properties["build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)
             #expect(UserDefaults.standard.string(forKey: "PHGBuildKeyV2") != nil)
@@ -179,7 +168,6 @@ final class PostHogAppLifeCycleIntegrationTest {
 
             print("running tests")
             #expect(events.first?.properties["$app_version"] != nil)
-            #expect(events.first?.properties["build"] != nil)
             #expect(events.first?.properties["build"] != nil)
 
             #expect(UserDefaults.standard.string(forKey: "PHGVersionKey") != nil)

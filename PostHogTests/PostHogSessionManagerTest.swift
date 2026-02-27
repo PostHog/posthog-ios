@@ -21,7 +21,7 @@ enum PostHogSessionManagerTest {
         }
 
         func getSut() -> PostHogSDK {
-            let config = PostHogConfig(apiKey: "test-key")
+            let config = PostHogConfig(apiKey: uniqueApiKey())
             return PostHogSDK.with(config)
         }
 
@@ -134,7 +134,7 @@ enum PostHogSessionManagerTest {
 
             for _ in 0 ..< 49 {
                 // activity
-                mockNow.date.addTimeInterval(60 * 29) // +23 hours, 40 minutes (session should not rotate)
+                mockNow.date.addTimeInterval(60 * 29) // +23 hours, 41 minutes (session should not rotate)
                 posthog.getSessionManager()?.touchSession()
             }
 
@@ -155,25 +155,17 @@ enum PostHogSessionManagerTest {
     }
 
     @Suite("Test $session_id property in events")
-    class PostHogSDKEvents {
+    class PostHogSDKEvents: PostHogSDKBaseTest {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
-        var server: MockPostHogServer!
 
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
+            super.init()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-
-            server = MockPostHogServer()
-            server.start()
-
-            // important!
-            deleteSafely(applicationSupportDirectoryURL())
         }
 
         deinit {
             now = { Date() }
-            server.stop()
-            server = nil
         }
 
         func getSut(
@@ -185,18 +177,17 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            server.reset()
+            let config = makeConfig()
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
             config.optOut = optOut
             config.propertiesSanitizer = propertiesSanitizer
             config.personProfiles = personProfiles
             config.maxBatchSize = max(flushAt, config.maxBatchSize)
-            return PostHogSDK.with(config)
+            return makeSDK(config: config)
         }
 
         @Test("Clears $session_id after 30 mins of background inactivity")
@@ -206,7 +197,6 @@ enum PostHogSessionManagerTest {
             now = { mockNow.date }
 
             defer {
-                sut.reset()
                 sut.close()
             }
 
@@ -239,7 +229,6 @@ enum PostHogSessionManagerTest {
             now = { mockNow.date }
 
             defer {
-                sut.reset()
                 sut.close()
             }
 
@@ -266,7 +255,6 @@ enum PostHogSessionManagerTest {
 
             #expect(sessionId1 != sessionId2)
 
-            sut.reset()
             sut.close()
         }
 
@@ -278,7 +266,6 @@ enum PostHogSessionManagerTest {
             now = { mockNow.date }
 
             defer {
-                sut.reset()
                 sut.close()
             }
 
@@ -382,7 +369,7 @@ enum PostHogSessionManagerTest {
             postHogSdkName = "posthog-react-native"
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-            let config = PostHogConfig(apiKey: "test-key")
+            let config = PostHogConfig(apiKey: uniqueApiKey())
             posthog = PostHogSDK.with(config)
         }
 

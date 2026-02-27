@@ -6,91 +6,105 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
-import XCTest
+import Testing
 
-class PostHogQueueTest: QuickSpec {
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000) -> PostHogQueue {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+@Suite("PostHogQueue Tests", .serialized)
+class PostHogQueueTest {
+    let server: MockPostHogServer
+    let apiKey: String
+
+    init() {
+        apiKey = uniqueApiKey()
+        server = MockPostHogServer()
+        server.start()
+    }
+
+    deinit {
+        let config = PostHogConfig(apiKey: apiKey)
+        let storage = PostHogStorage(config)
+        storage.reset()
+        server.stop()
+    }
+
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50) -> PostHogQueue {
+        let config = PostHogConfig(apiKey: apiKey, host: server.url)
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
+        config.maxBatchSize = maxBatchSize
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
         return PostHogQueue(config, storage, api, .batch, nil)
     }
 
-    override func spec() {
-        var server: MockPostHogServer!
+    @Test("add item to queue")
+    func addItemToQueue() async throws {
+        let sut = getSut()
 
-        beforeEach {
-            server = MockPostHogServer()
-            server.start()
-        }
-        afterEach {
-            server.stop()
-        }
+        let event = PostHogEvent(event: "event", distinctId: "distinctId")
+        sut.add(event)
 
-        it("add item to queue") {
-            let sut = self.getSut()
+        #expect(sut.depth == 1)
 
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            sut.add(event)
+        let events = try await getServerEvents(server)
+        #expect(events.count == 1)
 
-            expect(sut.depth) == 1
+        // Wait for the queue to finish processing the response (pop happens in URLSession callback)
+        try await waitForCondition { sut.depth == 0 }
+        #expect(sut.depth == 0)
 
-            let events = getBatchedEvents(server)
-            expect(events.count) == 1
+        sut.clear()
+    }
 
-            expect(sut.depth) == 0
+    @Test("add item to queue and flush respecting flushAt")
+    func addItemToQueueAndFlushRespectingFlushAt() async throws {
+        let sut = getSut(flushAt: 2)
 
-            sut.clear()
-        }
+        let event = PostHogEvent(event: "event", distinctId: "distinctId")
+        sut.add(event)
 
-        it("add item to queue and flush respecting flushAt") {
-            let sut = self.getSut()
+        // Below flushAt threshold — no flush should happen
+        #expect(sut.depth == 1)
+        #expect(server.batchRequests.isEmpty)
 
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
-            sut.add(event)
-            sut.add(event2)
+        let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
+        sut.add(event2)
 
-            expect(sut.depth) == 2
+        // At flushAt threshold, flush should trigger
+        let events = try await getServerEvents(server)
+        #expect(events.count == 2)
 
-            let events = getBatchedEvents(server)
-            expect(events.count) == 1
+        try await waitForCondition { sut.depth == 0 }
+        #expect(sut.depth == 0)
 
-            expect(sut.depth) == 1
+        sut.clear()
+    }
 
-            sut.clear()
-        }
+    @Test("add item to queue and rotate queue")
+    func addItemToQueueAndRotateQueue() async throws {
+        let sut = getSut(flushAt: 3, maxQueueSize: 2)
 
-        it("add item to queue and rotate queue") {
-            let sut = self.getSut(flushAt: 3, maxQueueSize: 2)
+        let event = PostHogEvent(event: "event", distinctId: "distinctId")
+        let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
+        let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
+        sut.add(event)
+        sut.add(event2)
+        sut.add(event3)
 
-            let event = PostHogEvent(event: "event", distinctId: "distinctId")
-            let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
-            let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
-            sut.add(event)
-            sut.add(event2)
-            sut.add(event3)
+        #expect(sut.depth == 2)
 
-            expect(sut.depth) == 2
+        sut.flush()
 
-            sut.flush()
+        let events = try await getServerEvents(server)
 
-            let events = getBatchedEvents(server)
+        #expect(events.count == 2)
 
-            expect(events.count) == 2
+        let first = events.first!
+        let last = events.last!
+        #expect(first.event == "event2")
+        #expect(last.event == "event3")
 
-            let first = events.first!
-            let last = events.last!
-            expect(first.event) == "event2"
-            expect(last.event) == "event3"
-
-            sut.clear()
-        }
+        sut.clear()
     }
 }

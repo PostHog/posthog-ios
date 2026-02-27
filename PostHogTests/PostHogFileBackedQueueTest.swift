@@ -6,11 +6,11 @@
 //
 
 import Foundation
-import Nimble
 @testable import PostHog
-import Quick
+import Testing
 
-class PostHogFileBackedQueueTest: QuickSpec {
+@Suite("PostHogFileBackedQueue Tests")
+struct PostHogFileBackedQueueTest {
     let eventJson =
         """
         {
@@ -59,119 +59,134 @@ class PostHogFileBackedQueueTest: QuickSpec {
         }
         """
 
-    func getSut() -> PostHogFileBackedQueue {
-        let baseUrl = applicationSupportDirectoryURL()
+    func getBaseUrl() -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        return tempDir.appendingPathComponent(UUID().uuidString)
+    }
+
+    func getSut(baseUrl: URL) -> PostHogFileBackedQueue {
         let oldURL = baseUrl.appendingPathComponent("oldQueue")
         let newURL = baseUrl.appendingPathComponent("queue")
-
         return PostHogFileBackedQueue(queue: newURL, oldQueue: oldURL)
     }
 
-    override func spec() {
-        it("create folder and init queue") {
-            let sut = self.getSut()
+    @Test("create folder and init queue")
+    func createFolderAndInitQueue() throws {
+        let baseUrl = getBaseUrl()
+        let sut = getSut(baseUrl: baseUrl)
 
-            expect(sut.depth) == 0
-            expect(FileManager.default.fileExists(atPath: sut.queue.path)) == true
+        #expect(sut.depth == 0)
+        #expect(FileManager.default.fileExists(atPath: sut.queue.path) == true)
 
-            sut.clear()
-        }
+        sut.clear()
+        deleteSafely(baseUrl)
+    }
 
-        it("load cached files into memory") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+    @Test("load cached files into memory")
+    func loadCachedFilesIntoMemory() throws {
+        let baseUrl = getBaseUrl()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            let eventURL = newURL.appendingPathComponent("1698236044.407")
-            let eventsData = self.eventJson.data(using: .utf8)!
-            try eventsData.write(to: eventURL)
+        let eventURL = newURL.appendingPathComponent("1698236044.407")
+        let eventsData = eventJson.data(using: .utf8)!
+        try eventsData.write(to: eventURL)
 
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == true
+        #expect(FileManager.default.fileExists(atPath: eventURL.path) == true)
 
-            let sut = self.getSut()
+        let sut = getSut(baseUrl: baseUrl)
 
-            expect(sut.depth) == 1
-            let items = sut.peek(1)
-            expect(items.first) != nil
+        #expect(sut.depth == 1)
+        let items = sut.peek(1)
+        #expect(items.first != nil)
 
-            sut.clear()
-        }
+        sut.clear()
+        deleteSafely(baseUrl)
+    }
 
-        it("delete from queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+    @Test("delete from queue and disk")
+    func deleteFromQueueAndDisk() throws {
+        let baseUrl = getBaseUrl()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            let eventURL = newURL.appendingPathComponent("1698236044.407")
-            let eventsData = self.eventJson.data(using: .utf8)!
-            try eventsData.write(to: eventURL)
+        let eventURL = newURL.appendingPathComponent("1698236044.407")
+        let eventsData = eventJson.data(using: .utf8)!
+        try eventsData.write(to: eventURL)
 
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == true
+        #expect(FileManager.default.fileExists(atPath: eventURL.path) == true)
 
-            let sut = self.getSut()
+        let sut = getSut(baseUrl: baseUrl)
 
-            sut.delete(index: 0)
+        sut.delete(index: 0)
 
-            expect(sut.depth) == 0
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == false
+        #expect(sut.depth == 0)
+        #expect(FileManager.default.fileExists(atPath: eventURL.path) == false)
 
-            sut.clear()
-        }
+        sut.clear()
+        deleteSafely(baseUrl)
+    }
 
-        it("pop from queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+    @Test("pop from queue and disk")
+    func popFromQueueAndDisk() throws {
+        let baseUrl = getBaseUrl()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            let eventURL = newURL.appendingPathComponent("1698236044.407")
-            let eventsData = self.eventJson.data(using: .utf8)!
-            try eventsData.write(to: eventURL)
+        let eventURL = newURL.appendingPathComponent("1698236044.407")
+        let eventsData = eventJson.data(using: .utf8)!
+        try eventsData.write(to: eventURL)
 
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == true
+        #expect(FileManager.default.fileExists(atPath: eventURL.path) == true)
 
-            let sut = self.getSut()
+        let sut = getSut(baseUrl: baseUrl)
 
-            sut.pop(1)
+        sut.pop(1)
 
-            expect(sut.depth) == 0
-            expect(FileManager.default.fileExists(atPath: eventURL.path)) == false
+        #expect(sut.depth == 0)
+        #expect(FileManager.default.fileExists(atPath: eventURL.path) == false)
 
-            sut.clear()
-        }
+        sut.clear()
+        deleteSafely(baseUrl)
+    }
 
-        it("add to queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+    @Test("add to queue and disk")
+    func addToQueueAndDisk() throws {
+        let baseUrl = getBaseUrl()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            let eventsData = self.eventJson.data(using: .utf8)!
+        let eventsData = eventJson.data(using: .utf8)!
 
-            let sut = self.getSut()
+        let sut = getSut(baseUrl: baseUrl)
 
-            sut.add(eventsData)
+        sut.add(eventsData)
 
-            let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
-            expect(sut.depth) == 1
-            expect(items.count) == 1
+        let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
+        #expect(sut.depth == 1)
+        #expect(items.count == 1)
 
-            sut.clear()
-        }
+        sut.clear()
+        deleteSafely(baseUrl)
+    }
 
-        it("clear queue and disk") {
-            let baseUrl = applicationSupportDirectoryURL()
-            let newURL = baseUrl.appendingPathComponent("queue")
-            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+    @Test("clear queue and disk")
+    func clearQueueAndDisk() throws {
+        let baseUrl = getBaseUrl()
+        let newURL = baseUrl.appendingPathComponent("queue")
+        try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            let eventsData = self.eventJson.data(using: .utf8)!
+        let eventsData = eventJson.data(using: .utf8)!
 
-            let sut = self.getSut()
+        let sut = getSut(baseUrl: baseUrl)
 
-            sut.add(eventsData)
-            sut.clear()
+        sut.add(eventsData)
+        sut.clear()
 
-            let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
-            expect(sut.depth) == 0
-            expect(items.count) == 0
-        }
+        let items = try FileManager.default.contentsOfDirectory(atPath: newURL.path)
+        #expect(sut.depth == 0)
+        #expect(items.count == 0)
+
+        deleteSafely(baseUrl)
     }
 }

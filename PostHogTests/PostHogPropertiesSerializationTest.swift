@@ -25,7 +25,20 @@ struct PropertyTestCase: CustomTestStringConvertible, Sendable {
 // MARK: - Test Suite
 
 @Suite(.serialized)
-struct PostHogPropertiesSerializationTests {
+class PostHogPropertiesSerializationTests {
+    let server: MockPostHogServer
+    let storageTracker = TestStorageTracker()
+
+    init() {
+        server = MockPostHogServer(version: 4)
+        server.start()
+    }
+
+    deinit {
+        storageTracker.cleanup()
+        server.stop()
+    }
+
     // MARK: - Test Payloads
 
     static let propertyPayloads: [PropertyTestCase] = [
@@ -86,239 +99,201 @@ struct PostHogPropertiesSerializationTests {
         },
     ]
 
-    // MARK: - Base Test Class
+    func makeConfig() -> PostHogConfig {
+        let config = PostHogConfig(apiKey: uniqueApiKey(), host: server.url)
+        storageTracker.track(config)
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.captureApplicationLifecycleEvents = false
+        config.preloadFeatureFlags = false
+        config.sendFeatureFlagEvent = false
+        return config
+    }
 
-    class BaseTestSuite {
-        var server: MockPostHogServer
+    func makeSDK(config: PostHogConfig) -> PostHogSDK {
+        let storage = PostHogStorage(config)
+        storage.reset()
+        return PostHogSDK.with(config)
+    }
 
-        init() {
-            server = MockPostHogServer(version: 4)
-            server.start()
-        }
+    func getSut(flushAt: Int = 1) -> PostHogSDK {
+        server.reset()
+        let config = makeConfig()
+        config.flushAt = flushAt
+        config.personProfiles = .always
+        return makeSDK(config: config)
+    }
 
-        deinit {
-            server.stop()
-        }
-
-        func getSut(flushAt: Int = 1) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.flushAt = flushAt
-            config.disableReachabilityForTesting = true
-            config.disableQueueTimerForTesting = true
-            config.captureApplicationLifecycleEvents = false
-            config.personProfiles = .always
-            config.preloadFeatureFlags = false
-
-            deleteSafely(applicationSupportDirectoryURL())
-
-            return PostHogSDK.with(config)
-        }
-
-        func getEvents() async throws -> [PostHogEvent] {
-            try await getServerEvents(server)
-        }
+    func getEvents() async throws -> [PostHogEvent] {
+        try await getServerEvents(server)
     }
 
     // MARK: - capture() with properties
 
-    @Suite("capture with properties")
-    class CapturePropertiesTests: BaseTestSuite {
-        @Test("capture with property type", arguments: propertyPayloads)
-        func captureWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("capture with property type", arguments: propertyPayloads)
+    func captureWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.capture("test_event", properties: payload.properties())
+        sut.capture("test_event", properties: payload.properties())
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
-            #expect(events.first?.event == "test_event")
+        let events = try await getEvents()
+        #expect(events.count == 1)
+        #expect(events.first?.event == "test_event")
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - screen() with properties
 
-    @Suite("screen with properties")
-    class ScreenPropertiesTests: BaseTestSuite {
-        @Test("screen with property type", arguments: propertyPayloads)
-        func screenWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("screen with property type", arguments: propertyPayloads)
+    func screenWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.screen("TestScreen", properties: payload.properties())
+        sut.screen("TestScreen", properties: payload.properties())
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
-            #expect(events.first?.event == "$screen")
+        let events = try await getEvents()
+        #expect(events.count == 1)
+        #expect(events.first?.event == "$screen")
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - identify() with userProperties
 
-    @Suite("identify with userProperties")
-    class IdentifyPropertiesTests: BaseTestSuite {
-        @Test("identify with property type", arguments: propertyPayloads)
-        func identifyWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("identify with property type", arguments: propertyPayloads)
+    func identifyWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.identify("user123", userProperties: payload.properties())
+        sut.identify("user123", userProperties: payload.properties())
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
-            #expect(events.first?.event == "$identify")
+        let events = try await getEvents()
+        #expect(events.count == 1)
+        #expect(events.first?.event == "$identify")
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - group() with groupProperties
 
-    @Suite("group with groupProperties")
-    class GroupPropertiesTests: BaseTestSuite {
-        @Test("group with property type", arguments: propertyPayloads)
-        func groupWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("group with property type", arguments: propertyPayloads)
+    func groupWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.group(type: "company", key: "posthog", groupProperties: payload.properties())
+        sut.group(type: "company", key: "posthog", groupProperties: payload.properties())
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
-            #expect(events.first?.event == "$groupidentify")
+        let events = try await getEvents()
+        #expect(events.count == 1)
+        #expect(events.first?.event == "$groupidentify")
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - register() with properties
 
-    @Suite("register with properties")
-    class RegisterPropertiesTests: BaseTestSuite {
-        @Test("register with property type", arguments: propertyPayloads)
-        func registerWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("register with property type", arguments: propertyPayloads)
+    func registerWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.register(payload.properties())
-            sut.capture("test_event")
+        sut.register(payload.properties())
+        sut.capture("test_event")
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
+        let events = try await getEvents()
+        #expect(events.count == 1)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - setPersonProperties()
 
-    @Suite("setPersonProperties")
-    class SetPersonPropertiesTests: BaseTestSuite {
-        @Test("setPersonProperties with property type", arguments: propertyPayloads)
-        func setPersonPropertiesWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut(flushAt: 2)
+    @Test("setPersonProperties with property type", arguments: propertyPayloads)
+    func setPersonPropertiesWithPropertyType(_ payload: PropertyTestCase) async throws {
+        server.reset(batchCount: 1)
+        let config = makeConfig()
+        config.flushAt = 2
+        config.personProfiles = .always
+        let sut = makeSDK(config: config)
 
-            sut.identify("user123")
-            sut.setPersonProperties(userPropertiesToSet: payload.properties())
+        sut.identify("user123")
+        sut.setPersonProperties(userPropertiesToSet: payload.properties())
 
-            let events = try await getEvents()
-            #expect(events.count == 2)
+        let events = try await getEvents()
+        #expect(events.count == 2)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - setPersonPropertiesForFlags()
 
-    @Suite("setPersonPropertiesForFlags")
-    class SetPersonPropertiesForFlagsTests: BaseTestSuite {
-        @Test("setPersonPropertiesForFlags with property type", arguments: propertyPayloads)
-        func setPersonPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("setPersonPropertiesForFlags with property type", arguments: propertyPayloads)
+    func setPersonPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.setPersonPropertiesForFlags(payload.properties(), reloadFeatureFlags: false)
+        sut.setPersonPropertiesForFlags(payload.properties(), reloadFeatureFlags: false)
 
-            // No-crash test: verifies non-JSON-serializable types don't crash
+        // No-crash test: verifies non-JSON-serializable types don't crash
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - setGroupPropertiesForFlags()
 
-    @Suite("setGroupPropertiesForFlags")
-    class SetGroupPropertiesForFlagsTests: BaseTestSuite {
-        @Test("setGroupPropertiesForFlags with property type", arguments: propertyPayloads)
-        func setGroupPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
-            let sut = getSut()
+    @Test("setGroupPropertiesForFlags with property type", arguments: propertyPayloads)
+    func setGroupPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
+        let sut = getSut()
 
-            sut.setGroupPropertiesForFlags("company", properties: payload.properties(), reloadFeatureFlags: false)
+        sut.setGroupPropertiesForFlags("company", properties: payload.properties(), reloadFeatureFlags: false)
 
-            // No-crash test: verifies non-JSON-serializable types don't crash
+        // No-crash test: verifies non-JSON-serializable types don't crash
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 
     // MARK: - Edge cases
 
-    @Suite("edge cases")
-    class EdgeCasesTests: BaseTestSuite {
-        @Test("handles empty properties")
-        func handlesEmptyProperties() async throws {
-            let sut = getSut()
+    @Test("handles empty properties")
+    func handlesEmptyProperties() async throws {
+        let sut = getSut()
 
-            sut.capture("test_event", properties: [:])
+        sut.capture("test_event", properties: [:])
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
+        let events = try await getEvents()
+        #expect(events.count == 1)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
+    }
 
-        @Test("handles nil properties")
-        func handlesNilProperties() async throws {
-            let sut = getSut()
+    @Test("handles nil properties")
+    func handlesNilProperties() async throws {
+        let sut = getSut()
 
-            sut.capture("test_event", properties: nil)
+        sut.capture("test_event", properties: nil)
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
+        let events = try await getEvents()
+        #expect(events.count == 1)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
+    }
 
-        @Test("handles deeply nested structures with Date")
-        func handlesDeeplyNestedStructuresWithDate() async throws {
-            let sut = getSut()
+    @Test("handles deeply nested structures with Date")
+    func handlesDeeplyNestedStructuresWithDate() async throws {
+        let sut = getSut()
 
-            let deeplyNested: [String: Any] = [
-                "level1": [
-                    "level2": [
-                        "level3": [
-                            "date": Date(),
-                        ] as [String: Any],
+        let deeplyNested: [String: Any] = [
+            "level1": [
+                "level2": [
+                    "level3": [
+                        "date": Date(),
                     ] as [String: Any],
                 ] as [String: Any],
-            ]
+            ] as [String: Any],
+        ]
 
-            sut.capture("test_event", properties: deeplyNested)
+        sut.capture("test_event", properties: deeplyNested)
 
-            let events = try await getEvents()
-            #expect(events.count == 1)
+        let events = try await getEvents()
+        #expect(events.count == 1)
 
-            sut.reset()
-            sut.close()
-        }
+        sut.close()
     }
 }
 

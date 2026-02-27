@@ -2,48 +2,12 @@
   "object": {
     "pins": [
       {
-        "package": "CwlCatchException",
-        "repositoryURL": "https://github.com/mattgallagher/CwlCatchException.git",
-        "state": {
-          "branch": null,
-          "revision": "3ef6999c73b6938cc0da422f2c912d0158abb0a0",
-          "version": "2.2.0"
-        }
-      },
-      {
-        "package": "CwlPreconditionTesting",
-        "repositoryURL": "https://github.com/mattgallagher/CwlPreconditionTesting.git",
-        "state": {
-          "branch": null,
-          "revision": "2ef56b2caf25f55fa7eef8784c30d5a767550f54",
-          "version": "2.2.1"
-        }
-      },
-      {
-        "package": "Nimble",
-        "repositoryURL": "https://github.com/Quick/Nimble.git",
-        "state": {
-          "branch": null,
-          "revision": "edaedc1ec86f14ac6e2ca495b94f0ff7150d98d0",
-          "version": "12.3.0"
-        }
-      },
-      {
         "package": "OHHTTPStubs",
         "repositoryURL": "https://github.com/AliSoftware/OHHTTPStubs.git",
         "state": {
           "branch": null,
           "revision": "12f19662426d0434d6c330c6974d53e2eb10ecd9",
           "version": "9.1.0"
-        }
-      },
-      {
-        "package": "Quick",
-        "repositoryURL": "https://github.com/Quick/Quick.git",
-        "state": {
-          "branch": null,
-          "revision": "16910e406be96e08923918315388c3e989deac9e",
-          "version": "6.1.0"
         }
       }
     ]

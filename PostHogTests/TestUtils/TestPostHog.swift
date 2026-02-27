@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import PostHog
+@testable import PostHog
 import XCTest
 
 func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
@@ -29,8 +29,11 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: 15)
 
     if result != XCTWaiter.Result.completed {
-        XCTFail("The expected requests never arrived")
+        XCTFail("The expected flag request never arrived")
     }
+
+    // Small delay to allow the SDK to process the response and store the flags
+    Thread.sleep(forTimeInterval: 0.5)
 }
 
 func getFlagsRequest(_ server: MockPostHogServer) -> [[String: Any]] {
@@ -64,6 +67,16 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
     }
 }
 
+func waitForCondition(timeout: TimeInterval = 5.0, condition: () -> Bool) async throws {
+    let start = Date()
+    while !condition() {
+        if Date().timeIntervalSince(start) > timeout {
+            throw TestError("waitForCondition timed out after \(timeout)s")
+        }
+        try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+    }
+}
+
 final class MockDate {
     var date = Date()
 }
@@ -84,4 +97,24 @@ let testAppGroupIdentifier = "group.com.posthog.test"
 
 final class BundleLocator {}
 
-let testAPIKey = "test_api_key"
+func uniqueApiKey() -> String {
+    "test_\(UUID().uuidString)"
+}
+
+/// Tracks PostHogConfig instances created during tests and cleans their storage.
+/// Call `track(_:)` for each config created, and `cleanup()` in deinit.
+final class TestStorageTracker {
+    private var configs: [PostHogConfig] = []
+
+    func track(_ config: PostHogConfig) {
+        configs.append(config)
+    }
+
+    func cleanup() {
+        for config in configs {
+            let storage = PostHogStorage(config)
+            storage.reset()
+        }
+        configs.removeAll()
+    }
+}

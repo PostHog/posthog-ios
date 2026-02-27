@@ -105,14 +105,14 @@
             let config: [String: Any?] = [
                 "capturePerformance": [
                     "network_timing": true,
-                    "web_vitals_allowed_metrics": null,
+                    "web_vitals_allowed_metrics": nil,
                 ],
             ]
             #expect(PostHogSessionReplayNetworkPlugin.isEnabledRemotely(remoteConfig: config) == true)
         }
 
         @Test("Network plugin disabled when capturePerformance object has NSNull web_vitals_allowed_metrics")
-        func networkPluginDisabledWhenNetworkTimingIsNull() {
+        func networkPluginDisabledWhenNetworkTimingIsNSNull() {
             let config: [String: Any?] = [
                 "capturePerformance": [
                     "network_timing": true,

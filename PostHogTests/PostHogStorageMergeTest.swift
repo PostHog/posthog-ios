@@ -11,7 +11,7 @@ import Testing
 
 @Suite("PostHogStorage app group merge tests", .serialized)
 class PostHogStorageMergeTest {
-    let testApiKey = "test_merge_api_key"
+    let testApiKey: String
     var baseUrl: URL!
     var fileManager: FileManager!
 
@@ -21,6 +21,7 @@ class PostHogStorageMergeTest {
 
         // Clean up any existing test directories
         fileManager = FileManager.default
+        testApiKey = uniqueApiKey()
         cleanUpTestDirectories()
     }
 

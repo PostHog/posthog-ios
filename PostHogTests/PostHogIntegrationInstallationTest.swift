@@ -9,8 +9,9 @@
 import Testing
 
 @Suite("Test integration installation", .serialized)
-class PostHogIntegrationInstallationTest {
+class PostHogIntegrationInstallationTest: PostHogSDKBaseTest {
     init() {
+        super.init()
         #if os(iOS)
             PostHogReplayIntegration.clearInstalls()
         #endif
@@ -22,13 +23,13 @@ class PostHogIntegrationInstallationTest {
     }
 
     private func getSut(
-        apiKey: String,
+        apiKey: String = uniqueApiKey(),
         sessionReplay: Bool = false,
         captureApplicationLifecycleEvents: Bool = false,
         captureScreenViews: Bool = false,
         captureElementInteractions: Bool = false
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: apiKey)
+        let config = makeConfig(apiKey: apiKey)
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
 
         #if os(iOS)
@@ -40,11 +41,7 @@ class PostHogIntegrationInstallationTest {
         #endif
 
         config.captureScreenViews = captureScreenViews
-
-        let storage = PostHogStorage(config)
-        storage.reset()
-
-        return PostHogSDK.with(config)
+        return makeSDK(config: config)
     }
 
     #if os(iOS)

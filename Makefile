@@ -1,4 +1,12 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnTvOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api
+
+# Returns the UDID of the latest available simulator matching the given search term
+# Uses simctl's built-in search and JSON output for reliable parsing
+# Runtimes are sorted ascending, so the last match is the latest OS version
+# Usage: $(call _find_simulator_udid,iPhone) or $(call _find_simulator_udid,Apple TV)
+define _find_simulator_udid
+	$(shell xcrun simctl list devices '$(1)' available -j | jq -r '.devices | to_entries | map(select(.value | length > 0)) | sort_by(.key) | last | .value[0].udid')
+endef
 
 build: buildSdk buildExamples
 
@@ -29,7 +37,7 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty #ObjC
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty #macOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
-	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #TvOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
 
 buildExamplePodsDynamicFramework:
@@ -74,10 +82,15 @@ swiftFormat:
 # use -test-iterations 10 if you want to run the tests multiple times
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
 testOniOSSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' | xcpretty
+	$(eval SIMULATOR_UDID := $(call _find_simulator_udid,iPhone))
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,id=$(SIMULATOR_UDID)'
+
+testOnTvOSSimulator:
+	$(eval SIMULATOR_UDID := $(call _find_simulator_udid,Apple TV))
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=tvOS Simulator,id=$(SIMULATOR_UDID)'
 
 testOnMacSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS'
 
 # Usage: make test filter=<pattern>
 # Examples:
@@ -102,6 +115,7 @@ bootstrap:
 	gem install xcpretty
 	brew install swiftlint
 	brew install swiftformat
+	brew install jq
 	brew install peripheryapp/periphery/periphery
 
 # download SDKs and runtimes

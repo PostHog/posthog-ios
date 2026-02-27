@@ -1,5 +1,11 @@
 ## Next
 
+## 3.42.0
+
+### Minor Changes
+
+- 5df2c40: feat: Support session recording `sampleRate` from remote config
+
 ## 3.41.2
 
 ### Patch Changes

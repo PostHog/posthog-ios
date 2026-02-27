@@ -1,9 +1,10 @@
 ## Next
 
-- fix: replace ReadWriteLock with NSLock for thread-safe operations ([#476](https://github.com/PostHog/posthog-ios/pull/476))
-  - Fixes race conditions in FileBackedQueue where compound operations weren't atomic
-  - Removes ReadWriteLock property wrapper in favor of explicit NSLock for clearer intent
-  - Updates PostHogContext to use same locking pattern for consistency
+## 3.42.0
+
+### Minor Changes
+
+- 5df2c40: feat: Support session recording `sampleRate` from remote config
 
 ## 3.41.2
 

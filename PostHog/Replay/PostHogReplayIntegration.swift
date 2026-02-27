@@ -156,10 +156,19 @@
                 return
             }
 
+            // Check sampling before starting timers and listeners
+            if let sessionId = postHog.sessionManager.getSessionId(readOnly: true),
+               !shouldRecordSession(postHog: postHog, sessionId: sessionId)
+            {
+                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Skipping start.")
+                return
+            }
+
             isEnabled = true
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
             postHog.sessionManager.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
+                self?.reevaluateSampling()
             }
 
             // flutter captures snapshots, so we don't need to capture them here
@@ -249,6 +258,38 @@
             // Ensure thread-safe access to windowViews
             windowViewsLock.withLock {
                 windowViews.removeAllObjects()
+            }
+        }
+
+        /// Determines whether the given session should be recorded based on sample rate configuration.
+        /// Local config sample rate takes precedence over remote config.
+        /// Returns `true` if no sample rate is configured (record everything).
+        private func shouldRecordSession(postHog: PostHogSDK, sessionId: String) -> Bool {
+            let localSampleRate = postHog.config.sessionReplayConfig.sampleRate?.doubleValue
+            let remoteSampleRate = postHog.remoteConfig?.getRecordingSampleRate()
+
+            guard let sampleRate = localSampleRate ?? remoteSampleRate else {
+                return true
+            }
+
+            return sampleOnProperty(sessionId, sampleRate)
+        }
+
+        private func reevaluateSampling() {
+            guard let postHog else { return }
+
+            guard let sessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
+                return
+            }
+
+            let sampled = shouldRecordSession(postHog: postHog, sessionId: sessionId)
+
+            if sampled, !isEnabled {
+                hedgeLog("[Session Replay] Session \(sessionId) sampled for recording. Starting.")
+                start()
+            } else if !sampled, isEnabled {
+                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Stopping.")
+                stop()
             }
         }
 

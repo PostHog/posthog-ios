@@ -18,6 +18,7 @@ class PostHogRemoteConfig {
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
+    private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
 
@@ -211,15 +212,16 @@ class PostHogRemoteConfig {
         }
 
         if let sessionReplay = sessionReplay {
-            sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
-
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint
             }
 
-            #if os(iOS)
-                recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
-            #endif
+            sessionReplayLock.withLock {
+                sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
+                #if os(iOS)
+                    recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
+                #endif
+            }
         }
     }
 
@@ -380,7 +382,9 @@ class PostHogRemoteConfig {
     #if os(iOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
             if let sessionRecording = data?["sessionRecording"] as? Bool {
-                sessionReplayFlagActive = sessionRecording
+                sessionReplayLock.withLock {
+                    sessionReplayFlagActive = sessionRecording
+                }
 
                 // its always false here anyway
                 if !sessionRecording {
@@ -394,8 +398,10 @@ class PostHogRemoteConfig {
                 if let endpoint = sessionRecording["endpoint"] as? String {
                     config.snapshotEndpoint = endpoint
                 }
-                recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
-                sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                sessionReplayLock.withLock {
+                    recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
+                    sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                }
                 storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
             }
         }
@@ -425,7 +431,7 @@ class PostHogRemoteConfig {
         }
 
         func getRecordingSampleRate() -> Double? {
-            recordingSampleRate
+            sessionReplayLock.withLock { recordingSampleRate }
         }
     #endif
 
@@ -715,7 +721,7 @@ class PostHogRemoteConfig {
 
     #if os(iOS)
         func isSessionReplayFlagActive() -> Bool {
-            sessionReplayFlagActive
+            sessionReplayLock.withLock { sessionReplayFlagActive }
         }
     #endif
 

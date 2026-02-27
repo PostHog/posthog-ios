@@ -199,12 +199,12 @@
 
             // Start listening to application background events and pause all plugins
             let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
-            applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground { [weak self] in
+            applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
                 self?.pauseAllPlugins()
             }
 
             // Start listening to application foreground events and resume all plugins
-            applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive { [weak self] in
+            applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                 self?.resumeAllPlugins()
             }
 

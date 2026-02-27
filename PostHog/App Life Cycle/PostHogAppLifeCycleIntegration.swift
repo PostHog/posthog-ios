@@ -64,13 +64,13 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
      */
     func start() {
         let publisher = DI.main.appLifecyclePublisher
-        didFinishLaunchingToken = publisher.onDidFinishLaunching { [weak self] in
+        didFinishLaunchingToken = publisher.onDidFinishLaunching.subscribe { [weak self] in
             self?.captureAppInstallOrUpdated()
         }
-        didBecomeActiveToken = publisher.onDidBecomeActive { [weak self] in
+        didBecomeActiveToken = publisher.onDidBecomeActive.subscribe { [weak self] in
             self?.captureAppOpened()
         }
-        didEnterBackgroundToken = publisher.onDidEnterBackground { [weak self] in
+        didEnterBackgroundToken = publisher.onDidEnterBackground.subscribe { [weak self] in
             self?.captureAppBackgrounded()
         }
     }

@@ -78,7 +78,7 @@
                     self?.showNextSurvey()
                 }
 
-                didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
+                didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                     self?.showNextSurvey()
                 }
             #endif

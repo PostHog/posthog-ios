@@ -69,3 +69,15 @@ final class PostHogMulticastCallback<T> {
         lock.withLock { callbacks.count }
     }
 }
+
+final class RegistrationToken {
+    private let onDealloc: () -> Void
+
+    init(_ onDealloc: @escaping () -> Void) {
+        self.onDealloc = onDealloc
+    }
+
+    deinit {
+        onDealloc()
+    }
+}

@@ -165,7 +165,7 @@
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
                 let interval = postHog.config.sessionReplayConfig.throttleDelay
-                viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: interval) { [weak self] in
+                viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: interval) { [weak self] in
                     // called on main thread
                     self?.snapshot()
                 }

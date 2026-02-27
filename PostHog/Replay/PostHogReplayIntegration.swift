@@ -168,7 +168,7 @@
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
             postHog.sessionManager.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
-                self?.stopIfNotSampled()
+                self?.reevaluateSampling()
             }
 
             // flutter captures snapshots, so we don't need to capture them here
@@ -275,14 +275,19 @@
             return sampleOnProperty(sessionId, sampleRate)
         }
 
-        private func stopIfNotSampled() {
+        private func reevaluateSampling() {
             guard let postHog else { return }
 
             guard let sessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                 return
             }
 
-            if !shouldRecordSession(postHog: postHog, sessionId: sessionId) {
+            let sampled = shouldRecordSession(postHog: postHog, sessionId: sessionId)
+
+            if sampled, !isEnabled {
+                hedgeLog("[Session Replay] Session \(sessionId) sampled for recording. Starting.")
+                start()
+            } else if !sampled, isEnabled {
                 hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Stopping.")
                 stop()
             }

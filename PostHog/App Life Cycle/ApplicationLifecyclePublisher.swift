@@ -47,7 +47,6 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
     private init() {
-
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)

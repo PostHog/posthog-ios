@@ -10,14 +10,14 @@ import Foundation
 #if os(iOS) || os(tvOS)
     import UIKit
 
-protocol ApplicationEventPublishing: AnyObject {
-    /// Registers a callback for a `UIApplication.sendEvent`
-    var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> { get }
-}
+    protocol ApplicationEventPublishing: AnyObject {
+        /// Registers a callback for a `UIApplication.sendEvent`
+        var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> { get }
+    }
 
-typealias ApplicationEventData = (UIEvent, Date)
+    typealias ApplicationEventData = (UIEvent, Date)
 
-final class ApplicationEventPublisher: ApplicationEventPublishing {
+    final class ApplicationEventPublisher: ApplicationEventPublishing {
         private(set) lazy var onApplicationEvent = PostHogMulticastCallback<ApplicationEventData> { [weak self] subscriberCount in
             if subscriberCount > 0 {
                 self?.swizzleSendEvent()

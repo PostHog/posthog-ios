@@ -16,7 +16,7 @@
 
     final class ApplicationViewLayoutPublisher: ViewLayoutPublishing {
         static let shared = ApplicationViewLayoutPublisher()
-        
+
         private(set) lazy var onViewLayout = PostHogThrottledMulticastCallback<Void> { [weak self] subscriberCount in
             if subscriberCount > 0 {
                 self?.swizzleLayoutSubviews()

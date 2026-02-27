@@ -1,7 +1,7 @@
 #if os(iOS)
+    import Foundation
     @testable import PostHog
     import Testing
-    import Foundation
 
     @Suite("Session Replay Plugin Remote Config Tests")
     class PostHogSessionReplayPluginTests {

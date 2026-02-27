@@ -1,6 +1,6 @@
+import Foundation
 @testable import PostHog
 import Testing
-import Foundation
 
 @Suite("PostHogMulticastCallback Tests")
 class PostHogMulticastCallbackTests {

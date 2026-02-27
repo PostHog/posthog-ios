@@ -9,9 +9,9 @@ import Foundation
 @testable import PostHog
 
 final class MockApplicationLifecyclePublisher: AppLifecyclePublishing {
-    private(set) lazy var onDidBecomeActive = PostHogMulticastCallback<Void>()
-    private(set) lazy var onDidEnterBackground = PostHogMulticastCallback<Void>()
-    private(set) lazy var onDidFinishLaunching = PostHogMulticastCallback<Void>()
+    let onDidBecomeActive = PostHogMulticastCallback<Void>()
+    let onDidEnterBackground = PostHogMulticastCallback<Void>()
+    let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
     func simulateAppDidEnterBackground() {
         onDidEnterBackground.invoke(())

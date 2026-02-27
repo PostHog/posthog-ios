@@ -8,28 +8,26 @@
 #if os(iOS) || os(tvOS)
     import UIKit
 
-    typealias ApplicationViewLayoutHandler = () -> Void
-
     protocol ViewLayoutPublishing: AnyObject {
-        /// Registers a callback for getting notified when a UIView is laid out.
+        /// Callback for getting notified when a UIView is laid out.
         /// Note: callback guaranteed to be called on main thread
-        func onViewLayout(throttle: TimeInterval, _ callback: @escaping ApplicationViewLayoutHandler) -> RegistrationToken
+        var onViewLayout: PostHogThrottledMulticastCallback<Void> { get }
     }
 
-    final class ApplicationViewLayoutPublisher: BaseApplicationViewLayoutPublisher {
+    final class ApplicationViewLayoutPublisher: ViewLayoutPublishing {
         static let shared = ApplicationViewLayoutPublisher()
+
+        private(set) lazy var onViewLayout = PostHogThrottledMulticastCallback<Void> { [weak self] subscriberCount in
+            if subscriberCount > 0 {
+                self?.swizzleLayoutSubviews()
+            } else {
+                self?.unswizzleLayoutSubviews()
+            }
+        }
 
         private var hasSwizzled: Bool = false
 
-        func start() {
-            swizzleLayoutSubviews()
-        }
-
-        func stop() {
-            unswizzleLayoutSubviews()
-        }
-
-        func swizzleLayoutSubviews() {
+        private func swizzleLayoutSubviews() {
             guard !hasSwizzled else { return }
             hasSwizzled = true
 
@@ -40,7 +38,7 @@
             )
         }
 
-        func unswizzleLayoutSubviews() {
+        private func unswizzleLayoutSubviews() {
             guard hasSwizzled else { return }
             hasSwizzled = false
 
@@ -52,35 +50,9 @@
             )
         }
 
-        override func onViewLayout(throttle interval: TimeInterval, _ callback: @escaping ApplicationViewLayoutHandler) -> RegistrationToken {
-            let id = UUID()
-            registrationLock.withLock {
-                self.onViewLayoutCallbacks[id] = ThrottledHandler(handler: callback, interval: interval)
-            }
-
-            // start on first callback registration
-            if !hasSwizzled {
-                start()
-            }
-
-            return RegistrationToken { [weak self] in
-                // Registration token deallocated here
-                guard let self else { return }
-                let handlerCount = self.registrationLock.withLock {
-                    self.onViewLayoutCallbacks[id] = nil
-                    return self.onViewLayoutCallbacks.values.count
-                }
-
-                // stop when there are no more callbacks
-                if handlerCount <= 0 {
-                    self.stop()
-                }
-            }
-        }
-
         // Called from swizzled `UIView.layoutSubviews`
         fileprivate func layoutSubviews() {
-            notifyHandlers()
+            onViewLayout.invoke(())
         }
 
         #if TESTING
@@ -88,66 +60,6 @@
                 layoutSubviews()
             }
         #endif
-    }
-
-    class BaseApplicationViewLayoutPublisher: ViewLayoutPublishing {
-        fileprivate let registrationLock = NSLock()
-
-        var onViewLayoutCallbacks: [UUID: ThrottledHandler] = [:]
-
-        final class ThrottledHandler {
-            static let throttleQueue = DispatchQueue(label: "com.posthog.ThrottledHandler",
-                                                     target: .global(qos: .utility))
-
-            let interval: TimeInterval
-            let handler: ApplicationViewLayoutHandler
-
-            private var lastFired: Date = .distantPast
-
-            init(handler: @escaping ApplicationViewLayoutHandler, interval: TimeInterval) {
-                self.handler = handler
-                self.interval = interval
-            }
-
-            func throttleHandler() {
-                let now = now()
-                let timeSinceLastFired = now.timeIntervalSince(lastFired)
-
-                if timeSinceLastFired >= interval {
-                    lastFired = now
-                    // notify on main
-                    DispatchQueue.main.async(execute: handler)
-                }
-            }
-        }
-
-        func onViewLayout(throttle interval: TimeInterval, _ callback: @escaping ApplicationViewLayoutHandler) -> RegistrationToken {
-            let id = UUID()
-            registrationLock.withLock {
-                self.onViewLayoutCallbacks[id] = ThrottledHandler(
-                    handler: callback,
-                    interval: interval
-                )
-            }
-
-            return RegistrationToken { [weak self] in
-                // Registration token deallocated here
-                guard let self else { return }
-                self.registrationLock.withLock {
-                    self.onViewLayoutCallbacks[id] = nil
-                }
-            }
-        }
-
-        func notifyHandlers() {
-            ThrottledHandler.throttleQueue.async {
-                // Don't lock on main
-                let handlers = self.registrationLock.withLock { self.onViewLayoutCallbacks.values }
-                for handler in handlers {
-                    handler.throttleHandler()
-                }
-            }
-        }
     }
 
     extension UIView {

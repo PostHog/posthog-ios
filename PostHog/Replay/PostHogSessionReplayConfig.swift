@@ -98,6 +98,21 @@
             }
         }
 
+        /// Event triggers that control when session recording starts.
+        ///
+        /// Session recording will only start when one of the specified events is captured.
+        ///
+        /// When set (non-empty), takes precedence over the remote config event triggers.
+        /// When empty, the remote config event triggers are used (if available), otherwise recording starts automatically (subject to sampling).
+        ///
+        /// Example:
+        /// ```swift
+        /// config.sessionReplayConfig.eventTriggers = ["button_clicked", "form_submitted"]
+        /// ```
+        ///
+        /// Defaults to `[]`
+        @objc public var eventTriggers: [String] = []
+
         /// Returns an array of plugin types based on current configuration
         func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
             var types: [PostHogSessionReplayPlugin.Type] = []

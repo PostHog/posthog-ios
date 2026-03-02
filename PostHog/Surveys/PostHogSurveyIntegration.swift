@@ -42,6 +42,7 @@
 
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
+        private var eventCapturedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -73,6 +74,11 @@
 
         func start() {
             #if os(iOS)
+                // Subscribe to event captures
+                eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
+                    self?.onEvent(event: event.event)
+                }
+
                 // TODO: listen to screen view events
                 didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
                     self?.showNextSurvey()
@@ -85,6 +91,7 @@
         }
 
         func stop() {
+            eventCapturedToken = nil
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
             #if os(iOS)
@@ -140,9 +147,7 @@
             }
         }
 
-        // TODO: Decouple PostHogSDK and use registration handlers instead
-        /// Called from PostHogSDK instance when an event is captured
-        func onEvent(event: String) {
+        private func onEvent(event: String) {
             let activatedSurveys = eventsToSurveysLock.withLock { eventsToSurveys[event] } ?? []
             guard !activatedSurveys.isEmpty else { return }
 

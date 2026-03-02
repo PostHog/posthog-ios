@@ -49,6 +49,7 @@ let maxRetryDelay = 30.0
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
+    let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -477,10 +478,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            queue.add(event)
-
             // Automatically set person properties for feature flags during identify() call
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+
+            queueEvent(event, queue: queue)
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -799,17 +800,13 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Session Replay has its own queue
-        let targetQueue = isSnapshotEvent ? replayQueue : queue
-
-        targetQueue?.add(posthogEvent)
-
         // Automatically set person properties for feature flags during capture event
         setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
-        #if os(iOS)
-            surveysIntegration?.onEvent(event: posthogEvent.event)
-        #endif
+        // Session Replay has its own queue
+        if let targetQueue = isSnapshotEvent ? replayQueue : queue {
+            queueEvent(posthogEvent, queue: targetQueue)
+        }
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -842,7 +839,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     func autocapture(
@@ -875,7 +872,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
@@ -912,7 +909,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     private func groups(_ newGroups: [String: String]) -> [String: String] {
@@ -977,7 +974,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
@@ -1002,6 +999,11 @@ let maxRetryDelay = 30.0
         }
 
         return resultEvent
+    }
+
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue) {
+        queue.add(event)
+        onEventCaptured.invoke(event)
     }
 
     @objc(groupWithType:key:)

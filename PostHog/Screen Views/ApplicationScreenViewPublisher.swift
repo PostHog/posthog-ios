@@ -11,59 +11,26 @@ import Foundation
     import UIKit
 #endif
 
-typealias ScreenViewHandler = (String) -> Void
-
 protocol ScreenViewPublishing: AnyObject {
     /// Registers a callback for a view appeared event
-    func onScreenView(_ callback: @escaping ScreenViewHandler) -> RegistrationToken
+    var onScreenView: PostHogMulticastCallback<String> { get }
 }
 
-final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
+final class ApplicationScreenViewPublisher: ScreenViewPublishing {
+    private(set) lazy var onScreenView = PostHogMulticastCallback<String> { [weak self] subscriberCount in
+        if subscriberCount > 0 {
+            self?.swizzleViewDidAppear()
+        } else {
+            self?.unswizzleViewDidAppear()
+        }
+    }
+
     static let shared = ApplicationScreenViewPublisher()
 
     private var hasSwizzled: Bool = false
 
-    func start() {
-        // no-op if not UIKit
-        #if os(iOS) || os(tvOS)
-            swizzleViewDidAppear()
-        #endif
-    }
-
-    func stop() {
-        // no-op if not UIKit
-        #if os(iOS) || os(tvOS)
-            unswizzleViewDidAppear()
-        #endif
-    }
-
-    override func onScreenView(_ callback: @escaping ScreenViewHandler) -> RegistrationToken {
-        let id = UUID()
-        registrationLock.withLock {
-            self.onScreenViewCallbacks[id] = callback
-        }
-
-        // start on first callback registration
-        if !hasSwizzled {
-            start()
-        }
-
-        return RegistrationToken { [weak self] in
-            // Registration token deallocated here
-            guard let self else { return }
-            let handlerCount = self.registrationLock.withLock {
-                self.onScreenViewCallbacks[id] = nil
-                return self.onScreenViewCallbacks.values.count
-            }
-            // stop when there are no more callbacks
-            if handlerCount <= 0 {
-                stop()
-            }
-        }
-    }
-
     #if os(iOS) || os(tvOS)
-        func swizzleViewDidAppear() {
+        private func swizzleViewDidAppear() {
             guard !hasSwizzled else { return }
             hasSwizzled = true
             swizzle(
@@ -73,13 +40,15 @@ final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
             )
         }
 
-        func unswizzleViewDidAppear() {
+        private func unswizzleViewDidAppear() {
             guard hasSwizzled else { return }
             hasSwizzled = false
+
+            // swizzling twice will exchange implementations back to original
             swizzle(
                 forClass: UIViewController.self,
-                original: #selector(UIViewController.viewDidAppearOverride),
-                new: #selector(UIViewController.viewDidAppear(_:))
+                original: #selector(UIViewController.viewDidAppear(_:)),
+                new: #selector(UIViewController.viewDidAppearOverride)
             )
         }
 
@@ -93,7 +62,7 @@ final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
             guard let top = findVisibleViewController(viewController) else { return }
 
             if let name = UIViewController.getViewControllerName(top) {
-                notifyHandlers(screen: name)
+                onScreenView.invoke(name)
             }
         }
 
@@ -111,43 +80,15 @@ final class ApplicationScreenViewPublisher: BaseScreenViewPublisher {
             }
             return controller
         }
+    #else
+        private func swizzleViewDidAppear() {
+            // no-op if not UIKit
+        }
+
+        private func unswizzleViewDidAppear() {
+            // no-op if not UIKit
+        }
     #endif
-}
-
-class BaseScreenViewPublisher: ScreenViewPublishing {
-    fileprivate let registrationLock = NSLock()
-
-    var onScreenViewCallbacks: [UUID: ScreenViewHandler] = [:]
-
-    func onScreenView(_ callback: @escaping ScreenViewHandler) -> RegistrationToken {
-        let id = UUID()
-        registrationLock.withLock {
-            self.onScreenViewCallbacks[id] = callback
-        }
-
-        return RegistrationToken { [weak self] in
-            // Registration token deallocated here
-            guard let self else { return }
-            self.registrationLock.withLock {
-                self.onScreenViewCallbacks[id] = nil
-            }
-        }
-    }
-
-    func notifyHandlers(screen: String) {
-        let handlers = registrationLock.withLock { onScreenViewCallbacks.values }
-        for handler in handlers {
-            notifyHander(handler, screen: screen)
-        }
-    }
-
-    private func notifyHander(_ handler: @escaping ScreenViewHandler, screen: String) {
-        if Thread.isMainThread {
-            handler(screen)
-        } else {
-            DispatchQueue.main.async { handler(screen) }
-        }
-    }
 }
 
 #if os(iOS) || os(tvOS)

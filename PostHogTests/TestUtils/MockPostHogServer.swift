@@ -46,6 +46,7 @@ class MockPostHogServer {
     var hasFeatureFlags: Bool? = true
     var featureFlags: [String: Any]?
     var disabledFlag: Bool = false
+    var sessionRecordingSampleRate: String?
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -252,6 +253,10 @@ class MockPostHogServer {
                     } else {
                         sessionRecording["linkedFlag"] = self.replayVariantName
                     }
+                }
+
+                if let sampleRate = self.sessionRecordingSampleRate {
+                    sessionRecording["sampleRate"] = sampleRate
                 }
 
                 obj["sessionRecording"] = sessionRecording

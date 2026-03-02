@@ -18,7 +18,9 @@ class PostHogRemoteConfig {
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
+    private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
+    private var recordingSampleRate: Double?
 
     private var flags: [String: Any]?
     private var featureFlags: [String: Any]?
@@ -72,7 +74,7 @@ class PostHogRemoteConfig {
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
 
-        preloadSessionReplayFlag()
+        preloadSessionReplay()
 
         // Remote config is always loaded (config.remoteConfig is now a no-op)
         preloadRemoteConfig()
@@ -194,7 +196,7 @@ class PostHogRemoteConfig {
         )
     }
 
-    private func preloadSessionReplayFlag() {
+    private func preloadSessionReplay() {
         var sessionReplay: [String: Any]?
         var featureFlags: [String: Any]?
         featureFlagsLock.withLock {
@@ -203,10 +205,15 @@ class PostHogRemoteConfig {
         }
 
         if let sessionReplay = sessionReplay {
-            sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
-
             if let endpoint = sessionReplay["endpoint"] as? String {
                 config.snapshotEndpoint = endpoint
+            }
+
+            sessionReplayLock.withLock {
+                sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
+                #if os(iOS)
+                    recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
+                #endif
             }
         }
     }
@@ -370,7 +377,9 @@ class PostHogRemoteConfig {
     #if os(iOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
             if let sessionRecording = data?["sessionRecording"] as? Bool {
-                sessionReplayFlagActive = sessionRecording
+                sessionReplayLock.withLock {
+                    sessionReplayFlagActive = sessionRecording
+                }
 
                 // its always false here anyway
                 if !sessionRecording {
@@ -384,9 +393,40 @@ class PostHogRemoteConfig {
                 if let endpoint = sessionRecording["endpoint"] as? String {
                     config.snapshotEndpoint = endpoint
                 }
-                sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                sessionReplayLock.withLock {
+                    recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
+                    sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                }
                 storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
             }
+        }
+
+        /// Parses and validates a sample rate value which may come as a String (from the API JSON)
+        /// or as a Number (from cached storage). Returns `nil` if the value is absent, unparseable,
+        /// or outside the 0.0–1.0 range.
+        private func parseSampleRate(_ raw: Any?) -> Double? {
+            let value: Double?
+            if let number = raw as? Double {
+                value = number
+            } else if let number = raw as? NSNumber {
+                value = number.doubleValue
+            } else if let string = raw as? String {
+                value = Double(string)
+            } else {
+                return nil
+            }
+
+            guard let value, value >= 0.0, value <= 1.0 else {
+                if let value {
+                    hedgeLog("Remote config sampleRate must be between 0.0 and 1.0, got \(value). Ignoring.")
+                }
+                return nil
+            }
+            return value
+        }
+
+        func getRecordingSampleRate() -> Double? {
+            sessionReplayLock.withLock { recordingSampleRate }
         }
     #endif
 
@@ -676,7 +716,7 @@ class PostHogRemoteConfig {
 
     #if os(iOS)
         func isSessionReplayFlagActive() -> Bool {
-            sessionReplayFlagActive
+            sessionReplayLock.withLock { sessionReplayFlagActive }
         }
     #endif
 

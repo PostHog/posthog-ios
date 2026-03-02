@@ -347,7 +347,7 @@ enum PostHogSessionManagerTest {
             let token: RegistrationToken
 
             init(_ publisher: MockApplicationLifecyclePublisher) {
-                token = publisher.onDidBecomeActive {
+                token = publisher.onDidBecomeActive.subscribe {
                     // handle here
                 }
             }
@@ -365,11 +365,11 @@ enum PostHogSessionManagerTest {
                 LifeCycleSub(sut),
             ]
 
-            #expect(sut.didBecomeActiveHandlers.count == 5)
+            #expect(sut.onDidBecomeActive.subscriberCount == 5)
             registrations.removeFirst(2)
-            #expect(sut.didBecomeActiveHandlers.count == 3)
+            #expect(sut.onDidBecomeActive.subscriberCount == 3)
             registrations.removeAll()
-            #expect(sut.didBecomeActiveHandlers.isEmpty)
+            #expect(sut.onDidBecomeActive.subscriberCount == 0)
         }
     }
 

@@ -8,16 +8,20 @@
 import Foundation
 @testable import PostHog
 
-final class MockApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
+final class MockApplicationLifecyclePublisher: AppLifecyclePublishing {
+    let onDidBecomeActive = PostHogMulticastCallback<Void>()
+    let onDidEnterBackground = PostHogMulticastCallback<Void>()
+    let onDidFinishLaunching = PostHogMulticastCallback<Void>()
+
     func simulateAppDidEnterBackground() {
-        didEnterBackgroundHandlers.forEach { $0() }
+        onDidEnterBackground.invoke(())
     }
 
     func simulateAppDidBecomeActive() {
-        didBecomeActiveHandlers.forEach { $0() }
+        onDidBecomeActive.invoke(())
     }
 
     func simulateAppDidFinishLaunching() {
-        didFinishLaunchingHandlers.forEach { $0() }
+        onDidFinishLaunching.invoke(())
     }
 }

@@ -24,7 +24,7 @@
             var lastCallTime: Date?
 
             let sut = ApplicationViewLayoutPublisher.shared
-            registrationToken = sut.onViewLayout(throttle: 2) {
+            registrationToken = sut.onViewLayout.subscribe(throttle: 2) {
                 timesCalled += 1
                 lastCallTime = mockNow.date
             }

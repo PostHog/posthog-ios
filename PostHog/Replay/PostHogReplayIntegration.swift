@@ -41,6 +41,7 @@
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
+        private var isWaitingForTriggerActivation: Bool = false
 
         /**
          ### Mapping of SwiftUI Views to UIKit (up until iOS 18)
@@ -219,8 +220,8 @@
             
             if shouldWaitForTriggers {
                 let triggers = eventTriggersLock.withLock { eventTriggers } ?? []
-                hedgeLog("[Session Replay] Event triggers configured. Replay will start when any of these events are captured: \(triggers)")
-                return
+                hedgeLog("[Session Replay] Event triggers configured. Dropping snapshots until any of these events are captured: \(triggers)")
+                isWaitingForTriggerActivation = true
             }
 
             // Check sampling before starting timers and listeners
@@ -236,6 +237,7 @@
             postHog.sessionManager.onSessionIdChanged = { [weak self] in
                 self?.resetViews()
                 self?.reevaluateSampling()
+                self?.reevaluateTriggerWaitingState()
             }
 
             // flutter captures snapshots, so we don't need to capture them here
@@ -310,7 +312,7 @@
         }
 
         func isActive() -> Bool {
-            isEnabled
+            isEnabled && !isWaitingForTriggerActivation
         }
 
         private func resetViews() {
@@ -352,6 +354,31 @@
             }
         }
 
+        private func reevaluateTriggerWaitingState() {
+            guard let postHog else { return }
+
+            guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
+                return
+            }
+
+            let (triggers, activatedSession) = eventTriggersLock.withLock {
+                (eventTriggers, triggerActivatedSessionId)
+            }
+
+            guard let triggers = triggers, !triggers.isEmpty else {
+                isWaitingForTriggerActivation = false
+                return
+            }
+
+            // If this session hasn't been activated yet, go back to waiting state
+            if activatedSession != currentSessionId {
+                isWaitingForTriggerActivation = true
+                hedgeLog("[Session Replay] New session \(currentSessionId) - waiting for trigger events: \(triggers)")
+            } else {
+                isWaitingForTriggerActivation = false
+            }
+        }
+
         private func pauseAllPlugins() {
             let pluginsToPause = installedPluginsLock.withLock { installedPlugins }
             for plugin in pluginsToPause {
@@ -373,6 +400,11 @@
 
         private func handleApplicationEvent(event: UIEvent, date: Date) {
             guard let postHog, postHog.isSessionReplayActive() else {
+                return
+            }
+
+            // Drop events while waiting for a trigger activation. 
+            guard !isWaitingForTriggerActivation else {
                 return
             }
 
@@ -1023,6 +1055,11 @@
                 return
             }
 
+            // Drop snapshots while waiting for a trigger event
+            guard !isWaitingForTriggerActivation else {
+                return
+            }
+
             guard let window = UIApplication.getCurrentWindow() else {
                 return
             }
@@ -1068,8 +1105,12 @@
                 eventTriggersLock.withLock {
                     triggerActivatedSessionId = currentSessionId
                 }
-                hedgeLog("[Session Replay] Event trigger matched: \(event). Starting replay for session \(currentSessionId).")
-                start()
+                isWaitingForTriggerActivation = false
+                hedgeLog("[Session Replay] Event trigger matched: \(event). Activating replay for session \(currentSessionId).")
+                
+                if !isEnabled {
+                    start()
+                }
             }
         }
 

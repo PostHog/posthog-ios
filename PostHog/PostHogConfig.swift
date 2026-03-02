@@ -47,10 +47,17 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var preloadFeatureFlags: Bool = true
 
     /// Preload PostHog remote config automatically
-    /// Default: true
     ///
-    /// Note: Surveys rely on remote config. Disabling this will also disable Surveys
-    @objc public var remoteConfig: Bool = true
+    /// @deprecated Remote config is now always loaded. This option is a no-op and will be removed in a future version.
+    @available(*, deprecated, message: "Remote config is now always loaded. This option is a no-op and will be removed in a future version.")
+    @objc public var remoteConfig: Bool {
+        get { true }
+        set {
+            if !newValue {
+                hedgeLog("remoteConfig is deprecated and is now always enabled. Setting it to false has no effect.")
+            }
+        }
+    }
 
     @objc public var captureApplicationLifecycleEvents: Bool = true
     @objc public var captureScreenViews: Bool = true

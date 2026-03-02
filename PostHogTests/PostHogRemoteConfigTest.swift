@@ -56,7 +56,6 @@ enum PostHogRemoteConfigTest {
         @Test("remote config fetches feature flags if missing")
         func remoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -85,7 +84,6 @@ enum PostHogRemoteConfigTest {
         @Test("remote config does not fetch feature flags if preloadFeatureFlags is disabled")
         func remoteConfigDoesNotFetchFeatureFlagsIfPreloadFeatureFlagsIsDisabled() async throws {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -124,7 +122,6 @@ enum PostHogRemoteConfigTest {
             server.featureFlags = ["some-flag": false]
 
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
 
@@ -157,7 +154,6 @@ enum PostHogRemoteConfigTest {
             server.featureFlags = [:]
 
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -198,7 +194,6 @@ enum PostHogRemoteConfigTest {
         func shouldNotClearFlagsIfRemoteConfigCallFails() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
-            config.remoteConfig = true
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }
@@ -235,7 +230,6 @@ enum PostHogRemoteConfigTest {
         func shouldNotClearFlagsIfHasFeatureFlagsKeyIsMissing() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
-            config.remoteConfig = true
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }

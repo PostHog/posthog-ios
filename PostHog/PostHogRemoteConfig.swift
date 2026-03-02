@@ -76,11 +76,8 @@ class PostHogRemoteConfig {
 
         preloadSessionReplay()
 
-        if config.remoteConfig {
-            preloadRemoteConfig()
-        } else if config.preloadFeatureFlags {
-            preloadFeatureFlags()
-        }
+        // Remote config is always loaded (config.remoteConfig is now a no-op)
+        preloadRemoteConfig()
     }
 
     private func preloadRemoteConfig() {
@@ -137,11 +134,7 @@ class PostHogRemoteConfig {
     func reloadRemoteConfig(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
-        guard config.remoteConfig else {
-            callback?(nil)
-            return
-        }
-
+        // Remote config is always loaded (config.remoteConfig is now a no-op)
         loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
                 return
@@ -321,7 +314,9 @@ class PostHogRemoteConfig {
                 }
 
                 #if os(iOS)
-                    self.processSessionRecordingConfig(data, featureFlags: featureFlags)
+                    // Use cached remote config for session recording settings since /flags no longer returns config data
+                    let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
+                    self.processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags)
                 #endif
 
                 // Grab the request ID and evaluated timestamp from the response

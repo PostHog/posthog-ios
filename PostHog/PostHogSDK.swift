@@ -1567,7 +1567,7 @@ let maxRetryDelay = 30.0
                 return hedgeLog("Could not start recording. Missing session id.")
             }
 
-            replayIntegration.startInternal(forceStart: true)
+            replayIntegration.start()
             hedgeLog("Session replay recording started. Session id is \(sessionId)")
         }
 

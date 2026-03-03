@@ -52,10 +52,11 @@ struct SessionRecordingView: View {
             Section("Event Trigger") {
                 Button {
                     PostHogSDK.shared.stopSessionRecording()
+                    PostHogSDK.shared.startSessionRecording()
                     PostHogSessionManager.shared.setSessionId(UUID().uuidString)
                     refreshStatus()
                 } label: {
-                    Text("Stop & Rotate Session Id")
+                    Text("Restart & Rotate Session Id")
                 }
 
                 Button {

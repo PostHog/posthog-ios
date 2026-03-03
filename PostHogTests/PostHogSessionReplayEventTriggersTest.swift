@@ -167,8 +167,8 @@
 
         // MARK: - Manual Start Tests
 
-        @Test("Manual start bypasses event triggers")
-        func manualStartBypassesTriggers() async throws {
+        @Test("Manual start respects event triggers")
+        func manualStartRespectsTriggers() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
             await waitForRemoteConfig(sut)
 
@@ -176,8 +176,13 @@
             #expect(integration != nil)
             #expect(integration?.isActive() == false)
 
-            integration?.startInternal(forceStart: true)
+            // Manual start should still wait for trigger
+            sut.startSessionRecording()
 
+            #expect(integration?.isActive() == false)
+
+            // Trigger event activates replay
+            sut.capture("purchase_completed")
             #expect(integration?.isActive() == true)
 
             sut.close()
@@ -185,19 +190,26 @@
 
         // MARK: - Stop/Start Tests
 
-        @Test("Trigger event starts replay when stopped")
-        func triggerStartsReplayWhenStopped() async throws {
+        @Test("Trigger event does not restart replay when manually stopped")
+        func triggerDoesNotRestartWhenManuallyStopped() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
             await waitForRemoteConfig(sut)
 
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
+            #expect(integration?.isActive() == false)
 
-            integration?.stop()
-
+            // Activate with trigger
             sut.capture("purchase_completed")
-
             #expect(integration?.isActive() == true)
+
+            // Manually stop
+            sut.stopSessionRecording()
+            #expect(integration?.isActive() == false)
+
+            // Trigger event should NOT restart (event listener is removed on stop)
+            sut.capture("purchase_completed")
+            #expect(integration?.isActive() == false)
 
             sut.close()
         }

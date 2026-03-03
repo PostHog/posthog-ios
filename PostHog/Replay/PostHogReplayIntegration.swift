@@ -149,26 +149,12 @@
                 updateEventTriggers(from: cachedRemoteConfig)
             }
 
-            // Subscribe to event captures
-            eventCapturedToken = postHog.onEventCaptured.subscribe { [weak self] event in
-                self?.handleEventCaptured(event: event.event)
-            }
-
-            // Subscribe to remote config changes (handles both event triggers and plugin enablement)
-            remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
-                self?.applyRemoteConfig(remoteConfig: config)
-            }
-
             start()
         }
 
         func uninstall(_ postHog: PostHogSDK) {
             if self.postHog === postHog || self.postHog == nil {
                 stop()
-                // stop listening to remote config loaded
-                remoteConfigLoadedToken = nil
-                // stop listening to event captures
-                eventCapturedToken = nil
                 self.postHog = nil
                 PostHogReplayIntegration.integrationInstalledLock.withLock {
                     PostHogReplayIntegration.integrationInstalled = false
@@ -176,29 +162,19 @@
             }
         }
 
-        /// Starts session replay recording (protocol conformance).
-        /// This is called automatically during installation and for auto-start scenarios.
+        /// Starts session replay recording.
         func start() {
-            startInternal(forceStart: false)
-        }
-        
-        /// Starts session replay recording with optional force start.
-        ///
-        /// - Parameter forceStart: When `true`, bypasses event trigger checks to allow immediate start.
-        ///   Set to `true` for manual starts (e.g., via `PostHogSDK.startSessionRecording()`).
-        ///   Defaults to `false` for automatic starts based on configuration.
-        func startInternal(forceStart: Bool) {
-            guard let postHog else { return }
-            
-            // Manual start should activate recording even if already enabled
-            if forceStart && isEnabled {
-                isWaitingForTriggerActivation = false
+            guard let postHog, !isEnabled else { return }
+
+            // Check sampling before starting timers and listeners
+            if let sessionId = postHog.sessionManager.getSessionId(readOnly: true),
+               !shouldRecordSession(postHog: postHog, sessionId: sessionId)
+            {
+                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Skipping start.")
                 return
             }
-            
-            guard !isEnabled else { return }
 
-            // For auto-start (not manual), check if we should wait for event triggers
+            // Check if we should wait for event triggers
             let shouldWaitForTriggers: Bool = {
                 guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                     return false
@@ -215,21 +191,11 @@
                 // Check if this session has already been activated
                 return activatedSession != currentSessionId
             }()
-            
-            if forceStart {
-                isWaitingForTriggerActivation = false
-            } else if shouldWaitForTriggers {
+
+            if shouldWaitForTriggers {
                 let triggers = eventTriggersLock.withLock { eventTriggers } ?? []
                 hedgeLog("[Session Replay] Event triggers configured. Dropping snapshots until any of these events are captured: \(triggers)")
                 isWaitingForTriggerActivation = true
-            }
-
-            // Check sampling before starting timers and listeners
-            if let sessionId = postHog.sessionManager.getSessionId(readOnly: true),
-               !shouldRecordSession(postHog: postHog, sessionId: sessionId)
-            {
-                hedgeLog("[Session Replay] Session \(sessionId) not sampled for recording. Skipping start.")
-                return
             }
 
             isEnabled = true
@@ -285,8 +251,19 @@
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                 self?.resumeAllPlugins()
             }
+            
+            // Subscribe to remote config changes (handles both event triggers and plugin enablement)
+            remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
+                self?.applyRemoteConfig(remoteConfig: config)
+            }
+
+            // Subscribe to event captures for trigger matching
+            eventCapturedToken = postHog.onEventCaptured.subscribe { [weak self] event in
+                self?.handleEventCaptured(event: event.event)
+            }
         }
 
+        /// Stops session replay recording.
         func stop() {
             guard isEnabled else { return }
             isEnabled = false
@@ -300,6 +277,10 @@
             applicationForegroundedToken = nil
             // stop listening to `UIView.layoutSubviews` events
             viewLayoutToken = nil
+            // stop listening to remote config loaded
+            remoteConfigLoadedToken = nil
+            // stop listening to event captures
+            eventCapturedToken = nil
             // stop plugins
             let pluginsToStop = installedPluginsLock.withLock {
                 defer { installedPlugins = [] }
@@ -373,7 +354,7 @@
             // If this session hasn't been activated yet, go back to waiting state
             if activatedSession != currentSessionId {
                 isWaitingForTriggerActivation = true
-                hedgeLog("[Session Replay] New session \(currentSessionId) - waiting for trigger events: \(triggers)")
+                hedgeLog("[Session Replay] New session \(currentSessionId), waiting for event triggers")
             } else {
                 isWaitingForTriggerActivation = false
             }
@@ -394,8 +375,8 @@
         }
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
-            updateEventTriggers(from: remoteConfig)
             updatePlugins(from: remoteConfig)
+            updateEventTriggers(from: remoteConfig)
         }
 
         private func handleApplicationEvent(event: UIEvent, date: Date) {
@@ -1107,10 +1088,6 @@
                 }
                 isWaitingForTriggerActivation = false
                 hedgeLog("[Session Replay] Event trigger matched: \(event). Activating replay for session \(currentSessionId).")
-                
-                if !isEnabled {
-                    start()
-                }
             }
         }
 
@@ -1128,26 +1105,14 @@
                 return triggers
             }()
             
-            let previousTriggers = eventTriggersLock.withLock {
-                let previous = eventTriggers
+            eventTriggersLock.withLock {
                 eventTriggers = remoteEventTriggers
                 // Clear activated session when triggers change
                 triggerActivatedSessionId = nil
-                return previous
             }
             
-            // If triggers were removed, check if replay is enabled before auto-starting
-            let hadTriggers = previousTriggers != nil && !(previousTriggers?.isEmpty ?? true)
-            let hasTriggers = remoteEventTriggers != nil && !(remoteEventTriggers?.isEmpty ?? true)
-            
-            if hadTriggers && !hasTriggers {
-                if postHog.remoteConfig?.isSessionReplayFlagActive() == true {
-                    hedgeLog("[Session Replay] Event triggers removed and replay enabled. Starting replay.")
-                    startInternal(forceStart: false)
-                } else {
-                    hedgeLog("[Session Replay] Event triggers removed but replay disabled by flags.")
-                }
-            }
+            // Re-evaluate trigger waiting state with new triggers
+            reevaluateTriggerWaitingState()
         }
 
         /// Updates plugin enablement based on remote config.

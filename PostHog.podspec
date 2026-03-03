@@ -38,5 +38,5 @@ Pod::Spec.new do |s|
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
   
   # Include the upload script for dSYM uploads
-  s.preserve_paths = 'build-tools/upload-symbols'
+  s.preserve_paths = 'build-tools/upload-symbols.sh'
 end

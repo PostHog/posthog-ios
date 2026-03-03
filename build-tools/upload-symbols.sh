@@ -4,8 +4,8 @@
 # https://posthog.com/docs/error-tracking/upload-source-maps/ios
 #
 # Xcode Build Phase Setup:
-#   SPM:        "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols"
-#   CocoaPods:  "${PODS_ROOT}/PostHog/build-tools/upload-symbols"
+#   SPM:        "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
+#   CocoaPods:  "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Input Files (required for script sandboxing):
 #   ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}

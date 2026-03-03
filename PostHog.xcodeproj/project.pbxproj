@@ -2167,7 +2167,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols\n\"${SRCROOT}/build-tools/upload-symbols\"\n";
+			shellScript = "#${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh\n\"${SRCROOT}/build-tools/upload-symbols.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

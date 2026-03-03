@@ -1,5 +1,11 @@
 ## Next
 
+## 3.42.1
+
+### Patch Changes
+
+- 59befaf: Use remote config as sole config loading mechanism: remove `config=true` from flags endpoint, add `timezone` to flags requests, deprecate `remoteConfig` config option
+
 ## 3.42.0
 
 ### Minor Changes

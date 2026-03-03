@@ -71,13 +71,6 @@ struct SessionRecordingView: View {
                 } label: {
                     Text("Capture 'start_replay_trigger_2'")
                 }
-
-                Button {
-                    PostHogSDK.shared.capture("start_replay_trigger_local")
-                    refreshStatus()
-                } label: {
-                    Text("Capture 'start_replay_trigger_local'")
-                }
             }
         }
         .navigationTitle("Session Recording")

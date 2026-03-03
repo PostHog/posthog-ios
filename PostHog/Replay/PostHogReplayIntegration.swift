@@ -144,15 +144,9 @@
 
             self.postHog = postHog
 
-            // Resolve event triggers from cached remote config (if available) or local config
+            // Resolve event triggers from cached remote config (if available)
             if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
                 updateEventTriggers(from: cachedRemoteConfig)
-            } else {
-                // No cached remote config yet, use local config only
-                eventTriggersLock.withLock {
-                    let localTriggers = postHog.config.sessionReplayConfig.eventTriggers
-                    eventTriggers = localTriggers.isEmpty ? nil : localTriggers
-                }
             }
 
             // Subscribe to event captures
@@ -193,15 +187,19 @@
         /// - Parameter forceStart: When `true`, bypasses event trigger checks to allow immediate start.
         ///   Set to `true` for manual starts (e.g., via `PostHogSDK.startSessionRecording()`).
         ///   Defaults to `false` for automatic starts based on configuration.
-        func startInternal(forceStart: Bool = false) {
-            guard let postHog, !isEnabled else {
+        func startInternal(forceStart: Bool) {
+            guard let postHog else { return }
+            
+            // Manual start should activate recording even if already enabled
+            if forceStart && isEnabled {
+                isWaitingForTriggerActivation = false
                 return
             }
+            
+            guard !isEnabled else { return }
 
             // For auto-start (not manual), check if we should wait for event triggers
             let shouldWaitForTriggers: Bool = {
-                guard !forceStart else { return false }
-                
                 guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                     return false
                 }
@@ -218,7 +216,9 @@
                 return activatedSession != currentSessionId
             }()
             
-            if shouldWaitForTriggers {
+            if forceStart {
+                isWaitingForTriggerActivation = false
+            } else if shouldWaitForTriggers {
                 let triggers = eventTriggersLock.withLock { eventTriggers } ?? []
                 hedgeLog("[Session Replay] Event triggers configured. Dropping snapshots until any of these events are captured: \(triggers)")
                 isWaitingForTriggerActivation = true
@@ -1115,7 +1115,6 @@
         }
 
         /// Resolves event triggers from remote config payload.
-        /// Local config takes precedence over remote config.
         private func updateEventTriggers(from remoteConfig: [String: Any]?) {
             guard let postHog else { return }
             
@@ -1129,13 +1128,9 @@
                 return triggers
             }()
             
-            // Resolve: local config takes precedence over remote config
-            let localTriggers = postHog.config.sessionReplayConfig.eventTriggers
-            let resolvedTriggers = localTriggers.isEmpty ? remoteEventTriggers : localTriggers
-            
             let previousTriggers = eventTriggersLock.withLock {
                 let previous = eventTriggers
-                eventTriggers = resolvedTriggers
+                eventTriggers = remoteEventTriggers
                 // Clear activated session when triggers change
                 triggerActivatedSessionId = nil
                 return previous
@@ -1143,12 +1138,12 @@
             
             // If triggers were removed, check if replay is enabled before auto-starting
             let hadTriggers = previousTriggers != nil && !(previousTriggers?.isEmpty ?? true)
-            let hasTriggers = resolvedTriggers != nil && !(resolvedTriggers?.isEmpty ?? true)
+            let hasTriggers = remoteEventTriggers != nil && !(remoteEventTriggers?.isEmpty ?? true)
             
             if hadTriggers && !hasTriggers {
                 if postHog.remoteConfig?.isSessionReplayFlagActive() == true {
                     hedgeLog("[Session Replay] Event triggers removed and replay enabled. Starting replay.")
-                    startInternal()
+                    startInternal(forceStart: false)
                 } else {
                     hedgeLog("[Session Replay] Event triggers removed but replay disabled by flags.")
                 }

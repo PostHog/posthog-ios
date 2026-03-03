@@ -193,9 +193,11 @@
             }()
 
             if shouldWaitForTriggers {
-                let triggers = eventTriggersLock.withLock { eventTriggers } ?? []
+                let triggers = eventTriggersLock.withLock {
+                    isWaitingForTriggerActivation = true
+                    return eventTriggers
+                } ?? []
                 hedgeLog("[Session Replay] Event triggers configured. Dropping snapshots until any of these events are captured: \(triggers)")
-                isWaitingForTriggerActivation = true
             }
 
             isEnabled = true
@@ -293,7 +295,9 @@
         }
 
         func isActive() -> Bool {
-            isEnabled && !isWaitingForTriggerActivation
+            eventTriggersLock.withLock {
+                isEnabled && !isWaitingForTriggerActivation
+            }
         }
 
         private func resetViews() {
@@ -342,21 +346,27 @@
                 return
             }
 
-            let (triggers, activatedSession) = eventTriggersLock.withLock {
-                (eventTriggers, triggerActivatedSessionId)
+            let shouldWait = eventTriggersLock.withLock { () -> Bool? in
+                let triggers = eventTriggers
+                let activatedSession = triggerActivatedSessionId
+                
+                guard let triggers = triggers, !triggers.isEmpty else {
+                    isWaitingForTriggerActivation = false
+                    return nil
+                }
+                
+                // If this session hasn't been activated yet, go back to waiting state
+                if activatedSession != currentSessionId {
+                    isWaitingForTriggerActivation = true
+                    return true
+                } else {
+                    isWaitingForTriggerActivation = false
+                    return false
+                }
             }
-
-            guard let triggers = triggers, !triggers.isEmpty else {
-                isWaitingForTriggerActivation = false
-                return
-            }
-
-            // If this session hasn't been activated yet, go back to waiting state
-            if activatedSession != currentSessionId {
-                isWaitingForTriggerActivation = true
+            
+            if shouldWait == true {
                 hedgeLog("[Session Replay] New session \(currentSessionId), waiting for event triggers")
-            } else {
-                isWaitingForTriggerActivation = false
             }
         }
 
@@ -385,7 +395,7 @@
             }
 
             // Drop events while waiting for a trigger activation. 
-            guard !isWaitingForTriggerActivation else {
+            guard !eventTriggersLock.withLock({ isWaitingForTriggerActivation }) else {
                 return
             }
 
@@ -1037,7 +1047,7 @@
             }
 
             // Drop snapshots while waiting for a trigger event
-            guard !isWaitingForTriggerActivation else {
+            guard !eventTriggersLock.withLock({ isWaitingForTriggerActivation }) else {
                 return
             }
 
@@ -1085,8 +1095,8 @@
             if triggers.contains(event) {
                 eventTriggersLock.withLock {
                     triggerActivatedSessionId = currentSessionId
+                    isWaitingForTriggerActivation = false
                 }
-                isWaitingForTriggerActivation = false
                 hedgeLog("[Session Replay] Event trigger matched: \(event). Activating replay for session \(currentSessionId).")
             }
         }

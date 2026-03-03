@@ -63,17 +63,11 @@
         }
 
         private func foregroundTextColor(selected: Bool) -> Color {
-            backgroundColor(selected: selected)
-                .getContrastingTextColor()
-                .opacity(foregroundTextOpacity(selected: selected))
-        }
-
-        private func foregroundTextOpacity(selected: Bool) -> Double {
-            selected ? 1 : 0.5
-        }
-
-        private func backgroundColor(selected: Bool) -> Color {
-            selected ? ratingButtonActiveColor : ratingButtonColor
+            if selected {
+                return ratingButtonActiveColor.getContrastingTextColor()
+            } else {
+                return inputTextColor.opacity(0.5)
+            }
         }
 
         private var ratingButtonColor: Color {
@@ -82,6 +76,10 @@
 
         private var ratingButtonActiveColor: Color {
             appearance.ratingButtonActiveColor ?? .black
+        }
+
+        private var inputTextColor: Color {
+            appearance.effectiveInputTextColor
         }
     }
 

@@ -6,12 +6,10 @@
 //
 
 import Foundation
-import XCTest
-
 import OHHTTPStubs
 import OHHTTPStubsSwift
-
 @testable import PostHog
+import XCTest
 
 class MockPostHogServer {
     var batchRequests = [URLRequest]()
@@ -47,6 +45,7 @@ class MockPostHogServer {
     var remoteConfigSurveys: String?
     var hasFeatureFlags: Bool? = true
     var featureFlags: [String: Any]?
+    var disabledFlag: Bool = false
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -114,7 +113,7 @@ class MockPostHogServer {
                 ],
                 "disabled-flag": [
                     "key": "disabled-flag",
-                    "enabled": false,
+                    "enabled": self.disabledFlag,
                     "variant": nil,
                     "reason": [
                         "type": "no_condition_match",
@@ -225,6 +224,7 @@ class MockPostHogServer {
                     "flags": flagsV4,
                     "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
                     "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
+                    "evaluatedAt": 1234567890,
                 ]
             } else {
                 obj = [
@@ -237,6 +237,7 @@ class MockPostHogServer {
                     ],
                     "errorsWhileComputingFlags": self.errorsWhileComputingFlags,
                     "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
+                    "evaluatedAt": 1234567890,
                 ]
             }
 

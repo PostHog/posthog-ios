@@ -198,6 +198,7 @@ enum PostHogSurveyRatingDisplayType: Decodable, Equatable {
 }
 
 enum PostHogSurveyRatingScale: Decodable, Equatable {
+    case twoPoint
     case threePoint
     case fivePoint
     case sevenPoint
@@ -206,6 +207,7 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
 
     var rawValue: Int {
         switch self {
+        case .twoPoint: 2
         case .threePoint: 3
         case .fivePoint: 5
         case .sevenPoint: 7
@@ -216,6 +218,7 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
 
     var range: ClosedRange<Int> {
         switch self {
+        case .twoPoint: 1 ... 2
         case .threePoint: 1 ... 3
         case .fivePoint: 1 ... 5
         case .sevenPoint: 1 ... 7
@@ -226,6 +229,7 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
 
     init(range: ClosedRange<Int>) {
         switch range {
+        case 1 ... 2: self = .twoPoint
         case 1 ... 3: self = .threePoint
         case 1 ... 5: self = .fivePoint
         case 1 ... 7: self = .sevenPoint
@@ -239,6 +243,8 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
         let scaleInt = try container.decode(Int.self)
 
         switch scaleInt {
+        case 2:
+            self = .twoPoint
         case 3:
             self = .threePoint
         case 5:

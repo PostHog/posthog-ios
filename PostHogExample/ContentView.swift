@@ -145,7 +145,7 @@ struct ContentView: View {
     private func asyncLevel3() async throws {
         // Simulate final async work before error
         await Task.sleep(30_000_000) // 0.03 seconds
-        
+
         // Throw an error from deep in the async chain
         throw AsyncTestError.deepAsyncError(
             message: "Error occurred in async level 3",
@@ -330,59 +330,52 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Real NSRangeException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerSampleRangeException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "real_nsrange_exception",
                                 "caught_by": "objective_c_wrapper",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger Real NSInvalidArgumentException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerSampleInvalidArgumentException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "real_invalid_argument_exception",
                                 "caught_by": "objective_c_wrapper",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger Custom NSException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerSampleGenericException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "real_custom_exception",
                                 "caught_by": "objective_c_wrapper",
                             ])
-                        })
+                        }
                     }
 
                     Button("Trigger Chained NSException") {
-                        ExceptionHandler.try({
+                        ExceptionHandler.try {
                             ExceptionHandler.triggerChainedException()
-                        }, catch: { exception in
+                        } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
                                 "exception_type": "chained_exception",
                                 "caught_by": "objective_c_wrapper",
                                 "scenario": "network_database_business_chain",
                             ])
-                        })
-                    }
-
-                    Button("Trigger with Message") {
-                        PostHogSDK.shared.captureException("Unexpected state detected", properties: [
-                            "is_test": true,
-                            "app_state": "some_state",
-                        ])
+                        }
                     }
 
                     Button("Capture Async/Await Error") {
@@ -450,7 +443,7 @@ struct ErrorDetails {
 
 enum AsyncTestError: LocalizedError {
     case deepAsyncError(message: String, context: [String: Any])
-    
+
     var errorDescription: String? {
         switch self {
         case let .deepAsyncError(message, context):

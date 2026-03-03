@@ -6,11 +6,15 @@ on:
   pull_request:
     paths-ignore:
       - "**/*.md"
+
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Bootstrap
         run: make bootstrap

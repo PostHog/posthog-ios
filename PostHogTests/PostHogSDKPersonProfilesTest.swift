@@ -7,9 +7,8 @@
 
 import Foundation
 import Nimble
-import Quick
-
 @testable import PostHog
+import Quick
 
 class PostHogSDKPersonProfilesTest: QuickSpec {
     func getSut(flushAt: Int = 1,

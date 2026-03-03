@@ -30,6 +30,7 @@ class PostHogRemoteConfig {
     private var remoteConfigDidFetch: Bool = false
     private var featureFlagPayloads: [String: Any]?
     private var requestId: String?
+    private var evaluatedAt: Int?
 
     private let personPropertiesForFlagsLock = NSLock()
     private var personPropertiesForFlags: [String: Any] = [:]
@@ -49,6 +50,12 @@ class PostHogRemoteConfig {
     var lastRequestId: String? {
         featureFlagsLock.withLock {
             requestId ?? storage.getString(forKey: .requestId)
+        }
+    }
+
+    var lastEvaluatedAt: Int? {
+        featureFlagsLock.withLock {
+            evaluatedAt ?? storage.getInt(forKey: .evaluatedAt)
         }
     }
 
@@ -278,11 +285,13 @@ class PostHogRemoteConfig {
                    quotaLimited.contains("feature_flags")
                 {
                     // swiftlint:disable:next line_length
-                    hedgeLog("Warning: Feature flags quota limit reached - clearing all feature flags and payloads. See https://posthog.com/docs/billing/limits-alerts for more information.")
+                    hedgeLog("Warning: Feature flags quota limit reached - flags could not be updated. See https://posthog.com/docs/billing/limits-alerts for more information.")
 
-                    self.clearFeatureFlags()
-                    self.notifyFeatureFlagsAndRelease([:])
-                    return callback([:])
+                    let cachedFeatureFlags = self.featureFlagsLock.withLock {
+                        self.getCachedFeatureFlags() ?? [:]
+                    }
+                    self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
+                    return callback(cachedFeatureFlags)
                 }
 
                 // Safely handle optional data
@@ -308,8 +317,9 @@ class PostHogRemoteConfig {
                     self.processSessionRecordingConfig(data, featureFlags: featureFlags)
                 #endif
 
-                // Grab the request ID from the response
+                // Grab the request ID and evaluated timestamp from the response
                 let requestId = data["requestId"] as? String
+                let evaluatedAt = data["evaluatedAt"] as? Int
                 let errorsWhileComputingFlags = data["errorsWhileComputingFlags"] as? Bool ?? false
                 var loadedFeatureFlags: [String: Any]?
 
@@ -317,6 +327,11 @@ class PostHogRemoteConfig {
                     if let requestId {
                         // Store the request ID in the storage.
                         self.setCachedRequestId(requestId)
+                    }
+
+                    if let evaluatedAt {
+                        // Store the evaluated timestamp in the storage.
+                        self.setCachedEvaluatedAt(evaluatedAt)
                     }
 
                     if errorsWhileComputingFlags {
@@ -566,6 +581,16 @@ class PostHogRemoteConfig {
         }
     }
 
+    // To be called after acquiring `featureFlagsLock`
+    private func setCachedEvaluatedAt(_ value: Int?) {
+        evaluatedAt = value
+        if let value {
+            storage.setInt(forKey: .evaluatedAt, contents: value)
+        } else {
+            storage.remove(key: .evaluatedAt)
+        }
+    }
+
     private func normalizeResponse(_ data: inout [String: Any]) {
         if let flagsV4 = data["flags"] as? [String: Any] {
             var featureFlags = [String: Any]()
@@ -605,6 +630,7 @@ class PostHogRemoteConfig {
             setCachedFeatureFlags([:])
             setCachedFeatureFlagPayload([:])
             setCachedRequestId(nil) // requestId no longer valid
+            setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
         }
     }
 

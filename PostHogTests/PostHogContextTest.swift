@@ -32,7 +32,7 @@ class PostHogContextTest: QuickSpec {
             let context = sut.staticContext()
             expect(context["$app_name"] as? String) == "xctest"
             expect(context["$app_version"] as? String) != nil
-            expect(context["$app_build"] as? String) != nil
+            expect(context["$app_build"] as? Int) != nil
             expect(context["$app_namespace"] as? String) == "com.apple.dt.xctest.tool"
             expect(context["$is_emulator"] as? Bool) != nil
             #if os(iOS) || os(tvOS) || os(visionOS)
@@ -72,7 +72,7 @@ class PostHogContextTest: QuickSpec {
 
             // Check that it includes expected properties from static context
             expect(context["$app_version"] as? String) != nil
-            expect(context["$app_build"] as? String) != nil
+            expect(context["$app_build"] as? Int) != nil
             expect(context["$app_namespace"] as? String) != nil
 
             #if os(iOS) || os(tvOS) || os(visionOS)

@@ -173,7 +173,7 @@
 		DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */; };
 		DA30AE812D3FE63F00465A64 /* PostHogSurvey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */; };
 		DA37933C2DBA571D005C6AA3 /* PostHogSurveysConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */; };
-		DA3BB4AA2ED82E410097A97A /* PostHogStackTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4A62ED82E410097A97A /* PostHogStackTrace.swift */; };
+		DA3BB4AA2ED82E410097A97A /* PostHogStackTraceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4A62ED82E410097A97A /* PostHogStackTraceProcessor.swift */; };
 		DA3BB4AC2ED82EE80097A97A /* PostHogExceptionProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */; };
 		DA3BB4AF2ED88DE90097A97A /* ExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */; };
 		DA3BB4DF2ED992780097A97A /* PostHogBinaryImageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4DD2ED992780097A97A /* PostHogBinaryImageInfo.swift */; };
@@ -717,7 +717,7 @@
 		DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Util.swift"; sourceTree = "<group>"; };
 		DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurvey.swift; sourceTree = "<group>"; };
 		DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysConfig.swift; sourceTree = "<group>"; };
-		DA3BB4A62ED82E410097A97A /* PostHogStackTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackTrace.swift; sourceTree = "<group>"; };
+		DA3BB4A62ED82E410097A97A /* PostHogStackTraceProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackTraceProcessor.swift; sourceTree = "<group>"; };
 		DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionProcessor.swift; sourceTree = "<group>"; };
 		DA3BB4AD2ED88DE90097A97A /* ExceptionHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExceptionHandler.h; sourceTree = "<group>"; };
 		DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ExceptionHandler.m; sourceTree = "<group>"; };
@@ -1090,12 +1090,12 @@
 				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
 				DA1D29612D115E13003A31DA /* DI.swift */,
-				DA578E912D6768A100B3A56C /* Screen Views */,
-				DA703C132D6615300069097B /* App Life Cycle */,
+				DA578E912D6768A100B3A56C /* ScreenViews */,
+				DA703C132D6615300069097B /* AppLifeCycle */,
 				DA26419B2CC0499300CB427B /* Autocapture */,
 				69EE82B82BA9C4DA00EB9542 /* Replay */,
 				DA30AE872D40173D00465A64 /* Surveys */,
-				DA8C9B972EC633FA00C6EADB /* Error Tracking */,
+				DA8C9B972EC633FA00C6EADB /* ErrorTracking */,
 				69BA38E62B893F2200AA69D6 /* Resources */,
 				69779BED2AE6B29E00D7A48E /* Models */,
 				3AA4C09B2988315D006C4731 /* Utils */,
@@ -1372,7 +1372,7 @@
 		DA3BB49E2ED82E250097A97A /* Utils */ = {
 			isa = PBXGroup;
 			children = (
-				DA3BB4A62ED82E410097A97A /* PostHogStackTrace.swift */,
+				DA3BB4A62ED82E410097A97A /* PostHogStackTraceProcessor.swift */,
 				DA3BB4DE2ED992780097A97A /* PostHogDebugImageProvider.swift */,
 			);
 			path = Utils;
@@ -1387,13 +1387,13 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		DA578E912D6768A100B3A56C /* Screen Views */ = {
+		DA578E912D6768A100B3A56C /* ScreenViews */ = {
 			isa = PBXGroup;
 			children = (
 				DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */,
 				DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */,
 			);
-			path = "Screen Views";
+			path = ScreenViews;
 			sourceTree = "<group>";
 		};
 		DA690C7A2DA54DDD0045FF4E /* Surveys */ = {
@@ -1409,13 +1409,24 @@
 			path = Surveys;
 			sourceTree = "<group>";
 		};
-		DA703C132D6615300069097B /* App Life Cycle */ = {
+		DA703C132D6615300069097B /* AppLifeCycle */ = {
 			isa = PBXGroup;
 			children = (
 				DA703C1B2D6616F20069097B /* PostHogAppLifeCycleIntegration.swift */,
 				DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */,
 			);
-			path = "App Life Cycle";
+			path = AppLifeCycle;
+			sourceTree = "<group>";
+		};
+		DA8C9B972EC633FA00C6EADB /* ErrorTracking */ = {
+			isa = PBXGroup;
+			children = (
+				DA3BB4E72ED9929C0097A97A /* Models */,
+				DA3BB49E2ED82E250097A97A /* Utils */,
+				DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */,
+				DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */,
+			);
+			path = ErrorTracking;
 			sourceTree = "<group>";
 		};
 		DA8C9B972EC633FA00C6EADB /* Error Tracking */ = {
@@ -2166,7 +2177,7 @@
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
 				DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */,
 				69261D232AD9784200232EC7 /* PostHogVersion.swift in Sources */,
-				DA3BB4AA2ED82E410097A97A /* PostHogStackTrace.swift in Sources */,
+				DA3BB4AA2ED82E410097A97A /* PostHogStackTraceProcessor.swift in Sources */,
 				69779BEC2AE68E6900D7A48E /* UIViewController.swift in Sources */,
 				3A0F108929C9BD76002C0084 /* Errors.swift in Sources */,
 				3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */,
@@ -2520,7 +2531,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "\"PostHogExample/Preview Content\"";
-				DEVELOPMENT_TEAM = PNC2XCH2XP;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;

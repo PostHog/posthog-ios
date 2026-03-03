@@ -15,10 +15,13 @@ struct PostHogSurveyAppearance: Decodable {
     let submitButtonColor: String?
     let submitButtonText: String?
     let submitButtonTextColor: String?
+    let textColor: String?
     let descriptionTextColor: String?
     let ratingButtonColor: String?
     let ratingButtonActiveColor: String?
     let ratingButtonHoverColor: String?
+    let inputBackground: String?
+    let inputTextColor: String?
     let whiteLabel: Bool?
     let autoDisappear: Bool?
     let displayThankYouMessage: Bool?

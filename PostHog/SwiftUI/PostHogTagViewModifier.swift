@@ -10,7 +10,7 @@
 #if os(iOS) && canImport(SwiftUI)
     import SwiftUI
 
-    typealias PostHogTagViewHandler = ([UIView]) -> Void
+    typealias PostHogTagHandler = (_ views: [UIView], _ layers: [CALayer]) -> Void
 
     /**
      This is a helper view modifier for retrieving a list of underlying UIKit views for the current SwiftUI view.
@@ -58,12 +58,34 @@
         This logic is implemented in the `getTargetViews` function, which is called from PostHogTagView.
 
       ```
+
+     ### iOS 26
+     On iOS 26, SwiftUI primitives (Text, Image, Button) may be rendered as CALayers
+     instead of UIViews. An additional `PostHogFrameCaptureView` overlay detects these layers via
+     `getTargetLayers` by walking up from the capture view to find a container with
+     non-UIView-backed sublayers, then collects all CALayers within the reference frame of the original view.
+
+     ```
+      iOS 26 View/Layer Hierarchy:
+
+                        _UIHostingView
+                              │
+               ┌──────────────┼──────────────┐
+               ▼              ▼              ▼
+         [CALayer]      _UIInheritedView   PostHogTagView
+       CGDrawingLayer        │               (overlay)
+       (Text/Image)          ▼
+                      UIKitPlatformViewHost
+                              │
+                              ▼
+                    PostHogFrameCaptureUIView
+     ```
      */
     struct PostHogTagViewModifier: ViewModifier {
         private let id = UUID()
 
-        let onChange: PostHogTagViewHandler
-        let onRemove: PostHogTagViewHandler
+        let onChange: PostHogTagHandler
+        let onRemove: PostHogTagHandler
 
         /**
          This is a helper view modifier for retrieving a list of underlying UIKit views for the current SwiftUI view.
@@ -71,11 +93,17 @@
          If, for example, this modifier is applied on an instance of an HStack, the returned list will contain the underlying UIKit views embedded in the HStack.
          For single views, the returned list will contain a single element, the view itself.
 
+         On iOS 26+, SwiftUI primitives may be rendered as CALayers instead of UIViews.
+         The layers array will be populated on iOS 26+, empty on earlier versions.
+
          - Parameters:
-         - onChange: called when the underlying UIKit views are detected, or when they are layed out.
-         - onRemove: called when the underlying UIKit views are removed from the view hierarchy, for cleanup.
+         - onChange: called when the underlying UIKit views/layers are detected, or when they are layed out.
+         - onRemove: called when the underlying UIKit views/layers are removed from the view hierarchy, for cleanup.
          */
-        init(onChange: @escaping PostHogTagViewHandler, onRemove: @escaping PostHogTagViewHandler) {
+        init(
+            onChange: @escaping PostHogTagHandler,
+            onRemove: @escaping PostHogTagHandler
+        ) {
             self.onChange = onChange
             self.onRemove = onRemove
         }
@@ -88,17 +116,150 @@
                         .frame(width: 0, height: 0)
                 )
                 .overlay(
-                    PostHogTagView(id: id, onChange: onChange, onRemove: onRemove)
-                        .accessibility(hidden: true)
-                        .frame(width: 0, height: 0)
+                    PostHogTagView(
+                        id: id,
+                        onChange: onChange,
+                        onRemove: onRemove
+                    )
+                    .accessibility(hidden: true)
+                    .frame(width: 0, height: 0)
                 )
+                .modifier(PostHogFrameCaptureModifier(
+                    id: id,
+                    onChange: onChange,
+                    onRemove: onRemove
+                ))
+        }
+    }
+
+    // MARK: - iOS 26+ Layer Detection
+
+    /// A view modifier that adds a full-sized overlay for iOS 26+ layer detection.
+    /// This overlay view is used to find CALayers that are contained within its frame.
+    private struct PostHogFrameCaptureModifier: ViewModifier {
+        let id: UUID
+        let onChange: PostHogTagHandler
+        let onRemove: PostHogTagHandler
+
+        func body(content: Content) -> some View {
+            if #available(iOS 26.0, *) {
+                content.overlay(
+                    PostHogFrameCaptureView(
+                        id: id,
+                        onChange: onChange,
+                        onRemove: onRemove
+                    )
+                    .allowsHitTesting(false)
+                    .accessibility(hidden: true)
+                )
+            } else {
+                content
+            }
+        }
+    }
+
+    /// A full-sized UIViewRepresentable for iOS 26+ that detects CALayers within its frame.
+    @available(iOS 26.0, *)
+    private struct PostHogFrameCaptureView: UIViewRepresentable {
+        let id: UUID
+        let onChange: PostHogTagHandler
+        let onRemove: PostHogTagHandler
+
+        func makeCoordinator() -> Coordinator {
+            Coordinator(onRemove: onRemove)
+        }
+
+        func makeUIView(context: Context) -> PostHogFrameCaptureUIView {
+            let coordinator = context.coordinator
+            let changeHandler = onChange
+            let view = PostHogFrameCaptureUIView(id: id) { captureView in
+                let layers = getTargetLayers(from: captureView)
+                if !layers.isEmpty {
+                    coordinator.cachedLayers = layers
+                    changeHandler([], layers)
+                }
+            }
+            view.postHogView = true
+            return view
+        }
+
+        func updateUIView(_ uiView: PostHogFrameCaptureUIView, context _: Context) {
+            uiView.postHogView = true
+            uiView.superview?.postHogView = true
+            // Trigger layer detection on layout updates
+            uiView.detectLayers()
+        }
+
+        static func dismantleUIView(_ uiView: PostHogFrameCaptureUIView, coordinator: Coordinator) {
+            let layers = coordinator.cachedLayers.isEmpty
+                ? getTargetLayers(from: uiView)
+                : coordinator.cachedLayers
+
+            if !layers.isEmpty {
+                coordinator.onRemoveHandler([], layers)
+            }
+            uiView.handler = nil
+        }
+
+        final class Coordinator {
+            let onRemoveHandler: PostHogTagHandler
+            private var _cachedLayers: [Weak<CALayer>] = []
+
+            var cachedLayers: [CALayer] {
+                get { _cachedLayers.compactMap(\.value) }
+                set { _cachedLayers = newValue.map(Weak.init) }
+            }
+
+            init(onRemove: @escaping PostHogTagHandler) {
+                onRemoveHandler = onRemove
+            }
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private class PostHogFrameCaptureUIView: UIView {
+        let id: UUID
+        var handler: (() -> Void)?
+
+        init(id: UUID, handler: ((PostHogFrameCaptureUIView) -> Void)?) {
+            self.id = id
+            super.init(frame: .zero)
+            isUserInteractionEnabled = false
+            postHogView = true
+            self.handler = { [weak self] in
+                guard let self else { return }
+                handler?(self)
+            }
+        }
+
+        required init?(coder: NSCoder) {
+            id = UUID()
+            super.init(coder: coder)
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            detectLayers()
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            // Trigger detection when fully added to window hierarchy
+            if window != nil {
+                detectLayers()
+            }
+        }
+
+        func detectLayers() {
+            // Only detect if we're fully in the view hierarchy
+            guard superview?.superview != nil else { return }
+            handler?()
         }
     }
 
     struct PostHogTagView: UIViewRepresentable {
         final class Coordinator {
-            var onChangeHandler: PostHogTagViewHandler?
-            var onRemoveHandler: PostHogTagViewHandler?
+            let onRemoveHandler: PostHogTagHandler
 
             private var _targets: [Weak<UIView>]
             var cachedTargets: [UIView] {
@@ -106,9 +267,7 @@
                 set { _targets = newValue.map(Weak.init) }
             }
 
-            init(
-                onRemove: PostHogTagViewHandler?
-            ) {
+            init(onRemove: @escaping PostHogTagHandler) {
                 _targets = []
                 onRemoveHandler = onRemove
             }
@@ -117,13 +276,13 @@
         @Binding
         private var observed: Void // workaround for state changes not triggering view updates
         private let id: UUID
-        private let onChangeHandler: PostHogTagViewHandler?
-        private let onRemoveHandler: PostHogTagViewHandler?
+        private let onChangeHandler: PostHogTagHandler
+        private let onRemoveHandler: PostHogTagHandler
 
         init(
             id: UUID,
-            onChange: PostHogTagViewHandler?,
-            onRemove: PostHogTagViewHandler?
+            onChange: @escaping PostHogTagHandler,
+            onRemove: @escaping PostHogTagHandler
         ) {
             _observed = .constant(())
             self.id = id
@@ -142,15 +301,16 @@
                 let targets = getTargetViews(from: controller)
                 if !targets.isEmpty {
                     context.coordinator.cachedTargets = targets
-                    onChangeHandler?(targets)
+                    onChangeHandler(targets, [])
                 }
             }
 
             return view
         }
 
-        func updateUIView(_: PostHogTagUIView, context _: Context) {
-            //
+        func updateUIView(_ uiView: PostHogTagUIView, context _: Context) {
+            uiView.postHogView = true
+            uiView.superview?.postHogView = true
         }
 
         static func dismantleUIView(_ uiView: PostHogTagUIView, coordinator: Coordinator) {
@@ -160,7 +320,7 @@
                 : coordinator.cachedTargets
 
             if !targets.isEmpty {
-                coordinator.onRemoveHandler?(targets)
+                coordinator.onRemoveHandler(targets, [])
             }
 
             uiView.postHogTagView = nil
@@ -198,6 +358,94 @@
             }
     }
 
+    /// On iOS 26+, SwiftUI primitives may be rendered as CALayers instead of UIViews.
+    /// This function finds sibling CALayers that are rendered alongside the modified view.
+    ///
+    /// On iOS 26, when `.postHogMask()` is applied to a SwiftUI view like `CustomView()`,
+    /// the content (Image, Text) is rendered as CALayers, and the anchor/tagger views are
+    /// added as sibling UIViews wrapped in `UIKitPlatformViewHost`. The parent view's layer
+    /// contains both the content layers and the wrapper view layers.
+    @available(iOS 26.0, *)
+    private func getTargetLayers(from captureView: PostHogFrameCaptureUIView) -> [CALayer] {
+        // Walk up the view hierarchy to find a container view whose layer has
+        // non-UIView-backed sublayers (i.e., SwiftUI content rendered as CALayers).
+        //
+        // On iOS 26, the structure is typically:
+        //   _UIHostingView
+        //     ├─ [CALayer] CGDrawingLayer (Text/Image content)
+        //     └─ _UIInheritedView
+        //         └─ UIKitPlatformViewHost
+        //             └─ PostHogFrameCaptureUIView  <- we start here
+
+        // Find the view that contains both content layers and our wrapper
+        // by walking up until we find a view whose layer has non-view sublayers
+        var currentView: UIView? = captureView.superview?.superview
+        var hostingView: UIView?
+
+        while let view = currentView {
+            // Check if this view's layer has sublayers that are not backed by UIViews
+            // (i.e., SwiftUI content layers like CGDrawingLayer)
+            let hasContentLayers = view.layer.sublayers?.contains { sublayer in
+                !(sublayer.delegate is UIView) && sublayer.bounds.size.width > 0 && sublayer.bounds.size.height > 0
+            } ?? false
+
+            if hasContentLayers {
+                hostingView = view
+                break
+            }
+            currentView = view.superview
+        }
+
+        guard let parentView = hostingView else {
+            return []
+        }
+
+        let referenceFrame = parentView.convert(parentView.bounds, to: nil)
+        guard !referenceFrame.isEmpty else {
+            return []
+        }
+
+        // Find all sublayers of the parent view's layer that are not backed by UIViews
+        // and are contained within the reference frame
+        var contentLayers: [CALayer] = []
+        collectContentLayers(from: parentView.layer, containedIn: referenceFrame, results: &contentLayers)
+
+        return contentLayers
+    }
+
+    /// Collect all sublayers that are not backed by UIViews (i.e., SwiftUI content layers)
+    /// and are contained within the specified reference frame.
+    @available(iOS 26.0, *)
+    private func collectContentLayers(from layer: CALayer, containedIn referenceFrame: CGRect, results: inout [CALayer]) {
+        for sublayer in layer.sublayers ?? [] {
+            // Skip layers that belong to views
+            if sublayer.delegate is UIView {
+                continue
+            }
+
+            // Skip zero-size layers
+            guard sublayer.bounds.size.width > 0, sublayer.bounds.size.height > 0 else {
+                continue
+            }
+
+            // Get the sublayer's frame in the parent layer's coordinate space
+            let sublayerFrame = sublayer.convert(sublayer.bounds, to: nil)
+
+            // Only include layers whose center point is contained within the reference frame
+            let sublayerFrameCenter = CGPoint(x: sublayerFrame.midX, y: sublayerFrame.midY)
+            guard referenceFrame.contains(sublayerFrameCenter) else {
+                // Still recurse into sublayers - they might be contained even if parent isn't
+                collectContentLayers(from: sublayer, containedIn: referenceFrame, results: &results)
+                continue
+            }
+
+            results.append(sublayer)
+
+            // Recursively collect from sublayers
+            collectContentLayers(from: sublayer, containedIn: referenceFrame, results: &results)
+        }
+    }
+
     private struct PostHogTagAnchorView: UIViewRepresentable {
         var id: UUID
 
@@ -205,8 +453,9 @@
             PostHogTagAnchorUIView(id: id)
         }
 
-        func updateUIView(_: UIViewType, context _: Context) {
-            //
+        func updateUIView(_ uiView: UIViewType, context _: Context) {
+            uiView.postHogView = true
+            uiView.superview?.postHogView = true
         }
     }
 
@@ -229,6 +478,7 @@
     final class PostHogTagUIView: UIView {
         let id: UUID
         var handler: (() -> Void)?
+        private var ancestorObserver: AncestorSubviewObserver?
 
         init(
             id: UUID,
@@ -262,11 +512,56 @@
         override func didMoveToWindow() {
             super.didMoveToWindow()
             handler?()
+            setupAncestorObserver()
         }
 
         override func layoutSubviews() {
             super.layoutSubviews()
             handler?()
+        }
+
+        private func setupAncestorObserver() {
+            // Find the common ancestor and observe its subview changes
+            // This handles cases like AsyncImage where content views change after initial setup
+            guard
+                let anchorView = postHogAnchor,
+                let commonAncestor = anchorView.nearestCommonAncestor(with: self)
+            else {
+                return
+            }
+
+            // Remove any existing observer
+            ancestorObserver?.stopObserving()
+
+            // Create new observer for the common ancestor
+            ancestorObserver = AncestorSubviewObserver(ancestor: commonAncestor) { [weak self] in
+                self?.handler?()
+            }
+        }
+    }
+
+    /// Observes layer hierarchy changes on an ancestor view using KVO.
+    /// This is used to detect when SwiftUI replaces content (e.g., AsyncImage loading).
+    private final class AncestorSubviewObserver {
+        private var observation: NSKeyValueObservation?
+
+        init(ancestor: UIView, onChange: @escaping () -> Void) {
+            // Use KVO on the layer's sublayers to detect hierarchy changes
+            observation = ancestor.layer.observe(\.sublayers, options: [.new, .old]) { _, _ in
+                // Dispatch async to allow the view hierarchy to settle
+                DispatchQueue.main.async {
+                    onChange()
+                }
+            }
+        }
+
+        func stopObserving() {
+            observation?.invalidate()
+            observation = nil
+        }
+
+        deinit {
+            stopObserving()
         }
     }
 

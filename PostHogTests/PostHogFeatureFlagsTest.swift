@@ -159,8 +159,8 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
 
-        @Test("clears feature flags when quota limited")
-        func clearsFeatureFlagsWhenQuotaLimited() async {
+        @Test("retains feature flags when quota limited")
+        func retainsFeatureFlagsWhenQuotaLimited() async {
             let sut = getSut()
 
             // First load some feature flags normally
@@ -184,9 +184,9 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            // Verify flags are cleared
-            #expect(sut.getFeatureFlag("bool-value") == nil)
-            #expect(sut.getFeatureFlag("string-value") == nil)
+            // Verify flags are retained (not cleared)
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
+            #expect(sut.getFeatureFlag("string-value") as? String == "test")
         }
     }
 
@@ -243,9 +243,6 @@ enum PostHogFeatureFlagsTest {
         func personPropertiesAreAdditive() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set first batch of properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
 
@@ -284,9 +281,6 @@ enum PostHogFeatureFlagsTest {
         func resetPersonPropertiesClearsAll() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set some properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
 
@@ -322,9 +316,6 @@ enum PostHogFeatureFlagsTest {
         @Test("Group properties are stored and retrieved correctly")
         func storeAndRetrieveGroupProperties() async {
             let sut = PostHogSDK.with(config)
-
-            // Enable person processing
-            sut.identify("test_user")
 
             let properties = [
                 "plan": "enterprise",
@@ -372,9 +363,6 @@ enum PostHogFeatureFlagsTest {
         func multipleGroupTypesHandled() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set properties for different group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
             sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
@@ -409,9 +397,6 @@ enum PostHogFeatureFlagsTest {
         @Test("Reset group properties for specific type")
         func resetGroupPropertiesSpecificType() async {
             let sut = PostHogSDK.with(config)
-
-            // Enable person processing
-            sut.identify("test_user")
 
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -451,9 +436,6 @@ enum PostHogFeatureFlagsTest {
         func resetAllGroupProperties() async {
             let sut = PostHogSDK.with(config)
 
-            // Enable person processing
-            sut.identify("test_user")
-
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
             sut.setGroupPropertiesForFlags("team", properties: ["role": "engineering"])
@@ -485,9 +467,6 @@ enum PostHogFeatureFlagsTest {
         @Test("Both person and group properties sent together")
         func bothPersonAndGroupPropertiesSent() async {
             let sut = PostHogSDK.with(config)
-
-            // Enable person processing
-            sut.identify("test_user")
 
             // Set both types of properties
             sut.setPersonPropertiesForFlags(["user_plan": "premium"])
@@ -603,12 +582,12 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
-    @Suite("Test Evaluation Environments")
-    class TestEvaluationEnvironments: BaseTestClass {
-        @Test("Evaluation environments are included in flags request")
-        func evaluationEnvironmentsIncludedInRequest() async {
-            // Configure evaluation environments
-            config.evaluationEnvironments = ["production", "web", "checkout"]
+    @Suite("Test Evaluation Contexts")
+    class TestEvaluationContexts: BaseTestClass {
+        @Test("Evaluation contexts are included in flags request")
+        func evaluationContextsIncludedInRequest() async {
+            // Configure evaluation contexts
+            config.evaluationContexts = ["production", "web", "checkout"]
             let sut = PostHogSDK.with(config)
 
             // Enable person processing
@@ -621,7 +600,7 @@ enum PostHogFeatureFlagsTest {
                 }
             }
 
-            // Verify the request included evaluation environments
+            // Verify the request included evaluation contexts
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
             guard let lastRequest = server.flagsRequests.last else {
@@ -634,21 +613,21 @@ enum PostHogFeatureFlagsTest {
                 return
             }
 
-            guard let evaluationEnvironments = requestBody["evaluation_environments"] as? [String] else {
-                #expect(Bool(false), "Evaluation environments not found in request body: \(requestBody)")
+            guard let evaluationContexts = requestBody["evaluation_contexts"] as? [String] else {
+                #expect(Bool(false), "Evaluation contexts not found in request body: \(requestBody)")
                 return
             }
 
-            #expect(evaluationEnvironments.count == 3, "Expected 3 evaluation environments")
-            #expect(evaluationEnvironments.contains("production"), "Expected 'production' in evaluation environments")
-            #expect(evaluationEnvironments.contains("web"), "Expected 'web' in evaluation environments")
-            #expect(evaluationEnvironments.contains("checkout"), "Expected 'checkout' in evaluation environments")
+            #expect(evaluationContexts.count == 3, "Expected 3 evaluation contexts")
+            #expect(evaluationContexts.contains("production"), "Expected 'production' in evaluation contexts")
+            #expect(evaluationContexts.contains("web"), "Expected 'web' in evaluation contexts")
+            #expect(evaluationContexts.contains("checkout"), "Expected 'checkout' in evaluation contexts")
         }
 
-        @Test("Empty evaluation environments not included in request")
-        func emptyEvaluationEnvironmentsNotIncluded() async {
-            // Configure with empty evaluation environments
-            config.evaluationEnvironments = []
+        @Test("Empty evaluation contexts not included in request")
+        func emptyEvaluationContextsNotIncluded() async {
+            // Configure with empty evaluation contexts
+            config.evaluationContexts = []
             let sut = PostHogSDK.with(config)
 
             // Enable person processing
@@ -661,7 +640,7 @@ enum PostHogFeatureFlagsTest {
                 }
             }
 
-            // Verify the request did NOT include evaluation environments
+            // Verify the request did NOT include evaluation contexts
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
             guard let lastRequest = server.flagsRequests.last else {
@@ -674,12 +653,12 @@ enum PostHogFeatureFlagsTest {
                 return
             }
 
-            #expect(requestBody["evaluation_environments"] == nil, "Expected evaluation_environments to NOT be present when empty")
+            #expect(requestBody["evaluation_contexts"] == nil, "Expected evaluation_contexts to NOT be present when empty")
         }
 
-        @Test("Nil evaluation environments not included in request")
-        func nilEvaluationEnvironmentsNotIncluded() async {
-            // Don't set evaluation environments (leave as nil)
+        @Test("Nil evaluation contexts not included in request")
+        func nilEvaluationContextsNotIncluded() async {
+            // Don't set evaluation contexts (leave as nil)
             let sut = PostHogSDK.with(config)
 
             // Enable person processing
@@ -692,7 +671,7 @@ enum PostHogFeatureFlagsTest {
                 }
             }
 
-            // Verify the request did NOT include evaluation environments
+            // Verify the request did NOT include evaluation contexts
             #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
 
             guard let lastRequest = server.flagsRequests.last else {
@@ -705,17 +684,17 @@ enum PostHogFeatureFlagsTest {
                 return
             }
 
-            #expect(requestBody["evaluation_environments"] == nil, "Expected evaluation_environments to NOT be present when nil")
+            #expect(requestBody["evaluation_contexts"] == nil, "Expected evaluation_contexts to NOT be present when nil")
         }
 
-        @Test("Can update evaluation environments after initialization")
-        func canUpdateEvaluationEnvironments() async {
+        @Test("Can update evaluation contexts after initialization")
+        func canUpdateEvaluationContexts() async {
             let sut = PostHogSDK.with(config)
 
             // Enable person processing
             sut.identify("test_user")
 
-            // Initially no evaluation environments
+            // Initially no evaluation contexts
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
                     continuation.resume()
@@ -729,10 +708,10 @@ enum PostHogFeatureFlagsTest {
                 return
             }
 
-            #expect(firstRequestBody["evaluation_environments"] == nil, "Expected no evaluation_environments in first request")
+            #expect(firstRequestBody["evaluation_contexts"] == nil, "Expected no evaluation_contexts in first request")
 
-            // Update evaluation environments
-            config.evaluationEnvironments = ["staging", "mobile"]
+            // Update evaluation contexts
+            config.evaluationContexts = ["staging", "mobile"]
 
             // Reload flags
             await withCheckedContinuation { continuation in
@@ -748,14 +727,63 @@ enum PostHogFeatureFlagsTest {
                 return
             }
 
-            guard let evaluationEnvironments = secondRequestBody["evaluation_environments"] as? [String] else {
-                #expect(Bool(false), "Evaluation environments not found in second request")
+            guard let evaluationContexts = secondRequestBody["evaluation_contexts"] as? [String] else {
+                #expect(Bool(false), "Evaluation contexts not found in second request")
                 return
             }
 
-            #expect(evaluationEnvironments.count == 2, "Expected 2 evaluation environments in second request")
-            #expect(evaluationEnvironments.contains("staging"), "Expected 'staging' in evaluation environments")
-            #expect(evaluationEnvironments.contains("mobile"), "Expected 'mobile' in evaluation environments")
+            #expect(evaluationContexts.count == 2, "Expected 2 evaluation contexts in second request")
+            #expect(evaluationContexts.contains("staging"), "Expected 'staging' in evaluation contexts")
+            #expect(evaluationContexts.contains("mobile"), "Expected 'mobile' in evaluation contexts")
+        }
+
+        @Test("Deprecated evaluationEnvironments property still works")
+        func deprecatedEvaluationEnvironmentsStillWorks() async {
+            // Use the deprecated property
+            config.evaluationEnvironments = ["production", "api"]
+            let sut = PostHogSDK.with(config)
+
+            // Verify the deprecated property maps to evaluationContexts
+            #expect(config.evaluationContexts?.count == 2, "Expected evaluationContexts to be set via deprecated property")
+            #expect(config.evaluationContexts?.contains("production") == true, "Expected 'production' in evaluationContexts")
+            #expect(config.evaluationContexts?.contains("api") == true, "Expected 'api' in evaluationContexts")
+
+            // Verify reading from deprecated property returns same values
+            #expect(config.evaluationEnvironments?.count == 2, "Expected evaluationEnvironments getter to return same values")
+            #expect(config.evaluationEnvironments?.contains("production") == true, "Expected 'production' from evaluationEnvironments getter")
+            #expect(config.evaluationEnvironments?.contains("api") == true, "Expected 'api' from evaluationEnvironments getter")
+
+            // Enable person processing
+            sut.identify("test_user")
+
+            // Load feature flags
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            // Verify the request included evaluation contexts (set via deprecated property)
+            #expect(server.flagsRequests.count > 0, "Expected at least one flags request to be made")
+
+            guard let lastRequest = server.flagsRequests.last else {
+                #expect(Bool(false), "No flags request found")
+                return
+            }
+
+            guard let requestBody = server.parseRequest(lastRequest, gzip: false) else {
+                #expect(Bool(false), "Failed to parse request body")
+                return
+            }
+
+            guard let evaluationContexts = requestBody["evaluation_contexts"] as? [String] else {
+                #expect(Bool(false), "Evaluation contexts not found in request body: \(requestBody)")
+                return
+            }
+
+            #expect(evaluationContexts.count == 2, "Expected 2 evaluation contexts")
+            #expect(evaluationContexts.contains("production"), "Expected 'production' in evaluation contexts")
+            #expect(evaluationContexts.contains("api"), "Expected 'api' in evaluation contexts")
         }
     }
 }

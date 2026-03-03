@@ -82,13 +82,14 @@
 
     @available(iOS 15, *)
     private struct SurveyDismissButton: View {
+        @Environment(\.surveyAppearance) private var appearance
         let action: () -> Void
 
         var body: some View {
             Button(action: action) {
                 Image(systemName: "xmark")
                     .font(.body)
-                    .foregroundColor(Color(uiColor: .label))
+                    .foregroundColor(appearance.textColor ?? appearance.backgroundColor.getContrastingTextColor())
             }
             .buttonStyle(.borderless)
         }
@@ -168,9 +169,12 @@
         var submitButtonColor: Color
         var submitButtonText: String
         var submitButtonTextColor: Color
+        var textColor: Color?
         var descriptionTextColor: Color
         var ratingButtonColor: Color?
         var ratingButtonActiveColor: Color?
+        var inputBackground: Color?
+        var inputTextColor: Color?
         var displayThankYouMessage: Bool
         var thankYouMessageHeader: String
         var thankYouMessageDescription: String?
@@ -202,9 +206,12 @@
                 submitButtonColor: colorFrom(css: appearance?.submitButtonColor, defaultColor: .black),
                 submitButtonText: appearance?.submitButtonText ?? "Submit",
                 submitButtonTextColor: colorFrom(css: appearance?.submitButtonTextColor, defaultColor: .white),
+                textColor: colorFrom(css: appearance?.textColor),
                 descriptionTextColor: colorFrom(css: appearance?.descriptionTextColor, defaultColor: .secondaryLabel),
                 ratingButtonColor: colorFrom(css: appearance?.ratingButtonColor),
                 ratingButtonActiveColor: colorFrom(css: appearance?.ratingButtonActiveColor),
+                inputBackground: colorFrom(css: appearance?.inputBackground),
+                inputTextColor: colorFrom(css: appearance?.inputTextColor),
                 displayThankYouMessage: appearance?.displayThankYouMessage ?? true,
                 thankYouMessageHeader: appearance?.thankYouMessageHeader ?? "Thank you for your feedback!",
                 thankYouMessageDescriptionContentType: appearance?.thankYouMessageDescriptionContentType ?? .text,
@@ -215,12 +222,37 @@
 
         @available(iOS 15.0, *)
         private static func colorFrom(css hex: String?, defaultColor: UIColor) -> Color {
-            hex.map { Color(uiColor: UIColor(hex: $0)) } ?? Color(uiColor: defaultColor)
+            guard let hex = hex, !hex.isEmpty else { return Color(uiColor: defaultColor) }
+            return Color(uiColor: UIColor(hex: hex))
         }
 
         @available(iOS 15.0, *)
         private static func colorFrom(css hex: String?) -> Color? {
-            hex.map { Color(uiColor: UIColor(hex: $0)) }
+            guard let hex = hex, !hex.isEmpty else { return nil }
+            return Color(uiColor: UIColor(hex: hex))
+        }
+
+        /// Computed input background color matching JS SDK behavior:
+        /// - Use user-provided inputBackground if set
+        /// - Otherwise use #f8f8f8 if survey background is white (for slight contrast)
+        /// - Otherwise default to white
+        @available(iOS 15.0, *)
+        var effectiveInputBackground: Color {
+            if let userInputBg = inputBackground {
+                return userInputBg
+            }
+            if backgroundColor == Color.white || backgroundColor == Color(uiColor: .tertiarySystemBackground) {
+                return Color(uiColor: UIColor(hex: "#f8f8f8"))
+            }
+            return .white
+        }
+
+        /// Computed input text color matching JS SDK behavior:
+        /// - Use user-provided inputTextColor if set
+        /// - Otherwise auto-contrast from effectiveInputBackground
+        @available(iOS 15.0, *)
+        var effectiveInputTextColor: Color {
+            inputTextColor ?? effectiveInputBackground.getContrastingTextColor()
         }
     }
 

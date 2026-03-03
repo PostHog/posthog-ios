@@ -84,6 +84,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         didEnterBackgroundToken = nil
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func captureAppInstallOrUpdated() {
         // Check if Application Installed or Application Updated was already checked in the lifecycle of this app
         // This can be called multiple times in case of optOut, multiple instances or start/stop integration
@@ -123,7 +124,14 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             if previousVersion != nil {
                 props["previous_version"] = previousVersion
             }
-            props["previous_build"] = previousVersionCode
+            // Try to parse as Int first, then fallback to String
+            if let previousVersionCode {
+                if let prevBuildInt = Int(previousVersionCode) {
+                    props["previous_build"] = prevBuildInt
+                } else {
+                    props["previous_build"] = previousVersionCode
+                }
+            }
         }
 
         var syncDefaults = false
@@ -133,8 +141,13 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             syncDefaults = true
         }
 
-        if versionCode != nil {
-            props["build"] = versionCode
+        if let versionCode {
+            // Try to parse as Int first, then fallback to String
+            if let buildInt = Int(versionCode) {
+                props["build"] = buildInt
+            } else {
+                props["build"] = versionCode
+            }
             userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
             syncDefaults = true
         }

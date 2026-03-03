@@ -37,15 +37,20 @@ class PostHogContext {
         if let appVersion = infoDictionary?["CFBundleShortVersionString"] {
             properties["$app_version"] = appVersion
         }
-        if let appBuild = infoDictionary?["CFBundleVersion"] {
-            properties["$app_build"] = appBuild
+        if let appBuild = infoDictionary?["CFBundleVersion"] as? String {
+            if let appBuildInt = Int(appBuild) {
+                properties["$app_build"] = appBuildInt
+            } else {
+                properties["$app_build"] = appBuild
+            }
         }
 
         if Bundle.main.bundleIdentifier != nil {
             properties["$app_namespace"] = Bundle.main.bundleIdentifier
         }
         properties["$device_manufacturer"] = "Apple"
-        properties["$device_model"] = platform()
+        let deviceModel = platform()
+        properties["$device_model"] = deviceModel
 
         if let deviceType = PostHogContext.deviceType {
             properties["$device_type"] = deviceType
@@ -86,7 +91,11 @@ class PostHogContext {
                 //
                 // Source: https://developer.apple.com/documentation/apple-silicon/adapting-ios-code-to-run-in-the-macos-environment#Handle-unknown-device-types-gracefully
                 properties["$os_name"] = "macOS"
-                properties["$device_name"] = processInfo.hostName
+
+                // For Mac Catalyst and iOS apps on Mac, use the hardware model instead of hostname
+                // to avoid blocking DNS lookups and to be consistent with iOS behavior
+                // Get the user-friendly hardware name from the model identifier
+                properties["$device_name"] = macModelToFriendlyName(deviceModel)
             } else {
                 // use https://github.com/devicekit/DeviceKit
                 properties["$os_name"] = device.systemName
@@ -94,10 +103,9 @@ class PostHogContext {
                 properties["$device_name"] = device.model
             }
         #elseif os(macOS)
-            let deviceName = Host.current().localizedName
-            if (deviceName?.isEmpty) != nil {
-                properties["$device_name"] = deviceName
-            }
+            // For native macOS apps, use the hardware model similar to iOS/macCatalyst
+            // Get the user-friendly hardware name from the model identifier
+            properties["$device_name"] = macModelToFriendlyName(deviceModel)
             let processInfo = ProcessInfo.processInfo
             properties["$os_name"] = "macOS"
             let osVersion = processInfo.operatingSystemVersion
@@ -203,6 +211,56 @@ class PostHogContext {
         var machine = [CChar](repeating: 0, count: size)
         sysctlbyname(sysctlName, &machine, &size, nil, 0)
         return String(cString: machine)
+    }
+
+    /// Converts Mac hardware identifiers to user-friendly names
+    /// For example: "MacBookPro18,3" -> "MacBook Pro"
+    /// - Parameter model: The hardware model identifier string
+    /// - Returns: A user-friendly name for the Mac model
+    // swiftlint:disable:next cyclomatic_complexity orphaned_doc_comment
+    private func macModelToFriendlyName(_ model: String) -> String {
+        // Handle empty or invalid input
+        guard !model.isEmpty else { return "Mac" }
+
+        // Extract the base model name from identifiers like "MacBookPro18,3"
+        if model.hasPrefix("MacBookAir") {
+            return "MacBook Air"
+        } else if model.hasPrefix("MacBookPro") {
+            return "MacBook Pro"
+        } else if model.hasPrefix("MacBook") {
+            return "MacBook"
+        } else if model.hasPrefix("Macmini") {
+            return "Mac mini"
+        } else if model.hasPrefix("MacPro") {
+            return "Mac Pro"
+        } else if model.hasPrefix("MacStudio") || model.hasPrefix("Mac13") {
+            return "Mac Studio"
+        } else if model.hasPrefix("iMac") {
+            return "iMac"
+        } else if model.hasPrefix("Mac") {
+            // Handle newer Mac models with generic "Mac" prefix
+            // Mac14,x and Mac15,x are newer MacBook Air and MacBook Pro models
+            // Mac13,x is Mac Studio
+            // Future models might follow similar patterns
+            if model.hasPrefix("Mac14,2") || model.hasPrefix("Mac14,15") ||
+                model.hasPrefix("Mac15,3") || model.hasPrefix("Mac15,6") ||
+                model.hasPrefix("Mac15,7")
+            {
+                return "MacBook Air"
+            } else if model.hasPrefix("Mac14") || model.hasPrefix("Mac15") {
+                // Default newer Mac models to MacBook Pro if not Air
+                return "MacBook Pro"
+            } else {
+                // Generic Mac for other Mac-prefixed models
+                return "Mac"
+            }
+        } else if model.hasPrefix("VirtualMac") {
+            // Handle virtual machines
+            return "Mac (Virtual)"
+        } else {
+            // For completely unknown models, return generic "Mac"
+            return "Mac"
+        }
     }
 
     func dynamicContext() -> [String: Any] {

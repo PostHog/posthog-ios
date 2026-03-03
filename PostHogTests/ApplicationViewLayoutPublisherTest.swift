@@ -7,9 +7,8 @@
 
 #if os(iOS)
     import Foundation
-    import Testing
-
     @testable import PostHog
+    import Testing
 
     @Suite("Application View Publisher Test", .serialized)
     final class ApplicationViewLayoutPublisherTest {

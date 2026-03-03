@@ -1,7 +1,7 @@
 #if os(iOS)
+    import Foundation
     @testable import PostHog
     import Testing
-    import Foundation
 
     @Suite("Session Replay Event Triggers", .serialized)
     class PostHogSessionReplayEventTriggersTests {
@@ -25,30 +25,30 @@
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.preloadFeatureFlags = false
-            
+
             // Configure mock server for remote config
             server.returnReplay = true
             server.sessionRecordingEventTriggers = eventTriggers
-            
+
             return PostHogSDK.with(config)
         }
-        
+
         private func waitForRemoteConfig(_ sut: PostHogSDK) async {
             guard let remoteConfig = sut.remoteConfig else {
                 return
             }
-            
+
             var remoteConfigLoaded = false
             let token = remoteConfig.onRemoteConfigLoaded.subscribe { _ in
                 remoteConfigLoaded = true
             }
-            
+
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(2)
                 while !remoteConfigLoaded, Date() < timeout {}
                 continuation.resume()
             }
-            
+
             _ = token
         }
 
@@ -227,6 +227,5 @@
 
             sut.close()
         }
-
     }
 #endif

@@ -312,7 +312,8 @@ class MockPostHogServer {
                         sessionRecording["eventTriggers"] = eventTriggers
                     }
                     if let data = try? JSONSerialization.data(withJSONObject: sessionRecording),
-                       let jsonString = String(data: data, encoding: .utf8) {
+                       let jsonString = String(data: data, encoding: .utf8)
+                    {
                         return jsonString
                     }
                     return "{\"endpoint\": \"/s/\"}"

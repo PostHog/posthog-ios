@@ -179,15 +179,15 @@
                 guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                     return false
                 }
-                
+
                 let (triggers, activatedSession) = eventTriggersLock.withLock {
                     (eventTriggers, triggerActivatedSessionId)
                 }
-                
+
                 guard let triggers = triggers, !triggers.isEmpty else {
                     return false
                 }
-                
+
                 // Check if this session has already been activated
                 return activatedSession != currentSessionId
             }()
@@ -253,7 +253,7 @@
             applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                 self?.resumeAllPlugins()
             }
-            
+
             // Subscribe to remote config changes (handles both event triggers and plugin enablement)
             remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
                 self?.applyRemoteConfig(remoteConfig: config)
@@ -349,12 +349,12 @@
             let shouldWait = eventTriggersLock.withLock { () -> Bool? in
                 let triggers = eventTriggers
                 let activatedSession = triggerActivatedSessionId
-                
+
                 guard let triggers = triggers, !triggers.isEmpty else {
                     isWaitingForTriggerActivation = false
                     return nil
                 }
-                
+
                 // If this session hasn't been activated yet, go back to waiting state
                 if activatedSession != currentSessionId {
                     isWaitingForTriggerActivation = true
@@ -364,7 +364,7 @@
                     return false
                 }
             }
-            
+
             if shouldWait == true {
                 hedgeLog("[Session Replay] New session \(currentSessionId), waiting for event triggers")
             }
@@ -394,7 +394,7 @@
                 return
             }
 
-            // Drop events while waiting for a trigger activation. 
+            // Drop events while waiting for a trigger activation.
             guard !eventTriggersLock.withLock({ isWaitingForTriggerActivation }) else {
                 return
             }
@@ -1074,11 +1074,11 @@
 
         private func handleEventCaptured(event: String) {
             guard let postHog else { return }
-            
+
             guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                 return
             }
-            
+
             let (triggers, activatedSession) = eventTriggersLock.withLock {
                 (eventTriggers, triggerActivatedSessionId)
             }
@@ -1086,7 +1086,7 @@
             guard let triggers = triggers, !triggers.isEmpty else {
                 return
             }
-            
+
             // Check if this session has already been activated
             guard activatedSession != currentSessionId else {
                 return
@@ -1104,23 +1104,24 @@
         /// Resolves event triggers from remote config payload.
         private func updateEventTriggers(from remoteConfig: [String: Any]?) {
             guard let postHog else { return }
-            
+
             // Parse event triggers from remote config
             // Path: sessionRecording.eventTriggers ([String])
             let remoteEventTriggers: [String]? = {
                 guard let sessionRecording = remoteConfig?["sessionRecording"] as? [String: Any],
-                      let triggers = sessionRecording["eventTriggers"] as? [String] else {
+                      let triggers = sessionRecording["eventTriggers"] as? [String]
+                else {
                     return nil
                 }
                 return triggers
             }()
-            
+
             eventTriggersLock.withLock {
                 eventTriggers = remoteEventTriggers
                 // Clear activated session when triggers change
                 triggerActivatedSessionId = nil
             }
-            
+
             // Re-evaluate trigger waiting state with new triggers
             reevaluateTriggerWaitingState()
         }

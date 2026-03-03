@@ -47,6 +47,7 @@ class MockPostHogServer {
     var featureFlags: [String: Any]?
     var disabledFlag: Bool = false
     var sessionRecordingSampleRate: String?
+    var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -296,6 +297,17 @@ class MockPostHogServer {
                 return ""
             }()
 
+            let errorTrackingPayload: String = {
+                if let dict = self.remoteConfigErrorTracking as? [String: Any] {
+                    let jsonData = try? JSONSerialization.data(withJSONObject: dict)
+                    return "\"errorTracking\": \(String(data: jsonData ?? Data(), encoding: .utf8) ?? "false"),"
+                } else if let boolVal = self.remoteConfigErrorTracking as? Bool {
+                    return "\"errorTracking\": \(boolVal),"
+                } else {
+                    return ""
+                }
+            }()
+
             let configData =
                 """
                 {
@@ -312,9 +324,7 @@ class MockPostHogServer {
                         "web_vitals_allowed_metrics": null
                     },
                     "autocapture_opt_out": false,
-                    "autocaptureExceptions": {
-                        "endpoint": "/e/"
-                    },
+                    \(errorTrackingPayload)
                     "analytics": {
                         "endpoint": "/i/v0/e/"
                     },

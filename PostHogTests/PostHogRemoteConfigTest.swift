@@ -455,4 +455,166 @@ enum PostHogRemoteConfigTest {
             }
         }
     #endif
+
+    // MARK: Error Tracking Config
+
+    // Note: We don't yet support the errorTrackingAutocaptureTriggers and suppressionRules features.
+
+    @Suite("Test Error Tracking Config")
+    class TestErrorTrackingConfig: BaseTestClass {
+        @Test("returns isAutocaptureExceptionsEnabled false by default")
+        func returnsAutocaptureExceptionsDisabledByDefault() {
+            let sut = getSut()
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+        }
+
+        @Test("returns isAutocaptureExceptionsEnabled true from cached config")
+        func returnsAutocaptureExceptionsEnabledFromCache() {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
+
+            let sut = getSut(storage: storage)
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+        }
+
+        @Test("returns isAutocaptureExceptionsEnabled false from cached config when disabled")
+        func returnsAutocaptureExceptionsDisabledFromCache() {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": false])
+
+            let sut = getSut(storage: storage)
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+        }
+
+        @Test("enables autocapture exceptions from remote config dict")
+        func enablesAutocaptureExceptionsFromRemoteConfigDict() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+            #expect(storage.getDictionary(forKey: .errorTracking) != nil)
+
+            _ = token
+        }
+
+        @Test("disables autocapture exceptions from remote config dict")
+        func disablesAutocaptureExceptionsFromRemoteConfigDict() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            _ = token
+        }
+
+        @Test("disables autocapture exceptions when errorTracking is boolean false")
+        func disablesAutocaptureExceptionsWhenErrorTrackingIsBooleanFalse() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = false
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            // Pre-cache an enabled config to verify it gets cleared
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
+
+            let sut = getSut(storage: storage, config: config)
+
+            // Should initially be true from cache
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+            #expect(storage.getDictionary(forKey: .errorTracking) == nil)
+
+            _ = token
+        }
+
+        @Test("disables autocapture exceptions when errorTracking key is missing")
+        func disablesAutocaptureExceptionsWhenErrorTrackingKeyIsMissing() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = nil
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            _ = token
+        }
+    }
 }

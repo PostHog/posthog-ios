@@ -268,15 +268,8 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {
-        let alreadyLoading = loadingFeatureFlagsLock.withLock {
+        let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
-                return true
-            }
-            self.loadingFeatureFlags = true
-            return false
-        }
-        if alreadyLoading {
-            let previousCallback: (([String: Any]?) -> Void)? = loadingFeatureFlagsLock.withLock {
                 let prev = self.pendingFeatureFlagsRequest?.callback
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
@@ -284,8 +277,12 @@ class PostHogRemoteConfig {
                     groups: groups,
                     callback: callback
                 )
-                return prev
+                return (true, prev)
             }
+            self.loadingFeatureFlags = true
+            return (false, nil)
+        }
+        if alreadyLoading {
             let cached = featureFlagsLock.withLock { getCachedFeatureFlags() }
             previousCallback?(cached)
             return

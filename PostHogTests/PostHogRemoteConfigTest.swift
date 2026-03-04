@@ -345,13 +345,16 @@ enum PostHogRemoteConfigTest {
             server.flagsResponseDelay = 1.0
 
             var firstDone = false
+            var secondCallbackFired = false
+            var secondCallbackValue: [String: Any]?
             var thirdDone = false
 
             sut.loadFeatureFlags(distinctId: "first_id", anonymousId: nil, groups: [:]) { _ in
                 firstDone = true
             }
-            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { _ in
-                // replaced by third call
+            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { flags in
+                secondCallbackFired = true
+                secondCallbackValue = flags
             }
             sut.loadFeatureFlags(distinctId: "third_id", anonymousId: nil, groups: [:]) { _ in
                 thirdDone = true
@@ -366,6 +369,8 @@ enum PostHogRemoteConfigTest {
             }
 
             #expect(server.flagsRequests.count == 2)
+            #expect(secondCallbackFired)
+            #expect(secondCallbackValue == nil)
 
             let secondRequest = server.flagsRequests[1]
             let body = server.parseRequest(secondRequest, gzip: false)

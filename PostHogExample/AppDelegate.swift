@@ -58,9 +58,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
     @objc func receiveFeatureFlags() {
         print("user receiveFeatureFlags callback")
-        if let flags = PostHogSDK.shared.getFeatureFlags() {
-            print("Feature flags received: \(flags)")
-        }
+        #if DEBUG
+            if let flags = PostHogSDK.shared.getFeatureFlags() {
+                print("Feature flags received: \(flags)")
+            }
+        #endif
         print("[SKIP] user receiveFeatureFlags callback")
     }
 }

@@ -263,6 +263,187 @@ enum PostHogRemoteConfigTest {
         }
     }
 
+    @Suite("Test Feature Flag Loading Race Condition")
+    class TestFeatureFlagLoadingRaceCondition: BaseTestClass {
+        @Test("guard prevents concurrent requests and queues pending")
+        func guardPreventsConcurrentRequestsAndQueuesPending() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstDone = false
+            var secondDone = false
+
+            sut.loadFeatureFlags(distinctId: "first", anonymousId: nil, groups: [:]) { _ in
+                firstDone = true
+            }
+            sut.loadFeatureFlags(distinctId: "second", anonymousId: nil, groups: [:]) { _ in
+                secondDone = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while (!firstDone || !secondDone), Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(firstDone)
+            #expect(secondDone)
+            #expect(server.flagsRequests.count == 2)
+        }
+
+        @Test("pending request uses correct identity after identify")
+        func pendingRequestUsesCorrectIdentity() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstDone = false
+            var secondDone = false
+
+            sut.loadFeatureFlags(distinctId: "anon_uuid", anonymousId: nil, groups: [:]) { _ in
+                firstDone = true
+            }
+            sut.loadFeatureFlags(distinctId: "real_user_id", anonymousId: "anon_uuid", groups: [:]) { _ in
+                secondDone = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while (!firstDone || !secondDone), Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(server.flagsRequests.count == 2)
+
+            let secondRequest = server.flagsRequests[1]
+            let body = server.parseRequest(secondRequest, gzip: false)
+            #expect(body?["distinct_id"] as? String == "real_user_id")
+            #expect(body?["$anon_distinct_id"] as? String == "anon_uuid")
+        }
+
+        @Test("pending request replaces earlier pending with latest")
+        func pendingRequestReplacesEarlierPending() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstDone = false
+            var thirdDone = false
+
+            sut.loadFeatureFlags(distinctId: "first_id", anonymousId: nil, groups: [:]) { _ in
+                firstDone = true
+            }
+            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { _ in
+                // replaced by third call
+            }
+            sut.loadFeatureFlags(distinctId: "third_id", anonymousId: nil, groups: [:]) { _ in
+                thirdDone = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while (!firstDone || !thirdDone), Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(server.flagsRequests.count == 2)
+
+            let secondRequest = server.flagsRequests[1]
+            let body = server.parseRequest(secondRequest, gzip: false)
+            #expect(body?["distinct_id"] as? String == "third_id")
+        }
+
+        @Test("callbacks fire for both initial and pending requests")
+        func callbacksFireForBothRequests() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstResult: [String: Any]?
+            var secondResult: [String: Any]?
+
+            sut.loadFeatureFlags(distinctId: "user1", anonymousId: nil, groups: [:]) { flags in
+                firstResult = flags
+            }
+            sut.loadFeatureFlags(distinctId: "user2", anonymousId: nil, groups: [:]) { flags in
+                secondResult = flags
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while (firstResult == nil || secondResult == nil), Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(firstResult != nil)
+            #expect(secondResult != nil)
+        }
+
+        @Test("no pending queue when no concurrent load")
+        func noPendingQueueWhenNoConcurrentLoad() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            var result: [String: Any]?
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "single_user", anonymousId: nil, groups: [:]) { flags in
+                    result = flags
+                    continuation.resume()
+                }
+            }
+
+            #expect(server.flagsRequests.count == 1)
+            #expect(result != nil)
+        }
+
+        @Test("reloadRemoteConfig guard prevents duplicate concurrent requests")
+        func reloadRemoteConfigGuardWorks() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            let sut = getSut(config: config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in
+                    continuation.resume()
+                }
+                sut.reloadRemoteConfig { _ in
+                    // dropped by guard
+                }
+            }
+
+            #expect(sut.getRemoteConfig() != nil)
+        }
+    }
+
     #if os(iOS)
         @Suite("Test Session Replay Flags")
         class TestSessionReplayFlags: BaseTestClass {

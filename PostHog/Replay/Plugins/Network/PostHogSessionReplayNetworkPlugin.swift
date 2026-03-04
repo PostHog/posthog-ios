@@ -9,10 +9,12 @@
     import Foundation
 
     /// Session replay plugin that captures network requests using URLSession swizzling.
-    class PostHogSessionReplayNetworkPlugin: PostHogSessionReplayPlugin {
+    final class PostHogSessionReplayNetworkPlugin: PostHogSessionReplayPlugin {
         private var sessionSwizzler: URLSessionSwizzler?
-        private var postHog: PostHogSDK?
+        private weak var postHog: PostHogSDK?
         private var isActive = false
+
+        required init() { /**/ }
 
         func start(postHog: PostHogSDK) {
             self.postHog = postHog
@@ -50,6 +52,27 @@
             guard isActive else { return }
             isActive = false
             hedgeLog("[Session Replay] Network telemetry plugin paused")
+        }
+
+        // see: https://github.com/PostHog/posthog-js/blob/c81ee34096a780b13e97a862197d4a6fdedb749a/packages/browser/src/extensions/replay/external/lazy-loaded-session-recorder.ts#L470-L492
+        static func isEnabledRemotely(remoteConfig: [String: Any]?) -> Bool {
+            guard let capturePerformanceValue = remoteConfig?["capturePerformance"] else {
+                // No remote config means disabled
+                return false
+            }
+
+            // When capturePerformance is a boolean, use it directly
+            if let isEnabled = capturePerformanceValue as? Bool {
+                return isEnabled
+            }
+            // When enabled, capturePerformance is an object, check network_timing key
+            if let perfConfig = capturePerformanceValue as? [String: Any],
+               let networkTiming = perfConfig["network_timing"] as? Bool
+            {
+                return networkTiming
+            }
+            // fallback to disabled
+            return false
         }
 
         private func shouldCaptureNetworkSample() -> Bool {

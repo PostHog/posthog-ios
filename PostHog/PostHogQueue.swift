@@ -211,15 +211,12 @@ class PostHogQueue {
             fileQueue.delete(index: 0)
         }
 
-        var data: Data?
-        do {
-            data = try JSONSerialization.data(withJSONObject: event.toJSON())
-        } catch {
-            hedgeLog("Tried to queue unserialisable PostHogEvent \(error)")
+        guard let data = toJSONData(event.toJSON()) else {
+            hedgeLog("Tried to queue unserialisable PostHogEvent")
             return
         }
 
-        fileQueue.add(data!)
+        fileQueue.add(data)
         hedgeLog("Queued event '\(event.event)'. Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
     }

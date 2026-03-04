@@ -13,15 +13,13 @@
     import WatchKit
 #endif
 
-typealias AppLifecycleHandler = () -> Void
-
 protocol AppLifecyclePublishing: AnyObject {
-    /// Registers a callback for the `didBecomeActive` event.
-    func onDidBecomeActive(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken
-    /// Registers a callback for the `didEnterBackground` event.
-    func onDidEnterBackground(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken
-    /// Registers a callback for the `didFinishLaunching` event.
-    func onDidFinishLaunching(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken
+    /// Callback for the `didBecomeActive` event.
+    var onDidBecomeActive: PostHogMulticastCallback<Void> { get }
+    /// Callback for the `didEnterBackground` event.
+    var onDidEnterBackground: PostHogMulticastCallback<Void> { get }
+    /// Callback for the `didFinishLaunching` event.
+    var onDidFinishLaunching: PostHogMulticastCallback<Void> { get }
 }
 
 /**
@@ -33,20 +31,22 @@ protocol AppLifecyclePublishing: AnyObject {
 
  Example usage:
  ```
- let token = ApplicationLifecyclePublisher.shared.onDidBecomeActive {
+ let token = ApplicationLifecyclePublisher.shared.onDidBecomeActive.subscribe {
      // App became active logic
  }
  // Keep `token` in memory to keep the registration active
  // When token is deallocated, the callback will be automatically unregistered
  ```
  */
-final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
+final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     /// Shared instance to allow easy access across the app.
     static let shared = ApplicationLifecyclePublisher()
 
-    override private init() {
-        super.init()
+    let onDidBecomeActive = PostHogMulticastCallback<Void>()
+    let onDidEnterBackground = PostHogMulticastCallback<Void>()
+    let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
+    private init() {
         let defaultCenter = NotificationCenter.default
 
         #if os(iOS) || os(tvOS)
@@ -104,96 +104,15 @@ final class ApplicationLifecyclePublisher: BaseApplicationLifecyclePublisher {
         #endif
     }
 
-    // MARK: - Handlers
-
     @objc private func appDidEnterBackground() {
-        notifyHandlers(didEnterBackgroundHandlers)
+        onDidEnterBackground.invoke(())
     }
 
     @objc private func appDidBecomeActive() {
-        notifyHandlers(didBecomeActiveHandlers)
+        onDidBecomeActive.invoke(())
     }
 
     @objc private func appDidFinishLaunching() {
-        notifyHandlers(didFinishLaunchingHandlers)
-    }
-
-    private func notifyHandlers(_ handlers: [AppLifecycleHandler]) {
-        for handler in handlers {
-            notifyHander(handler)
-        }
-    }
-
-    private func notifyHander(_ handler: @escaping AppLifecycleHandler) {
-        if Thread.isMainThread {
-            handler()
-        } else {
-            DispatchQueue.main.async(execute: handler)
-        }
-    }
-}
-
-class BaseApplicationLifecyclePublisher: AppLifecyclePublishing {
-    private let registrationLock = NSLock()
-
-    private var didBecomeActiveCallbacks: [UUID: AppLifecycleHandler] = [:]
-    private var didEnterBackgroundCallbacks: [UUID: AppLifecycleHandler] = [:]
-    private var didFinishLaunchingCallbacks: [UUID: AppLifecycleHandler] = [:]
-
-    var didBecomeActiveHandlers: [AppLifecycleHandler] {
-        registrationLock.withLock { Array(didBecomeActiveCallbacks.values) }
-    }
-
-    var didEnterBackgroundHandlers: [AppLifecycleHandler] {
-        registrationLock.withLock { Array(didEnterBackgroundCallbacks.values) }
-    }
-
-    var didFinishLaunchingHandlers: [AppLifecycleHandler] {
-        registrationLock.withLock { Array(didFinishLaunchingCallbacks.values) }
-    }
-
-    /// Registers a callback for the `didBecomeActive` event.
-    func onDidBecomeActive(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken {
-        register(handler: callback, on: \.didBecomeActiveCallbacks)
-    }
-
-    /// Registers a callback for the `didEnterBackground` event.
-    func onDidEnterBackground(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken {
-        register(handler: callback, on: \.didEnterBackgroundCallbacks)
-    }
-
-    /// Registers a callback for the `didFinishLaunching` event.
-    func onDidFinishLaunching(_ callback: @escaping AppLifecycleHandler) -> RegistrationToken {
-        register(handler: callback, on: \.didFinishLaunchingCallbacks)
-    }
-
-    func register(
-        handler callback: @escaping AppLifecycleHandler,
-        on keyPath: ReferenceWritableKeyPath<BaseApplicationLifecyclePublisher, [UUID: AppLifecycleHandler]>
-    ) -> RegistrationToken {
-        let id = UUID()
-        registrationLock.withLock {
-            self[keyPath: keyPath][id] = callback
-        }
-
-        return RegistrationToken { [weak self] in
-            // Registration token deallocated here
-            guard let self else { return }
-            self.registrationLock.withLock {
-                self[keyPath: keyPath][id] = nil
-            }
-        }
-    }
-}
-
-final class RegistrationToken {
-    private let onDealloc: () -> Void
-
-    init(_ onDealloc: @escaping () -> Void) {
-        self.onDealloc = onDealloc
-    }
-
-    deinit {
-        onDealloc()
+        onDidFinishLaunching.invoke(())
     }
 }

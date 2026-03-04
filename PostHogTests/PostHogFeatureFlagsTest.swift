@@ -9,6 +9,12 @@
 import Testing
 import XCTest
 
+/// Sample struct for testing payload decoding
+private struct TestPayload: Decodable, Equatable {
+    let name: String
+    let count: Int
+}
+
 @Suite("Test Feature Flags", .serialized)
 enum PostHogFeatureFlagsTest {
     class BaseTestClass {
@@ -579,6 +585,250 @@ enum PostHogFeatureFlagsTest {
             }
 
             #expect(groupProperties["organization"]?["org_plan"] as? String == "enterprise", "Expected organization org_plan to be 'enterprise' from group call")
+        }
+    }
+
+    @Suite("Test getFeatureFlagResult")
+    class TestGetFeatureFlagResult: BaseTestClass {
+        @Test("returns result for enabled boolean flag")
+        func returnsResultForEnabledBoolFlag() async {
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            let result = sut.getFeatureFlagResult("bool-value", sendFeatureFlagEvent: false)
+            #expect(result != nil)
+            #expect(result?.key == "bool-value")
+            #expect(result?.enabled == true)
+            #expect(result?.variant == nil)
+            sut.close()
+        }
+
+        @Test("returns result for string variant flag")
+        func returnsResultForVariantFlag() async {
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            let result = sut.getFeatureFlagResult("string-value", sendFeatureFlagEvent: false)
+            #expect(result != nil)
+            #expect(result?.key == "string-value")
+            #expect(result?.enabled == true)
+            #expect(result?.variant == "test")
+            sut.close()
+        }
+
+        @Test("returns result for disabled flag")
+        func returnsResultForDisabledFlag() async {
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            let result = sut.getFeatureFlagResult("disabled-flag", sendFeatureFlagEvent: false)
+            #expect(result != nil)
+            #expect(result?.key == "disabled-flag")
+            #expect(result?.enabled == false)
+            #expect(result?.variant == nil)
+            sut.close()
+        }
+
+        @Test("returns nil for non-existent flag")
+        func returnsNilForNonExistentFlag() async {
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            let result = sut.getFeatureFlagResult("non-existent-flag", sendFeatureFlagEvent: false)
+            #expect(result == nil)
+            sut.close()
+        }
+
+        @Test("includes payload in result")
+        func includesPayloadInResult() async {
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            let resultInt = sut.getFeatureFlagResult("number-value", sendFeatureFlagEvent: false)
+            #expect(resultInt?.payload as? Int == 2)
+
+            let resultJson = sut.getFeatureFlagResult("payload-json", sendFeatureFlagEvent: false)
+            #expect(resultJson?.payload as? [String: String] == ["foo": "bar"])
+            sut.close()
+        }
+    }
+
+    @Suite("Test getFeatureFlagResult event sending")
+    class TestGetFeatureFlagResultEventSending: BaseTestClass {
+        @Test("sends feature flag called event by default")
+        func sendsEventByDefault() async throws {
+            config.sendFeatureFlagEvent = true
+            config.flushAt = 1
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            server.reset(batchCount: 1)
+
+            let result = sut.getFeatureFlagResult("bool-value")
+            #expect(result != nil)
+
+            sut.flush()
+            let events = try await getServerEvents(server)
+
+            let featureFlagEvent = events.first { $0.event == "$feature_flag_called" }
+            #expect(featureFlagEvent != nil, "Expected $feature_flag_called event to be sent")
+            #expect(featureFlagEvent?.properties["$feature_flag"] as? String == "bool-value")
+
+            sut.close()
+        }
+
+        @Test("respects sendFeatureFlagEvent parameter when false")
+        func respectsSendEventParameterFalse() async {
+            config.sendFeatureFlagEvent = true
+            config.flushAt = 1
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            server.reset(batchCount: 1)
+
+            let result = sut.getFeatureFlagResult("bool-value", sendFeatureFlagEvent: false)
+            #expect(result != nil)
+
+            sut.flush()
+
+            let events = getBatchedEvents(server, timeout: 0.5, failIfNotCompleted: false)
+            let featureFlagEvent = events.first { $0.event == "$feature_flag_called" }
+            #expect(
+                featureFlagEvent == nil,
+                "Expected NO $feature_flag_called event when sendFeatureFlagEvent is false"
+            )
+
+            sut.close()
+        }
+
+        @Test("getFeatureFlag returns consistent values with getFeatureFlagResult")
+        func getFeatureFlagReturnsSameValue() async {
+            let sut = PostHogSDK.with(config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            // Boolean flag: getFeatureFlag returns Bool, getFeatureFlagResult has enabled
+            let boolResult = sut.getFeatureFlagResult("bool-value", sendFeatureFlagEvent: false)
+            let boolValue = sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false)
+            #expect(boolResult?.enabled == boolValue as? Bool)
+
+            // Variant flag: getFeatureFlag returns variant String, getFeatureFlagResult has variant
+            let stringResult = sut.getFeatureFlagResult("string-value", sendFeatureFlagEvent: false)
+            let stringValue = sut.getFeatureFlag("string-value", sendFeatureFlagEvent: false)
+            #expect(stringResult?.variant == stringValue as? String)
+
+            sut.close()
+        }
+    }
+
+    @Suite("Test PostHogFeatureFlagResult payload methods")
+    final class TestFeatureFlagResultPayloadMethods {
+        @Test("payloadAs returns nil for nil payload")
+        func payloadAsNil() {
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: nil
+            )
+            let decoded: TestPayload? = result.payloadAs(TestPayload.self)
+            #expect(decoded == nil)
+        }
+
+        @Test("payloadAs returns direct type match for String")
+        func payloadAsDirectMatchString() {
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: "hello"
+            )
+            let decoded: String? = result.payloadAs(String.self)
+            #expect(decoded == "hello")
+        }
+
+        @Test("payloadAs returns direct type match for Int")
+        func payloadAsDirectMatchInt() {
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: 42
+            )
+            let decoded: Int? = result.payloadAs(Int.self)
+            #expect(decoded == 42)
+        }
+
+        @Test("payloadAs returns direct type match for Dictionary")
+        func payloadAsDirectMatchDict() {
+            let payload = ["foo": "bar"]
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: payload
+            )
+            let decoded: [String: String]? = result.payloadAs([String: String].self)
+            #expect(decoded == ["foo": "bar"])
+        }
+
+        @Test("payloadAs decodes dictionary to Decodable struct")
+        func payloadAsDecodable() {
+            let payload: [String: Any] = ["name": "Test", "count": 5]
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: payload
+            )
+            let decoded: TestPayload? = result.payloadAs(TestPayload.self)
+            #expect(decoded?.name == "Test")
+            #expect(decoded?.count == 5)
+        }
+
+        @Test("payloadAs returns nil for invalid JSON structure")
+        func payloadAsInvalidType() {
+            // A Date is not a valid JSON object
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: Date()
+            )
+            let decoded: TestPayload? = result.payloadAs(TestPayload.self)
+            #expect(decoded == nil)
+        }
+
+        @Test("payloadAs returns nil when decoding fails")
+        func payloadAsDecodingFails() {
+            // Payload structure doesn't match TestPayload
+            let payload: [String: Any] = ["wrongKey": "wrongValue"]
+            let result = PostHogFeatureFlagResult(
+                key: "test", enabled: true, variant: nil, payload: payload
+            )
+            let decoded: TestPayload? = result.payloadAs(TestPayload.self)
+            #expect(decoded == nil)
         }
     }
 

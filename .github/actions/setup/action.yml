@@ -1,0 +1,37 @@
+name: Setup
+description: Setup Node.js and install dependencies
+
+inputs:
+  install:
+    description: 'Whether to install dependencies'
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+        cache: 'pnpm'
+
+    - name: Cache dependencies
+      id: pnpm-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          **/node_modules
+          .pnpm-store
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**/package.json', '!node_modules/**') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          ${{ runner.os }}-pnpm-
+
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      run: pnpm install --frozen-lockfile
+      shell: bash

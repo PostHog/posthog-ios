@@ -56,17 +56,16 @@ enum PostHogRemoteConfigTest {
         @Test("remote config fetches feature flags if missing")
         func remoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
 
             var featureFlagsLoaded = false
             var remoteConfigLoaded = false
-            sut.onFeatureFlagsLoaded = { _ in
+            let token1 = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
-            sut.onRemoteConfigLoaded = { _ in
+            let token2 = sut.onRemoteConfigLoaded.subscribe { _ in
                 remoteConfigLoaded = true
             }
 
@@ -78,12 +77,13 @@ enum PostHogRemoteConfigTest {
 
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() != nil)
+
+            _ = (token1, token2) // silence read warnings
         }
 
         @Test("remote config does not fetch feature flags if preloadFeatureFlags is disabled")
         func remoteConfigDoesNotFetchFeatureFlagsIfPreloadFeatureFlagsIsDisabled() async throws {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -91,10 +91,10 @@ enum PostHogRemoteConfigTest {
             var featureFlagsLoaded = false
             var remoteConfigLoaded = false
 
-            sut.onFeatureFlagsLoaded = { _ in
+            let token1 = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
-            sut.onRemoteConfigLoaded = { _ in
+            let token2 = sut.onRemoteConfigLoaded.subscribe { _ in
                 remoteConfigLoaded = true
             }
 
@@ -107,6 +107,8 @@ enum PostHogRemoteConfigTest {
             #expect(featureFlagsLoaded == false)
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() == nil)
+
+            _ = (token1, token2) // silence read warnings
         }
 
         @Test("remote config fetches feature flags on init even if flags are cached")
@@ -120,14 +122,13 @@ enum PostHogRemoteConfigTest {
             server.featureFlags = ["some-flag": false]
 
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
 
             let sut = getSut(storage: storage, config: config)
 
             var featureFlagsLoaded = false
-            sut.onFeatureFlagsLoaded = { _ in
+            let token = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
 
@@ -143,6 +144,7 @@ enum PostHogRemoteConfigTest {
             // test for new value
             #expect(featureFlagsLoaded == true)
             #expect(sut.getFeatureFlag("some-flag") as? Bool == false)
+            _ = token // silence read warnings
         }
 
         @Test("remote config clears cached flags when hasFeatureFlags is false")
@@ -152,7 +154,6 @@ enum PostHogRemoteConfigTest {
             server.featureFlags = [:]
 
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -167,7 +168,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
 
             var remoteConfigLoaded = false
-            sut.onRemoteConfigLoaded = { _ in
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
                 remoteConfigLoaded = true
             }
 
@@ -185,13 +186,14 @@ enum PostHogRemoteConfigTest {
             #expect(storage.getDictionary(forKey: .flags).isNilOrEmpty == true)
             #expect(storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty == true)
             #expect(storage.getDictionary(forKey: .enabledFeatureFlagPayloads).isNilOrEmpty == true)
+
+            _ = token // silence read warnings
         }
 
         @Test("should not clear flags if remote config call fails")
         func shouldNotClearFlagsIfRemoteConfigCallFails() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
-            config.remoteConfig = true
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }
@@ -204,7 +206,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
 
             var featureFlagsLoaded = false
-            sut.onFeatureFlagsLoaded = { _ in
+            let token = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
 
@@ -220,13 +222,14 @@ enum PostHogRemoteConfigTest {
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
+
+            _ = token // silence read warnings
         }
 
         @Test("should not clear flags if hasFeatureFlags key is missing")
         func shouldNotClearFlagsIfHasFeatureFlagsKeyIsMissing() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
-            config.remoteConfig = true
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }
@@ -239,7 +242,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
 
             var featureFlagsLoaded = false
-            sut.onFeatureFlagsLoaded = { _ in
+            let token = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
 
@@ -255,6 +258,8 @@ enum PostHogRemoteConfigTest {
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
+
+            _ = token // silence read warnings
         }
     }
 

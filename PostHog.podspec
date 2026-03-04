@@ -15,6 +15,7 @@ Pod::Spec.new do |s|
   s.social_media_url = 'https://twitter.com/PostHog'
   s.readme           = "https://raw.githubusercontent.com/PostHog/posthog-ios/#{s.version.to_s}/README.md"
   s.changelog        = "https://raw.githubusercontent.com/PostHog/posthog-ios/#{s.version.to_s}/CHANGELOG.md"
+  s.static_framework = true
 
   s.ios.deployment_target = '13.0'
   s.tvos.deployment_target = '13.0'

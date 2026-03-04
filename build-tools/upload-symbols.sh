@@ -7,6 +7,11 @@
 #   SPM:        "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
 #   CocoaPods:  "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
+#
+# Usage Examples:
+#   Basic:       "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   With source: POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#
 # Input Files (required for script sandboxing):
 #   ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}
 #   ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}
@@ -18,6 +23,7 @@
 #
 # Environment Variables (optional):
 #   POSTHOG_CLI_INSTALL_DIR - Custom directory containing posthog-cli binary
+#   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
 #
 
 # Validate environment
@@ -81,6 +87,10 @@ if [ -n "${MARKETING_VERSION}" ]; then
 fi
 if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
     CLI_ARGS="$CLI_ARGS --build $CURRENT_PROJECT_VERSION"
+fi
+# Include source if requested via env var
+if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
+    CLI_ARGS="$CLI_ARGS --include-source"
 fi
 
 $PH_CLI_PATH exp dsym upload $CLI_ARGS || exit 1

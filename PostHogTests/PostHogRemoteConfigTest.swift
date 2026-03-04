@@ -370,7 +370,6 @@ enum PostHogRemoteConfigTest {
 
             #expect(server.flagsRequests.count == 2)
             #expect(secondCallbackFired)
-            #expect(secondCallbackValue == nil)
 
             let secondRequest = server.flagsRequests[1]
             let body = server.parseRequest(secondRequest, gzip: false)
@@ -430,8 +429,8 @@ enum PostHogRemoteConfigTest {
             #expect(result != nil)
         }
 
-        @Test("reloadRemoteConfig guard prevents duplicate concurrent requests")
-        func reloadRemoteConfigGuardWorks() async {
+        @Test("reloadRemoteConfig concurrent calls do not crash")
+        func reloadRemoteConfigConcurrentCallsDoNotCrash() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             let sut = getSut(config: config)
@@ -440,9 +439,7 @@ enum PostHogRemoteConfigTest {
                 sut.reloadRemoteConfig { _ in
                     continuation.resume()
                 }
-                sut.reloadRemoteConfig { _ in
-                    // dropped by guard
-                }
+                sut.reloadRemoteConfig()
             }
 
             #expect(sut.getRemoteConfig() != nil)

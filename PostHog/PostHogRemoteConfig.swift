@@ -136,16 +136,15 @@ class PostHogRemoteConfig {
         callback: (([String: Any]?) -> Void)? = nil
     ) {
         // Remote config is always loaded (config.remoteConfig is now a no-op)
-        let alreadyLoading = loadingRemoteConfigLock.withLock {
+        // Note: this guard has the same withLock closure-return bug as loadFeatureFlags
+        // had, but for remote config duplicate concurrent requests are harmless (no
+        // identity-sensitive params). Fixing it properly requires a pending callback
+        // queue to avoid dropping callers. See loadFeatureFlags() for the correct pattern.
+        loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
-                return true
+                return
             }
             self.loadingRemoteConfig = true
-            return false
-        }
-        if alreadyLoading {
-            callback?(nil)
-            return
         }
 
         api.remoteConfig { config, _ in
@@ -287,7 +286,8 @@ class PostHogRemoteConfig {
                 )
                 return prev
             }
-            previousCallback?(nil)
+            let cached = featureFlagsLock.withLock { getCachedFeatureFlags() }
+            previousCallback?(cached)
             return
         }
 

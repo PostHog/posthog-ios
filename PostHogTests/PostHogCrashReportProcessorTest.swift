@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(Experimental) @testable import PostHog
 import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
@@ -75,8 +75,10 @@ import Testing
 
                 let mechanism = exception?["mechanism"] as? [String: Any]
                 #expect(mechanism != nil)
-                #expect(mechanism?["handled"] as? Bool == false)
-                #expect(mechanism?["synthetic"] as? Bool == false)
+                let mechHandled = mechanism?["handled"] as? Bool
+                #expect(mechHandled == false)
+                let mechSynthetic = mechanism?["synthetic"] as? Bool
+                #expect(mechSynthetic == false)
             }
 
             @Test("live report contains stack trace")
@@ -97,7 +99,8 @@ import Testing
                 let stacktrace = exception?["stacktrace"] as? [String: Any]
 
                 #expect(stacktrace != nil)
-                #expect(stacktrace?["type"] as? String == "raw")
+                let stType = stacktrace?["type"] as? String
+                #expect(stType == "raw")
 
                 let frames = stacktrace?["frames"] as? [[String: Any]]
                 #expect(frames != nil)
@@ -118,7 +121,8 @@ import Testing
                 let properties = PostHogCrashReportProcessor.processReport(report, config: config)
 
                 let exceptionList = properties["$exception_list"] as? [[String: Any]]
-                let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
+                let exc = exceptionList?.first
+                let stacktrace = exc?["stacktrace"] as? [String: Any]
                 let frames = stacktrace?["frames"] as? [[String: Any]]
 
                 for frame in frames ?? [] {
@@ -162,10 +166,14 @@ import Testing
                 let debugImages = properties["$debug_images"] as? [[String: Any]]
                 let image = debugImages?.first
 
-                #expect(image?["type"] as? String == "macho")
-                #expect(image?["code_file"] as? String != nil)
-                #expect(image?["image_addr"] as? String != nil)
-                #expect(image?["image_size"] as? UInt64 != nil)
+                let imgType = image?["type"] as? String
+                #expect(imgType == "macho")
+                let codeFile = image?["code_file"] as? String
+                #expect(codeFile != nil)
+                let imageAddr = image?["image_addr"] as? String
+                #expect(imageAddr != nil)
+                let imageSize = image?["image_size"] as? UInt64
+                #expect(imageSize != nil)
             }
 
             @Test("live report has crash report ID")
@@ -231,7 +239,8 @@ import Testing
                 let properties = PostHogCrashReportProcessor.processReport(report, config: config)
 
                 let exceptionList = properties["$exception_list"] as? [[String: Any]]
-                let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
+                let exc = exceptionList?.first
+                let stacktrace = exc?["stacktrace"] as? [String: Any]
                 let frames = stacktrace?["frames"] as? [[String: Any]]
 
                 let inAppFrames = frames?.filter { $0["in_app"] as? Bool == true }
@@ -254,7 +263,8 @@ import Testing
                 let properties = PostHogCrashReportProcessor.processReport(report, config: config)
 
                 let exceptionList = properties["$exception_list"] as? [[String: Any]]
-                let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
+                let exc = exceptionList?.first
+                let stacktrace = exc?["stacktrace"] as? [String: Any]
                 let frames = stacktrace?["frames"] as? [[String: Any]]
 
                 let systemFrames = frames?.filter { frame in
@@ -263,7 +273,8 @@ import Testing
                 }
 
                 for frame in systemFrames ?? [] {
-                    #expect(frame["in_app"] as? Bool == false)
+                    let inApp = frame["in_app"] as? Bool
+                    #expect(inApp == false)
                 }
             }
         }

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(Experimental) @testable import PostHog
 import Testing
 
 @Suite("PostHogExceptionProcessor Tests")
@@ -35,17 +35,23 @@ struct PostHogExceptionProcessorTest {
             #expect(exceptionList?.count == 1)
 
             let exception = exceptionList?.first
-            #expect(exception?["type"] as? String == "TestSwiftError")
-            #expect(exception?["thread_id"] as? Int != nil)
+            let exType = exception?["type"] as? String
+            #expect(exType == "TestSwiftError")
+            let threadId = exception?["thread_id"] as? Int
+            #expect(threadId != nil)
 
             let mechanism = exception?["mechanism"] as? [String: Any]
-            #expect(mechanism?["type"] as? String == "generic")
-            #expect(mechanism?["handled"] as? Bool == true)
-            #expect(mechanism?["synthetic"] as? Bool == true)
+            let mechType = mechanism?["type"] as? String
+            #expect(mechType == "generic")
+            let mechHandled = mechanism?["handled"] as? Bool
+            #expect(mechHandled == true)
+            let mechSynthetic = mechanism?["synthetic"] as? Bool
+            #expect(mechSynthetic == true)
 
             let stacktrace = exception?["stacktrace"] as? [String: Any]
             #expect(stacktrace != nil)
-            #expect(stacktrace?["type"] as? String == "raw")
+            let stType = stacktrace?["type"] as? String
+            #expect(stType == "raw")
         }
 
         @Test("converts NSError to properties with domain as type")
@@ -64,12 +70,15 @@ struct PostHogExceptionProcessorTest {
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
             let exception = exceptionList?.first
 
-            #expect(exception?["type"] as? String == "com.posthog.TestDomain")
-            #expect((exception?["value"] as? String)?.contains("Test error message") == true)
-            #expect((exception?["value"] as? String)?.contains("500") == true)
+            let exType = exception?["type"] as? String
+            #expect(exType == "com.posthog.TestDomain")
+            let exValue = exception?["value"] as? String
+            #expect(exValue?.contains("Test error message") == true)
+            #expect(exValue?.contains("500") == true)
 
             let mechanism = exception?["mechanism"] as? [String: Any]
-            #expect(mechanism?["handled"] as? Bool == false)
+            let mechHandled = mechanism?["handled"] as? Bool
+            #expect(mechHandled == false)
         }
 
         @Test("walks error chain via NSUnderlyingErrorKey")
@@ -97,8 +106,10 @@ struct PostHogExceptionProcessorTest {
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
             #expect(exceptionList?.count == 2)
 
-            #expect(exceptionList?[0]["type"] as? String == "WrapperDomain")
-            #expect(exceptionList?[1]["type"] as? String == "RootDomain")
+            let type0 = exceptionList?[0]["type"] as? String
+            #expect(type0 == "WrapperDomain")
+            let type1 = exceptionList?[1]["type"] as? String
+            #expect(type1 == "RootDomain")
         }
 
         @Test("handles circular error references")
@@ -128,8 +139,10 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let mechanism = exceptionList?.first?["mechanism"] as? [String: Any]
-            #expect(mechanism?["type"] as? String == "custom_handler")
+            let exc = exceptionList?.first
+            let mechanism = exc?["mechanism"] as? [String: Any]
+            let mechType = mechanism?["type"] as? String
+            #expect(mechType == "custom_handler")
         }
 
         @Test("extracts module from error domain")
@@ -143,7 +156,8 @@ struct PostHogExceptionProcessorTest {
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
             let exception = exceptionList?.first
-            #expect(exception?["module"] as? String != nil)
+            let module = exception?["module"] as? String
+            #expect(module != nil)
         }
     }
 
@@ -173,8 +187,10 @@ struct PostHogExceptionProcessorTest {
             #expect(exceptionList?.count == 1)
 
             let exc = exceptionList?.first
-            #expect(exc?["type"] as? String == "TestException")
-            #expect(exc?["value"] as? String == "Test exception reason")
+            let excType = exc?["type"] as? String
+            #expect(excType == "TestException")
+            let excValue = exc?["value"] as? String
+            #expect(excValue == "Test exception reason")
         }
 
         @Test("handles NSException without reason")
@@ -193,7 +209,8 @@ struct PostHogExceptionProcessorTest {
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
             let exc = exceptionList?.first
-            #expect(exc?["type"] as? String == "NoReasonException")
+            let excType = exc?["type"] as? String
+            #expect(excType == "NoReasonException")
             #expect(exc?["value"] == nil)
         }
 
@@ -212,8 +229,10 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let mechanism = exceptionList?.first?["mechanism"] as? [String: Any]
-            #expect(mechanism?["handled"] as? Bool == false)
+            let exc = exceptionList?.first
+            let mechanism = exc?["mechanism"] as? [String: Any]
+            let mechHandled = mechanism?["handled"] as? Bool
+            #expect(mechHandled == false)
         }
     }
 
@@ -237,8 +256,10 @@ struct PostHogExceptionProcessorTest {
             #expect(exceptionList?.count == 1)
 
             let exception = exceptionList?.first
-            #expect(exception?["type"] as? String == "Message")
-            #expect(exception?["value"] as? String == "Something went wrong")
+            let exType = exception?["type"] as? String
+            #expect(exType == "Message")
+            let exValue = exception?["value"] as? String
+            #expect(exValue == "Something went wrong")
         }
 
         @Test("message exceptions are always synthetic and handled")
@@ -249,9 +270,12 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let mechanism = exceptionList?.first?["mechanism"] as? [String: Any]
-            #expect(mechanism?["synthetic"] as? Bool == true)
-            #expect(mechanism?["handled"] as? Bool == true)
+            let exc = exceptionList?.first
+            let mechanism = exc?["mechanism"] as? [String: Any]
+            let mechSynthetic = mechanism?["synthetic"] as? Bool
+            #expect(mechSynthetic == true)
+            let mechHandled = mechanism?["handled"] as? Bool
+            #expect(mechHandled == true)
         }
 
         @Test("message uses custom mechanism type")
@@ -263,8 +287,10 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let mechanism = exceptionList?.first?["mechanism"] as? [String: Any]
-            #expect(mechanism?["type"] as? String == "custom")
+            let exc = exceptionList?.first
+            let mechanism = exc?["mechanism"] as? [String: Any]
+            let mechType = mechanism?["type"] as? String
+            #expect(mechType == "custom")
         }
     }
 
@@ -288,10 +314,14 @@ struct PostHogExceptionProcessorTest {
             #expect(debugImages!.count > 0)
 
             let image = debugImages?.first
-            #expect(image?["type"] as? String == "macho")
-            #expect(image?["code_file"] as? String != nil)
-            #expect(image?["image_addr"] as? String != nil)
-            #expect(image?["image_size"] as? UInt64 != nil)
+            let imgType = image?["type"] as? String
+            #expect(imgType == "macho")
+            let codeFile = image?["code_file"] as? String
+            #expect(codeFile != nil)
+            let imageAddr = image?["image_addr"] as? String
+            #expect(imageAddr != nil)
+            let imageSize = image?["image_size"] as? UInt64
+            #expect(imageSize != nil)
         }
 
         @Test("debug images have valid UUID format")
@@ -306,7 +336,8 @@ struct PostHogExceptionProcessorTest {
             let debugImages = properties["$debug_images"] as? [[String: Any]]
             let imageWithUUID = debugImages?.first { $0["debug_id"] != nil }
 
-            if let uuid = imageWithUUID?["debug_id"] as? String {
+            let debugId = imageWithUUID?["debug_id"] as? String
+            if let uuid = debugId {
                 let uuidPattern = #"^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$"#
                 let regex = try? NSRegularExpression(pattern: uuidPattern)
                 let range = NSRange(uuid.startIndex..., in: uuid)
@@ -331,8 +362,10 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
-            #expect(stacktrace?["type"] as? String == "raw")
+            let exc = exceptionList?.first
+            let stacktrace = exc?["stacktrace"] as? [String: Any]
+            let stType = stacktrace?["type"] as? String
+            #expect(stType == "raw")
         }
 
         @Test("stack trace contains frames")
@@ -345,7 +378,8 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
+            let exc = exceptionList?.first
+            let stacktrace = exc?["stacktrace"] as? [String: Any]
             let frames = stacktrace?["frames"] as? [[String: Any]]
 
             #expect(frames != nil)
@@ -362,13 +396,17 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
+            let exc = exceptionList?.first
+            let stacktrace = exc?["stacktrace"] as? [String: Any]
             let frames = stacktrace?["frames"] as? [[String: Any]]
             let frame = frames?.first
 
-            #expect(frame?["instruction_addr"] as? String != nil)
-            #expect(frame?["platform"] as? String == "apple")
-            #expect(frame?["in_app"] as? Bool != nil)
+            let instrAddr = frame?["instruction_addr"] as? String
+            #expect(instrAddr != nil)
+            let platform = frame?["platform"] as? String
+            #expect(platform == "apple")
+            let inApp = frame?["in_app"] as? Bool
+            #expect(inApp != nil)
         }
 
         @Test("frames have hex address format")
@@ -381,9 +419,11 @@ struct PostHogExceptionProcessorTest {
             )
 
             let exceptionList = properties["$exception_list"] as? [[String: Any]]
-            let stacktrace = exceptionList?.first?["stacktrace"] as? [String: Any]
+            let exc = exceptionList?.first
+            let stacktrace = exc?["stacktrace"] as? [String: Any]
             let frames = stacktrace?["frames"] as? [[String: Any]]
-            let instructionAddr = frames?.first?["instruction_addr"] as? String
+            let firstFrame = frames?.first
+            let instructionAddr = firstFrame?["instruction_addr"] as? String
 
             #expect(instructionAddr?.hasPrefix("0x") == true)
         }

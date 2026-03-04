@@ -43,11 +43,6 @@ import Foundation
                 properties["$debug_images"] = debugImages
             }
 
-            // Add crash metadata
-            if let uuidRef = report.uuidRef {
-                properties["$crash_report_id"] = CFUUIDCreateString(nil, uuidRef) as String
-            }
-
             return properties
         }
 
@@ -156,7 +151,8 @@ import Foundation
             let rawFrames: [PLCrashReportStackFrameInfo]
             if report.hasExceptionInfo,
                let exceptionFrames = report.exceptionInfo?.stackFrames as? [PLCrashReportStackFrameInfo],
-               !exceptionFrames.isEmpty {
+               !exceptionFrames.isEmpty
+            {
                 rawFrames = exceptionFrames
             } else if let crashedThread = findCrashedThread(in: report) {
                 rawFrames = crashedThread.stackFrames as? [PLCrashReportStackFrameInfo] ?? []

@@ -92,4 +92,4 @@ if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
     CLI_ARGS="$CLI_ARGS --include-source"
 fi
 
-$PH_CLI_PATH exp dsym upload $CLI_ARGS || exit 1
+$PH_CLI_PATH dsym upload $CLI_ARGS || exit 1

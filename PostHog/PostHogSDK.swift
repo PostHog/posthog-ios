@@ -1679,6 +1679,9 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - error: The error to capture (can be any Error or NSError)
     ///   - properties: Optional additional properties to attach to the event
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
     @objc(captureExceptionWithError:properties:)
     public func captureException(
         _ error: Error,
@@ -1715,6 +1718,9 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - exception: The NSException to capture
     ///   - properties: Optional additional properties to attach to the event
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
     @objc(captureExceptionWithNSException:properties:)
     public func captureException(
         _ exception: NSException,

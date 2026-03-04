@@ -159,7 +159,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
-    /// Configuration for error tracking
+    /// Configuration for error tracking (Experimental)
+    @_spi(Experimental)
     @objc public let errorTrackingConfig: PostHogErrorTrackingConfig = .init()
 
     /// Enable mobile surveys

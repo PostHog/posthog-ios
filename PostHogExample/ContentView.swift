@@ -6,7 +6,7 @@
 //
 
 import AuthenticationServices
-import PostHog
+@_spi(Experimental) import PostHog
 import SwiftUI
 
 class SignInViewModel: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {

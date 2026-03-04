@@ -18,6 +18,8 @@ class PostHogRemoteConfig {
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
+    private var pendingFeatureFlagsReload = false
+    private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -135,11 +137,15 @@ class PostHogRemoteConfig {
         callback: (([String: Any]?) -> Void)? = nil
     ) {
         // Remote config is always loaded (config.remoteConfig is now a no-op)
-        loadingRemoteConfigLock.withLock {
+        let alreadyLoading = loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
-                return
+                return true
             }
             self.loadingRemoteConfig = true
+            return false
+        }
+        if alreadyLoading {
+            return
         }
 
         api.remoteConfig { config, _ in
@@ -263,11 +269,24 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {
-        loadingFeatureFlagsLock.withLock {
+        let alreadyLoading = loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
-                return
+                return true
             }
             self.loadingFeatureFlags = true
+            return false
+        }
+        if alreadyLoading {
+            loadingFeatureFlagsLock.withLock {
+                self.pendingFeatureFlagsReload = true
+                self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
+                    distinctId: distinctId,
+                    anonymousId: anonymousId,
+                    groups: groups,
+                    callback: callback
+                )
+            }
+            return
         }
 
         let personProperties = getPersonPropertiesForFlags()
@@ -440,8 +459,24 @@ class PostHogRemoteConfig {
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
         notifyFeatureFlags(featureFlags)
 
-        loadingFeatureFlagsLock.withLock {
+        let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
+            if self.pendingFeatureFlagsReload {
+                self.pendingFeatureFlagsReload = false
+                let req = self.pendingFeatureFlagsRequest
+                self.pendingFeatureFlagsRequest = nil
+                return req
+            }
+            return nil
+        }
+
+        if let pending {
+            loadFeatureFlags(
+                distinctId: pending.distinctId,
+                anonymousId: pending.anonymousId,
+                groups: pending.groups,
+                callback: pending.callback
+            )
         }
     }
 
@@ -739,4 +774,11 @@ class PostHogRemoteConfig {
         }
         return remoteConfig
     }
+}
+
+private struct PendingFeatureFlagsRequest {
+    let distinctId: String
+    let anonymousId: String?
+    let groups: [String: String]
+    let callback: ([String: Any]?) -> Void
 }

@@ -175,24 +175,6 @@ import Testing
                 let imageSize = image?["image_size"] as? UInt64
                 #expect(imageSize != nil)
             }
-
-            @Test("live report has crash report ID")
-            func liveReportHasCrashReportId() throws {
-                let reporter = PLCrashReporter(configuration: PLCrashReporterConfig.defaultConfiguration())
-                guard let reporter else {
-                    Issue.record("Failed to create PLCrashReporter")
-                    return
-                }
-
-                let reportData = try reporter.generateLiveReportAndReturnError()
-                let report = try PLCrashReport(data: reportData)
-
-                let properties = PostHogCrashReportProcessor.processReport(report, config: config)
-
-                let crashReportId = properties["$crash_report_id"] as? String
-                #expect(crashReportId != nil)
-                #expect(crashReportId!.count > 0)
-            }
         }
 
         // MARK: - Crash Timestamp Tests

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(Experimental) @testable import PostHog
 import Testing
 
 @Suite("PostHogStackTraceProcessor Tests")

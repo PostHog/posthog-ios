@@ -232,6 +232,11 @@ struct ContentView: View {
                     Button(action: testPersonPropertiesForFlags) {
                         Text("🧪 Test Person & Group Properties")
                     }
+
+                    Button("Test preload+identify race") {
+                        PostHogSDK.shared.reloadFeatureFlags()
+                        PostHogSDK.shared.identify("test-race-\(UUID().uuidString)")
+                    }
                 }
 
                 Section("Feature flags") {

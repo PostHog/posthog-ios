@@ -287,7 +287,7 @@ enum PostHogRemoteConfigTest {
 
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(10)
-                while (!firstDone || !secondDone), Date() < timeout {}
+                while !firstDone || !secondDone, Date() < timeout {}
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     continuation.resume()
                 }
@@ -320,7 +320,7 @@ enum PostHogRemoteConfigTest {
 
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(10)
-                while (!firstDone || !secondDone), Date() < timeout {}
+                while !firstDone || !secondDone, Date() < timeout {}
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     continuation.resume()
                 }
@@ -362,7 +362,7 @@ enum PostHogRemoteConfigTest {
 
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(10)
-                while (!firstDone || !thirdDone), Date() < timeout {}
+                while !firstDone || !thirdDone, Date() < timeout {}
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     continuation.resume()
                 }
@@ -399,7 +399,7 @@ enum PostHogRemoteConfigTest {
 
             await withCheckedContinuation { continuation in
                 let timeout = Date().addingTimeInterval(10)
-                while (firstResult == nil || secondResult == nil), Date() < timeout {}
+                while firstResult == nil || secondResult == nil, Date() < timeout {}
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     continuation.resume()
                 }

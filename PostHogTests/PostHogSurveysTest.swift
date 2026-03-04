@@ -490,7 +490,11 @@ enum PostHogSurveysTest {
 
     @Suite("Test canActivateRepeatedly")
     struct TestCanActivateRepeatedly {
-        private func getSut(repeatedActivation: Bool?, values: [PostHogEventCondition]) -> PostHogSurvey {
+        private func getSut(
+            repeatedActivation: Bool?,
+            values: [PostHogEventCondition],
+            schedule: PostHogSurveySchedule? = nil
+        ) -> PostHogSurvey {
             PostHogSurvey(
                 id: "id",
                 name: "name",
@@ -517,7 +521,8 @@ enum PostHogSurveysTest {
                 currentIteration: nil,
                 currentIterationStartDate: nil,
                 startDate: nil,
-                endDate: nil
+                endDate: nil,
+                schedule: schedule
             )
         }
 
@@ -555,6 +560,52 @@ enum PostHogSurveysTest {
             )
 
             #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns true when schedule is always, even without events")
+        func returnsTrueWhenScheduleIsAlways() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .always
+            )
+
+            #expect(sut.canActivateRepeatedly == true)
+        }
+
+        @Test("returns false when schedule is once")
+        func returnsFalseWhenScheduleIsOnce() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .once
+            )
+
+            #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns false when schedule is recurring")
+        func returnsFalseWhenScheduleIsRecurring() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .recurring
+            )
+
+            #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns true when schedule is always, even with repeatedActivation false")
+        func returnsTrueWhenScheduleIsAlwaysRegardlessOfRepeatedActivation() {
+            let sut = getSut(
+                repeatedActivation: false,
+                values: [
+                    PostHogEventCondition(name: "first event"),
+                ],
+                schedule: .always
+            )
+
+            #expect(sut.canActivateRepeatedly == true)
         }
     }
 
@@ -1407,7 +1458,8 @@ private extension PostHogSurvey {
         currentIteration: Int? = nil,
         currentIterationStartDate: Date? = nil,
         startDate: Date? = nil,
-        endDate: Date? = nil
+        endDate: Date? = nil,
+        schedule: PostHogSurveySchedule? = nil
     ) -> PostHogSurvey {
         PostHogSurvey(
             id: id,
@@ -1423,7 +1475,8 @@ private extension PostHogSurvey {
             currentIteration: currentIteration,
             currentIterationStartDate: currentIterationStartDate,
             startDate: startDate,
-            endDate: endDate
+            endDate: endDate,
+            schedule: schedule
         )
     }
 }

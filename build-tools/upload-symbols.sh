@@ -12,14 +12,9 @@
 #   Basic:       "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   With source: POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
-# Input Files (required for script sandboxing):
-#   ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}
-#   ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${PRODUCT_NAME}
-#   ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist
-#   $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
-#
-# Build Settings:
-#   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File (script will skip DWARF-only builds)
+# Build Settings (required):
+#   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
+#   ENABLE_USER_SCRIPT_SANDBOXING = NO (script traverses dSYM bundles)
 #
 # Environment Variables (optional):
 #   POSTHOG_CLI_INSTALL_DIR - Custom directory containing posthog-cli binary

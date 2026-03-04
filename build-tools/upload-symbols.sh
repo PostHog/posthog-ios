@@ -43,6 +43,10 @@ fi
 if [ -f "$HOME/.posthog/posthog-cli" ]; then
   PH_CLI_PATH="$HOME/.posthog/posthog-cli"
 else
+  # Add nvm paths (Xcode doesn't source shell profiles)
+  for dir in "$HOME/.nvm/versions/node"/*/bin /opt/homebrew/Cellar/nvm/*/versions/node/*/bin; do
+    [ -d "$dir" ] && export PATH="$dir:$PATH"
+  done
   # Check if installed via npm -g @posthog/cli
   NPM_GLOBAL_PREFIX=$(npm prefix -g 2>/dev/null)
   if [ -n "$NPM_GLOBAL_PREFIX" ] && [ -f "$NPM_GLOBAL_PREFIX/bin/posthog-cli" ]; then

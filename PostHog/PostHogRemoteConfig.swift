@@ -439,9 +439,8 @@ class PostHogRemoteConfig {
 
     private func processErrorTrackingConfig(_ data: [String: Any]?) {
         if let errorTracking = data?["errorTracking"] as? Bool {
-            // If errorTracking is a boolean, it's always false (disabled)
             errorTrackingLock.withLock {
-                autoCaptureExceptions = false
+                autoCaptureExceptions = errorTracking
             }
             if !errorTracking {
                 storage.remove(key: .errorTracking)

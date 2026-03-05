@@ -12,4 +12,5 @@ class ViewTreeSnapshotStatus {
     var sentMetaEvent: Bool = false
     var keyboardVisible: Bool = false
     var lastSnapshot: Bool = false
+    var lastWindowSize: CGSize = .zero
 }

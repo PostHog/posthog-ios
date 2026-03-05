@@ -434,10 +434,12 @@
 
             var snapshotsData: [Any] = []
 
-            if !snapshotStatus.sentMetaEvent {
-                let size = window.bounds.size
-                let width = size.width.toInt() ?? 0
-                let height = size.height.toInt() ?? 0
+            let currentSize = window.bounds.size
+            let sizeChanged = snapshotStatus.sentMetaEvent && snapshotStatus.lastWindowSize != currentSize
+
+            if !snapshotStatus.sentMetaEvent || sizeChanged {
+                let width = currentSize.width.toInt() ?? 0
+                let height = currentSize.height.toInt() ?? 0
 
                 var data: [String: Any] = ["width": width, "height": height]
 
@@ -448,6 +450,7 @@
                 let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
                 snapshotsData.append(snapshotData)
                 snapshotStatus.sentMetaEvent = true
+                snapshotStatus.lastWindowSize = currentSize
                 hasChanges = true
             }
 

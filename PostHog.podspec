@@ -15,7 +15,6 @@ Pod::Spec.new do |s|
   s.social_media_url = 'https://twitter.com/PostHog'
   s.readme           = "https://raw.githubusercontent.com/PostHog/posthog-ios/#{s.version.to_s}/README.md"
   s.changelog        = "https://raw.githubusercontent.com/PostHog/posthog-ios/#{s.version.to_s}/CHANGELOG.md"
-  s.static_framework = true
 
   s.ios.deployment_target = '13.0'
   s.tvos.deployment_target = '13.0'
@@ -26,11 +25,13 @@ Pod::Spec.new do |s|
 
   s.frameworks = 'Foundation'
 
-  # PLCrashReporter dependency (not available on watchOS)
-  # Using ~> 1.8 for minimum compatibility with host apps
-  s.ios.dependency 'PLCrashReporter', '~> 1.8'
-  s.osx.dependency 'PLCrashReporter', '~> 1.8'
-  s.tvos.dependency 'PLCrashReporter', '~> 1.8'
+  # PLCrashReporter vendored xcframework (not available on watchOS/visionOS)
+  # Vendored to avoid static_framework = true which would be a breaking change for consumers
+  s.ios.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  s.osx.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  s.tvos.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  s.libraries = 'c++'
+  s.pod_target_xcconfig = { 'OTHER_LDFLAGS' => '-lc++' }
 
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
@@ -39,5 +40,5 @@ Pod::Spec.new do |s|
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
   
   # Include the upload script for dSYM uploads
-  s.preserve_paths = 'build-tools/upload-symbols.sh'
+  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PLCrashReporter-LICENSE.txt']
 end

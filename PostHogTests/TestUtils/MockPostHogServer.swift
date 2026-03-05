@@ -16,7 +16,10 @@ class MockPostHogServer {
     var batchExpectation: XCTestExpectation?
     var flagsExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
+    var flagsExpectationCount: Int?
     var flagsRequests = [URLRequest]()
+    var flagsResponseDelay: TimeInterval = 0
+    var flagsResponseHandler: ((URLRequest) -> HTTPStubsResponse)?
     var version: Int = 3
 
     func trackBatchRequest(_ request: URLRequest) {
@@ -30,7 +33,13 @@ class MockPostHogServer {
     func trackFlags(_ request: URLRequest) {
         flagsRequests.append(request)
 
-        flagsExpectation?.fulfill()
+        if let count = flagsExpectationCount {
+            if flagsRequests.count >= count {
+                flagsExpectation?.fulfill()
+            }
+        } else {
+            flagsExpectation?.fulfill()
+        }
     }
 
     var errorsWhileComputingFlags = false
@@ -53,7 +62,15 @@ class MockPostHogServer {
     init(version: Int = 3) {
         self.version = version
 
-        stub(condition: pathEndsWith("/flags")) { _ in
+        stub(condition: pathEndsWith("/flags")) { request in
+            if let handler = self.flagsResponseHandler {
+                let response = handler(request)
+                if self.flagsResponseDelay > 0 {
+                    response.responseTime = self.flagsResponseDelay
+                }
+                return response
+            }
+
             if self.quotaLimitFeatureFlags {
                 return HTTPStubsResponse(
                     jsonObject: ["quotaLimited": ["feature_flags"]],
@@ -265,7 +282,11 @@ class MockPostHogServer {
                 obj["sessionRecording"] = false
             }
 
-            return HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
+            let response = HTTPStubsResponse(jsonObject: obj, statusCode: 200, headers: nil)
+            if self.flagsResponseDelay > 0 {
+                response.responseTime = self.flagsResponseDelay
+            }
+            return response
         }
 
         stub(condition: pathEndsWith("/batch")) { _ in
@@ -361,12 +382,15 @@ class MockPostHogServer {
         HTTPStubs.removeAllStubs()
     }
 
-    func reset(batchCount: Int = 1) {
+    func reset(batchCount: Int = 1, flagsCount: Int? = nil) {
         batchRequests = []
         flagsRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
-        flagsExpectation = XCTestExpectation(description: "1 flag requests to occur")
+        flagsExpectation = XCTestExpectation(description: "\(flagsCount ?? 1) flag requests to occur")
         batchExpectationCount = batchCount
+        flagsExpectationCount = flagsCount
+        flagsResponseDelay = 0
+        flagsResponseHandler = nil
         errorsWhileComputingFlags = false
         return500 = false
     }

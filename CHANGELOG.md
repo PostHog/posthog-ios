@@ -1,5 +1,15 @@
 ## Next
 
+## 3.43.0
+
+### Minor Changes
+
+- d85e393: feat: support 'always' survey schedule
+
+### Patch Changes
+
+- 4a8496c: fix: queue pending feature flags reload instead of dropping concurrent requests
+
 ## 3.42.1
 
 ### Patch Changes

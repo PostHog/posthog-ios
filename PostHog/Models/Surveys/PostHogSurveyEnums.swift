@@ -259,6 +259,29 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
     }
 }
 
+enum PostHogSurveySchedule: Decodable, Equatable {
+    case once
+    case recurring
+    case always
+    case unknown(schedule: String)
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let scheduleString = try container.decode(String.self)
+
+        switch scheduleString {
+        case "once":
+            self = .once
+        case "recurring":
+            self = .recurring
+        case "always":
+            self = .always
+        default:
+            self = .unknown(schedule: scheduleString)
+        }
+    }
+}
+
 enum PostHogSurveyQuestionBranchingType: Decodable, Equatable {
     case nextQuestion
     case end

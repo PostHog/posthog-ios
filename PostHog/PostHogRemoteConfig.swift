@@ -18,6 +18,7 @@ class PostHogRemoteConfig {
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
+    private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -135,6 +136,10 @@ class PostHogRemoteConfig {
         callback: (([String: Any]?) -> Void)? = nil
     ) {
         // Remote config is always loaded (config.remoteConfig is now a no-op)
+        // Note: this guard has the same withLock closure-return bug as loadFeatureFlags
+        // had, but for remote config duplicate concurrent requests are harmless (no
+        // identity-sensitive params). Fixing it properly requires a pending callback
+        // queue to avoid dropping callers. See loadFeatureFlags() for the correct pattern.
         loadingRemoteConfigLock.withLock {
             if self.loadingRemoteConfig {
                 return
@@ -263,11 +268,24 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {
-        loadingFeatureFlagsLock.withLock {
+        let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
-                return
+                let prev = self.pendingFeatureFlagsRequest?.callback
+                self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
+                    distinctId: distinctId,
+                    anonymousId: anonymousId,
+                    groups: groups,
+                    callback: callback
+                )
+                return (true, prev)
             }
             self.loadingFeatureFlags = true
+            return (false, nil)
+        }
+        if alreadyLoading {
+            let cached = featureFlagsLock.withLock { getCachedFeatureFlags() }
+            previousCallback?(cached)
+            return
         }
 
         let personProperties = getPersonPropertiesForFlags()
@@ -327,37 +345,28 @@ class PostHogRemoteConfig {
 
                 self.featureFlagsLock.withLock {
                     if let requestId {
-                        // Store the request ID in the storage.
                         self.setCachedRequestId(requestId)
                     }
 
                     if let evaluatedAt {
-                        // Store the evaluated timestamp in the storage.
                         self.setCachedEvaluatedAt(evaluatedAt)
                     }
 
                     if errorsWhileComputingFlags {
-                        // v4 cached flags which contains metadata about each flag.
                         let cachedFlags = self.getCachedFlags() ?? [:]
-
-                        // The following two aren't necessarily needed for v4, but we'll keep them for now
-                        // for back compatibility for existing v3 users who might already have cached flag data.
                         let cachedFeatureFlags = self.getCachedFeatureFlags() ?? [:]
                         let cachedFeatureFlagsPayloads = self.getCachedFeatureFlagPayload() ?? [:]
 
                         let newFeatureFlags = cachedFeatureFlags.merging(featureFlags) { _, new in new }
                         let newFeatureFlagsPayloads = cachedFeatureFlagsPayloads.merging(featureFlagPayloads) { _, new in new }
 
-                        // if not all flags were computed, we upsert flags instead of replacing them
                         loadedFeatureFlags = newFeatureFlags
                         if let flagsV4 {
                             let newFlags = cachedFlags.merging(flagsV4) { _, new in new }
-                            // if not all flags were computed, we upsert flags instead of replacing them
                             self.setCachedFlags(newFlags)
                         }
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
-                        self.notifyFeatureFlagsAndRelease(newFeatureFlags)
                     } else {
                         loadedFeatureFlags = featureFlags
                         if let flagsV4 {
@@ -365,10 +374,10 @@ class PostHogRemoteConfig {
                         }
                         self.setCachedFeatureFlags(featureFlags)
                         self.setCachedFeatureFlagPayload(featureFlagPayloads)
-                        self.notifyFeatureFlagsAndRelease(featureFlags)
                     }
                 }
 
+                self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
                 return callback(loadedFeatureFlags)
             }
         }
@@ -440,8 +449,20 @@ class PostHogRemoteConfig {
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
         notifyFeatureFlags(featureFlags)
 
-        loadingFeatureFlagsLock.withLock {
+        let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
+            let req = self.pendingFeatureFlagsRequest
+            self.pendingFeatureFlagsRequest = nil
+            return req
+        }
+
+        if let pending {
+            loadFeatureFlags(
+                distinctId: pending.distinctId,
+                anonymousId: pending.anonymousId,
+                groups: pending.groups,
+                callback: pending.callback
+            )
         }
     }
 
@@ -739,4 +760,11 @@ class PostHogRemoteConfig {
         }
         return remoteConfig
     }
+}
+
+private struct PendingFeatureFlagsRequest {
+    let distinctId: String
+    let anonymousId: String?
+    let groups: [String: String]
+    let callback: ([String: Any]?) -> Void
 }

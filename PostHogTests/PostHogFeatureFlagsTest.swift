@@ -18,7 +18,7 @@ private struct TestPayload: Decodable, Equatable {
 @Suite("Test Feature Flags", .serialized)
 enum PostHogFeatureFlagsTest {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
         var server: MockPostHogServer!
 
         init() {

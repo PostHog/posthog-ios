@@ -1,5 +1,11 @@
 ## Next
 
+## 3.44.0
+
+### Minor Changes
+
+- cbd7024: support survey wait period
+
 ## 3.43.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.45.0
+
+### Minor Changes
+
+- 33fe226: feat: add experimental error tracking support
+
 ## 3.44.0
 
 ### Minor Changes

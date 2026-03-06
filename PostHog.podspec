@@ -25,9 +25,20 @@ Pod::Spec.new do |s|
 
   s.frameworks = 'Foundation'
 
+  # PLCrashReporter vendored xcframework (not available on watchOS/visionOS)
+  # Vendored to avoid static_framework = true which would be a breaking change for consumers
+  s.ios.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  s.osx.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  s.tvos.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  s.libraries = 'c++'
+  s.pod_target_xcconfig = { 'OTHER_LDFLAGS' => '-lc++' }
+
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
     'vendor/libwebp/**/*.{h,c}'
   ]
   s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
+  
+  # Include the upload script for dSYM uploads
+  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PLCrashReporter-LICENSE.txt']
 end

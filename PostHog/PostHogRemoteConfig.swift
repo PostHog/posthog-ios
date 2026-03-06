@@ -23,6 +23,9 @@ class PostHogRemoteConfig {
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
 
+    private let errorTrackingLock = NSLock()
+    private var autoCaptureExceptions = false
+
     private var flags: [String: Any]?
     private var featureFlags: [String: Any]?
 
@@ -76,6 +79,7 @@ class PostHogRemoteConfig {
         loadCachedPropertiesForFlags()
 
         preloadSessionReplay()
+        preloadErrorTrackingConfig()
 
         // Remote config is always loaded (config.remoteConfig is now a no-op)
         preloadRemoteConfig()
@@ -160,6 +164,9 @@ class PostHogRemoteConfig {
                     let featureFlags = self.featureFlagsLock.withLock { self.featureFlags }
                     self.processSessionRecordingConfig(config, featureFlags: featureFlags ?? [:])
                 #endif
+
+                // process error tracking config
+                self.processErrorTrackingConfig(config)
 
                 // notify
                 DispatchQueue.main.async {
@@ -438,6 +445,43 @@ class PostHogRemoteConfig {
             sessionReplayLock.withLock { recordingSampleRate }
         }
     #endif
+
+    private func processErrorTrackingConfig(_ data: [String: Any]?) {
+        if let errorTracking = data?["errorTracking"] as? Bool {
+            errorTrackingLock.withLock {
+                autoCaptureExceptions = errorTracking
+            }
+            if !errorTracking {
+                storage.remove(key: .errorTracking)
+            }
+        } else if let errorTracking = data?["errorTracking"] as? [String: Any] {
+            let enabled = errorTracking["autocaptureExceptions"] as? Bool ?? false
+            errorTrackingLock.withLock {
+                autoCaptureExceptions = enabled
+            }
+            storage.setDictionary(forKey: .errorTracking, contents: errorTracking)
+        } else {
+            // No errorTracking key or unexpected type — disable
+            errorTrackingLock.withLock {
+                autoCaptureExceptions = false
+            }
+        }
+    }
+
+    private func preloadErrorTrackingConfig() {
+        if let errorTracking = storage.getDictionary(forKey: .errorTracking) as? [String: Any] {
+            let enabled = errorTracking["autocaptureExceptions"] as? Bool ?? false
+            errorTrackingLock.withLock {
+                autoCaptureExceptions = enabled
+            }
+        }
+    }
+
+    /// Returns whether autocapture of exceptions is enabled based on the remote config.
+    /// The remote config must have `autocaptureExceptions` set to `true` or a dictionary.
+    func isAutocaptureExceptionsEnabled() -> Bool {
+        errorTrackingLock.withLock { autoCaptureExceptions }
+    }
 
     private func notifyFeatureFlags(_ featureFlags: [String: Any]?) {
         DispatchQueue.main.async {

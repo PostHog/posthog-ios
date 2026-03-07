@@ -1,5 +1,11 @@
 ## Next
 
+## 3.45.1
+
+### Patch Changes
+
+- d6e54f1: fix: process pending crash reports
+
 ## 3.45.0
 
 ### Minor Changes

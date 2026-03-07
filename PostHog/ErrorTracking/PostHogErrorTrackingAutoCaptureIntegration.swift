@@ -20,31 +20,23 @@ import Foundation
         private var crashReporter: PLCrashReporter?
 
         func install(_ postHog: PostHogSDK) throws {
-            let isDisabledInRemoteConfig = postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false
+            if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
+                throw InternalPostHogError(description: "Error tracking auto capture integration disabled in remote config.")
+            }
 
             try PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
                 if PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled {
                     throw InternalPostHogError(description: "Error tracking auto capture integration already installed to another PostHogSDK instance.")
                 }
-                if !isDisabledInRemoteConfig {
-                    PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = true
-                }
+                PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = true
             }
 
             if let crashReporter = setupCrashReporter() {
+                self.crashReporter = crashReporter
+                self.postHog = postHog
                 // Note: Order here matters, we need to process any pending crash report before enabling the crash reporter
                 processPendingCrashReportIfNeeded(reporter: crashReporter)
-
-                if !isDisabledInRemoteConfig {
-                    enableCrashReporter(reporter: crashReporter)
-                    self.crashReporter = crashReporter
-                }
-            }
-
-            if !isDisabledInRemoteConfig {
-                self.postHog = postHog
-            } else {
-                throw InternalPostHogError(description: "Error tracking auto capture integration disabled in remote config.")
+                enableCrashReporter(reporter: crashReporter)
             }
         }
 

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.45.2
+
+### Patch Changes
+
+- ff6c2ab: Skip dSYM upload for non-Release builds to avoid unnecessary network work and build failures during local development
+
 ## 3.45.1
 
 ### Patch Changes

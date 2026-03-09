@@ -21,6 +21,15 @@
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
 #
 
+# Skip non-Release builds.
+# This avoids network-bound work and potential auth/connectivity failures
+# during local development builds.
+# When CONFIGURATION is unset (e.g., manual/CI invocation outside Xcode), proceed with upload.
+if [ -n "${CONFIGURATION}" ] && [ "${CONFIGURATION}" != "Release" ]; then
+    echo "info: Skipping dSYM upload for configuration '${CONFIGURATION}' (not Release)."
+    exit 0
+fi
+
 # Validate environment
 if [ -z "${DWARF_DSYM_FOLDER_PATH}" ]; then
     echo "warning: DWARF_DSYM_FOLDER_PATH not set"

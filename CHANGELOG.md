@@ -1,5 +1,13 @@
 ## Next
 
+## 3.46.0
+
+### Minor Changes
+
+- 1f987f4: Add ObjC convenience overloads for captureException methods without requiring properties parameter
+- 20ba9dc: Flush event queue when the app enters background to ensure pending events are sent before the app is suspended
+- 6f65947: Capture `$feature_flag_called` event when session replay is gated behind a linked feature flag
+
 ## 3.45.2
 
 ### Patch Changes

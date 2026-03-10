@@ -108,9 +108,11 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api) { [weak self] in
+            remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
-            }
+            }, { [weak self] flagKey, flagValue in
+                self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
+            })
 
             #if !os(watchOS)
                 do {
@@ -1438,6 +1440,9 @@ let maxRetryDelay = 30.0
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
+        if remoteConfig == nil {
+            return
+        }
         var shouldCapture = true
 
         flagCallReportedLock.withLock {

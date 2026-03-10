@@ -30,12 +30,13 @@ enum PostHogRemoteConfigTest {
 
         func getSut(
             storage: PostHogStorage? = nil,
-            config: PostHogConfig? = nil
+            config: PostHogConfig? = nil,
+            featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil
         ) -> PostHogRemoteConfig {
             let theConfig = config ?? self.config
             let theStorage = storage ?? PostHogStorage(theConfig)
             let api = PostHogApi(theConfig)
-            return PostHogRemoteConfig(theConfig, theStorage, api) { [:] }
+            return PostHogRemoteConfig(theConfig, theStorage, api, { [:] }, featureFlagCalledCallback)
         }
     }
 
@@ -635,6 +636,116 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive() == false)
 
                 storage.reset()
+            }
+
+            @Test("calls featureFlagCalledCallback when bool linked flag is checked")
+            func callsFeatureFlagCalledCallbackWhenBoolLinkedFlagIsChecked() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var calledFlagKey: String?
+                var calledFlagValue: Any?
+
+                let sut = getSut(storage: storage) { flagKey, flagValue in
+                    calledFlagKey = flagKey
+                    calledFlagValue = flagValue
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(calledFlagKey != nil)
+                #expect(calledFlagValue != nil)
+            }
+
+            @Test("calls featureFlagCalledCallback when multi variant linked flag is checked")
+            func callsFeatureFlagCalledCallbackWhenMultiVariantLinkedFlagIsChecked() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var calledFlagKey: String?
+                var calledFlagValue: Any?
+
+                let sut = getSut(storage: storage) { flagKey, flagValue in
+                    calledFlagKey = flagKey
+                    calledFlagValue = flagValue
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+                server.returnReplayWithMultiVariant = true
+                server.replayVariantName = "recording-platform"
+                server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(calledFlagKey == "recording-platform-check")
+                #expect(calledFlagValue as? String == "web")
+            }
+
+            @Test("does not call featureFlagCalledCallback when sendFeatureFlagEvent is disabled")
+            func doesNotCallFeatureFlagCalledCallbackWhenSendFeatureFlagEventDisabled() async {
+                let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+                config.sendFeatureFlagEvent = false
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var callbackInvoked = false
+
+                let sut = getSut(storage: storage, config: config) { _, _ in
+                    callbackInvoked = true
+                }
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(callbackInvoked == false)
+            }
+
+            @Test("does not call featureFlagCalledCallback when no linked flag")
+            func doesNotCallFeatureFlagCalledCallbackWhenNoLinkedFlag() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var callbackInvoked = false
+
+                let sut = getSut(storage: storage) { _, _ in
+                    callbackInvoked = true
+                }
+
+                server.returnReplay = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(callbackInvoked == false)
             }
         }
     #endif

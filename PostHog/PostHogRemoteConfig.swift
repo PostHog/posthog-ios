@@ -14,6 +14,7 @@ class PostHogRemoteConfig {
     private let storage: PostHogStorage
     private let api: PostHogApi
     private let getDefaultPersonProperties: () -> [String: Any]
+    private let featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)?
 
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
@@ -68,12 +69,14 @@ class PostHogRemoteConfig {
     init(_ config: PostHogConfig,
          _ storage: PostHogStorage,
          _ api: PostHogApi,
-         _ getDefaultPersonProperties: @escaping () -> [String: Any])
+         _ getDefaultPersonProperties: @escaping () -> [String: Any],
+         _ featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil)
     {
         self.config = config
         self.storage = storage
         self.api = api
         self.getDefaultPersonProperties = getDefaultPersonProperties
+        self.featureFlagCalledCallback = featureFlagCalledCallback
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
@@ -232,10 +235,14 @@ class PostHogRemoteConfig {
 
     private func isRecordingActive(_ featureFlags: [String: Any], _ sessionRecording: [String: Any]) -> Bool {
         var recordingActive = true
+        var flagKey: String?
+        var flagValue: Any?
 
         // check for boolean flags
         if let linkedFlag = sessionRecording["linkedFlag"] as? String {
             let value = featureFlags[linkedFlag]
+            flagKey = linkedFlag
+            flagValue = value
 
             if let boolValue = value as? Bool {
                 // boolean flag with value
@@ -255,6 +262,8 @@ class PostHogRemoteConfig {
             if let flag, let variant {
                 let value = featureFlags[flag] as? String
                 recordingActive = value == variant
+                flagKey = flag
+                flagValue = value
             } else {
                 // disable recording if the flag does not exist/quota limited
                 recordingActive = false
@@ -265,6 +274,11 @@ class PostHogRemoteConfig {
         //    featureFlags[linkedFlag] != nil
         // is also a valid check but since we cannot check the value of the flag,
         // we consider session recording is active
+
+        // Report the feature flag as called so usage is tracked
+        if let flagKey, let flagValue, config.sendFeatureFlagEvent {
+            featureFlagCalledCallback?(flagKey, flagValue)
+        }
 
         return recordingActive
     }

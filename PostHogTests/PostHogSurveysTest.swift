@@ -298,6 +298,26 @@ enum PostHogSurveysTest {
                 }
             }
 
+            @Test("event condition with property filters decodes correctly")
+            func eventConditionWithPropertyFiltersDecodesCorrectly() async throws {
+                let data = try loadFixture("fixture_survey_conditions_event_property_filters")
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                if let events = sut.conditions?.events {
+                    #expect(events.values.count == 1)
+                    #expect(events.values[0].name == "purchase_completed")
+
+                    let filters = events.values[0].propertyFilters
+                    #expect(filters != nil)
+                    #expect(filters?["amount"]?.matchOperator == .gt)
+                    #expect(filters?["amount"]?.values == ["100"])
+                    #expect(filters?["category"]?.matchOperator == .exact)
+                    #expect(filters?["category"]?.values == ["electronics"])
+                } else {
+                    throw TestError("Expected event display condition with property filters")
+                }
+            }
+
             @Test("device type condition decodes correctly")
             func deviceTypeConditionDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_conditions_device_type")
@@ -428,7 +448,7 @@ enum PostHogSurveysTest {
             let sut: PostHogSurveyMatchType = .regex
             let matches = sut.matchFunction
 
-            #expect(matches([url], regex) == shouldMatch)
+            #expect(matches([regex], url) == shouldMatch)
         }
 
         @Test("matches not_regex correctly", arguments: regexMap)
@@ -436,7 +456,7 @@ enum PostHogSurveysTest {
             let sut: PostHogSurveyMatchType = .notRegex
             let matches = sut.matchFunction
 
-            #expect(matches([url], regex) != shouldMatch)
+            #expect(matches([regex], url) != shouldMatch)
         }
 
         @Test("matches icontains correctly")
@@ -447,7 +467,7 @@ enum PostHogSurveysTest {
             #expect(matches(["Hello"], "hello") == true)
             #expect(matches(["Hello"], "HeLLo") == true)
             #expect(matches(["Hello"], "heLLo") == true)
-            #expect(matches(["Hello", "PostHogTest"], "PostHog") == true)
+            #expect(matches(["PostHog"], "PostHogTest") == true)
             #expect(matches(["Hello"], "PostHog") == false)
         }
 
@@ -459,7 +479,7 @@ enum PostHogSurveysTest {
             #expect(matches(["Hello"], "hello") == false)
             #expect(matches(["Hello"], "HeLLo") == false)
             #expect(matches(["Hello"], "heLLo") == false)
-            #expect(matches(["Hello", "PostHogTest"], "PostHog") == false)
+            #expect(matches(["PostHog"], "PostHogTest") == false)
             #expect(matches(["Hello"], "PostHog") == true)
         }
 
@@ -485,6 +505,127 @@ enum PostHogSurveysTest {
             #expect(matches(["Hello"], "heLLo") == true)
             #expect(matches(["Hello"], "Hello") == false)
             #expect(matches(["Hello", "PostHog"], "Hello") == false)
+        }
+
+        @Test("matches gt and lt correctly")
+        func matchesGtLt() {
+            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "150") == true)
+            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "50") == false)
+            #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "50") == true)
+            #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "150") == false)
+            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "not_a_number") == false)
+        }
+    }
+
+    @Suite("Test matchPropertyFilters")
+    class TestMatchPropertyFilters {
+        let server: MockPostHogServer
+        let integration: PostHogSurveyIntegration
+        let postHog: PostHogSDK
+
+        init() throws {
+            server = MockPostHogServer()
+            server.start()
+
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+            config._surveys = true
+            config.flushAt = 1
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            postHog = PostHogSDK.with(config)
+
+            PostHogSurveyIntegration.clearInstalls()
+            integration = PostHogSurveyIntegration()
+            try integration.install(postHog)
+        }
+
+        deinit {
+            server.stop()
+            postHog.close()
+            postHog.reset()
+        }
+
+        @Test("returns true when no filters, false when property is missing")
+        func edgeCases() {
+            #expect(integration.testMatchPropertyFilters(nil, eventProperties: [:]) == true)
+            let filters = ["category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact)]
+            #expect(integration.testMatchPropertyFilters(filters, eventProperties: [:]) == false)
+        }
+
+        @Test("icontains matches value against filter (case-insensitive)")
+        func icontainsOperatorWorks() {
+            let filters = ["query": PostHogPropertyFilter(values: ["product"], matchOperator: .iContains)]
+            #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "new PRODUCT features"]) == true)
+            #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "nothing here"]) == false)
+        }
+    }
+
+    @Suite("Test onEvent with property filters")
+    struct TestOnEventPropertyFilters {
+        let server: MockPostHogServer
+        let integration: PostHogSurveyIntegration
+        let postHog: PostHogSDK
+
+        init() throws {
+            server = MockPostHogServer()
+            server.start()
+
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+            config._surveys = true
+            config.flushAt = 1
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            postHog = PostHogSDK.with(config)
+
+            PostHogSurveyIntegration.clearInstalls()
+            integration = PostHogSurveyIntegration()
+            try integration.install(postHog)
+        }
+
+        @Test("activates survey when event name and properties match")
+        func eventWithPropertiesActivatesSurvey() {
+            let condition = PostHogEventCondition(
+                name: "purchase",
+                propertyFilters: ["amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt)]
+            )
+            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+            integration.onEvent(event: "purchase", properties: ["amount": 150])
+            #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
+        }
+
+        @Test("activates survey when event has no property filters (backward compat)")
+        func eventWithNoFiltersActivatesSurvey() {
+            let condition = PostHogEventCondition(name: "purchase")
+            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+            integration.onEvent(event: "purchase", properties: [:])
+            #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
+        }
+
+        @Test("does not activate survey when one of multiple property filters fails")
+        func partialFilterMismatchPreventsActivation() {
+            let condition = PostHogEventCondition(
+                name: "purchase",
+                propertyFilters: [
+                    "amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt),
+                    "category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact),
+                ]
+            )
+            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+            integration.onEvent(event: "purchase", properties: ["amount": 150, "category": "clothing"])
+            #expect(integration.testIsEventActivated(surveyId: "survey-1") == false)
         }
     }
 

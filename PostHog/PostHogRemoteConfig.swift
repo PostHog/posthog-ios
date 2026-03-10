@@ -14,7 +14,7 @@ class PostHogRemoteConfig {
     private let storage: PostHogStorage
     private let api: PostHogApi
     private let getDefaultPersonProperties: () -> [String: Any]
-    private let onFeatureFlagCalled: ((_ flagKey: String, _ flagValue: Any?) -> Void)?
+    private let featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)?
 
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
@@ -70,13 +70,13 @@ class PostHogRemoteConfig {
          _ storage: PostHogStorage,
          _ api: PostHogApi,
          _ getDefaultPersonProperties: @escaping () -> [String: Any],
-         onFeatureFlagCalled: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil)
+         _ featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil)
     {
         self.config = config
         self.storage = storage
         self.api = api
         self.getDefaultPersonProperties = getDefaultPersonProperties
-        self.onFeatureFlagCalled = onFeatureFlagCalled
+        self.featureFlagCalledCallback = featureFlagCalledCallback
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
@@ -277,7 +277,7 @@ class PostHogRemoteConfig {
 
         // Report the feature flag as called so usage is tracked
         if let flagKey, let flagValue {
-            onFeatureFlagCalled?(flagKey, flagValue)
+            featureFlagCalledCallback?(flagKey, flagValue)
         }
 
         return recordingActive

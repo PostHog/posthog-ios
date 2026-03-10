@@ -276,7 +276,7 @@ class PostHogRemoteConfig {
         // we consider session recording is active
 
         // Report the feature flag as called so usage is tracked
-        if let flagKey, let flagValue {
+        if let flagKey, let flagValue, config.sendFeatureFlagEvent {
             featureFlagCalledCallback?(flagKey, flagValue)
         }
 

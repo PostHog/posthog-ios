@@ -699,6 +699,32 @@ enum PostHogRemoteConfigTest {
                 #expect(calledFlagValue as? String == "web")
             }
 
+            @Test("does not call featureFlagCalledCallback when sendFeatureFlagEvent is disabled")
+            func doesNotCallFeatureFlagCalledCallbackWhenSendFeatureFlagEventDisabled() async {
+                let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+                config.sendFeatureFlagEvent = false
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var callbackInvoked = false
+
+                let sut = getSut(storage: storage, config: config) { _, _ in
+                    callbackInvoked = true
+                }
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(callbackInvoked == false)
+            }
+
             @Test("does not call featureFlagCalledCallback when no linked flag")
             func doesNotCallFeatureFlagCalledCallbackWhenNoLinkedFlag() async {
                 let storage = PostHogStorage(config)

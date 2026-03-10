@@ -204,6 +204,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false
+    var disableFlushOnBackgroundForTesting: Bool = false
     // internal
     public var storageManager: PostHogStorageManager?
 

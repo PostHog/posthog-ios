@@ -19,13 +19,11 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
 
     do {
         let data = try Data(contentsOf: oldQueue)
-        let array = try JSONSerialization.jsonObject(with: data) as? [Any]
-
-        if array == nil {
+        guard let array = try JSONSerialization.jsonObject(with: data) as? [Any] else {
             return
         }
 
-        for item in array! {
+        for item in array {
             guard let event = item as? [String: Any] else {
                 continue
             }

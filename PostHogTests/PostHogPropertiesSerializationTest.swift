@@ -105,6 +105,7 @@ struct PostHogPropertiesSerializationTests {
             config.flushAt = flushAt
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
             config.captureApplicationLifecycleEvents = false
             config.personProfiles = .always
             config.preloadFeatureFlags = false

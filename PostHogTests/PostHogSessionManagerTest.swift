@@ -191,6 +191,7 @@ enum PostHogSessionManagerTest {
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
             config.optOut = optOut
             config.propertiesSanitizer = propertiesSanitizer

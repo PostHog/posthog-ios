@@ -38,6 +38,7 @@ final class PostHogAppLifeCycleIntegrationTest {
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
+        config.disableFlushOnBackgroundForTesting = true
 
         let storage = PostHogStorage(config)
         storage.reset()
@@ -369,6 +370,37 @@ final class PostHogAppLifeCycleIntegrationTest {
         ]
 
         #expect(events.map(\.event) == expectedEventNames)
+
+        sut.close()
+    }
+
+    @Test("flushes the queue when the app enters background")
+    func flushesQueueOnBackground() async throws {
+        setVersionDefaults(version: nil, build: nil)
+
+        // SDK init with flush-on-background enabled (not disabled for testing)
+        let config = PostHogConfig(apiKey: "app_lifecycle_flush", host: "http://localhost:9000")
+        config.captureApplicationLifecycleEvents = false
+        config.flushAt = 100 // high threshold so events are not auto-flushed
+        config.maxBatchSize = 100
+
+        let storage = PostHogStorage(config)
+        storage.reset()
+
+        let sut = PostHogSDK.with(config)
+
+        // Capture some events
+        sut.capture("event 1")
+        sut.capture("event 2")
+
+        // Simulate background - this should trigger a flush
+        mockAppLifecycle.simulateAppDidEnterBackground()
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(events[0].event == "event 1")
+        #expect(events[1].event == "event 2")
 
         sut.close()
     }

@@ -13,10 +13,27 @@ permissions:
 jobs:
   build:
     runs-on: macos-15-xlarge
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ios
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty
+          - platform: macos-spm
+            command: set -o pipefail && xcrun swift build --arch arm64
+          - platform: macos
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=macos | xcpretty
+          - platform: tvos
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=tvos | xcpretty
+          - platform: watchos
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=watchos | xcpretty
+          - platform: visionos
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=xros | xcpretty
+    name: Build SDK (${{ matrix.platform }})
     steps:
       - uses: actions/checkout@v6
       - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
         with:
           xcode-version: latest-stable
-      - name: Build SDK
-        run: make buildSdk
+      - name: Build SDK (${{ matrix.platform }})
+        run: ${{ matrix.command }}

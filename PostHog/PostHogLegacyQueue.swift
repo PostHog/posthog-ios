@@ -20,6 +20,7 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
     do {
         let data = try Data(contentsOf: oldQueue)
         guard let array = try JSONSerialization.jsonObject(with: data) as? [Any] else {
+            hedgeLog("Failed to migrate queue: invalid data format")
             return
         }
 

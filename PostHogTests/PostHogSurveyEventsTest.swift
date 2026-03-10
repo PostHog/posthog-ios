@@ -94,7 +94,7 @@ class PostHogSurveyEventsTest {
         config.flushAt = 1
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
-            config.disableFlushOnBackgroundForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = false
 
         let storage = PostHogStorage(config)

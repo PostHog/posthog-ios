@@ -32,13 +32,14 @@ final class PostHogAppLifeCycleIntegrationTest {
 
     private func getSut(
         flushAt: Int = 1,
-        captureApplicationLifecycleEvents: Bool = true
+        captureApplicationLifecycleEvents: Bool = true,
+        disableFlushOnBackgroundForTesting: Bool = true
     ) -> PostHogSDK {
         let config = PostHogConfig(apiKey: "app_lifecycle", host: "http://localhost:9000")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
-        config.disableFlushOnBackgroundForTesting = true
+        config.disableFlushOnBackgroundForTesting = disableFlushOnBackgroundForTesting
 
         let storage = PostHogStorage(config)
         storage.reset()
@@ -378,16 +379,12 @@ final class PostHogAppLifeCycleIntegrationTest {
     func flushesQueueOnBackground() async throws {
         setVersionDefaults(version: nil, build: nil)
 
-        // SDK init with flush-on-background enabled (not disabled for testing)
-        let config = PostHogConfig(apiKey: "app_lifecycle_flush", host: "http://localhost:9000")
-        config.captureApplicationLifecycleEvents = false
-        config.flushAt = 100 // high threshold so events are not auto-flushed
-        config.maxBatchSize = 100
-
-        let storage = PostHogStorage(config)
-        storage.reset()
-
-        let sut = PostHogSDK.with(config)
+        // SDK init with flush-on-background enabled and high flushAt so events are not auto-flushed
+        let sut = getSut(
+            flushAt: 100,
+            captureApplicationLifecycleEvents: false,
+            disableFlushOnBackgroundForTesting: false
+        )
 
         // Capture some events
         sut.capture("event 1")

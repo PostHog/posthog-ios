@@ -1738,6 +1738,21 @@ let maxRetryDelay = 30.0
         capture("$exception", properties: mergedProperties)
     }
 
+    /// Capture a Swift Error or NSError without additional properties
+    ///
+    /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
+    ///
+    /// - Parameter error: The error to capture (can be any Error or NSError)
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
+    @objc(captureExceptionWithError:)
+    public func captureException(
+        _ error: Error
+    ) {
+        captureException(error, properties: nil)
+    }
+
     /// Capture an NSException
     ///
     /// Captures an NSException as a `$exception` event with full stack trace.
@@ -1775,6 +1790,21 @@ let maxRetryDelay = 30.0
         properties?.forEach { mergedProperties[$0.key] = $0.value }
 
         capture("$exception", properties: mergedProperties)
+    }
+
+    /// Capture an NSException without additional properties
+    ///
+    /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
+    ///
+    /// - Parameter exception: The NSException to capture
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
+    @objc(captureExceptionWithNSException:)
+    public func captureException(
+        _ exception: NSException
+    ) {
+        captureException(exception, properties: nil)
     }
 
     private func installIntegrations() {

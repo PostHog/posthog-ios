@@ -94,6 +94,10 @@ class PostHogRemoteConfig {
             _ = getCachedRemoteConfig()
         }
 
+        guard !config.disableRemoteConfigForTesting else {
+            return
+        }
+
         // may have already beed fetched from `loadFeatureFlags` call
         if remoteConfigLock.withLock({
             self.remoteConfig == nil || !self.remoteConfigDidFetch

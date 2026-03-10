@@ -617,6 +617,7 @@ enum PostHogSurveysTest {
         init() {
             let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
             config._surveys = true
+            config.disableFlushOnBackgroundForTesting = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()
@@ -1015,6 +1016,7 @@ enum PostHogSurveysTest {
         init() {
             let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
             config._surveys = true
+            config.disableFlushOnBackgroundForTesting = true
             postHog = PostHogSDK.with(config)
             storage = PostHogStorage(config)
             storage.reset()

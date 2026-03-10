@@ -12,7 +12,12 @@ import XCTest
 @Suite("Test Remote Config", .serialized)
 enum PostHogRemoteConfigTest {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config: PostHogConfig = {
+            let c = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            c.disableRemoteConfigForTesting = true
+            return c
+        }()
+
         var server: MockPostHogServer!
 
         init() {

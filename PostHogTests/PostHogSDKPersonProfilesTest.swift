@@ -20,6 +20,7 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
         config.sendFeatureFlagEvent = false
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = false
         config.personProfiles = personProfiles
         return PostHogSDK.with(config)

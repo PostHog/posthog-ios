@@ -51,6 +51,7 @@ let maxRetryDelay = 30.0
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     private var sessionIdChangedToken: RegistrationToken?
+    private var didEnterBackgroundToken: RegistrationToken?
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -158,6 +159,14 @@ let maxRetryDelay = 30.0
 
                 // Notify integrations of initial context (e.g., for crash reporting)
                 notifyContextDidChange()
+            }
+
+            // Flush the queue when the app enters background to ensure
+            // pending events are sent before the app is suspended
+            if !config.disableFlushOnBackgroundForTesting {
+                didEnterBackgroundToken = DI.main.appLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
+                    self?.flush()
+                }
             }
 
             DispatchQueue.main.async {
@@ -1572,6 +1581,7 @@ let maxRetryDelay = 30.0
             }
             context = nil
             sessionManager.endSession()
+            didEnterBackgroundToken = nil
             toggleHedgeLog(false)
 
             uninstallIntegrations()

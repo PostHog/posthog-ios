@@ -16,8 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap
-        run: make bootstrap
+      - name: Install linting tools
+        run: |
+          brew install swiftlint swiftformat
 
       - name: Run lints
         run: make lint

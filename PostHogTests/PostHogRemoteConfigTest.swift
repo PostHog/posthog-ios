@@ -758,31 +758,44 @@ enum PostHogRemoteConfigTest {
     class TestErrorTrackingConfig: BaseTestClass {
         @Test("returns isAutocaptureExceptionsEnabled false by default")
         func returnsAutocaptureExceptionsDisabledByDefault() {
-            let sut = getSut()
+            // Use isolated config to prevent async remote config loads from other tests interfering
+            let isolatedConfig = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
+            server.remoteConfigErrorTracking = nil
+
+            let storage = PostHogStorage(isolatedConfig)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: isolatedConfig)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }
 
         @Test("returns isAutocaptureExceptionsEnabled true from cached config")
         func returnsAutocaptureExceptionsEnabledFromCache() {
-            let storage = PostHogStorage(config)
+            // Use isolated config to prevent async remote config loads from other tests interfering
+            let isolatedConfig = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
+            let storage = PostHogStorage(isolatedConfig)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
 
-            let sut = getSut(storage: storage)
+            let sut = getSut(storage: storage, config: isolatedConfig)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
 
         @Test("returns isAutocaptureExceptionsEnabled false from cached config when disabled")
         func returnsAutocaptureExceptionsDisabledFromCache() {
-            let storage = PostHogStorage(config)
+            // Use isolated config to prevent async remote config loads from other tests interfering
+            let isolatedConfig = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
+            let storage = PostHogStorage(isolatedConfig)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": false])
 
-            let sut = getSut(storage: storage)
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
+
+            let sut = getSut(storage: storage, config: isolatedConfig)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }

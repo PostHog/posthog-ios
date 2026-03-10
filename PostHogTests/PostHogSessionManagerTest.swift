@@ -160,6 +160,8 @@ enum PostHogSessionManagerTest {
         var server: MockPostHogServer!
 
         init() {
+            PostHogAppLifeCycleIntegration.clearInstalls()
+
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
 
@@ -206,6 +208,9 @@ enum PostHogSessionManagerTest {
             let mockNow = MockDate()
             now = { mockNow.date }
 
+            // Clear any stale batch requests from previous tests' PostHogSDK instances
+            server.reset(batchCount: 1)
+
             defer {
                 sut.reset()
                 sut.close()
@@ -238,6 +243,9 @@ enum PostHogSessionManagerTest {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
+
+            // Clear any stale batch requests from previous tests' PostHogSDK instances
+            server.reset(batchCount: 1)
 
             defer {
                 sut.reset()
@@ -277,6 +285,9 @@ enum PostHogSessionManagerTest {
             let mockNow = MockDate()
             var compoundedTime: TimeInterval = 0
             now = { mockNow.date }
+
+            // Clear any stale batch requests from previous tests' PostHogSDK instances
+            server.reset(batchCount: 1)
 
             defer {
                 sut.reset()

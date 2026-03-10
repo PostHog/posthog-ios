@@ -20,6 +20,9 @@ enum PostHogFeatureFlagsTest {
     class BaseTestClass {
         let config: PostHogConfig = {
             let c = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
+            c.preloadFeatureFlags = false
+            c.disableReachabilityForTesting = true
+            c.disableQueueTimerForTesting = true
             c.disableFlushOnBackgroundForTesting = true
             return c
         }()

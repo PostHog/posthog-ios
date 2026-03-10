@@ -12,7 +12,12 @@ import XCTest
 @Suite("Test Remote Config", .serialized)
 enum PostHogRemoteConfigTest {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config: PostHogConfig = {
+            let c = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            c.disableRemoteConfigForTesting = true
+            return c
+        }()
+
         var server: MockPostHogServer!
 
         init() {
@@ -758,44 +763,31 @@ enum PostHogRemoteConfigTest {
     class TestErrorTrackingConfig: BaseTestClass {
         @Test("returns isAutocaptureExceptionsEnabled false by default")
         func returnsAutocaptureExceptionsDisabledByDefault() {
-            // Use isolated config to prevent async remote config loads from other tests interfering
-            let isolatedConfig = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
-            server.remoteConfigErrorTracking = nil
-
-            let storage = PostHogStorage(isolatedConfig)
-            defer { storage.reset() }
-
-            let sut = getSut(storage: storage, config: isolatedConfig)
+            let sut = getSut()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }
 
         @Test("returns isAutocaptureExceptionsEnabled true from cached config")
         func returnsAutocaptureExceptionsEnabledFromCache() {
-            // Use isolated config to prevent async remote config loads from other tests interfering
-            let isolatedConfig = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
-            let storage = PostHogStorage(isolatedConfig)
+            let storage = PostHogStorage(config)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
 
-            let sut = getSut(storage: storage, config: isolatedConfig)
+            let sut = getSut(storage: storage)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
 
         @Test("returns isAutocaptureExceptionsEnabled false from cached config when disabled")
         func returnsAutocaptureExceptionsDisabledFromCache() {
-            // Use isolated config to prevent async remote config loads from other tests interfering
-            let isolatedConfig = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
-            let storage = PostHogStorage(isolatedConfig)
+            let storage = PostHogStorage(config)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": false])
 
-            server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
-
-            let sut = getSut(storage: storage, config: isolatedConfig)
+            let sut = getSut(storage: storage)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }

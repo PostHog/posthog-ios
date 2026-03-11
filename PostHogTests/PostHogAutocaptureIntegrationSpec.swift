@@ -22,6 +22,7 @@ import Quick
                 config.captureElementInteractions = true
                 config.flushIntervalSeconds = 0.2
                 config.maxBatchSize = 1
+                config.disableFlushOnBackgroundForTesting = true
 
                 server = MockPostHogServer()
                 server.start()

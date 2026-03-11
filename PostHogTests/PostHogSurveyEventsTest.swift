@@ -83,7 +83,8 @@ class PostHogSurveyEventsTest {
             currentIteration: currentIteration,
             currentIterationStartDate: currentIterationStartDate,
             startDate: Date(),
-            endDate: nil
+            endDate: nil,
+            schedule: nil
         )
     }
 
@@ -93,6 +94,7 @@ class PostHogSurveyEventsTest {
         config.flushAt = 1
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = false
 
         let storage = PostHogStorage(config)

@@ -74,11 +74,11 @@
         func start() {
             #if os(iOS)
                 // TODO: listen to screen view events
-                didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: 5) { [weak self] in
+                didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
                     self?.showNextSurvey()
                 }
 
-                didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive { [weak self] in
+                didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                     self?.showNextSurvey()
                 }
             #endif
@@ -113,6 +113,9 @@
                         // TODO: Check event conditions
                         let deviceTypeCheck = self.doesSurveyDeviceTypesMatch(survey: survey)
                         return deviceTypeCheck
+                    }
+                    .filter { survey in // 3.5. wait period has passed
+                        self.hasWaitPeriodPassed(survey: survey)
                     }
                     .filter { survey in // 4. and match linked flags
                         let allKeys: [String?] = [
@@ -323,6 +326,7 @@
             }
 
             storage?.setDictionary(forKey: .surveySeen, contents: seenKeys ?? [:])
+            setLastSeenSurveyDate(Date())
         }
 
         /// Returns survey seen list (and mem-cache from disk if needed)
@@ -360,6 +364,29 @@
             let matchType = getMatchTypeOrDefault(conditions.deviceTypesMatchType)
 
             return matchType.matches(targets: deviceTypes, value: deviceType)
+        }
+
+        /// Checks if the wait period has passed since the last seen survey date
+        private func hasWaitPeriodPassed(survey: PostHogSurvey) -> Bool {
+            guard let waitPeriodInDays = survey.conditions?.seenSurveyWaitPeriodInDays else {
+                return true
+            }
+            guard let lastSeenDate = getLastSeenSurveyDate() else {
+                return true
+            }
+            let now = Date()
+            let diffSeconds = abs(now.timeIntervalSince(lastSeenDate))
+            let diffDays = Int(ceil(diffSeconds / secondsPerDay))
+            return diffDays > waitPeriodInDays
+        }
+
+        private func getLastSeenSurveyDate() -> Date? {
+            guard let dateString = storage?.getString(forKey: .lastSeenSurveyDate) else { return nil }
+            return toISO8601Date(dateString)
+        }
+
+        private func setLastSeenSurveyDate(_ date: Date) {
+            storage?.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(date))
         }
 
         /// Checks if a survey has been previously activated by an associated event
@@ -796,7 +823,8 @@
         }
 
         var canActivateRepeatedly: Bool {
-            conditions?.events?.repeatedActivation == true && hasEvents
+            (conditions?.events?.repeatedActivation == true && hasEvents) ||
+                schedule == .always
         }
     }
 

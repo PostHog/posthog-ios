@@ -490,7 +490,11 @@ enum PostHogSurveysTest {
 
     @Suite("Test canActivateRepeatedly")
     struct TestCanActivateRepeatedly {
-        private func getSut(repeatedActivation: Bool?, values: [PostHogEventCondition]) -> PostHogSurvey {
+        private func getSut(
+            repeatedActivation: Bool?,
+            values: [PostHogEventCondition],
+            schedule: PostHogSurveySchedule? = nil
+        ) -> PostHogSurvey {
             PostHogSurvey(
                 id: "id",
                 name: "name",
@@ -517,7 +521,8 @@ enum PostHogSurveysTest {
                 currentIteration: nil,
                 currentIterationStartDate: nil,
                 startDate: nil,
-                endDate: nil
+                endDate: nil,
+                schedule: schedule
             )
         }
 
@@ -556,6 +561,52 @@ enum PostHogSurveysTest {
 
             #expect(sut.canActivateRepeatedly == false)
         }
+
+        @Test("returns true when schedule is always, even without events")
+        func returnsTrueWhenScheduleIsAlways() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .always
+            )
+
+            #expect(sut.canActivateRepeatedly == true)
+        }
+
+        @Test("returns false when schedule is once")
+        func returnsFalseWhenScheduleIsOnce() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .once
+            )
+
+            #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns false when schedule is recurring")
+        func returnsFalseWhenScheduleIsRecurring() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .recurring
+            )
+
+            #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns true when schedule is always, even with repeatedActivation false")
+        func returnsTrueWhenScheduleIsAlwaysRegardlessOfRepeatedActivation() {
+            let sut = getSut(
+                repeatedActivation: false,
+                values: [
+                    PostHogEventCondition(name: "first event"),
+                ],
+                schedule: .always
+            )
+
+            #expect(sut.canActivateRepeatedly == true)
+        }
     }
 
 #if os(iOS)
@@ -567,6 +618,7 @@ enum PostHogSurveysTest {
         init() {
             let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
             config._surveys = true
+            config.disableFlushOnBackgroundForTesting = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()
@@ -953,6 +1005,158 @@ enum PostHogSurveysTest {
             }
 
             #expect(matchedSurveys.map(\.id) == ["survey-with-internal-flag-enabled"])
+        }
+    }
+
+    @Suite("Test survey wait period", .serialized)
+    class TestSurveyWaitPeriod {
+        let server: MockPostHogServer
+        let postHog: PostHogSDK
+        let storage: PostHogStorage
+
+        init() {
+            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+            config._surveys = true
+            config.disableFlushOnBackgroundForTesting = true
+            postHog = PostHogSDK.with(config)
+            storage = PostHogStorage(config)
+            storage.reset()
+            server = MockPostHogServer()
+            server.start()
+        }
+
+        deinit {
+            server.stop()
+            postHog.close()
+            postHog.reset()
+        }
+
+        let activeSurveyNoWaitPeriod =
+            """
+            {
+                "id": "no-wait-period",
+                "name": "Survey without wait period",
+                "type": "popover",
+                "questions": [
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "What do you think?",
+                        "originalQuestionIndex": 0
+                    }
+                ],
+                "start_date": "2024-07-23T09:18:18.376000Z"
+            }
+            """
+
+        let activeSurveyWithWaitPeriod =
+            """
+            {
+                "id": "with-wait-period",
+                "name": "Survey with wait period",
+                "type": "popover",
+                "questions": [
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "What do you think?",
+                        "originalQuestionIndex": 0
+                    }
+                ],
+                "conditions": {
+                    "seenSurveyWaitPeriodInDays": 7
+                },
+                "start_date": "2024-07-23T09:18:18.376000Z"
+            }
+            """
+
+        private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
+            server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
+            let sut = PostHogSurveyIntegration()
+            PostHogSurveyIntegration.clearInstalls()
+            try! sut.install(postHog)
+            return sut
+        }
+
+        @Test("survey without wait period is not filtered")
+        func surveyWithoutWaitPeriodIsNotFiltered() async {
+            let sut = getSut(surveys: [activeSurveyNoWaitPeriod])
+
+            // Set last seen date to recently
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(Date()))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
+        }
+
+        @Test("survey with wait period passes when no survey was previously seen")
+        func surveyWithWaitPeriodPassesWhenNoPreviouslySeen() async {
+            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+        }
+
+        @Test("survey with wait period is filtered when period has not elapsed")
+        func surveyWithWaitPeriodIsFilteredWhenNotElapsed() async {
+            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+            // Set last seen date to 1 day ago (wait period is 7 days)
+            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.isEmpty)
+        }
+
+        @Test("survey with wait period passes when period has elapsed")
+        func surveyWithWaitPeriodPassesWhenElapsed() async {
+            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+            // Set last seen date to 10 days ago (wait period is 7 days)
+            let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(tenDaysAgo))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+        }
+
+        @Test("survey without wait period is not affected by last seen date")
+        func surveyWithoutWaitPeriodNotAffectedByLastSeenDate() async {
+            let sut = getSut(surveys: [activeSurveyNoWaitPeriod, activeSurveyWithWaitPeriod])
+
+            // Set last seen date to 1 day ago (wait period is 7 days)
+            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            // Only the survey without wait period should pass
+            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
         }
     }
 
@@ -1409,7 +1613,8 @@ private extension PostHogSurvey {
         currentIteration: Int? = nil,
         currentIterationStartDate: Date? = nil,
         startDate: Date? = nil,
-        endDate: Date? = nil
+        endDate: Date? = nil,
+        schedule: PostHogSurveySchedule? = nil
     ) -> PostHogSurvey {
         PostHogSurvey(
             id: id,
@@ -1425,7 +1630,8 @@ private extension PostHogSurvey {
             currentIteration: currentIteration,
             currentIterationStartDate: currentIterationStartDate,
             startDate: startDate,
-            endDate: endDate
+            endDate: endDate,
+            schedule: schedule
         )
     }
 }

@@ -1359,6 +1359,87 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Captures a $feature_view event for the specified feature flag.
+    ///
+    /// - Parameter flag: The key of the feature flag being viewed.
+    /// - Parameter flagVariant: The variant of the feature flag being viewed.
+    @objc public func captureFeatureView(flag: String, flagVariant: String?) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
+        // If neither is available, there is no meaningful variant to record, so we skip the event.
+        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
+            hedgeLog("captureFeatureView called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            return
+        }
+
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_view/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_view",
+            properties: props,
+            userProperties: userProps
+        )
+    }
+
+    /// Captures a $feature_interaction event for the specified feature flag.
+    ///
+    /// - Parameter flag: The key of the feature flag being interacted with.
+    /// - Parameter flagVariant: The variant of the feature flag being interacted with.
+    @objc public func captureFeatureInteraction(
+        flag: String,
+        flagVariant: String?
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
+        // If neither is available, there is no meaningful variant to record, so we skip the event.
+        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
+            hedgeLog("captureFeatureInteraction called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            return
+        }
+
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_interaction/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_interaction",
+            properties: props,
+            userProperties: userProps
+        )
+    }
+
     /// Returns the feature flag result containing the flag value, variant, and payload.
     ///
     /// This is the recommended method for retrieving feature flags as it provides

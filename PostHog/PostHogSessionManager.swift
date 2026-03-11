@@ -56,8 +56,8 @@ import Foundation
     private let sessionActivityThreshold: TimeInterval = 60 * 30
     // 24 hours in seconds
     private let sessionMaxLengthThreshold: TimeInterval = 24 * 60 * 60
-    // Called when session id is cleared or changes
-    var onSessionIdChanged: () -> Void = {}
+    /// callback for session ID changes
+    var onSessionIdChanged = PostHogMulticastCallback<Void>()
 
     @objc public func setSessionId(_ sessionId: String) {
         setSessionIdInternal(sessionId, at: now(), reason: .customSessionId)
@@ -214,7 +214,7 @@ import Foundation
             self.sessionActivityTimestamp = timestamp
         }
 
-        onSessionIdChanged()
+        onSessionIdChanged.invoke(())
 
         if let sessionId {
             hedgeLog("New session id created \(sessionId) (\(reason))")
@@ -228,7 +228,7 @@ import Foundation
 
     private func registerNotifications() {
         let lifecyclePublisher = DI.main.appLifecyclePublisher
-        didBecomeActiveToken = lifecyclePublisher.onDidBecomeActive { [weak self] in
+        didBecomeActiveToken = lifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
             guard let self, sessionLock.withLock({ self.isAppInBackground }) else {
                 return
             }
@@ -237,7 +237,7 @@ import Foundation
             touchSession()
             sessionLock.withLock { self.isAppInBackground = false }
         }
-        didEnterBackgroundToken = lifecyclePublisher.onDidEnterBackground { [weak self] in
+        didEnterBackgroundToken = lifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
             guard let self, !sessionLock.withLock({ self.isAppInBackground }) else {
                 return
             }
@@ -255,7 +255,7 @@ import Foundation
             guard let config, config.enableSwizzling else {
                 return
             }
-            applicationEventToken = DI.main.applicationEventPublisher.onApplicationEvent { [weak self] _, _ in
+            applicationEventToken = DI.main.applicationEventPublisher.onApplicationEvent.subscribe { [weak self] _, _ in
                 // update "last active" session
                 // we want to keep track of the idle time, so we need to maintain a timestamp on the last interactions of the user with the app. UIEvents are a good place to do so since it means that the user is actively interacting with the app (e.g not just noise background activity)
                 self?.queue.async {

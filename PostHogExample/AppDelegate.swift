@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import PostHog
+@_spi(Experimental) import PostHog
 import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
@@ -20,10 +20,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 //        config.flushAt = 1
 //        config.flushIntervalSeconds = 30
         config.debug = true
+        config.flushAt = 1
         config.sendFeatureFlagEvent = false
 
+        #if os(iOS) || os(macOS) || os(tvOS)
+            config.errorTrackingConfig.autoCapture = false
+        #endif
+
         #if os(iOS)
-            config.sessionReplay = true
+            config.sessionReplay = false
             config.sessionReplayConfig.screenshotMode = true
             config.sessionReplayConfig.maskAllTextInputs = true
             config.sessionReplayConfig.maskAllImages = true
@@ -58,6 +63,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
     @objc func receiveFeatureFlags() {
         print("user receiveFeatureFlags callback")
+        #if DEBUG
+            let testFlag = PostHogSDK.shared.getFeatureFlag("bool-value")
+            print("Feature flag 'bool-value': \(String(describing: testFlag))")
+        #endif
         print("[SKIP] user receiveFeatureFlags callback")
     }
 }

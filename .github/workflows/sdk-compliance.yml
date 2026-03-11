@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload adapter logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: adapter-logs
           path: sdk_compliance_adapter/adapter*.log
@@ -114,7 +114,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sdk-compliance-report
           path: report/sdk-compliance-report.md
@@ -135,10 +135,13 @@ jobs:
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v8
+        env:
+          REPORT_PATH: ${{ github.workspace }}/report/sdk-compliance-report.md
+          SDK_NAME: ${{ steps.extract-sdk-name.outputs.sdk-name }}
         with:
           script: |
             const fs = require('fs');
-            const reportPath = '${{ github.workspace }}/report/sdk-compliance-report.md';
+            const reportPath = process.env.REPORT_PATH;
 
             if (!fs.existsSync(reportPath)) {
               console.log('Report file not found, skipping PR comment');
@@ -146,7 +149,7 @@ jobs:
             }
 
             const report = fs.readFileSync(reportPath, 'utf8');
-            const sdkName = '${{ steps.extract-sdk-name.outputs.sdk-name }}' || 'posthog-ios';
+            const sdkName = process.env.SDK_NAME || 'posthog-ios';
             // Use SDK-specific marker so multiple adapters don't overwrite each other
             const commentMarker = `<!-- posthog-sdk-compliance-report-${sdkName} -->`;
             const body = `${commentMarker}\n${report}`;

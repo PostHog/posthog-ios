@@ -160,6 +160,8 @@ enum PostHogSessionManagerTest {
         var server: MockPostHogServer!
 
         init() {
+            PostHogAppLifeCycleIntegration.clearInstalls()
+
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
 
@@ -191,6 +193,7 @@ enum PostHogSessionManagerTest {
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
             config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
             config.optOut = optOut
             config.propertiesSanitizer = propertiesSanitizer
@@ -204,6 +207,9 @@ enum PostHogSessionManagerTest {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
+
+            // Clear any stale batch requests from previous tests' PostHogSDK instances
+            server.reset(batchCount: 1)
 
             defer {
                 sut.reset()
@@ -237,6 +243,9 @@ enum PostHogSessionManagerTest {
             let sut = getSut(flushAt: 2)
             let mockNow = MockDate()
             now = { mockNow.date }
+
+            // Clear any stale batch requests from previous tests' PostHogSDK instances
+            server.reset(batchCount: 1)
 
             defer {
                 sut.reset()
@@ -276,6 +285,9 @@ enum PostHogSessionManagerTest {
             let mockNow = MockDate()
             var compoundedTime: TimeInterval = 0
             now = { mockNow.date }
+
+            // Clear any stale batch requests from previous tests' PostHogSDK instances
+            server.reset(batchCount: 1)
 
             defer {
                 sut.reset()
@@ -347,7 +359,7 @@ enum PostHogSessionManagerTest {
             let token: RegistrationToken
 
             init(_ publisher: MockApplicationLifecyclePublisher) {
-                token = publisher.onDidBecomeActive {
+                token = publisher.onDidBecomeActive.subscribe {
                     // handle here
                 }
             }
@@ -365,11 +377,11 @@ enum PostHogSessionManagerTest {
                 LifeCycleSub(sut),
             ]
 
-            #expect(sut.didBecomeActiveHandlers.count == 5)
+            #expect(sut.onDidBecomeActive.subscriberCount == 5)
             registrations.removeFirst(2)
-            #expect(sut.didBecomeActiveHandlers.count == 3)
+            #expect(sut.onDidBecomeActive.subscriberCount == 3)
             registrations.removeAll()
-            #expect(sut.didBecomeActiveHandlers.isEmpty)
+            #expect(sut.onDidBecomeActive.subscriberCount == 0)
         }
     }
 

@@ -88,6 +88,8 @@ enum PostHogSurveyMatchType: Decodable, Equatable {
     case isNot
     case iContains
     case notIContains
+    case gt
+    case lt
     case unknown(value: String)
 
     init(from decoder: any Decoder) throws {
@@ -107,6 +109,10 @@ enum PostHogSurveyMatchType: Decodable, Equatable {
             self = .iContains
         case "not_icontains":
             self = .notIContains
+        case "gt":
+            self = .gt
+        case "lt":
+            self = .lt
         default:
             self = .unknown(value: valueString)
         }

@@ -882,7 +882,7 @@ let maxRetryDelay = 30.0
         }
 
         #if os(iOS)
-            surveysIntegration?.onEvent(event: posthogEvent.event)
+            surveysIntegration?.onEvent(event: posthogEvent.event, properties: posthogEvent.properties)
         #endif
     }
 

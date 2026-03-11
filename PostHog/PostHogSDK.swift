@@ -1402,8 +1402,10 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter flag: The key of the feature flag being interacted with.
     /// - Parameter flagVariant: The variant of the feature flag being interacted with.
-    @objc public func captureFeatureInteraction(flag: String,
-        flagVariant: String?) {
+    @objc public func captureFeatureInteraction(
+        flag: String,
+        flagVariant: String?
+    ) {
         if !isEnabled() {
             return
         }

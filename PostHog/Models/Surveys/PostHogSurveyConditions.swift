@@ -40,8 +40,23 @@ struct PostHogSurveyActionsConditions: Decodable {
     let values: [PostHogEventCondition]
 }
 
+/// Represents a single property filter for event condition matching
+struct PostHogPropertyFilter: Decodable, Equatable {
+    /// The values to compare against
+    let values: [String]
+    /// The comparison operator
+    let matchOperator: PostHogSurveyMatchType
+
+    enum CodingKeys: String, CodingKey {
+        case values
+        case matchOperator = "operator"
+    }
+}
+
 /// Represents a single event condition used in survey targeting
 struct PostHogEventCondition: Decodable, Equatable {
     /// Name of the event (e.g., "content loaded")
     let name: String
+    /// Property filters that must match for this event condition (optional)
+    var propertyFilters: [String: PostHogPropertyFilter]? = nil
 }

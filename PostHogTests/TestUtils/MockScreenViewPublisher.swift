@@ -7,8 +7,10 @@
 
 @testable import PostHog
 
-final class MockScreenViewPublisher: BaseScreenViewPublisher {
+final class MockScreenViewPublisher: ScreenViewPublishing {
+    lazy var onScreenView = PostHogMulticastCallback<String>()
+
     func simulateScreenView(screen: String) {
-        notifyHandlers(screen: screen)
+        onScreenView.invoke(screen)
     }
 }

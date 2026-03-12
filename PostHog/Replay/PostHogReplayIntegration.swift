@@ -35,6 +35,7 @@
         private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
         private var remoteConfigLoadedToken: RegistrationToken?
+        private var sessionIdChangedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
         /**
@@ -166,7 +167,7 @@
 
             isEnabled = true
             // reset views when session id changes (or is cleared) so we can re-send new metadata (or full snapshot in the future)
-            postHog.sessionManager.onSessionIdChanged = { [weak self] in
+            sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
                 self?.resetViews()
                 self?.reevaluateSampling()
             }
@@ -174,7 +175,7 @@
             // flutter captures snapshots, so we don't need to capture them here
             if isNotFlutter() {
                 let interval = postHog.config.sessionReplayConfig.throttleDelay
-                viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout(throttle: interval) { [weak self] in
+                viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: interval) { [weak self] in
                     // called on main thread
                     self?.snapshot()
                 }
@@ -182,7 +183,7 @@
 
             // start listening to `UIApplication.sendEvent`
             let applicationEventPublisher = DI.main.applicationEventPublisher
-            applicationEventToken = applicationEventPublisher.onApplicationEvent { [weak self] event, date in
+            applicationEventToken = applicationEventPublisher.onApplicationEvent.subscribe { [weak self] event, date in
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
@@ -208,12 +209,12 @@
 
             // Start listening to application background events and pause all plugins
             let applicationLifecyclePublisher = DI.main.appLifecyclePublisher
-            applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground { [weak self] in
+            applicationBackgroundedToken = applicationLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
                 self?.pauseAllPlugins()
             }
 
             // Start listening to application foreground events and resume all plugins
-            applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive { [weak self] in
+            applicationForegroundedToken = applicationLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                 self?.resumeAllPlugins()
             }
 
@@ -227,7 +228,7 @@
             guard isEnabled else { return }
             isEnabled = false
             resetViews()
-            postHog?.sessionManager.onSessionIdChanged = {}
+            sessionIdChangedToken = nil
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil

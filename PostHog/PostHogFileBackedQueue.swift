@@ -34,7 +34,8 @@ class PostHogFileBackedQueue {
 
         do {
             let loadedItems = try FileManager.default.contentsOfDirectory(atPath: queue.path)
-            let sortedItems = loadedItems.sorted { Double($0)! < Double($1)! }
+            // Since this queue is ephemeral, lexicographical sort works for both old (timestamp-only) and new (timestamp-UUID) formats 
+            let sortedItems = loadedItems.sorted() 
             itemsLock.withLock { items = sortedItems }
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
@@ -63,7 +64,7 @@ class PostHogFileBackedQueue {
 
     func add(_ contents: Data) {
         do {
-            let filename = "\(Date().timeIntervalSince1970)"
+            let filename = "\(Date().timeIntervalSince1970)-\(UUID.v7().uuidString)"
             try contents.write(to: queue.appendingPathComponent(filename))
             itemsLock.withLock { items.append(filename) }
         } catch {

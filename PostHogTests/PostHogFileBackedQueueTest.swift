@@ -173,5 +173,42 @@ class PostHogFileBackedQueueTest: QuickSpec {
             expect(sut.depth) == 0
             expect(items.count) == 0
         }
+
+        it("loads and sorts files in chronological order") {
+            let baseUrl = applicationSupportDirectoryURL()
+            let newURL = baseUrl.appendingPathComponent("queue")
+            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+            // Create new and old files in random order
+            let newFile1 = newURL.appendingPathComponent("1698236047.456-A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
+            try "new-event-1".data(using: .utf8)!.write(to: newFile1)
+
+            
+            let oldFile1 = newURL.appendingPathComponent("1698236044.407")
+            try "old-event-1".data(using: .utf8)!.write(to: oldFile1)
+            
+            let oldFile3 = newURL.appendingPathComponent("1698236046.789")
+            try "old-event-3".data(using: .utf8)!.write(to: oldFile3)
+
+            let newFile2 = newURL.appendingPathComponent("1698236048.789-F1E2D3C4-B5A6-7890-1234-567890ABCDEF")
+            try "new-event-2".data(using: .utf8)!.write(to: newFile2)
+
+            let oldFile2 = newURL.appendingPathComponent("1698236045.123")
+            try "old-event-2".data(using: .utf8)!.write(to: oldFile2)
+            
+            // Initialize queue - should load and sort all files correctly
+            let sut = self.getSut()
+
+            // Verify FIFO order - oldest first
+            let items = sut.peek(5)
+            expect(items.count) == 5
+            expect(String(data: items[0], encoding: .utf8)) == "old-event-1"
+            expect(String(data: items[1], encoding: .utf8)) == "old-event-2"
+            expect(String(data: items[2], encoding: .utf8)) == "old-event-3"
+            expect(String(data: items[3], encoding: .utf8)) == "new-event-1"
+            expect(String(data: items[4], encoding: .utf8)) == "new-event-2"
+
+            sut.clear()
+        }
     }
 }

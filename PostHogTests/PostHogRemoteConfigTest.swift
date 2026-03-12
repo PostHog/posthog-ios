@@ -12,7 +12,12 @@ import XCTest
 @Suite("Test Remote Config", .serialized)
 enum PostHogRemoteConfigTest {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config: PostHogConfig = {
+            let c = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            c.disableRemoteConfigForTesting = true
+            return c
+        }()
+
         var server: MockPostHogServer!
 
         init() {
@@ -30,12 +35,13 @@ enum PostHogRemoteConfigTest {
 
         func getSut(
             storage: PostHogStorage? = nil,
-            config: PostHogConfig? = nil
+            config: PostHogConfig? = nil,
+            featureFlagCalledCallback: ((_ flagKey: String, _ flagValue: Any?) -> Void)? = nil
         ) -> PostHogRemoteConfig {
             let theConfig = config ?? self.config
             let theStorage = storage ?? PostHogStorage(theConfig)
             let api = PostHogApi(theConfig)
-            return PostHogRemoteConfig(theConfig, theStorage, api) { [:] }
+            return PostHogRemoteConfig(theConfig, theStorage, api, { [:] }, featureFlagCalledCallback)
         }
     }
 
@@ -56,7 +62,6 @@ enum PostHogRemoteConfigTest {
         @Test("remote config fetches feature flags if missing")
         func remoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -85,7 +90,6 @@ enum PostHogRemoteConfigTest {
         @Test("remote config does not fetch feature flags if preloadFeatureFlags is disabled")
         func remoteConfigDoesNotFetchFeatureFlagsIfPreloadFeatureFlagsIsDisabled() async throws {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -124,7 +128,6 @@ enum PostHogRemoteConfigTest {
             server.featureFlags = ["some-flag": false]
 
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
 
@@ -157,7 +160,6 @@ enum PostHogRemoteConfigTest {
             server.featureFlags = [:]
 
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.remoteConfig = true
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -198,7 +200,6 @@ enum PostHogRemoteConfigTest {
         func shouldNotClearFlagsIfRemoteConfigCallFails() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
-            config.remoteConfig = true
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }
@@ -235,7 +236,6 @@ enum PostHogRemoteConfigTest {
         func shouldNotClearFlagsIfHasFeatureFlagsKeyIsMissing() async {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
-            config.remoteConfig = true
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }
@@ -266,6 +266,189 @@ enum PostHogRemoteConfigTest {
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
 
             _ = token // silence read warnings
+        }
+    }
+
+    @Suite("Test Feature Flag Loading Race Condition")
+    class TestFeatureFlagLoadingRaceCondition: BaseTestClass {
+        @Test("guard prevents concurrent requests and queues pending")
+        func guardPreventsConcurrentRequestsAndQueuesPending() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstDone = false
+            var secondDone = false
+
+            sut.loadFeatureFlags(distinctId: "first", anonymousId: nil, groups: [:]) { _ in
+                firstDone = true
+            }
+            sut.loadFeatureFlags(distinctId: "second", anonymousId: nil, groups: [:]) { _ in
+                secondDone = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while !firstDone || !secondDone, Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(firstDone)
+            #expect(secondDone)
+            #expect(server.flagsRequests.count == 2)
+        }
+
+        @Test("pending request uses correct identity after identify")
+        func pendingRequestUsesCorrectIdentity() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstDone = false
+            var secondDone = false
+
+            sut.loadFeatureFlags(distinctId: "anon_uuid", anonymousId: nil, groups: [:]) { _ in
+                firstDone = true
+            }
+            sut.loadFeatureFlags(distinctId: "real_user_id", anonymousId: "anon_uuid", groups: [:]) { _ in
+                secondDone = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while !firstDone || !secondDone, Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(server.flagsRequests.count == 2)
+
+            let secondRequest = server.flagsRequests[1]
+            let body = server.parseRequest(secondRequest, gzip: false)
+            #expect(body?["distinct_id"] as? String == "real_user_id")
+            #expect(body?["$anon_distinct_id"] as? String == "anon_uuid")
+        }
+
+        @Test("pending request replaces earlier pending with latest")
+        func pendingRequestReplacesEarlierPending() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstDone = false
+            var secondCallbackFired = false
+            var secondCallbackValue: [String: Any]?
+            var thirdDone = false
+
+            sut.loadFeatureFlags(distinctId: "first_id", anonymousId: nil, groups: [:]) { _ in
+                firstDone = true
+            }
+            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { flags in
+                secondCallbackFired = true
+                secondCallbackValue = flags
+            }
+            sut.loadFeatureFlags(distinctId: "third_id", anonymousId: nil, groups: [:]) { _ in
+                thirdDone = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while !firstDone || !thirdDone, Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(server.flagsRequests.count == 2)
+            #expect(secondCallbackFired)
+
+            let secondRequest = server.flagsRequests[1]
+            let body = server.parseRequest(secondRequest, gzip: false)
+            #expect(body?["distinct_id"] as? String == "third_id")
+        }
+
+        @Test("callbacks fire for both initial and pending requests")
+        func callbacksFireForBothRequests() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 1.0
+
+            var firstResult: [String: Any]?
+            var secondResult: [String: Any]?
+
+            sut.loadFeatureFlags(distinctId: "user1", anonymousId: nil, groups: [:]) { flags in
+                firstResult = flags
+            }
+            sut.loadFeatureFlags(distinctId: "user2", anonymousId: nil, groups: [:]) { flags in
+                secondResult = flags
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(10)
+                while firstResult == nil || secondResult == nil, Date() < timeout {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(firstResult != nil)
+            #expect(secondResult != nil)
+        }
+
+        @Test("no pending queue when no concurrent load")
+        func noPendingQueueWhenNoConcurrentLoad() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            var result: [String: Any]?
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "single_user", anonymousId: nil, groups: [:]) { flags in
+                    result = flags
+                    continuation.resume()
+                }
+            }
+
+            #expect(server.flagsRequests.count == 1)
+            #expect(result != nil)
+        }
+
+        @Test("reloadRemoteConfig concurrent calls do not crash")
+        func reloadRemoteConfigConcurrentCallsDoNotCrash() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            let sut = getSut(config: config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in
+                    continuation.resume()
+                }
+                sut.reloadRemoteConfig()
+            }
+
+            #expect(sut.getRemoteConfig() != nil)
         }
     }
 
@@ -459,6 +642,278 @@ enum PostHogRemoteConfigTest {
 
                 storage.reset()
             }
+
+            @Test("calls featureFlagCalledCallback when bool linked flag is checked")
+            func callsFeatureFlagCalledCallbackWhenBoolLinkedFlagIsChecked() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var calledFlagKey: String?
+                var calledFlagValue: Any?
+
+                let sut = getSut(storage: storage) { flagKey, flagValue in
+                    calledFlagKey = flagKey
+                    calledFlagValue = flagValue
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(calledFlagKey != nil)
+                #expect(calledFlagValue != nil)
+            }
+
+            @Test("calls featureFlagCalledCallback when multi variant linked flag is checked")
+            func callsFeatureFlagCalledCallbackWhenMultiVariantLinkedFlagIsChecked() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var calledFlagKey: String?
+                var calledFlagValue: Any?
+
+                let sut = getSut(storage: storage) { flagKey, flagValue in
+                    calledFlagKey = flagKey
+                    calledFlagValue = flagValue
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+                server.returnReplayWithMultiVariant = true
+                server.replayVariantName = "recording-platform"
+                server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(calledFlagKey == "recording-platform-check")
+                #expect(calledFlagValue as? String == "web")
+            }
+
+            @Test("does not call featureFlagCalledCallback when sendFeatureFlagEvent is disabled")
+            func doesNotCallFeatureFlagCalledCallbackWhenSendFeatureFlagEventDisabled() async {
+                let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+                config.sendFeatureFlagEvent = false
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var callbackInvoked = false
+
+                let sut = getSut(storage: storage, config: config) { _, _ in
+                    callbackInvoked = true
+                }
+
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(callbackInvoked == false)
+            }
+
+            @Test("does not call featureFlagCalledCallback when no linked flag")
+            func doesNotCallFeatureFlagCalledCallbackWhenNoLinkedFlag() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                var callbackInvoked = false
+
+                let sut = getSut(storage: storage) { _, _ in
+                    callbackInvoked = true
+                }
+
+                server.returnReplay = true
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(callbackInvoked == false)
+            }
         }
     #endif
+
+    // MARK: Error Tracking Config
+
+    // Note: We don't yet support the errorTrackingAutocaptureTriggers and suppressionRules features.
+
+    @Suite("Test Error Tracking Config")
+    class TestErrorTrackingConfig: BaseTestClass {
+        @Test("returns isAutocaptureExceptionsEnabled false by default")
+        func returnsAutocaptureExceptionsDisabledByDefault() {
+            let sut = getSut()
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+        }
+
+        @Test("returns isAutocaptureExceptionsEnabled true from cached config")
+        func returnsAutocaptureExceptionsEnabledFromCache() {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
+
+            let sut = getSut(storage: storage)
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+        }
+
+        @Test("returns isAutocaptureExceptionsEnabled false from cached config when disabled")
+        func returnsAutocaptureExceptionsDisabledFromCache() {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": false])
+
+            let sut = getSut(storage: storage)
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+        }
+
+        @Test("enables autocapture exceptions from remote config dict")
+        func enablesAutocaptureExceptionsFromRemoteConfigDict() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+            #expect(storage.getDictionary(forKey: .errorTracking) != nil)
+
+            _ = token
+        }
+
+        @Test("disables autocapture exceptions from remote config dict")
+        func disablesAutocaptureExceptionsFromRemoteConfigDict() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            _ = token
+        }
+
+        @Test("disables autocapture exceptions when errorTracking is boolean false")
+        func disablesAutocaptureExceptionsWhenErrorTrackingIsBooleanFalse() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = false
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            // Pre-cache an enabled config to verify it gets cleared
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
+
+            let sut = getSut(storage: storage, config: config)
+
+            // Should initially be true from cache
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+            #expect(storage.getDictionary(forKey: .errorTracking) == nil)
+
+            _ = token
+        }
+
+        @Test("disables autocapture exceptions when errorTracking key is missing")
+        func disablesAutocaptureExceptionsWhenErrorTrackingKeyIsMissing() async {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigErrorTracking = nil
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            _ = token
+        }
+    }
 }

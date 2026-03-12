@@ -38,6 +38,8 @@ struct PostHogSurvey: Decodable, Identifiable {
     let startDate: Date?
     /// End date of the survey (optional)
     let endDate: Date?
+    /// The schedule for the survey (optional). Determines how often the survey can be shown.
+    let schedule: PostHogSurveySchedule?
 }
 
 struct PostHogSurveyFeatureFlagKeyValue: Equatable, Decodable {

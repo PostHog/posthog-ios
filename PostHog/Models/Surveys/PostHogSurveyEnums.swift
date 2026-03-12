@@ -88,6 +88,8 @@ enum PostHogSurveyMatchType: Decodable, Equatable {
     case isNot
     case iContains
     case notIContains
+    case gt
+    case lt
     case unknown(value: String)
 
     init(from decoder: any Decoder) throws {
@@ -107,6 +109,10 @@ enum PostHogSurveyMatchType: Decodable, Equatable {
             self = .iContains
         case "not_icontains":
             self = .notIContains
+        case "gt":
+            self = .gt
+        case "lt":
+            self = .lt
         default:
             self = .unknown(value: valueString)
         }
@@ -255,6 +261,29 @@ enum PostHogSurveyRatingScale: Decodable, Equatable {
             self = .tenPoint
         default:
             self = .unknown(scale: scaleInt)
+        }
+    }
+}
+
+enum PostHogSurveySchedule: Decodable, Equatable {
+    case once
+    case recurring
+    case always
+    case unknown(schedule: String)
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let scheduleString = try container.decode(String.self)
+
+        switch scheduleString {
+        case "once":
+            self = .once
+        case "recurring":
+            self = .recurring
+        case "always":
+            self = .always
+        default:
+            self = .unknown(schedule: scheduleString)
         }
     }
 }

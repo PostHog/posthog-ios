@@ -77,7 +77,26 @@
         /// Further configuration for capturing console output
         @objc public var captureLogsConfig: PostHogSessionReplayConsoleLogConfig = .init()
 
-        // TODO: sessionRecording config such as networkPayloadCapture, sampleRate, etc
+        /// Session recording sample rate, between 0.0 and 1.0.
+        ///
+        /// 1.0 means every session will be recorded, 0.0 means no sessions will be recorded.
+        /// Sampling is deterministic based on the session ID, so the same session will always
+        /// produce the same sampling decision.
+        ///
+        /// When set, takes precedence over the remote config sample rate.
+        /// When `nil`, the remote config sample rate is used (if available), otherwise all sessions are recorded.
+        ///
+        /// Values outside the 0.0–1.0 range are ignored and treated as `nil`.
+        ///
+        /// Defaults to `nil`
+        @objc public var sampleRate: NSNumber? {
+            didSet {
+                if let value = sampleRate?.doubleValue, value < 0.0 || value > 1.0 {
+                    hedgeLog("PostHogSessionReplayConfig.sampleRate must be between 0.0 and 1.0, got \(value). Ignoring.")
+                    sampleRate = nil
+                }
+            }
+        }
 
         /// Returns an array of plugin types based on current configuration
         func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {

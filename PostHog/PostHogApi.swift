@@ -195,7 +195,7 @@ class PostHogApi {
     ) {
         let url = getEndpointURL(
             "/flags",
-            queryItems: URLQueryItem(name: "v", value: "2"), URLQueryItem(name: "config", value: "true"),
+            queryItems: URLQueryItem(name: "v", value: "2"),
             relativeTo: config.host
         )
 
@@ -212,6 +212,7 @@ class PostHogApi {
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
             "groups": groups,
+            "timezone": TimeZone.current.identifier,
         ]
 
         if let anonymousId {

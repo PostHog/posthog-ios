@@ -1,4 +1,5 @@
 #if os(iOS)
+    import Foundation
     @testable import PostHog
     import Testing
     import Foundation

@@ -1,0 +1,104 @@
+#!/bin/bash
+#
+# PostHog Debug Symbols Upload Script
+# https://posthog.com/docs/error-tracking/upload-source-maps/ios
+#
+# Xcode Build Phase Setup:
+#   SPM:        "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh"
+#   CocoaPods:  "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#
+#
+# Usage Examples:
+#   Basic:       "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   With source: POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#
+# Build Settings (required):
+#   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
+#   ENABLE_USER_SCRIPT_SANDBOXING = NO (script traverses dSYM bundles)
+#
+# Environment Variables (optional):
+#   POSTHOG_CLI_INSTALL_DIR - Custom directory containing posthog-cli binary
+#   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
+#
+
+# Skip non-Release builds.
+# This avoids network-bound work and potential auth/connectivity failures
+# during local development builds.
+# When CONFIGURATION is unset (e.g., manual/CI invocation outside Xcode), proceed with upload.
+if [ -n "${CONFIGURATION}" ] && [ "${CONFIGURATION}" != "Release" ]; then
+    echo "info: Skipping dSYM upload for configuration '${CONFIGURATION}' (not Release)."
+    exit 0
+fi
+
+# Validate environment
+if [ -z "${DWARF_DSYM_FOLDER_PATH}" ]; then
+    echo "warning: DWARF_DSYM_FOLDER_PATH not set"
+    exit 0
+fi
+
+if [ ! -d "${DWARF_DSYM_FOLDER_PATH}" ]; then
+    echo "warning: dSYM folder not found: ${DWARF_DSYM_FOLDER_PATH}"
+    exit 0
+fi
+
+# Check if folder contains any dSYM bundles
+if [ -z "$(find "${DWARF_DSYM_FOLDER_PATH}" -name '*.dSYM' -type d 2>/dev/null)" ]; then
+    echo "info: No dSYM bundles found in ${DWARF_DSYM_FOLDER_PATH}"
+    exit 0
+fi
+
+# Find posthog-cli (Xcode doesn't load shell profiles)
+# Priority: env var override > well-known location > npm global > PATH fallback
+if [ -f "$HOME/.posthog/posthog-cli" ]; then
+  PH_CLI_PATH="$HOME/.posthog/posthog-cli"
+else
+  # Add nvm paths (Xcode doesn't source shell profiles)
+  for dir in "$HOME/.nvm/versions/node"/*/bin /opt/homebrew/Cellar/nvm/*/versions/node/*/bin; do
+    [ -d "$dir" ] && export PATH="$dir:$PATH"
+  done
+  # Check if installed via npm -g @posthog/cli
+  NPM_GLOBAL_PREFIX=$(npm prefix -g 2>/dev/null)
+  if [ -n "$NPM_GLOBAL_PREFIX" ] && [ -f "$NPM_GLOBAL_PREFIX/bin/posthog-cli" ]; then
+    PH_CLI_PATH="$NPM_GLOBAL_PREFIX/bin/posthog-cli"
+  else
+    # Check if installed as local dependency
+    NPM_LOCAL_ROOT=$(npm root 2>/dev/null)
+    if [ -n "$NPM_LOCAL_ROOT" ] && [ -f "$NPM_LOCAL_ROOT/.bin/posthog-cli" ]; then
+      PH_CLI_PATH="$NPM_LOCAL_ROOT/.bin/posthog-cli"
+    else
+      # Fallback to searching common locations
+      export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$HOME/.local/bin:$HOME/.posthog:$PATH"
+      PH_CLI_PATH=$(command -v posthog-cli 2>/dev/null)
+    fi
+  fi
+fi
+
+if [ -z "$PH_CLI_PATH" ] || [ ! -x "$PH_CLI_PATH" ]; then
+    echo "error: posthog-cli not found, install with: npm install -g @posthog/cli"
+    exit 1
+fi
+
+# Build CLI arguments
+CLI_ARGS="--directory $DWARF_DSYM_FOLDER_PATH"
+
+# Pass main target dSYM name for accurate version extraction
+if [ -n "${DWARF_DSYM_FILE_NAME}" ]; then
+    CLI_ARGS="$CLI_ARGS --main-dsym $DWARF_DSYM_FILE_NAME"
+fi
+
+# Pass version info from Xcode build settings (overrides plist extraction)
+if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
+    CLI_ARGS="$CLI_ARGS --project $PRODUCT_BUNDLE_IDENTIFIER"
+fi
+if [ -n "${MARKETING_VERSION}" ]; then
+    CLI_ARGS="$CLI_ARGS --version $MARKETING_VERSION"
+fi
+if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
+    CLI_ARGS="$CLI_ARGS --build $CURRENT_PROJECT_VERSION"
+fi
+# Include source if requested via env var
+if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
+    CLI_ARGS="$CLI_ARGS --include-source"
+fi
+
+$PH_CLI_PATH dsym upload $CLI_ARGS || exit 1

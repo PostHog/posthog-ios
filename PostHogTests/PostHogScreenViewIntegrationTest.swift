@@ -8,7 +8,7 @@
 @testable import PostHog
 import Testing
 
-@Suite("Screen view integration tests", .serialized)
+@Suite(.serialized)
 final class ScreenViewIntegrationTest {
     var server: MockPostHogServer!
     let mockScreenView = MockScreenViewPublisher()

@@ -10,7 +10,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-struct PropertyTestCase: CustomTestStringConvertible, Sendable {
+struct PropertyTestCase: CustomTestStringConvertible {
     let name: String
     let properties: @Sendable () -> [String: Any]
 
@@ -122,7 +122,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - capture() with properties
 
-    @Suite("capture with properties")
     class CapturePropertiesTests: BaseTestSuite {
         @Test("capture with property type", arguments: propertyPayloads)
         func captureWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -141,7 +140,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - screen() with properties
 
-    @Suite("screen with properties")
     class ScreenPropertiesTests: BaseTestSuite {
         @Test("screen with property type", arguments: propertyPayloads)
         func screenWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -160,7 +158,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - identify() with userProperties
 
-    @Suite("identify with userProperties")
     class IdentifyPropertiesTests: BaseTestSuite {
         @Test("identify with property type", arguments: propertyPayloads)
         func identifyWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -179,7 +176,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - group() with groupProperties
 
-    @Suite("group with groupProperties")
     class GroupPropertiesTests: BaseTestSuite {
         @Test("group with property type", arguments: propertyPayloads)
         func groupWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -198,7 +194,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - register() with properties
 
-    @Suite("register with properties")
     class RegisterPropertiesTests: BaseTestSuite {
         @Test("register with property type", arguments: propertyPayloads)
         func registerWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -217,7 +212,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - setPersonProperties()
 
-    @Suite("setPersonProperties")
     class SetPersonPropertiesTests: BaseTestSuite {
         @Test("setPersonProperties with property type", arguments: propertyPayloads)
         func setPersonPropertiesWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -236,7 +230,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - setPersonPropertiesForFlags()
 
-    @Suite("setPersonPropertiesForFlags")
     class SetPersonPropertiesForFlagsTests: BaseTestSuite {
         @Test("setPersonPropertiesForFlags with property type", arguments: propertyPayloads)
         func setPersonPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -253,7 +246,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - setGroupPropertiesForFlags()
 
-    @Suite("setGroupPropertiesForFlags")
     class SetGroupPropertiesForFlagsTests: BaseTestSuite {
         @Test("setGroupPropertiesForFlags with property type", arguments: propertyPayloads)
         func setGroupPropertiesForFlagsWithPropertyType(_ payload: PropertyTestCase) async throws {
@@ -270,7 +262,6 @@ struct PostHogPropertiesSerializationTests {
 
     // MARK: - Edge cases
 
-    @Suite("edge cases")
     class EdgeCasesTests: BaseTestSuite {
         @Test("handles empty properties")
         func handlesEmptyProperties() async throws {

@@ -1,8 +1,7 @@
-import XCTest
 @testable import PostHog
+import XCTest
 
 final class PostHogDeepLinkIntegrationTests: XCTestCase {
-
     func testBuildDeepLinkProperties_withValidReferrerURL() {
         // Given
         let url = URL(string: "myapp://product/123?utm_source=newsletter")!

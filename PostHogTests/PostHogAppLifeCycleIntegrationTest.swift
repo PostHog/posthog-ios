@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("Test App Lifecycle integration", .serialized)
+@Suite(.serialized)
 final class PostHogAppLifeCycleIntegrationTest {
     var server: MockPostHogServer!
     let mockAppLifecycle: MockApplicationLifecyclePublisher

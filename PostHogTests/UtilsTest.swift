@@ -9,9 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("UtilsTest")
-struct UtilsTest {
-    @Suite("CGFloat Tests")
+enum UtilsTest {
     struct CGFloatTests {
         @Test("safely handles NaN value")
         func safelyConvertsNanToInt() {
@@ -38,7 +36,6 @@ struct UtilsTest {
         }
     }
 
-    @Suite("Double Tests")
     struct DoubleTests {
         @Test("safely converts NaN to Int")
         func safelyConvertsNanToInt() {
@@ -65,7 +62,6 @@ struct UtilsTest {
         }
     }
 
-    @Suite("Float Tests")
     struct FloatTests {
         @Test("safely converts NaN to Int")
         func safelyConvertsNanToInt() {
@@ -92,7 +88,6 @@ struct UtilsTest {
         }
     }
 
-    @Suite("Date format tests")
     struct DateTests {
         @Test("can parse ISO8601 date with microsecond precision")
         func canParseISO8601DateWithMicroseconds() {

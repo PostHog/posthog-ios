@@ -9,11 +9,9 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("PostHogDebugImageProvider Tests")
-struct PostHogDebugImageProviderTest {
+enum PostHogDebugImageProviderTest {
     // MARK: - Get All Binary Images Tests
 
-    @Suite("Get All Binary Images")
     struct GetAllBinaryImagesTests {
         @Test("returns non-empty list of binary images")
         func returnsNonEmptyList() {
@@ -67,7 +65,6 @@ struct PostHogDebugImageProviderTest {
 
     // MARK: - Get Debug Images for Frames Tests
 
-    @Suite("Get Debug Images for Frames")
     struct GetDebugImagesForFramesTests {
         @Test("returns debug images for valid frame addresses")
         func returnsDebugImagesForValidAddresses() {
@@ -130,7 +127,6 @@ struct PostHogDebugImageProviderTest {
 
     // MARK: - Get Debug Images from Exceptions Tests
 
-    @Suite("Get Debug Images from Exceptions")
     struct GetDebugImagesFromExceptionsTests {
         @Test("extracts debug images from exception list")
         func extractsDebugImagesFromExceptionList() {
@@ -212,7 +208,6 @@ struct PostHogDebugImageProviderTest {
 
     // MARK: - Binary Image Info Dictionary Tests
 
-    @Suite("Binary Image Info Dictionary")
     struct BinaryImageInfoDictionaryTests {
         @Test("omits nil UUID from dictionary")
         func omitsNilUUID() {

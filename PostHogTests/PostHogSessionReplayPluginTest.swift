@@ -2,9 +2,7 @@
     import Foundation
     @testable import PostHog
     import Testing
-    import Foundation
 
-    @Suite("Session Replay Plugin Remote Config Tests")
     class PostHogSessionReplayPluginTests {
         // MARK: - Console Logs Plugin Tests
 
@@ -110,7 +108,7 @@
                     "web_vitals_allowed_metrics": nil,
                 ],
             ]
-            #expect(PostHogSessionReplayNetworkPlugin.isEnabledRemotely(remoteConfig: config as [String : Any]) == true)
+            #expect(PostHogSessionReplayNetworkPlugin.isEnabledRemotely(remoteConfig: config as [String: Any]) == true)
         }
 
         @Test("Network plugin disabled when capturePerformance object has NSNull web_vitals_allowed_metrics")
@@ -121,7 +119,7 @@
                     "web_vitals_allowed_metrics": NSNull(),
                 ],
             ]
-            #expect(PostHogSessionReplayNetworkPlugin.isEnabledRemotely(remoteConfig: config as [String : Any]) == true)
+            #expect(PostHogSessionReplayNetworkPlugin.isEnabledRemotely(remoteConfig: config as [String: Any]) == true)
         }
 
         @Test("Network plugin disabled when capturePerformance is false")

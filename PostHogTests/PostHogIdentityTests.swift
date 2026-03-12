@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("Identity tests", .serialized)
+@Suite(.serialized)
 class PostHogIdentityTests {
     let server: MockPostHogServer
 

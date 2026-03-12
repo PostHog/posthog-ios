@@ -9,13 +9,11 @@ import Foundation
 @_spi(Experimental) @testable import PostHog
 import Testing
 
-@Suite("PostHogExceptionProcessor Tests")
 struct PostHogExceptionProcessorTest {
     let config = PostHogErrorTrackingConfig()
 
     // MARK: - Error to Properties Tests
 
-    @Suite("Error to Properties")
     struct ErrorToPropertiesTests {
         let config = PostHogErrorTrackingConfig()
 
@@ -163,7 +161,6 @@ struct PostHogExceptionProcessorTest {
 
     // MARK: - NSException to Properties Tests
 
-    @Suite("NSException to Properties")
     struct NSExceptionToPropertiesTests {
         let config = PostHogErrorTrackingConfig()
 
@@ -238,7 +235,6 @@ struct PostHogExceptionProcessorTest {
 
     // MARK: - Message to Properties Tests
 
-    @Suite("Message to Properties")
     struct MessageToPropertiesTests {
         let config = PostHogErrorTrackingConfig()
 
@@ -296,7 +292,6 @@ struct PostHogExceptionProcessorTest {
 
     // MARK: - Debug Images Tests
 
-    @Suite("Debug Images")
     struct DebugImagesTests {
         let config = PostHogErrorTrackingConfig()
 
@@ -348,7 +343,6 @@ struct PostHogExceptionProcessorTest {
 
     // MARK: - Stack Trace Tests
 
-    @Suite("Stack Trace")
     struct StackTraceTests {
         let config = PostHogErrorTrackingConfig()
 

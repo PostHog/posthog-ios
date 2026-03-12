@@ -9,11 +9,9 @@ import Foundation
 @_spi(Experimental) @testable import PostHog
 import Testing
 
-@Suite("PostHogStackTraceProcessor Tests")
-struct PostHogStackTraceProcessorTest {
+enum PostHogStackTraceProcessorTest {
     // MARK: - In-App Detection Tests
 
-    @Suite("In-App Detection")
     struct InAppDetectionTests {
         @Test("marks module as in-app when in inAppIncludes")
         func marksInAppWhenInIncludes() {
@@ -90,7 +88,6 @@ struct PostHogStackTraceProcessorTest {
 
     // MARK: - Stack Trace Capture Tests
 
-    @Suite("Stack Trace Capture")
     struct StackTraceCaptureTests {
         @Test("captures current stack trace")
         func capturesCurrentStackTrace() {
@@ -131,7 +128,6 @@ struct PostHogStackTraceProcessorTest {
 
     // MARK: - Symbolicate Addresses Tests
 
-    @Suite("Symbolicate Addresses")
     struct SymbolicateAddressesTests {
         @Test("symbolicates array of addresses")
         func symbolicatesAddresses() {
@@ -170,7 +166,6 @@ struct PostHogStackTraceProcessorTest {
 
     // MARK: - Frame Dictionary Tests
 
-    @Suite("Frame Dictionary Conversion")
     struct FrameDictionaryTests {
         @Test("converts frame to dictionary with required fields")
         func convertsToDictionaryWithRequiredFields() {

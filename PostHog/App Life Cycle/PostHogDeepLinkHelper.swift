@@ -1,5 +1,5 @@
 //
-//  PostHogDeepLinkIntegration.swift
+//  PostHogDeepLinkHelper.swift
 //  PostHog
 //
 //  Created by Jeremiah Erinola on 18.02.26.
@@ -8,11 +8,10 @@
 import Foundation
 
 #if os(iOS) || os(tvOS)
-import UIKit
+    import UIKit
 #endif
 
-enum PostHogDeepLinkHelper {
-}
+enum PostHogDeepLinkHelper {}
 
 // MARK: - Tracking Logic
 

@@ -9,7 +9,7 @@
 import Testing
 import XCTest
 
-@Suite("Test Feature Flags V3", .serialized)
+@Suite(.serialized)
 enum PostHogFeatureFlagsV3Test {
     class BaseTestClass {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
@@ -39,7 +39,6 @@ enum PostHogFeatureFlagsV3Test {
         }
     }
 
-    @Suite("Test getFeatureFlag")
     class TestGetFeatureFlagValue: BaseTestClass {
         @Test("Returns true for enabled Bool flag")
         func returnsTrueBoolean() async {
@@ -94,7 +93,6 @@ enum PostHogFeatureFlagsV3Test {
         }
     }
 
-    @Suite("Test getFeatureFlagPayload")
     class TestGetFeatureFlagPayload: BaseTestClass {
         @Test("returns feature flag payload as Int")
         func getFeatureFlagPayloadInt() async {
@@ -123,7 +121,6 @@ enum PostHogFeatureFlagsV3Test {
         }
     }
 
-    @Suite("Test feature flags loading")
     class TestLoadFeatureFlagsLoading: BaseTestClass {
         @Test("loads cached feature flags")
         func loadsCachedFeatureFlags() {

@@ -111,8 +111,7 @@
                     .filter { survey in // 3. and match display conditions,
                         // TODO: Check screen conditions
                         // TODO: Check event conditions
-                        let deviceTypeCheck = self.doesSurveyDeviceTypesMatch(survey: survey)
-                        return deviceTypeCheck
+                        return self.doesSurveyDeviceTypesMatch(survey: survey)
                     }
                     .filter { survey in // 3.5. wait period has passed
                         self.hasWaitPeriodPassed(survey: survey)
@@ -320,9 +319,7 @@
 
             let key = getSurveySeenKey(survey)
             let surveysSeen = getSeenSurveyKeys()
-            let surveySeen = surveysSeen[key] as? Bool ?? false
-
-            return surveySeen
+            return surveysSeen[key] as? Bool ?? false
         }
 
         /// Mark a survey as seen

@@ -2,7 +2,7 @@
     @testable import PostHog
     import Testing
 
-    @Suite("Session Replay tests", .serialized)
+    @Suite(.serialized)
     class PostHogSessionReplayTests {
         let testAPIKey = "test_api_key"
         let server: MockPostHogServer

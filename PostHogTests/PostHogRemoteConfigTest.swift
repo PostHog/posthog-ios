@@ -9,7 +9,7 @@
 import Testing
 import XCTest
 
-@Suite("Test Remote Config", .serialized)
+@Suite(.serialized)
 enum PostHogRemoteConfigTest {
     class BaseTestClass {
         let config: PostHogConfig = {
@@ -45,7 +45,6 @@ enum PostHogRemoteConfigTest {
         }
     }
 
-    @Suite("Test remote config loading")
     class TestRemoteConfigLoading: BaseTestClass {
         @Test("loads cached remote config")
         func loadsCachedRemoteConfig() {
@@ -269,7 +268,6 @@ enum PostHogRemoteConfigTest {
         }
     }
 
-    @Suite("Test Feature Flag Loading Race Condition")
     class TestFeatureFlagLoadingRaceCondition: BaseTestClass {
         @Test("guard prevents concurrent requests and queues pending")
         func guardPreventsConcurrentRequestsAndQueuesPending() async {
@@ -453,7 +451,6 @@ enum PostHogRemoteConfigTest {
     }
 
     #if os(iOS)
-        @Suite("Test Session Replay Flags")
         class TestSessionReplayFlags: BaseTestClass {
             @Test("returns isSessionReplayFlagActive true if there is a value")
             func returnsIsSessionReplayFlagActiveTrueIfThereIsAValue() {
@@ -759,7 +756,6 @@ enum PostHogRemoteConfigTest {
 
     // Note: We don't yet support the errorTrackingAutocaptureTriggers and suppressionRules features.
 
-    @Suite("Test Error Tracking Config")
     class TestErrorTrackingConfig: BaseTestClass {
         @Test("returns isAutocaptureExceptionsEnabled false by default")
         func returnsAutocaptureExceptionsDisabledByDefault() {

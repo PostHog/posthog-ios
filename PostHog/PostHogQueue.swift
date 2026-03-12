@@ -271,9 +271,9 @@ class PostHogQueue {
             return false
         }
 
-        if pausedUntil != nil, pausedUntil! > Date() {
+        if let pausedUntil, pausedUntil > Date() {
             // We don't flush data if the queue is temporarily paused
-            hedgeLog("The queue is paused until `\(pausedUntil!)`")
+            hedgeLog("The queue is paused until `\(pausedUntil)`")
             return false
         }
 

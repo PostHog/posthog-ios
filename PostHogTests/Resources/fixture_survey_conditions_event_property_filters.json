@@ -1,0 +1,34 @@
+{
+  "id": "prop-filter-survey",
+  "name": "Property filtered survey",
+  "description": "",
+  "type": "api",
+  "linked_flag_key": null,
+  "targeting_flag_key": null,
+  "questions": [
+    {
+      "id": "400",
+      "type": "open",
+      "question": "How was your purchase?",
+      "description": "",
+      "descriptionContentType": "text",
+      "originalQuestionIndex": 0
+    }
+  ],
+  "conditions": {
+    "url": "",
+    "events": {
+      "values": [
+        {
+          "name": "purchase_completed",
+          "propertyFilters": {
+            "amount": { "values": ["100"], "operator": "gt" },
+            "category": { "values": ["electronics"], "operator": "exact" }
+          }
+        }
+      ]
+    }
+  },
+  "start_date": null,
+  "end_date": null
+}

@@ -27,6 +27,7 @@ class PostHogSDKTest: QuickSpec {
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.optOut = optOut
         config.propertiesSanitizer = propertiesSanitizer
@@ -599,7 +600,8 @@ class PostHogSDKTest: QuickSpec {
 
         it("reset deletes posthog files but not other folders") {
             let appFolder = applicationSupportDirectoryURL()
-            expect(FileManager.default.fileExists(atPath: appFolder.path)) == false
+            // Ensure clean state - previous async operations may have recreated the directory
+            deleteSafely(appFolder)
 
             let sut = self.getSut()
 

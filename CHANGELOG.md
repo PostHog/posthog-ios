@@ -1,5 +1,66 @@
 ## Next
 
+## 3.47.0
+
+### Minor Changes
+
+- 8f44e92: feat: Add `captureFeatureView` and `captureFeatureInteraction` methods for tracking feature flag analytics
+- a9366ad: support survey event property filters
+
+## 3.46.0
+
+### Minor Changes
+
+- 1f987f4: Add ObjC convenience overloads for captureException methods without requiring properties parameter
+- 20ba9dc: Flush event queue when the app enters background to ensure pending events are sent before the app is suspended
+- 6f65947: Capture `$feature_flag_called` event when session replay is gated behind a linked feature flag
+
+## 3.45.2
+
+### Patch Changes
+
+- ff6c2ab: Skip dSYM upload for non-Release builds to avoid unnecessary network work and build failures during local development
+
+## 3.45.1
+
+### Patch Changes
+
+- d6e54f1: fix: process pending crash reports
+
+## 3.45.0
+
+### Minor Changes
+
+- 33fe226: feat: add experimental error tracking support
+
+## 3.44.0
+
+### Minor Changes
+
+- cbd7024: support survey wait period
+
+## 3.43.0
+
+### Minor Changes
+
+- d85e393: feat: support 'always' survey schedule
+
+### Patch Changes
+
+- 4a8496c: fix: queue pending feature flags reload instead of dropping concurrent requests
+
+## 3.42.1
+
+### Patch Changes
+
+- 59befaf: Use remote config as sole config loading mechanism: remove `config=true` from flags endpoint, add `timezone` to flags requests, deprecate `remoteConfig` config option
+
+## 3.42.0
+
+### Minor Changes
+
+- 5df2c40: feat: Support session recording `sampleRate` from remote config
+
 ## 3.41.2
 
 ### Patch Changes

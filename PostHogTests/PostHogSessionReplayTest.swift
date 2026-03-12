@@ -23,6 +23,7 @@
             config.sessionReplay = sessionReplay
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
             return PostHogSDK.with(config)
         }
 

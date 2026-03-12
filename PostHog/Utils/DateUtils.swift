@@ -40,4 +40,6 @@ public func toISO8601Date(_ date: String) -> Date? {
     apiDateFormatter.date(from: date)
 }
 
+let secondsPerDay: Double = 86400
+
 var now: () -> Date = { Date() }

@@ -32,6 +32,7 @@ final class ScreenViewIntegrationTest {
         config.captureScreenViews = captureScreenViews
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1
+        config.disableFlushOnBackgroundForTesting = true
 
         let storage = PostHogStorage(config)
         storage.reset()

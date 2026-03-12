@@ -141,14 +141,14 @@ struct PostHogFileBackedQueueConcurrencyTest {
         defer { queue.clear() }
 
         let operationCount = 1000
-        
+
         await Task.detached {
             DispatchQueue.concurrentPerform(iterations: operationCount) { i in
                 let uniqueData = "event-\(i)-\(UUID().uuidString)".data(using: .utf8)!
                 queue.add(uniqueData)
             }
         }.value
-        
+
         let finalDepth = queue.depth
         #expect(finalDepth == operationCount,
                 "Expected \(operationCount) events but got \(finalDepth). Lost \(operationCount - finalDepth) events due to race condition.")
@@ -160,23 +160,23 @@ struct PostHogFileBackedQueueConcurrencyTest {
         defer { queue.clear() }
 
         let operationCount = 2_000
-        
+
         let expectedData = (0 ..< operationCount).map { i in
             "unique-event-\(i)-\(UUID().uuidString)"
         }
-        
+
         await Task.detached {
             DispatchQueue.concurrentPerform(iterations: operationCount) { i in
                 queue.add(expectedData[i].data(using: .utf8)!)
             }
         }.value
-        
+
         let retrievedData = queue.peek(operationCount)
         let retrievedStrings = Set(retrievedData.compactMap { String(data: $0, encoding: .utf8) })
-        
+
         #expect(queue.depth == operationCount,
                 "Expected \(operationCount) events but got \(queue.depth)")
-        
+
         #expect(retrievedStrings.count == operationCount,
                 "Expected \(operationCount) unique events but got \(retrievedStrings.count). Possible duplicate filename collision.")
     }
@@ -266,7 +266,7 @@ struct PostHogFileBackedQueueConcurrencyTest {
 
         let finalDepth = queue.depth
         let peekedData = queue.peek(finalDepth)
-        
+
         #expect(finalDepth >= 0, "Depth should never be negative")
         #expect(peekedData.count == finalDepth,
                 "Peek should return exactly depth items, got \(peekedData.count) vs \(finalDepth)")
@@ -279,7 +279,7 @@ struct PostHogFileBackedQueueConcurrencyTest {
 
         let iterations = 100
         let threadsPerIteration = 20
-        
+
         for iteration in 0 ..< iterations {
             await Task.detached {
                 DispatchQueue.concurrentPerform(iterations: threadsPerIteration) { threadId in
@@ -287,7 +287,7 @@ struct PostHogFileBackedQueueConcurrencyTest {
                 }
             }.value
         }
-        
+
         let expectedTotal = iterations * threadsPerIteration
         #expect(queue.depth == expectedTotal,
                 "Expected \(expectedTotal) events but got \(queue.depth)")

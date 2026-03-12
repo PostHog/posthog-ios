@@ -183,10 +183,9 @@ class PostHogFileBackedQueueTest: QuickSpec {
             let newFile1 = newURL.appendingPathComponent("1698236047.456-A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
             try "new-event-1".data(using: .utf8)!.write(to: newFile1)
 
-            
             let oldFile1 = newURL.appendingPathComponent("1698236044.407")
             try "old-event-1".data(using: .utf8)!.write(to: oldFile1)
-            
+
             let oldFile3 = newURL.appendingPathComponent("1698236046.789")
             try "old-event-3".data(using: .utf8)!.write(to: oldFile3)
 
@@ -195,7 +194,7 @@ class PostHogFileBackedQueueTest: QuickSpec {
 
             let oldFile2 = newURL.appendingPathComponent("1698236045.123")
             try "old-event-2".data(using: .utf8)!.write(to: oldFile2)
-            
+
             // Initialize queue - should load and sort all files correctly
             let sut = self.getSut()
 

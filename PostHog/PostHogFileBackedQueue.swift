@@ -34,8 +34,8 @@ class PostHogFileBackedQueue {
 
         do {
             let loadedItems = try FileManager.default.contentsOfDirectory(atPath: queue.path)
-            // Since this queue is ephemeral, lexicographical sort works for both old (timestamp-only) and new (timestamp-UUID) formats 
-            let sortedItems = loadedItems.sorted() 
+            // Since this queue is ephemeral, lexicographical sort works for both old (timestamp-only) and new (timestamp-UUID) formats
+            let sortedItems = loadedItems.sorted()
             itemsLock.withLock { items = sortedItems }
         } catch {
             hedgeLog("Failed to load files for queue \(error)")

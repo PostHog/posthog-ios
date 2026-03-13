@@ -333,8 +333,7 @@ class MockPostHogServer {
                 } else {
                     return ""
                 }
-			}()
-
+            }()
 
             // Build sessionRecording payload
             let sessionRecordingPayload: String = {

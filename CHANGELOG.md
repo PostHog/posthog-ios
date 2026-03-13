@@ -1,5 +1,12 @@
 ## Next
 
+## 3.47.0
+
+### Minor Changes
+
+- 8f44e92: feat: Add `captureFeatureView` and `captureFeatureInteraction` methods for tracking feature flag analytics
+- a9366ad: support survey event property filters
+
 ## 3.46.0
 
 ### Minor Changes

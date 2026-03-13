@@ -243,10 +243,12 @@ class PostHogStorage {
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
         case remoteConfig = "posthog.remoteConfig"
         case surveySeen = "posthog.surveySeen"
+        case lastSeenSurveyDate = "posthog.lastSeenSurveyDate"
         case requestId = "posthog.requestId"
         case evaluatedAt = "posthog.evaluatedAt"
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
+        case errorTracking = "posthog.errorTracking"
     }
 
     // The location for storing data that we always want to keep
@@ -403,9 +405,11 @@ class PostHogStorage {
         deleteSafely(url(forKey: .personProcessingEnabled))
         deleteSafely(url(forKey: .remoteConfig))
         deleteSafely(url(forKey: .surveySeen))
+        deleteSafely(url(forKey: .lastSeenSurveyDate))
         deleteSafely(url(forKey: .requestId))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
+        deleteSafely(url(forKey: .errorTracking))
     }
 
     func remove(key: StorageKey) {

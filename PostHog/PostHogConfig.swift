@@ -166,6 +166,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
+    /// Configuration for error tracking (Experimental)
+    @_spi(Experimental)
+    @objc public let errorTrackingConfig: PostHogErrorTrackingConfig = .init()
+
     /// Enable mobile surveys
     ///
     /// Default: true
@@ -200,6 +204,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false
+    var disableFlushOnBackgroundForTesting: Bool = false
+    var disableRemoteConfigForTesting: Bool = false
     // internal
     public var storageManager: PostHogStorageManager?
 
@@ -223,6 +229,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Returns an array of integrations to be installed based on current configuration
     func getIntegrations() -> [PostHogIntegration] {
         var integrations: [PostHogIntegration] = []
+
+        #if os(iOS) || os(macOS) || os(tvOS)
+            if errorTrackingConfig.autoCapture {
+                integrations.append(PostHogErrorTrackingAutoCaptureIntegration())
+            }
+        #endif
 
         if captureScreenViews {
             integrations.append(PostHogScreenViewIntegration())

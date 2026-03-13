@@ -35,6 +35,7 @@
         private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
         private var remoteConfigLoadedToken: RegistrationToken?
+        private var sessionIdChangedToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
@@ -214,9 +215,8 @@
             }
 
             isEnabled = true
-
             // Listen for session changes to stop recording when a new session starts (if triggers are configured)
-            postHog.sessionManager.onSessionIdChanged = { [weak self] in
+            sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
                 self?.handleSessionChanged()
             }
 
@@ -275,7 +275,7 @@
             guard isEnabled else { return }
             isEnabled = false
             resetViews()
-            postHog?.sessionManager.onSessionIdChanged = {}
+            sessionIdChangedToken = nil
 
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil

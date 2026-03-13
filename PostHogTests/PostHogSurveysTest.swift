@@ -298,6 +298,26 @@ enum PostHogSurveysTest {
                 }
             }
 
+            @Test("event condition with property filters decodes correctly")
+            func eventConditionWithPropertyFiltersDecodesCorrectly() async throws {
+                let data = try loadFixture("fixture_survey_conditions_event_property_filters")
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                if let events = sut.conditions?.events {
+                    #expect(events.values.count == 1)
+                    #expect(events.values[0].name == "purchase_completed")
+
+                    let filters = events.values[0].propertyFilters
+                    #expect(filters != nil)
+                    #expect(filters?["amount"]?.matchOperator == .gt)
+                    #expect(filters?["amount"]?.values == ["100"])
+                    #expect(filters?["category"]?.matchOperator == .exact)
+                    #expect(filters?["category"]?.values == ["electronics"])
+                } else {
+                    throw TestError("Expected event display condition with property filters")
+                }
+            }
+
             @Test("device type condition decodes correctly")
             func deviceTypeConditionDecodesCorrectly() async throws {
                 let data = try loadFixture("fixture_survey_conditions_device_type")
@@ -428,7 +448,7 @@ enum PostHogSurveysTest {
             let sut: PostHogSurveyMatchType = .regex
             let matches = sut.matchFunction
 
-            #expect(matches([url], regex) == shouldMatch)
+            #expect(matches([regex], url) == shouldMatch)
         }
 
         @Test("matches not_regex correctly", arguments: regexMap)
@@ -436,7 +456,7 @@ enum PostHogSurveysTest {
             let sut: PostHogSurveyMatchType = .notRegex
             let matches = sut.matchFunction
 
-            #expect(matches([url], regex) != shouldMatch)
+            #expect(matches([regex], url) != shouldMatch)
         }
 
         @Test("matches icontains correctly")
@@ -447,7 +467,7 @@ enum PostHogSurveysTest {
             #expect(matches(["Hello"], "hello") == true)
             #expect(matches(["Hello"], "HeLLo") == true)
             #expect(matches(["Hello"], "heLLo") == true)
-            #expect(matches(["Hello", "PostHogTest"], "PostHog") == true)
+            #expect(matches(["PostHog"], "PostHogTest") == true)
             #expect(matches(["Hello"], "PostHog") == false)
         }
 
@@ -459,7 +479,7 @@ enum PostHogSurveysTest {
             #expect(matches(["Hello"], "hello") == false)
             #expect(matches(["Hello"], "HeLLo") == false)
             #expect(matches(["Hello"], "heLLo") == false)
-            #expect(matches(["Hello", "PostHogTest"], "PostHog") == false)
+            #expect(matches(["PostHog"], "PostHogTest") == false)
             #expect(matches(["Hello"], "PostHog") == true)
         }
 
@@ -486,11 +506,136 @@ enum PostHogSurveysTest {
             #expect(matches(["Hello"], "Hello") == false)
             #expect(matches(["Hello", "PostHog"], "Hello") == false)
         }
+
+        @Test("matches gt and lt correctly")
+        func matchesGtLt() {
+            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "150") == true)
+            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "50") == false)
+            #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "50") == true)
+            #expect(PostHogSurveyMatchType.lt.matchFunction(["100"], "150") == false)
+            #expect(PostHogSurveyMatchType.gt.matchFunction(["100"], "not_a_number") == false)
+        }
+    }
+
+    @Suite("Test matchPropertyFilters")
+    class TestMatchPropertyFilters {
+        let server: MockPostHogServer
+        let integration: PostHogSurveyIntegration
+        let postHog: PostHogSDK
+
+        init() throws {
+            server = MockPostHogServer()
+            server.start()
+
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+            config._surveys = true
+            config.flushAt = 1
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            postHog = PostHogSDK.with(config)
+
+            PostHogSurveyIntegration.clearInstalls()
+            integration = PostHogSurveyIntegration()
+            try integration.install(postHog)
+        }
+
+        deinit {
+            server.stop()
+            postHog.close()
+            postHog.reset()
+        }
+
+        @Test("returns true when no filters, false when property is missing")
+        func edgeCases() {
+            #expect(integration.testMatchPropertyFilters(nil, eventProperties: [:]) == true)
+            let filters = ["category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact)]
+            #expect(integration.testMatchPropertyFilters(filters, eventProperties: [:]) == false)
+        }
+
+        @Test("icontains matches value against filter (case-insensitive)")
+        func icontainsOperatorWorks() {
+            let filters = ["query": PostHogPropertyFilter(values: ["product"], matchOperator: .iContains)]
+            #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "new PRODUCT features"]) == true)
+            #expect(integration.testMatchPropertyFilters(filters, eventProperties: ["query": "nothing here"]) == false)
+        }
+    }
+
+    @Suite("Test onEvent with property filters")
+    struct TestOnEventPropertyFilters {
+        let server: MockPostHogServer
+        let integration: PostHogSurveyIntegration
+        let postHog: PostHogSDK
+
+        init() throws {
+            server = MockPostHogServer()
+            server.start()
+
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+            config._surveys = true
+            config.flushAt = 1
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            postHog = PostHogSDK.with(config)
+
+            PostHogSurveyIntegration.clearInstalls()
+            integration = PostHogSurveyIntegration()
+            try integration.install(postHog)
+        }
+
+        @Test("activates survey when event name and properties match")
+        func eventWithPropertiesActivatesSurvey() {
+            let condition = PostHogEventCondition(
+                name: "purchase",
+                propertyFilters: ["amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt)]
+            )
+            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+            integration.onEvent(event: "purchase", properties: ["amount": 150])
+            #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
+        }
+
+        @Test("activates survey when event has no property filters (backward compat)")
+        func eventWithNoFiltersActivatesSurvey() {
+            let condition = PostHogEventCondition(name: "purchase")
+            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+            integration.onEvent(event: "purchase", properties: [:])
+            #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
+        }
+
+        @Test("does not activate survey when one of multiple property filters fails")
+        func partialFilterMismatchPreventsActivation() {
+            let condition = PostHogEventCondition(
+                name: "purchase",
+                propertyFilters: [
+                    "amount": PostHogPropertyFilter(values: ["100"], matchOperator: .gt),
+                    "category": PostHogPropertyFilter(values: ["electronics"], matchOperator: .exact),
+                ]
+            )
+            integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
+
+            integration.onEvent(event: "purchase", properties: ["amount": 150, "category": "clothing"])
+            #expect(integration.testIsEventActivated(surveyId: "survey-1") == false)
+        }
     }
 
     @Suite("Test canActivateRepeatedly")
     struct TestCanActivateRepeatedly {
-        private func getSut(repeatedActivation: Bool?, values: [PostHogEventCondition]) -> PostHogSurvey {
+        private func getSut(
+            repeatedActivation: Bool?,
+            values: [PostHogEventCondition],
+            schedule: PostHogSurveySchedule? = nil
+        ) -> PostHogSurvey {
             PostHogSurvey(
                 id: "id",
                 name: "name",
@@ -517,7 +662,8 @@ enum PostHogSurveysTest {
                 currentIteration: nil,
                 currentIterationStartDate: nil,
                 startDate: nil,
-                endDate: nil
+                endDate: nil,
+                schedule: schedule
             )
         }
 
@@ -556,6 +702,52 @@ enum PostHogSurveysTest {
 
             #expect(sut.canActivateRepeatedly == false)
         }
+
+        @Test("returns true when schedule is always, even without events")
+        func returnsTrueWhenScheduleIsAlways() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .always
+            )
+
+            #expect(sut.canActivateRepeatedly == true)
+        }
+
+        @Test("returns false when schedule is once")
+        func returnsFalseWhenScheduleIsOnce() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .once
+            )
+
+            #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns false when schedule is recurring")
+        func returnsFalseWhenScheduleIsRecurring() {
+            let sut = getSut(
+                repeatedActivation: nil,
+                values: [],
+                schedule: .recurring
+            )
+
+            #expect(sut.canActivateRepeatedly == false)
+        }
+
+        @Test("returns true when schedule is always, even with repeatedActivation false")
+        func returnsTrueWhenScheduleIsAlwaysRegardlessOfRepeatedActivation() {
+            let sut = getSut(
+                repeatedActivation: false,
+                values: [
+                    PostHogEventCondition(name: "first event"),
+                ],
+                schedule: .always
+            )
+
+            #expect(sut.canActivateRepeatedly == true)
+        }
     }
 
     @Suite("Test getActiveMatchingSurveys", .serialized)
@@ -566,6 +758,7 @@ enum PostHogSurveysTest {
         init() {
             let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
             config._surveys = true
+            config.disableFlushOnBackgroundForTesting = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()
@@ -952,6 +1145,158 @@ enum PostHogSurveysTest {
             }
 
             #expect(matchedSurveys.map(\.id) == ["survey-with-internal-flag-enabled"])
+        }
+    }
+
+    @Suite("Test survey wait period", .serialized)
+    class TestSurveyWaitPeriod {
+        let server: MockPostHogServer
+        let postHog: PostHogSDK
+        let storage: PostHogStorage
+
+        init() {
+            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+            config._surveys = true
+            config.disableFlushOnBackgroundForTesting = true
+            postHog = PostHogSDK.with(config)
+            storage = PostHogStorage(config)
+            storage.reset()
+            server = MockPostHogServer()
+            server.start()
+        }
+
+        deinit {
+            server.stop()
+            postHog.close()
+            postHog.reset()
+        }
+
+        let activeSurveyNoWaitPeriod =
+            """
+            {
+                "id": "no-wait-period",
+                "name": "Survey without wait period",
+                "type": "popover",
+                "questions": [
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "What do you think?",
+                        "originalQuestionIndex": 0
+                    }
+                ],
+                "start_date": "2024-07-23T09:18:18.376000Z"
+            }
+            """
+
+        let activeSurveyWithWaitPeriod =
+            """
+            {
+                "id": "with-wait-period",
+                "name": "Survey with wait period",
+                "type": "popover",
+                "questions": [
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "What do you think?",
+                        "originalQuestionIndex": 0
+                    }
+                ],
+                "conditions": {
+                    "seenSurveyWaitPeriodInDays": 7
+                },
+                "start_date": "2024-07-23T09:18:18.376000Z"
+            }
+            """
+
+        private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
+            server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
+            let sut = PostHogSurveyIntegration()
+            PostHogSurveyIntegration.clearInstalls()
+            try! sut.install(postHog)
+            return sut
+        }
+
+        @Test("survey without wait period is not filtered")
+        func surveyWithoutWaitPeriodIsNotFiltered() async {
+            let sut = getSut(surveys: [activeSurveyNoWaitPeriod])
+
+            // Set last seen date to recently
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(Date()))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
+        }
+
+        @Test("survey with wait period passes when no survey was previously seen")
+        func surveyWithWaitPeriodPassesWhenNoPreviouslySeen() async {
+            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+        }
+
+        @Test("survey with wait period is filtered when period has not elapsed")
+        func surveyWithWaitPeriodIsFilteredWhenNotElapsed() async {
+            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+            // Set last seen date to 1 day ago (wait period is 7 days)
+            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.isEmpty)
+        }
+
+        @Test("survey with wait period passes when period has elapsed")
+        func surveyWithWaitPeriodPassesWhenElapsed() async {
+            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+            // Set last seen date to 10 days ago (wait period is 7 days)
+            let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(tenDaysAgo))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+        }
+
+        @Test("survey without wait period is not affected by last seen date")
+        func surveyWithoutWaitPeriodNotAffectedByLastSeenDate() async {
+            let sut = getSut(surveys: [activeSurveyNoWaitPeriod, activeSurveyWithWaitPeriod])
+
+            // Set last seen date to 1 day ago (wait period is 7 days)
+            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            // Only the survey without wait period should pass
+            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
         }
     }
 
@@ -1407,7 +1752,8 @@ private extension PostHogSurvey {
         currentIteration: Int? = nil,
         currentIterationStartDate: Date? = nil,
         startDate: Date? = nil,
-        endDate: Date? = nil
+        endDate: Date? = nil,
+        schedule: PostHogSurveySchedule? = nil
     ) -> PostHogSurvey {
         PostHogSurvey(
             id: id,
@@ -1423,7 +1769,8 @@ private extension PostHogSurvey {
             currentIteration: currentIteration,
             currentIterationStartDate: currentIterationStartDate,
             startDate: startDate,
-            endDate: endDate
+            endDate: endDate,
+            schedule: schedule
         )
     }
 }

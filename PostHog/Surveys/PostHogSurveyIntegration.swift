@@ -32,7 +32,7 @@
         private var allSurveys: [PostHogSurvey]?
 
         private var eventsToSurveysLock = NSLock()
-        private var eventsToSurveys: [String: [String]] = [:]
+        private var eventsToSurveys: [String: [(surveyId: String, condition: PostHogEventCondition)]] = [:]
 
         private var seenSurveyKeysLock = NSLock()
         private var seenSurveyKeys: [AnyHashable: Any]?
@@ -76,7 +76,7 @@
             #if os(iOS)
                 // Subscribe to event captures
                 eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
-                    self?.onEvent(event: event.event)
+                    self?.onEvent(event: event)
                 }
 
                 // TODO: listen to screen view events
@@ -121,6 +121,9 @@
                         let deviceTypeCheck = self.doesSurveyDeviceTypesMatch(survey: survey)
                         return deviceTypeCheck
                     }
+                    .filter { survey in // 3.5. wait period has passed
+                        self.hasWaitPeriodPassed(survey: survey)
+                    }
                     .filter { survey in // 4. and match linked flags
                         let allKeys: [String?] = [
                             [survey.linkedFlagKey],
@@ -147,12 +150,18 @@
             }
         }
 
-        private func onEvent(event: String) {
-            let activatedSurveys = eventsToSurveysLock.withLock { eventsToSurveys[event] } ?? []
-            guard !activatedSurveys.isEmpty else { return }
+        private func onEvent(event: PostHogEvent) {
+            let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event.event] } ?? []
+            guard !candidates.isEmpty else { return }
+
+            let matchingSurveyIds = candidates
+                .filter { matchPropertyFilters($0.condition.propertyFilters, eventProperties: event.properties) }
+                .map(\.surveyId)
+
+            guard !matchingSurveyIds.isEmpty else { return }
 
             eventActivatedSurveysLock.withLock {
-                for survey in activatedSurveys {
+                for survey in matchingSurveyIds {
                     eventActivatedSurveys.insert(survey)
                 }
             }
@@ -216,10 +225,12 @@
         private func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
             let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
 
-            let eventMap = loadedSurveys.reduce(into: [String: [String]]()) { result, current in
-                if let surveyEvents = current.conditions?.events?.values.map(\.name) {
-                    for event in surveyEvents {
-                        result[event, default: []].append(current.id)
+            let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
+                if let surveyEvents = current.conditions?.events?.values {
+                    for eventCondition in surveyEvents {
+                        result[eventCondition.name, default: []].append(
+                            (surveyId: current.id, condition: eventCondition)
+                        )
                     }
                 }
             }
@@ -328,6 +339,7 @@
             }
 
             storage?.setDictionary(forKey: .surveySeen, contents: seenKeys ?? [:])
+            setLastSeenSurveyDate(Date())
         }
 
         /// Returns survey seen list (and mem-cache from disk if needed)
@@ -365,6 +377,47 @@
             let matchType = getMatchTypeOrDefault(conditions.deviceTypesMatchType)
 
             return matchType.matches(targets: deviceTypes, value: deviceType)
+        }
+
+        /// Checks if the wait period has passed since the last seen survey date
+        private func hasWaitPeriodPassed(survey: PostHogSurvey) -> Bool {
+            guard let waitPeriodInDays = survey.conditions?.seenSurveyWaitPeriodInDays else {
+                return true
+            }
+            guard let lastSeenDate = getLastSeenSurveyDate() else {
+                return true
+            }
+            let now = Date()
+            let diffSeconds = abs(now.timeIntervalSince(lastSeenDate))
+            let diffDays = Int(ceil(diffSeconds / secondsPerDay))
+            return diffDays > waitPeriodInDays
+        }
+
+        private func getLastSeenSurveyDate() -> Date? {
+            guard let dateString = storage?.getString(forKey: .lastSeenSurveyDate) else { return nil }
+            return toISO8601Date(dateString)
+        }
+
+        private func setLastSeenSurveyDate(_ date: Date) {
+            storage?.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(date))
+        }
+
+        /// Checks if the given event properties satisfy all property filters.
+        /// Returns true if propertyFilters is nil or empty (no filters = match all).
+        private func matchPropertyFilters(
+            _ propertyFilters: [String: PostHogPropertyFilter]?,
+            eventProperties: [String: Any]
+        ) -> Bool {
+            guard let propertyFilters, !propertyFilters.isEmpty else {
+                return true
+            }
+            return propertyFilters.allSatisfy { propertyName, filter in
+                guard let eventValue = eventProperties[propertyName] else {
+                    return false
+                }
+                let eventValueString = String(describing: eventValue)
+                return filter.matchOperator.matches(targets: filter.values, value: eventValueString)
+            }
         }
 
         /// Checks if a survey has been previously activated by an associated event
@@ -801,32 +854,33 @@
         }
 
         var canActivateRepeatedly: Bool {
-            conditions?.events?.repeatedActivation == true && hasEvents
+            (conditions?.events?.repeatedActivation == true && hasEvents) ||
+                schedule == .always
         }
     }
 
     private extension PostHogSurveyMatchType {
         func matches(targets: [String], value: String) -> Bool {
             switch self {
-            // any of the targets contain the value (matched lowercase)
+            // value contains any of the targets (case-insensitive)
             case .iContains:
                 targets.contains { target in
-                    target.lowercased().contains(value.lowercased())
+                    value.lowercased().contains(target.lowercased())
                 }
-            // *none* of the targets contain the value (matched lowercase)
+            // value contains *none* of the targets (case-insensitive)
             case .notIContains:
                 targets.allSatisfy { target in
-                    !target.lowercased().contains(value.lowercased())
+                    !value.lowercased().contains(target.lowercased())
                 }
-            // any of the targets match with regex
+            // value matches any of the targets as a regex pattern
             case .regex:
                 targets.contains { target in
-                    target.range(of: value, options: .regularExpression) != nil
+                    value.range(of: target, options: .regularExpression) != nil
                 }
-            // *none* if the targets match with regex
+            // value matches *none* of the targets as a regex pattern
             case .notRegex:
                 targets.allSatisfy { target in
-                    target.range(of: value, options: .regularExpression) == nil
+                    value.range(of: target, options: .regularExpression) == nil
                 }
             // any of the targets is an exact match
             case .exact:
@@ -837,6 +891,22 @@
             case .isNot:
                 targets.allSatisfy { target in
                     target != value
+                }
+            // any of the targets is numerically less than the value (value > target)
+            case .gt:
+                targets.contains { target in
+                    if let targetNum = Double(target), let valueNum = Double(value) {
+                        return valueNum > targetNum
+                    }
+                    return false
+                }
+            // any of the targets is numerically greater than the value (value < target)
+            case .lt:
+                targets.contains { target in
+                    if let targetNum = Double(target), let valueNum = Double(value) {
+                        return valueNum < targetNum
+                    }
+                    return false
                 }
             case .unknown:
                 false
@@ -930,6 +1000,25 @@
 
             func testGetResponseKey(questionId: String) -> String {
                 getNewResponseKey(for: questionId)
+            }
+
+            func testMatchPropertyFilters(
+                _ propertyFilters: [String: PostHogPropertyFilter]?,
+                eventProperties: [String: Any]
+            ) -> Bool {
+                matchPropertyFilters(propertyFilters, eventProperties: eventProperties)
+            }
+
+            func testSetEventsToSurveys(_ map: [String: [(surveyId: String, condition: PostHogEventCondition)]]) {
+                eventsToSurveysLock.withLock {
+                    eventsToSurveys = map
+                }
+            }
+
+            func testIsEventActivated(surveyId: String) -> Bool {
+                eventActivatedSurveysLock.withLock {
+                    eventActivatedSurveys.contains(surveyId)
+                }
             }
 
             static func clearInstalls() {

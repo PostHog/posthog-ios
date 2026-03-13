@@ -21,6 +21,7 @@ let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
+// swiftlint:disable:next type_body_length <- Should be removed once PostHogSDK is refactored
 @objc public class PostHogSDK: NSObject {
     private(set) var config: PostHogConfig
 
@@ -50,6 +51,8 @@ let maxRetryDelay = 30.0
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
+    private var sessionIdChangedToken: RegistrationToken?
+    private var didEnterBackgroundToken: RegistrationToken?
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -74,6 +77,7 @@ let maxRetryDelay = 30.0
             self.reachability?.stopNotifier()
         #endif
 
+        sessionIdChangedToken = nil
         uninstallIntegrations()
     }
 
@@ -106,9 +110,11 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
-            remoteConfig = PostHogRemoteConfig(config, theStorage, api) { [weak self] in
+            remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
-            }
+            }, { [weak self] flagKey, flagValue in
+                self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
+            })
 
             #if !os(watchOS)
                 do {
@@ -143,10 +149,25 @@ let maxRetryDelay = 30.0
             // Create session manager instance for this PostHogSDK instance
             sessionManager.setup(config: config)
             sessionManager.startSession()
+            // Listen for session changes to update crash context
+            sessionIdChangedToken = sessionManager.onSessionIdChanged.subscribe { [weak self] in
+                self?.notifyContextDidChange()
+            }
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
                 installIntegrations()
+
+                // Notify integrations of initial context (e.g., for crash reporting)
+                notifyContextDidChange()
+            }
+
+            // Flush the queue when the app enters background to ensure
+            // pending events are sent before the app is suspended
+            if !config.disableFlushOnBackgroundForTesting {
+                didEnterBackgroundToken = DI.main.appLifecyclePublisher.onDidEnterBackground.subscribe { [weak self] in
+                    self?.flush()
+                }
             }
 
             DispatchQueue.main.async {
@@ -365,6 +386,9 @@ let maxRetryDelay = 30.0
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     private func getGroups() -> [String: String] {
@@ -398,6 +422,9 @@ let maxRetryDelay = 30.0
             let mergedProps = props.merging(sanitizedProps!) { _, new in new }
             storage?.setDictionary(forKey: .registerProperties, contents: mergedProps)
         }
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     @objc(unregisterProperties:)
@@ -411,6 +438,9 @@ let maxRetryDelay = 30.0
             props.removeValue(forKey: key)
             storage?.setDictionary(forKey: .registerProperties, contents: props)
         }
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     @objc public func identify(_ distinctId: String) {
@@ -484,6 +514,9 @@ let maxRetryDelay = 30.0
             queueEvent(event, queue: queue)
 
             remoteConfig?.reloadFeatureFlags()
+
+            // Notify integrations of context change (e.g., for crash reporting)
+            notifyContextDidChange()
 
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
@@ -750,6 +783,33 @@ let maxRetryDelay = 30.0
                         groups: [String: String]? = nil,
                         timestamp: Date? = nil)
     {
+        captureInternal(
+            event,
+            distinctId: distinctId,
+            properties: properties,
+            userProperties: userProperties,
+            userPropertiesSetOnce: userPropertiesSetOnce,
+            groups: groups,
+            timestamp: timestamp,
+            skipBuildProperties: false
+        )
+    }
+
+    /// Internal capture method that handles all event capture logic.
+    ///
+    /// - Parameters:
+    ///   - skipBuildProperties: When true, skips buildProperties call and uses properties as-is.
+    ///     Used by crash reporting to capture events with pre-built crash-time context.
+    func captureInternal(
+        _ event: String,
+        distinctId: String? = nil,
+        properties: [String: Any]? = nil,
+        userProperties: [String: Any]? = nil,
+        userPropertiesSetOnce: [String: Any]? = nil,
+        groups: [String: String]? = nil,
+        timestamp: Date? = nil,
+        skipBuildProperties: Bool = false
+    ) {
         if !isEnabled() {
             return
         }
@@ -768,23 +828,35 @@ let maxRetryDelay = 30.0
 
         // if the user isn't identified but passed userProperties, userPropertiesSetOnce or groups,
         // we should still enable person processing since this is intentional
-        if userProperties?.isEmpty == false || userPropertiesSetOnce?.isEmpty == false || groups?.isEmpty == false {
+        let hasPersonData = userProperties?.isEmpty == false
+            || userPropertiesSetOnce?.isEmpty == false
+            || groups?.isEmpty == false
+
+        if !skipBuildProperties, hasPersonData {
             requirePersonProcessing()
         }
 
-        let properties = buildProperties(distinctId: eventDistinctId,
-                                         properties: sanitizeDictionary(properties),
-                                         userProperties: sanitizeDictionary(userProperties),
-                                         userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce),
-                                         groups: groups,
-                                         appendSharedProps: !isSnapshotEvent,
-                                         timestamp: timestamp)
+        let finalProperties: [String: Any]
+        if skipBuildProperties {
+            // Use properties as-is (already built at crash time)
+            finalProperties = properties ?? [:]
+        } else {
+            finalProperties = buildProperties(
+                distinctId: eventDistinctId,
+                properties: sanitizeDictionary(properties),
+                userProperties: sanitizeDictionary(userProperties),
+                userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce),
+                groups: groups,
+                appendSharedProps: !isSnapshotEvent,
+                timestamp: timestamp
+            )
+        }
 
         // Sanitize is now called in buildEvent
         let posthogEvent = buildEvent(
             event: event,
             distinctId: eventDistinctId,
-            properties: properties,
+            properties: finalProperties,
             timestamp: eventTimestamp
         )
 
@@ -801,7 +873,9 @@ let maxRetryDelay = 30.0
         }
 
         // Automatically set person properties for feature flags during capture event
-        setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+        if !skipBuildProperties {
+            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+        }
 
         // Session Replay has its own queue
         if let targetQueue = isSnapshotEvent ? replayQueue : queue {
@@ -1028,6 +1102,9 @@ let maxRetryDelay = 30.0
         _ = groups([type: key])
 
         groupIdentify(type: type, key: key, groupProperties: sanitizeDictionary(groupProperties))
+
+        // Notify integrations of context change (e.g., for crash reporting)
+        notifyContextDidChange()
     }
 
     // FEATURE FLAGS
@@ -1284,6 +1361,87 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Captures a $feature_view event for the specified feature flag.
+    ///
+    /// - Parameter flag: The key of the feature flag being viewed.
+    /// - Parameter flagVariant: The variant of the feature flag being viewed.
+    @objc public func captureFeatureView(flag: String, flagVariant: String?) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
+        // If neither is available, there is no meaningful variant to record, so we skip the event.
+        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
+            hedgeLog("captureFeatureView called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            return
+        }
+
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_view/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_view",
+            properties: props,
+            userProperties: userProps
+        )
+    }
+
+    /// Captures a $feature_interaction event for the specified feature flag.
+    ///
+    /// - Parameter flag: The key of the feature flag being interacted with.
+    /// - Parameter flagVariant: The variant of the feature flag being interacted with.
+    @objc public func captureFeatureInteraction(
+        flag: String,
+        flagVariant: String?
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
+        // If neither is available, there is no meaningful variant to record, so we skip the event.
+        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
+            hedgeLog("captureFeatureInteraction called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            return
+        }
+
+        var props: [String: Any] = [
+            "feature_flag": flag,
+        ]
+
+        if let variantStr = variant as? String {
+            props["feature_flag_variant"] = variantStr
+        }
+
+        let userProps: [String: Any] = [
+            "$feature_interaction/\(flag)": variant,
+        ]
+
+        capture(
+            "$feature_interaction",
+            properties: props,
+            userProperties: userProps
+        )
+    }
+
     /// Returns the feature flag result containing the flag value, variant, and payload.
     ///
     /// This is the recommended method for retrieving feature flags as it provides
@@ -1374,6 +1532,9 @@ let maxRetryDelay = 30.0
     }
 
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
+        if remoteConfig == nil {
+            return
+        }
         var shouldCapture = true
 
         flagCallReportedLock.withLock {
@@ -1503,6 +1664,7 @@ let maxRetryDelay = 30.0
             }
             context = nil
             sessionManager.endSession()
+            didEnterBackgroundToken = nil
             toggleHedgeLog(false)
 
             uninstallIntegrations()
@@ -1626,6 +1788,116 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    // MARK: - Error Tracking
+
+    /// Capture a Swift Error or NSError
+    ///
+    /// Captures an error as a `$exception` event with full stack trace and error chain information.
+    /// The error will be marked as handled by default.
+    ///
+    /// Example:
+    /// ```swift
+    /// do {
+    ///     try FileManager.default.removeItem(at: badFileUrl)
+    /// } catch {
+    ///     PostHog.shared.captureException(error)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - error: The error to capture (can be any Error or NSError)
+    ///   - properties: Optional additional properties to attach to the event
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
+    @objc(captureExceptionWithError:properties:)
+    public func captureException(
+        _ error: Error,
+        properties: [String: Any]? = nil
+    ) {
+        guard isEnabled() else { return }
+
+        let errorProperties = PostHogExceptionProcessor.errorToProperties(
+            error,
+            handled: true,
+            config: config.errorTrackingConfig
+        )
+
+        var mergedProperties = errorProperties
+        properties?.forEach { mergedProperties[$0.key] = $0.value }
+
+        capture("$exception", properties: mergedProperties)
+    }
+
+    /// Capture a Swift Error or NSError without additional properties
+    ///
+    /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
+    ///
+    /// - Parameter error: The error to capture (can be any Error or NSError)
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
+    @objc(captureExceptionWithError:)
+    public func captureException(
+        _ error: Error
+    ) {
+        captureException(error, properties: nil)
+    }
+
+    /// Capture an NSException
+    ///
+    /// Captures an NSException as a `$exception` event with full stack trace.
+    /// This is useful for Objective-C code that uses NSException.
+    ///
+    /// Example:
+    /// ```objc
+    /// @try {
+    ///     [self riskyOperation];
+    /// } @catch (NSException *exception) {
+    ///     [[PostHog shared] captureExceptionWithNSException:exception properties:nil];
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - exception: The NSException to capture
+    ///   - properties: Optional additional properties to attach to the event
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
+    @objc(captureExceptionWithNSException:properties:)
+    public func captureException(
+        _ exception: NSException,
+        properties: [String: Any]? = nil
+    ) {
+        guard isEnabled() else { return }
+
+        let exceptionProperties = PostHogExceptionProcessor.exceptionToProperties(
+            exception,
+            handled: true,
+            config: config.errorTrackingConfig
+        )
+
+        var mergedProperties = exceptionProperties
+        properties?.forEach { mergedProperties[$0.key] = $0.value }
+
+        capture("$exception", properties: mergedProperties)
+    }
+
+    /// Capture an NSException without additional properties
+    ///
+    /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
+    ///
+    /// - Parameter exception: The NSException to capture
+    ///
+    /// - Experimental: This is an experimental feature and may change in future releases.
+    @_spi(Experimental)
+    @objc(captureExceptionWithNSException:)
+    public func captureException(
+        _ exception: NSException
+    ) {
+        captureException(exception, properties: nil)
+    }
+
     private func installIntegrations() {
         guard installedIntegrations.isEmpty else {
             hedgeLog("Integrations already installed. Call uninstallIntegrations() first.")
@@ -1694,6 +1966,38 @@ let maxRetryDelay = 30.0
             replayIntegration = nil
             surveysIntegration = nil
         #endif
+    }
+
+    /// Notifies all installed integrations that the event context has changed.
+    ///
+    /// This is called after operations that modify the context (identify, reset, group, register).
+    /// Integrations like crash reporting use this to persist context for crash-time capture.
+    private func notifyContextDidChange() {
+        guard isEnabled() else { return }
+
+        let distinctId = getDistinctId()
+
+        // Build complete event properties snapshot
+        let eventProperties = buildProperties(
+            distinctId: distinctId,
+            properties: nil,
+            userProperties: nil,
+            userPropertiesSetOnce: nil,
+            groups: nil,
+            appendSharedProps: true,
+            timestamp: nil
+        )
+
+        // Build crash context with identity info + event properties
+        // This structure allows crash reporting to reconstruct events with crash-time data
+        let context: [String: Any] = [
+            "distinct_id": distinctId,
+            "event_properties": eventProperties,
+        ]
+
+        for integration in installedIntegrations {
+            integration.contextDidChange(context)
+        }
     }
 }
 

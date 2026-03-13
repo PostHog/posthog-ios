@@ -11,12 +11,63 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    runs-on: macos-14
+  build-platforms:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExample -destination generic/platform=ios | xcpretty
+          - name: visionOS
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleVisionOS -destination generic/platform=xros | xcpretty
+          - name: ObjC
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogObjCExample -destination generic/platform=ios | xcpretty
+          - name: macOS
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleMacOS -destination generic/platform=macos | xcpretty
+          - name: watchOS
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty
+          - name: tvOS
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty
+          - name: SPM
+            command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty
+    name: Example (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v6
       - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
         with:
           xcode-version: latest-stable
-      - name: Build Example
-        run: make buildExamples
+      - name: Build Example (${{ matrix.name }})
+        run: ${{ matrix.command }}
+
+  build-xcframework:
+    runs-on: macos-15
+    name: Example (XCFramework)
+    steps:
+      - uses: actions/checkout@v6
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: latest-stable
+      - name: Build XCFramework Example
+        run: make buildExampleXCFramework
+
+  build-pods:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Static Lib
+            target: buildExamplePodsStaticLib
+          - name: Static Framework
+            target: buildExamplePodsStaticFramework
+          - name: Dynamic Framework
+            target: buildExamplePodsDynamicFramework
+    name: Example Pods (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v6
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: latest-stable
+      - name: Build Pods Example (${{ matrix.name }})
+        run: make ${{ matrix.target }}

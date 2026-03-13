@@ -42,6 +42,7 @@
 
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
+        private var eventCapturedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -73,6 +74,11 @@
 
         func start() {
             #if os(iOS)
+                // Subscribe to event captures
+                eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
+                    self?.onEvent(event: event)
+                }
+
                 // TODO: listen to screen view events
                 didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
                     self?.showNextSurvey()
@@ -85,6 +91,7 @@
         }
 
         func stop() {
+            eventCapturedToken = nil
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
             #if os(iOS)
@@ -143,14 +150,12 @@
             }
         }
 
-        // TODO: Decouple PostHogSDK and use registration handlers instead
-        /// Called from PostHogSDK instance when an event is captured
-        func onEvent(event: String, properties: [String: Any]) {
-            let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event] } ?? []
+        private func onEvent(event: PostHogEvent) {
+            let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event.event] } ?? []
             guard !candidates.isEmpty else { return }
 
             let matchingSurveyIds = candidates
-                .filter { matchPropertyFilters($0.condition.propertyFilters, eventProperties: properties) }
+                .filter { matchPropertyFilters($0.condition.propertyFilters, eventProperties: event.properties) }
                 .map(\.surveyId)
 
             guard !matchingSurveyIds.isEmpty else { return }
@@ -1014,6 +1019,10 @@
                 eventActivatedSurveysLock.withLock {
                     eventActivatedSurveys.contains(surveyId)
                 }
+            }
+
+            func testOnEvent(event: PostHogEvent) {
+                onEvent(event: event)
             }
 
             static func clearInstalls() {

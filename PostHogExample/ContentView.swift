@@ -66,7 +66,6 @@ struct ContentView: View {
     @State private var name: String = "Max"
     @State private var showingSheet = false
     @State private var showingRedactedSheet = false
-    @State private var refreshStatusID = UUID()
     @StateObject var api = Api()
 
     @StateObject var signInViewModel = SignInViewModel()
@@ -164,35 +163,14 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             List {
-                #if os(iOS)
-                    Section("Manual Session Recording Control") {
-                        Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .multilineTextAlignment(.leading)
-                            .id(refreshStatusID)
-
-                        Button("Stop") {
-                            PostHogSDK.shared.stopSessionRecording()
-                            DispatchQueue.main.async {
-                                refreshStatusID = UUID()
-                            }
-                        }
-                        Button("Resume") {
-                            PostHogSDK.shared.startSessionRecording()
-                            DispatchQueue.main.async {
-                                refreshStatusID = UUID()
-                            }
-                        }
-                        Button("Start New Session") {
-                            PostHogSDK.shared.startSessionRecording(resumeCurrent: false)
-                            DispatchQueue.main.async {
-                                refreshStatusID = UUID()
-                            }
-                        }
-                    }
-                #endif
                 Section("General") {
+                    #if os(iOS)
+                        NavigationLink {
+                            SessionRecordingView()
+                        } label: {
+                            Text("Session Recording Tests")
+                        }
+                    #endif
                     NavigationLink {
                         ContentView()
                     } label: {
@@ -441,12 +419,6 @@ struct ContentView: View {
             })
         }
     }
-
-    #if os(iOS)
-        private var sessionRecordingStatus: String {
-            PostHogSDK.shared.isSessionReplayActive() ? "🟢" : "🔴"
-        }
-    #endif
 }
 
 struct ContentView_Previews: PreviewProvider {

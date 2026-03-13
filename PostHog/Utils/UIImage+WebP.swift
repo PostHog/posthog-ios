@@ -91,7 +91,7 @@
             var writer = WebPMemoryWriter()
 
             // get present...
-            guard WebPConfigPreset(&config, WEBP_PRESET_DEFAULT, quality) != 0, WebPPictureInit(&picture) != 0 else {
+            guard ph_WebPConfigPreset(&config, WEBP_PRESET_DEFAULT, quality) != 0, ph_WebPPictureInit(&picture) != 0 else {
                 hedgeLog("Error initializing WebPPicture")
                 return nil
             }
@@ -100,24 +100,24 @@
                 picture.use_argb = 1 // Lossy encoding uses YUV for internal bitstream
                 picture.width = Int32(width)
                 picture.height = Int32(height)
-                picture.writer = WebPMemoryWrite
+                picture.writer = ph_WebPMemoryWrite
                 picture.custom_ptr = UnsafeMutableRawPointer(writerPointer)
             }
 
-            WebPMemoryWriterInit(&writer)
+            ph_WebPMemoryWriterInit(&writer)
 
             defer {
-                WebPMemoryWriterClear(&writer)
-                WebPPictureFree(&picture)
+                ph_WebPMemoryWriterClear(&writer)
+                ph_WebPPictureFree(&picture)
             }
 
             let result: Int32
             if hasAlpha {
                 // RGBA8888 - 4 channels
-                result = WebPPictureImportRGBA(&picture, rgba.bindMemory(to: UInt8.self, capacity: 4), Int32(bytesPerRow))
+                result = ph_WebPPictureImportRGBA(&picture, rgba.bindMemory(to: UInt8.self, capacity: 4), Int32(bytesPerRow))
             } else {
                 // RGB888 - 3 channels
-                result = WebPPictureImportRGB(&picture, rgba.bindMemory(to: UInt8.self, capacity: 3), Int32(bytesPerRow))
+                result = ph_WebPPictureImportRGB(&picture, rgba.bindMemory(to: UInt8.self, capacity: 3), Int32(bytesPerRow))
             }
 
             if result == 0 {
@@ -125,7 +125,7 @@
                 return nil
             }
 
-            if WebPEncode(&config, &picture) == 0 {
+            if ph_WebPEncode(&config, &picture) == 0 {
                 hedgeLog("Could not encode WebP image")
                 return nil
             }

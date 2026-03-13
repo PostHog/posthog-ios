@@ -1021,6 +1021,10 @@
                 }
             }
 
+            func testOnEvent(event: PostHogEvent) {
+                onEvent(event: event)
+            }
+
             static func clearInstalls() {
                 integrationInstalledLock.withLock {
                     integrationInstalled = false

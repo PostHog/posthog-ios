@@ -2,7 +2,6 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("Session Replay Sampling Tests")
 class PostHogSamplingTests {
     // MARK: - simpleHash Tests
 
@@ -104,7 +103,7 @@ class PostHogSamplingTests {
 
     // MARK: - parseSampleRate Tests
 
-    @Suite("parseSampleRate Tests", .serialized)
+    @Suite(.serialized)
     class ParseSampleRateTests {
         let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
         var server: MockPostHogServer!
@@ -278,7 +277,6 @@ class PostHogSamplingTests {
 
     // MARK: - PostHogSessionReplayConfig sampleRate Tests
 
-    @Suite("PostHogSessionReplayConfig sampleRate Tests")
     class SessionReplayConfigSampleRateTests {
         @Test("sampleRate defaults to nil")
         func sampleRateDefaultsToNil() {

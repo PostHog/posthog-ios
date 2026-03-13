@@ -11,7 +11,6 @@ import Testing
 
 @Suite(.serialized)
 enum PostHogSessionManagerTest {
-    @Suite("Test session id rotation logic")
     struct SessionRotation {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
 
@@ -154,7 +153,6 @@ enum PostHogSessionManagerTest {
         }
     }
 
-    @Suite("Test $session_id property in events")
     class PostHogSDKEvents {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
         var server: MockPostHogServer!
@@ -353,7 +351,6 @@ enum PostHogSessionManagerTest {
         }
     }
 
-    @Suite("Test utility classes")
     struct UtilityTests {
         class LifeCycleSub {
             let token: RegistrationToken
@@ -385,7 +382,6 @@ enum PostHogSessionManagerTest {
         }
     }
 
-    @Suite("Test React Native session management")
     struct ReactNativeTests {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
         let posthog: PostHogSDK

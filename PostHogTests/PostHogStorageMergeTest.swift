@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("PostHogStorage app group merge tests", .serialized)
+@Suite(.serialized)
 class PostHogStorageMergeTest {
     let testApiKey = "test_merge_api_key"
     var baseUrl: URL!

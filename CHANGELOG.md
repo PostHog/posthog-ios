@@ -1,5 +1,7 @@
 ## Next
 
+- feat: Manual capture deep link events (SwiftUI and UIKit) ([#485](https://github.com/PostHog/posthog-ios/pull/485))
+
 ## 3.47.0
 
 ### Minor Changes

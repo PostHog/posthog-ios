@@ -70,7 +70,6 @@ enum PostHogApiTests {
         }
     }
 
-    @Suite("Test batch endpoint with different host paths")
     class TestBatchEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func hostWithNoPath() async throws {
@@ -108,7 +107,6 @@ enum PostHogApiTests {
         }
     }
 
-    @Suite("Test snapshot endpoint with different host paths")
     class TestSnapshotEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
@@ -146,7 +144,6 @@ enum PostHogApiTests {
         }
     }
 
-    @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {

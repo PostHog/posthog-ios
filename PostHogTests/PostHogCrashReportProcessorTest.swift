@@ -12,11 +12,9 @@ import Testing
 #if os(iOS) || os(macOS) || os(tvOS)
     import CrashReporter
 
-    @Suite("PostHogCrashReportProcessor Tests")
-    struct PostHogCrashReportProcessorTest {
+    enum PostHogCrashReportProcessorTest {
         // MARK: - Live Report Tests
 
-        @Suite("Process Live Report")
         struct ProcessLiveReportTests {
             let config = PostHogErrorTrackingConfig()
 
@@ -179,7 +177,6 @@ import Testing
 
         // MARK: - Crash Timestamp Tests
 
-        @Suite("Crash Timestamp")
         struct CrashTimestampTests {
             @Test("extracts crash timestamp from report")
             func extractsCrashTimestamp() throws {
@@ -202,7 +199,6 @@ import Testing
 
         // MARK: - In-App Detection Tests
 
-        @Suite("In-App Detection")
         struct InAppDetectionTests {
             @Test("marks frames as in-app based on config")
             func marksFramesAsInApp() throws {
@@ -263,7 +259,6 @@ import Testing
 
         // MARK: - Thread ID Tests
 
-        @Suite("Thread ID")
         struct ThreadIDTests {
             @Test("exception has thread ID")
             func exceptionHasThreadId() throws {

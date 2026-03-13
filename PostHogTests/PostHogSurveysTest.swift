@@ -9,9 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("Test Surveys")
 enum PostHogSurveysTest {
-    @Suite("Test decoding surveys from remote config")
     struct TestDecodingSurveys {
         @Test("survey decodes correctly")
         func surveyDecodesCorrectly() throws {
@@ -102,7 +100,6 @@ enum PostHogSurveysTest {
             #expect(sut.appearance?.position == .right)
         }
 
-        @Suite("Survey question types decode correctly")
         struct SurveyQuestionTypeDecodeTests {
             @Test("basic question decodes correctly")
             func basicQuestionDecodesCorrectly() throws {
@@ -193,7 +190,6 @@ enum PostHogSurveysTest {
             }
         }
 
-        @Suite("Question branching decodes correctly")
         struct QuestionBranchingDecodesCorrectly {
             @Test("next branching decodes correctly")
             func nextBranchingDecodesCorrectly() throws {
@@ -271,7 +267,6 @@ enum PostHogSurveysTest {
             }
         }
 
-        @Suite("Question display conditions decodes correctly")
         struct DisplayConditionsDecodesCorrectly {
             @Test("event condition decodes correctly")
             func eventConditionDecodesCorrectly() async throws {
@@ -343,7 +338,6 @@ enum PostHogSurveysTest {
             }
         }
 
-        @Suite("Url match types decode correctly")
         struct UrlMatchTypeDecodesCorrectly {
             @Test("exact url match type decodes correctly")
             func exactUrlMatchTypeDecodesCorrectly() async throws {
@@ -425,7 +419,6 @@ enum PostHogSurveysTest {
         }
     }
 
-    @Suite("Test SurveyUrlMatchType match function")
     struct TestSurveyUrlMatching {
         static let regexMap: [(url: String, regex: String, shouldMatch: Bool)] = [
             // url
@@ -517,7 +510,6 @@ enum PostHogSurveysTest {
         }
     }
 
-    @Suite("Test matchPropertyFilters")
     class TestMatchPropertyFilters {
         let server: MockPostHogServer
         let integration: PostHogSurveyIntegration
@@ -565,7 +557,6 @@ enum PostHogSurveysTest {
         }
     }
 
-    @Suite("Test onEvent with property filters")
     struct TestOnEventPropertyFilters {
         let server: MockPostHogServer
         let integration: PostHogSurveyIntegration
@@ -629,7 +620,6 @@ enum PostHogSurveysTest {
         }
     }
 
-    @Suite("Test canActivateRepeatedly")
     struct TestCanActivateRepeatedly {
         private func getSut(
             repeatedActivation: Bool?,
@@ -750,973 +740,975 @@ enum PostHogSurveysTest {
         }
     }
 
-    @Suite("Test getActiveMatchingSurveys", .serialized)
-    class TestGetActiveSurveys {
-        let server: MockPostHogServer
-        let postHog: PostHogSDK
+    #if os(iOS)
+        @Suite(.serialized)
+        class TestGetActiveSurveys {
+            let server: MockPostHogServer
+            let postHog: PostHogSDK
 
-        init() {
-            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
-            config._surveys = true
-            config.disableFlushOnBackgroundForTesting = true
-            postHog = PostHogSDK.with(config)
-            let storage = PostHogStorage(config)
-            storage.reset()
-            server = MockPostHogServer()
-            server.featureFlags = [
-                "linked-flag-enabled": true,
-                "linked-flag-disabled": false,
-                "survey-targeting-flag-enabled": true,
-                "survey-targeting-flag-disabled": false,
-                "internal-targeting-flag-enabled": true,
-                "internal-targeting-flag-disabled": false,
-            ]
-            server.start()
-        }
-
-        deinit {
-            server.stop()
-            postHog.close()
-            postHog.reset()
-        }
-
-        let draftSurvey =
-            """
-            {
-                "id": "draft_id",
-                "name": "Draft Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
+            init() {
+                let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+                config._surveys = true
+                config.disableFlushOnBackgroundForTesting = true
+                postHog = PostHogSDK.with(config)
+                let storage = PostHogStorage(config)
+                storage.reset()
+                server = MockPostHogServer()
+                server.featureFlags = [
+                    "linked-flag-enabled": true,
+                    "linked-flag-disabled": false,
+                    "survey-targeting-flag-enabled": true,
+                    "survey-targeting-flag-disabled": false,
+                    "internal-targeting-flag-enabled": true,
+                    "internal-targeting-flag-disabled": false,
                 ]
+                server.start()
             }
-            """
 
-        let activeSurvey =
-            """
-            {
-                "id": "active_id",
-                "name": "Active Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
+            deinit {
+                server.stop()
+                postHog.close()
+                postHog.reset()
             }
-            """
 
-        let completedSurvey =
-            """
-            {
-                "id": "completed_id",
-                "name": "Completed Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z",
-                "end_date": "2025-03-03T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithDesktopDevice =
-            """
-            {
-                "id": "desktop_id",
-                "name": "Active Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "conditions": { 
-                    "deviceTypes": ["Desktop"], 
-                    "deviceTypesMatchType": "icontains" 
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithMobileDevice =
-            """
-            {
-                "id": "mobile_id",
-                "name": "Active Survey",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What is a completed survey?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "conditions": { 
-                    "deviceTypes": ["Mobile"], 
-                    "deviceTypesMatchType": "icontains" 
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveysWithFeatureFlags =
-            """
-            {
-                "name": "survey with feature flags",
-                "id": "survey-with-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "linked-flag-enabled" },
-                    { "key": "flag2", "value": "survey-targeting-flag-enabled" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            },
-            {
-                "name": "survey with disabled feature flags",
-                "id": "survey-with-disabled-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "linked-flag-disabled" },
-                    { "key": "flag2", "value": "survey-targeting-flag-disabled" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            },
-            {
-                "name": "survey without feature flags",
-                "id": "survey-without-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveysWithMissingKeysAndValues =
-            """
-            {
-                "name": "survey with missing keys",
-                "id": "survey-with-missing-keys",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "", "value": "linked-flag-enabled" },
-                    { "key": "", "value": "" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            },
-            {
-                "name": "survey with missing values",
-                "id": "survey-with-missing-values",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "" },
-                    { "key": "flag2", "value": "" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithEnabledAndDisabledFlags =
-            """
-            {
-                "name": "survey with disabled and enabled feature flags",
-                "id": "survey-with-mixed-flags",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "feature_flag_keys": [
-                    { "key": "flag1", "value": "linked-flag-disabled" },
-                    { "key": "flag2", "value": "linked-flag-enabled" },
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithEnabledInternalTargetingFlag =
-            """
-            {
-                "name": "survey with internal flag enabled",
-                "id": "survey-with-internal-flag-enabled",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "internal_targeting_flag_key": "internal-targeting-flag-enabled",
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        let surveyWithDisabledInternalTargetingFlag =
-            """
-            {
-                "name": "survey with internal flag disabled",
-                "id": "survey-with-internal-flag-disabled",
-                "description": "survey with feature flags description",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "what do you think?",
-                        "originalQuestionIndex": 0
-                    }
-                ],
-                "internal_targeting_flag_key": "internal-targeting-flag-disabled",
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
-            server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
-            let sut = PostHogSurveyIntegration()
-            PostHogSurveyIntegration.clearInstalls()
-            try! sut.install(postHog)
-            return sut
-        }
-
-        @Test("returns surveys that are active")
-        func returnsActiveSurveys() async {
-            let surveys: [String] = [
-                draftSurvey,
-                activeSurvey,
-                completedSurvey,
-            ]
-
-            let sut = getSut(surveys: surveys)
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+            let draftSurvey =
+                """
+                {
+                    "id": "draft_id",
+                    "name": "Draft Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ]
                 }
-            }
+                """
 
-            #expect(matchedSurveys.map(\.id) == ["active_id"])
-        }
-
-        @Test("returns surveys that match device type")
-        func returnsSurveysThatMatchDeviceType() async {
-            let surveys: [String] = [
-                draftSurvey,
-                activeSurvey,
-                completedSurvey,
-                surveyWithDesktopDevice,
-                surveyWithMobileDevice,
-            ]
-
-            let sut = getSut(surveys: surveys)
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+            let activeSurvey =
+                """
+                {
+                    "id": "active_id",
+                    "name": "Active Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
                 }
+                """
+
+            let completedSurvey =
+                """
+                {
+                    "id": "completed_id",
+                    "name": "Completed Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z",
+                    "end_date": "2025-03-03T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithDesktopDevice =
+                """
+                {
+                    "id": "desktop_id",
+                    "name": "Active Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "deviceTypes": ["Desktop"],
+                        "deviceTypesMatchType": "icontains"
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithMobileDevice =
+                """
+                {
+                    "id": "mobile_id",
+                    "name": "Active Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What is a completed survey?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "deviceTypes": ["Mobile"],
+                        "deviceTypesMatchType": "icontains"
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveysWithFeatureFlags =
+                """
+                {
+                    "name": "survey with feature flags",
+                    "id": "survey-with-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "linked-flag-enabled" },
+                        { "key": "flag2", "value": "survey-targeting-flag-enabled" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                },
+                {
+                    "name": "survey with disabled feature flags",
+                    "id": "survey-with-disabled-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "linked-flag-disabled" },
+                        { "key": "flag2", "value": "survey-targeting-flag-disabled" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                },
+                {
+                    "name": "survey without feature flags",
+                    "id": "survey-without-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveysWithMissingKeysAndValues =
+                """
+                {
+                    "name": "survey with missing keys",
+                    "id": "survey-with-missing-keys",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "", "value": "linked-flag-enabled" },
+                        { "key": "", "value": "" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                },
+                {
+                    "name": "survey with missing values",
+                    "id": "survey-with-missing-values",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "" },
+                        { "key": "flag2", "value": "" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithEnabledAndDisabledFlags =
+                """
+                {
+                    "name": "survey with disabled and enabled feature flags",
+                    "id": "survey-with-mixed-flags",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "feature_flag_keys": [
+                        { "key": "flag1", "value": "linked-flag-disabled" },
+                        { "key": "flag2", "value": "linked-flag-enabled" },
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithEnabledInternalTargetingFlag =
+                """
+                {
+                    "name": "survey with internal flag enabled",
+                    "id": "survey-with-internal-flag-enabled",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "internal_targeting_flag_key": "internal-targeting-flag-enabled",
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let surveyWithDisabledInternalTargetingFlag =
+                """
+                {
+                    "name": "survey with internal flag disabled",
+                    "id": "survey-with-internal-flag-disabled",
+                    "description": "survey with feature flags description",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "what do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "internal_targeting_flag_key": "internal-targeting-flag-disabled",
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
+                server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
+                let sut = PostHogSurveyIntegration()
+                PostHogSurveyIntegration.clearInstalls()
+                try! sut.install(postHog)
+                return sut
             }
 
-            if let currentDeviceType = PostHogContext.deviceType?.lowercased() {
-                #expect(matchedSurveys.map(\.id) == ["active_id", "\(currentDeviceType)_id"])
-            } else {
+            @Test("returns surveys that are active")
+            func returnsActiveSurveys() async {
+                let surveys: [String] = [
+                    draftSurvey,
+                    activeSurvey,
+                    completedSurvey,
+                ]
+
+                let sut = getSut(surveys: surveys)
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
                 #expect(matchedSurveys.map(\.id) == ["active_id"])
             }
-        }
 
-        @Test("returns only surveys with enabled feature flags")
-        func returnsOnlySurveysWithEnabledFeatureFlags() async {
-            let sut = getSut(surveys: [surveysWithFeatureFlags])
+            @Test("returns surveys that match device type")
+            func returnsSurveysThatMatchDeviceType() async {
+                let surveys: [String] = [
+                    draftSurvey,
+                    activeSurvey,
+                    completedSurvey,
+                    surveyWithDesktopDevice,
+                    surveyWithMobileDevice,
+                ]
 
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
+                let sut = getSut(surveys: surveys)
 
-            #expect(matchedSurveys.map(\.id).contains("survey-with-flags"))
-            #expect(matchedSurveys.map(\.id).contains("survey-without-flags"))
-            #expect(!matchedSurveys.map(\.id).contains("survey-with-disabled-flags"))
-        }
-
-        @Test("Should not return surveys when any feature flag is disabled")
-        func shouldFilterOutSurveysWhenAnyFlagIsDisabled() async {
-            let sut = getSut(surveys: [surveyWithEnabledAndDisabledFlags])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.isEmpty)
-        }
-
-        @Test("skips checking flags for surveys with missing keys or values ")
-        func shouldIgnoreSurveysWithMissingFeatureFlagsKeysOrValues() async {
-            let sut = getSut(surveys: [surveysWithMissingKeysAndValues])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id).contains("survey-with-missing-keys"))
-            #expect(matchedSurveys.map(\.id).contains("survey-with-missing-values"))
-        }
-
-        @Test("returns surveys that match internal targeting flags")
-        func returnsSurveysThatMatchInternalTargetingFlags() async {
-            let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
-                }
-            }
-
-            #expect(matchedSurveys.map(\.id) == ["survey-with-internal-flag-enabled"])
-        }
-    }
-
-    @Suite("Test survey wait period", .serialized)
-    class TestSurveyWaitPeriod {
-        let server: MockPostHogServer
-        let postHog: PostHogSDK
-        let storage: PostHogStorage
-
-        init() {
-            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
-            config._surveys = true
-            config.disableFlushOnBackgroundForTesting = true
-            postHog = PostHogSDK.with(config)
-            storage = PostHogStorage(config)
-            storage.reset()
-            server = MockPostHogServer()
-            server.start()
-        }
-
-        deinit {
-            server.stop()
-            postHog.close()
-            postHog.reset()
-        }
-
-        let activeSurveyNoWaitPeriod =
-            """
-            {
-                "id": "no-wait-period",
-                "name": "Survey without wait period",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What do you think?",
-                        "originalQuestionIndex": 0
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
                     }
-                ],
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
+                }
 
-        let activeSurveyWithWaitPeriod =
-            """
-            {
-                "id": "with-wait-period",
-                "name": "Survey with wait period",
-                "type": "popover",
-                "questions": [
-                    {
-                        "id": "1",
-                        "type": "open",
-                        "question": "What do you think?",
-                        "originalQuestionIndex": 0
+                if let currentDeviceType = PostHogContext.deviceType?.lowercased() {
+                    #expect(matchedSurveys.map(\.id) == ["active_id", "\(currentDeviceType)_id"])
+                } else {
+                    #expect(matchedSurveys.map(\.id) == ["active_id"])
+                }
+            }
+
+            @Test("returns only surveys with enabled feature flags")
+            func returnsOnlySurveysWithEnabledFeatureFlags() async {
+                let sut = getSut(surveys: [surveysWithFeatureFlags])
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
                     }
-                ],
-                "conditions": {
-                    "seenSurveyWaitPeriodInDays": 7
-                },
-                "start_date": "2024-07-23T09:18:18.376000Z"
-            }
-            """
-
-        private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
-            server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
-            let sut = PostHogSurveyIntegration()
-            PostHogSurveyIntegration.clearInstalls()
-            try! sut.install(postHog)
-            return sut
-        }
-
-        @Test("survey without wait period is not filtered")
-        func surveyWithoutWaitPeriodIsNotFiltered() async {
-            let sut = getSut(surveys: [activeSurveyNoWaitPeriod])
-
-            // Set last seen date to recently
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(Date()))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
                 }
+
+                #expect(matchedSurveys.map(\.id).contains("survey-with-flags"))
+                #expect(matchedSurveys.map(\.id).contains("survey-without-flags"))
+                #expect(!matchedSurveys.map(\.id).contains("survey-with-disabled-flags"))
             }
 
-            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
-        }
+            @Test("Should not return surveys when any feature flag is disabled")
+            func shouldFilterOutSurveysWhenAnyFlagIsDisabled() async {
+                let sut = getSut(surveys: [surveyWithEnabledAndDisabledFlags])
 
-        @Test("survey with wait period passes when no survey was previously seen")
-        func surveyWithWaitPeriodPassesWhenNoPreviouslySeen() async {
-            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
                 }
+
+                #expect(matchedSurveys.isEmpty)
             }
 
-            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
-        }
+            @Test("skips checking flags for surveys with missing keys or values ")
+            func shouldIgnoreSurveysWithMissingFeatureFlagsKeysOrValues() async {
+                let sut = getSut(surveys: [surveysWithMissingKeysAndValues])
 
-        @Test("survey with wait period is filtered when period has not elapsed")
-        func surveyWithWaitPeriodIsFilteredWhenNotElapsed() async {
-            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
-
-            // Set last seen date to 1 day ago (wait period is 7 days)
-            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
                 }
+
+                #expect(matchedSurveys.map(\.id).contains("survey-with-missing-keys"))
+                #expect(matchedSurveys.map(\.id).contains("survey-with-missing-values"))
             }
 
-            #expect(matchedSurveys.isEmpty)
-        }
+            @Test("returns surveys that match internal targeting flags")
+            func returnsSurveysThatMatchInternalTargetingFlags() async {
+                let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
 
-        @Test("survey with wait period passes when period has elapsed")
-        func surveyWithWaitPeriodPassesWhenElapsed() async {
-            let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
-
-            // Set last seen date to 10 days ago (wait period is 7 days)
-            let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(tenDaysAgo))
-
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
                 }
-            }
 
-            #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
+                #expect(matchedSurveys.map(\.id) == ["survey-with-internal-flag-enabled"])
+            }
         }
 
-        @Test("survey without wait period is not affected by last seen date")
-        func surveyWithoutWaitPeriodNotAffectedByLastSeenDate() async {
-            let sut = getSut(surveys: [activeSurveyNoWaitPeriod, activeSurveyWithWaitPeriod])
+        @Suite(.serialized)
+        class TestSurveyWaitPeriod {
+            let server: MockPostHogServer
+            let postHog: PostHogSDK
+            let storage: PostHogStorage
 
-            // Set last seen date to 1 day ago (wait period is 7 days)
-            let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-            storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+            init() {
+                let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+                config._surveys = true
+                config.disableFlushOnBackgroundForTesting = true
+                postHog = PostHogSDK.with(config)
+                storage = PostHogStorage(config)
+                storage.reset()
+                server = MockPostHogServer()
+                server.start()
+            }
 
-            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
-                    continuation.resume(with: .success($0))
+            deinit {
+                server.stop()
+                postHog.close()
+                postHog.reset()
+            }
+
+            let activeSurveyNoWaitPeriod =
+                """
+                {
+                    "id": "no-wait-period",
+                    "name": "Survey without wait period",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "start_date": "2024-07-23T09:18:18.376000Z"
                 }
+                """
+
+            let activeSurveyWithWaitPeriod =
+                """
+                {
+                    "id": "with-wait-period",
+                    "name": "Survey with wait period",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "seenSurveyWaitPeriodInDays": 7
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            private func getSut(surveys: [String]) -> PostHogSurveyIntegration {
+                server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
+                let sut = PostHogSurveyIntegration()
+                PostHogSurveyIntegration.clearInstalls()
+                try! sut.install(postHog)
+                return sut
             }
 
-            // Only the survey without wait period should pass
-            #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
-        }
-    }
+            @Test("survey without wait period is not filtered")
+            func surveyWithoutWaitPeriodIsNotFiltered() async {
+                let sut = getSut(surveys: [activeSurveyNoWaitPeriod])
 
-    @Suite("Test conditional branching", .serialized)
-    class TestConfitionalBranchingLogic {
-        @Test("returns next question index when no branching")
-        func returnsNextQuestionIndexWhenNoBranching() throws {
-            let sut = PostHogSurveyIntegration()
+                // Set last seen date to recently
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(Date()))
 
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1")),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                ]
-            )
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
 
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
-                #expect(nextIndex == 1)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+                #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("response 2")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+            @Test("survey with wait period passes when no survey was previously seen")
+            func surveyWithWaitPeriodPassesWhenNoPreviouslySeen() async {
+                let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 3")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
+            @Test("survey with wait period is filtered when period has not elapsed")
+            func surveyWithWaitPeriodIsFilteredWhenNotElapsed() async {
+                let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
 
-        @Test("completes survey with single question")
-        func completesSurveyWithSingleQuestion() throws {
-            let sut = PostHogSurveyIntegration()
+                // Set last seen date to 1 day ago (wait period is 7 days)
+                let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
 
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1")),
-                ]
-            )
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
 
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
-                #expect(nextIndex == 0)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
-
-        @Test("ends survey when branching is end")
-        func endsSurveyWhenBranchingIsEnd() throws {
-            let sut = PostHogSurveyIntegration()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1", branching: .end)),
-                    .open(.testInstance(question: "q2")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
-                #expect(nextIndex == 0)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
-
-        @Test("jumps to specific question when branching to specific question")
-        func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() throws {
-            let sut = PostHogSurveyIntegration()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "q1",
-                        display: .number,
-                        scale: .tenPoint,
-                        branching: .specificQuestion(index: 2)
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+                #expect(matchedSurveys.isEmpty)
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
+            @Test("survey with wait period passes when period has elapsed")
+            func surveyWithWaitPeriodPassesWhenElapsed() async {
+                let sut = getSut(surveys: [activeSurveyWithWaitPeriod])
+
+                // Set last seen date to 10 days ago (wait period is 7 days)
+                let tenDaysAgo = Calendar.current.date(byAdding: .day, value: -10, to: Date())!
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(tenDaysAgo))
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                #expect(matchedSurveys.map(\.id) == ["with-wait-period"])
             }
 
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("response 3")) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
+            @Test("survey without wait period is not affected by last seen date")
+            func surveyWithoutWaitPeriodNotAffectedByLastSeenDate() async {
+                let sut = getSut(surveys: [activeSurveyNoWaitPeriod, activeSurveyWithWaitPeriod])
+
+                // Set last seen date to 1 day ago (wait period is 7 days)
+                let oneDayAgo = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+                storage.setString(forKey: .lastSeenSurveyDate, contents: toISO8601String(oneDayAgo))
+
+                let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(with: .success($0))
+                    }
+                }
+
+                // Only the survey without wait period should pass
+                #expect(matchedSurveys.map(\.id) == ["no-wait-period"])
             }
         }
 
-        @Test("jumps to last question when branching is out of bounds")
-        func jumpsToLastQuestionWhenBranchingOutOfBounds() throws {
-            let sut = PostHogSurveyIntegration()
+        @Suite(.serialized)
+        class TestConfitionalBranchingLogic {
+            @Test("returns next question index when no branching")
+            func returnsNextQuestionIndexWhenNoBranching() throws {
+                let sut = PostHogSurveyIntegration()
 
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .open(.testInstance(question: "q1", branching: .specificQuestion(index: 5))),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                ]
-            )
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1")),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                    ]
+                )
 
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == true)
-            } else {
-                throw TestError("Expected next question state")
-            }
-        }
-
-        @Test("handles single choice response based branching")
-        func handlesSingleChoiceResponseBasedBranching() throws {
-            let sut = PostHogSurveyIntegration()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .singleChoice(.testInstance(
-                        question: "How satisfied are you with our product?",
-                        choices: ["Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"],
-                        branching: .responseBased(responseValues: [
-                            "0": 1, // Very Dissatisfied -> Detractor path
-                            "1": 1, // Dissatisfied -> Detractor path
-                            "2": 2, // Neutral -> Neutral path
-                            "3": 3, // Satisfied -> Promoter path
-                            "4": 3, // Very Satisfied -> Promoter path
-                        ])
-                    )),
-                    .open(.testInstance(question: "detractor", branching: .specificQuestion(index: 4))), // Detractor path
-                    .open(.testInstance(question: "neutral", branching: .specificQuestion(index: 4))), // Neutral path
-                    .open(.testInstance(question: "promoter", branching: .specificQuestion(index: 4))), // Promoter path
-                    .open(.testInstance(question: "Final")), // Final question
-                ]
-            )
-
-            // Test Very Satisfied/Satisfied path (promoter)
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Satisfied")) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("Great product!")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            // Test Neutral path
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Neutral")) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("It's okay")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == false)
-            } else {
-                throw TestError("Expected next question state")
-            }
-
-            // Test Dissatisfied/Very Dissatisfied path (detractor)
-            sut.setShownSurvey(survey)
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")) {
-                #expect(nextIndex == 1)
-                #expect(isCompleted == false)
-            }
-
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("Needs work")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == false)
-            }
-
-            // Complete final question for any path
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 4, response: .singleChoice("Yes")) {
-                #expect(nextIndex == 4)
-                #expect(isCompleted == true)
-            }
-        }
-
-        @Test("handles rating response based branching for scale 3")
-        func handlesRatingResponseBasedBranchingForScale3() {
-            let sut = PostHogSurveyIntegration()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "rating question",
-                        display: .emoji,
-                        scale: .threePoint,
-                        branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            // Test negative (1)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(1)) {
-                #expect(nextIndex == 1)
-                #expect(isCompleted == false)
-            }
-
-            // Test neutral (2)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(2)) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            }
-
-            // Test positive (3)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
-                #expect(nextIndex == 3)
-                #expect(isCompleted == false)
-            }
-        }
-
-        @Test("handles rating response based branching for scale 5")
-        func handlesRatingResponseBasedBranchingForScale5() {
-            let sut = PostHogSurveyIntegration()
-
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "rating question",
-                        display: .emoji,
-                        scale: .fivePoint,
-                        branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
-
-            // negative (1-2)
-            for rating in 1 ... 2 {
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
                     #expect(nextIndex == 1)
                     #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("response 2")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 3")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
                 }
             }
 
-            // neutral (3)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
+            @Test("completes survey with single question")
+            func completesSurveyWithSingleQuestion() throws {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
+                    #expect(nextIndex == 0)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
             }
 
-            // positive (4-5)
-            for rating in 4 ... 5 {
+            @Test("ends survey when branching is end")
+            func endsSurveyWhenBranchingIsEnd() throws {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1", branching: .end)),
+                        .open(.testInstance(question: "q2")),
+                    ]
+                )
+
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response")) {
+                    #expect(nextIndex == 0)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+            }
+
+            @Test("jumps to specific question when branching to specific question")
+            func jumpsToSpecificQuestionWhenBranchingToSpecificQuestion() throws {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "q1",
+                            display: .number,
+                            scale: .tenPoint,
+                            branching: .specificQuestion(index: 2)
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
                     #expect(nextIndex == 3)
                     #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("response 3")) {
+                    #expect(nextIndex == 3)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
                 }
             }
-        }
 
-        @Test("handles rating response based branching for scale 7")
-        func handlesRatingResponseBasedBranchingForScale7() {
-            let sut = PostHogSurveyIntegration()
+            @Test("jumps to last question when branching is out of bounds")
+            func jumpsToLastQuestionWhenBranchingOutOfBounds() throws {
+                let sut = PostHogSurveyIntegration()
 
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "rating question",
-                        display: .number,
-                        scale: .sevenPoint,
-                        branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
-                    )),
-                    .open(.testInstance(question: "q2")),
-                    .open(.testInstance(question: "q3")),
-                    .open(.testInstance(question: "q4")),
-                ]
-            )
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .open(.testInstance(question: "q1", branching: .specificQuestion(index: 5))),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                    ]
+                )
 
-            sut.setShownSurvey(survey)
-
-            // negative (1-3)
-            for rating in 1 ... 3 {
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
-                    #expect(nextIndex == 1)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .openEnded("response 1")) {
+                    #expect(nextIndex == 2)
                     #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("response 2")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == true)
+                } else {
+                    throw TestError("Expected next question state")
                 }
             }
 
-            // neutral (4)
-            sut.setShownSurvey(survey)
-            if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(4)) {
-                #expect(nextIndex == 2)
-                #expect(isCompleted == false)
-            }
+            @Test("handles single choice response based branching")
+            func handlesSingleChoiceResponseBasedBranching() throws {
+                let sut = PostHogSurveyIntegration()
 
-            // positive (5-7)
-            for rating in 5 ... 7 {
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .singleChoice(.testInstance(
+                            question: "How satisfied are you with our product?",
+                            choices: ["Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"],
+                            branching: .responseBased(responseValues: [
+                                "0": 1, // Very Dissatisfied -> Detractor path
+                                "1": 1, // Dissatisfied -> Detractor path
+                                "2": 2, // Neutral -> Neutral path
+                                "3": 3, // Satisfied -> Promoter path
+                                "4": 3, // Very Satisfied -> Promoter path
+                            ])
+                        )),
+                        .open(.testInstance(question: "detractor", branching: .specificQuestion(index: 4))), // Detractor path
+                        .open(.testInstance(question: "neutral", branching: .specificQuestion(index: 4))), // Neutral path
+                        .open(.testInstance(question: "promoter", branching: .specificQuestion(index: 4))), // Promoter path
+                        .open(.testInstance(question: "Final")), // Final question
+                    ]
+                )
+
+                // Test Very Satisfied/Satisfied path (promoter)
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Satisfied")) {
                     #expect(nextIndex == 3)
                     #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
                 }
-            }
-        }
 
-        @Test("handles NPS rating response based branching for scale 10")
-        func handlesNPSRatingResponseBasedBranchingForScale10() {
-            let sut = PostHogSurveyIntegration()
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 3, response: .openEnded("Great product!")) {
+                    #expect(nextIndex == 4)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
 
-            let survey = PostHogSurvey.testInstance(
-                name: "test survey",
-                questions: [
-                    .rating(.testInstance(
-                        question: "q1",
-                        display: .number,
-                        scale: .tenPoint,
-                        branching: .responseBased(responseValues: ["detractors": 1, "passives": 2, "promoters": 3])
-                    )),
-                    .open(.testInstance(question: "question_detractors", branching: .end)), // Detractors path
-                    .open(.testInstance(question: "question_passives", branching: .end)), // Passives path
-                    .open(.testInstance(question: "question_promoters", branching: .end)), // Promoters path
-                ]
-            )
-
-            sut.setShownSurvey(survey)
-
-            // detractors (0-6)
-            for rating in 0 ... 6 {
+                // Test Neutral path
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Neutral")) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 2, response: .openEnded("It's okay")) {
+                    #expect(nextIndex == 4)
+                    #expect(isCompleted == false)
+                } else {
+                    throw TestError("Expected next question state")
+                }
+
+                // Test Dissatisfied/Very Dissatisfied path (detractor)
+                sut.setShownSurvey(survey)
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .singleChoice("Very Dissatisfied")) {
                     #expect(nextIndex == 1)
                     #expect(isCompleted == false)
                 }
+
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 1, response: .openEnded("Needs work")) {
+                    #expect(nextIndex == 4)
+                    #expect(isCompleted == false)
+                }
+
+                // Complete final question for any path
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 4, response: .singleChoice("Yes")) {
+                    #expect(nextIndex == 4)
+                    #expect(isCompleted == true)
+                }
             }
 
-            // passives (7-8)
-            for rating in 7 ... 8 {
+            @Test("handles rating response based branching for scale 3")
+            func handlesRatingResponseBasedBranchingForScale3() {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "rating question",
+                            display: .emoji,
+                            scale: .threePoint,
+                            branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+
+                // Test negative (1)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(1)) {
+                    #expect(nextIndex == 1)
+                    #expect(isCompleted == false)
+                }
+
+                // Test neutral (2)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(2)) {
                     #expect(nextIndex == 2)
                     #expect(isCompleted == false)
                 }
-            }
 
-            // promoters (9-10)
-            for rating in 9 ... 10 {
+                // Test positive (3)
                 sut.setShownSurvey(survey)
-                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
                     #expect(nextIndex == 3)
                     #expect(isCompleted == false)
                 }
             }
+
+            @Test("handles rating response based branching for scale 5")
+            func handlesRatingResponseBasedBranchingForScale5() {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "rating question",
+                            display: .emoji,
+                            scale: .fivePoint,
+                            branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                // negative (1-2)
+                for rating in 1 ... 2 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 1)
+                        #expect(isCompleted == false)
+                    }
+                }
+
+                // neutral (3)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(3)) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                }
+
+                // positive (4-5)
+                for rating in 4 ... 5 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 3)
+                        #expect(isCompleted == false)
+                    }
+                }
+            }
+
+            @Test("handles rating response based branching for scale 7")
+            func handlesRatingResponseBasedBranchingForScale7() {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "rating question",
+                            display: .number,
+                            scale: .sevenPoint,
+                            branching: .responseBased(responseValues: ["negative": 1, "neutral": 2, "positive": 3])
+                        )),
+                        .open(.testInstance(question: "q2")),
+                        .open(.testInstance(question: "q3")),
+                        .open(.testInstance(question: "q4")),
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                // negative (1-3)
+                for rating in 1 ... 3 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 1)
+                        #expect(isCompleted == false)
+                    }
+                }
+
+                // neutral (4)
+                sut.setShownSurvey(survey)
+                if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(4)) {
+                    #expect(nextIndex == 2)
+                    #expect(isCompleted == false)
+                }
+
+                // positive (5-7)
+                for rating in 5 ... 7 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 3)
+                        #expect(isCompleted == false)
+                    }
+                }
+            }
+
+            @Test("handles NPS rating response based branching for scale 10")
+            func handlesNPSRatingResponseBasedBranchingForScale10() {
+                let sut = PostHogSurveyIntegration()
+
+                let survey = PostHogSurvey.testInstance(
+                    name: "test survey",
+                    questions: [
+                        .rating(.testInstance(
+                            question: "q1",
+                            display: .number,
+                            scale: .tenPoint,
+                            branching: .responseBased(responseValues: ["detractors": 1, "passives": 2, "promoters": 3])
+                        )),
+                        .open(.testInstance(question: "question_detractors", branching: .end)), // Detractors path
+                        .open(.testInstance(question: "question_passives", branching: .end)), // Passives path
+                        .open(.testInstance(question: "question_promoters", branching: .end)), // Promoters path
+                    ]
+                )
+
+                sut.setShownSurvey(survey)
+
+                // detractors (0-6)
+                for rating in 0 ... 6 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 1)
+                        #expect(isCompleted == false)
+                    }
+                }
+
+                // passives (7-8)
+                for rating in 7 ... 8 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 2)
+                        #expect(isCompleted == false)
+                    }
+                }
+
+                // promoters (9-10)
+                for rating in 9 ... 10 {
+                    sut.setShownSurvey(survey)
+                    if let (nextIndex, isCompleted) = sut.getNextQuestion(index: 0, response: .rating(rating)) {
+                        #expect(nextIndex == 3)
+                        #expect(isCompleted == false)
+                    }
+                }
+            }
         }
-    }
+    #endif
 }
 
 func loadFixture(_ name: String) throws -> Data {

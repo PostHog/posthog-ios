@@ -33,9 +33,7 @@ class PostHogFileBackedQueue {
         }
 
         do {
-            let loadedItems = try FileManager.default.contentsOfDirectory(atPath: queue.path)
-            // Since this queue is ephemeral, lexicographical sort works for both old (timestamp-only) and new (timestamp-UUID) formats
-            let sortedItems = loadedItems.sorted()
+            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .contentModificationDateKey)
             itemsLock.withLock { items = sortedItems }
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
@@ -64,7 +62,7 @@ class PostHogFileBackedQueue {
 
     func add(_ contents: Data) {
         do {
-            let filename = "\(Date().timeIntervalSince1970)-\(UUID.v7().uuidString)"
+            let filename = UUID.v7().uuidString
             try contents.write(to: queue.appendingPathComponent(filename))
             itemsLock.withLock { items.append(filename) }
         } catch {
@@ -117,5 +115,17 @@ class PostHogFileBackedQueue {
             guard let removed else { return }
             deleteSafely(queue.appendingPathComponent(removed))
         }
+    }
+}
+
+private extension FileManager {
+    /// Returns filenames sorted by resource key
+    func contentsOfDirectory(at url: URL, sortedBy key: URLResourceKey) throws -> [String] {
+        let urls = try contentsOfDirectory(at: url, includingPropertiesForKeys: [key])
+        return urls.sorted {
+            let date1 = (try? $0.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
+            let date2 = (try? $1.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
+            return date1 < date2
+        }.map(\.lastPathComponent)
     }
 }

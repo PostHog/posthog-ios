@@ -41,7 +41,7 @@ class RRWireframe {
         private func maskImage() -> UIImage? {
             if let image = image {
                 // the scale also affects the image size/resolution, from usually 100kb to 15kb each
-                return UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                let redactedImage = UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
                     context.cgContext.interpolationQuality = .none
                     image.draw(at: .zero)
 
@@ -53,6 +53,7 @@ class RRWireframe {
                         }
                     }
                 }
+                return redactedImage
             }
             return nil
         }

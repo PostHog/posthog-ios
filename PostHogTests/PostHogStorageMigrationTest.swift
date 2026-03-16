@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite("PostHogStorage migration tests", .serialized)
 class PostHogStorageMigrationTest {
     let testApiKey = "test_migration_key"
     var legacyUrl: URL!

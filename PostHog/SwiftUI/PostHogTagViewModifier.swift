@@ -297,13 +297,15 @@
         }
 
         func makeUIView(context: Context) -> PostHogTagUIView {
-            return PostHogTagUIView(id: id) { controller in
+            let view = PostHogTagUIView(id: id) { controller in
                 let targets = getTargetViews(from: controller)
                 if !targets.isEmpty {
                     context.coordinator.cachedTargets = targets
                     onChangeHandler(targets, [])
                 }
             }
+
+            return view
         }
 
         func updateUIView(_ uiView: PostHogTagUIView, context _: Context) {

@@ -2,6 +2,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
+@Suite("PostHogMulticastCallback Tests")
 class PostHogMulticastCallbackTests {
     @Test("Single subscriber receives value")
     func singleSubscriber() {
@@ -96,6 +97,7 @@ class PostHogMulticastCallbackTests {
     }
 }
 
+@Suite("PostHogThrottledMulticastCallback Tests")
 class PostHogThrottledMulticastCallbackTests {
     @Test("Single subscriber receives value with throttle")
     func singleSubscriber() async {

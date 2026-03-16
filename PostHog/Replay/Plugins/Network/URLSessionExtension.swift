@@ -14,7 +14,9 @@
             let nanoTime = machTime * UInt64(timebaseInfo.numer) / UInt64(timebaseInfo.denom)
 
             // Convert nanoseconds to milliseconds
-            return nanoTime / 1_000_000
+            let milliTime = nanoTime / 1_000_000
+
+            return milliTime
         }
 
         private func executeRequest(request: URLRequest? = nil,

@@ -9,6 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
+@Suite("Test Survey Enums")
 struct PostHogSurveyEnumsTest {
     @Test("PostHogSurveyType handles unknown values")
     func surveyTypeHandlesUnknownValues() throws {

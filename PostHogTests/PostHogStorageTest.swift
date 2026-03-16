@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite("PostHogStorage Tests", .serialized)
 class PostHogStorageTest {
     func getSut(config: PostHogConfig = PostHogConfig(apiKey: "123")) -> PostHogStorage {
         PostHogStorage(config)

@@ -2,7 +2,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite("PostHogEnrichedAnalytics Tests", .serialized)
 class PostHogEnrichedAnalyticsTest {
     let server: MockPostHogServer
 

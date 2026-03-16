@@ -8,7 +8,7 @@
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite("Test integration installation", .serialized)
 class PostHogIntegrationInstallationTest {
     init() {
         #if os(iOS)

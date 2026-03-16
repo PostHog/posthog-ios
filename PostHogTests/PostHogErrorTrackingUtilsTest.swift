@@ -9,9 +9,11 @@ import Foundation
 @testable import PostHog
 import Testing
 
-enum PostHogErrorTrackingUtilsTest {
+@Suite("PostHogErrorTrackingUtils Tests")
+struct PostHogErrorTrackingUtilsTest {
     // MARK: - UUID Formatting Tests
 
+    @Suite("UUID Formatting")
     struct UUIDFormattingTests {
         @Test("formats UUID without hyphens")
         func formatsUUIDWithoutHyphens() {
@@ -55,6 +57,7 @@ enum PostHogErrorTrackingUtilsTest {
 
     // MARK: - CPU Architecture Tests
 
+    @Suite("CPU Architecture")
     struct CPUArchitectureTests {
         @Test("returns arm64 for ARM64 CPU type")
         func returnsArm64() {

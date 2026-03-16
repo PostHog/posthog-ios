@@ -10,7 +10,7 @@
     @testable import PostHog
     import Testing
 
-    @Suite(.serialized)
+    @Suite("Application View Publisher Test", .serialized)
     final class ApplicationViewLayoutPublisherTest {
         var registrationToken: RegistrationToken?
 

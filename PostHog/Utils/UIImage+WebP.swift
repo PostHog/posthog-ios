@@ -130,7 +130,9 @@
                 return nil
             }
 
-            return Data(bytes: writer.mem, count: writer.size)
+            let webpData = Data(bytes: writer.mem, count: writer.size)
+
+            return webpData
         }
     }
 #endif

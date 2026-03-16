@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite("Test Survey Events", .serialized)
 class PostHogSurveyEventsTest {
     let server: MockPostHogServer
 

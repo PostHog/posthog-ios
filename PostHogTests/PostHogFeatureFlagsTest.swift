@@ -15,7 +15,7 @@ private struct TestPayload: Decodable, Equatable {
     let count: Int
 }
 
-@Suite(.serialized)
+@Suite("Test Feature Flags", .serialized)
 enum PostHogFeatureFlagsTest {
     class BaseTestClass {
         let config: PostHogConfig = {
@@ -53,6 +53,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test getFeatureFlag")
     class TestGetFeatureFlagValue: BaseTestClass {
         @Test("Returns true for enabled Bool flag")
         func returnsTrueBoolean() async {
@@ -107,6 +108,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test getFeatureFlagPayload")
     class TestGetFeatureFlagPayload: BaseTestClass {
         @Test("returns feature flag payload as Int")
         func getFeatureFlagPayloadInt() async {
@@ -135,6 +137,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test feature flags loading")
     class TestLoadFeatureFlagsLoading: BaseTestClass {
         @Test("loads cached feature flags")
         func loadsCachedFeatureFlags() {
@@ -201,6 +204,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test Person and Group Properties for Flags")
     class TestPersonAndGroupPropertiesForFlags: BaseTestClass {
         @Test("Person properties are stored and retrieved correctly")
         func storeAndRetrievePersonProperties() async {
@@ -592,6 +596,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test getFeatureFlagResult")
     class TestGetFeatureFlagResult: BaseTestClass {
         @Test("returns result for enabled boolean flag")
         func returnsResultForEnabledBoolFlag() async {
@@ -681,6 +686,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test getFeatureFlagResult event sending")
     class TestGetFeatureFlagResultEventSending: BaseTestClass {
         @Test("sends feature flag called event by default")
         func sendsEventByDefault() async throws {
@@ -762,6 +768,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test PostHogFeatureFlagResult payload methods")
     final class TestFeatureFlagResultPayloadMethods {
         @Test("payloadAs returns nil for nil payload")
         func payloadAsNil() {
@@ -833,6 +840,7 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test Evaluation Contexts")
     class TestEvaluationContexts: BaseTestClass {
         @Test("Evaluation contexts are included in flags request")
         func evaluationContextsIncludedInRequest() async {

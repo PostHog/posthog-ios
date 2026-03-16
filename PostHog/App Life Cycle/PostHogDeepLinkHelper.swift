@@ -1,5 +1,5 @@
 //
-//  PostHogDeepLinkIntegration.swift
+//  PostHogDeepLinkHelper.swift
 //  PostHog
 //
 //  Created by Jeremiah Erinola on 18.02.26.

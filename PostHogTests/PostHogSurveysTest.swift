@@ -1717,6 +1717,41 @@ enum PostHogSurveysTest {
             }
         }
     }
+
+    struct TestSurveyPopupDelaySorting {
+        private func makeAppearance(delay: TimeInterval?) -> PostHogSurveyAppearance {
+            PostHogSurveyAppearance(
+                position: nil, fontFamily: nil, backgroundColor: nil,
+                submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
+                textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
+                ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
+                inputBackground: nil, inputTextColor: nil, whiteLabel: nil,
+                autoDisappear: nil, displayThankYouMessage: nil,
+                thankYouMessageHeader: nil, thankYouMessageDescription: nil,
+                thankYouMessageDescriptionContentType: nil,
+                thankYouMessageCloseButtonText: nil, borderColor: nil,
+                placeholder: nil, shuffleQuestions: nil,
+                surveyPopupDelaySeconds: delay,
+                widgetType: nil, widgetSelector: nil, widgetLabel: nil, widgetColor: nil
+            )
+        }
+
+        @Test("surveys are sorted by popup delay ascending")
+        func sortsByDelayAscending() {
+            let surveys = [
+                PostHogSurvey.testInstance(name: "delayed-10", appearance: makeAppearance(delay: 10)),
+                PostHogSurvey.testInstance(name: "no-delay", appearance: nil),
+                PostHogSurvey.testInstance(name: "delayed-3", appearance: makeAppearance(delay: 3)),
+                PostHogSurvey.testInstance(name: "delayed-0", appearance: makeAppearance(delay: 0)),
+            ]
+
+            let sorted = surveys.sorted {
+                ($0.appearance?.surveyPopupDelaySeconds ?? 0) < ($1.appearance?.surveyPopupDelaySeconds ?? 0)
+            }
+
+            #expect(sorted.map(\.name) == ["no-delay", "delayed-0", "delayed-3", "delayed-10"])
+        }
+    }
 }
 
 func loadFixture(_ name: String) throws -> Data {

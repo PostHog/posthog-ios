@@ -98,6 +98,15 @@
             }
         }
 
+        /// When true, minimum duration is checked against actual buffer data (first to last snapshot timestamp)
+        /// rather than the current session duration.
+        /// This ensures recordings contain the minimum duration of actual recording content.
+        ///
+        /// This is useful for mobile apps where sessions can be long-lived but with intermittent activity.
+        ///
+        /// Defaults to `true`
+        @objc public var strictMinimumDuration: Bool = true
+
         /// Returns an array of plugin types based on current configuration
         func getPluginTypes() -> [PostHogSessionReplayPlugin.Type] {
             var types: [PostHogSessionReplayPlugin.Type] = []

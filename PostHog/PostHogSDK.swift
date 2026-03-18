@@ -380,9 +380,8 @@ let maxRetryDelay = 30.0
         }
         sessionManager.reset()
 
-        // Clear person and group properties for flags
-        remoteConfig?.resetPersonPropertiesForFlags()
-        remoteConfig?.resetGroupPropertiesForFlags()
+        // Clear all in-memory caches (feature flags, session replay state, etc.)
+        remoteConfig?.clear()
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()

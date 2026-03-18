@@ -1,5 +1,11 @@
 ## Next
 
+## 3.48.0
+
+### Minor Changes
+
+- 80f39ca: feat: add support for session replay event triggers
+
 ## 3.47.0
 
 ### Minor Changes

@@ -160,6 +160,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     #if os(iOS)
         /// Enable Recording of Session Replays for iOS
+        ///
+        /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
+        /// All configured conditions must be satisfied for recording to start.
+        ///
         /// Default: false
         @objc public var sessionReplay: Bool = false
         /// Session Replay configuration

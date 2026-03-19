@@ -52,10 +52,12 @@ class PostHogReplayQueue {
     {
         innerQueue.start(disableReachabilityForTesting: disableReachabilityForTesting,
                          disableQueueTimerForTesting: disableQueueTimerForTesting)
+        // no need to start/stop buffer queue
     }
 
     func stop() {
         innerQueue.stop()
+        // no need to start/stop buffer queue
     }
 
     func add(_ event: PostHogEvent) {

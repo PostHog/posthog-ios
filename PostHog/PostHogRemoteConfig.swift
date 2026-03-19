@@ -492,7 +492,6 @@ class PostHogRemoteConfig {
 
         func getRecordingMinimumDuration() -> TimeInterval? {
             sessionReplayLock.withLock { recordingMinimumDuration }
-
         }
     #endif
 

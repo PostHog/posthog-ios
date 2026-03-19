@@ -1,6 +1,6 @@
 import Foundation
 
-/// Delegate protocol for controlling session replay buffering behavior 
+/// Delegate protocol for controlling session replay buffering behavior
 //  This will be usually the `PostHogReplayIntegation`
 ///
 /// The replay queue is passive: it checks `isBuffering` on every `add()` and `flush()`,

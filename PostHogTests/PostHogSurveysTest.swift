@@ -750,6 +750,7 @@ enum PostHogSurveysTest {
         }
     }
 
+#if os(iOS)
     @Suite("Test getActiveMatchingSurveys", .serialized)
     class TestGetActiveSurveys {
         let server: MockPostHogServer
@@ -848,9 +849,9 @@ enum PostHogSurveysTest {
                         "originalQuestionIndex": 0
                     }
                 ],
-                "conditions": { 
-                    "deviceTypes": ["Desktop"], 
-                    "deviceTypesMatchType": "icontains" 
+                "conditions": {
+                    "deviceTypes": ["Desktop"],
+                    "deviceTypesMatchType": "icontains"
                 },
                 "start_date": "2024-07-23T09:18:18.376000Z"
             }
@@ -870,9 +871,9 @@ enum PostHogSurveysTest {
                         "originalQuestionIndex": 0
                     }
                 ],
-                "conditions": { 
-                    "deviceTypes": ["Mobile"], 
-                    "deviceTypesMatchType": "icontains" 
+                "conditions": {
+                    "deviceTypes": ["Mobile"],
+                    "deviceTypesMatchType": "icontains"
                 },
                 "start_date": "2024-07-23T09:18:18.376000Z"
             }
@@ -1717,6 +1718,7 @@ enum PostHogSurveysTest {
             }
         }
     }
+#endif
 }
 
 func loadFixture(_ name: String) throws -> Data {

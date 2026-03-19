@@ -216,6 +216,49 @@ let maxRetryDelay = 30.0
         sessionManager.endSession()
     }
 
+    // DEEP LINKS
+
+    /// Manually capture a deep link opened event.
+    ///
+    /// - Parameters:
+    ///   - url: The URL that was opened.
+    ///   - referrer: The referrer that triggered the deep link (optional).
+    @objc private func captureDeepLink(url: URL?, referrer: String? = nil) {
+        if !isEnabled() {
+            return
+        }
+
+        guard let url = url else { return }
+
+        let properties = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
+
+        capture("Deep Link Opened", properties: properties)
+    }
+
+    @objc public func captureDeepLink(url: URL) {
+        captureDeepLink(url: url as URL?, referrer: nil)
+    }
+
+    #if os(iOS) || os(tvOS)
+    @objc public func captureDeepLink(url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) {
+        let referrer = options[.sourceApplication] as? String
+        captureDeepLink(url: url, referrer: referrer)
+    }
+
+    @objc public func captureDeepLink(userActivity: NSUserActivity) {
+        if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+            captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
+        }
+    }
+
+    @available(iOS 13.0, tvOS 13.0, *)
+    @objc public func captureDeepLink(openURLContexts: Set<UIOpenURLContext>) {
+        if let context = openURLContexts.first {
+            captureDeepLink(url: context.url, referrer: context.options.sourceApplication)
+        }
+    }
+    #endif
+
     // EVENT CAPTURE
 
     private func dynamicContext() -> [String: Any] {
@@ -2001,39 +2044,39 @@ let maxRetryDelay = 30.0
 }
 
 #if TESTING
-    extension PostHogSDK {
-        #if os(iOS) || targetEnvironment(macCatalyst)
-            func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
-                installedIntegrations.compactMap {
-                    $0 as? PostHogAutocaptureIntegration
-                }.first
-            }
-        #endif
-
-        #if os(iOS)
-            func getReplayIntegration() -> PostHogReplayIntegration? {
-                installedIntegrations.compactMap {
-                    $0 as? PostHogReplayIntegration
-                }.first
-            }
-        #endif
-
-        func getSessionManager() -> PostHogSessionManager? {
-            sessionManager
-        }
-
-        func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
+extension PostHogSDK {
+    #if os(iOS) || targetEnvironment(macCatalyst)
+        func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
             installedIntegrations.compactMap {
-                $0 as? PostHogAppLifeCycleIntegration
+                $0 as? PostHogAutocaptureIntegration
             }.first
         }
+    #endif
 
-        func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
+    #if os(iOS)
+        func getReplayIntegration() -> PostHogReplayIntegration? {
             installedIntegrations.compactMap {
-                $0 as? PostHogScreenViewIntegration
+                $0 as? PostHogReplayIntegration
             }.first
         }
+    #endif
+
+    func getSessionManager() -> PostHogSessionManager? {
+        sessionManager
     }
+
+    func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
+        installedIntegrations.compactMap {
+            $0 as? PostHogAppLifeCycleIntegration
+        }.first
+    }
+
+    func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
+        installedIntegrations.compactMap {
+            $0 as? PostHogScreenViewIntegration
+        }.first
+    }
+}
 #endif
 
 // swiftlint:enable file_length cyclomatic_complexity

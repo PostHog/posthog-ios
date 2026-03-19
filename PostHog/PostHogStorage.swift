@@ -232,6 +232,7 @@ class PostHogStorage {
         case queue = "posthog.queueFolder" // NOTE: This is different to posthog-ios v2
         case oldQeueue = "posthog.queue.plist"
         case replayQeueue = "posthog.replayFolder"
+        case replayBufferQueue = "posthog.replayBufferFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case flags = "posthog.flags"

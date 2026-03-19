@@ -173,5 +173,50 @@ class PostHogFileBackedQueueTest: QuickSpec {
             expect(sut.depth) == 0
             expect(items.count) == 0
         }
+
+        it("loads and sorts files in chronological order") {
+            let baseUrl = applicationSupportDirectoryURL()
+            let newURL = baseUrl.appendingPathComponent("queue")
+            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+            // Create files in expected order with delays to ensure distinct modification dates
+            let file1 = newURL.appendingPathComponent("1698236044.407")
+            try "event-1".data(using: .utf8)!.write(to: file1)
+            Thread.sleep(forTimeInterval: 0.01)
+
+            let file2 = newURL.appendingPathComponent("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
+            try "event-2".data(using: .utf8)!.write(to: file2)
+            Thread.sleep(forTimeInterval: 0.01)
+
+            let file3 = newURL.appendingPathComponent("1698236046.789")
+            try "event-3".data(using: .utf8)!.write(to: file3)
+            Thread.sleep(forTimeInterval: 0.01)
+
+            let file4 = newURL.appendingPathComponent("F1E2D3C4-B5A6-7890-1234-567890ABCDEF")
+            try "event-4".data(using: .utf8)!.write(to: file4)
+            Thread.sleep(forTimeInterval: 0.01)
+
+            let file5 = newURL.appendingPathComponent("1698236045.123")
+            try "event-5".data(using: .utf8)!.write(to: file5)
+            Thread.sleep(forTimeInterval: 0.01)
+
+            let file6 = newURL.appendingPathComponent("G1H2I3J4-K5L6-7890-1234-567890ABCDEF")
+            try "event-6".data(using: .utf8)!.write(to: file6)
+
+            // Initialize queue - should load and sort all files correctly
+            let sut = self.getSut()
+
+            // Verify FIFO order - sorted by modification date (oldest first)
+            let items = sut.peek(6)
+            expect(items.count) == 6
+            expect(String(data: items[0], encoding: .utf8)) == "event-1"
+            expect(String(data: items[1], encoding: .utf8)) == "event-2"
+            expect(String(data: items[2], encoding: .utf8)) == "event-3"
+            expect(String(data: items[3], encoding: .utf8)) == "event-4"
+            expect(String(data: items[4], encoding: .utf8)) == "event-5"
+            expect(String(data: items[5], encoding: .utf8)) == "event-6"
+
+            sut.clear()
+        }
     }
 }

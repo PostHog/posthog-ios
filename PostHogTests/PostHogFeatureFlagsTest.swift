@@ -202,6 +202,78 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
             #expect(sut.getFeatureFlag("string-value") as? String == "test")
         }
+
+        @Test("clear() removes in-memory feature flags")
+        func clearRemovesInMemoryFeatureFlags() async {
+            let sut = getSut()
+
+            // First load some feature flags
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            // Verify flags are loaded in memory
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
+            #expect(sut.getFeatureFlag("string-value") as? String == "test")
+
+            // Call clear()
+            sut.clear()
+
+            // Verify flags are cleared from memory
+            #expect(sut.getFeatureFlag("bool-value") == nil)
+            #expect(sut.getFeatureFlag("string-value") == nil)
+            #expect(sut.getFeatureFlags() == nil || sut.getFeatureFlags()?.isEmpty == true)
+        }
+
+        @Test("clear() clears person and group properties for flags")
+        func clearClearsPersonAndGroupProperties() async {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage)
+
+            // Set person and group properties
+            sut.setPersonPropertiesForFlags(["plan": "premium"])
+            sut.setGroupPropertiesForFlags("company", properties: ["name": "Acme"])
+
+            // Verify they are stored in disk
+            let personProps = storage.getDictionary(forKey: .personPropertiesForFlags) as? [String: Any]
+            #expect(personProps?["plan"] as? String == "premium")
+
+            let groupProps = storage.getDictionary(forKey: .groupPropertiesForFlags) as? [String: [String: Any]]
+            #expect(groupProps?["company"]?["name"] as? String == "Acme")
+
+            // Call clear()
+            sut.clear()
+
+            // Verify person and group properties are cleared from disk
+            let clearedPersonProps = storage.getDictionary(forKey: .personPropertiesForFlags) as? [String: Any]
+            #expect(clearedPersonProps?.isEmpty == true || clearedPersonProps == nil)
+
+            let clearedGroupProps = storage.getDictionary(forKey: .groupPropertiesForFlags) as? [String: [String: Any]]
+            #expect(clearedGroupProps?.isEmpty == true || clearedGroupProps == nil)
+
+            // Verify in-memory values are cleared by reloading flags and checking request
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            // Check the request doesn't contain the old person properties
+            guard let lastRequest = server.flagsRequests.last,
+                  let requestBody = server.parseRequest(lastRequest, gzip: false)
+            else {
+                #expect(Bool(false), "Failed to parse request body")
+                return
+            }
+
+            // Person properties should be empty or only contain default properties (not "plan")
+            let requestPersonProps = requestBody["person_properties"] as? [String: Any]
+            #expect(requestPersonProps?["plan"] == nil, "Expected 'plan' to be cleared from person properties")
+        }
     }
 
     @Suite("Test Person and Group Properties for Flags")

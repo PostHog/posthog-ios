@@ -2,6 +2,12 @@
 
 - feat: Manual capture deep link events (SwiftUI and UIKit) ([#485](https://github.com/PostHog/posthog-ios/pull/485))
 
+## 3.48.0
+
+### Minor Changes
+
+- 80f39ca: feat: add support for session replay event triggers
+
 ## 3.47.0
 
 ### Minor Changes

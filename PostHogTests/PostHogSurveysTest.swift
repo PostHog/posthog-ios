@@ -600,7 +600,7 @@ enum PostHogSurveysTest {
             )
             integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
 
-            integration.onEvent(event: "purchase", properties: ["amount": 150])
+            integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: ["amount": 150], timestamp: Date()))
             #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
         }
 
@@ -609,7 +609,7 @@ enum PostHogSurveysTest {
             let condition = PostHogEventCondition(name: "purchase")
             integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
 
-            integration.onEvent(event: "purchase", properties: [:])
+            integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: [:], timestamp: Date()))
             #expect(integration.testIsEventActivated(surveyId: "survey-1") == true)
         }
 
@@ -624,7 +624,7 @@ enum PostHogSurveysTest {
             )
             integration.testSetEventsToSurveys(["purchase": [(surveyId: "survey-1", condition: condition)]])
 
-            integration.onEvent(event: "purchase", properties: ["amount": 150, "category": "clothing"])
+            integration.testOnEvent(event: PostHogEvent(event: "purchase", distinctId: "test", properties: ["amount": 150, "category": "clothing"], timestamp: Date()))
             #expect(integration.testIsEventActivated(surveyId: "survey-1") == false)
         }
     }

@@ -39,7 +39,7 @@ let maxRetryDelay = 30.0
     private var cachedPersonPropertiesHash: String?
 
     private var queue: PostHogQueue?
-    private var replayQueue: PostHogQueue?
+    private(set) var replayQueue: PostHogReplayQueue?
     private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -134,10 +134,10 @@ let maxRetryDelay = 30.0
 
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, api, .batch, reachability)
-                replayQueue = PostHogQueue(config, theStorage, api, .snapshot, reachability)
+                replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
             #else
                 queue = PostHogQueue(config, theStorage, api, .batch)
-                replayQueue = PostHogQueue(config, theStorage, api, .snapshot)
+                replayQueue = PostHogReplayQueue(config, theStorage, api)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -877,8 +877,11 @@ let maxRetryDelay = 30.0
         }
 
         // Session Replay has its own queue
-        if let targetQueue = isSnapshotEvent ? replayQueue : queue {
-            queueEvent(posthogEvent, queue: targetQueue)
+        if isSnapshotEvent {
+            replayQueue?.add(posthogEvent)
+            onEventCaptured.invoke(posthogEvent)
+        } else {
+            queueEvent(posthogEvent, queue: queue)
         }
     }
 
@@ -1921,6 +1924,7 @@ let maxRetryDelay = 30.0
                     // TODO: Decouple these two integrations from PostHogSDK intance
                     if let replayIntegration = integration as? PostHogReplayIntegration {
                         self.replayIntegration = replayIntegration
+                        replayQueue?.bufferDelegate = replayIntegration
                     }
 
                     if let surveysIntegration = integration as? PostHogSurveyIntegration {
@@ -1946,6 +1950,7 @@ let maxRetryDelay = 30.0
                 try integration.install(self)
                 installedIntegrations.append(integration)
                 replayIntegration = integration
+                replayQueue?.bufferDelegate = integration
 
                 hedgeLog("Integration \(type(of: integration)) installed")
             } catch {
@@ -1963,6 +1968,7 @@ let maxRetryDelay = 30.0
 
         #if os(iOS)
             replayIntegration = nil
+            replayQueue?.bufferDelegate = nil
             surveysIntegration = nil
         #endif
     }

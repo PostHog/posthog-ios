@@ -70,6 +70,14 @@ class PostHogFileBackedQueue {
         }
     }
 
+    /// Appends an item filename to the in-memory items list.
+    /// Used during buffer migration to keep the items list in sync with disk.
+    func appendItem(_ filename: String) {
+        itemsLock.withLock {
+            items.append(filename)
+        }
+    }
+
     /// Internal, used for testing
     func clear() {
         deleteSafely(queue)

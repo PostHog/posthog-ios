@@ -43,6 +43,12 @@
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
 
+        // Minimum duration buffering state
+        private let bufferingLock = NSLock()
+        private var hasPassedMinimumDuration: Bool = false
+        private var minimumDurationSessionId: String?
+        private var cachedMinimumDuration: TimeInterval?
+
         /**
          ### Mapping of SwiftUI Views to UIKit (up until iOS 18)
 
@@ -144,10 +150,11 @@
 
             self.postHog = postHog
 
-            // Resolve event triggers from cached remote config (if available)
+            // Resolve event triggers and minimum duration from cached remote config (if available)
             if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
                 updateEventTriggers(from: cachedRemoteConfig)
             }
+            updateCachedMinimumDuration()
 
             // Subscribe to remote config changes (needed before start to update triggers)
             remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
@@ -215,6 +222,10 @@
             }
 
             isEnabled = true
+            
+            // Reset minimum duration buffering state for the new session
+            resetBufferingState(for: postHog)
+            
             // Listen for session changes to stop recording when a new session starts (if triggers are configured)
             sessionIdChangedToken = postHog.sessionManager.onSessionIdChanged.subscribe { [weak self] in
                 self?.handleSessionChanged()
@@ -340,8 +351,8 @@
             }
         }
 
-        /// Called when session ID changes. Handles view reset, sampling re-evaluation,
-        /// and trigger state management.
+        /// Called when session ID changes. Handles view reset, buffer clearing,
+        /// sampling re-evaluation, and trigger state management.
         private func handleSessionChanged() {
             guard let postHog else { return }
 
@@ -353,6 +364,9 @@
             if isEnabled {
                 resetViews()
             }
+
+            // Reset minimum duration buffering state for the new session
+            resetBufferingState(for: postHog)
 
             let (triggers, activatedSession) = eventTriggersLock.withLock {
                 (eventTriggers, triggerActivatedSessionId)
@@ -369,6 +383,17 @@
 
             // Re-evaluate sampling for the new session
             reevaluateSampling()
+        }
+
+        /// Resets buffering state for a new session — clears the buffer and marks as not yet passed minimum duration.
+        private func resetBufferingState(for postHog: PostHogSDK) {
+            bufferingLock.withLock {
+                hasPassedMinimumDuration = false
+            }
+            // Clear any buffered events from previous session
+            if let replayQueue = postHog.replayQueue {
+                replayQueue.clearBuffer()
+            }
         }
 
         private func pauseAllPlugins() {
@@ -388,6 +413,14 @@
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
+            updateCachedMinimumDuration()
+        }
+
+        private func updateCachedMinimumDuration() {
+            let minimumDuration = postHog?.remoteConfig?.getRecordingMinimumDuration()
+            bufferingLock.withLock {
+                cachedMinimumDuration = minimumDuration
+            }
         }
 
         private func handleApplicationEvent(event: UIEvent, date: Date) {
@@ -1163,6 +1196,45 @@
             for plugin in pluginsToStart {
                 plugin.start(postHog: postHog)
                 hedgeLog("[Session Replay] Plugin \(type(of: plugin)) installed - enabled by remote config")
+            }
+        }
+    }
+
+    // MARK: - PostHogReplayBufferDelegate
+
+    extension PostHogReplayIntegration: PostHogReplayBufferDelegate {
+        var isBuffering: Bool {
+            bufferingLock.withLock {
+                guard let minimumDuration = cachedMinimumDuration,
+                      minimumDuration > 0
+                else {
+                    return false
+                }
+                return !hasPassedMinimumDuration
+            }
+        }
+
+        func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {
+            guard let postHog else { return }
+
+            let minimumDuration: TimeInterval? = bufferingLock.withLock { cachedMinimumDuration }
+            guard let minimumDuration, minimumDuration > 0 else {
+                // No minimum duration configured: should not be buffering, migrate immediately
+                replayQueue.migrateBufferToQueue()
+                bufferingLock.withLock { hasPassedMinimumDuration = true }
+                return
+            }
+
+            // Check buffer content duration (oldest to newest snapshot)
+            let bufferDuration = replayQueue.bufferDuration ?? 0
+
+            // Prune old snapshots beyond minimum duration window
+            replayQueue.pruneBuffer(olderThan: minimumDuration)
+
+            if bufferDuration >= minimumDuration {
+                hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
+                replayQueue.migrateBufferToQueue()
+                bufferingLock.withLock { hasPassedMinimumDuration = true }
             }
         }
     }

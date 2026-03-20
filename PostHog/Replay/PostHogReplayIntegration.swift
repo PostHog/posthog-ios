@@ -24,6 +24,7 @@
         }
 
         private weak var postHog: PostHogSDK?
+        private weak var replayQueue: PostHogReplayQueue?
 
         private var isEnabled: Bool = false
 
@@ -149,9 +150,10 @@
             }
 
             self.postHog = postHog
+            replayQueue = postHog.replayQueue
 
             // Wire up as buffer delegate for the replay queue
-            postHog.replayQueue?.bufferDelegate = self
+            replayQueue?.bufferDelegate = self
 
             // Resolve event triggers and minimum duration from cached remote config (if available)
             if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
@@ -184,7 +186,8 @@
                 }
 
                 // Clear buffer delegate
-                postHog.replayQueue?.bufferDelegate = nil
+                replayQueue?.bufferDelegate = nil
+                replayQueue = nil
             }
         }
 
@@ -392,15 +395,13 @@
         }
 
         /// Resets buffering state for a new session — clears the buffer and marks as not yet passed minimum duration.
-        private func resetBufferingState(for postHog: PostHogSDK) {
+        private func resetBufferingState(for _: PostHogSDK) {
             bufferingLock.withLock {
                 hasPassedMinimumDuration = false
             }
 
             // Clear any buffered events from previous session
-            if let replayQueue = postHog.replayQueue {
-                replayQueue.clearBuffer()
-            }
+            replayQueue?.clearBuffer()
         }
 
         private func pauseAllPlugins() {

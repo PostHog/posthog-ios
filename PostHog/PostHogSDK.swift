@@ -1924,7 +1924,6 @@ let maxRetryDelay = 30.0
                     // TODO: Decouple these two integrations from PostHogSDK intance
                     if let replayIntegration = integration as? PostHogReplayIntegration {
                         self.replayIntegration = replayIntegration
-                        replayQueue?.bufferDelegate = replayIntegration
                     }
 
                     if let surveysIntegration = integration as? PostHogSurveyIntegration {
@@ -1950,7 +1949,6 @@ let maxRetryDelay = 30.0
                 try integration.install(self)
                 installedIntegrations.append(integration)
                 replayIntegration = integration
-                replayQueue?.bufferDelegate = integration
 
                 hedgeLog("Integration \(type(of: integration)) installed")
             } catch {
@@ -1968,7 +1966,6 @@ let maxRetryDelay = 30.0
 
         #if os(iOS)
             replayIntegration = nil
-            replayQueue?.bufferDelegate = nil
             surveysIntegration = nil
         #endif
     }

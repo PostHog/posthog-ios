@@ -150,6 +150,9 @@
 
             self.postHog = postHog
 
+            // Wire up as buffer delegate for the replay queue
+            postHog.replayQueue?.bufferDelegate = self
+
             // Resolve event triggers and minimum duration from cached remote config (if available)
             if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
                 updateEventTriggers(from: cachedRemoteConfig)
@@ -179,6 +182,9 @@
                 PostHogReplayIntegration.integrationInstalledLock.withLock {
                     PostHogReplayIntegration.integrationInstalled = false
                 }
+
+                // Clear buffer delegate
+                postHog.replayQueue?.bufferDelegate = nil
             }
         }
 

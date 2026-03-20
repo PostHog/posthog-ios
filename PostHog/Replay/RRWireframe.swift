@@ -10,6 +10,8 @@
 import Foundation
 #if os(iOS)
     import UIKit
+#elseif os(macOS)
+    import AppKit
 #endif
 
 class RRWireframe {
@@ -26,6 +28,9 @@ class RRWireframe {
     var value: Any? // string or number
     #if os(iOS)
         var image: UIImage?
+        var maskableWidgets: [CGRect]?
+    #elseif os(macOS)
+        var image: NSImage?
         var maskableWidgets: [CGRect]?
     #endif
     var base64: String?
@@ -56,6 +61,26 @@ class RRWireframe {
                 return redactedImage
             }
             return nil
+        }
+    #elseif os(macOS)
+        private func maskImage() -> NSImage? {
+            guard let image = image else { return nil }
+
+            let maskedImage = NSImage(size: image.size)
+            maskedImage.lockFocus()
+
+            image.draw(at: .zero, from: NSRect(origin: .zero, size: image.size), operation: .copy, fraction: 1.0)
+
+            if let maskableWidgets = maskableWidgets {
+                NSColor.black.setFill()
+                for rect in maskableWidgets {
+                    let path = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
+                    path.fill()
+                }
+            }
+
+            maskedImage.unlockFocus()
+            return maskedImage
         }
     #endif
 
@@ -92,7 +117,7 @@ class RRWireframe {
             dict["value"] = value
         }
 
-        #if os(iOS)
+        #if os(iOS) || os(macOS)
             if let image = image {
                 if let maskedImage = maskImage() {
                     base64 = maskedImage.toBase64()

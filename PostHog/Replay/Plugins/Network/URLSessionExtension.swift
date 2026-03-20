@@ -1,4 +1,4 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
     import Foundation
 
     public extension URLSession {
@@ -105,7 +105,7 @@
             try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogData(
             for request: URLRequest,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -114,7 +114,7 @@
             try await executeRequest(request: request, action: { try await data(for: request, delegate: delegate) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogData(
             from url: URL,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -123,7 +123,7 @@
             try await executeRequest(action: { try await data(from: url, delegate: delegate) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogUpload(
             for request: URLRequest,
             fromFile fileURL: URL,
@@ -133,7 +133,7 @@
             try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL, delegate: delegate) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogUpload(
             for request: URLRequest,
             from bodyData: Data,
@@ -143,7 +143,7 @@
             try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData, delegate: delegate) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogDownload(
             for request: URLRequest,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -152,7 +152,7 @@
             try await executeRequest(request: request, action: { try await download(for: request, delegate: delegate) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogDownload(
             from url: URL,
             delegate: (any URLSessionTaskDelegate)? = nil,
@@ -161,7 +161,7 @@
             try await executeRequest(action: { try await download(from: url, delegate: delegate) }, postHog: postHog)
         }
 
-        @available(iOS 15.0, *)
+        @available(iOS 15.0, macOS 12.0, *)
         func postHogDownload(
             resumeFrom resumeData: Data,
             delegate: (any URLSessionTaskDelegate)? = nil,

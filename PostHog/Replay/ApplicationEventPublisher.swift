@@ -65,4 +65,44 @@ import Foundation
             ApplicationEventPublisher.shared.sendEvent(event: event, date: Date())
         }
     }
+
+#elseif os(macOS)
+    import AppKit
+
+    protocol ApplicationEventPublishing: AnyObject {
+        /// Registers a callback for mouse events on macOS
+        var onApplicationEvent: PostHogMulticastCallback<ApplicationEventData> { get }
+    }
+
+    typealias ApplicationEventData = (NSEvent, Date)
+
+    final class ApplicationEventPublisher: ApplicationEventPublishing {
+        private(set) lazy var onApplicationEvent = PostHogMulticastCallback<ApplicationEventData> { [weak self] subscriberCount in
+            if subscriberCount > 0 {
+                self?.startMonitoring()
+            } else {
+                self?.stopMonitoring()
+            }
+        }
+
+        static let shared = ApplicationEventPublisher()
+
+        private var localMonitor: Any?
+
+        private func startMonitoring() {
+            guard localMonitor == nil else { return }
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp]) { [weak self] event in
+                self?.onApplicationEvent.invoke((event, Date()))
+                return event
+            }
+        }
+
+        private func stopMonitoring() {
+            if let monitor = localMonitor {
+                NSEvent.removeMonitor(monitor)
+                localMonitor = nil
+            }
+        }
+    }
+
 #endif

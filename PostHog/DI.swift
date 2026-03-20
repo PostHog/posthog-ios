@@ -15,13 +15,13 @@ enum DI {
         // publishes global screen view events (UIViewController.viewDidAppear)
         lazy var screenViewPublisher: ScreenViewPublishing = ApplicationScreenViewPublisher.shared
 
-        #if os(iOS) || os(tvOS)
-            // publishes global application events (UIApplication.sendEvent)
+        #if os(iOS) || os(tvOS) || os(macOS)
+            // publishes global application events (UIApplication.sendEvent on iOS/tvOS, NSEvent monitor on macOS)
             lazy var applicationEventPublisher: ApplicationEventPublishing = ApplicationEventPublisher.shared
         #endif
 
-        #if os(iOS)
-            // publishes global view layout events within a throttle interval (UIView.layoutSubviews)
+        #if os(iOS) || os(macOS)
+            // publishes global view layout events within a throttle interval (UIView.layoutSubviews on iOS, NSView.layout on macOS)
             lazy var viewLayoutPublisher: ViewLayoutPublishing = ApplicationViewLayoutPublisher.shared
         #endif
     }

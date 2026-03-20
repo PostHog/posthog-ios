@@ -7,7 +7,7 @@
 
 #import "ExceptionHandler.h"
 
-@implementation ExceptionHandler
+@implementation PHGExceptionHandler
 
 + (void)tryBlock:(void(^)(void))tryBlock 
            catch:(void(^)(NSException *exception))catchBlock {

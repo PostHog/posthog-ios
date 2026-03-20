@@ -14,4 +14,20 @@
             cgColor.toRGBString()
         }
     }
+
+#elseif os(macOS)
+
+    import AppKit
+    import Foundation
+
+    extension NSColor {
+        func toRGBString() -> String? {
+            // Convert to sRGB color space first to ensure we can access RGB components
+            guard let rgbColor = usingColorSpace(.sRGB) else {
+                return cgColor.toRGBString()
+            }
+            return rgbColor.cgColor.toRGBString()
+        }
+    }
+
 #endif

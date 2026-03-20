@@ -54,8 +54,10 @@ let maxRetryDelay = 30.0
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
         private weak var replayIntegration: PostHogReplayIntegration?
+    #endif
+    #if os(iOS)
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
@@ -339,7 +341,7 @@ let maxRetryDelay = 30.0
             }
             // only Session replay requires $window_id, so we set as the same as $session_id.
             // the backend might fallback to $session_id if $window_id is not present next.
-            #if os(iOS)
+            #if os(iOS) || os(macOS)
                 if !appendSharedProps, isSessionReplayActive() {
                     props["$window_id"] = sessionId
                 }
@@ -1670,7 +1672,7 @@ let maxRetryDelay = 30.0
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
         /**
          Starts session recording.
 
@@ -1765,7 +1767,7 @@ let maxRetryDelay = 30.0
         return postHog
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
         @objc public func isSessionReplayActive() -> Bool {
             if !isEnabled() {
                 return false
@@ -1917,12 +1919,14 @@ let maxRetryDelay = 30.0
                 try integration.install(self)
                 installed.append(integration)
 
-                #if os(iOS)
+                #if os(iOS) || os(macOS)
                     // TODO: Decouple these two integrations from PostHogSDK intance
                     if let replayIntegration = integration as? PostHogReplayIntegration {
                         self.replayIntegration = replayIntegration
                     }
+                #endif
 
+                #if os(iOS)
                     if let surveysIntegration = integration as? PostHogSurveyIntegration {
                         self.surveysIntegration = surveysIntegration
                     }
@@ -1937,7 +1941,7 @@ let maxRetryDelay = 30.0
         installedIntegrations = installed
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
         private func installReplayIntegration() {
             guard replayIntegration == nil else { return }
 
@@ -1961,8 +1965,10 @@ let maxRetryDelay = 30.0
         }
         installedIntegrations = []
 
-        #if os(iOS)
+        #if os(iOS) || os(macOS)
             replayIntegration = nil
+        #endif
+        #if os(iOS)
             surveysIntegration = nil
         #endif
     }
@@ -2010,7 +2016,7 @@ let maxRetryDelay = 30.0
             }
         #endif
 
-        #if os(iOS)
+        #if os(iOS) || os(macOS)
             func getReplayIntegration() -> PostHogReplayIntegration? {
                 installedIntegrations.compactMap {
                     $0 as? PostHogReplayIntegration

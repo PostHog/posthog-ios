@@ -167,7 +167,7 @@ class PostHogRemoteConfig {
                 }
 
                 // process session replay config
-                #if os(iOS)
+                #if os(iOS) || os(macOS)
                     let featureFlags = self.featureFlagsLock.withLock { self.featureFlags }
                     self.processSessionRecordingConfig(config, featureFlags: featureFlags ?? [:])
                 #endif
@@ -230,7 +230,7 @@ class PostHogRemoteConfig {
 
             sessionReplayLock.withLock {
                 sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
-                #if os(iOS)
+                #if os(iOS) || os(macOS)
                     recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
                 #endif
             }
@@ -356,7 +356,7 @@ class PostHogRemoteConfig {
                     return callback(nil)
                 }
 
-                #if os(iOS)
+                #if os(iOS) || os(macOS)
                     // Use cached remote config for session recording settings since /flags no longer returns config data
                     let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
                     self.processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags)
@@ -408,7 +408,7 @@ class PostHogRemoteConfig {
         }
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
             if let sessionRecording = data?["sessionRecording"] as? Bool {
                 sessionReplayLock.withLock {
@@ -825,7 +825,7 @@ class PostHogRemoteConfig {
         storage.remove(key: .sessionReplay)
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(macOS)
         func isSessionReplayFlagActive() -> Bool {
             sessionReplayLock.withLock { sessionReplayFlagActive }
         }

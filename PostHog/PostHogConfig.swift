@@ -158,11 +158,13 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// or EU Host: 'https://eu.i.posthog.com'
     public static let defaultHost: String = "https://us.i.posthog.com"
 
-    #if os(iOS)
-        /// Enable Recording of Session Replays for iOS
+    #if os(iOS) || os(macOS)
+        /// Enable Recording of Session Replays for iOS and macOS
         ///
         /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
         /// All configured conditions must be satisfied for recording to start.
+        ///
+        /// Note: On macOS, only screenshot mode is supported. Wireframe mode is not available.
         ///
         /// Default: false
         @objc public var sessionReplay: Bool = false
@@ -248,15 +250,16 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
             integrations.append(PostHogAppLifeCycleIntegration())
         }
 
-        #if os(iOS)
+        #if os(iOS) || os(macOS)
             if sessionReplay {
                 integrations.append(PostHogReplayIntegration())
             }
+        #endif
 
+        #if os(iOS)
             if _surveys {
                 integrations.append(PostHogSurveyIntegration())
             }
-
         #endif
 
         #if os(iOS) || targetEnvironment(macCatalyst)

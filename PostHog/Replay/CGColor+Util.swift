@@ -5,10 +5,14 @@
 //  Created by Manoel Aranda Neto on 21.03.24.
 //
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
 
     import Foundation
-    import UIKit
+    #if os(iOS)
+        import UIKit
+    #elseif os(macOS)
+        import AppKit
+    #endif
 
     extension CGColor {
         func toRGBString() -> String? {

@@ -40,4 +40,14 @@
             return nil
         }
     }
+
+#elseif os(macOS)
+    import AppKit
+
+    extension NSApplication {
+        static func getCurrentWindow() -> NSWindow? {
+            NSApplication.shared.keyWindow ?? NSApplication.shared.mainWindow
+        }
+    }
+
 #endif

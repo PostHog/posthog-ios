@@ -33,4 +33,48 @@
             return false
         }
     }
+
+#elseif os(macOS)
+    import AppKit
+    import Foundation
+
+    @available(macOS 14.0, *)
+    private let sensibleContentTypes: [NSTextContentType] = [
+        .newPassword, .oneTimeCode,
+        .telephoneNumber, .emailAddress, .password,
+        .username, .URL, .name, .familyName,
+        .namePrefix, .organizationName,
+        .fullStreetAddress, .streetAddressLine1,
+        .streetAddressLine2, .addressCity, .addressState,
+        .addressCityAndState, .postalCode,
+    ]
+
+    extension NSTextField {
+        func isSensitiveText() -> Bool {
+            if self is NSSecureTextField {
+                return true
+            }
+
+            if #available(macOS 14.0, *) {
+                if let contentType = contentType {
+                    return sensibleContentTypes.contains(contentType)
+                }
+            }
+
+            return false
+        }
+    }
+
+    extension NSTextView {
+        func isSensitiveText() -> Bool {
+            if #available(macOS 14.0, *) {
+                if let contentType = contentType {
+                    return sensibleContentTypes.contains(contentType)
+                }
+            }
+
+            return false
+        }
+    }
+
 #endif

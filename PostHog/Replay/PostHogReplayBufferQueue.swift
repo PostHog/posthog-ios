@@ -73,8 +73,8 @@ class PostHogReplayBufferQueue {
         }
     }
 
-    /// Removes items older than `newestTimestamp - duration`.
-    /// Used in strict mode to keep only ~minimumDuration worth of snapshots.
+    /// Removes items older than `newestTimestamp - duration`
+    /// This will keep ~minimumDuration worth of snapshots in the buffer.
     func pruneOlderThan(duration: TimeInterval) {
         let newestTs: TimeInterval? = itemsLock.withLock {
             guard let newest = items.last else { return nil }
@@ -83,6 +83,7 @@ class PostHogReplayBufferQueue {
         guard let newestTs else { return }
         let cutoff = newestTs - duration
 
+        // items should be sorted older -> newer already
         itemsLock.withLock {
             while let first = items.first,
                   let ts = Self.timestampFromUUIDv7(first),

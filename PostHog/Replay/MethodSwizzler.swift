@@ -4,7 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
     import Foundation
 
     class MethodSwizzler<TypedIMP, TypedBlockIMP> {

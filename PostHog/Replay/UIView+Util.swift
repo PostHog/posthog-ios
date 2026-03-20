@@ -73,4 +73,63 @@
             convert(bounds, to: window?.layer)
         }
     }
+
+#elseif os(macOS)
+    import AppKit
+    import Foundation
+
+    extension NSView {
+        func isVisible() -> Bool {
+            if isHidden || alphaValue == 0 || frame == .zero {
+                return false
+            }
+            return true
+        }
+
+        func isNoCapture() -> Bool {
+            var isNoCapture = false
+            let identifier: String = accessibilityIdentifier()
+            if !identifier.isEmpty {
+                isNoCapture = checkLabel(identifier)
+            }
+            if !isNoCapture, let label = accessibilityLabel(), !label.isEmpty {
+                isNoCapture = checkLabel(label)
+            }
+
+            return isNoCapture
+        }
+
+        private func checkLabel(_ label: String) -> Bool {
+            label.lowercased().contains("ph-no-capture")
+        }
+
+        func toImage() -> NSImage? {
+            let bounds = bounds
+            let size = bounds.size
+
+            if !size.hasSize() {
+                return nil
+            }
+
+            guard let bitmapRep = bitmapImageRepForCachingDisplay(in: bounds) else {
+                return nil
+            }
+            cacheDisplay(in: bounds, to: bitmapRep)
+
+            let image = NSImage(size: size)
+            image.addRepresentation(bitmapRep)
+            return image
+        }
+
+        func toAbsoluteRect(_ window: NSWindow?) -> CGRect {
+            convert(bounds, to: window?.contentView)
+        }
+    }
+
+    extension CALayer {
+        func toAbsoluteRect(_ window: NSWindow?) -> CGRect {
+            convert(bounds, to: window?.contentView?.layer)
+        }
+    }
+
 #endif

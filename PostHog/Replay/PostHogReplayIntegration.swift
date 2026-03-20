@@ -6,11 +6,15 @@
 //
 //  Created by Manoel Aranda Neto on 19.03.24.
 //
-#if os(iOS)
+#if os(iOS) || os(macOS)
+    #if os(iOS)
+        import PhotosUI
+        import UIKit
+    #elseif os(macOS)
+        import AppKit
+    #endif
     import Foundation
-    import PhotosUI
     import SwiftUI
-    import UIKit
     import WebKit
 
     class PostHogReplayIntegration: PostHogIntegration {
@@ -28,7 +32,11 @@
         private var isEnabled: Bool = false
 
         private let windowViewsLock = NSLock()
-        private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        #if os(iOS)
+            private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        #elseif os(macOS)
+            private let windowViews = NSMapTable<NSWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
+        #endif
         private let installedPluginsLock = NSLock()
         private var applicationEventToken: RegistrationToken?
         private var applicationBackgroundedToken: RegistrationToken?
@@ -98,33 +106,35 @@
          - `TextEditor` is not affected by this change and still maps to `UITextView`
          */
 
-        /// `AsyncImage` and `Image`
-        private let swiftUIImageLayerTypes = [
-            "SwiftUI.ImageLayer",
-        ].compactMap(NSClassFromString)
+        #if os(iOS)
+            /// `AsyncImage` and `Image`
+            private let swiftUIImageLayerTypes = [
+                "SwiftUI.ImageLayer",
+            ].compactMap(NSClassFromString)
 
-        /// `Text`, `Button`, `TextEditor` views
-        private let swiftUITextBasedViewTypes = [
-            "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914CGDrawingLayer", // Text, Button (iOS 26+)
-            "SwiftUI.CGDrawingView", // Text, Button
-            "SwiftUI.TextEditorTextView", // TextEditor
-            "SwiftUI.VerticalTextView", // TextField, vertical axis
-        ].compactMap(NSClassFromString)
+            /// `Text`, `Button`, `TextEditor` views
+            private let swiftUITextBasedViewTypes = [
+                "_TtC7SwiftUIP33_863CCF9D49B535DAEB1C7D61BEE53B5914CGDrawingLayer", // Text, Button (iOS 26+)
+                "SwiftUI.CGDrawingView", // Text, Button
+                "SwiftUI.TextEditorTextView", // TextEditor
+                "SwiftUI.VerticalTextView", // TextField, vertical axis
+            ].compactMap(NSClassFromString)
 
-        private let swiftUIGenericTypes = [
-            "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
-        ].compactMap(NSClassFromString)
+            private let swiftUIGenericTypes = [
+                "_TtC7SwiftUIP33_A34643117F00277B93DEBAB70EC0697122_UIShapeHitTestingView",
+            ].compactMap(NSClassFromString)
 
-        private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
-        private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
-        // These are usually views that don't belong to the current process and are most likely sensitive
-        private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
+            private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
+            private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
+            // These are usually views that don't belong to the current process and are most likely sensitive
+            private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
 
-        // These layer types should be safe to ignore while masking
-        private let swiftUISafeLayerTypes: [AnyClass] = [
-            "_TtC7SwiftUIP33_E19F490D25D5E0EC8A24903AF958E34115ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
-            "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
-        ].compactMap(NSClassFromString)
+            // These layer types should be safe to ignore while masking
+            private let swiftUISafeLayerTypes: [AnyClass] = [
+                "_TtC7SwiftUIP33_E19F490D25D5E0EC8A24903AF958E34115ColorShapeLayer", // Solid-color filled shapes (Circle, Rectangle, SF Symbols etc.)
+                "SwiftUI.GradientLayer", // Views like LinearGradient, RadialGradient, or AngularGradient
+            ].compactMap(NSClassFromString)
+        #endif
 
         static let dispatchQueue = DispatchQueue(label: "com.posthog.PostHogReplayIntegration",
                                                  target: .global(qos: .utility))
@@ -229,7 +239,7 @@
                 }
             }
 
-            // start listening to `UIApplication.sendEvent`
+            // start listening to application events
             let applicationEventPublisher = DI.main.applicationEventPublisher
             applicationEventToken = applicationEventPublisher.onApplicationEvent.subscribe { [weak self] event, date in
                 self?.handleApplicationEvent(event: event, date: date)
@@ -277,12 +287,12 @@
             resetViews()
             sessionIdChangedToken = nil
 
-            // stop listening to `UIApplication.sendEvent`
+            // stop listening to application events
             applicationEventToken = nil
-            // stop listening to Application lifecycle events
+            // stop listening to application lifecycle events
             applicationBackgroundedToken = nil
             applicationForegroundedToken = nil
-            // stop listening to `UIView.layoutSubviews` events
+            // stop listening to view layout events
             viewLayoutToken = nil
             // stop plugins
             let pluginsToStop = installedPluginsLock.withLock {
@@ -390,67 +400,186 @@
             updateEventTriggers(from: remoteConfig)
         }
 
-        private func handleApplicationEvent(event: UIEvent, date: Date) {
-            guard let postHog, postHog.isSessionReplayActive() else {
-                return
-            }
-
-            guard event.type == .touches else {
-                return
-            }
-
-            guard let window = UIApplication.getCurrentWindow() else {
-                return
-            }
-
-            guard let touches = event.touches(for: window) else {
-                return
-            }
-
-            // capture necessary touch information on the main thread before performing any asynchronous operations
-            // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
-            // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
-            let touchInfo = touches.map {
-                (phase: $0.phase, location: $0.location(in: window))
-            }
-
-            PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
-                // always make sure we have a fresh session id as early as possible
-                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
+        #if os(iOS)
+            private func handleApplicationEvent(event: UIEvent, date: Date) {
+                guard let postHog, postHog.isSessionReplayActive() else {
                     return
                 }
 
-                // captured weakly since integration may have uninstalled by now
-                guard let postHog else { return }
+                guard event.type == .touches else {
+                    return
+                }
+
+                guard let window = UIApplication.getCurrentWindow() else {
+                    return
+                }
+
+                guard let touches = event.touches(for: window) else {
+                    return
+                }
+
+                // capture necessary touch information on the main thread before performing any asynchronous operations
+                // - this ensures that UITouch associated objects like UIView, UIWindow, or [UIGestureRecognizer] are still valid.
+                // - these objects may be released or erased by the system if accessed asynchronously, resulting in invalid/zeroed-out touch coordinates
+                let touchInfo = touches.map {
+                    (phase: $0.phase, location: $0.location(in: window))
+                }
+
+                PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
+                    // always make sure we have a fresh session id as early as possible
+                    guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
+                        return
+                    }
+
+                    // captured weakly since integration may have uninstalled by now
+                    guard let postHog else { return }
+
+                    var snapshotsData: [Any] = []
+                    for touch in touchInfo {
+                        let phase = touch.phase
+
+                        let type: Int
+                        if phase == .began {
+                            type = 7
+                        } else if phase == .ended {
+                            type = 9
+                        } else {
+                            continue
+                        }
+
+                        // we keep a failsafe here just in case, but this will likely never be triggered
+                        guard touch.location != .zero else {
+                            continue
+                        }
+
+                        let posX = touch.location.x.toInt() ?? 0
+                        let posY = touch.location.y.toInt() ?? 0
+
+                        // if the id is 0, BE transformer will set it to the virtual bodyId
+                        let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
+
+                        let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": date.toMillis()]
+                        snapshotsData.append(data)
+                    }
+                    if !snapshotsData.isEmpty {
+                        postHog.capture(
+                            "$snapshot",
+                            properties: [
+                                "$snapshot_source": "mobile",
+                                "$snapshot_data": snapshotsData,
+                                "$session_id": sessionId,
+                            ],
+                            timestamp: date
+                        )
+                    }
+                }
+            }
+        #elseif os(macOS)
+            private func handleApplicationEvent(event: NSEvent, date: Date) {
+                guard let postHog, postHog.isSessionReplayActive() else {
+                    return
+                }
+
+                guard let window = NSApplication.getCurrentWindow() else {
+                    return
+                }
+
+                // Map mouse events to rrweb touch event types
+                let type: Int
+                switch event.type {
+                case .leftMouseDown, .rightMouseDown:
+                    type = 7 // touchStart equivalent
+                case .leftMouseUp, .rightMouseUp:
+                    type = 9 // touchEnd equivalent
+                default:
+                    return
+                }
+
+                // Convert location to window coordinates (macOS uses bottom-left origin, flip to top-left)
+                let locationInWindow = event.locationInWindow
+                let windowHeight = window.contentView?.bounds.height ?? window.frame.height
+                let posX = locationInWindow.x.toInt() ?? 0
+                let posY = (windowHeight - locationInWindow.y).toInt() ?? 0
+
+                PostHogReplayIntegration.dispatchQueue.async { [weak postHog] in
+                    guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
+                        return
+                    }
+
+                    guard let postHog else { return }
+
+                    let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
+                    let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": date.toMillis()]
+
+                    postHog.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": [data],
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: date
+                    )
+                }
+            }
+        #endif
+
+        #if os(iOS)
+            private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
+                var hasChanges = false
+
+                guard let wireframe = postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+                    return
+                }
+
+                // capture timestamp after snapshot was taken
+                let timestampDate = Date()
+                let timestamp = timestampDate.toMillis()
+
+                let snapshotStatus = windowViewsLock.withLock {
+                    windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
+                }
 
                 var snapshotsData: [Any] = []
-                for touch in touchInfo {
-                    let phase = touch.phase
 
-                    let type: Int
-                    if phase == .began {
-                        type = 7
-                    } else if phase == .ended {
-                        type = 9
-                    } else {
-                        continue
+                if !snapshotStatus.sentMetaEvent {
+                    let size = window.bounds.size
+                    let width = size.width.toInt() ?? 0
+                    let height = size.height.toInt() ?? 0
+
+                    var data: [String: Any] = ["width": width, "height": height]
+
+                    if let screenName = screenName {
+                        data["href"] = screenName
                     }
 
-                    // we keep a failsafe here just in case, but this will likely never be triggered
-                    guard touch.location != .zero else {
-                        continue
-                    }
-
-                    let posX = touch.location.x.toInt() ?? 0
-                    let posY = touch.location.y.toInt() ?? 0
-
-                    // if the id is 0, BE transformer will set it to the virtual bodyId
-                    let touchData: [String: Any] = ["id": 0, "pointerType": 2, "source": 2, "type": type, "x": posX, "y": posY]
-
-                    let data: [String: Any] = ["type": 3, "data": touchData, "timestamp": date.toMillis()]
-                    snapshotsData.append(data)
+                    let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
+                    snapshotsData.append(snapshotData)
+                    snapshotStatus.sentMetaEvent = true
+                    hasChanges = true
                 }
-                if !snapshotsData.isEmpty {
+
+                if hasChanges {
+                    windowViewsLock.withLock {
+                        windowViews.setObject(snapshotStatus, forKey: window)
+                    }
+                }
+
+                // TODO: IncrementalSnapshot, type=2
+
+                PostHogReplayIntegration.dispatchQueue.async {
+                    // always make sure we have a fresh session id at correct timestamp
+                    guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
+                        return
+                    }
+
+                    var wireframes: [Any] = []
+                    wireframes.append(wireframe.toDict())
+                    let initialOffset = ["top": 0, "left": 0]
+                    let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
+                    let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
+                    snapshotsData.append(snapshotData)
+
                     postHog.capture(
                         "$snapshot",
                         properties: [
@@ -458,97 +587,100 @@
                             "$snapshot_data": snapshotsData,
                             "$session_id": sessionId,
                         ],
-                        timestamp: date
+                        timestamp: timestampDate
                     )
                 }
             }
-        }
-
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
-            var hasChanges = false
-
-            guard let wireframe = postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
-                return
-            }
-
-            // capture timestamp after snapshot was taken
-            let timestampDate = Date()
-            let timestamp = timestampDate.toMillis()
-
-            let snapshotStatus = windowViewsLock.withLock {
-                windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
-            }
-
-            var snapshotsData: [Any] = []
-
-            if !snapshotStatus.sentMetaEvent {
-                let size = window.bounds.size
-                let width = size.width.toInt() ?? 0
-                let height = size.height.toInt() ?? 0
-
-                var data: [String: Any] = ["width": width, "height": height]
-
-                if let screenName = screenName {
-                    data["href"] = screenName
-                }
-
-                let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
-                snapshotsData.append(snapshotData)
-                snapshotStatus.sentMetaEvent = true
-                hasChanges = true
-            }
-
-            if hasChanges {
-                windowViewsLock.withLock {
-                    windowViews.setObject(snapshotStatus, forKey: window)
-                }
-            }
-
-            // TODO: IncrementalSnapshot, type=2
-
-            PostHogReplayIntegration.dispatchQueue.async {
-                // always make sure we have a fresh session id at correct timestamp
-                guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
+        #elseif os(macOS)
+            private func generateSnapshot(_ window: NSWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
+                guard let contentView = window.contentView else {
                     return
                 }
 
-                var wireframes: [Any] = []
-                wireframes.append(wireframe.toDict())
-                let initialOffset = ["top": 0, "left": 0]
-                let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
-                let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
-                snapshotsData.append(snapshotData)
+                // macOS only supports screenshot mode
+                guard let wireframe = toScreenshotWireframe(window) else {
+                    return
+                }
 
-                postHog.capture(
-                    "$snapshot",
-                    properties: [
-                        "$snapshot_source": "mobile",
-                        "$snapshot_data": snapshotsData,
-                        "$session_id": sessionId,
-                    ],
-                    timestamp: timestampDate
-                )
+                let timestampDate = Date()
+                let timestamp = timestampDate.toMillis()
+
+                let snapshotStatus = windowViewsLock.withLock {
+                    windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
+                }
+
+                var hasChanges = false
+                var snapshotsData: [Any] = []
+
+                if !snapshotStatus.sentMetaEvent {
+                    let size = contentView.bounds.size
+                    let width = size.width.toInt() ?? 0
+                    let height = size.height.toInt() ?? 0
+
+                    var data: [String: Any] = ["width": width, "height": height]
+
+                    if let screenName = screenName {
+                        data["href"] = screenName
+                    }
+
+                    let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
+                    snapshotsData.append(snapshotData)
+                    snapshotStatus.sentMetaEvent = true
+                    hasChanges = true
+                }
+
+                if hasChanges {
+                    windowViewsLock.withLock {
+                        windowViews.setObject(snapshotStatus, forKey: window)
+                    }
+                }
+
+                PostHogReplayIntegration.dispatchQueue.async {
+                    guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
+                        return
+                    }
+
+                    var wireframes: [Any] = []
+                    wireframes.append(wireframe.toDict())
+                    let initialOffset = ["top": 0, "left": 0]
+                    let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
+                    let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]
+                    snapshotsData.append(snapshotData)
+
+                    postHog.capture(
+                        "$snapshot",
+                        properties: [
+                            "$snapshot_source": "mobile",
+                            "$snapshot_data": snapshotsData,
+                            "$session_id": sessionId,
+                        ],
+                        timestamp: timestampDate
+                    )
+                }
             }
-        }
+        #endif
 
-        private func setAlignment(_ alignment: NSTextAlignment, _ style: RRStyle) {
-            if alignment == .center {
-                style.verticalAlign = "center"
-                style.horizontalAlign = "center"
-            } else if alignment == .right {
-                style.horizontalAlign = "right"
-            } else if alignment == .left {
-                style.horizontalAlign = "left"
+        #if os(iOS)
+            private func setAlignment(_ alignment: NSTextAlignment, _ style: RRStyle) {
+                if alignment == .center {
+                    style.verticalAlign = "center"
+                    style.horizontalAlign = "center"
+                } else if alignment == .right {
+                    style.horizontalAlign = "right"
+                } else if alignment == .left {
+                    style.horizontalAlign = "left"
+                }
             }
-        }
 
-        private func setPadding(_ insets: UIEdgeInsets, _ style: RRStyle) {
-            style.paddingTop = insets.top.toInt()
-            style.paddingRight = insets.right.toInt()
-            style.paddingBottom = insets.bottom.toInt()
-            style.paddingLeft = insets.left.toInt()
-        }
+            private func setPadding(_ insets: UIEdgeInsets, _ style: RRStyle) {
+                style.paddingTop = insets.top.toInt()
+                style.paddingRight = insets.right.toInt()
+                style.paddingBottom = insets.bottom.toInt()
+                style.paddingLeft = insets.left.toInt()
+            }
+        #endif
 
+        #if os(iOS)
         private func createBasicWireframe(_ view: UIView) -> RRWireframe {
             let wireframe = RRWireframe()
 
@@ -565,7 +697,22 @@
 
             return wireframe
         }
+        #elseif os(macOS)
+        private func createBasicWireframe(_ view: NSView) -> RRWireframe {
+            let wireframe = RRWireframe()
+            let frame = view.toAbsoluteRect(view.window)
 
+            wireframe.id = view.hash
+            wireframe.posX = frame.origin.x.toInt() ?? 0
+            wireframe.posY = frame.origin.y.toInt() ?? 0
+            wireframe.width = frame.size.width.toInt() ?? 0
+            wireframe.height = frame.size.height.toInt() ?? 0
+
+            return wireframe
+        }
+        #endif
+
+        #if os(iOS)
         private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect], _ maskChildren: inout Bool) {
             // User explicitly marked this view (and its subviews) as non-maskable through `.postHogNoMask()` view modifier
             if view.postHogNoMask {
@@ -1062,6 +1209,91 @@
             // this method has to be fast and do as little as possible
             generateSnapshot(window, screenName, postHog: postHog)
         }
+        #elseif os(macOS)
+        private func toScreenshotWireframe(_ window: NSWindow) -> RRWireframe? {
+            guard let contentView = window.contentView, contentView.isVisible() else {
+                return nil
+            }
+
+            let wireframe = createBasicWireframe(contentView)
+
+            var maskableWidgets: [CGRect] = []
+            findMaskableWidgets(contentView, window, &maskableWidgets)
+
+            if let image = contentView.toImage() {
+                if !image.size.hasSize() {
+                    return nil
+                }
+
+                wireframe.maskableWidgets = maskableWidgets
+                wireframe.image = image
+            }
+            wireframe.type = "screenshot"
+            return wireframe
+        }
+
+        private func findMaskableWidgets(_ view: NSView, _ window: NSWindow, _ maskableWidgets: inout [CGRect]) {
+            if let textView = view as? NSTextView {
+                if config?.sessionReplayConfig.maskAllTextInputs == true, let text = textView.string as String?, !text.isEmpty {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let textField = view as? NSTextField {
+                if textField.isSensitiveText() || (config?.sessionReplayConfig.maskAllTextInputs == true && !textField.stringValue.isEmpty) {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let imageView = view as? NSImageView {
+                if config?.sessionReplayConfig.maskAllImages == true, imageView.image != nil {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if view is WKWebView {
+                if config?.sessionReplayConfig.maskAllTextInputs == true || config?.sessionReplayConfig.maskAllImages == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let button = view as? NSButton {
+                if config?.sessionReplayConfig.maskAllTextInputs == true, !button.title.isEmpty {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if view.isNoCapture() {
+                maskableWidgets.append(view.toAbsoluteRect(window))
+                return
+            }
+
+            for child in view.subviews {
+                if !child.isVisible() {
+                    continue
+                }
+                findMaskableWidgets(child, window, &maskableWidgets)
+            }
+        }
+
+        @objc private func snapshot() {
+            guard let postHog, postHog.isSessionReplayActive() else {
+                return
+            }
+
+            guard let window = NSApplication.getCurrentWindow() else {
+                return
+            }
+
+            // macOS only supports screenshot mode
+            generateSnapshot(window, nil, postHog: postHog)
+        }
+        #endif
 
         private func handleEventCaptured(event: String) {
             guard let postHog else { return }
@@ -1167,9 +1399,15 @@
         }
     }
 
-    private protocol AnyObjectUIHostingViewController: AnyObject {}
+    #if os(iOS)
+        private protocol AnyObjectUIHostingViewController: AnyObject {}
 
-    extension UIHostingController: AnyObjectUIHostingViewController {}
+        extension UIHostingController: AnyObjectUIHostingViewController {}
+    #elseif os(macOS)
+        private protocol AnyObjectNSHostingViewController: AnyObject {}
+
+        extension NSHostingController: AnyObjectNSHostingViewController {}
+    #endif
 
     #if TESTING
         extension PostHogReplayIntegration {

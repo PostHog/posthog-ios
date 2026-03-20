@@ -13,9 +13,12 @@ import XCTest
 
 class MockPostHogServer {
     var batchRequests = [URLRequest]()
+    var snapshotRequests = [URLRequest]()
     var batchExpectation: XCTestExpectation?
+    var snapshotExpectation: XCTestExpectation?
     var flagsExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
+    var snapshotExpectationCount: Int?
     var flagsExpectationCount: Int?
     var flagsRequests = [URLRequest]()
     private var stubDescriptors = [HTTPStubsDescriptor]()
@@ -28,6 +31,14 @@ class MockPostHogServer {
 
         if batchRequests.count >= (batchExpectationCount ?? 0) {
             batchExpectation?.fulfill()
+        }
+    }
+
+    func trackSnapshotRequest(_ request: URLRequest) {
+        snapshotRequests.append(request)
+
+        if snapshotRequests.count >= (snapshotExpectationCount ?? 0) {
+            snapshotExpectation?.fulfill()
         }
     }
 
@@ -390,14 +401,16 @@ class MockPostHogServer {
         HTTPStubs.onStubActivation { request, _, _ in
             if request.url?.lastPathComponent == "batch" {
                 self.trackBatchRequest(request)
+            } else if request.url?.lastPathComponent == "s" {
+                self.trackSnapshotRequest(request)
             } else if request.url?.lastPathComponent == "flags" {
                 self.trackFlags(request)
             }
         }
     }
 
-    func start(batchCount: Int = 1) {
-        reset(batchCount: batchCount)
+    func start(batchCount: Int = 1, snapshotCount: Int = 0) {
+        reset(batchCount: batchCount, snapshotCount: snapshotCount)
 
         HTTPStubs.setEnabled(true)
     }
@@ -411,12 +424,15 @@ class MockPostHogServer {
         stubDescriptors.removeAll()
     }
 
-    func reset(batchCount: Int = 1, flagsCount: Int? = nil) {
+    func reset(batchCount: Int = 1, snapshotCount: Int = 0, flagsCount: Int? = nil) {
         batchRequests = []
+        snapshotRequests = []
         flagsRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
+        snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
         flagsExpectation = XCTestExpectation(description: "\(flagsCount ?? 1) flag requests to occur")
         batchExpectationCount = batchCount
+        snapshotExpectationCount = snapshotCount
         flagsExpectationCount = flagsCount
         flagsResponseDelay = 0
         flagsResponseHandler = nil

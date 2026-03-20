@@ -212,6 +212,7 @@
 		DA5E52E22E09930600159D20 /* fixture_survey_unknown_type.json in Resources */ = {isa = PBXBuildFile; fileRef = DA5E52E12E09930600159D20 /* fixture_survey_unknown_type.json */; };
 		DA5E52E32E09930600159D20 /* fixture_survey_unknown_question_type.json in Resources */ = {isa = PBXBuildFile; fileRef = DA5E52E02E09930600159D20 /* fixture_survey_unknown_question_type.json */; };
 		DA5E52EB2E0996C400159D20 /* PostHogSurveyEnumsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5E52EA2E0996C400159D20 /* PostHogSurveyEnumsTest.swift */; };
+		DA641B392F6D873600BAD1E9 /* PostHogReplayQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA641B382F6D873600BAD1E9 /* PostHogReplayQueueTest.swift */; };
 		DA690C6A2DA54BCC0045FF4E /* PostHogSurveyAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA690C692DA54BC70045FF4E /* PostHogSurveyAppearance.swift */; };
 		DA690C6C2DA54BD70045FF4E /* PostHogSurveyConditions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA690C6B2DA54BD10045FF4E /* PostHogSurveyConditions.swift */; };
 		DA690C6E2DA54BEC0045FF4E /* PostHogSurveyQuestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA690C6D2DA54BE40045FF4E /* PostHogSurveyQuestion.swift */; };
@@ -773,6 +774,7 @@
 		DA5E52E02E09930600159D20 /* fixture_survey_unknown_question_type.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_unknown_question_type.json; sourceTree = "<group>"; };
 		DA5E52E12E09930600159D20 /* fixture_survey_unknown_type.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_unknown_type.json; sourceTree = "<group>"; };
 		DA5E52EA2E0996C400159D20 /* PostHogSurveyEnumsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyEnumsTest.swift; sourceTree = "<group>"; };
+		DA641B382F6D873600BAD1E9 /* PostHogReplayQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayQueueTest.swift; sourceTree = "<group>"; };
 		DA690C692DA54BC70045FF4E /* PostHogSurveyAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyAppearance.swift; sourceTree = "<group>"; };
 		DA690C6B2DA54BD10045FF4E /* PostHogSurveyConditions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyConditions.swift; sourceTree = "<group>"; };
 		DA690C6D2DA54BE40045FF4E /* PostHogSurveyQuestion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyQuestion.swift; sourceTree = "<group>"; };
@@ -1211,6 +1213,7 @@
 				DA697CAD2EF935490019640F /* PostHogErrorTrackingUtilsTest.swift */,
 				DA697CAE2EF935490019640F /* PostHogExceptionProcessorTest.swift */,
 				DA697CAF2EF935490019640F /* PostHogStackTraceProcessorTest.swift */,
+				DA641B382F6D873600BAD1E9 /* PostHogReplayQueueTest.swift */,
 				DAEA0FD02F6D5191000E33D8 /* PostHogReplayBufferQueueTest.swift */,
 			);
 			path = PostHogTests;
@@ -2471,6 +2474,7 @@
 				DA697CB32EF935490019640F /* PostHogStackTraceProcessorTest.swift in Sources */,
 				DA697CB42EF935490019640F /* PostHogCrashReportProcessorTest.swift in Sources */,
 				DA697CB52EF935490019640F /* PostHogExceptionProcessorTest.swift in Sources */,
+				DA641B392F6D873600BAD1E9 /* PostHogReplayQueueTest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

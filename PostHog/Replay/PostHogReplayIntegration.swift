@@ -47,7 +47,6 @@
         private let bufferingLock = NSLock()
         private var hasPassedMinimumDuration: Bool = false
         private var minimumDurationSessionId: String?
-        private var minimumDurationTimer: Timer?
         private var cachedMinimumDuration: TimeInterval?
 
         /**
@@ -289,10 +288,6 @@
             resetViews()
             sessionIdChangedToken = nil
 
-            // Cancel minimum duration timer (non strict mode)
-            minimumDurationTimer?.invalidate()
-            minimumDurationTimer = nil
-
             // stop listening to `UIApplication.sendEvent`
             applicationEventToken = nil
             // stop listening to Application lifecycle events
@@ -392,10 +387,6 @@
 
         /// Resets buffering state for a new session — clears the buffer and marks as not yet passed minimum duration.
         private func resetBufferingState(for postHog: PostHogSDK) {
-            // Cancel any existing timer
-            minimumDurationTimer?.invalidate()
-            minimumDurationTimer = nil
-
             bufferingLock.withLock {
                 hasPassedMinimumDuration = false
             }
@@ -403,20 +394,6 @@
             // Clear any buffered events from previous session
             if let replayQueue = postHog.replayQueue {
                 replayQueue.clearBuffer()
-            }
-
-            // For non-strict mode, set up a timer to migrate buffer after minimum duration
-            let strictMode = postHog.config.sessionReplayConfig.strictMinimumDuration
-            let minimumDuration = bufferingLock.withLock { cachedMinimumDuration }
-
-            if !strictMode, let minimumDuration, minimumDuration > 0 {
-                // Timer pauses when app is in background (run loop suspended), which is desired behavior
-                minimumDurationTimer = Timer.scheduledTimer(withTimeInterval: minimumDuration, repeats: false) { [weak self, weak postHog] _ in
-                    guard let self, let postHog, let replayQueue = postHog.replayQueue else { return }
-                    hedgeLog("[Session Replay] Non-strict minimum duration timer fired. Migrating buffer.")
-                    replayQueue.migrateBufferToQueue()
-                    self.bufferingLock.withLock { self.hasPassedMinimumDuration = true }
-                }
             }
         }
 
@@ -1249,12 +1226,7 @@
                 return
             }
 
-            let strictMode = postHog.config.sessionReplayConfig.strictMinimumDuration
-
-            // Non-strict mode uses a timer to migrate buffer, so nothing to do here
-            guard strictMode else { return }
-
-            // Strict mode: check buffer content duration (oldest to newest snapshot)
+            // Check buffer content duration (oldest to newest snapshot)
             let bufferDuration = replayQueue.bufferDuration ?? 0
 
             // Prune old snapshots beyond minimum duration window

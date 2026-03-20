@@ -1,6 +1,6 @@
 import Foundation
 
-/// A disk-based circular buffer queue for session replay snapshots.
+/// A disk-based buffer queue for session replay snapshots.
 /// Uses UUID v7 filenames (consistent with `PostHogFileBackedQueue`) so items
 /// can be migrated directly to the replay queue. Timestamps for duration
 /// calculations are extracted from the UUID v7 embedded millisecond epoch.
@@ -50,22 +50,17 @@ class PostHogReplayBufferQueue {
     }
 
     private func setup() {
+        // Clear any leftover buffer from previous sessions - if they're still here,
+        // they didn't meet the minimum duration threshold and should be discarded
+        deleteSafely(queue)
+
         do {
             try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
         } catch {
             hedgeLog("Error trying to create replay buffer folder \(error)")
         }
 
-        do {
-            let urls = try FileManager.default.contentsOfDirectory(at: queue, includingPropertiesForKeys: [.contentModificationDateKey])
-            items = urls.sorted {
-                let date1 = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                let date2 = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                return date1 < date2
-            }.map(\.lastPathComponent)
-        } catch {
-            hedgeLog("Failed to load files for replay buffer queue \(error)")
-        }
+        items = []
     }
 
     func add(_ contents: Data) {
@@ -88,18 +83,14 @@ class PostHogReplayBufferQueue {
         guard let newestTs else { return }
         let cutoff = newestTs - duration
 
-        while true {
-            let removed: String? = itemsLock.withLock {
-                guard let first = items.first,
-                      let ts = Self.timestampFromUUIDv7(first),
-                      ts < cutoff
-                else {
-                    return nil
-                }
-                return items.removeFirst()
+        itemsLock.withLock {
+            while let first = items.first,
+                  let ts = Self.timestampFromUUIDv7(first),
+                  ts < cutoff
+            {
+                let removedItem = items.removeFirst()
+                deleteSafely(queue.appendingPathComponent(removedItem))
             }
-            guard let removed else { break }
-            deleteSafely(queue.appendingPathComponent(removed))
         }
     }
 
@@ -123,11 +114,13 @@ class PostHogReplayBufferQueue {
                 } else {
                     try fileManager.moveItem(at: sourceURL, to: destinationURL)
                 }
-                target.appendItem(item)
             } catch {
                 hedgeLog("Failed to migrate replay buffer item \(item): \(error)")
             }
         }
+
+        // Reload target queue from disk to pick up migrated files (sorted by creation date)
+        target.reloadFromDisk()
     }
 
     /// Removes all buffered items from disk and memory.
@@ -148,6 +141,6 @@ class PostHogReplayBufferQueue {
         guard cleaned.count >= 12 else { return nil }
         let hexTimestamp = String(cleaned.prefix(12))
         guard let milliseconds = UInt64(hexTimestamp, radix: 16) else { return nil }
-        return TimeInterval(milliseconds) / 1000.0
+        return TimeInterval(milliseconds) / 1_000.0
     }
 }

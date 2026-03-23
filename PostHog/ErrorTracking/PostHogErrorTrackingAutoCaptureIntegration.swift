@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if !targetEnvironment(simulator) && (os(iOS) || os(macOS) || os(tvOS))
+#if canImport(CrashReporter) && (os(iOS) || os(macOS) || os(tvOS))
     import CrashReporter
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {

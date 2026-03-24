@@ -53,10 +53,12 @@
             // rendererFormat.scale = 0.5
             let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
 
-            let image = renderer.image { _ in
-                /// Note: Always `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
-                /// This can potentially affect capturing a snapshot during a screen transition but we want the lesser of the two evils here
-                drawHierarchy(in: bounds, afterScreenUpdates: false)
+            let image = autoreleasepool {
+                renderer.image { _ in
+                    /// Note: Always `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
+                    /// This can potentially affect capturing a snapshot during a screen transition but we want the lesser of the two evils here
+                    drawHierarchy(in: bounds, afterScreenUpdates: false)
+                }
             }
 
             return image

@@ -1,5 +1,13 @@
 ## Next
 
+## 3.48.1
+
+### Patch Changes
+
+- 3545320: fix: guard swizzled layoutSublayers to handle background thread calls
+- 061cb44: Replace ReadWriteLock with NSLock for consistent thread-safety across the codebase. The ReadWriteLock property wrapper provided false thread-safety for collection types since the lock was released between separate operations. Using explicit NSLock with `.withLock` closures ensures atomic operations and clearer intent.
+- ac76d70: fix: clear in-memory feature flags cache on reset()
+
 ## 3.48.0
 
 ### Minor Changes

@@ -39,15 +39,6 @@ class PostHogQueue {
     private let timerLock = NSLock()
     private let endpoint: PostHogApiEndpoint
     private let dispatchQueue: DispatchQueue
-    private var flushThreshold: Int {
-        endpoint == .snapshot ? 1 : config.flushAt
-    }
-    private var flushBatchSize: Int {
-        endpoint == .snapshot ? 1 : config.maxBatchSize
-    }
-    private var flushTimerInterval: TimeInterval {
-        endpoint == .snapshot ? 1 : config.flushIntervalSeconds
-    }
 
     /// Internal, used for testing
     var depth: Int {
@@ -170,7 +161,7 @@ class PostHogQueue {
         if !disableQueueTimerForTesting {
             timerLock.withLock {
                 DispatchQueue.main.async {
-                    self.timer = Timer.scheduledTimer(withTimeInterval: self.flushTimerInterval, repeats: true, block: { _ in
+                    self.timer = Timer.scheduledTimer(withTimeInterval: self.config.flushIntervalSeconds, repeats: true, block: { _ in
                         if !self.isFlushing {
                             self.flush()
                         }
@@ -197,7 +188,7 @@ class PostHogQueue {
             return
         }
 
-        take(flushBatchSize) { payload in
+        take(config.maxBatchSize) { payload in
             if !payload.events.isEmpty {
                 self.eventHandler(payload)
             } else {
@@ -208,7 +199,7 @@ class PostHogQueue {
     }
 
     private func flushIfOverThreshold() {
-        if fileQueue.depth >= flushThreshold {
+        if fileQueue.depth >= config.flushAt {
             flush()
         }
     }
@@ -227,11 +218,7 @@ class PostHogQueue {
 
         fileQueue.add(data)
         hedgeLog("Queued event '\(event.event)'. Depth: \(fileQueue.depth)")
-        if endpoint == .snapshot {
-            flush()
-        } else {
-            flushIfOverThreshold()
-        }
+        flushIfOverThreshold()
     }
 
     private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload) -> Void) {
@@ -263,10 +250,6 @@ class PostHogQueue {
 
                 self.isFlushingLock.withLock {
                     self.isFlushing = false
-                }
-
-                if success, self.endpoint == .snapshot, self.fileQueue.depth > 0 {
-                    self.flush()
                 }
             })
         }

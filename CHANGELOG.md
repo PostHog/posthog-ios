@@ -1,5 +1,11 @@
 ## Next
 
+## 3.48.2
+
+### Patch Changes
+
+- e331f56: purge crash reports before processing them
+
 ## 3.48.1
 
 ### Patch Changes

@@ -10,6 +10,9 @@
     import Foundation
     import UIKit
 
+    // Pre-computed hex character lookup for fast color string formatting
+    private let hexChars: [Character] = Array("0123456789ABCDEF")
+
     extension CGColor {
         func toRGBString() -> String? {
             // see dicussion: https://github.com/PostHog/posthog-ios/issues/226
@@ -23,11 +26,17 @@
                 return nil
             }
 
-            let red = Int(components[0] * 255)
-            let green = Int(components[1] * 255)
-            let blue = Int(components[2] * 255)
+            let r = min(255, max(0, Int(components[0] * 255)))
+            let g = min(255, max(0, Int(components[1] * 255)))
+            let b = min(255, max(0, Int(components[2] * 255)))
 
-            return String(format: "#%02X%02X%02X", red, green, blue)
+            // Build hex string directly — avoids String(format:) overhead
+            return String([
+                "#",
+                hexChars[r >> 4], hexChars[r & 0xF],
+                hexChars[g >> 4], hexChars[g & 0xF],
+                hexChars[b >> 4], hexChars[b & 0xF],
+            ])
         }
     }
 #endif

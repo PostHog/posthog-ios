@@ -27,7 +27,7 @@ class RRStyle {
     var bar: String?
 
     func toDict() -> [String: Any] {
-        var dict: [String: Any] = [:]
+        var dict = [String: Any](minimumCapacity: 16)
 
         if let color = color {
             dict["color"] = color

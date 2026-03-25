@@ -18,48 +18,43 @@
         }
 
         func isNoCapture() -> Bool {
-            var isNoCapture = false
-            if let identifier = accessibilityIdentifier {
-                isNoCapture = checkLabel(identifier)
+            // Check accessibilityIdentifier first (most common way to tag views)
+            if let identifier = accessibilityIdentifier,
+               identifier.range(of: "ph-no-capture", options: .caseInsensitive) != nil
+            {
+                return true
             }
             // read accessibilityLabel from the parent's view to skip the RCTRecursiveAccessibilityLabel on RN which is slow and may cause an endless loop
             // see https://github.com/facebook/react-native/issues/33084
-            if let label = super.accessibilityLabel, !isNoCapture {
-                isNoCapture = checkLabel(label)
+            if let label = super.accessibilityLabel,
+               label.range(of: "ph-no-capture", options: .caseInsensitive) != nil
+            {
+                return true
             }
-
-            return isNoCapture
-        }
-
-        private func checkLabel(_ label: String) -> Bool {
-            label.lowercased().contains("ph-no-capture")
+            return false
         }
 
         func toImage() -> UIImage? {
-            // Avoid Rendering Offscreen Views
-            let bounds = superview?.bounds ?? bounds
-            let size = bounds.intersection(bounds).size
+            let bounds = self.bounds
+            let size = bounds.size
 
             if !size.hasSize() {
                 return nil
             }
 
-            let rendererFormat = UIGraphicsImageRendererFormat.default()
+            // Use native screen scale for best drawHierarchy performance.
+            // Per Sentry's findings, using native scale avoids internal rescaling overhead
+            // that occurs when drawHierarchy renders at a non-native scale.
+            let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
 
-            // This can significantly improve rendering performance because the renderer won't need to
-            // process transparency.
-            rendererFormat.opaque = isOpaque
-            // Another way to improve rendering performance is to scale the renderer's content.
-            // rendererFormat.scale = 0.5
-            let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
-
-            let image = renderer.image { _ in
-                /// Note: Always `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
-                /// This can potentially affect capturing a snapshot during a screen transition but we want the lesser of the two evils here
+            // Use custom CGContext-based renderer that bypasses UIGraphicsImageRenderer overhead.
+            // PostHogGraphicsImageRenderer is lightweight (just stores size + scale), so creating
+            // a new one each time is cheap — the expensive work is inside image().
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
+            return renderer.image { _ in
+                /// Note: Always `false` for `afterScreenUpdates` since this will cause the screen to flicker
                 drawHierarchy(in: bounds, afterScreenUpdates: false)
             }
-
-            return image
         }
 
         // you need this because of SwiftUI otherwise the coordinates always zeroed for some reason

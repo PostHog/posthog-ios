@@ -125,8 +125,21 @@ import Foundation
                 return
             }
 
+            // Load and purge BEFORE processing to prevent crash loops.
+            // If processing itself crashes (e.g., corrupt report), the report is already
+            // gone so the app won't crash again on next launch.
+            let crashData: Data
             do {
-                let crashData = try crashReporter.loadPendingCrashReportDataAndReturnError()
+                crashData = try crashReporter.loadPendingCrashReportDataAndReturnError()
+            } catch {
+                hedgeLog("Failed to load crash report: \(error)")
+                crashReporter.purgePendingCrashReport()
+                return
+            }
+
+            crashReporter.purgePendingCrashReport()
+
+            do {
                 let crashReport = try PLCrashReport(data: crashData)
 
                 // Extract saved context from crash report's customData
@@ -159,18 +172,8 @@ import Foundation
 
                 hedgeLog("Crash report processed and captured")
             } catch {
-                // Best effort for now.
-                // We log and ignore and let the crash report be purged.
-                // - On a new crash, old report will be overwritten anyway
-                // - Keeping the report around could risk infinite retry loop until next crash if it's corrupt
-                //
-                // Note: This could fail because of a transient error though, in the future we could check the returned error
-                //       and only purge if PLCrashReporterErrorCrashReportInvalid, then keep the report around for max X retries
                 hedgeLog("Failed to process crash report: \(error)")
             }
-
-            // Always purge the crash report after processing
-            crashReporter.purgePendingCrashReport()
         }
     }
 

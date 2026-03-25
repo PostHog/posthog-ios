@@ -50,17 +50,23 @@ class PostHogQueueTest: QuickSpec {
         }
 
         it("add item to queue and flush respecting flushAt") {
-            let sut = self.getSut()
+            let sut = self.getSut(flushAt: 2)
 
             let event = PostHogEvent(event: "event", distinctId: "distinctId")
             let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
-            sut.add(event)
-            sut.add(event2)
+            let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
 
-            expect(sut.depth) == 2
+            // First event should not trigger flush (below flushAt threshold)
+            sut.add(event)
+            expect(sut.depth) == 1
+
+            // Adding two more events: second event reaches flushAt=2 and triggers flush,
+            // third event stays in queue
+            sut.add(event2)
+            sut.add(event3)
 
             let events = getBatchedEvents(server)
-            expect(events.count) == 1
+            expect(events.count) == 2
 
             expect(sut.depth) == 1
 

@@ -77,4 +77,67 @@
             }
         }
     }
+
+#elseif os(macOS)
+    import AppKit
+
+    protocol ViewLayoutPublishing: AnyObject {
+        /// Callback for getting notified when an NSView is laid out.
+        /// Note: callback guaranteed to be called on main thread
+        var onViewLayout: PostHogThrottledMulticastCallback<Void> { get }
+    }
+
+    final class ApplicationViewLayoutPublisher: ViewLayoutPublishing {
+        static let shared = ApplicationViewLayoutPublisher()
+
+        private(set) lazy var onViewLayout = PostHogThrottledMulticastCallback<Void> { [weak self] subscriberCount in
+            if subscriberCount > 0 {
+                self?.swizzleLayout()
+            } else {
+                self?.unswizzleLayout()
+            }
+        }
+
+        private var hasSwizzled: Bool = false
+
+        private func swizzleLayout() {
+            guard !hasSwizzled else { return }
+            hasSwizzled = true
+
+            swizzle(
+                forClass: NSView.self,
+                original: #selector(NSView.layout),
+                new: #selector(NSView.ph_swizzled_layout)
+            )
+        }
+
+        private func unswizzleLayout() {
+            guard hasSwizzled else { return }
+            hasSwizzled = false
+
+            swizzle(
+                forClass: NSView.self,
+                original: #selector(NSView.layout),
+                new: #selector(NSView.ph_swizzled_layout)
+            )
+        }
+
+        fileprivate func viewDidLayout() {
+            onViewLayout.invoke(())
+        }
+
+        #if TESTING
+            func simulateLayoutSubviews() {
+                viewDidLayout()
+            }
+        #endif
+    }
+
+    extension NSView {
+        @objc func ph_swizzled_layout() {
+            ph_swizzled_layout() // call original
+            ApplicationViewLayoutPublisher.shared.viewDidLayout()
+        }
+    }
+
 #endif

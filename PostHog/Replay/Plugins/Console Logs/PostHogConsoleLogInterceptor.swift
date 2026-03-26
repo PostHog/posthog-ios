@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 05/05/2025.
 //
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
     import Foundation
 
     final class PostHogConsoleLogInterceptor {

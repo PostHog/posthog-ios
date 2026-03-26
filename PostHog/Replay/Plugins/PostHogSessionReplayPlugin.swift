@@ -5,7 +5,7 @@
 //  Created by Ioannis Josephides on 12/05/2025.
 //
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
     import Foundation
 
     /// Session replay plugins are used to capture specific types of meta data during a session,

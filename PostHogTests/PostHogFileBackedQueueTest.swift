@@ -64,7 +64,7 @@ class PostHogFileBackedQueueTest: QuickSpec {
         let oldURL = baseUrl.appendingPathComponent("oldQueue")
         let newURL = baseUrl.appendingPathComponent("queue")
 
-        return PostHogFileBackedQueue(queue: newURL, oldQueue: oldURL)
+        return PostHogFileBackedQueue(queue: newURL, oldQueues: [oldURL])
     }
 
     override func spec() {
@@ -215,6 +215,51 @@ class PostHogFileBackedQueueTest: QuickSpec {
             expect(String(data: items[3], encoding: .utf8)) == "event-4"
             expect(String(data: items[4], encoding: .utf8)) == "event-5"
             expect(String(data: items[5], encoding: .utf8)) == "event-6"
+
+            sut.clear()
+        }
+
+        it("migrates files from old queue folder to new queue folder") {
+            let baseUrl = applicationSupportDirectoryURL()
+            let oldQueueFolder = baseUrl.appendingPathComponent("posthog.queueFolder")
+            let newQueueFolder = baseUrl.appendingPathComponent("posthog.queueFolder.uuid")
+
+            // Clean up any existing folders
+            try? FileManager.default.removeItem(at: oldQueueFolder)
+            try? FileManager.default.removeItem(at: newQueueFolder)
+
+            // Create old queue folder with some files (simulating pre-3.49.0 SDK)
+            try FileManager.default.createDirectory(at: oldQueueFolder, withIntermediateDirectories: true)
+
+            let file1 = oldQueueFolder.appendingPathComponent("1698236044.407")
+            try "event-1".data(using: .utf8)!.write(to: file1)
+
+            let file2 = oldQueueFolder.appendingPathComponent("1698236045.123")
+            try "event-2".data(using: .utf8)!.write(to: file2)
+
+            let file3 = oldQueueFolder.appendingPathComponent("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
+            try "event-3".data(using: .utf8)!.write(to: file3)
+
+            expect(FileManager.default.fileExists(atPath: oldQueueFolder.path)) == true
+            expect(FileManager.default.fileExists(atPath: newQueueFolder.path)) == false
+
+            // Initialize queue with old folder as migration source
+            let sut = PostHogFileBackedQueue(queue: newQueueFolder, oldQueues: [oldQueueFolder])
+
+            // Verify migration happened
+            expect(FileManager.default.fileExists(atPath: oldQueueFolder.path)) == false
+            expect(FileManager.default.fileExists(atPath: newQueueFolder.path)) == true
+
+            // Verify all files were migrated and are readable
+            expect(sut.depth) == 3
+            let items = sut.peek(3)
+            expect(items.count) == 3
+
+            // Verify content (order may vary based on modification date)
+            let contents = items.map { String(data: $0, encoding: .utf8) }
+            expect(contents).to(contain("event-1"))
+            expect(contents).to(contain("event-2"))
+            expect(contents).to(contain("event-3"))
 
             sut.clear()
         }

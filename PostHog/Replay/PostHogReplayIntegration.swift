@@ -29,7 +29,6 @@
 
         private let windowViewsLock = NSLock()
         private let windowViews = NSMapTable<UIWindow, ViewTreeSnapshotStatus>.weakToStrongObjects()
-        private let snapshotStateLock = NSLock()
         private let installedPluginsLock = NSLock()
         private var applicationEventToken: RegistrationToken?
         private var applicationBackgroundedToken: RegistrationToken?
@@ -39,8 +38,6 @@
         private var sessionIdChangedToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
-        private var snapshotInFlight = false
-        private var snapshotPending = false
 
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
@@ -278,7 +275,6 @@
             guard isEnabled else { return }
             isEnabled = false
             resetViews()
-            resetSnapshotState()
             sessionIdChangedToken = nil
 
             // stop listening to `UIApplication.sendEvent`
@@ -309,40 +305,6 @@
             // Ensure thread-safe access to windowViews
             windowViewsLock.withLock {
                 windowViews.removeAllObjects()
-            }
-        }
-
-        private func startSnapshotIfPossible() -> Bool {
-            snapshotStateLock.withLock {
-                if snapshotInFlight {
-                    snapshotPending = true
-                    return false
-                }
-
-                snapshotInFlight = true
-                return true
-            }
-        }
-
-        private func finishSnapshot() {
-            let shouldScheduleNext = snapshotStateLock.withLock {
-                snapshotInFlight = false
-                let shouldScheduleNext = snapshotPending
-                snapshotPending = false
-                return shouldScheduleNext
-            }
-
-            if shouldScheduleNext {
-                DispatchQueue.main.async { [weak self] in
-                    self?.snapshot()
-                }
-            }
-        }
-
-        private func resetSnapshotState() {
-            snapshotStateLock.withLock {
-                snapshotInFlight = false
-                snapshotPending = false
             }
         }
 
@@ -502,13 +464,12 @@
             }
         }
 
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK, completion: @escaping () -> Void) {
+        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
             var hasChanges = false
 
             guard let wireframe = autoreleasepool(invoking: {
                 postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window)
             }) else {
-                completion()
                 return
             }
 
@@ -548,8 +509,6 @@
             // TODO: IncrementalSnapshot, type=2
 
             PostHogReplayIntegration.dispatchQueue.async {
-                defer { completion() }
-
                 // always make sure we have a fresh session id at correct timestamp
                 guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
                     return
@@ -1105,15 +1064,9 @@
                 }
             }
 
-            guard startSnapshotIfPossible() else {
-                return
-            }
-
             // this cannot run off of the main thread because most properties require to be called within the main thread
             // this method has to be fast and do as little as possible
-            generateSnapshot(window, screenName, postHog: postHog) { [weak self] in
-                self?.finishSnapshot()
-            }
+            generateSnapshot(window, screenName, postHog: postHog)
         }
 
         private func handleEventCaptured(event: String) {

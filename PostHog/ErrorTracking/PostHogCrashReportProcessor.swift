@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(macOS) || os(tvOS)
+#if (os(iOS) || os(macOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
     import CrashReporter
 
     enum PostHogCrashReportProcessor {

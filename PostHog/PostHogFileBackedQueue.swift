@@ -16,20 +16,29 @@ class PostHogFileBackedQueue {
         itemsLock.withLock { items.count }
     }
 
-    init(queue: URL, oldQueue: URL? = nil) {
+    init(queue: URL, oldQueues: [URL] = []) {
         self.queue = queue
-        setup(oldQueue: oldQueue)
+        setup(oldQueues: oldQueues)
     }
 
-    private func setup(oldQueue: URL?) {
+    private func setup(oldQueues: [URL]) {
         do {
             try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
         } catch {
             hedgeLog("Error trying to create caching folder \(error)")
         }
 
-        if oldQueue != nil {
-            migrateOldQueue(queue: queue, oldQueue: oldQueue!)
+        for oldQueue in oldQueues {
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: oldQueue.path, isDirectory: &isDirectory) {
+                if isDirectory.boolValue {
+                    // old queue folder
+                    migrateOldQueueFolder(queue: queue, oldQueueFolder: oldQueue)
+                } else {
+                    // old plist file
+                    migrateOldQueue(queue: queue, oldQueue: oldQueue)
+                }
+            }
         }
 
         do {
@@ -73,7 +82,7 @@ class PostHogFileBackedQueue {
     /// Internal, used for testing
     func clear() {
         deleteSafely(queue)
-        setup(oldQueue: nil)
+        setup(oldQueues: [])
     }
 
     private func loadFiles(_ count: Int) -> [Data] {
@@ -115,6 +124,29 @@ class PostHogFileBackedQueue {
             guard let removed else { return }
             deleteSafely(queue.appendingPathComponent(removed))
         }
+    }
+}
+
+// Migrates the an Old Queue folder to a new Queue folder
+// Just moves files over since the format is the same
+private func migrateOldQueueFolder(queue: URL, oldQueueFolder: URL) {
+    defer {
+        deleteSafely(oldQueueFolder)
+    }
+
+    do {
+        let files = try FileManager.default.contentsOfDirectory(atPath: oldQueueFolder.path)
+        for file in files {
+            let sourceURL = oldQueueFolder.appendingPathComponent(file)
+            let destinationURL = queue.appendingPathComponent(file)
+            do {
+                try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+            } catch {
+                hedgeLog("Failed to migrate file \(file): \(error)")
+            }
+        }
+    } catch {
+        hedgeLog("Failed to read queue folder \(error)")
     }
 }
 

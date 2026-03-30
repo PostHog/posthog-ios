@@ -10,7 +10,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-struct PropertyTestCase: CustomTestStringConvertible, Sendable {
+struct PropertyTestCase: CustomTestStringConvertible {
     let name: String
     let properties: @Sendable () -> [String: Any]
 

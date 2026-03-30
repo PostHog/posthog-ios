@@ -127,9 +127,7 @@ extension PickerViewController: UIPickerViewDelegate {
             NSAttributedString.Key.foregroundColor: foregroundColor,
         ]
 
-        let title = NSMutableAttributedString(string: "\(Int(colorValue))", attributes: attributes)
-
-        return title
+        return NSMutableAttributedString(string: "\(Int(colorValue))", attributes: attributes)
     }
 
     func pickerView(_: UIPickerView, didSelectRow row: Int, inComponent component: Int) {

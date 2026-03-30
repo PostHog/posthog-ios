@@ -62,13 +62,11 @@ let maxRetryDelay = 30.0
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
-            let instance = PostHogSDK(PostHogConfig(apiKey: ""))
-            return instance
+            PostHogSDK(PostHogConfig(apiKey: ""))
         }()
     #else
         @objc public static let shared: PostHogSDK = {
-            let instance = PostHogSDK(PostHogConfig(apiKey: ""))
-            return instance
+            PostHogSDK(PostHogConfig(apiKey: ""))
         }()
     #endif
 

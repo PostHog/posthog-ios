@@ -17,6 +17,10 @@ import Foundation
     import WatchKit
 #endif
 
+#if os(iOS) || os(macOS)
+    import UserNotifications
+#endif
+
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
@@ -38,6 +42,7 @@ let maxRetryDelay = 30.0
     private let cachedPersonPropertiesLock = NSLock()
     private var cachedPersonPropertiesHash: String?
 
+    private var api: PostHogApi?
     private var queue: PostHogQueue?
     private var replayQueue: PostHogQueue?
     private(set) var storage: PostHogStorage?
@@ -106,6 +111,7 @@ let maxRetryDelay = 30.0
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let api = PostHogApi(config)
+            self.api = api
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
             remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
@@ -1994,6 +2000,99 @@ let maxRetryDelay = 30.0
 
         for integration in installedIntegrations {
             integration.contextDidChange(context)
+        }
+    }
+
+    // MARK: - Push Notifications
+
+    #if os(iOS) || os(macOS)
+        /// Requests push notification permission from the user.
+        ///
+        /// When the user grants permission, the SDK automatically registers for remote notifications.
+        /// After receiving the device token from the system, call ``handlePushNotificationDeviceToken(_:)``
+        /// from your `AppDelegate`'s `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` method
+        /// to send the token to PostHog.
+        ///
+        /// - Parameter options: The notification authorization options to request. Defaults to `[.alert, .sound, .badge]`.
+        /// - Parameter completion: A closure called with the result of the authorization request.
+        ///   The `Bool` indicates whether permission was granted, and the `Error` contains any error that occurred.
+        @available(iOS 14.0, macOS 11.0, *)
+        public func requestPushNotificationPermission(
+            options: UNAuthorizationOptions = [.alert, .sound, .badge],
+            completion: ((Bool, Error?) -> Void)? = nil
+        ) {
+            if !isEnabled() {
+                completion?(false, nil)
+                return
+            }
+
+            UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
+                if let error {
+                    hedgeLog("Error requesting push notification permission: \(error.localizedDescription)")
+                    completion?(false, error)
+                    return
+                }
+
+                if granted {
+                    hedgeLog("Push notification permission granted.")
+                    DispatchQueue.main.async {
+                        #if os(iOS)
+                            UIApplication.shared.registerForRemoteNotifications()
+                        #elseif os(macOS)
+                            NSApplication.shared.registerForRemoteNotifications()
+                        #endif
+                    }
+                } else {
+                    hedgeLog("Push notification permission denied.")
+                }
+
+                completion?(granted, nil)
+            }
+        }
+    #endif
+
+    /// Sends the device token to PostHog for push notification delivery.
+    ///
+    /// Call this from your `AppDelegate`'s `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` method:
+    /// ```swift
+    /// func application(_ application: UIApplication,
+    ///                  didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    ///     PostHogSDK.shared.handlePushNotificationDeviceToken(deviceToken)
+    /// }
+    /// ```
+    ///
+    /// - Parameter deviceToken: The device token received from the system.
+    @objc public func handlePushNotificationDeviceToken(_ deviceToken: Data) {
+        if !isEnabled() {
+            return
+        }
+
+        let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
+        sendPushNotificationDeviceToken(tokenString)
+    }
+
+    private func sendPushNotificationDeviceToken(_ deviceToken: String) {
+        guard let api else {
+            hedgeLog("Push subscription not sent: SDK not initialized.")
+            return
+        }
+
+        let distinctId = getDistinctId()
+        if distinctId.isEmpty {
+            hedgeLog("Push subscription not sent: no distinct ID.")
+            return
+        }
+
+        let appId = Bundle.main.bundleIdentifier ?? ""
+        if appId.isEmpty {
+            hedgeLog("Push subscription not sent: no bundle identifier found.")
+            return
+        }
+
+        api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { success in
+            if !success {
+                hedgeLog("Failed to send push subscription to PostHog.")
+            }
         }
     }
 }

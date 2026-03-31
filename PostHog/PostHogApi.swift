@@ -270,6 +270,51 @@ class PostHogApi {
         }.resume()
     }
 
+    func pushSubscription(
+        distinctId: String,
+        deviceToken: String,
+        appId: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let url = getEndpointURL("/api/push_subscriptions", relativeTo: config.host) else {
+            hedgeLog("Malformed push subscriptions URL error.")
+            return completion(false)
+        }
+
+        let config = sessionConfig()
+        let request = getURLRequest(url)
+
+        let toSend: [String: Any] = [
+            "api_key": self.config.apiKey,
+            "distinct_id": distinctId,
+            "token": deviceToken,
+            "platform": "ios",
+            "app_id": appId,
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
+            hedgeLog("Error parsing the push subscription body")
+            return completion(false)
+        }
+
+        URLSession(configuration: config).uploadTask(with: request, from: data) { _, response, error in
+            if error != nil {
+                hedgeLog("Error calling the push subscriptions API: \(String(describing: error)).")
+                return completion(false)
+            }
+
+            let httpResponse = response as? HTTPURLResponse
+
+            if let statusCode = httpResponse?.statusCode, 200 ... 299 ~= statusCode {
+                hedgeLog("Push subscription sent successfully.")
+                return completion(true)
+            } else {
+                hedgeLog("Error sending push subscription: status: \(String(describing: httpResponse?.statusCode)).")
+                return completion(false)
+            }
+        }.resume()
+    }
+
     func remoteConfig(
         completion: @escaping ([String: Any]?, _ error: Error?) -> Void
     ) {

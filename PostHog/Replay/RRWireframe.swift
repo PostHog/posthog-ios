@@ -104,12 +104,10 @@ class RRWireframe {
 
         #if os(iOS)
             if let image = image {
-                base64 = autoreleasepool {
-                    if hasMaskableWidgets(), let maskedImage = maskImage() {
-                        return maskedImage.toBase64()
-                    }
-
-                    return image.toBase64()
+                if hasMaskableWidgets(), let maskedImage = maskImage() {
+                    base64 = maskedImage.toBase64()
+                } else {
+                    base64 = image.toBase64()
                 }
 
                 self.image = nil

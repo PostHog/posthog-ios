@@ -2,4 +2,4 @@
 "posthog-ios": patch
 ---
 
-Fix session replay memory leak with 1s screenshot throttling
+fix: session replay memory leak with 1s screenshot throttling

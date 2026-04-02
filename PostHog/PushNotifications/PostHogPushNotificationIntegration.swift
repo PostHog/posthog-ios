@@ -1,5 +1,5 @@
 //
-//  PostHogPushNotificationEngagementIntegration.swift
+//  PostHogPushNotificationIntegration.swift
 //  PostHog
 //
 //  Created on 02/04/2026.
@@ -16,7 +16,7 @@
     #endif
 
     @available(iOS 14.0, macOS 11.0, *)
-    final class PostHogPushNotificationEngagementIntegration: PostHogIntegration {
+    final class PostHogPushNotificationIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
         private static var integrationInstalledLock = NSLock()
@@ -143,11 +143,20 @@
                     method_exchangeImplementations(originalMethod, swizzledMethod)
                 }
             } else {
-                // The class doesn't implement the method — add our implementation directly
+                // The class doesn't implement the method — add our implementation under the original selector
                 class_addMethod(
                     delegateClass,
                     originalSelector,
                     method_getImplementation(swizzledMethod),
+                    method_getTypeEncoding(swizzledMethod)
+                )
+                // Add a no-op under the swizzled selector so the call-through doesn't recurse
+                let noopBlock: @convention(block) () -> Void = {}
+                let noopImp = imp_implementationWithBlock(noopBlock)
+                class_addMethod(
+                    delegateClass,
+                    swizzledSelector,
+                    noopImp,
                     method_getTypeEncoding(swizzledMethod)
                 )
             }
@@ -233,11 +242,20 @@
                     method_exchangeImplementations(originalMethod, swizzledMethod)
                 }
             } else {
-                // Target class doesn't implement the method — add our version directly
+                // Target class doesn't implement the method — add our version under the original selector
                 class_addMethod(
                     targetClass,
                     original,
                     method_getImplementation(swizzledMethod),
+                    method_getTypeEncoding(swizzledMethod)
+                )
+                // Add a no-op under the swizzled selector so the call-through doesn't recurse
+                let noopBlock: @convention(block) () -> Void = {}
+                let noopImp = imp_implementationWithBlock(noopBlock)
+                class_addMethod(
+                    targetClass,
+                    swizzled,
+                    noopImp,
                     method_getTypeEncoding(swizzledMethod)
                 )
             }
@@ -319,7 +337,7 @@
     extension UNUserNotificationCenter {
         @objc func ph_swizzled_setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {
             if let delegate {
-                PostHogPushNotificationEngagementIntegration.swizzleNotificationDelegateMethods(on: type(of: delegate))
+                PostHogPushNotificationIntegration.swizzleNotificationDelegateMethods(on: type(of: delegate))
             }
             // Call the original implementation (which is now at the swizzled selector)
             ph_swizzled_setDelegate(delegate)
@@ -337,7 +355,7 @@
             didReceive response: UNNotificationResponse,
             withCompletionHandler completionHandler: @escaping () -> Void
         ) {
-            PostHogPushNotificationEngagementIntegration.captureNotificationEngagement(response: response)
+            PostHogPushNotificationIntegration.captureNotificationEngagement(response: response)
             // Call the original implementation
             ph_swizzled_userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
         }
@@ -385,7 +403,7 @@
 
     #if TESTING
         @available(iOS 14.0, macOS 11.0, *)
-        extension PostHogPushNotificationEngagementIntegration {
+        extension PostHogPushNotificationIntegration {
             static func clearInstalls() {
                 integrationInstalledLock.withLock {
                     integrationInstalled = false

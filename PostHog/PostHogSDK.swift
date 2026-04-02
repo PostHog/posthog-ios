@@ -2055,14 +2055,6 @@ let maxRetryDelay = 30.0
     /// Push notifications can be configured using PostHog Workflows to target users based on their behavior and properties. 
     /// When a push notification is sent from PostHog, the device token is used to deliver the notification to the correct device.
     ///
-    /// Call this from your `AppDelegate`'s `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` method:
-    /// ```swift
-    /// func application(_ application: UIApplication,
-    ///                  didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    ///     PostHogSDK.shared.handlePushNotificationDeviceToken(deviceToken)
-    /// }
-    /// ```
-    ///
     /// - Parameter deviceToken: The device token received from the system.
     @objc public func handlePushNotificationDeviceToken(_ deviceToken: Data) {
         if !isEnabled() {
@@ -2094,6 +2086,8 @@ let maxRetryDelay = 30.0
         api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { success in
             if !success {
                 hedgeLog("Failed to send push subscription to PostHog.")
+            } else {
+                hedgeLog("Sent push subscription to PostHog.")
             }
         }
     }

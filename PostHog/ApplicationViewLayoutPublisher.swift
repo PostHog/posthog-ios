@@ -65,7 +65,16 @@
     extension UIView {
         @objc func ph_swizzled_layoutSublayers(of layer: CALayer) {
             ph_swizzled_layoutSublayers(of: layer) // call original, not altering execution logic
-            ApplicationViewLayoutPublisher.shared.layoutSubviews()
+            // Only notify on main thread - layoutSublayers can be called on background threads
+            // during thread cleanup (CA::Transaction::release_thread), which can cause crashes
+            // in the Auto Layout engine (NSISEngine) since it's not thread-safe.
+            if Thread.isMainThread {
+                ApplicationViewLayoutPublisher.shared.layoutSubviews()
+            } else {
+                DispatchQueue.main.async {
+                    ApplicationViewLayoutPublisher.shared.layoutSubviews()
+                }
+            }
         }
     }
 #endif

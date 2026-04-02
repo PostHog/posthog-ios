@@ -5,7 +5,6 @@
 --disable redundantAsync
 --disable redundantThrows
 --disable redundantProperty
---disable redundantReturn
 --disable redundantClosure
 --disable redundantType
 --disable wrapPropertyBodies
@@ -107,3 +106,4 @@
 --xcodeindentation disabled
 --yodaswap always
 --hexgrouping ignore
+--suite-name-format preserve

@@ -44,10 +44,9 @@ struct RepresentedExampleUIView: UIViewRepresentable {
     typealias UIViewType = ExampleUIView
 
     func makeUIView(context _: Context) -> ExampleUIView {
-        let view = ExampleUIView()
+        ExampleUIView()
 
         // Do some configurations here if needed.
-        return view
     }
 
     func updateUIView(_: ExampleUIView, context _: Context) {

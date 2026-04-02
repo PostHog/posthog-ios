@@ -287,7 +287,7 @@ class PostHogApi {
         let toSend: [String: Any] = [
             "api_key": self.config.apiKey,
             "distinct_id": distinctId,
-            "token": deviceToken,
+            "device_token": deviceToken,
             "platform": "ios",
             "app_id": appId,
         ]

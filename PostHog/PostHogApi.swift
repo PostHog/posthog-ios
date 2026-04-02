@@ -297,7 +297,7 @@ class PostHogApi {
             return completion(false)
         }
 
-        URLSession(configuration: config).uploadTask(with: request, from: data) { _, response, error in
+        URLSession(configuration: config).uploadTask(with: request, from: data) { responseData, response, error in
             if error != nil {
                 hedgeLog("Error calling the push subscriptions API: \(String(describing: error)).")
                 return completion(false)
@@ -309,7 +309,8 @@ class PostHogApi {
                 hedgeLog("Push subscription sent successfully.")
                 return completion(true)
             } else {
-                hedgeLog("Error sending push subscription: status: \(String(describing: httpResponse?.statusCode)).")
+                let responseBody = responseData.flatMap { String(data: $0, encoding: .utf8) } ?? "empty"
+                hedgeLog("Error sending push subscription: status: \(String(describing: httpResponse?.statusCode)), response: \(responseBody).")
                 return completion(false)
             }
         }.resume()

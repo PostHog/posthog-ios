@@ -7,15 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(tvOS)
-    import UIKit
-#endif
-
-enum PostHogDeepLinkHelper {}
-
-// MARK: - Tracking Logic
-
-extension PostHogDeepLinkHelper {
+enum PostHogDeepLinkHelper {
     /// Builds deep link properties for a given URL and optional referrer.
     /// - Parameters:
     ///   - url: The URL that was opened.

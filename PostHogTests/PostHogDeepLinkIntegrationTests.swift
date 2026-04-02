@@ -1,53 +1,72 @@
+import Foundation
 @testable import PostHog
-import XCTest
+import Testing
 
-final class PostHogDeepLinkIntegrationTests: XCTestCase {
-    func testBuildDeepLinkProperties_withValidReferrerURL() {
-        // Given
+@Suite("Deep Link Helper Tests")
+struct PostHogDeepLinkHelperTests {
+    @Test("builds properties with valid referrer URL")
+    func buildPropertiesWithValidReferrerURL() {
         let url = URL(string: "myapp://product/123?utm_source=newsletter")!
         let referrer = "https://www.google.com/path?q=search"
 
-        // When
         let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
 
-        // Then
-        XCTAssertEqual(props["url"] as? String, url.absoluteString)
-        XCTAssertEqual(props["$referrer"] as? String, referrer)
-        XCTAssertEqual(props["$referring_domain"] as? String, "www.google.com")
+        #expect(props["url"] as? String == url.absoluteString)
+        #expect(props["$referrer"] as? String == referrer)
+        #expect(props["$referring_domain"] as? String == "www.google.com")
     }
 
-    func testBuildDeepLinkProperties_withNonURLReferrerString() {
-        // Given
+    @Test("builds properties with non-URL referrer string (bundle ID)")
+    func buildPropertiesWithNonURLReferrer() {
         let url = URL(string: "myapp://home")!
-        let referrer = "com.example.sourceApp" // not a URL, should not produce $referring_domain
+        let referrer = "com.example.sourceApp"
 
-        // When
         let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
 
-        // Then
-        XCTAssertEqual(props["url"] as? String, url.absoluteString)
-        XCTAssertEqual(props["$referrer"] as? String, referrer)
-        XCTAssertNil(props["$referring_domain"], "$referring_domain should be absent for non-URL referrers")
+        #expect(props["url"] as? String == url.absoluteString)
+        #expect(props["$referrer"] as? String == referrer)
+        #expect(props["$referring_domain"] == nil, "$referring_domain should be absent for non-URL referrers")
     }
 
-    func testBuildDeepLinkProperties_withoutReferrer() {
-        // Given
+    @Test("builds properties without referrer")
+    func buildPropertiesWithoutReferrer() {
         let url = URL(string: "https://myapp.com/welcome")!
 
-        // When
         let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: nil)
 
-        // Then
-        XCTAssertEqual(props["url"] as? String, url.absoluteString)
-        XCTAssertNil(props["$referrer"])
-        XCTAssertNil(props["$referring_domain"])
+        #expect(props["url"] as? String == url.absoluteString)
+        #expect(props["$referrer"] == nil)
+        #expect(props["$referring_domain"] == nil)
     }
 
-    func testTrackDeepLink_userActivityBrowsingWeb_usesReferrerURL() {
-        // This test validates the helper behavior indirectly for the userActivity flow.
+    @Test("extracts referring domain from universal link referrer")
+    func extractsReferringDomainFromUniversalLink() {
         let url = URL(string: "https://myapp.com/article/42")!
         let referrer = "https://news.ycombinator.com/item?id=42"
+
         let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
-        XCTAssertEqual(props["$referring_domain"] as? String, "news.ycombinator.com")
+
+        #expect(props["$referring_domain"] as? String == "news.ycombinator.com")
+    }
+
+    @Test("handles custom URL scheme")
+    func handlesCustomURLScheme() {
+        let url = URL(string: "posthog://dashboard/analytics")!
+
+        let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: nil)
+
+        #expect(props["url"] as? String == "posthog://dashboard/analytics")
+    }
+
+    @Test("handles URL with query parameters and fragments")
+    func handlesURLWithQueryAndFragment() {
+        let url = URL(string: "myapp://page?foo=bar&baz=qux#section")!
+        let referrer = "https://example.com"
+
+        let props = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
+
+        #expect(props["url"] as? String == "myapp://page?foo=bar&baz=qux#section")
+        #expect(props["$referrer"] as? String == "https://example.com")
+        #expect(props["$referring_domain"] as? String == "example.com")
     }
 }

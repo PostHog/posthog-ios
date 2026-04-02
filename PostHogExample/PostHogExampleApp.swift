@@ -15,6 +15,7 @@ struct PostHogExampleApp: App {
         WindowGroup {
             ContentView()
                 .postHogScreenView() // will infer the class name (ContentView)
+                .postHogDeepLinkListener()
         }
     }
 }

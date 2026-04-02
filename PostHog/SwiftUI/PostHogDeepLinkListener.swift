@@ -9,17 +9,13 @@
     import Foundation
     import SwiftUI
 
-    #if os(iOS) || os(tvOS)
-        import UIKit
-    #endif
-
     /// A SwiftUI ViewModifier that listens for deep link events and forwards them to PostHog.
     private struct PostHogDeepLinkListener: ViewModifier {
         let posthog: PostHogSDK?
 
         func body(content: Content) -> some View {
-            #if os(iOS) || os(tvOS)
-                if #available(iOS 14.0, tvOS 14.0, *) {
+            #if os(iOS) || os(tvOS) || os(macOS)
+                if #available(iOS 14.0, tvOS 14.0, macOS 11.0, *) {
                     content
                         .onOpenURL { url in
                             posthog?.captureDeepLink(url: url)

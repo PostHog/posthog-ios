@@ -81,7 +81,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Requires `enableSwizzling` to be `true`.
         ///
         /// Default: true
-        @available(iOS 14.0, macOS 11.0, *)
         @objc public var capturePushNotificationEngagement: Bool = true
     #endif
 

@@ -31,7 +31,7 @@ buildExamplesPlatforms:
 	set -o pipefail && xcrun xcodebuild clean build -scheme 'PostHogExampleWatchOS Watch App' -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleTvOS -destination generic/platform=tvos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty #SPM
-	set -o pipefail && xcrun xcodebuild clean build -project PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj -scheme PostHogExampleWithSPM -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst SPM
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst SPM
 
 buildExamplePodsDynamicFramework:
 	cd PostHogExampleWithPods && \

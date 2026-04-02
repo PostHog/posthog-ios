@@ -1,5 +1,12 @@
 ## Next
 
+## 3.48.4
+
+### Patch Changes
+
+- 8bdd623: fix: session replay memory leak with 1s screenshot throttling
+- 5055fd7: fix: SPM builds on Mac Catalyst build error
+
 ## 3.48.3
 
 ### Patch Changes

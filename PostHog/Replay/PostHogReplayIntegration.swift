@@ -514,7 +514,7 @@
                     return
                 }
 
-                let wireframeDict = autoreleasepool(invoking: { wireframe.toDict() })
+                let wireframeDict = autoreleasepool { wireframe.toDict() }
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
 

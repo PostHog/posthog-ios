@@ -178,7 +178,7 @@
 		DA37933C2DBA571D005C6AA3 /* PostHogSurveysConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */; };
 		DA3BB4AA2ED82E410097A97A /* PostHogStackTraceProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4A62ED82E410097A97A /* PostHogStackTraceProcessor.swift */; };
 		DA3BB4AC2ED82EE80097A97A /* PostHogExceptionProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */; };
-		DA3BB4AF2ED88DE90097A97A /* ExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */; };
+		DA3BB4AF2ED88DE90097A97A /* PHGExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4AE2ED88DE90097A97A /* PHGExceptionHandler.m */; };
 		DA3BB4DF2ED992780097A97A /* PostHogBinaryImageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB4DD2ED992780097A97A /* PostHogBinaryImageInfo.swift */; };
 		DA3BB5052EDF15320097A97A /* PostHogStackFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BB5042EDF15320097A97A /* PostHogStackFrame.swift */; };
 		DA4AF61F2D1195D20053EA38 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
@@ -739,8 +739,8 @@
 		DA3793352DBA5718005C6AA3 /* PostHogSurveysConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysConfig.swift; sourceTree = "<group>"; };
 		DA3BB4A62ED82E410097A97A /* PostHogStackTraceProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackTraceProcessor.swift; sourceTree = "<group>"; };
 		DA3BB4AB2ED82EE80097A97A /* PostHogExceptionProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionProcessor.swift; sourceTree = "<group>"; };
-		DA3BB4AD2ED88DE90097A97A /* ExceptionHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExceptionHandler.h; sourceTree = "<group>"; };
-		DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ExceptionHandler.m; sourceTree = "<group>"; };
+		DA3BB4AD2ED88DE90097A97A /* PHGExceptionHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHGExceptionHandler.h; sourceTree = "<group>"; };
+		DA3BB4AE2ED88DE90097A97A /* PHGExceptionHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHGExceptionHandler.m; sourceTree = "<group>"; };
 		DA3BB4B02ED88DEC0097A97A /* PostHogExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogExample-Bridging-Header.h"; sourceTree = "<group>"; };
 		DA3BB4DD2ED992780097A97A /* PostHogBinaryImageInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBinaryImageInfo.swift; sourceTree = "<group>"; };
 		DA3BB4DE2ED992780097A97A /* PostHogDebugImageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogDebugImageProvider.swift; sourceTree = "<group>"; };
@@ -952,7 +952,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DA1044D42D0B34F200C4ACF3 /* PostHog.framework in Frameworks */,
+				DA9329D12F7A5F9E00D4B278 /* PostHog in Frameworks */,
+				DA9329D22F7A60BC00D4B278 /* PostHog.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1044,8 +1045,8 @@
 				3AA34CFB296D951A003398F4 /* ContentView.swift */,
 				3AA34CFD296D951B003398F4 /* Assets.xcassets */,
 				3AA34CFF296D951B003398F4 /* Preview Content */,
-				DA3BB4AD2ED88DE90097A97A /* ExceptionHandler.h */,
-				DA3BB4AE2ED88DE90097A97A /* ExceptionHandler.m */,
+				DA3BB4AD2ED88DE90097A97A /* PHGExceptionHandler.h */,
+				DA3BB4AE2ED88DE90097A97A /* PHGExceptionHandler.m */,
 				DA3BB4B02ED88DEC0097A97A /* PostHogExample-Bridging-Header.h */,
 				DA5064562EF6171900C51DA0 /* SwiftCrashTriggers.swift */,
 			);
@@ -2202,7 +2203,7 @@
 			files = (
 				3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */,
 				3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */,
-				DA3BB4AF2ED88DE90097A97A /* ExceptionHandler.m in Sources */,
+				DA3BB4AF2ED88DE90097A97A /* PHGExceptionHandler.m in Sources */,
 				3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */,
 				3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */,
 				DA5064572EF6171900C51DA0 /* SwiftCrashTriggers.swift in Sources */,

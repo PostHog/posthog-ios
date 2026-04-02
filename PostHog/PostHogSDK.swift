@@ -2345,14 +2345,6 @@ let maxRetryDelay = 30.0
 
     /// Sends the device token to PostHog for push notification delivery.
     ///
-    /// Call this from your `AppDelegate`'s `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` method:
-    /// ```swift
-    /// func application(_ application: UIApplication,
-    ///                  didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    ///     PostHogSDK.shared.handlePushNotificationDeviceToken(deviceToken)
-    /// }
-    /// ```
-    ///
     /// - Parameter deviceToken: The device token received from the system.
     @objc public func handlePushNotificationDeviceToken(_ deviceToken: Data) {
         if !isEnabled() {
@@ -2384,6 +2376,8 @@ let maxRetryDelay = 30.0
         api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { success in
             if !success {
                 hedgeLog("Failed to send push subscription to PostHog.")
+            } else {
+                hedgeLog("Sent push subscription to PostHog.")
             }
         }
     }

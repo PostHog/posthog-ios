@@ -55,6 +55,20 @@ enum PostHogApiTests {
             #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
         }
 
+        func testPushSubscriptionEndpoint(forHost host: String) async throws {
+            let sut = getSut(host: host)
+            let resp: Bool = await getApiResponse { completion in
+                sut.pushSubscription(
+                    distinctId: "test-user",
+                    deviceToken: "abc123",
+                    appId: "com.example.app",
+                    completion: completion
+                )
+            }
+
+            #expect(resp == true)
+        }
+
         func testBatchEndpoint(forHost host: String) async throws {
             let sut = getSut(host: host)
             let resp = await getApiResponse { completion in
@@ -143,6 +157,44 @@ enum PostHogApiTests {
         @Test("with host containing port number, path and trailing slash")
         func testHostWithPortNumberAndTrailingSlash() async throws {
             try await testSnapshotEndpoint(forHost: "http://localhost:9000/api/v1/")
+        }
+    }
+
+    @Suite("Test push subscription endpoint with different host paths")
+    class TestPushSubscriptionEndpoint: BaseTestSuite {
+        @Test("with host containing no path")
+        func testHostWithNoPath() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost")
+        }
+
+        @Test("with host containing no path and trailing slash")
+        func testHostWithNoPathAndTrailingSlash() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost/")
+        }
+
+        @Test("with host containing path")
+        func testHostWithPath() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost/api/v1")
+        }
+
+        @Test("with host containing path and trailing slash")
+        func testHostWithPathAndTrailingSlash() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost/api/v1/")
+        }
+
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost:9000")
+        }
+
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
 

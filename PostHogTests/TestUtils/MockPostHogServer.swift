@@ -346,6 +346,14 @@ class MockPostHogServer {
             }
         })
 
+        stubDescriptors.append(stub(condition: pathEndsWith("/push_subscriptions")) { _ in
+            if self.return500 {
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            } else {
+                HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+        })
+
         stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/logs")) { request in
             // Default: 200 OK. Tests can install `logsResponseHandler` to vary
             // the response per request (e.g. 413 then 200 for backpressure tests).

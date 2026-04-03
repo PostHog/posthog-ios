@@ -54,6 +54,8 @@ enum PostHogStackTraceProcessor {
             var module: String?
             var package: String?
             var imageAddress: UInt64?
+            // Default to false: if we cannot determine which binary owns this
+            // address (dli_fname is nil), we have no evidence it is user code.
             var inApp = false
 
             // Binary image info
@@ -65,6 +67,9 @@ enum PostHogStackTraceProcessor {
                 imageAddress = UInt64(UInt(bitPattern: info.dli_fbase))
                 inApp = isInApp(module: moduleName, package: path, config: config)
             }
+            // If dladdr succeeded but returned no path (shared-cache framework on
+            // simulator or private framework on device), the frame is not user code.
+            // inApp stays false — no further action needed.
 
             // Skip PostHog frames at the top of the stack
             if !shouldCollectFrame {
@@ -148,29 +153,53 @@ enum PostHogStackTraceProcessor {
     /// It may need to be updated based on real-world usage, or moved to cymbal
     /// which can further categorize frames and override in-app frames based on module paths
     private static let systemPrefixes = [
+        // Public Apple frameworks
         "Foundation",
         "UIKit",
+        "AppKit",
         "CoreFoundation",
-        "libsystem_kernel.dylib",
-        "libsystem_pthread.dylib",
-        "libdispatch.dylib",
         "CoreGraphics",
-        "QuartzCore",
-        "Security",
-        "SystemConfiguration",
-        "CFNetwork",
         "CoreData",
         "CoreLocation",
+        "CoreMotion",
+        "CoreServices",
+        "CoreText",
         "AVFoundation",
         "Metal",
         "MetalKit",
         "SwiftUI",
+        "SwiftUICore",
         "Combine",
-        "AppKit",
-        "libswift",
-        "IOKit",
+        "QuartzCore",
+        "Security",
+        "SystemConfiguration",
+        "CFNetwork",
         "WebKit",
         "GraphicsServices",
+        "IOKit",
+        // Private UIKit sub-frameworks (dyld shared cache, dli_fname may be nil
+        // or contain no recognisable path prefix on some OS versions)
+        "Gestures",
+        "UIKitCore",
+        "UIKitMacHelper",
+        "Accessibility",
+        "AccessibilityUtilities",
+        "UpdateCycle",
+        "TextInput",
+        "UIFoundation",
+        "BackBoardServices",
+        "FrontBoardServices",
+        "SpringBoardServices",
+        "RunningBoardServices",
+        // System dylibs
+        "libsystem_kernel.dylib",
+        "libsystem_pthread.dylib",
+        "libsystem_c.dylib",
+        "libsystem_malloc.dylib",
+        "libdispatch.dylib",
+        "libswift",
+        "libobjc",
+        "dyld",
     ]
 
     /// Check if a module is a known system framework

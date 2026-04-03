@@ -2051,8 +2051,8 @@ let maxRetryDelay = 30.0
         }
     #endif
 
-    /// Sends the device token to PostHog for push notification delivery. 
-    /// Push notifications can be configured using PostHog Workflows to target users based on their behavior and properties. 
+    /// Sends the device token to PostHog for push notification delivery.
+    /// Push notifications can be configured using PostHog Workflows to target users based on their behavior and properties.
     /// When a push notification is sent from PostHog, the device token is used to deliver the notification to the correct device.
     ///
     /// - Parameter deviceToken: The device token received from the system.

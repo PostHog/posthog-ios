@@ -1,5 +1,11 @@
 ## Next
 
+## 3.49.0
+
+### Minor Changes
+
+- c2a3963: feat: Manual capture deep link events (SwiftUI and UIKit). Thanks @jeremiahseun ❤️
+
 ## 3.48.4
 
 ### Patch Changes

@@ -62,13 +62,11 @@ let maxRetryDelay = 30.0
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
-            let instance = PostHogSDK(PostHogConfig(apiKey: ""))
-            return instance
+            PostHogSDK(PostHogConfig(apiKey: ""))
         }()
     #else
         @objc public static let shared: PostHogSDK = {
-            let instance = PostHogSDK(PostHogConfig(apiKey: ""))
-            return instance
+            PostHogSDK(PostHogConfig(apiKey: ""))
         }()
     #endif
 
@@ -215,6 +213,85 @@ let maxRetryDelay = 30.0
 
         sessionManager.endSession()
     }
+
+    // DEEP LINKS
+
+    /// Manually capture a deep link opened event.
+    ///
+    /// - Parameters:
+    ///   - url: The URL that was opened.
+    ///   - referrer: The referrer that triggered the deep link (optional).
+    @objc private func captureDeepLink(url: URL?, referrer: String? = nil) {
+        if !isEnabled() {
+            return
+        }
+
+        guard let url = url else { return }
+
+        let properties = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
+
+        capture("Deep Link Opened", properties: properties)
+    }
+
+    @objc public func captureDeepLink(url: URL) {
+        captureDeepLink(url: url as URL?, referrer: nil)
+    }
+
+    #if os(iOS) || os(tvOS) || os(macOS)
+        /// Capture deep link events from an array of URLs.
+        ///
+        /// Use this method with macOS `NSApplicationDelegate.application(_:open:)`.
+        /// File URLs are automatically filtered out - only custom URL schemes and
+        /// universal links are captured.
+        ///
+        /// - Parameter urls: The URLs that were opened.
+        @objc public func captureDeepLink(urls: [URL]) {
+            for url in urls where !url.isFileURL {
+                captureDeepLink(url: url)
+            }
+        }
+
+        /// Capture a deep link from an NSUserActivity (universal links).
+        ///
+        /// Use this method with `application(_:continue:restorationHandler:)` in your
+        /// app delegate, or with SwiftUI's `.onContinueUserActivity()` modifier.
+        /// Only activities of type `NSUserActivityTypeBrowsingWeb` are processed.
+        ///
+        /// - Parameter userActivity: The user activity containing the universal link.
+        @objc public func captureDeepLink(userActivity: NSUserActivity) {
+            if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+                captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
+            }
+        }
+    #endif
+
+    #if os(iOS) || os(tvOS)
+        /// Capture a deep link with UIKit open URL options.
+        ///
+        /// Use this method with `application(_:open:options:)` in your UIApplicationDelegate.
+        /// The source application is extracted as the referrer.
+        ///
+        /// - Parameters:
+        ///   - url: The URL that was opened.
+        ///   - options: The options dictionary from UIKit containing source application info.
+        @objc public func captureDeepLink(url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) {
+            let referrer = options[.sourceApplication] as? String
+            captureDeepLink(url: url, referrer: referrer)
+        }
+
+        /// Capture a deep link from UIKit scene-based URL contexts.
+        ///
+        /// Use this method with `scene(_:openURLContexts:)` in your UISceneDelegate.
+        /// Only the first URL context is captured.
+        ///
+        /// - Parameter openURLContexts: The set of URL contexts from the scene delegate.
+        @available(iOS 13.0, tvOS 13.0, *)
+        @objc public func captureDeepLink(openURLContexts: Set<UIOpenURLContext>) {
+            if let context = openURLContexts.first {
+                captureDeepLink(url: context.url, referrer: context.options.sourceApplication)
+            }
+        }
+    #endif
 
     // EVENT CAPTURE
 

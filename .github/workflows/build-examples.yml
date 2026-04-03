@@ -34,7 +34,7 @@ jobs:
     name: Example (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v6
-      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
       - name: Build Example (${{ matrix.name }})
@@ -45,7 +45,7 @@ jobs:
     name: Example (XCFramework)
     steps:
       - uses: actions/checkout@v6
-      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
       - name: Build XCFramework Example
@@ -66,7 +66,7 @@ jobs:
     name: Example Pods (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v6
-      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
       - name: Build Pods Example (${{ matrix.name }})

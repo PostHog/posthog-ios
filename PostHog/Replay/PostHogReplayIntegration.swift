@@ -508,7 +508,9 @@
         private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
             var hasChanges = false
 
-            guard let wireframe = postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window) else {
+            guard let wireframe = autoreleasepool(invoking: {
+                postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window)
+            }) else {
                 return
             }
 
@@ -553,8 +555,12 @@
                     return
                 }
 
+                let wireframeDict = autoreleasepool { wireframe.toDict() }
+                wireframe.image = nil
+                wireframe.maskableWidgets = nil
+
                 var wireframes: [Any] = []
-                wireframes.append(wireframe.toDict())
+                wireframes.append(wireframeDict)
                 let initialOffset = ["top": 0, "left": 0]
                 let data: [String: Any] = ["initialOffset": initialOffset, "wireframes": wireframes]
                 let snapshotData: [String: Any] = ["type": 2, "data": data, "timestamp": timestamp]

@@ -56,7 +56,7 @@ class PostHogQueue {
 
             switch endpoint {
             case .batch:
-                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueues: [storage.url(forKey: .oldQueueFolder), storage.url(forKey: .oldQueuePlist)])
                 dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
             case .snapshot:
                 fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .replayQeueue))
@@ -71,7 +71,7 @@ class PostHogQueue {
 
             switch endpoint {
             case .batch:
-                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueue: storage.url(forKey: .oldQeueue))
+                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueues: [storage.url(forKey: .oldQueueFolder), storage.url(forKey: .oldQueuePlist)])
                 dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
             case .snapshot:
                 fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .replayQeueue))

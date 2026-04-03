@@ -289,7 +289,7 @@ struct ContentView: View {
                 Section("Crash Triggers") {
                     // NSException - richest info with name + reason
                     Button("Uncaught NSException") {
-                        ExceptionHandler.triggerUncaughtNSException()
+                        PHGExceptionHandler.triggerUncaughtNSException()
                     }
                     // SIGTRAP - message not captured (see PostHogCrashReportProcessor for details)
                     Button("fatalError()") {
@@ -301,11 +301,11 @@ struct ContentView: View {
                     }
                     // EXC_BAD_ACCESS - null pointer dereference
                     Button("Null Pointer") {
-                        ExceptionHandler.triggerNullPointerCrash()
+                        PHGExceptionHandler.triggerNullPointerCrash()
                     }
                     // SIGABRT - explicit abort() call
                     Button("Abort") {
-                        ExceptionHandler.triggerAbortCrash()
+                        PHGExceptionHandler.triggerAbortCrash()
                     }
                 }
 
@@ -338,8 +338,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Real NSRangeException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerSampleRangeException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerSampleRangeException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -350,8 +350,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Real NSInvalidArgumentException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerSampleInvalidArgumentException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerSampleInvalidArgumentException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -362,8 +362,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Custom NSException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerSampleGenericException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerSampleGenericException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -374,8 +374,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Chained NSException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerChainedException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerChainedException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -413,7 +413,8 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("PostHog")
-        }.onAppear {
+        }
+        .onAppear {
             api.listBeers(completion: { beers in
                 api.beers = beers
             })

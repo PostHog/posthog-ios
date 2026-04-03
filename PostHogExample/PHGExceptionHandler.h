@@ -1,5 +1,5 @@
 //
-//  ExceptionHandler.h
+//  PHGExceptionHandler.h
 //  PostHogExample
 //
 //  Created for NSException handling in Swift
@@ -9,7 +9,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface ExceptionHandler : NSObject
+@interface PHGExceptionHandler : NSObject
 
 /// Execute a block and catch any NSExceptions that occur
 /// @param tryBlock The block to execute that might throw an NSException

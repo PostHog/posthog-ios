@@ -229,8 +229,9 @@ class PostHogStorage {
     enum StorageKey: String, CaseIterable {
         case distinctId = "posthog.distinctId"
         case anonymousId = "posthog.anonymousId"
-        case queue = "posthog.queueFolder" // NOTE: This is different to posthog-ios v2
-        case oldQeueue = "posthog.queue.plist"
+        case queue = "posthog.queueFolder.uuid" // queue from > 3.48.1
+        case oldQueueFolder = "posthog.queueFolder" // queue from 3.0.0 - 3.48.1
+        case oldQueuePlist = "posthog.queue.plist" // queue from pre-3.0.0
         case replayQeueue = "posthog.replayFolder"
         case replayBufferQueue = "posthog.replayBufferFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
@@ -394,7 +395,8 @@ class PostHogStorage {
             deleteSafely(url(forKey: .anonymousId))
         }
         // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
-        deleteSafely(url(forKey: .oldQeueue))
+        deleteSafely(url(forKey: .oldQueueFolder))
+        deleteSafely(url(forKey: .oldQueuePlist))
         deleteSafely(url(forKey: .flags))
         deleteSafely(url(forKey: .enabledFeatureFlags))
         deleteSafely(url(forKey: .enabledFeatureFlagPayloads))

@@ -11,7 +11,9 @@
 
     extension UIImage {
         func toBase64(_ compressionQuality: CGFloat = 0.3) -> String? {
-            toWebPBase64(compressionQuality) ?? toJpegBase64(compressionQuality)
+            autoreleasepool {
+                toWebPBase64(compressionQuality) ?? toJpegBase64(compressionQuality)
+            }
         }
 
         private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {

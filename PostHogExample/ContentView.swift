@@ -413,7 +413,8 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("PostHog")
-        }.onAppear {
+        }
+        .onAppear {
             api.listBeers(completion: { beers in
                 api.beers = beers
             })

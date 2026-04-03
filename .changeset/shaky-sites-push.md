@@ -2,4 +2,4 @@
 "posthog-ios": minor
 ---
 
-Add support for push notification subscription using PostHog Workflows
+Add requestPushNotificationPermission method, support for initiating push notification subscriptions using PostHog Workflows

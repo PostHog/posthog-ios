@@ -125,7 +125,7 @@
                 UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)
             )
             let swizzledSelector = #selector(
-                (NSObject).ph_swizzled_userNotificationCenter(_:didReceive:withCompletionHandler:)
+                NSObject.ph_swizzled_userNotificationCenter(_:didReceive:withCompletionHandler:)
             )
 
             guard let swizzledMethod = class_getInstanceMethod(NSObject.self, swizzledSelector) else {
@@ -276,26 +276,26 @@
                 UIApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
             )
             private static let swizzledDidRegisterSelector = #selector(
-                (NSObject).ph_swizzled_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
+                NSObject.ph_swizzled_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
             )
             private static let didFailSelector = #selector(
                 UIApplicationDelegate.application(_:didFailToRegisterForRemoteNotificationsWithError:)
             )
             private static let swizzledDidFailSelector = #selector(
-                (NSObject).ph_swizzled_application(_:didFailToRegisterForRemoteNotificationsWithError:)
+                NSObject.ph_swizzled_application(_:didFailToRegisterForRemoteNotificationsWithError:)
             )
         #elseif os(macOS)
             private static let didRegisterSelector = #selector(
                 NSApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
             )
             private static let swizzledDidRegisterSelector = #selector(
-                (NSObject).ph_swizzled_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
+                NSObject.ph_swizzled_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
             )
             private static let didFailSelector = #selector(
                 NSApplicationDelegate.application(_:didFailToRegisterForRemoteNotificationsWithError:)
             )
             private static let swizzledDidFailSelector = #selector(
-                (NSObject).ph_swizzled_application(_:didFailToRegisterForRemoteNotificationsWithError:)
+                NSObject.ph_swizzled_application(_:didFailToRegisterForRemoteNotificationsWithError:)
             )
         #endif
 

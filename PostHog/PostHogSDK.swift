@@ -2126,6 +2126,15 @@ let maxRetryDelay = 30.0
                 $0 as? PostHogScreenViewIntegration
             }.first
         }
+
+        #if os(iOS) || os(macOS)
+            @available(iOS 14.0, macOS 11.0, *)
+            func getPushNotificationIntegration() -> PostHogPushNotificationIntegration? {
+                installedIntegrations.compactMap {
+                    $0 as? PostHogPushNotificationIntegration
+                }.first
+            }
+        #endif
     }
 #endif
 

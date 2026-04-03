@@ -55,6 +55,14 @@
         }
 
         func start() {
+            // UNUserNotificationCenter requires a proper app bundle context.
+            // Skip setup in environments where it's not available (e.g. test runners, CLI tools).
+            let bundleExtension = Bundle.main.bundleURL.pathExtension
+            guard bundleExtension == "app" || bundleExtension == "appex" else {
+                hedgeLog("Push notifications: skipping setup - not running in an app context")
+                return
+            }
+
             swizzleNotificationCenterDelegateSetter()
             swizzleAppDelegateMethods()
             // If a notification delegate is already set before we installed, swizzle it now

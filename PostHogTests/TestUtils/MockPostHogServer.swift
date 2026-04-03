@@ -311,6 +311,14 @@ class MockPostHogServer {
             }
         })
 
+        stubDescriptors.append(stub(condition: pathEndsWith("/push_subscriptions")) { _ in
+            if self.return500 {
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            } else {
+                HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+        })
+
         stubDescriptors.append(stub(condition: pathEndsWith("/config")) { _ in
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)

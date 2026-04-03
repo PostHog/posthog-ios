@@ -27,6 +27,10 @@ class PostHogConfigTest: QuickSpec {
             expect(config.captureScreenViews) == true
             expect(config.debug) == false
             expect(config.optOut) == false
+
+            #if os(iOS) || os(macOS)
+                expect(config.capturePushNotificationSubscriptions) == true
+            #endif
         }
 
         it("init takes api key") {

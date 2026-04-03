@@ -1545,6 +1545,7 @@
 				DA578E912D6768A100B3A56C /* ScreenViews */,
 				DA703C132D6615300069097B /* AppLifeCycle */,
 				DA26419B2CC0499300CB427B /* Autocapture */,
+				81FDB9FA2F806EB90095393C /* PushNotifications */,
 				69EE82B82BA9C4DA00EB9542 /* Replay */,
 				DA30AE872D40173D00465A64 /* Surveys */,
 				DA8C9B972EC633FA00C6EADB /* ErrorTracking */,
@@ -1789,6 +1790,14 @@
 				69F518082BAC768300F52C14 /* Info.plist */,
 			);
 			path = PostHogExampleStoryboard;
+			sourceTree = "<group>";
+		};
+		81FDB9FA2F806EB90095393C /* PushNotifications */ = {
+			isa = PBXGroup;
+			children = (
+				81FDB9F92F806EB90095393C /* PostHogPushNotificationIntegration.swift */,
+			);
+			path = PushNotifications;
 			sourceTree = "<group>";
 		};
 		D977A46D673A5FA52C03105F /* Logs */ = {
@@ -3021,6 +3030,7 @@
 				A1B2C3D401234567DEADBEEF /* PostHogDeepLinkHelper.swift in Sources */,
 				A1B2C3D601234567DEADBEEF /* PostHogDeepLinkListener.swift in Sources */,
 				3AE3FB4E2993D1D600AFFC18 /* PostHogStorageManager.swift in Sources */,
+				81FDB9FB2F806EB90095393C /* PostHogPushNotificationIntegration.swift in Sources */,
 				DA8C9B982EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift in Sources */,
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
 				DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */,

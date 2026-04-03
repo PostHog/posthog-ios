@@ -38,10 +38,22 @@ class RRWireframe {
     var parentId: Int?
 
     #if os(iOS)
+        private func hasMaskableWidgets() -> Bool {
+            guard let maskableWidgets else {
+                return false
+            }
+
+            return !maskableWidgets.isEmpty
+        }
+
         private func maskImage() -> UIImage? {
-            if let image = image {
+            guard hasMaskableWidgets(), let image else {
+                return nil
+            }
+
+            return autoreleasepool {
                 // the scale also affects the image size/resolution, from usually 100kb to 15kb each
-                return UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
+                UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
                     context.cgContext.interpolationQuality = .none
                     image.draw(at: .zero)
 
@@ -54,7 +66,6 @@ class RRWireframe {
                     }
                 }
             }
-            return nil
         }
     #endif
 
@@ -93,11 +104,14 @@ class RRWireframe {
 
         #if os(iOS)
             if let image = image {
-                if let maskedImage = maskImage() {
+                if hasMaskableWidgets(), let maskedImage = maskImage() {
                     base64 = maskedImage.toBase64()
                 } else {
                     base64 = image.toBase64()
                 }
+
+                self.image = nil
+                maskableWidgets = nil
             }
         #endif
 

@@ -214,9 +214,9 @@ enum PostHogStackTraceProcessor {
         // Device: /System/Library/..., /usr/lib/...
         // Simulator: .../RuntimeRoot/System/Library/..., .../RuntimeRoot/usr/lib/...
         return path.hasPrefix("/System/") ||
-               path.hasPrefix("/usr/lib/") ||
-               path.contains("/System/Library/") ||
-               path.contains("/usr/lib/")
+            path.hasPrefix("/usr/lib/") ||
+            path.contains("/System/Library/") ||
+            path.contains("/usr/lib/")
     }
 
     // MARK: - PostHog Frame Detection

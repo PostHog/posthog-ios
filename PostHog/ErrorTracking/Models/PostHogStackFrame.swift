@@ -10,7 +10,7 @@ import Foundation
 /// Information about a single stack frame
 struct PostHogStackFrame {
     /// Format string for converting UInt64 addresses to hex strings (e.g., "0x7fff12345678")
-    static let hexAddressFormat = "0x%016llx"
+    static let hexAddressFormat = "0x%llx"
 
     /// The instruction address where the frame was executing
     let instructionAddress: UInt64

@@ -39,7 +39,7 @@ extension UInt64 {
     ///
     /// Safe to apply on plain arm64 too — the high bits are always zero there.
     var pacStripped: UInt64 {
-        self & 0x0000000fffffffff
+        self & ~(~UInt64(0) << 36)
     }
 }
 

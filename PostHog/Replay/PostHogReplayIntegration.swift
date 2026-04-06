@@ -1,4 +1,4 @@
-// swiftlint:disable cyclomatic_complexity
+// swiftlint:disable cyclomatic_complexity file_length
 
 //
 //  PostHogReplayIntegration.swift
@@ -1269,4 +1269,4 @@
 
 #endif
 
-// swiftlint:enable cyclomatic_complexity
+// swiftlint:enable cyclomatic_complexity file_length

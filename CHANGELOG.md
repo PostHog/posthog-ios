@@ -1,5 +1,11 @@
 ## Next
 
+## 3.49.1
+
+### Patch Changes
+
+- 642d4b1: correct frame addresses, ordering, and in-app detection
+
 ## 3.49.0
 
 ### Minor Changes

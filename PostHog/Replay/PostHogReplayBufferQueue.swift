@@ -44,7 +44,7 @@ class PostHogReplayBufferQueue {
             hedgeLog("Error trying to create replay buffer folder \(error)")
         }
 
-        items = []
+        itemsLock.withLock { items = [] }
     }
 
     func add(_ contents: Data) {

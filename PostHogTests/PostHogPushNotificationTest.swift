@@ -147,6 +147,146 @@
             let pushIntegration = integrations.first { $0 is PostHogPushNotificationIntegration }
             #expect(pushIntegration?.requiresSwizzling == true)
         }
+
+        // MARK: - Push Subscription Persistence Tests
+
+        // Note: These tests write push subscription data directly to storage because
+        // Bundle.main.bundleIdentifier is nil in the SPM test runner, which causes
+        // sendPushNotificationDeviceToken to exit early. This simulates the state
+        // after the initial send attempt persists data but the network call fails.
+
+        @Test("flush retries persisted push subscription and clears on success")
+        func flushRetriesPushSubscription() async throws {
+            let sut = getSut()
+
+            // Simulate a persisted push subscription (as if a previous send failed or device was offline)
+            sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
+                "distinctId": sut.getDistinctId(),
+                "deviceToken": "deadbeef01020304",
+                "appId": "com.example.test",
+            ])
+
+            // Verify it was persisted
+            let persistedBefore = sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String]
+            #expect(persistedBefore?["deviceToken"] == "deadbeef01020304")
+
+            // Flush should retry the push subscription
+            sut.flush()
+
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+
+            // After a successful retry, the push subscription should be cleared from storage
+            let persistedAfter = sut.storage?.getDictionary(forKey: .pushSubscription)
+            #expect(persistedAfter == nil)
+
+            // Verify the request was sent
+            #expect(server.pushSubscriptionRequests.count == 1)
+
+            sut.close()
+        }
+
+        @Test("flush retries persisted push subscription but keeps it on failure")
+        func flushKeepsPushSubscriptionOnFailure() async throws {
+            server.returnPushSubscription500 = true
+            let sut = getSut()
+
+            // Simulate a persisted push subscription
+            sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
+                "distinctId": sut.getDistinctId(),
+                "deviceToken": "aabbccdd",
+                "appId": "com.example.test",
+            ])
+
+            sut.flush()
+
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+
+            // After a failed retry, the push subscription should remain in storage
+            let persisted = sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String]
+            #expect(persisted?["deviceToken"] == "aabbccdd")
+
+            // Verify the request was attempted
+            #expect(server.pushSubscriptionRequests.count == 1)
+
+            sut.close()
+        }
+
+        @Test("flush retries persisted push subscription after initial failure then succeeds")
+        func flushRetriesAfterFailureThenSucceeds() async throws {
+            server.returnPushSubscription500 = true
+            let sut = getSut()
+
+            // Simulate a persisted push subscription
+            sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
+                "distinctId": sut.getDistinctId(),
+                "deviceToken": "abcdef01",
+                "appId": "com.example.test",
+            ])
+
+            // First flush: should fail
+            sut.flush()
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+
+            // Subscription should still be persisted
+            let persistedAfterFailure = sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String]
+            #expect(persistedAfterFailure?["deviceToken"] == "abcdef01")
+
+            // Now allow success
+            server.returnPushSubscription500 = false
+            sut.flush()
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+
+            // After success, subscription should be cleared
+            let persistedAfterSuccess = sut.storage?.getDictionary(forKey: .pushSubscription)
+            #expect(persistedAfterSuccess == nil)
+
+            // Should have had 2 requests: one failed, one succeeded
+            #expect(server.pushSubscriptionRequests.count == 2)
+
+            sut.close()
+        }
+
+        @Test("reset clears persisted push subscription")
+        func resetClearsPushSubscription() {
+            let sut = getSut()
+
+            // Simulate a persisted push subscription
+            sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
+                "distinctId": sut.getDistinctId(),
+                "deviceToken": "01020304",
+                "appId": "com.example.test",
+            ])
+
+            // Verify it was persisted
+            let persisted = sut.storage?.getDictionary(forKey: .pushSubscription)
+            #expect(persisted != nil)
+
+            sut.reset()
+
+            // After reset, the push subscription should be cleared
+            let persistedAfterReset = sut.storage?.getDictionary(forKey: .pushSubscription)
+            #expect(persistedAfterReset == nil)
+
+            sut.close()
+        }
+
+        @Test("flush does nothing when no push subscription is persisted")
+        func flushDoesNothingWithoutPersistedSubscription() async throws {
+            let sut = getSut()
+
+            // No push subscription in storage
+            let persisted = sut.storage?.getDictionary(forKey: .pushSubscription)
+            #expect(persisted == nil)
+
+            sut.flush()
+
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+
+            // No push subscription requests should have been made
+            #expect(server.pushSubscriptionRequests.count == 0)
+
+            sut.close()
+        }
     }
 
 #endif

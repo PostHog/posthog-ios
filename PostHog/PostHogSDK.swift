@@ -449,6 +449,7 @@ let maxRetryDelay = 30.0
 
         queue?.flush()
         replayQueue?.flush()
+        retrySendPushSubscriptionIfNeeded()
     }
 
     @objc public func reset() {
@@ -2164,11 +2165,40 @@ let maxRetryDelay = 30.0
             return
         }
 
-        api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { success in
-            if !success {
-                hedgeLog("Failed to send push subscription to PostHog.")
-            } else {
+        // Persist so we can retry if the request fails or the device is offline
+        storage?.setDictionary(forKey: .pushSubscription, contents: [
+            "distinctId": distinctId,
+            "deviceToken": deviceToken,
+            "appId": appId,
+        ])
+
+        api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { [weak self] success in
+            if success {
                 hedgeLog("Sent push subscription to PostHog.")
+                self?.storage?.remove(key: .pushSubscription)
+            } else {
+                hedgeLog("Failed to send push subscription to PostHog. Will retry on next flush.")
+            }
+        }
+    }
+
+    /// Retries sending a persisted push subscription if one exists.
+    private func retrySendPushSubscriptionIfNeeded() {
+        guard let api else { return }
+        guard let data = storage?.getDictionary(forKey: .pushSubscription) as? [String: String],
+              let distinctId = data["distinctId"],
+              let deviceToken = data["deviceToken"],
+              let appId = data["appId"]
+        else {
+            return
+        }
+
+        api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { [weak self] success in
+            if success {
+                hedgeLog("Sent push subscription to PostHog (retry).")
+                self?.storage?.remove(key: .pushSubscription)
+            } else {
+                hedgeLog("Retry of push subscription failed. Will retry on next flush.")
             }
         }
     }

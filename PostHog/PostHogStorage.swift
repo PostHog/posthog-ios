@@ -250,6 +250,7 @@ class PostHogStorage {
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
+        case pushSubscription = "posthog.pushSubscription"
     }
 
     // The location for storing data that we always want to keep
@@ -412,6 +413,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
         deleteSafely(url(forKey: .errorTracking))
+        deleteSafely(url(forKey: .pushSubscription))
     }
 
     func remove(key: StorageKey) {

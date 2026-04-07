@@ -50,6 +50,7 @@ let maxRetryDelay = 30.0
     private static var apiKeys = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
+    let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
 
@@ -61,13 +62,11 @@ let maxRetryDelay = 30.0
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
-            let instance = PostHogSDK(PostHogConfig(apiKey: ""))
-            return instance
+            PostHogSDK(PostHogConfig(apiKey: ""))
         }()
     #else
         @objc public static let shared: PostHogSDK = {
-            let instance = PostHogSDK(PostHogConfig(apiKey: ""))
-            return instance
+            PostHogSDK(PostHogConfig(apiKey: ""))
         }()
     #endif
 
@@ -214,6 +213,85 @@ let maxRetryDelay = 30.0
 
         sessionManager.endSession()
     }
+
+    // DEEP LINKS
+
+    /// Manually capture a deep link opened event.
+    ///
+    /// - Parameters:
+    ///   - url: The URL that was opened.
+    ///   - referrer: The referrer that triggered the deep link (optional).
+    @objc private func captureDeepLink(url: URL?, referrer: String? = nil) {
+        if !isEnabled() {
+            return
+        }
+
+        guard let url = url else { return }
+
+        let properties = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
+
+        capture("Deep Link Opened", properties: properties)
+    }
+
+    @objc public func captureDeepLink(url: URL) {
+        captureDeepLink(url: url as URL?, referrer: nil)
+    }
+
+    #if os(iOS) || os(tvOS) || os(macOS)
+        /// Capture deep link events from an array of URLs.
+        ///
+        /// Use this method with macOS `NSApplicationDelegate.application(_:open:)`.
+        /// File URLs are automatically filtered out - only custom URL schemes and
+        /// universal links are captured.
+        ///
+        /// - Parameter urls: The URLs that were opened.
+        @objc public func captureDeepLink(urls: [URL]) {
+            for url in urls where !url.isFileURL {
+                captureDeepLink(url: url)
+            }
+        }
+
+        /// Capture a deep link from an NSUserActivity (universal links).
+        ///
+        /// Use this method with `application(_:continue:restorationHandler:)` in your
+        /// app delegate, or with SwiftUI's `.onContinueUserActivity()` modifier.
+        /// Only activities of type `NSUserActivityTypeBrowsingWeb` are processed.
+        ///
+        /// - Parameter userActivity: The user activity containing the universal link.
+        @objc public func captureDeepLink(userActivity: NSUserActivity) {
+            if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+                captureDeepLink(url: url, referrer: userActivity.referrerURL?.absoluteString)
+            }
+        }
+    #endif
+
+    #if os(iOS) || os(tvOS)
+        /// Capture a deep link with UIKit open URL options.
+        ///
+        /// Use this method with `application(_:open:options:)` in your UIApplicationDelegate.
+        /// The source application is extracted as the referrer.
+        ///
+        /// - Parameters:
+        ///   - url: The URL that was opened.
+        ///   - options: The options dictionary from UIKit containing source application info.
+        @objc public func captureDeepLink(url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) {
+            let referrer = options[.sourceApplication] as? String
+            captureDeepLink(url: url, referrer: referrer)
+        }
+
+        /// Capture a deep link from UIKit scene-based URL contexts.
+        ///
+        /// Use this method with `scene(_:openURLContexts:)` in your UISceneDelegate.
+        /// Only the first URL context is captured.
+        ///
+        /// - Parameter openURLContexts: The set of URL contexts from the scene delegate.
+        @available(iOS 13.0, tvOS 13.0, *)
+        @objc public func captureDeepLink(openURLContexts: Set<UIOpenURLContext>) {
+            if let context = openURLContexts.first {
+                captureDeepLink(url: context.url, referrer: context.options.sourceApplication)
+            }
+        }
+    #endif
 
     // EVENT CAPTURE
 
@@ -379,9 +457,8 @@ let maxRetryDelay = 30.0
         }
         sessionManager.reset()
 
-        // Clear person and group properties for flags
-        remoteConfig?.resetPersonPropertiesForFlags()
-        remoteConfig?.resetGroupPropertiesForFlags()
+        // Clear all in-memory caches (feature flags, session replay state, etc.)
+        remoteConfig?.clear()
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()
@@ -507,10 +584,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            queue.add(event)
-
             // Automatically set person properties for feature flags during identify() call
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+
+            queueEvent(event, queue: queue)
 
             remoteConfig?.reloadFeatureFlags()
 
@@ -871,19 +948,15 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Session Replay has its own queue
-        let targetQueue = isSnapshotEvent ? replayQueue : queue
-
-        targetQueue?.add(posthogEvent)
-
         // Automatically set person properties for feature flags during capture event
         if !skipBuildProperties {
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
         }
 
-        #if os(iOS)
-            surveysIntegration?.onEvent(event: posthogEvent.event, properties: posthogEvent.properties)
-        #endif
+        // Session Replay has its own queue
+        if let targetQueue = isSnapshotEvent ? replayQueue : queue {
+            queueEvent(posthogEvent, queue: targetQueue)
+        }
     }
 
     @objc public func screen(_ screenTitle: String) {
@@ -916,7 +989,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     func autocapture(
@@ -949,7 +1022,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
@@ -986,7 +1059,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     private func groups(_ newGroups: [String: String]) -> [String: String] {
@@ -1051,7 +1124,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        queue.add(event)
+        queueEvent(event, queue: queue)
     }
 
     func buildEvent(event eventName: String, distinctId: String, properties: [String: Any], timestamp: Date = Date()) -> PostHogEvent? {
@@ -1076,6 +1149,11 @@ let maxRetryDelay = 30.0
         }
 
         return resultEvent
+    }
+
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue) {
+        queue.add(event)
+        onEventCaptured.invoke(event)
     }
 
     @objc(groupWithType:key:)
@@ -1672,7 +1750,12 @@ let maxRetryDelay = 30.0
     #if os(iOS)
         /**
          Starts session recording.
-         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
+
+         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings.
+
+         Also, any ingestion controls will not overridden when calling this method. The recording will not start if:
+         - The session is not sampled,
+         - Event triggers are configured and have not been activated for the current session.
 
          ## Note:
          - Calling this method will resume the current session or create a new one if it doesn't exist
@@ -1684,7 +1767,12 @@ let maxRetryDelay = 30.0
 
         /**
          Starts session recording.
-         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings
+
+         This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings.
+
+         Also, any ingestion controls will not overridden when calling this method. The recording will not start if:
+         - The session is not sampled,
+         - Event triggers are configured and have not been activated for the current session.
 
          - Parameter resumeCurrent:
             Whether to resume recording of current session (true) or start a new session (false).
@@ -1728,7 +1816,6 @@ let maxRetryDelay = 30.0
             }
 
             replayIntegration.start()
-            hedgeLog("Session replay recording started. Session id is \(sessionId)")
         }
 
         /**
@@ -1746,7 +1833,6 @@ let maxRetryDelay = 30.0
             }
 
             replayIntegration.stop()
-            hedgeLog("Session replay recording stopped.")
         }
     #endif
 

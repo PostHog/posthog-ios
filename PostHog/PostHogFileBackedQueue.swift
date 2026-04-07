@@ -9,32 +9,41 @@ import Foundation
 
 class PostHogFileBackedQueue {
     let queue: URL
-    @ReadWriteLock
     private var items = [String]()
+    private let itemsLock = NSLock()
 
     var depth: Int {
-        items.count
+        itemsLock.withLock { items.count }
     }
 
-    init(queue: URL, oldQueue: URL? = nil) {
+    init(queue: URL, oldQueues: [URL] = []) {
         self.queue = queue
-        setup(oldQueue: oldQueue)
+        setup(oldQueues: oldQueues)
     }
 
-    private func setup(oldQueue: URL?) {
+    private func setup(oldQueues: [URL]) {
         do {
             try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
         } catch {
             hedgeLog("Error trying to create caching folder \(error)")
         }
 
-        if oldQueue != nil {
-            migrateOldQueue(queue: queue, oldQueue: oldQueue!)
+        for oldQueue in oldQueues {
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: oldQueue.path, isDirectory: &isDirectory) {
+                if isDirectory.boolValue {
+                    // old queue folder
+                    migrateOldQueueFolder(queue: queue, oldQueueFolder: oldQueue)
+                } else {
+                    // old plist file
+                    migrateOldQueue(queue: queue, oldQueue: oldQueue)
+                }
+            }
         }
 
         do {
-            items = try FileManager.default.contentsOfDirectory(atPath: queue.path)
-            items.sort { Double($0)! < Double($1)! }
+            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .contentModificationDateKey)
+            itemsLock.withLock { items = sortedItems }
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
@@ -46,10 +55,14 @@ class PostHogFileBackedQueue {
     }
 
     func delete(index: Int) {
-        if items.isEmpty { return }
-        let removed = items.remove(at: index)
+        let removed: String? = itemsLock.withLock {
+            guard index < items.count else { return nil }
+            return items.remove(at: index)
+        }
 
-        deleteSafely(queue.appendingPathComponent(removed))
+        if let removed {
+            deleteSafely(queue.appendingPathComponent(removed))
+        }
     }
 
     func pop(_ count: Int) {
@@ -58,9 +71,9 @@ class PostHogFileBackedQueue {
 
     func add(_ contents: Data) {
         do {
-            let filename = "\(Date().timeIntervalSince1970)"
+            let filename = UUID.v7().uuidString
             try contents.write(to: queue.appendingPathComponent(filename))
-            items.append(filename)
+            itemsLock.withLock { items.append(filename) }
         } catch {
             hedgeLog("Could not write file \(error)")
         }
@@ -69,13 +82,15 @@ class PostHogFileBackedQueue {
     /// Internal, used for testing
     func clear() {
         deleteSafely(queue)
-        setup(oldQueue: nil)
+        setup(oldQueues: [])
     }
 
     private func loadFiles(_ count: Int) -> [Data] {
         var results = [Data]()
 
-        for item in items {
+        let itemsCopy = itemsLock.withLock { items }
+
+        for item in itemsCopy {
             let itemURL = queue.appendingPathComponent(item)
             do {
                 if !FileManager.default.fileExists(atPath: itemURL.path) {
@@ -101,14 +116,48 @@ class PostHogFileBackedQueue {
 
     private func deleteFiles(_ count: Int) {
         for _ in 0 ..< count {
-            if let removed: String = _items.mutate({ items in
-                if items.isEmpty {
-                    return nil
-                }
+            let removed: String? = itemsLock.withLock {
+                guard !items.isEmpty else { return nil }
                 return items.remove(at: 0) // We always remove from the top of the queue
-            }) {
-                deleteSafely(queue.appendingPathComponent(removed))
+            }
+
+            guard let removed else { return }
+            deleteSafely(queue.appendingPathComponent(removed))
+        }
+    }
+}
+
+// Migrates the an Old Queue folder to a new Queue folder
+// Just moves files over since the format is the same
+private func migrateOldQueueFolder(queue: URL, oldQueueFolder: URL) {
+    defer {
+        deleteSafely(oldQueueFolder)
+    }
+
+    do {
+        let files = try FileManager.default.contentsOfDirectory(atPath: oldQueueFolder.path)
+        for file in files {
+            let sourceURL = oldQueueFolder.appendingPathComponent(file)
+            let destinationURL = queue.appendingPathComponent(file)
+            do {
+                try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+            } catch {
+                hedgeLog("Failed to migrate file \(file): \(error)")
             }
         }
+    } catch {
+        hedgeLog("Failed to read queue folder \(error)")
+    }
+}
+
+private extension FileManager {
+    /// Returns filenames sorted by resource key
+    func contentsOfDirectory(at url: URL, sortedBy key: URLResourceKey) throws -> [String] {
+        let urls = try contentsOfDirectory(at: url, includingPropertiesForKeys: [key])
+        return urls.sorted {
+            let date1 = (try? $0.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
+            let date2 = (try? $1.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
+            return date1 < date2
+        }.map(\.lastPathComponent)
     }
 }

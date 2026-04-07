@@ -58,5 +58,5 @@ struct PostHogEventCondition: Decodable, Equatable {
     /// Name of the event (e.g., "content loaded")
     let name: String
     /// Property filters that must match for this event condition (optional)
-    var propertyFilters: [String: PostHogPropertyFilter]? = nil
+    var propertyFilters: [String: PostHogPropertyFilter]?
 }

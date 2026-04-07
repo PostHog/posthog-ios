@@ -797,6 +797,34 @@ class PostHogRemoteConfig {
         }
     }
 
+    /// Clears all cached feature flags, remote config state, and user-specific properties.
+    /// This should be called during reset() to ensure stale data from a previous user
+    /// doesn't persist in memory after the user switches.
+    func clear() {
+        clearFeatureFlags()
+
+        sessionReplayLock.withLock {
+            sessionReplayFlagActive = false
+            recordingSampleRate = nil
+        }
+
+        errorTrackingLock.withLock {
+            autoCaptureExceptions = false
+        }
+
+        // Clear person and group properties for flags
+        resetPersonPropertiesForFlags()
+        resetGroupPropertiesForFlags()
+
+        // Clear remote config cache
+        remoteConfigLock.withLock {
+            remoteConfig = nil
+            remoteConfigDidFetch = false
+        }
+
+        storage.remove(key: .sessionReplay)
+    }
+
     #if os(iOS)
         func isSessionReplayFlagActive() -> Bool {
             sessionReplayLock.withLock { sessionReplayFlagActive }

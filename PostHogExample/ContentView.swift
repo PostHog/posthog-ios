@@ -66,7 +66,6 @@ struct ContentView: View {
     @State private var name: String = "Max"
     @State private var showingSheet = false
     @State private var showingRedactedSheet = false
-    @State private var refreshStatusID = UUID()
     @StateObject var api = Api()
 
     @StateObject var signInViewModel = SignInViewModel()
@@ -164,35 +163,14 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             List {
-                #if os(iOS)
-                    Section("Manual Session Recording Control") {
-                        Text("\(sessionRecordingStatus) SID: \(PostHogSDK.shared.getSessionId() ?? "NA")")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .multilineTextAlignment(.leading)
-                            .id(refreshStatusID)
-
-                        Button("Stop") {
-                            PostHogSDK.shared.stopSessionRecording()
-                            DispatchQueue.main.async {
-                                refreshStatusID = UUID()
-                            }
-                        }
-                        Button("Resume") {
-                            PostHogSDK.shared.startSessionRecording()
-                            DispatchQueue.main.async {
-                                refreshStatusID = UUID()
-                            }
-                        }
-                        Button("Start New Session") {
-                            PostHogSDK.shared.startSessionRecording(resumeCurrent: false)
-                            DispatchQueue.main.async {
-                                refreshStatusID = UUID()
-                            }
-                        }
-                    }
-                #endif
                 Section("General") {
+                    #if os(iOS)
+                        NavigationLink {
+                            SessionRecordingView()
+                        } label: {
+                            Text("Session Recording Tests")
+                        }
+                    #endif
                     NavigationLink {
                         ContentView()
                     } label: {
@@ -311,7 +289,7 @@ struct ContentView: View {
                 Section("Crash Triggers") {
                     // NSException - richest info with name + reason
                     Button("Uncaught NSException") {
-                        ExceptionHandler.triggerUncaughtNSException()
+                        PHGExceptionHandler.triggerUncaughtNSException()
                     }
                     // SIGTRAP - message not captured (see PostHogCrashReportProcessor for details)
                     Button("fatalError()") {
@@ -323,11 +301,11 @@ struct ContentView: View {
                     }
                     // EXC_BAD_ACCESS - null pointer dereference
                     Button("Null Pointer") {
-                        ExceptionHandler.triggerNullPointerCrash()
+                        PHGExceptionHandler.triggerNullPointerCrash()
                     }
                     // SIGABRT - explicit abort() call
                     Button("Abort") {
-                        ExceptionHandler.triggerAbortCrash()
+                        PHGExceptionHandler.triggerAbortCrash()
                     }
                 }
 
@@ -360,8 +338,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Real NSRangeException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerSampleRangeException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerSampleRangeException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -372,8 +350,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Real NSInvalidArgumentException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerSampleInvalidArgumentException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerSampleInvalidArgumentException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -384,8 +362,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Custom NSException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerSampleGenericException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerSampleGenericException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -396,8 +374,8 @@ struct ContentView: View {
                     }
 
                     Button("Trigger Chained NSException") {
-                        ExceptionHandler.try {
-                            ExceptionHandler.triggerChainedException()
+                        PHGExceptionHandler.try {
+                            PHGExceptionHandler.triggerChainedException()
                         } catch: { exception in
                             PostHogSDK.shared.captureException(exception, properties: [
                                 "is_test": true,
@@ -435,18 +413,13 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("PostHog")
-        }.onAppear {
+        }
+        .onAppear {
             api.listBeers(completion: { beers in
                 api.beers = beers
             })
         }
     }
-
-    #if os(iOS)
-        private var sessionRecordingStatus: String {
-            PostHogSDK.shared.isSessionReplayActive() ? "🟢" : "🔴"
-        }
-    #endif
 }
 
 struct ContentView_Previews: PreviewProvider {

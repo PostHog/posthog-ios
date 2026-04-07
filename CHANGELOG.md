@@ -1,5 +1,50 @@
 ## Next
 
+## 3.49.1
+
+### Patch Changes
+
+- 642d4b1: correct frame addresses, ordering, and in-app detection
+
+## 3.49.0
+
+### Minor Changes
+
+- c2a3963: feat: Manual capture deep link events (SwiftUI and UIKit). Thanks @jeremiahseun ❤️
+
+## 3.48.4
+
+### Patch Changes
+
+- 8bdd623: fix: session replay memory leak with 1s screenshot throttling
+- 5055fd7: fix: SPM builds on Mac Catalyst build error
+
+## 3.48.3
+
+### Patch Changes
+
+- 9d48e58: fix: use separate queue folder to prevent crashes when downgrading from 3.48.1+ to older SDK versions
+
+## 3.48.2
+
+### Patch Changes
+
+- e331f56: purge crash reports before processing them
+
+## 3.48.1
+
+### Patch Changes
+
+- 3545320: fix: guard swizzled layoutSublayers to handle background thread calls
+- 061cb44: Replace ReadWriteLock with NSLock for consistent thread-safety across the codebase. The ReadWriteLock property wrapper provided false thread-safety for collection types since the lock was released between separate operations. Using explicit NSLock with `.withLock` closures ensures atomic operations and clearer intent.
+- ac76d70: fix: clear in-memory feature flags cache on reset()
+
+## 3.48.0
+
+### Minor Changes
+
+- 80f39ca: feat: add support for session replay event triggers
+
 ## 3.47.0
 
 ### Minor Changes

@@ -256,8 +256,7 @@ extension OutlineViewController {
 
     private func generateLayout() -> UICollectionViewLayout {
         let listConfiguration = UICollectionLayoutListConfiguration(appearance: .sidebar)
-        let layout = UICollectionViewCompositionalLayout.list(using: listConfiguration)
-        return layout
+        return UICollectionViewCompositionalLayout.list(using: listConfiguration)
     }
 
     private func initialSnapshot() -> NSDiffableDataSourceSectionSnapshot<OutlineItem> {

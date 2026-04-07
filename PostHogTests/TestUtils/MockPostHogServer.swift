@@ -57,6 +57,7 @@ class MockPostHogServer {
     var featureFlags: [String: Any]?
     var disabledFlag: Bool = false
     var sessionRecordingSampleRate: String?
+    var sessionRecordingEventTriggers: [String]?
     var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
 
     // version is the version of the response we want to return regardless of the request version
@@ -278,6 +279,10 @@ class MockPostHogServer {
                     sessionRecording["sampleRate"] = sampleRate
                 }
 
+                if let eventTriggers = self.sessionRecordingEventTriggers {
+                    sessionRecording["eventTriggers"] = eventTriggers
+                }
+
                 obj["sessionRecording"] = sessionRecording
             } else {
                 obj["sessionRecording"] = false
@@ -330,6 +335,26 @@ class MockPostHogServer {
                 }
             }()
 
+            // Build sessionRecording payload
+            let sessionRecordingPayload: String = {
+                if self.returnReplay {
+                    var sessionRecording: [String: Any] = ["endpoint": "/s/"]
+                    if let sampleRate = self.sessionRecordingSampleRate {
+                        sessionRecording["sampleRate"] = sampleRate
+                    }
+                    if let eventTriggers = self.sessionRecordingEventTriggers {
+                        sessionRecording["eventTriggers"] = eventTriggers
+                    }
+                    if let data = try? JSONSerialization.data(withJSONObject: sessionRecording),
+                       let jsonString = String(data: data, encoding: .utf8)
+                    {
+                        return jsonString
+                    }
+                    return "{\"endpoint\": \"/s/\"}"
+                }
+                return "false"
+            }()
+
             let configData =
                 """
                 {
@@ -351,7 +376,7 @@ class MockPostHogServer {
                         "endpoint": "/i/v0/e/"
                     },
                     "elementsChainAsString": true,
-                    "sessionRecording": false,
+                    "sessionRecording": \(sessionRecordingPayload),
                     "heatmaps": true,
                     "surveys": \(self.remoteConfigSurveys ?? "false"),
                     "defaultIdentifiedOnly": true,

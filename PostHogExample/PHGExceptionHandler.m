@@ -1,13 +1,13 @@
 //
-//  ExceptionHandler.m
+//  PHGExceptionHandler.m
 //  PostHogExample
 //
 //  Created for NSException handling in Swift
 //
 
-#import "ExceptionHandler.h"
+#import "PHGExceptionHandler.h"
 
-@implementation ExceptionHandler
+@implementation PHGExceptionHandler
 
 + (void)tryBlock:(void(^)(void))tryBlock 
            catch:(void(^)(NSException *exception))catchBlock {

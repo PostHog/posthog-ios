@@ -28,22 +28,6 @@ class PostHogReplayBufferQueue {
         }
     }
 
-    /// Returns the timestamp of the oldest buffered item, if any.
-    var oldestTimestamp: TimeInterval? {
-        itemsLock.withLock {
-            guard let oldest = items.first else { return nil }
-            return Self.timestampFromUUIDv7(oldest)
-        }
-    }
-
-    /// Returns the timestamp of the newest buffered item, if any.
-    var newestTimestamp: TimeInterval? {
-        itemsLock.withLock {
-            guard let newest = items.last else { return nil }
-            return Self.timestampFromUUIDv7(newest)
-        }
-    }
-
     init(queue: URL) {
         self.queue = queue
         setup()
@@ -70,28 +54,6 @@ class PostHogReplayBufferQueue {
             itemsLock.withLock { items.append(filename) }
         } catch {
             hedgeLog("Could not write replay buffer file \(error)")
-        }
-    }
-
-    /// Removes items older than `newestTimestamp - duration`
-    /// This will keep ~minimumDuration worth of snapshots in the buffer.
-    func pruneOlderThan(duration: TimeInterval) {
-        let newestTs: TimeInterval? = itemsLock.withLock {
-            guard let newest = items.last else { return nil }
-            return Self.timestampFromUUIDv7(newest)
-        }
-        guard let newestTs else { return }
-        let cutoff = newestTs - duration
-
-        // items should be sorted older -> newer already
-        itemsLock.withLock {
-            while let first = items.first,
-                  let ts = Self.timestampFromUUIDv7(first),
-                  ts < cutoff
-            {
-                let removedItem = items.removeFirst()
-                deleteSafely(queue.appendingPathComponent(removedItem))
-            }
         }
     }
 

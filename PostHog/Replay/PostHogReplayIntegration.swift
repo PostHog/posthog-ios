@@ -1242,9 +1242,6 @@
             // Check buffer content duration (oldest to newest snapshot)
             let bufferDuration = replayQueue.bufferDuration ?? 0
 
-            // Prune old snapshots beyond minimum duration window
-            replayQueue.pruneBuffer(olderThan: minimumDuration)
-
             if bufferDuration >= minimumDuration {
                 hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
                 replayQueue.migrateBufferToQueue()

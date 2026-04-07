@@ -252,30 +252,6 @@ class PostHogReplayQueueTests {
         #expect(duration! > 0)
     }
 
-    // MARK: - Prune Buffer Tests
-
-    @Test("pruneBuffer removes old events from buffer")
-    func pruneBufferRemovesOldEvents() async throws {
-        let queue = createReplayQueue()
-        mockDelegate.isBuffering = true
-
-        // Add events with delays
-        queue.add(createTestEvent("old_1"))
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
-        queue.add(createTestEvent("old_2"))
-        try await Task.sleep(nanoseconds: 50_000_000) // 50ms
-        queue.add(createTestEvent("new_1"))
-
-        #expect(queue.bufferDepth == 3)
-
-        // Prune events older than 30ms from newest
-        queue.pruneBuffer(olderThan: 0.03)
-
-        // Should have fewer events
-        #expect(queue.bufferDepth < 3)
-        #expect(queue.bufferDepth > 0)
-    }
-
     // MARK: - Clear All Tests
 
     @Test("clear removes events from both buffer and inner queue")

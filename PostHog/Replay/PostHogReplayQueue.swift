@@ -102,11 +102,6 @@ class PostHogReplayQueue {
         hedgeLog("Replay buffer cleared")
     }
 
-    /// Prunes buffer items older than the given duration from the newest item.
-    func pruneBuffer(olderThan duration: TimeInterval) {
-        bufferQueue.pruneOlderThan(duration: duration)
-    }
-
     /// Internal, used for testing
     func clear() {
         innerQueue.clear()

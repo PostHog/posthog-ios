@@ -116,10 +116,12 @@ import Foundation
                 return nil
             }
 
-            // Add stack trace from frames
+            // Add stack trace from frames.
+            // Frames are stored bottom-up (outermost/main first, crash site last) to match
+            // the Sentry event format. PLCrashReport delivers them top-down, so reverse.
             if !stackFrames.isEmpty {
                 exception["stacktrace"] = [
-                    "frames": stackFrames.map(\.toDictionary),
+                    "frames": stackFrames.reversed().map(\.toDictionary),
                     "type": "raw",
                 ]
             }
@@ -189,7 +191,8 @@ import Foundation
                 let inApp = module.map { PostHogStackTraceProcessor.isInApp(module: $0, config: config) } ?? false
 
                 let stackFrame = PostHogStackFrame(
-                    instructionAddress: frame.instructionPointer,
+                    // Strip PAC bits so the address is a valid instruction pointer on arm64e.
+                    instructionAddress: frame.instructionPointer.pacStripped,
                     module: module,
                     package: package,
                     imageAddress: imageAddress,

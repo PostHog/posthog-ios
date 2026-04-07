@@ -7,11 +7,10 @@
 
 import Foundation
 
-/// Configuration for error tracking and exception capture
+/// Configuration for error tracking and exception capture.
 ///
 /// This class controls how exceptions are captured and processed,
 /// including which stack trace frames are marked as "in-app" code.
-@_spi(Experimental)
 @objc public class PostHogErrorTrackingConfig: NSObject {
     // MARK: - Crash Reporting
 
@@ -26,8 +25,6 @@ import Foundation
     ///
     /// - Note: Crash reporting is automatically disabled when a debugger is attached,
     ///   as the debugger intercepts signals before the crash handler can process them.
-    ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
     ///
     /// Default: false
     private var _autoCapture: Bool = false
@@ -60,8 +57,6 @@ import Foundation
     /// - Automatically includes executable name
     ///
     /// **Precedence:** Priority 1 (highest)
-    ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
     @objc public var inAppIncludes: [String] = []
 
     /// List of package/bundle identifiers to be excluded from in-app frames
@@ -78,8 +73,6 @@ import Foundation
     /// ```
     ///
     /// **Precedence:** Priority 2 (after inAppIncludes)
-    ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
     @objc public var inAppExcludes: [String] = []
 
     /// Configures whether stack trace frames are considered in-app by default
@@ -95,8 +88,6 @@ import Foundation
     /// **Precedence:** Priority 4 (final fallback)
     ///
     /// Default: true
-    ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
     @objc public var inAppByDefault: Bool = true
 
     // MARK: - Initialization

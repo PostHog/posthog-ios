@@ -13,6 +13,7 @@ public class PostHogStorageManager {
 
     private let anonLock = NSLock()
     private let distinctLock = NSLock()
+    private let deviceIdLock = NSLock()
     private let identifiedLock = NSLock()
     private let personProcessingLock = NSLock()
     private let idGen: (UUID) -> UUID
@@ -20,6 +21,7 @@ public class PostHogStorageManager {
     private var distinctId: String?
     private var cachedDistinctId = false
     private var anonymousId: String?
+    private var deviceId: String?
     private var isIdentifiedValue: Bool?
     private var personProcessingEnabled: Bool?
 
@@ -56,6 +58,41 @@ public class PostHogStorageManager {
     private func setAnonId(_ id: String) {
         anonymousId = id
         storage.setString(forKey: .anonymousId, contents: id)
+    }
+
+    /// Returns the stable device identifier used for device-level feature flag bucketing.
+    /// This ID persists across identify() and reset() calls, only changing on a fresh
+    /// app install or manual cache clearing.
+    public func getDeviceId() -> String {
+        deviceIdLock.withLock {
+            if deviceId == nil {
+                deviceId = storage.getString(forKey: .deviceId)
+
+                if deviceId == nil {
+                    // Lazy init for upgrades: existing installs won't have a device_id yet,
+                    // so seed it from the current anonymous ID.
+                    let anonId = getAnonymousId()
+                    deviceId = anonId
+                    storage.setString(forKey: .deviceId, contents: anonId)
+                }
+            }
+        }
+        return deviceId ?? ""
+    }
+
+    /// Initializes device_id if not already persisted. Called during SDK setup to ensure
+    /// the device ID is seeded from the anonymous ID before any flag requests.
+    func initializeDeviceId() {
+        deviceIdLock.withLock {
+            let persisted = storage.getString(forKey: .deviceId)
+            if persisted == nil {
+                let anonId = getAnonymousId()
+                deviceId = anonId
+                storage.setString(forKey: .deviceId, contents: anonId)
+            } else {
+                deviceId = persisted
+            }
+        }
     }
 
     public func getDistinctId() -> String {

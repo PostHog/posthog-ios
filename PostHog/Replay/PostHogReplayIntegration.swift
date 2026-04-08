@@ -1234,8 +1234,8 @@
             let minimumDuration: TimeInterval? = bufferingLock.withLock { cachedMinimumDuration }
             guard let minimumDuration, minimumDuration > 0 else {
                 // No minimum duration configured: should not be buffering, migrate immediately
-                replayQueue.migrateBufferToQueue()
                 bufferingLock.withLock { hasPassedMinimumDuration = true }
+                replayQueue.migrateBufferToQueue()
                 return
             }
 
@@ -1244,8 +1244,9 @@
 
             if bufferDuration >= minimumDuration {
                 hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
-                replayQueue.migrateBufferToQueue()
+                // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
                 bufferingLock.withLock { hasPassedMinimumDuration = true }
+                replayQueue.migrateBufferToQueue()
             }
         }
     }

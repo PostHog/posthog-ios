@@ -334,4 +334,52 @@ class PostHogReplayQueueTests {
         #expect(queue.depth == 3)
         #expect(migratingDelegate.isBuffering == false)
     }
+
+    @Test("events added while migration is running are not re-buffered")
+    func eventsDuringMigrationGoToInnerQueue() async throws {
+        let queue = createReplayQueue()
+
+        final class SlowMigratingDelegate: PostHogReplayBufferDelegate {
+            var isBuffering: Bool = true
+            var callCount = 0
+            let enteredMigration = DispatchSemaphore(value: 0)
+            let continueMigration = DispatchSemaphore(value: 0)
+
+            func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {
+                callCount += 1
+                guard callCount >= 3 else { return }
+
+                // Critical ordering: stop buffering first, then migrate.
+                isBuffering = false
+                enteredMigration.signal()
+                _ = continueMigration.wait(timeout: .now() + 2)
+                replayQueue.migrateBufferToQueue()
+            }
+        }
+
+        let slowDelegate = SlowMigratingDelegate()
+        queue.bufferDelegate = slowDelegate
+
+        queue.add(createTestEvent("snapshot_1"))
+        queue.add(createTestEvent("snapshot_2"))
+        #expect(queue.bufferDepth == 2)
+        #expect(queue.depth == 0)
+
+        // Trigger migration on a background thread and pause inside delegate callback.
+        DispatchQueue.global(qos: .userInitiated).async {
+            queue.add(self.createTestEvent("snapshot_3"))
+        }
+
+        let entered = slowDelegate.enteredMigration.wait(timeout: .now() + 2)
+        #expect(entered == .success)
+
+        // While migration is paused, new events should bypass the buffer.
+        queue.add(createTestEvent("snapshot_4"))
+
+        slowDelegate.continueMigration.signal()
+        try await Task.sleep(nanoseconds: 150_000_000)
+
+        #expect(queue.bufferDepth == 0)
+        #expect(queue.depth == 4)
+    }
 }

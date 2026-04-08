@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@_spi(Experimental) import PostHog
+import PostHog
 import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {

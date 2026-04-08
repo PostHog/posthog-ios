@@ -1,5 +1,11 @@
 ## Next
 
+## 3.50.0
+
+### Minor Changes
+
+- 569348a: feat: error tracking GA
+
 ## 3.49.1
 
 ### Patch Changes

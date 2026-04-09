@@ -8,8 +8,6 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import UIKit
 
-    private let elementsChainDelimiter = ";"
-
     class PostHogAutocaptureIntegration: AutocaptureEventProcessing, PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
@@ -118,9 +116,7 @@
                 properties["$screen_name"] = screenName
             }
 
-            let elementsChain = event.viewHierarchy
-                .map(\.elementsChainEntry)
-                .joined(separator: elementsChainDelimiter)
+            let elementsChain = event.getElementChain()
 
             if let coordinates = event.touchCoordinates {
                 properties["$touch_x"] = coordinates.x

@@ -76,10 +76,14 @@
                 return
             }
 
+            let touchCoordinates = touch.location(in: window)
+            let eventData = touch.view?.eventData(touchCoordinates: touchCoordinates)
+            let elementsChain = eventData?.getElementChain() ?? ""
+
             captureRageClickIfNeeded(
-                touchCoordinates: touch.location(in: window),
-                screenName: currentScreenName(),
-                elementsChain: ""
+                touchCoordinates: touchCoordinates,
+                screenName: eventData?.screenName ?? currentScreenName(),
+                elementsChain: elementsChain
             )
         }
 

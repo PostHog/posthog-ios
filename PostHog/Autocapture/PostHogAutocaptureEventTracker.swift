@@ -9,6 +9,8 @@
     import UIKit
 
     class PostHogAutocaptureEventTracker {
+        private static let elementsChainDelimiter = ";"
+
         struct EventData {
             let touchCoordinates: CGPoint?
             let value: String?
@@ -16,6 +18,12 @@
             let viewHierarchy: [Element]
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
+
+            func getElementChain() -> String {
+                viewHierarchy
+                    .map(\.elementsChainEntry)
+                    .joined(separator: PostHogAutocaptureEventTracker.elementsChainDelimiter)
+            }
         }
 
         struct Element {
@@ -135,16 +143,10 @@
                     hedgeLog("Action methods on SwiftUI targets are not yet supported.")
                 } else if let control = sender as? UIControl,
                           control.ph_shouldTrack(action, for: target),
-                          let eventDescription = control.event(for: action, to: target)?.description(forControl: control)
+                          let eventDescription = control.event(for: action, to: target)?.description(forControl: control),
+                          let eventData = control.eventData
                 {
-                    // Extract touch coordinates from UIEvent (in window coordinate space)
-                    let touchCoordinates = event?.allTouches?.first.flatMap { touch in
-                        touch.location(in: control.window ?? control)
-                    }
-
-                    if let eventData = control.eventData(touchCoordinates: touchCoordinates) {
-                        PostHogAutocaptureEventTracker.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: eventData)
-                    }
+                    PostHogAutocaptureEventTracker.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: eventData)
                 }
             }
 

@@ -993,6 +993,7 @@ let maxRetryDelay = 30.0
     }
 
     func autocapture(
+        eventName: String = "$autocapture",
         eventType: String,
         elementsChain: String,
         properties: [String: Any]
@@ -1018,7 +1019,7 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: "$autocapture", distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
             return
         }
 
@@ -1862,6 +1863,10 @@ let maxRetryDelay = 30.0
         @objc public func isAutocaptureActive() -> Bool {
             isEnabled() && config.captureElementInteractions
         }
+
+        @objc public func isRageClickActive() -> Bool {
+            isEnabled() && config.captureRageClicks
+        }
     #endif
 
     // MARK: - Error Tracking
@@ -2075,6 +2080,12 @@ let maxRetryDelay = 30.0
             func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
                 installedIntegrations.compactMap {
                     $0 as? PostHogAutocaptureIntegration
+                }.first
+            }
+
+            func getRageClickIntegration() -> PostHogRageClickIntegration? {
+                installedIntegrations.compactMap {
+                    $0 as? PostHogRageClickIntegration
                 }.first
             }
         #endif

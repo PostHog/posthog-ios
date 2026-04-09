@@ -135,10 +135,16 @@
                     hedgeLog("Action methods on SwiftUI targets are not yet supported.")
                 } else if let control = sender as? UIControl,
                           control.ph_shouldTrack(action, for: target),
-                          let eventData = control.eventData,
                           let eventDescription = control.event(for: action, to: target)?.description(forControl: control)
                 {
-                    PostHogAutocaptureEventTracker.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: eventData)
+                    // Extract touch coordinates from UIEvent (in window coordinate space)
+                    let touchCoordinates = event?.allTouches?.first.flatMap { touch in
+                        touch.location(in: control.window ?? control)
+                    }
+
+                    if let eventData = control.eventData(touchCoordinates: touchCoordinates) {
+                        PostHogAutocaptureEventTracker.eventProcessor?.process(source: .actionMethod(description: eventDescription), event: eventData)
+                    }
                 }
             }
 
@@ -200,7 +206,14 @@
 
             guard let gestureDescription else { return }
 
-            if let eventData = view.eventData {
+            // Extract touch coordinates for tap gestures (in window coordinate space)
+            let touchCoordinates: CGPoint? = if self is UITapGestureRecognizer {
+                location(in: view.window ?? view)
+            } else {
+                nil
+            }
+
+            if let eventData = view.eventData(touchCoordinates: touchCoordinates) {
                 PostHogAutocaptureEventTracker.eventProcessor?.process(source: .gestureRecognizer(description: gestureDescription), event: eventData)
             }
         }
@@ -265,9 +278,13 @@
 
     extension UIView {
         var eventData: PostHogAutocaptureEventTracker.EventData? {
+            eventData(touchCoordinates: nil)
+        }
+
+        func eventData(touchCoordinates: CGPoint?) -> PostHogAutocaptureEventTracker.EventData? {
             guard shouldTrack(self) else { return nil }
             return PostHogAutocaptureEventTracker.EventData(
-                touchCoordinates: nil,
+                touchCoordinates: touchCoordinates,
                 value: ph_autocaptureText
                     .map(sanitizeText),
                 screenName: nearestViewController

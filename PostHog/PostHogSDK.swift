@@ -109,10 +109,9 @@ let maxRetryDelay = 30.0
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
 
-            // Initialize device_id before remote config loads, so it's available for flag requests.
-            // This provides a stable identifier for device-level feature flag bucketing that
-            // survives identify() and reset(). Seeded from the anonymous ID on first init.
-            config.storageManager?.initializeDeviceId()
+            // Ensure device_id is initialized before remote config loads, so it's
+            // available for flag requests. Seeded from the anonymous ID on first init.
+            _ = config.storageManager?.getDeviceId()
 
             remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]

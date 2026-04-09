@@ -80,21 +80,6 @@ public class PostHogStorageManager {
         return deviceId ?? ""
     }
 
-    /// Initializes device_id if not already persisted. Called during SDK setup to ensure
-    /// the device ID is seeded from the anonymous ID before any flag requests.
-    func initializeDeviceId() {
-        deviceIdLock.withLock {
-            let persisted = storage.getString(forKey: .deviceId)
-            if persisted == nil {
-                let anonId = getAnonymousId()
-                deviceId = anonId
-                storage.setString(forKey: .deviceId, contents: anonId)
-            } else {
-                deviceId = persisted
-            }
-        }
-    }
-
     public func getDistinctId() -> String {
         var distinctId: String?
         distinctLock.withLock {

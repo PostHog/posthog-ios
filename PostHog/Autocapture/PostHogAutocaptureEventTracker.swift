@@ -273,9 +273,13 @@
 
     extension UIView {
         var eventData: PostHogAutocaptureEventTracker.EventData? {
+            eventData(touchCoordinates: nil)
+        }
+
+        func eventData(touchCoordinates: CGPoint?) -> PostHogAutocaptureEventTracker.EventData? {
             guard shouldTrack(self) else { return nil }
             return PostHogAutocaptureEventTracker.EventData(
-                touchCoordinates: nil,
+                touchCoordinates: touchCoordinates,
                 value: ph_autocaptureText
                     .map(sanitizeText),
                 screenName: nearestViewController

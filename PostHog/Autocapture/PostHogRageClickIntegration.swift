@@ -143,13 +143,13 @@
             }
 
             func processTapForTesting(
-                x: CGFloat,
-                y: CGFloat,
+                touchX: CGFloat,
+                touchY: CGFloat,
                 screenName: String? = "TestScreen",
                 elementsChain: String = ""
             ) {
                 captureRageClickIfNeeded(
-                    touchCoordinates: CGPoint(x: x, y: y),
+                    touchCoordinates: CGPoint(x: touchX, y: touchY),
                     screenName: screenName,
                     elementsChain: elementsChain
                 )

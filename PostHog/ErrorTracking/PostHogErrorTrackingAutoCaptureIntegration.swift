@@ -31,7 +31,7 @@ import Foundation
                 PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = true
                 return true
             }
-            
+
             guard installed else {
                 return .skipped(.alreadyInstalled)
             }
@@ -43,7 +43,7 @@ import Foundation
                 processPendingCrashReportIfNeeded(reporter: crashReporter)
                 enableCrashReporter(reporter: crashReporter)
             }
-            
+
             return .installed
         }
 

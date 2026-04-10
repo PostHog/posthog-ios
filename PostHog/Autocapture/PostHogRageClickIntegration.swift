@@ -18,18 +18,24 @@
         private var rageClickDetector: RageClickDetector?
         private var applicationEventToken: RegistrationToken?
 
-        func install(_ postHog: PostHogSDK) throws {
-            try PostHogRageClickIntegration.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = PostHogRageClickIntegration.integrationInstalledLock.withLock {
                 if PostHogRageClickIntegration.integrationInstalled {
-                    throw InternalPostHogError(description: "Rage click integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 PostHogRageClickIntegration.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
             rageClickDetector = RageClickDetector(config: postHog.config.rageClickConfig)
 
             start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {

@@ -541,7 +541,8 @@ enum PostHogSurveysTest {
 
             PostHogSurveyIntegration.clearInstalls()
             integration = PostHogSurveyIntegration()
-            try integration.install(postHog)
+            let installOutcome = integration.install(postHog)
+            try #require(installOutcome == .installed)
         }
 
         deinit {
@@ -589,7 +590,8 @@ enum PostHogSurveysTest {
 
             PostHogSurveyIntegration.clearInstalls()
             integration = PostHogSurveyIntegration()
-            try integration.install(postHog)
+            let installOutcome = integration.install(postHog)
+            try #require(installOutcome == .installed)
         }
 
         @Test("activates survey when event name and properties match")
@@ -1044,7 +1046,8 @@ enum PostHogSurveysTest {
             server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
             let sut = PostHogSurveyIntegration()
             PostHogSurveyIntegration.clearInstalls()
-            try! sut.install(postHog)
+            let installOutcome = sut.install(postHog)
+            #expect(installOutcome == .installed)
             return sut
         }
 
@@ -1214,7 +1217,8 @@ enum PostHogSurveysTest {
             server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
             let sut = PostHogSurveyIntegration()
             PostHogSurveyIntegration.clearInstalls()
-            try! sut.install(postHog)
+            let installOutcome = sut.install(postHog)
+            #expect(installOutcome == .installed)
             return sut
         }
 

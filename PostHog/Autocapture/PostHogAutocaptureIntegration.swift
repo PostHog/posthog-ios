@@ -17,17 +17,23 @@
         private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        func install(_ postHog: PostHogSDK) throws {
-            try PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
                 if PostHogAutocaptureIntegration.integrationInstalled {
-                    throw InternalPostHogError(description: "Autocapture integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 PostHogAutocaptureIntegration.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
 
             start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {

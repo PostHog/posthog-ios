@@ -206,10 +206,12 @@ class PostHogRemoteConfig {
         let groups = featureFlagsLock.withLock { getGroups() }
         let distinctId = storageManager.getDistinctId()
         let anonymousId = config.reuseAnonymousId == false ? storageManager.getAnonymousId() : nil
+        let deviceId = storageManager.getDeviceId()
 
         loadFeatureFlags(
             distinctId: distinctId,
             anonymousId: anonymousId,
+            deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
             callback: callback ?? { _ in }
         )
@@ -290,6 +292,7 @@ class PostHogRemoteConfig {
     func loadFeatureFlags(
         distinctId: String,
         anonymousId: String?,
+        deviceId: String? = nil,
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {
@@ -299,6 +302,7 @@ class PostHogRemoteConfig {
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
+                    deviceId: deviceId,
                     groups: groups,
                     callback: callback
                 )
@@ -318,6 +322,7 @@ class PostHogRemoteConfig {
 
         api.flags(distinctId: distinctId,
                   anonymousId: anonymousId,
+                  deviceId: deviceId,
                   groups: groups,
                   personProperties: personProperties,
                   groupProperties: groupProperties.isEmpty ? nil : groupProperties)
@@ -522,6 +527,7 @@ class PostHogRemoteConfig {
             loadFeatureFlags(
                 distinctId: pending.distinctId,
                 anonymousId: pending.anonymousId,
+                deviceId: pending.deviceId,
                 groups: pending.groups,
                 callback: pending.callback
             )
@@ -855,6 +861,7 @@ class PostHogRemoteConfig {
 private struct PendingFeatureFlagsRequest {
     let distinctId: String
     let anonymousId: String?
+    let deviceId: String?
     let groups: [String: String]
     let callback: ([String: Any]?) -> Void
 }

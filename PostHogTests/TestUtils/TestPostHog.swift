@@ -33,6 +33,25 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     }
 }
 
+func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {
+    guard let expectation = server.snapshotExpectation else {
+        throw TestError("Server is not properly configured with a snapshot expectation.")
+    }
+
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        let result = XCTWaiter.wait(for: [expectation], timeout: 15)
+
+        switch result {
+        case .completed:
+            continuation.resume()
+        case .timedOut:
+            continuation.resume(throwing: TestError("Timeout occurred while waiting for snapshot request."))
+        default:
+            continuation.resume(throwing: TestError("Unexpected XCTWaiter result: \(result)."))
+        }
+    }
+}
+
 func getFlagsRequest(_ server: MockPostHogServer) -> [[String: Any]] {
     waitFlagsRequest(server)
 

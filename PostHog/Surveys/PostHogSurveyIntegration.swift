@@ -284,20 +284,31 @@
 
                 // Check if there is a new popover surveys to be displayed
                 getActiveMatchingSurveys { activeSurveys in
-                    if let survey = activeSurveys.first(where: self.canRenderSurvey) {
-                        // set survey as active
+                    // Sort by popup delay (shorter delays first)
+                    let sortedSurveys = activeSurveys.sorted {
+                        ($0.appearance?.surveyPopupDelaySeconds ?? 0) < ($1.appearance?.surveyPopupDelaySeconds ?? 0)
+                    }
+
+                    if let survey = sortedSurveys.first(where: self.canRenderSurvey) {
+                        // set survey as active before the delay to prevent duplicates
                         self.setActiveSurvey(survey: survey)
 
-                        DispatchQueue.main.async { [weak self] in
-                            if let self {
-                                // render the survey
-                                self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
-                                    survey.toDisplaySurvey(),
-                                    onSurveyShown: self.handleSurveyShown,
-                                    onSurveyResponse: self.handleSurveyResponse,
-                                    onSurveyClosed: self.handleSurveyClosed
-                                )
+                        let delay = survey.appearance?.surveyPopupDelaySeconds ?? 0
+                        let deadline: DispatchTime = delay > 0 ? .now() + delay : .now()
+
+                        DispatchQueue.main.asyncAfter(deadline: deadline) { [weak self] in
+                            guard let self else { return }
+                            // Verify this survey is still the active one (may have been cleared during delay)
+                            guard self.activeSurveyLock.withLock({ self.activeSurvey?.id }) == survey.id else {
+                                return
                             }
+                            // render the survey
+                            self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
+                                survey.toDisplaySurvey(),
+                                onSurveyShown: self.handleSurveyShown,
+                                onSurveyResponse: self.handleSurveyResponse,
+                                onSurveyClosed: self.handleSurveyClosed
+                            )
                         }
                     }
                 }

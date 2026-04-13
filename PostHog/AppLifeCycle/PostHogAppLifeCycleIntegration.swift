@@ -34,18 +34,24 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private var didEnterBackgroundToken: RegistrationToken?
     private var didFinishLaunchingToken: RegistrationToken?
 
-    func install(_ postHog: PostHogSDK) throws {
-        try PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
+    func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+        let didInstall = PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
             if PostHogAppLifeCycleIntegration.integrationInstalled {
-                throw InternalPostHogError(description: "App life cycle integration already installed to another PostHogSDK instance.")
+                return false
             }
             PostHogAppLifeCycleIntegration.integrationInstalled = true
+            return true
+        }
+
+        guard didInstall else {
+            return .skipped(.alreadyInstalled)
         }
 
         self.postHog = postHog
 
         start()
         captureAppInstallOrUpdated()
+        return .installed
     }
 
     func uninstall(_ postHog: PostHogSDK) {

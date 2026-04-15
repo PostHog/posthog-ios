@@ -1,5 +1,15 @@
 ## Next
 
+## 3.51.0
+
+### Minor Changes
+
+- 43769ea: Add device bucketing support for stable feature flag assignment across identity changes
+
+### Patch Changes
+
+- 43769ea: Use renamed version/release on dsym upload
+
 ## 3.50.0
 
 ### Minor Changes

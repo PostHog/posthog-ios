@@ -1717,6 +1717,50 @@ enum PostHogSurveysTest {
             }
         }
     }
+
+    @Suite("Test survey to display model mapping")
+    struct TestSurveyToDisplayMapping {
+        private func makeAppearance(delay: TimeInterval?) -> PostHogSurveyAppearance {
+            PostHogSurveyAppearance(
+                position: nil, fontFamily: nil, backgroundColor: nil,
+                submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
+                textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
+                ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
+                inputBackground: nil, inputTextColor: nil, whiteLabel: nil,
+                autoDisappear: nil, displayThankYouMessage: nil,
+                thankYouMessageHeader: nil, thankYouMessageDescription: nil,
+                thankYouMessageDescriptionContentType: nil,
+                thankYouMessageCloseButtonText: nil, borderColor: nil,
+                placeholder: nil, shuffleQuestions: nil,
+                surveyPopupDelaySeconds: delay,
+                widgetType: nil, widgetSelector: nil, widgetLabel: nil, widgetColor: nil
+            )
+        }
+
+        @Test("maps surveyPopupDelaySeconds to display survey appearance")
+        func mapsPopupDelaySecondsToDisplayAppearance() {
+            let survey = PostHogSurvey.testInstance(
+                name: "delay-mapped",
+                appearance: makeAppearance(delay: 7)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == 7)
+        }
+
+        @Test("keeps popup delay nil on display survey appearance when missing")
+        func keepsPopupDelayNilWhenMissing() {
+            let survey = PostHogSurvey.testInstance(
+                name: "delay-missing",
+                appearance: makeAppearance(delay: nil)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
+        }
+    }
 }
 
 func loadFixture(_ name: String) throws -> Data {

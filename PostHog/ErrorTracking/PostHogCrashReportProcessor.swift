@@ -7,7 +7,7 @@
 
 import Foundation
 
-#if os(iOS) || os(macOS) || os(tvOS)
+#if canImport(CrashReporter) && (os(iOS) || os(macOS) || os(tvOS))
     import CrashReporter
 
     enum PostHogCrashReportProcessor {

@@ -88,10 +88,10 @@ fi
 
 # Pass version info from Xcode build settings (overrides plist extraction)
 if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
-    CLI_ARGS="$CLI_ARGS --project $PRODUCT_BUNDLE_IDENTIFIER"
+    CLI_ARGS="$CLI_ARGS --release-name $PRODUCT_BUNDLE_IDENTIFIER"
 fi
 if [ -n "${MARKETING_VERSION}" ]; then
-    CLI_ARGS="$CLI_ARGS --version $MARKETING_VERSION"
+    CLI_ARGS="$CLI_ARGS --release-version $MARKETING_VERSION"
 fi
 if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
     CLI_ARGS="$CLI_ARGS --build $CURRENT_PROJECT_VERSION"

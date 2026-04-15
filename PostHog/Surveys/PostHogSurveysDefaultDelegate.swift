@@ -89,7 +89,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
                 displayController.showSurvey(survey)
                 return
             }
-            
+
             hedgeLog("[Surveys] Scheduling survey \(survey.id) display in \(delay) seconds")
 
             // schedule a survey display for now + delay

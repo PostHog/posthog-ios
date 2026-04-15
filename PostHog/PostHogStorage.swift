@@ -250,6 +250,7 @@ class PostHogStorage {
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
+        case deviceId = "posthog.deviceId"
     }
 
     // The location for storing data that we always want to keep

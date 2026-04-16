@@ -37,3 +37,23 @@ jobs:
           xcode-version: latest-stable
       - name: Build SDK (${{ matrix.platform }})
         run: ${{ matrix.command }}
+
+  build-ios-swift53-legacy-toolchain:
+    runs-on: macos-14-xlarge
+    name: Build SDK (ios swift 5.3 on Xcode 15.4)
+    steps:
+      - uses: actions/checkout@v6
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '15.4'
+      - name: Print toolchain versions
+        run: |
+          xcodebuild -version
+          xcrun swift --version
+      - name: Build SDK (ios swift 5.3)
+        run: |
+          set -o pipefail
+          xcrun xcodebuild clean build \
+            -scheme PostHog \
+            -destination generic/platform=ios \
+            SWIFT_VERSION=5.3 | xcpretty

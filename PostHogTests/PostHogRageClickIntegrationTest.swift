@@ -18,7 +18,7 @@
         ) -> (MockPostHogServer, PostHogSDK, PostHogRageClickIntegration?) {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
             config.captureElementInteractions = captureElementInteractions
-            config.captureRageClicks = captureRageClicks
+            config.rageClickConfig.enabled = captureRageClicks
             config.rageClickConfig.minimumTapCount = 3
             config.rageClickConfig.thresholdPoints = 30
             config.rageClickConfig.timeoutInterval = 1.0

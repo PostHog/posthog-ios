@@ -1,6 +1,15 @@
 import Foundation
 
 @objc(PostHogRageClickConfig) public class PostHogRageClickConfig: NSObject {
+    /// Enable rage click detection for iOS/macCatalyst.
+    ///
+    /// When enabled, rapid taps in the same area will be captured as `$rageclick` events.
+    /// Works independently of `captureElementInteractions` — you can enable rage click
+    /// detection without enabling full autocapture.
+    ///
+    /// Default: true
+    @objc public var enabled: Bool = true
+
     /// Manhattan distance threshold in logical points.
     ///
     /// Taps within this distance from the previous tap are considered "in the same area".

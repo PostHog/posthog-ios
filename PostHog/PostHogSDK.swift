@@ -1909,7 +1909,7 @@ let maxRetryDelay = 30.0
         }
 
         @objc public func isRageClickActive() -> Bool {
-            isEnabled() && config.captureRageClicks
+            isEnabled() && config.rageClickConfig.enabled
         }
     #endif
 

@@ -77,15 +77,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Default: false
         @objc public var captureElementInteractions: Bool = false
 
-        /// Enable rage click detection for iOS
-        ///
-        /// When enabled, rapid taps in the same area will be captured as `$rageclick` events.
-        /// Works independently of `captureElementInteractions` — you can enable rage click
-        /// detection without enabling full autocapture.
-        ///
-        /// Default: true
-        @objc public var captureRageClicks: Bool = true
-
         /// Rage click detection configuration
         @objc public let rageClickConfig: PostHogRageClickConfig = .init()
     #endif
@@ -277,7 +268,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
                 integrations.append(PostHogAutocaptureIntegration())
             }
 
-            if captureRageClicks {
+            if rageClickConfig.enabled {
                 integrations.append(PostHogRageClickIntegration())
             }
         #endif

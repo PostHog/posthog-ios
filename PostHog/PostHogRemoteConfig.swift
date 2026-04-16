@@ -23,6 +23,7 @@ class PostHogRemoteConfig {
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
+    private var recordingMinimumDuration: TimeInterval?
 
     private let errorTrackingLock = NSLock()
     private var autoCaptureExceptions = false
@@ -234,6 +235,7 @@ class PostHogRemoteConfig {
                 sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
                 #if os(iOS)
                     recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
+                    recordingMinimumDuration = parseMinimumDuration(sessionReplay["minimumDurationMilliseconds"])
                 #endif
             }
         }
@@ -434,6 +436,7 @@ class PostHogRemoteConfig {
                 }
                 sessionReplayLock.withLock {
                     recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
+                    recordingMinimumDuration = parseMinimumDuration(sessionRecording["minimumDurationMilliseconds"])
                     sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
                 }
                 storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
@@ -466,6 +469,34 @@ class PostHogRemoteConfig {
 
         func getRecordingSampleRate() -> Double? {
             sessionReplayLock.withLock { recordingSampleRate }
+        }
+
+        /// Parses and validates a minimum duration value which may come as a Number (from the API JSON)
+        /// or from cached storage. Returns `nil` if the value is absent, unparseable, or negative.
+        /// The value is expected to be in milliseconds.
+        private func parseMinimumDuration(_ raw: Any?) -> TimeInterval? {
+            let milliseconds: Double?
+            if let number = raw as? Double {
+                milliseconds = number
+            } else if let number = raw as? NSNumber {
+                milliseconds = number.doubleValue
+            } else if let number = raw as? Int {
+                milliseconds = Double(number)
+            } else {
+                return nil
+            }
+
+            guard let milliseconds, milliseconds >= 0 else {
+                if let milliseconds {
+                    hedgeLog("Remote config minimumDurationMilliseconds must be non-negative, got \(milliseconds). Ignoring.")
+                }
+                return nil
+            }
+            return milliseconds / 1_000.0
+        }
+
+        func getRecordingMinimumDuration() -> TimeInterval? {
+            sessionReplayLock.withLock { recordingMinimumDuration }
         }
     #endif
 

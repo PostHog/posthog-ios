@@ -233,6 +233,7 @@ class PostHogStorage {
         case oldQueueFolder = "posthog.queueFolder" // queue from 3.0.0 - 3.48.1
         case oldQueuePlist = "posthog.queue.plist" // queue from pre-3.0.0
         case replayQeueue = "posthog.replayFolder"
+        case replayBufferQueue = "posthog.replayBufferFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case flags = "posthog.flags"

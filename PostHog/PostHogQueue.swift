@@ -45,7 +45,7 @@ class PostHogQueue {
         fileQueue.depth
     }
 
-    private let fileQueue: PostHogFileBackedQueue
+    let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint, _ reachability: Reachability?) {
@@ -198,7 +198,7 @@ class PostHogQueue {
         }
     }
 
-    private func flushIfOverThreshold() {
+    func flushIfOverThreshold() {
         if fileQueue.depth >= config.flushAt {
             flush()
         }

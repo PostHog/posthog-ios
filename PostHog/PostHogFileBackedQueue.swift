@@ -42,7 +42,8 @@ class PostHogFileBackedQueue {
         }
 
         do {
-            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .contentModificationDateKey)
+            // when copying over buffered snapshots, content modification date will change, so we work off creation date instead.
+            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
             itemsLock.withLock { items = sortedItems }
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
@@ -83,6 +84,17 @@ class PostHogFileBackedQueue {
     func clear() {
         deleteSafely(queue)
         setup(oldQueues: [])
+    }
+
+    /// Reloads items from disk and sorts by creation date.
+    /// Use after externally adding files to the queue directory.
+    func reloadFromDisk() {
+        do {
+            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
+            itemsLock.withLock { items = sortedItems }
+        } catch {
+            hedgeLog("Failed to reload files for queue \(error)")
+        }
     }
 
     private func loadFiles(_ count: Int) -> [Data] {

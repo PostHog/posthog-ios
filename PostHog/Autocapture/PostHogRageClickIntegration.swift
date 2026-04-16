@@ -130,8 +130,7 @@
                 properties["$screen_name"] = normalizedScreenName
             }
 
-            postHog.autocapture(
-                eventName: "$rageclick",
+            postHog.rageclick(
                 eventType: EventType.kTouch,
                 elementsChain: normalizedElementsChain,
                 properties: properties

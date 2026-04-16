@@ -1005,7 +1005,6 @@ let maxRetryDelay = 30.0
     }
 
     func autocapture(
-        eventName: String = "$autocapture",
         eventType: String,
         elementsChain: String,
         properties: [String: Any]
@@ -1031,7 +1030,40 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: "$autocapture", distinctId: distinctId, properties: properties) else {
+            return
+        }
+
+        queueEvent(event, queue: queue)
+    }
+
+    func rageclick(
+        eventType: String,
+        elementsChain: String,
+        properties: [String: Any]
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        guard let queue else {
+            return
+        }
+
+        let props = [
+            "$event_type": eventType,
+            "$elements_chain": elementsChain,
+        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
+
+        let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+
+        guard let event = buildEvent(event: "$rageclick", distinctId: distinctId, properties: properties) else {
             return
         }
 

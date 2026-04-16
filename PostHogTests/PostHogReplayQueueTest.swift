@@ -52,6 +52,16 @@ class PostHogReplayQueueTests {
         )
     }
 
+    private func waitUntil(timeoutNanoseconds: UInt64 = 1_000_000_000,
+                           pollNanoseconds: UInt64 = 10_000_000,
+                           condition: () -> Bool) async
+    {
+        let start = DispatchTime.now().uptimeNanoseconds
+        while !condition(), (DispatchTime.now().uptimeNanoseconds - start) < timeoutNanoseconds {
+            try? await Task.sleep(nanoseconds: pollNanoseconds)
+        }
+    }
+
     // MARK: - Buffering Mode Tests
 
     @Test("add routes to buffer when delegate.isBuffering is true")
@@ -155,7 +165,7 @@ class PostHogReplayQueueTests {
     // MARK: - Migration Tests
 
     @Test("migrateBufferToQueue moves events from buffer to inner queue")
-    func migrateBufferToQueue() {
+    func migrateBufferToQueue() async {
         let queue = createReplayQueue()
         mockDelegate.isBuffering = true
 
@@ -169,6 +179,9 @@ class PostHogReplayQueueTests {
 
         // Migrate
         queue.migrateBufferToQueue()
+        await waitUntil {
+            queue.bufferDepth == 0 && queue.depth == 3
+        }
 
         // Buffer should be empty, inner queue should have events
         #expect(queue.bufferDepth == 0)
@@ -192,7 +205,7 @@ class PostHogReplayQueueTests {
     // MARK: - Clear Buffer Tests
 
     @Test("clearBuffer removes all buffered events")
-    func clearBufferRemovesAllEvents() {
+    func clearBufferRemovesAllEvents() async {
         let queue = createReplayQueue()
         mockDelegate.isBuffering = true
 
@@ -204,12 +217,15 @@ class PostHogReplayQueueTests {
 
         // Clear buffer
         queue.clearBuffer()
+        await waitUntil {
+            queue.bufferDepth == 0
+        }
 
         #expect(queue.bufferDepth == 0)
     }
 
     @Test("clearBuffer does not affect inner queue")
-    func clearBufferDoesNotAffectInnerQueue() {
+    func clearBufferDoesNotAffectInnerQueue() async {
         let queue = createReplayQueue()
 
         // Add events to inner queue (not buffering)
@@ -224,6 +240,9 @@ class PostHogReplayQueueTests {
 
         // Clear buffer
         queue.clearBuffer()
+        await waitUntil {
+            queue.bufferDepth == 0
+        }
 
         // Buffer should be empty, inner queue should be unchanged
         #expect(queue.bufferDepth == 0)
@@ -300,7 +319,7 @@ class PostHogReplayQueueTests {
     }
 
     @Test("delegate can trigger migration from callback")
-    func delegateCanTriggerMigration() {
+    func delegateCanTriggerMigration() async {
         let queue = createReplayQueue()
 
         // Create a delegate that migrates after 3 events
@@ -329,6 +348,9 @@ class PostHogReplayQueueTests {
 
         // Third event should trigger migration
         queue.add(createTestEvent("snapshot_3"))
+        await waitUntil {
+            queue.bufferDepth == 0 && queue.depth == 3
+        }
 
         #expect(queue.bufferDepth == 0)
         #expect(queue.depth == 3)

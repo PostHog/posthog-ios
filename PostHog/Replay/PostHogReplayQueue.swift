@@ -10,6 +10,8 @@ import Foundation
 class PostHogReplayQueue {
     private let innerQueue: PostHogQueue
     private let bufferQueue: PostHogReplayBufferQueue
+    private let bufferIOQueue = DispatchQueue(label: "com.posthog.ReplayBufferIO",
+                                              target: .global(qos: .utility))
 
     weak var bufferDelegate: PostHogReplayBufferDelegate?
 
@@ -84,7 +86,36 @@ class PostHogReplayQueue {
 
     /// Migrates all buffered items to the inner (real) replay queue.
     /// Both on-disk files and in-memory items are transferred.
+    ///
+    /// If called from the main thread, migration is offloaded to a utility queue
+    /// to avoid blocking rendering. On background threads migration executes inline.
     func migrateBufferToQueue() {
+        if Thread.isMainThread {
+            bufferIOQueue.async { [weak self] in
+                self?.migrateBufferToQueueNow()
+            }
+            return
+        }
+
+        migrateBufferToQueueNow()
+    }
+
+    /// Discards all buffered replay events.
+    ///
+    /// If called from the main thread, clear is offloaded to a utility queue to
+    /// avoid blocking rendering. On background threads clear executes inline.
+    func clearBuffer() {
+        if Thread.isMainThread {
+            bufferIOQueue.async { [weak self] in
+                self?.clearBufferNow()
+            }
+            return
+        }
+
+        clearBufferNow()
+    }
+
+    private func migrateBufferToQueueNow() {
         let migratedCount = bufferQueue.depth
         guard migratedCount > 0 else {
             hedgeLog("No buffered replay events to migrate")
@@ -96,8 +127,7 @@ class PostHogReplayQueue {
         innerQueue.flushIfOverThreshold()
     }
 
-    /// Discards all buffered replay events.
-    func clearBuffer() {
+    private func clearBufferNow() {
         bufferQueue.clear()
         hedgeLog("Replay buffer cleared")
     }

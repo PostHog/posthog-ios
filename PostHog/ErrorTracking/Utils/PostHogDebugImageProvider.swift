@@ -58,7 +58,7 @@ enum PostHogDebugImageProvider {
     static func getDebugImages(for frames: [[String: Any]]) -> [[String: Any]] {
         let addresses = Set(frames.compactMap { $0["image_addr"] as? String })
         guard !addresses.isEmpty else { return [] }
-        return getImages(for: addresses).map(\.toDictionary)
+        return getImages(for: addresses).map { image in image.toDictionary }
     }
 
     /// Get debug images for exception list

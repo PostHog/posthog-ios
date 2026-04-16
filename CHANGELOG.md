@@ -104,6 +104,8 @@
 
 - 33fe226: feat: add experimental error tracking support
 
+⚠️ **Known issue (Swift 5.3 + older Xcode):** This release introduced a Swift 5.3 compatibility regression when building with older Xcode versions (Swift 5.3 toolchain). If you compile with Swift 5.3 and experience errors, use a version before 3.45.0 or upgrade to 3.53.1+.
+
 ## 3.44.0
 
 ### Minor Changes

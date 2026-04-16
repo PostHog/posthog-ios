@@ -121,7 +121,7 @@ import Foundation
             // the Sentry event format. PLCrashReport delivers them top-down, so reverse.
             if !stackFrames.isEmpty {
                 exception["stacktrace"] = [
-                    "frames": stackFrames.reversed().map(\.toDictionary),
+                    "frames": stackFrames.reversed().map { frame in frame.toDictionary },
                     "type": "raw",
                 ]
             }
@@ -250,7 +250,7 @@ import Foundation
                 debugImages.append(binaryImage)
             }
 
-            return debugImages.map(\.toDictionary)
+            return debugImages.map { image in image.toDictionary }
         }
 
         // MARK: - Helpers

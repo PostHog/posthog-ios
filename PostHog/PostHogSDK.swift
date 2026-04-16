@@ -104,6 +104,11 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
+
+            // Ensure device_id is initialized before remote config loads, so it's
+            // available for flag requests. Seeded from the anonymous ID on first init.
+            _ = config.storageManager?.getDeviceId()
+
             remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
@@ -184,6 +189,17 @@ let maxRetryDelay = 30.0
         }
 
         return config.storageManager?.getAnonymousId() ?? ""
+    }
+
+    /// Returns the stable device identifier used for device-level feature flag bucketing.
+    /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
+    /// app install, manual cache clearing, or OS-initiated storage cleanup.
+    @objc public func getDeviceId() -> String {
+        if !isEnabled() {
+            return ""
+        }
+
+        return config.storageManager?.getDeviceId() ?? ""
     }
 
     @objc public func getSessionId() -> String? {

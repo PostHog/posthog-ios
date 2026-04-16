@@ -6,6 +6,7 @@ on:
   pull_request:
     paths-ignore:
       - "**/*.md"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,9 +39,9 @@ jobs:
       - name: Build SDK (${{ matrix.platform }})
         run: ${{ matrix.command }}
 
-  build-ios-swift53-legacy-toolchain:
+  build-sdk-swift53-compat:
     runs-on: macos-14-xlarge
-    name: Build SDK (ios swift 5.3 on Xcode 15.4)
+    name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)
     steps:
       - uses: actions/checkout@v6
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -50,10 +51,18 @@ jobs:
         run: |
           xcodebuild -version
           xcrun swift --version
-      - name: Build SDK (ios swift 5.3)
+      - name: Install CocoaPods
+        run: gem install cocoapods
+      - name: Install Pods
+        run: |
+          cd PostHogExampleWithPods
+          USE_FRAMEWORKS=static pod install
+      - name: Build SDK with Swift 5 language mode via CocoaPods
         run: |
           set -o pipefail
+          cd PostHogExampleWithPods
           xcrun xcodebuild clean build \
-            -scheme PostHog \
+            -workspace PostHogExampleWithPods.xcworkspace \
+            -scheme PostHogExampleWithPods \
             -destination generic/platform=ios \
-            SWIFT_VERSION=5.3 | xcpretty
+            SWIFT_VERSION=5 | xcpretty

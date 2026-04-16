@@ -1,5 +1,11 @@
 ## Next
 
+## 3.53.1
+
+### Patch Changes
+
+- 3588c05: fix: swift 5.3 compatibility issue with Xcode 15.4
+
 ## 3.53.0
 
 ### Minor Changes

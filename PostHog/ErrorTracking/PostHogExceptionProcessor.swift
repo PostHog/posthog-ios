@@ -386,7 +386,7 @@ enum PostHogExceptionProcessor {
 
         // Reverse to bottom-up order (outermost/main first, innermost/crash site last)
         // to match the Sentry event format. callStackReturnAddresses is top-down.
-        let frameDicts = frames.reversed().map { frame in frame.toDictionary }
+        let frameDicts = frames.reversed().compactMap { frame in frame.toDictionary }
 
         guard !frameDicts.isEmpty else { return nil }
 
@@ -411,7 +411,7 @@ enum PostHogExceptionProcessor {
 
         // Reverse to bottom-up order (outermost/main first, innermost/throw site last)
         // to match the Sentry event format. callStackReturnAddresses is top-down.
-        let frameDicts = frames.reversed().map { frame in frame.toDictionary }
+        let frameDicts = frames.reversed().compactMap { frame in frame.toDictionary }
 
         guard !frameDicts.isEmpty else { return nil }
 

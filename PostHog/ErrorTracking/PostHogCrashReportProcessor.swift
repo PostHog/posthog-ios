@@ -121,7 +121,7 @@ import Foundation
             // the Sentry event format. PLCrashReport delivers them top-down, so reverse.
             if !stackFrames.isEmpty {
                 exception["stacktrace"] = [
-                    "frames": stackFrames.reversed().map { frame in frame.toDictionary },
+                    "frames": stackFrames.reversed().compactMap { frame in frame.toDictionary },
                     "type": "raw",
                 ]
             }

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.53.0
+
+### Minor Changes
+
+- 51022cd: feat: support session replay minimum recording duration
+
 ## 3.52.0
 
 ### Minor Changes

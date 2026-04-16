@@ -1,5 +1,9 @@
 ## Next
 
+## 3.51.0
+
+⚠️ Skip this version, this is a broken release and should not be used.
+
 ## 3.50.0
 
 ### Minor Changes

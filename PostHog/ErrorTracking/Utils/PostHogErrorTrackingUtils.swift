@@ -27,6 +27,22 @@ extension String {
     }
 }
 
+// MARK: - Address Helpers
+
+extension UInt64 {
+    /// Strip Pointer Authentication Code (PAC) bits from an arm64e address.
+    ///
+    /// On arm64e devices (all modern iPhones with Apple Silicon), the OS embeds
+    /// authentication codes in the high bits of pointers. Masking with
+    /// `0x0000000fffffffff` removes those bits so the address is a valid
+    /// instruction pointer that can be looked up in the symbol table.
+    ///
+    /// Safe to apply on plain arm64 too — the high bits are always zero there.
+    var pacStripped: UInt64 {
+        self & ~(~UInt64(0) << 36)
+    }
+}
+
 // MARK: - CPU Architecture Helpers
 
 enum PostHogCPUArchitecture {

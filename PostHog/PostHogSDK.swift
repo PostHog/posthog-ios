@@ -108,6 +108,11 @@ let maxRetryDelay = 30.0
             let api = PostHogApi(config)
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
+
+            // Ensure device_id is initialized before remote config loads, so it's
+            // available for flag requests. Seeded from the anonymous ID on first init.
+            _ = config.storageManager?.getDeviceId()
+
             remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
@@ -188,6 +193,17 @@ let maxRetryDelay = 30.0
         }
 
         return config.storageManager?.getAnonymousId() ?? ""
+    }
+
+    /// Returns the stable device identifier used for device-level feature flag bucketing.
+    /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
+    /// app install, manual cache clearing, or OS-initiated storage cleanup.
+    @objc public func getDeviceId() -> String {
+        if !isEnabled() {
+            return ""
+        }
+
+        return config.storageManager?.getDeviceId() ?? ""
     }
 
     @objc public func getSessionId() -> String? {
@@ -1887,8 +1903,6 @@ let maxRetryDelay = 30.0
     ///   - error: The error to capture (can be any Error or NSError)
     ///   - properties: Optional additional properties to attach to the event
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithError:properties:)
     public func captureException(
         _ error: Error,
@@ -1914,8 +1928,6 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter error: The error to capture (can be any Error or NSError)
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithError:)
     public func captureException(
         _ error: Error
@@ -1941,8 +1953,6 @@ let maxRetryDelay = 30.0
     ///   - exception: The NSException to capture
     ///   - properties: Optional additional properties to attach to the event
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithNSException:properties:)
     public func captureException(
         _ exception: NSException,
@@ -1968,8 +1978,6 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter exception: The NSException to capture
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithNSException:)
     public func captureException(
         _ exception: NSException

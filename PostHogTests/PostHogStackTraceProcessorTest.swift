@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@_spi(Experimental) @testable import PostHog
+@testable import PostHog
 import Testing
 
 @Suite("PostHogStackTraceProcessor Tests")
@@ -186,7 +186,7 @@ struct PostHogStackTraceProcessorTest {
 
             let dict = frame.toDictionary
 
-            #expect(dict["instruction_addr"] as? String == "0x1000000")
+            #expect(dict["instruction_addr"] as? String == "0x0000000001000000")
             #expect(dict["platform"] as? String == "apple")
             #expect(dict["in_app"] as? Bool == true)
             #expect(dict["module"] as? String == "TestModule")

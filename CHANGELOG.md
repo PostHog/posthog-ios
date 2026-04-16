@@ -1,5 +1,31 @@
 ## Next
 
+## 3.52.0
+
+### Minor Changes
+
+- c01ece0: Add device bucketing support for stable feature flag assignment across identity changes
+
+### Patch Changes
+
+- c01ece0: Use renamed version/release on dsym upload
+
+## 3.51.0
+
+⚠️ Skip this version, this is a broken release and should not be used.
+
+## 3.50.0
+
+### Minor Changes
+
+- 569348a: feat: error tracking GA
+
+## 3.49.1
+
+### Patch Changes
+
+- 642d4b1: correct frame addresses, ordering, and in-app detection
+
 ## 3.49.0
 
 ### Minor Changes

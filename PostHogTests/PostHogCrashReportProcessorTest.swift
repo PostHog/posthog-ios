@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@_spi(Experimental) @testable import PostHog
+@testable import PostHog
 import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)

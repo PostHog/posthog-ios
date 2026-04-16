@@ -2,13 +2,7 @@
 
 ## 3.51.0
 
-### Minor Changes
-
-- 77f7cd7: Add device bucketing support for stable feature flag assignment across identity changes
-
-### Patch Changes
-
-- 77f7cd7: Use renamed version/release on dsym upload
+⚠️ Skip this version, this is a broken release and should not be used.
 
 ## 3.50.0
 

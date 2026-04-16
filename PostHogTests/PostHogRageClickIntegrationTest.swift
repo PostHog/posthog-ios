@@ -111,6 +111,57 @@
             #expect(integration == nil)
         }
 
+        @Test("Does not emit $rageclick without screenName unless element id is present")
+        func noRageClickWithoutScreenNameAndElementId() throws {
+            let (server, posthog, integration) = setupPostHog(captureElementInteractions: true, captureRageClicks: true)
+            defer { teardown(server: server, posthog: posthog, integration: integration) }
+
+            server.start(batchCount: 0)
+
+            try #require(integration).processTapForTesting(x: 100, y: 200, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
+            try #require(integration).processTapForTesting(x: 105, y: 205, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
+            try #require(integration).processTapForTesting(x: 102, y: 202, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
+
+            let events = getBatchedEvents(server)
+            let rageclickEvents = events.filter { $0.event == "$rageclick" }
+
+            #expect(rageclickEvents.count == 0)
+        }
+
+        @Test("Emits $rageclick without screenName when element id is present")
+        func rageClickWithoutScreenNameWithElementId() throws {
+            let (server, posthog, integration) = setupPostHog(captureElementInteractions: true, captureRageClicks: true)
+            defer { teardown(server: server, posthog: posthog, integration: integration) }
+
+            server.start(batchCount: 1)
+
+            try #require(integration).processTapForTesting(x: 100, y: 200, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"")
+            try #require(integration).processTapForTesting(x: 105, y: 205, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"")
+            try #require(integration).processTapForTesting(x: 102, y: 202, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"")
+
+            let events = getBatchedEvents(server)
+            let rageclickEvents = events.filter { $0.event == "$rageclick" }
+
+            #expect(rageclickEvents.count == 1)
+        }
+
+        @Test("Emits $rageclick when screenName exists even if elementsChain is empty")
+        func rageClickWithScreenNameAndNoElementsChain() throws {
+            let (server, posthog, integration) = setupPostHog(captureElementInteractions: true, captureRageClicks: true)
+            defer { teardown(server: server, posthog: posthog, integration: integration) }
+
+            server.start(batchCount: 1)
+
+            try #require(integration).processTapForTesting(x: 100, y: 200, screenName: "TestScreen", elementsChain: "")
+            try #require(integration).processTapForTesting(x: 105, y: 205, screenName: "TestScreen", elementsChain: "")
+            try #require(integration).processTapForTesting(x: 102, y: 202, screenName: "TestScreen", elementsChain: "")
+
+            let events = getBatchedEvents(server)
+            let rageclickEvents = events.filter { $0.event == "$rageclick" }
+
+            #expect(rageclickEvents.count == 1)
+        }
+
         @Test("$rageclick event carries expected properties")
         func rageClickEventHasExpectedProperties() throws {
             let (server, posthog, integration) = setupPostHog(captureElementInteractions: true, captureRageClicks: true)

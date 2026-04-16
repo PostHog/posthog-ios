@@ -109,19 +109,31 @@
                 return
             }
 
+            let normalizedScreenName = screenName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedElementsChain = elementsChain.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hasScreenName = normalizedScreenName?.isEmpty == false
+            let hasElementId = normalizedElementsChain.contains("attr_id=")
+
+            // Keep rage clicks only when they contain enough context to be actionable:
+            // - screen name is sufficient context when paired with touch coordinates
+            // - without screen name: require a concrete element id
+            guard hasScreenName || hasElementId else {
+                return
+            }
+
             var properties: [String: Any] = [
                 "$touch_x": touchCoordinates.x,
                 "$touch_y": touchCoordinates.y,
             ]
 
-            if let screenName {
-                properties["$screen_name"] = screenName
+            if let normalizedScreenName, !normalizedScreenName.isEmpty {
+                properties["$screen_name"] = normalizedScreenName
             }
 
             postHog.autocapture(
                 eventName: "$rageclick",
                 eventType: EventType.kTouch,
-                elementsChain: elementsChain,
+                elementsChain: normalizedElementsChain,
                 properties: properties
             )
         }
@@ -146,7 +158,7 @@
                 touchX: CGFloat,
                 touchY: CGFloat,
                 screenName: String? = "TestScreen",
-                elementsChain: String = ""
+                elementsChain: String = "UIButton:attr__class=\"UIButton\""
             ) {
                 captureRageClickIfNeeded(
                     touchCoordinates: CGPoint(x: touchX, y: touchY),

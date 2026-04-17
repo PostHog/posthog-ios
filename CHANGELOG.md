@@ -1,5 +1,11 @@
 ## Next
 
+## 3.54.0
+
+### Minor Changes
+
+- feeaeac: support survey popup delay
+
 ## 3.53.1
 
 ### Patch Changes

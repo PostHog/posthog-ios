@@ -218,7 +218,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     public init(
         apiKey: String
     ) {
-        self.apiKey = apiKey
+        let normalizedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedApiKey.isEmpty {
+            hedgeLog("apiKey is empty after trimming whitespace; check your project API key")
+        }
+
+        self.apiKey = normalizedApiKey
         host = URL(string: PostHogConfig.defaultHost)!
     }
 
@@ -227,8 +232,15 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         apiKey: String,
         host: String = defaultHost
     ) {
-        self.apiKey = apiKey
-        self.host = URL(string: host) ?? URL(string: PostHogConfig.defaultHost)!
+        let normalizedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedApiKey.isEmpty {
+            hedgeLog("apiKey is empty after trimming whitespace; check your project API key")
+        }
+
+        let normalizedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.apiKey = normalizedApiKey
+        self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
     }
 
     /// Returns an array of integrations to be installed based on current configuration

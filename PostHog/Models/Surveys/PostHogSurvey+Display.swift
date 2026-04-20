@@ -114,6 +114,7 @@
                 inputBackground: inputBackground,
                 inputTextColor: inputTextColor,
                 placeholder: placeholder,
+                surveyPopupDelaySeconds: surveyPopupDelaySeconds,
                 displayThankYouMessage: displayThankYouMessage ?? true,
                 thankYouMessageHeader: thankYouMessageHeader,
                 thankYouMessageDescription: thankYouMessageDescription,

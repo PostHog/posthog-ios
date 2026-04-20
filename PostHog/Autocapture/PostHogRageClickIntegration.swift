@@ -112,7 +112,7 @@
             let normalizedScreenName = screenName?.trimmingCharacters(in: .whitespacesAndNewlines)
             let normalizedElementsChain = elementsChain.trimmingCharacters(in: .whitespacesAndNewlines)
             let hasScreenName = normalizedScreenName?.isEmpty == false
-            let hasElementId = normalizedElementsChain.contains("attr_id=")
+            let hasElementId = eventData?.viewHierarchy.contains { $0.label?.isEmpty == false } ?? false
 
             // Keep rage clicks only when they contain enough context to be actionable:
             // - screen name is sufficient context when paired with touch coordinates

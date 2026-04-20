@@ -6,6 +6,19 @@
 //
 import Foundation
 
+enum PostHogIntegrationInstallSkipReason: String, CustomStringConvertible {
+    var description: String { rawValue }
+
+    case alreadyInstalled = "Already installed to another PostHogSDK instance"
+    case disabledByRemoteConfig = "Disabled in remote config"
+    case notAvailableOnPlatform = "Not available on this platform"
+}
+
+enum PostHogIntegrationInstallResult: Equatable {
+    case installed
+    case skipped(PostHogIntegrationInstallSkipReason)
+}
+
 protocol PostHogIntegration {
     /**
      * Indicates whether this integration requires method swizzling to function.
@@ -24,9 +37,9 @@ protocol PostHogIntegration {
      * 3. Start the integration's functionality
      *
      * - Parameter postHog: The PostHogSDK instance to integrate with
-     * - Throws: InternalPostHogError if installation fails (e.g., already installed)
+     * - Returns: `.installed` when installation succeeds, `.skipped(reason:)` when it doesn't
      */
-    func install(_ postHog: PostHogSDK) throws
+    func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult
 
     /**
      * Uninstalls the integration from a specific PostHogSDK instance.

@@ -141,12 +141,17 @@
             postHogSdkName != "posthog-flutter"
         }
 
-        func install(_ postHog: PostHogSDK) throws {
-            try PostHogReplayIntegration.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = PostHogReplayIntegration.integrationInstalledLock.withLock {
                 if PostHogReplayIntegration.integrationInstalled {
-                    throw InternalPostHogError(description: "Replay integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 PostHogReplayIntegration.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
@@ -172,6 +177,7 @@
             }
 
             start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {

@@ -50,16 +50,22 @@
         private var activeSurveyCompleted: Bool = false
         private var activeSurveyQuestionIndex: Int = 0
 
-        func install(_ postHog: PostHogSDK) throws {
-            try PostHogSurveyIntegration.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = PostHogSurveyIntegration.integrationInstalledLock.withLock {
                 if PostHogSurveyIntegration.integrationInstalled {
-                    throw InternalPostHogError(description: "Replay integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 PostHogSurveyIntegration.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
             start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {

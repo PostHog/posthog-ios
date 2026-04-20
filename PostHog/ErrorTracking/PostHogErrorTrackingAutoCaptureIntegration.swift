@@ -19,16 +19,21 @@ import Foundation
         private weak var postHog: PostHogSDK?
         private var crashReporter: PLCrashReporter?
 
-        func install(_ postHog: PostHogSDK) throws {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
-                throw InternalPostHogError(description: "Error tracking auto capture integration disabled in remote config.")
+                return .skipped(.disabledByRemoteConfig)
             }
 
-            try PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
+            let installed = PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
                 if PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled {
-                    throw InternalPostHogError(description: "Error tracking auto capture integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = true
+                return true
+            }
+
+            guard installed else {
+                return .skipped(.alreadyInstalled)
             }
 
             if let crashReporter = setupCrashReporter() {
@@ -38,6 +43,8 @@ import Foundation
                 processPendingCrashReportIfNeeded(reporter: crashReporter)
                 enableCrashReporter(reporter: crashReporter)
             }
+
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
@@ -182,8 +189,8 @@ import Foundation
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { false }
 
-        func install(_: PostHogSDK) throws {
-            hedgeLog("Crash reporting is only available on iOS, macOS and tvOS")
+        func install(_: PostHogSDK) -> PostHogIntegrationInstallResult {
+            .skipped(.notAvailableOnPlatform)
         }
 
         func uninstall(_: PostHogSDK) { /* no-op */ }

@@ -106,7 +106,8 @@ class PostHogSurveyEventsTest {
     func getSurveyIntegration(_ postHog: PostHogSDK) throws -> PostHogSurveyIntegration {
         PostHogSurveyIntegration.clearInstalls()
         let integration = PostHogSurveyIntegration()
-        try integration.install(postHog)
+        let installResult = integration.install(postHog)
+        try #require(installResult == .installed)
         return integration
     }
 

@@ -76,6 +76,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Enable autocapture for iOS
         /// Default: false
         @objc public var captureElementInteractions: Bool = false
+
+        /// Rage click detection configuration
+        @objc public let rageClickConfig: PostHogRageClickConfig = .init()
     #endif
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
@@ -263,6 +266,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #if os(iOS) || targetEnvironment(macCatalyst)
             if captureElementInteractions {
                 integrations.append(PostHogAutocaptureIntegration())
+            }
+
+            if rageClickConfig.enabled {
+                integrations.append(PostHogRageClickIntegration())
             }
         #endif
 

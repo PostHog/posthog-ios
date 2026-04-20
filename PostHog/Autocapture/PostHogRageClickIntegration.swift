@@ -66,8 +66,7 @@
             }
 
             guard event.type == .touches,
-                  let window = UIApplication.getCurrentWindow(),
-                  let touches = event.touches(for: window)
+                  let touches = event.allTouches
             else {
                 return
             }
@@ -76,6 +75,7 @@
             // Ignore multi-touch interactions (e.g. pinch/zoom) to avoid false positives.
             guard touches.count == 1,
                   let touch = touches.first,
+                  let window = touch.window,
                   touch.phase == .ended,
                   touch.tapCount > 0
             else {
@@ -89,14 +89,16 @@
             captureRageClickIfNeeded(
                 touchCoordinates: touchCoordinates,
                 screenName: eventData?.screenName ?? currentScreenName(),
-                elementsChain: elementsChain
+                elementsChain: elementsChain,
+                eventData: eventData
             )
         }
 
         private func captureRageClickIfNeeded(
             touchCoordinates: CGPoint,
             screenName: String?,
-            elementsChain: String
+            elementsChain: String,
+            eventData: PostHogAutocaptureEventTracker.EventData?
         ) {
             guard let postHog,
                   let rageClickDetector,
@@ -162,7 +164,8 @@
                 captureRageClickIfNeeded(
                     touchCoordinates: CGPoint(x: touchX, y: touchY),
                     screenName: screenName,
-                    elementsChain: elementsChain
+                    elementsChain: elementsChain,
+                    eventData: nil
                 )
             }
         }

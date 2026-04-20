@@ -1,5 +1,11 @@
 ## Next
 
+## 3.55.0
+
+### Minor Changes
+
+- 6098042: feat: add support for $rageclick detection for iOS/macCatalyst
+
 ## 3.54.0
 
 ### Minor Changes

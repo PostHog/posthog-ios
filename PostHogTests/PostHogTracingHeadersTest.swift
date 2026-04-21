@@ -5,8 +5,8 @@
     @testable import PostHog
     import Testing
 
-    struct ClassicTracingCase: CustomTestStringConvertible, Sendable {
-        enum Invocation: Sendable {
+    struct ClassicTracingCase: CustomTestStringConvertible {
+        enum Invocation {
             case dataTaskWithRequest
             case dataTaskWithURL
             case dataTaskWithCustomSession
@@ -20,8 +20,8 @@
         var testDescription: String { name }
     }
 
-    struct AsyncTracingCase: CustomTestStringConvertible, Sendable {
-        enum Invocation: Sendable {
+    struct AsyncTracingCase: CustomTestStringConvertible {
+        enum Invocation {
             case dataForRequest
             case dataFromURL
             case uploadForRequest

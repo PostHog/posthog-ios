@@ -10,7 +10,8 @@
 
     /// Session replay plugin that captures network requests using URLSession swizzling.
     final class PostHogSessionReplayNetworkPlugin: PostHogSessionReplayPlugin {
-        private var sessionSwizzler: URLSessionSwizzler?
+        private var interceptor: URLSessionInterceptor?
+        private var registrationId: UUID?
         private weak var postHog: PostHogSDK?
         private var isActive = false
 
@@ -18,15 +19,25 @@
 
         func start(postHog: PostHogSDK) {
             self.postHog = postHog
+
+            let interceptor = URLSessionInterceptor(
+                shouldCapture: shouldCaptureNetworkSample,
+                onCapture: handleNetworkSample,
+                getSessionId: { [weak self] date in
+                    self?.postHog?.sessionManager.getSessionId(at: date)
+                }
+            )
+
             do {
-                sessionSwizzler = try URLSessionSwizzler(
-                    shouldCapture: shouldCaptureNetworkSample,
-                    onCapture: handleNetworkSample,
-                    getSessionId: { [weak self] date in
-                        self?.postHog?.sessionManager.getSessionId(at: date)
+                registrationId = try URLSessionInstrumentation.shared.register(
+                    taskCreated: { [weak interceptor] task, session in
+                        interceptor?.taskCreated(task: task, session: session)
+                    },
+                    taskCompleted: { [weak interceptor] task, error in
+                        interceptor?.taskCompleted(task: task, error: error)
                     }
                 )
-                sessionSwizzler?.swizzle()
+                self.interceptor = interceptor
                 hedgeLog("[Session Replay] Network telemetry plugin started")
                 isActive = true
             } catch {
@@ -35,8 +46,12 @@
         }
 
         func stop() {
-            sessionSwizzler?.unswizzle()
-            sessionSwizzler = nil
+            if let registrationId {
+                URLSessionInstrumentation.shared.unregister(registrationId)
+            }
+            registrationId = nil
+            interceptor?.stop()
+            interceptor = nil
             postHog = nil
             isActive = false
             hedgeLog("[Session Replay] Network telemetry plugin stopped")

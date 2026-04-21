@@ -25,20 +25,30 @@ Pod::Spec.new do |s|
 
   s.frameworks = 'Foundation'
 
-  # PLCrashReporter vendored xcframework (not available on watchOS/visionOS)
-  # Vendored to avoid static_framework = true which would be a breaking change for consumers
-  s.ios.vendored_frameworks = 'vendor/CrashReporter.xcframework'
-  s.osx.vendored_frameworks = 'vendor/CrashReporter.xcframework'
-  s.tvos.vendored_frameworks = 'vendor/CrashReporter.xcframework'
+  # Vendored PLCrashReporter source (not available on watchOS/visionOS)
+  # Namespaced via PLCRASHREPORTER_PREFIX to avoid symbol/module conflicts with app-level PLCrashReporter usage.
   s.libraries = 'c++'
-  s.pod_target_xcconfig = { 'OTHER_LDFLAGS' => '-lc++' }
+  s.pod_target_xcconfig = {
+    'OTHER_LDFLAGS' => '-lc++',
+    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"'
+  }
 
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
-    'vendor/libwebp/**/*.{h,c}'
+    'vendor/libwebp/**/*.{h,c}',
+    'vendor/PHPLCrashReporter/Source/**/*.{h,m,mm,c,cpp}',
+    'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.h',
+    'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.c'
   ]
-  s.resource_bundles = { "PostHog" => "PostHog/Resources/PrivacyInfo.xcprivacy" }
+  s.exclude_files = [
+    'vendor/PHPLCrashReporter/Source/PLCrashReport.proto'
+  ]
+  s.resource_bundles = {
+    'PostHog' => 'PostHog/Resources/PrivacyInfo.xcprivacy',
+    'PHPLCrashReporter' => 'vendor/PHPLCrashReporter/Resources/PrivacyInfo.xcprivacy'
+  }
   
   # Include the upload script for dSYM uploads
-  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PLCrashReporter-LICENSE.txt']
+  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PLCrashReporter-LICENSE.txt', 'vendor/PHPLCrashReporter/LICENSE']
 end

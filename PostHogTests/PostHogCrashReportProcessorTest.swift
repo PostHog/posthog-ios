@@ -10,7 +10,11 @@ import Foundation
 import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    import CrashReporter
+    #if SWIFT_PACKAGE
+        import PHPLCrashReporter
+    #elseif canImport(CrashReporter)
+        import CrashReporter
+    #endif
 
     @Suite("PostHogCrashReportProcessor Tests")
     struct PostHogCrashReportProcessorTest {

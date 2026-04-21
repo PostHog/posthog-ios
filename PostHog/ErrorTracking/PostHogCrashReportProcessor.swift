@@ -8,7 +8,11 @@
 import Foundation
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    import CrashReporter
+    #if SWIFT_PACKAGE
+        import PHPLCrashReporter
+    #elseif canImport(CrashReporter)
+        import CrashReporter
+    #endif
 
     enum PostHogCrashReportProcessor {
         /// Process a PLCrashReport and convert it to PostHog $exception event properties

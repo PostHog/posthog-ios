@@ -8,7 +8,11 @@
 import Foundation
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    import CrashReporter
+    #if SWIFT_PACKAGE
+        import PHPLCrashReporter
+    #elseif canImport(CrashReporter)
+        import CrashReporter
+    #endif
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstalledLock = NSLock()

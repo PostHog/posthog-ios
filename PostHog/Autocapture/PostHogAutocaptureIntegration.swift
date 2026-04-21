@@ -8,8 +8,6 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import UIKit
 
-    private let elementsChainDelimiter = ";"
-
     class PostHogAutocaptureIntegration: AutocaptureEventProcessing, PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
@@ -19,17 +17,23 @@
         private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
-        func install(_ postHog: PostHogSDK) throws {
-            try PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = PostHogAutocaptureIntegration.integrationInstalledLock.withLock {
                 if PostHogAutocaptureIntegration.integrationInstalled {
-                    throw InternalPostHogError(description: "Autocapture integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 PostHogAutocaptureIntegration.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
 
             start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
@@ -118,9 +122,7 @@
                 properties["$screen_name"] = screenName
             }
 
-            let elementsChain = event.viewHierarchy
-                .map(\.elementsChainEntry)
-                .joined(separator: elementsChainDelimiter)
+            let elementsChain = event.getElementChain()
 
             if let coordinates = event.touchCoordinates {
                 properties["$touch_x"] = coordinates.x

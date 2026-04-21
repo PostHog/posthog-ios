@@ -44,7 +44,7 @@ let maxRetryDelay = 30.0
 
     private var api: PostHogApi?
     private var queue: PostHogQueue?
-    private var replayQueue: PostHogQueue?
+    private(set) var replayQueue: PostHogReplayQueue?
     private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -66,13 +66,9 @@ let maxRetryDelay = 30.0
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
-        @objc public nonisolated(unsafe) static let shared: PostHogSDK = {
-            PostHogSDK(PostHogConfig(apiKey: ""))
-        }()
+        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(apiKey: ""))
     #else
-        @objc public static let shared: PostHogSDK = {
-            PostHogSDK(PostHogConfig(apiKey: ""))
-        }()
+        @objc public static let shared: PostHogSDK = .init(PostHogConfig(apiKey: ""))
     #endif
 
     deinit {
@@ -114,6 +110,11 @@ let maxRetryDelay = 30.0
             self.api = api
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
+
+            // Ensure device_id is initialized before remote config loads, so it's
+            // available for flag requests. Seeded from the anonymous ID on first init.
+            _ = config.storageManager?.getDeviceId()
+
             remoteConfig = PostHogRemoteConfig(config, theStorage, api, { [weak self] in
                 self?.getDefaultPersonProperties() ?? [:]
             }, { [weak self] flagKey, flagValue in
@@ -138,10 +139,10 @@ let maxRetryDelay = 30.0
 
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, api, .batch, reachability)
-                replayQueue = PostHogQueue(config, theStorage, api, .snapshot, reachability)
+                replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
             #else
                 queue = PostHogQueue(config, theStorage, api, .batch)
-                replayQueue = PostHogQueue(config, theStorage, api, .snapshot)
+                replayQueue = PostHogReplayQueue(config, theStorage, api)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -194,6 +195,17 @@ let maxRetryDelay = 30.0
         }
 
         return config.storageManager?.getAnonymousId() ?? ""
+    }
+
+    /// Returns the stable device identifier used for device-level feature flag bucketing.
+    /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
+    /// app install, manual cache clearing, or OS-initiated storage cleanup.
+    @objc public func getDeviceId() -> String {
+        if !isEnabled() {
+            return ""
+        }
+
+        return config.storageManager?.getDeviceId() ?? ""
     }
 
     @objc public func getSessionId() -> String? {
@@ -961,8 +973,11 @@ let maxRetryDelay = 30.0
         }
 
         // Session Replay has its own queue
-        if let targetQueue = isSnapshotEvent ? replayQueue : queue {
-            queueEvent(posthogEvent, queue: targetQueue)
+        if isSnapshotEvent {
+            replayQueue?.add(posthogEvent)
+            onEventCaptured.invoke(posthogEvent)
+        } else {
+            queueEvent(posthogEvent, queue: queue)
         }
     }
 
@@ -1026,6 +1041,39 @@ let maxRetryDelay = 30.0
         let properties = buildProperties(distinctId: distinctId, properties: props)
 
         guard let event = buildEvent(event: "$autocapture", distinctId: distinctId, properties: properties) else {
+            return
+        }
+
+        queueEvent(event, queue: queue)
+    }
+
+    func rageclick(
+        eventType: String,
+        elementsChain: String,
+        properties: [String: Any]
+    ) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        guard let queue else {
+            return
+        }
+
+        let props = [
+            "$event_type": eventType,
+            "$elements_chain": elementsChain,
+        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
+
+        let distinctId = getDistinctId()
+
+        let properties = buildProperties(distinctId: distinctId, properties: props)
+
+        guard let event = buildEvent(event: "$rageclick", distinctId: distinctId, properties: properties) else {
             return
         }
 
@@ -1869,6 +1917,10 @@ let maxRetryDelay = 30.0
         @objc public func isAutocaptureActive() -> Bool {
             isEnabled() && config.captureElementInteractions
         }
+
+        @objc public func isRageClickActive() -> Bool {
+            isEnabled() && config.rageClickConfig.enabled
+        }
     #endif
 
     // MARK: - Error Tracking
@@ -1891,8 +1943,6 @@ let maxRetryDelay = 30.0
     ///   - error: The error to capture (can be any Error or NSError)
     ///   - properties: Optional additional properties to attach to the event
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithError:properties:)
     public func captureException(
         _ error: Error,
@@ -1918,8 +1968,6 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter error: The error to capture (can be any Error or NSError)
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithError:)
     public func captureException(
         _ error: Error
@@ -1945,8 +1993,6 @@ let maxRetryDelay = 30.0
     ///   - exception: The NSException to capture
     ///   - properties: Optional additional properties to attach to the event
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithNSException:properties:)
     public func captureException(
         _ exception: NSException,
@@ -1972,8 +2018,6 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter exception: The NSException to capture
     ///
-    /// - Experimental: This is an experimental feature and may change in future releases.
-    @_spi(Experimental)
     @objc(captureExceptionWithNSException:)
     public func captureException(
         _ exception: NSException
@@ -1997,25 +2041,25 @@ let maxRetryDelay = 30.0
                 continue
             }
 
-            do {
-                try integration.install(self)
-                installed.append(integration)
-
-                #if os(iOS)
-                    // TODO: Decouple these two integrations from PostHogSDK intance
-                    if let replayIntegration = integration as? PostHogReplayIntegration {
-                        self.replayIntegration = replayIntegration
-                    }
-
-                    if let surveysIntegration = integration as? PostHogSurveyIntegration {
-                        self.surveysIntegration = surveysIntegration
-                    }
-                #endif
-
-                hedgeLog("Integration \(type(of: integration)) installed")
-            } catch {
-                hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
+            if case let .skipped(reason) = integration.install(self) {
+                hedgeLog("Integration \(type(of: integration)) skipped: \(reason)")
+                continue
             }
+
+            installed.append(integration)
+
+            #if os(iOS)
+                // TODO: Decouple these two integrations from PostHogSDK intance
+                if let replayIntegration = integration as? PostHogReplayIntegration {
+                    self.replayIntegration = replayIntegration
+                }
+
+                if let surveysIntegration = integration as? PostHogSurveyIntegration {
+                    self.surveysIntegration = surveysIntegration
+                }
+            #endif
+
+            hedgeLog("Integration \(type(of: integration)) installed")
         }
 
         installedIntegrations = installed
@@ -2026,15 +2070,16 @@ let maxRetryDelay = 30.0
             guard replayIntegration == nil else { return }
 
             let integration = PostHogReplayIntegration()
-            do {
-                try integration.install(self)
-                installedIntegrations.append(integration)
-                replayIntegration = integration
-
-                hedgeLog("Integration \(type(of: integration)) installed")
-            } catch {
-                hedgeLog("Integration \(type(of: integration)) failed to install: \(error)")
+            let installOutcome = integration.install(self)
+            if case let .skipped(reason) = installOutcome {
+                hedgeLog("Integration \(type(of: integration)) skipped: \(reason)")
+                return
             }
+
+            installedIntegrations.append(integration)
+            replayIntegration = integration
+
+            hedgeLog("Integration \(type(of: integration)) installed")
         }
     #endif
 
@@ -2208,6 +2253,12 @@ let maxRetryDelay = 30.0
             func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
                 installedIntegrations.compactMap {
                     $0 as? PostHogAutocaptureIntegration
+                }.first
+            }
+
+            func getRageClickIntegration() -> PostHogRageClickIntegration? {
+                installedIntegrations.compactMap {
+                    $0 as? PostHogRageClickIntegration
                 }.first
             }
         #endif

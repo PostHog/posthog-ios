@@ -45,6 +45,10 @@ import Foundation
     /// Optional placeholder text for input fields
     public let placeholder: String?
 
+    // Display
+    /// Optional delay in seconds before showing the survey
+    public let surveyPopupDelaySeconds: TimeInterval?
+
     // Thank you message
     /// Whether to show a thank you message after survey completion
     public let displayThankYouMessage: Bool
@@ -71,6 +75,7 @@ import Foundation
         inputBackground: String?,
         inputTextColor: String?,
         placeholder: String?,
+        surveyPopupDelaySeconds: TimeInterval?,
         displayThankYouMessage: Bool,
         thankYouMessageHeader: String?,
         thankYouMessageDescription: String?,
@@ -90,6 +95,7 @@ import Foundation
         self.inputBackground = inputBackground
         self.inputTextColor = inputTextColor
         self.placeholder = placeholder
+        self.surveyPopupDelaySeconds = surveyPopupDelaySeconds
         self.displayThankYouMessage = displayThankYouMessage
         self.thankYouMessageHeader = thankYouMessageHeader
         self.thankYouMessageDescription = thankYouMessageDescription

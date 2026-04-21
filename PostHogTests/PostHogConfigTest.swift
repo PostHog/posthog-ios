@@ -39,6 +39,22 @@ class PostHogConfigTest: QuickSpec {
             expect(config.apiKey) == testAPIKey
         }
 
+        it("trims whitespace-sensitive config values") {
+            let config = PostHogConfig(
+                apiKey: " \n\(testAPIKey)\t ",
+                host: " \nhttps://eu.i.posthog.com/\t "
+            )
+
+            expect(config.apiKey) == testAPIKey
+            expect(config.host) == URL(string: "https://eu.i.posthog.com/")
+        }
+
+        it("defaults a blank host after trimming whitespace") {
+            let config = PostHogConfig(apiKey: testAPIKey, host: " \n\t ")
+
+            expect(config.host) == URL(string: PostHogConfig.defaultHost)
+        }
+
         it("init takes host") {
             let config = PostHogConfig(apiKey: testAPIKey, host: "localhost:9000")
 

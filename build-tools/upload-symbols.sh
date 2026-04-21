@@ -74,7 +74,23 @@ else
 fi
 
 if [ -z "$PH_CLI_PATH" ] || [ ! -x "$PH_CLI_PATH" ]; then
-    echo "error: posthog-cli not found, install with: npm install -g @posthog/cli"
+    echo "error: posthog-cli not found, install with: npm install -g @posthog/cli@latest"
+    exit 1
+fi
+
+# Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
+MIN_POSTHOG_CLI_VERSION="0.7.7"
+PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | awk '{print $NF}' | tr -d 'v')
+
+if [ -z "$PH_CLI_VERSION" ]; then
+    echo "error: could not determine posthog-cli version. Upgrade: npm install -g @posthog/cli@latest"
+    exit 1
+fi
+
+# Compare versions: lowest sorted == min required means current >= min
+LOWEST=$(printf '%s\n%s\n' "$MIN_POSTHOG_CLI_VERSION" "$PH_CLI_VERSION" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)
+if [ "$LOWEST" != "$MIN_POSTHOG_CLI_VERSION" ]; then
+    echo "error: posthog-cli >= ${MIN_POSTHOG_CLI_VERSION} required (found ${PH_CLI_VERSION}). Upgrade: npm install -g @posthog/cli@latest"
     exit 1
 fi
 
@@ -88,10 +104,10 @@ fi
 
 # Pass version info from Xcode build settings (overrides plist extraction)
 if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
-    CLI_ARGS="$CLI_ARGS --project $PRODUCT_BUNDLE_IDENTIFIER"
+    CLI_ARGS="$CLI_ARGS --release-name $PRODUCT_BUNDLE_IDENTIFIER"
 fi
 if [ -n "${MARKETING_VERSION}" ]; then
-    CLI_ARGS="$CLI_ARGS --version $MARKETING_VERSION"
+    CLI_ARGS="$CLI_ARGS --release-version $MARKETING_VERSION"
 fi
 if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
     CLI_ARGS="$CLI_ARGS --build $CURRENT_PROJECT_VERSION"

@@ -541,7 +541,8 @@ enum PostHogSurveysTest {
 
             PostHogSurveyIntegration.clearInstalls()
             integration = PostHogSurveyIntegration()
-            try integration.install(postHog)
+            let installOutcome = integration.install(postHog)
+            try #require(installOutcome == .installed)
         }
 
         deinit {
@@ -589,7 +590,8 @@ enum PostHogSurveysTest {
 
             PostHogSurveyIntegration.clearInstalls()
             integration = PostHogSurveyIntegration()
-            try integration.install(postHog)
+            let installOutcome = integration.install(postHog)
+            try #require(installOutcome == .installed)
         }
 
         @Test("activates survey when event name and properties match")
@@ -1044,7 +1046,8 @@ enum PostHogSurveysTest {
             server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
             let sut = PostHogSurveyIntegration()
             PostHogSurveyIntegration.clearInstalls()
-            try! sut.install(postHog)
+            let installOutcome = sut.install(postHog)
+            #expect(installOutcome == .installed)
             return sut
         }
 
@@ -1214,7 +1217,8 @@ enum PostHogSurveysTest {
             server.remoteConfigSurveys = "[\(surveys.joined(separator: ","))]"
             let sut = PostHogSurveyIntegration()
             PostHogSurveyIntegration.clearInstalls()
-            try! sut.install(postHog)
+            let installOutcome = sut.install(postHog)
+            #expect(installOutcome == .installed)
             return sut
         }
 
@@ -1715,6 +1719,50 @@ enum PostHogSurveysTest {
                     #expect(isCompleted == false)
                 }
             }
+        }
+    }
+
+    @Suite("Test survey to display model mapping")
+    struct TestSurveyToDisplayMapping {
+        private func makeAppearance(delay: TimeInterval?) -> PostHogSurveyAppearance {
+            PostHogSurveyAppearance(
+                position: nil, fontFamily: nil, backgroundColor: nil,
+                submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
+                textColor: nil, descriptionTextColor: nil, ratingButtonColor: nil,
+                ratingButtonActiveColor: nil, ratingButtonHoverColor: nil,
+                inputBackground: nil, inputTextColor: nil, whiteLabel: nil,
+                autoDisappear: nil, displayThankYouMessage: nil,
+                thankYouMessageHeader: nil, thankYouMessageDescription: nil,
+                thankYouMessageDescriptionContentType: nil,
+                thankYouMessageCloseButtonText: nil, borderColor: nil,
+                placeholder: nil, shuffleQuestions: nil,
+                surveyPopupDelaySeconds: delay,
+                widgetType: nil, widgetSelector: nil, widgetLabel: nil, widgetColor: nil
+            )
+        }
+
+        @Test("maps surveyPopupDelaySeconds to display survey appearance")
+        func mapsPopupDelaySecondsToDisplayAppearance() {
+            let survey = PostHogSurvey.testInstance(
+                name: "delay-mapped",
+                appearance: makeAppearance(delay: 7)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == 7)
+        }
+
+        @Test("keeps popup delay nil on display survey appearance when missing")
+        func keepsPopupDelayNilWhenMissing() {
+            let survey = PostHogSurvey.testInstance(
+                name: "delay-missing",
+                appearance: makeAppearance(delay: nil)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
         }
     }
 }

@@ -88,6 +88,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Enable autocapture for iOS
         /// Default: false
         @objc public var captureElementInteractions: Bool = false
+
+        /// Rage click detection configuration
+        @objc public let rageClickConfig: PostHogRageClickConfig = .init()
     #endif
     @objc public var debug: Bool = false
     @objc public var optOut: Bool = false
@@ -182,8 +185,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         @objc public let sessionReplayConfig: PostHogSessionReplayConfig = .init()
     #endif
 
-    /// Configuration for error tracking (Experimental)
-    @_spi(Experimental)
+    /// Configuration for error tracking.
+    ///
+    /// See known limitations: https://posthog.com/docs/error-tracking/installation/ios#limitations
     @objc public let errorTrackingConfig: PostHogErrorTrackingConfig = .init()
 
     /// Enable mobile surveys
@@ -225,11 +229,19 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     // internal
     public var storageManager: PostHogStorageManager?
 
+    private static func normalizeApiKey(_ apiKey: String) -> String {
+        let normalizedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedApiKey.isEmpty {
+            hedgeLog("apiKey is empty after trimming whitespace; check your project API key")
+        }
+        return normalizedApiKey
+    }
+
     @objc(apiKey:)
     public init(
         apiKey: String
     ) {
-        self.apiKey = apiKey
+        self.apiKey = Self.normalizeApiKey(apiKey)
         host = URL(string: PostHogConfig.defaultHost)!
     }
 
@@ -238,8 +250,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         apiKey: String,
         host: String = defaultHost
     ) {
-        self.apiKey = apiKey
-        self.host = URL(string: host) ?? URL(string: PostHogConfig.defaultHost)!
+        let normalizedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.apiKey = Self.normalizeApiKey(apiKey)
+        self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
     }
 
     /// Returns an array of integrations to be installed based on current configuration
@@ -274,6 +288,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #if os(iOS) || targetEnvironment(macCatalyst)
             if captureElementInteractions {
                 integrations.append(PostHogAutocaptureIntegration())
+            }
+
+            if rageClickConfig.enabled {
+                integrations.append(PostHogRageClickIntegration())
             }
         #endif
 

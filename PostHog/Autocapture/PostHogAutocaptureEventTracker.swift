@@ -9,6 +9,8 @@
     import UIKit
 
     class PostHogAutocaptureEventTracker {
+        private static let elementsChainDelimiter = ";"
+
         struct EventData {
             let touchCoordinates: CGPoint?
             let value: String?
@@ -16,6 +18,12 @@
             let viewHierarchy: [Element]
             // values >0 means that this event will be debounced for `debounceInterval`
             let debounceInterval: TimeInterval
+
+            func getElementChain() -> String {
+                viewHierarchy
+                    .map(\.elementsChainEntry)
+                    .joined(separator: PostHogAutocaptureEventTracker.elementsChainDelimiter)
+            }
         }
 
         struct Element {
@@ -265,9 +273,13 @@
 
     extension UIView {
         var eventData: PostHogAutocaptureEventTracker.EventData? {
+            eventData(touchCoordinates: nil)
+        }
+
+        func eventData(touchCoordinates: CGPoint?) -> PostHogAutocaptureEventTracker.EventData? {
             guard shouldTrack(self) else { return nil }
             return PostHogAutocaptureEventTracker.EventData(
-                touchCoordinates: nil,
+                touchCoordinates: touchCoordinates,
                 value: ph_autocaptureText
                     .map(sanitizeText),
                 screenName: nearestViewController

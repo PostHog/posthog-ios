@@ -188,6 +188,7 @@ class PostHogApi {
     func flags(
         distinctId: String,
         anonymousId: String?,
+        deviceId: String? = nil,
         groups: [String: String],
         personProperties: [String: Any],
         groupProperties: [String: [String: Any]]? = nil,
@@ -217,6 +218,10 @@ class PostHogApi {
 
         if let anonymousId {
             toSend["$anon_distinct_id"] = anonymousId
+        }
+
+        if let deviceId {
+            toSend["$device_id"] = deviceId
         }
 
         if !personProperties.isEmpty {

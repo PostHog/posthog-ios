@@ -99,7 +99,6 @@ class PostHogIntegrationInstallationTest {
         second.close()
     }
 
-
     @Test("screen view integration installed only once, on first instance")
     func screenViewIntegrationInstalledOnce() async {
         let first = getSut(projectToken: "test_project_token", captureScreenViews: true)

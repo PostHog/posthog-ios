@@ -217,11 +217,19 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     // internal
     public var storageManager: PostHogStorageManager?
 
+    private static func normalizeApiKey(_ apiKey: String) -> String {
+        let normalizedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedApiKey.isEmpty {
+            hedgeLog("apiKey is empty after trimming whitespace; check your project API key")
+        }
+        return normalizedApiKey
+    }
+
     @objc(apiKey:)
     public init(
         apiKey: String
     ) {
-        self.apiKey = apiKey
+        self.apiKey = Self.normalizeApiKey(apiKey)
         host = URL(string: PostHogConfig.defaultHost)!
     }
 
@@ -230,8 +238,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         apiKey: String,
         host: String = defaultHost
     ) {
-        self.apiKey = apiKey
-        self.host = URL(string: host) ?? URL(string: PostHogConfig.defaultHost)!
+        let normalizedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.apiKey = Self.normalizeApiKey(apiKey)
+        self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
     }
 
     /// Returns an array of integrations to be installed based on current configuration

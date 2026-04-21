@@ -57,25 +57,22 @@
         private var cachedHostnames: [String] = []
         private var normalizedHostnames = Set<String>()
 
-        func install(_ postHog: PostHogSDK) throws {
-            try Self.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = Self.integrationInstalledLock.withLock {
                 if Self.integrationInstalled {
-                    throw InternalPostHogError(description: "Tracing headers integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 Self.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
-
-            do {
-                try startInstrumentation()
-            } catch {
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
-                }
-                self.postHog = nil
-                throw error
-            }
+            start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {

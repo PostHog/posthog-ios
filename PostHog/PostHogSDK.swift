@@ -63,7 +63,6 @@ let maxRetryDelay = 30.0
         private weak var replayIntegration: PostHogReplayIntegration?
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
-    
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
@@ -2012,7 +2011,6 @@ let maxRetryDelay = 30.0
                         self.surveysIntegration = surveysIntegration
                     }
                 #endif
-                
 
                 hedgeLog("Integration \(type(of: integration)) installed")
             } catch {

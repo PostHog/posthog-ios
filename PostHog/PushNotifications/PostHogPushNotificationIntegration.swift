@@ -78,33 +78,18 @@
 
         // MARK: - UNUserNotificationCenter Delegate Setter Swizzling
 
+        private static let delegateSetterOriginal = #selector(setter: UNUserNotificationCenter.delegate)
+        private static let delegateSetterSwizzled = #selector(UNUserNotificationCenter.ph_swizzled_setDelegate(_:))
+
         /// Swizzle the `delegate` property setter on UNUserNotificationCenter
         /// so we can intercept whenever any code sets a new delegate.
         private func swizzleNotificationCenterDelegateSetter() {
-            let originalSelector = #selector(setter: UNUserNotificationCenter.delegate)
-            let swizzledSelector = #selector(UNUserNotificationCenter.ph_swizzled_setDelegate(_:))
-
-            guard let originalMethod = class_getInstanceMethod(UNUserNotificationCenter.self, originalSelector),
-                  let swizzledMethod = class_getInstanceMethod(UNUserNotificationCenter.self, swizzledSelector)
-            else {
-                hedgeLog("Failed to swizzle UNUserNotificationCenter.delegate setter")
-                return
-            }
-
-            method_exchangeImplementations(originalMethod, swizzledMethod)
+            swizzle(forClass: UNUserNotificationCenter.self, original: Self.delegateSetterOriginal, new: Self.delegateSetterSwizzled)
         }
 
         private func unswizzleNotificationCenterDelegateSetter() {
-            let originalSelector = #selector(setter: UNUserNotificationCenter.delegate)
-            let swizzledSelector = #selector(UNUserNotificationCenter.ph_swizzled_setDelegate(_:))
-
-            guard let originalMethod = class_getInstanceMethod(UNUserNotificationCenter.self, originalSelector),
-                  let swizzledMethod = class_getInstanceMethod(UNUserNotificationCenter.self, swizzledSelector)
-            else {
-                return
-            }
-
-            method_exchangeImplementations(originalMethod, swizzledMethod)
+            // Calling swizzle again reverses the exchange
+            swizzle(forClass: UNUserNotificationCenter.self, original: Self.delegateSetterOriginal, new: Self.delegateSetterSwizzled)
 
             Self.swizzledDelegateClassesLock.withLock {
                 Self.swizzledDelegateClasses.removeAll()
@@ -121,53 +106,15 @@
                 swizzledDelegateClasses.insert(classId)
             }
 
-            let originalSelector = #selector(
-                UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)
+            swizzleAddingIfNeeded(
+                on: delegateClass,
+                original: #selector(
+                    UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)
+                ),
+                swizzled: #selector(
+                    NSObject.ph_swizzled_userNotificationCenter(_:didReceive:withCompletionHandler:)
+                )
             )
-            let swizzledSelector = #selector(
-                NSObject.ph_swizzled_userNotificationCenter(_:didReceive:withCompletionHandler:)
-            )
-
-            guard let swizzledMethod = class_getInstanceMethod(NSObject.self, swizzledSelector) else {
-                hedgeLog("Push notification engagement: swizzled method not found")
-                return
-            }
-
-            if let originalMethod = class_getInstanceMethod(delegateClass, originalSelector) {
-                let didAdd = class_addMethod(
-                    delegateClass,
-                    swizzledSelector,
-                    method_getImplementation(originalMethod),
-                    method_getTypeEncoding(originalMethod)
-                )
-                if didAdd {
-                    class_replaceMethod(
-                        delegateClass,
-                        originalSelector,
-                        method_getImplementation(swizzledMethod),
-                        method_getTypeEncoding(swizzledMethod)
-                    )
-                } else {
-                    method_exchangeImplementations(originalMethod, swizzledMethod)
-                }
-            } else {
-                // The class doesn't implement the method — add our implementation under the original selector
-                class_addMethod(
-                    delegateClass,
-                    originalSelector,
-                    method_getImplementation(swizzledMethod),
-                    method_getTypeEncoding(swizzledMethod)
-                )
-                // Add a no-op under the swizzled selector so the call-through doesn't recurse
-                let noopBlock: @convention(block) () -> Void = {}
-                let noopImp = imp_implementationWithBlock(noopBlock)
-                class_addMethod(
-                    delegateClass,
-                    swizzledSelector,
-                    noopImp,
-                    method_getTypeEncoding(swizzledMethod)
-                )
-            }
         }
 
         // MARK: - App Delegate Swizzling
@@ -191,82 +138,17 @@
 
             Self.swizzledAppDelegateClass = appDelegateClass
 
-            // Swizzle didRegisterForRemoteNotificationsWithDeviceToken
-            swizzleMethod(
-                on: appDelegateClass,
-                original: Self.didRegisterSelector,
-                swizzled: Self.swizzledDidRegisterSelector
-            )
-
-            // Swizzle didFailToRegisterForRemoteNotificationsWithError
-            swizzleMethod(
-                on: appDelegateClass,
-                original: Self.didFailSelector,
-                swizzled: Self.swizzledDidFailSelector
-            )
+            swizzleAddingIfNeeded(on: appDelegateClass, original: Self.didRegisterSelector, swizzled: Self.swizzledDidRegisterSelector)
+            swizzleAddingIfNeeded(on: appDelegateClass, original: Self.didFailSelector, swizzled: Self.swizzledDidFailSelector)
         }
 
         private func unswizzleAppDelegateMethods() {
             guard let appDelegateClass = Self.swizzledAppDelegateClass else { return }
 
-            if let original = class_getInstanceMethod(appDelegateClass, Self.didRegisterSelector),
-               let swizzled = class_getInstanceMethod(appDelegateClass, Self.swizzledDidRegisterSelector)
-            {
-                method_exchangeImplementations(original, swizzled)
-            }
-
-            if let original = class_getInstanceMethod(appDelegateClass, Self.didFailSelector),
-               let swizzled = class_getInstanceMethod(appDelegateClass, Self.swizzledDidFailSelector)
-            {
-                method_exchangeImplementations(original, swizzled)
-            }
+            swizzle(forClass: appDelegateClass, original: Self.didRegisterSelector, new: Self.swizzledDidRegisterSelector)
+            swizzle(forClass: appDelegateClass, original: Self.didFailSelector, new: Self.swizzledDidFailSelector)
 
             Self.swizzledAppDelegateClass = nil
-        }
-
-        /// Swizzle a single method on a target class, handling the case where the class
-        /// doesn't already implement the method.
-        private func swizzleMethod(on targetClass: AnyClass, original: Selector, swizzled: Selector) {
-            guard let swizzledMethod = class_getInstanceMethod(NSObject.self, swizzled) else {
-                hedgeLog("Push notifications: swizzled method not found for \(swizzled)")
-                return
-            }
-
-            if let originalMethod = class_getInstanceMethod(targetClass, original) {
-                let didAdd = class_addMethod(
-                    targetClass,
-                    swizzled,
-                    method_getImplementation(originalMethod),
-                    method_getTypeEncoding(originalMethod)
-                )
-                if didAdd {
-                    class_replaceMethod(
-                        targetClass,
-                        original,
-                        method_getImplementation(swizzledMethod),
-                        method_getTypeEncoding(swizzledMethod)
-                    )
-                } else {
-                    method_exchangeImplementations(originalMethod, swizzledMethod)
-                }
-            } else {
-                // Target class doesn't implement the method — add our version under the original selector
-                class_addMethod(
-                    targetClass,
-                    original,
-                    method_getImplementation(swizzledMethod),
-                    method_getTypeEncoding(swizzledMethod)
-                )
-                // Add a no-op under the swizzled selector so the call-through doesn't recurse
-                let noopBlock: @convention(block) () -> Void = {}
-                let noopImp = imp_implementationWithBlock(noopBlock)
-                class_addMethod(
-                    targetClass,
-                    swizzled,
-                    noopImp,
-                    method_getTypeEncoding(swizzledMethod)
-                )
-            }
         }
 
         // MARK: - Selectors

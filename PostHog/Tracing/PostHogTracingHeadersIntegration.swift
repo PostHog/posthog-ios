@@ -53,8 +53,6 @@
 
         private weak var postHog: PostHogSDK?
         private var registrationId: UUID?
-        private let normalizedHostnamesLock = NSLock()
-        private var cachedHostnames: [String] = []
         private var normalizedHostnames = Set<String>()
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
@@ -71,6 +69,7 @@
             }
 
             self.postHog = postHog
+            normalizedHostnames = PostHogTracingHeaders.normalizeHostnames(postHog.config.tracingHeaders ?? [])
             start()
             return .installed
         }
@@ -79,6 +78,7 @@
             if self.postHog === postHog || self.postHog == nil {
                 stop()
                 self.postHog = nil
+                normalizedHostnames = []
                 Self.integrationInstalledLock.withLock {
                     Self.integrationInstalled = false
                 }
@@ -119,23 +119,10 @@
 
             return PostHogTracingHeaders.addingHeaders(
                 to: request,
-                hostnames: getNormalizedHostnames(for: postHog),
+                hostnames: normalizedHostnames,
                 distinctId: postHog.getDistinctId(),
                 sessionId: postHog.sessionManager.getSessionId(readOnly: true)
             )
-        }
-
-        private func getNormalizedHostnames(for postHog: PostHogSDK) -> Set<String> {
-            let hostnames = postHog.config.addTracingHeaders ?? []
-
-            return normalizedHostnamesLock.withLock {
-                if hostnames != cachedHostnames {
-                    cachedHostnames = hostnames
-                    normalizedHostnames = PostHogTracingHeaders.normalizeHostnames(hostnames)
-                }
-
-                return normalizedHostnames
-            }
         }
     }
 

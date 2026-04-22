@@ -188,7 +188,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// - Hostname matching is exact and does not include ports or subdomain wildcards
         /// - iOS does not send `X-POSTHOG-WINDOW-ID` because mobile apps do not have a per-window/tab concept
         /// - Existing values for these headers will be overwritten
-        @objc public var addTracingHeaders: [String]?
+        @objc public var tracingHeaders: [String]?
 
         /// Enable Recording of Session Replays for iOS
         ///
@@ -310,7 +310,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         }
 
         #if os(iOS)
-            if addTracingHeaders?.isEmpty == false {
+            if tracingHeaders?.isEmpty == false {
                 integrations.append(PostHogTracingHeadersIntegration())
             }
 

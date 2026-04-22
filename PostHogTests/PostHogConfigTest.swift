@@ -97,7 +97,7 @@ class PostHogConfigTest: QuickSpec {
             context("when initialized with default tracing headers configuration") {
                 it("should disable tracing headers by default") {
                     let sut = PostHogConfig(apiKey: testAPIKey)
-                    expect(sut.addTracingHeaders).to(beNil())
+                    expect(sut.tracingHeaders).to(beNil())
                 }
             }
 

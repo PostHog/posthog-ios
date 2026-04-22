@@ -71,7 +71,7 @@
 
         @Test("adds distinct and session tracing headers to listed hosts for classic URLSession APIs", arguments: classicCases)
         func addsHeadersToListedHostsForClassicURLSessionAPIs(_ testCase: ClassicTracingCase) async throws {
-            try await withTracingSut(addTracingHeaders: [Self.primaryHost]) { sut in
+            try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
                 let capture = CapturedRequest()
                 stubRequest(host: Self.primaryHost, capture: capture)
 
@@ -85,7 +85,7 @@
 
         @Test("normalizes configured hostnames while keeping exact host matching")
         func normalizesConfiguredHostnamesWhileKeepingExactHostMatching() async throws {
-            try await withTracingSut(addTracingHeaders: ["  API.EXAMPLE.COM  "]) { sut in
+            try await withTracingSut(tracingHeaders: ["  API.EXAMPLE.COM  "]) { sut in
                 let matchingCapture = CapturedRequest()
                 stubRequest(host: Self.primaryHost, capture: matchingCapture)
 
@@ -112,7 +112,7 @@
                 return
             }
 
-            try await withTracingSut(addTracingHeaders: [Self.primaryHost]) { sut in
+            try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
                 let capture = CapturedRequest()
                 stubRequest(host: Self.primaryHost, capture: capture)
 
@@ -153,7 +153,7 @@
 
         @Test("does not add tracing headers to unlisted hosts for URL data tasks")
         func doesNotAddHeadersToUnlistedHostsForURLDataTasks() async throws {
-            try await withTracingSut(addTracingHeaders: [Self.primaryHost]) { _ in
+            try await withTracingSut(tracingHeaders: [Self.primaryHost]) { _ in
                 let capture = CapturedRequest()
                 stubRequest(host: Self.otherHost, capture: capture)
 
@@ -166,7 +166,7 @@
 
         @Test("keeps distinct id header but omits session tracing headers when the session has ended")
         func omitsSessionHeadersWhenSessionHasEnded() async throws {
-            try await withTracingSut(addTracingHeaders: [Self.primaryHost]) { sut in
+            try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
                 sut.endSession()
 
                 let capture = CapturedRequest()
@@ -180,13 +180,13 @@
         }
 
         private func withTracingSut<T>(
-            addTracingHeaders: [String],
+            tracingHeaders: [String],
             _ body: (PostHogSDK) async throws -> T
         ) async throws -> T {
             PostHogTracingHeadersIntegration.clearInstalls()
             HTTPStubs.removeAllStubs()
 
-            let sut = makeSut(addTracingHeaders: addTracingHeaders)
+            let sut = makeSut(tracingHeaders: tracingHeaders)
             defer {
                 sut.close()
                 HTTPStubs.removeAllStubs()
@@ -267,9 +267,9 @@
             try #require(URL(string: "https://\(host)/test"))
         }
 
-        private func makeSut(addTracingHeaders: [String]) -> PostHogSDK {
+        private func makeSut(tracingHeaders: [String]) -> PostHogSDK {
             let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
-            config.addTracingHeaders = addTracingHeaders
+            config.tracingHeaders = tracingHeaders
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.disableReachabilityForTesting = true

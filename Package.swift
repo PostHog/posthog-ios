@@ -71,6 +71,7 @@ let package = Package(
                 .define("PLCF_RELEASE_BUILD"),
                 .define("SWIFT_PACKAGE"),
                 .headerSearchPath("Dependencies/protobuf-c"),
+                .headerSearchPath("Dependencies/protobuf-c/protobuf-c"),
                 .headerSearchPath("Source"),
             ],
             linkerSettings: [

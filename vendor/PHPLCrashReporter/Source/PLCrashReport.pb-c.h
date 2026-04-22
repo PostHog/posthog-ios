@@ -5,7 +5,7 @@
 #define PROTOBUF_C_PLCrashReport_2eproto__INCLUDED
 
 #include "PLCrashNamespace.h"
-#include <protobuf-c/protobuf-c.h>
+#include "protobuf-c.h"
 
 PROTOBUF_C__BEGIN_DECLS
 

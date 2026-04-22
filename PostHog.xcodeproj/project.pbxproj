@@ -3060,11 +3060,12 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLCF_RELEASE_BUILD,
-				
-					PLCR_PRIVATE,);
+					PLCR_PRIVATE,
+				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
+					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 			};
@@ -3114,15 +3115,15 @@
 				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 
-				GCC_PREPROCES
+				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLCF_RELEASE_BUILD,
-				
-					PLCR_PRIVATE,RELEASE_BUILD,
+					PLCR_PRIVATE,
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
+					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 			};
@@ -3587,15 +3588,15 @@
 				TVOS_DEPLOYMENT_TARGET = 13.0;
 				WATCHOS_DEPLOYMENT_TARGET = 6.0;
 				XROS_DEPLOYMENT_TARGET = 1.0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLCF_RELEASE_BUILD,
-				
-					PLCR_PRIVATE,rited)",
-					PLCF_RELEASE_BUILD,
+					PLCR_PRIVATE,
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
+					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 			};

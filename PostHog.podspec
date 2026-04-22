@@ -26,20 +26,29 @@ Pod::Spec.new do |s|
   s.frameworks = 'Foundation'
 
   # Vendored PLCrashReporter source (not available on watchOS/visionOS)
-  # Namespaced via PLCRASHREPORTER_PREFIX to avoid symbol/module conflicts with app-level PLCrashReporter usage.
   s.libraries = 'c++'
   s.pod_target_xcconfig = {
     'OTHER_LDFLAGS' => '-lc++',
-    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD',
-    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"'
+    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD SWIFT_PACKAGE',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"'
   }
 
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
     'vendor/libwebp/**/*.{h,c}',
-    'vendor/PHPLCrashReporter/Source/**/*.{h,m,mm,c,cpp}',
+    'vendor/PHPLCrashReporter/Source/**/*.{h,m,mm,c,cpp,S}',
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.h',
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.c'
+  ]
+
+  # Crash reporting is not supported on watchOS/visionOS
+  s.watchos.exclude_files = [
+    'vendor/PHPLCrashReporter/Source/**/*',
+    'vendor/PHPLCrashReporter/Dependencies/**/*'
+  ]
+  s.visionos.exclude_files = [
+    'vendor/PHPLCrashReporter/Source/**/*',
+    'vendor/PHPLCrashReporter/Dependencies/**/*'
   ]
   s.exclude_files = [
     'vendor/PHPLCrashReporter/Source/PLCrashReport.proto'

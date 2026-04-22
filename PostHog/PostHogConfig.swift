@@ -80,8 +80,8 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         ///
         /// Requires `enableSwizzling` to be `true`.
         ///
-        /// Default: true
-        @objc public var capturePushNotificationSubscriptions: Bool = true
+        /// Default: false
+        @objc public var capturePushNotificationSubscriptions: Bool = false
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
@@ -297,7 +297,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         #if os(iOS) || os(macOS)
             if #available(iOS 14.0, macOS 11.0, *) {
-                if capturePushNotificationSubscriptions {
+                if capturePushNotificationSubscriptions, enableSwizzling {
                     integrations.append(PostHogPushNotificationIntegration())
                 }
             }

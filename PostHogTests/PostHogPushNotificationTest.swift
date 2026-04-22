@@ -51,13 +51,11 @@
 
         // MARK: - Device Token Handling Tests
 
-        @Test("handlePushNotificationDeviceToken converts token to hex string and sends subscription")
+        @Test("handlePushNotificationDeviceToken sends subscription")
         func handleDeviceTokenSendsSubscription() async throws {
             let sut = getSut()
 
-            // Create a known device token
-            let tokenBytes: [UInt8] = [0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03, 0x04]
-            let deviceToken = Data(tokenBytes)
+            let deviceToken = "deadbeef01020304"
 
             sut.handlePushNotificationDeviceToken(deviceToken)
 
@@ -86,8 +84,7 @@
 
             let sut = PostHogSDK.with(config)
 
-            let tokenBytes: [UInt8] = [0xDE, 0xAD, 0xBE, 0xEF]
-            let deviceToken = Data(tokenBytes)
+            let deviceToken = "deadbeef"
 
             // Should return early without crashing
             sut.handlePushNotificationDeviceToken(deviceToken)
@@ -97,17 +94,17 @@
 
         // MARK: - Config Default Tests
 
-        @Test("capturePushNotificationSubscriptions defaults to true")
-        func configDefaultsToTrue() {
+        @Test("capturePushNotificationSubscriptions defaults to false")
+        func configDefaultsToFalse() {
             let config = PostHogConfig(apiKey: testAPIKey)
-            #expect(config.capturePushNotificationSubscriptions == true)
+            #expect(config.capturePushNotificationSubscriptions == false)
         }
 
-        @Test("capturePushNotificationSubscriptions can be set to false")
-        func configCanBeDisabled() {
+        @Test("capturePushNotificationSubscriptions can be set to true")
+        func configCanBeEnabled() {
             let config = PostHogConfig(apiKey: testAPIKey)
-            config.capturePushNotificationSubscriptions = false
-            #expect(config.capturePushNotificationSubscriptions == false)
+            config.capturePushNotificationSubscriptions = true
+            #expect(config.capturePushNotificationSubscriptions == true)
         }
 
         // MARK: - getIntegrations Tests
@@ -139,13 +136,8 @@
             config.enableSwizzling = false
 
             let integrations = config.getIntegrations()
-            // getIntegrations still returns it, but installIntegrations would skip it
             let hasPushIntegration = integrations.contains { $0 is PostHogPushNotificationIntegration }
-            #expect(hasPushIntegration)
-
-            // Verify requiresSwizzling is true for this integration
-            let pushIntegration = integrations.first { $0 is PostHogPushNotificationIntegration }
-            #expect(pushIntegration?.requiresSwizzling == true)
+            #expect(!hasPushIntegration)
         }
 
         // MARK: - Push Subscription Persistence Tests

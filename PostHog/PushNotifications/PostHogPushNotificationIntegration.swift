@@ -257,7 +257,8 @@
                 _ application: UIApplication,
                 didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
             ) {
-                PostHogSDK.shared.handlePushNotificationDeviceToken(deviceToken)
+                let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
+                PostHogSDK.shared.handlePushNotificationDeviceToken(tokenString)
                 // Call the original implementation if it existed
                 ph_swizzled_application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
             }
@@ -275,7 +276,8 @@
                 _ application: NSApplication,
                 didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
             ) {
-                PostHogSDK.shared.handlePushNotificationDeviceToken(deviceToken)
+                let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
+                PostHogSDK.shared.handlePushNotificationDeviceToken(tokenString)
                 // Call the original implementation if it existed
                 ph_swizzled_application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
             }

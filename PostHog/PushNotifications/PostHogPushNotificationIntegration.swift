@@ -31,17 +31,23 @@
         // Track the app delegate class we swizzled so we can restore it
         private static var swizzledAppDelegateClass: AnyClass?
 
-        func install(_ postHog: PostHogSDK) throws {
-            try Self.integrationInstalledLock.withLock {
+        func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
+            let didInstall = Self.integrationInstalledLock.withLock {
                 if Self.integrationInstalled {
-                    throw InternalPostHogError(description: "Push notification engagement integration already installed to another PostHogSDK instance.")
+                    return false
                 }
                 Self.integrationInstalled = true
+                return true
+            }
+
+            guard didInstall else {
+                return .skipped(.alreadyInstalled)
             }
 
             self.postHog = postHog
 
             start()
+            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {

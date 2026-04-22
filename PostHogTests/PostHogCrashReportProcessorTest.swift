@@ -10,10 +10,8 @@ import Foundation
 import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    #if SWIFT_PACKAGE
-        import PHPLCrashReporter
-    #elseif canImport(CrashReporter)
-        import CrashReporter
+    #if canImport(PHPLCrashReporter)
+        @_implementationOnly import PHPLCrashReporter
     #endif
 
     @Suite("PostHogCrashReportProcessor Tests")

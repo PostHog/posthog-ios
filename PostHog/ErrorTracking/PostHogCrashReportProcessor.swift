@@ -8,10 +8,9 @@
 import Foundation
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    #if SWIFT_PACKAGE
-        import PHPLCrashReporter
-    #elseif canImport(CrashReporter)
-        import CrashReporter
+    #if canImport(PHPLCrashReporter)
+        // SPM-only helper module. CocoaPods/Xcodeproj builds compile vendored sources directly into PostHog.
+        @_implementationOnly import PHPLCrashReporter
     #endif
 
     enum PostHogCrashReportProcessor {

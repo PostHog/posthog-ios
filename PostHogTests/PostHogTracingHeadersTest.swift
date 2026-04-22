@@ -38,6 +38,22 @@
         var testDescription: String { name }
     }
 
+    struct WrapperTracingCase: CustomTestStringConvertible {
+        enum Invocation {
+            case postHogDataForRequest
+            case postHogDataFromURL
+            case postHogUploadForRequest
+            case postHogUploadFileForRequest
+            case postHogDownloadForRequest
+            case postHogDownloadFromURL
+        }
+
+        let name: String
+        let invocation: Invocation
+
+        var testDescription: String { name }
+    }
+
     @Suite("Tracing headers", .serialized)
     struct PostHogTracingHeadersTest {
         private static let primaryHost = "api.example.com"
@@ -67,6 +83,15 @@
             .init(name: "download(from:)", invocation: .downloadFromURL),
             .init(name: "bytes(for:)", invocation: .bytesForRequest),
             .init(name: "bytes(from:)", invocation: .bytesFromURL),
+        ]
+
+        private static let wrapperCases: [WrapperTracingCase] = [
+            .init(name: "postHogData(for:)", invocation: .postHogDataForRequest),
+            .init(name: "postHogData(from:)", invocation: .postHogDataFromURL),
+            .init(name: "postHogUpload(for:from:)", invocation: .postHogUploadForRequest),
+            .init(name: "postHogUpload(for:fromFile:)", invocation: .postHogUploadFileForRequest),
+            .init(name: "postHogDownload(for:)", invocation: .postHogDownloadForRequest),
+            .init(name: "postHogDownload(from:)", invocation: .postHogDownloadFromURL),
         ]
 
         @Test("adds distinct and session tracing headers to listed hosts for classic URLSession APIs", arguments: classicCases)
@@ -124,6 +149,24 @@
             }
         }
 
+        @Test("adds distinct and session tracing headers to PostHog URLSession wrapper APIs", arguments: wrapperCases)
+        func addsHeadersToPostHogURLSessionWrapperAPIs(_ testCase: WrapperTracingCase) async throws {
+            guard #available(iOS 15.0, *) else {
+                return
+            }
+
+            try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
+                let capture = CapturedRequest()
+                stubRequest(host: Self.primaryHost, capture: capture)
+
+                try await invokeWrapperTracingCase(testCase)
+
+                let capturedRequest = try #require(capture.request)
+                let sessionId = try #require(sut.getSessionId())
+                assertTracingHeaders(capturedRequest, sut: sut, expectedSessionId: sessionId)
+            }
+        }
+
         @Test("applies request modifiers only once for URL overloads")
         func appliesRequestModifiersOnlyOnceForURLOverloads() async throws {
             HTTPStubs.removeAllStubs()
@@ -149,6 +192,48 @@
 
             #expect(modifierInvocationCount.value == 1)
             #expect(capturedRequest.value(forHTTPHeaderField: "X-POSTHOG-MODIFIER-COUNT") == "1")
+        }
+
+        @Test("request modifiers coexist with task lifecycle handlers")
+        func requestModifiersCoexistWithTaskLifecycleHandlers() async throws {
+            HTTPStubs.removeAllStubs()
+
+            let taskCreatedCount = Counter()
+            let taskCompletedCount = Counter()
+            let createdTaskRequest = CapturedRequest()
+            let registrationId = try URLSessionInstrumentation.shared.register(
+                requestModifier: { request in
+                    var request = request
+                    request.setValue("true", forHTTPHeaderField: "X-POSTHOG-MODIFIED")
+                    return request
+                },
+                taskCreated: { task, _ in
+                    taskCreatedCount.incrementAndGet()
+                    if let request = task.originalRequest {
+                        createdTaskRequest.set(request)
+                    }
+                },
+                taskCompleted: { _, _ in
+                    taskCompletedCount.incrementAndGet()
+                }
+            )
+            defer {
+                URLSessionInstrumentation.shared.unregister(registrationId)
+                HTTPStubs.removeAllStubs()
+            }
+
+            let capture = CapturedRequest()
+            stubRequest(host: Self.primaryHost, capture: capture)
+
+            try await performDataTask(with: URLRequest(url: try makeURL(host: Self.primaryHost)))
+
+            let capturedRequest = try #require(capture.request)
+            let taskRequest = try #require(createdTaskRequest.request)
+
+            #expect(taskCreatedCount.value == 1)
+            #expect(taskCompletedCount.value == 1)
+            #expect(capturedRequest.value(forHTTPHeaderField: "X-POSTHOG-MODIFIED") == "true")
+            #expect(taskRequest.value(forHTTPHeaderField: "X-POSTHOG-MODIFIED") == "true")
         }
 
         @Test("does not add tracing headers to unlisted hosts for URL data tasks")
@@ -242,6 +327,29 @@
             case .bytesFromURL:
                 let (bytes, _) = try await URLSession.shared.bytes(from: url)
                 try await consumeFirstByte(from: bytes)
+            }
+        }
+
+        @available(iOS 15.0, *)
+        private func invokeWrapperTracingCase(_ testCase: WrapperTracingCase) async throws {
+            let url = try makeURL(host: Self.primaryHost)
+            let request = URLRequest(url: url)
+
+            switch testCase.invocation {
+            case .postHogDataForRequest:
+                _ = try await URLSession.shared.postHogData(for: request)
+            case .postHogDataFromURL:
+                _ = try await URLSession.shared.postHogData(from: url)
+            case .postHogUploadForRequest:
+                _ = try await URLSession.shared.postHogUpload(for: request, from: Self.payloadData)
+            case .postHogUploadFileForRequest:
+                try await withTemporaryFile(contents: Self.payloadData) { fileURL in
+                    _ = try await URLSession.shared.postHogUpload(for: request, fromFile: fileURL)
+                }
+            case .postHogDownloadForRequest:
+                _ = try await URLSession.shared.postHogDownload(for: request)
+            case .postHogDownloadFromURL:
+                _ = try await URLSession.shared.postHogDownload(from: url)
             }
         }
 

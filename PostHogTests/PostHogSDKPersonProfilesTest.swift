@@ -14,7 +14,7 @@ class PostHogSDKPersonProfilesTest: QuickSpec {
     func getSut(flushAt: Int = 1,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly) -> PostHogSDK
     {
-        let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = false
         config.sendFeatureFlagEvent = false

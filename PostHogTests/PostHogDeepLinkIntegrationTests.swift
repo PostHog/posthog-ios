@@ -90,7 +90,7 @@ final class PostHogDeepLinkEventTests {
     }
 
     private func getSut(flushAt: Int = 1) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: "deep_link_test", host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
         config.captureApplicationLifecycleEvents = false
@@ -194,7 +194,7 @@ final class PostHogDeepLinkEventTests {
         sut.captureDeepLink(url: url)
 
         // Capture should be ignored, re-enable and capture something else
-        let config = PostHogConfig(projectToken: "deep_link_test_2", host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
         config.flushAt = 1
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true

@@ -20,7 +20,7 @@ class PostHogDeviceBucketingTests {
         reuseAnonymousId: Bool = false,
         flushAt: Int = 1
     ) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = false
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
@@ -148,7 +148,7 @@ class PostHogDeviceBucketingTests {
         let originalDeviceId = sut.getDeviceId()
         sut.close()
 
-        // Re-init with same storage (same API key hits the same storage path)
+        // Re-init with same storage (same project token hits the same storage path)
         sut = getSut()
         #expect(sut.getDeviceId() == originalDeviceId)
     }

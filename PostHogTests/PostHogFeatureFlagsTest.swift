@@ -19,7 +19,7 @@ private struct TestPayload: Decodable, Equatable {
 enum PostHogFeatureFlagsTest {
     class BaseTestClass {
         let config: PostHogConfig = {
-            let c = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            let c = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
             c.preloadFeatureFlags = false
             c.disableReachabilityForTesting = true
             c.disableQueueTimerForTesting = true

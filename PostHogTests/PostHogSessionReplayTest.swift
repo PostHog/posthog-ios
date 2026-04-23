@@ -4,7 +4,7 @@
 
     @Suite("Session Replay tests", .serialized)
     class PostHogSessionReplayTests {
-        let testAPIKey = "test_api_key"
+        let testProjectToken = "test_project_token"
         let server: MockPostHogServer
 
         init() {
@@ -19,7 +19,7 @@
         private func getSut(
             sessionReplay: Bool
         ) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.sessionReplay = sessionReplay
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true

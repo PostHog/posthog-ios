@@ -101,7 +101,7 @@ struct PostHogPropertiesSerializationTests {
         }
 
         func getSut(flushAt: Int = 1) -> PostHogSDK {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.flushAt = flushAt
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true

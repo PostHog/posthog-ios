@@ -12,7 +12,7 @@ import UIKit
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let config = PostHogConfig(
-            apiKey: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
+            projectToken: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
         )
         // the ScreenViews for SwiftUI does not work, the names are not useful
         config.captureScreenViews = false

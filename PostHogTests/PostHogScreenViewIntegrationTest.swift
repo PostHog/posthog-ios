@@ -28,7 +28,7 @@ final class ScreenViewIntegrationTest {
     }
 
     private func getSut(captureScreenViews: Bool = true) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: "screen_test", host: "https://localhost:9090")
+        let config = PostHogConfig(projectToken: "test_project_token", host: "https://localhost:9090")
         config.captureScreenViews = captureScreenViews
         config.captureApplicationLifecycleEvents = false
         config.flushAt = 1

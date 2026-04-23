@@ -62,7 +62,7 @@ app.post("init") { req async throws -> Response in
     state.reset()
 
     // Create PostHog configuration
-    let config = PostHogConfig(apiKey: initReq.apiKey, host: host)
+    let config = PostHogConfig(projectToken: initReq.apiKey, host: host)
 
     // Configure for fast flushing in tests
     config.flushAt = initReq.flushAt ?? 1

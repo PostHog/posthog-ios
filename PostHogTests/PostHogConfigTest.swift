@@ -13,7 +13,7 @@ import Quick
 class PostHogConfigTest: QuickSpec {
     override func spec() {
         it("init config with default values") {
-            let config = PostHogConfig(projectToken: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
 
             expect(config.host) == URL(string: PostHogConfig.defaultHost)
             expect(config.flushAt) == 20
@@ -30,31 +30,31 @@ class PostHogConfigTest: QuickSpec {
         }
 
         it("init takes project token") {
-            let config = PostHogConfig(projectToken: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
 
-            expect(config.projectToken) == testAPIKey
-            expect(config.apiKey) == testAPIKey
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
         }
 
         it("trims whitespace-sensitive config values") {
             let config = PostHogConfig(
-                projectToken: " \n\(testAPIKey)\t ",
+                projectToken: " \n\(testProjectToken)\t ",
                 host: " \nhttps://eu.i.posthog.com/\t "
             )
 
-            expect(config.projectToken) == testAPIKey
-            expect(config.apiKey) == testAPIKey
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
             expect(config.host) == URL(string: "https://eu.i.posthog.com/")
         }
 
         it("defaults a blank host after trimming whitespace") {
-            let config = PostHogConfig(projectToken: testAPIKey, host: " \n\t ")
+            let config = PostHogConfig(projectToken: testProjectToken, host: " \n\t ")
 
             expect(config.host) == URL(string: PostHogConfig.defaultHost)
         }
 
         it("init takes host") {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "localhost:9000")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "localhost:9000")
 
             expect(config.host) == URL(string: "localhost:9000")!
         }
@@ -62,14 +62,14 @@ class PostHogConfigTest: QuickSpec {
         #if os(iOS)
             context("when initialized with default values for captureElementInteractions") {
                 it("should enable autocapture by default") {
-                    let sut = PostHogConfig(projectToken: testAPIKey)
+                    let sut = PostHogConfig(projectToken: testProjectToken)
                     expect(sut.captureElementInteractions).to(beFalse())
                 }
             }
 
             context("when customized") {
                 it("should allow disabling autocapture") {
-                    let config = PostHogConfig(projectToken: testAPIKey)
+                    let config = PostHogConfig(projectToken: testProjectToken)
                     config.captureElementInteractions = false
                     expect(config.captureElementInteractions).to(beFalse())
                 }

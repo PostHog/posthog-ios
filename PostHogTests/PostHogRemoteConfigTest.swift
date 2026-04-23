@@ -13,7 +13,7 @@ import XCTest
 enum PostHogRemoteConfigTest {
     class BaseTestClass {
         let config: PostHogConfig = {
-            let c = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let c = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             c.disableRemoteConfigForTesting = true
             return c
         }()
@@ -61,7 +61,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("remote config fetches feature flags if missing")
         func remoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -89,7 +89,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("remote config does not fetch feature flags if preloadFeatureFlags is disabled")
         func remoteConfigDoesNotFetchFeatureFlagsIfPreloadFeatureFlagsIsDisabled() async throws {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -127,7 +127,7 @@ enum PostHogRemoteConfigTest {
             // return flipped cached flag
             server.featureFlags = ["some-flag": false]
 
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
             config.storageManager = PostHogStorageManager(config)
 
@@ -159,7 +159,7 @@ enum PostHogRemoteConfigTest {
             server.hasFeatureFlags = false
             server.featureFlags = [:]
 
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -198,7 +198,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("should not clear flags if remote config call fails")
         func shouldNotClearFlagsIfRemoteConfigCallFails() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
 
             let storage = PostHogStorage(config)
@@ -234,7 +234,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("should not clear flags if hasFeatureFlags key is missing")
         func shouldNotClearFlagsIfHasFeatureFlagsKeyIsMissing() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = true
 
             let storage = PostHogStorage(config)
@@ -273,7 +273,7 @@ enum PostHogRemoteConfigTest {
     class TestFeatureFlagLoadingRaceCondition: BaseTestClass {
         @Test("guard prevents concurrent requests and queues pending")
         func guardPreventsConcurrentRequestsAndQueuesPending() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -306,7 +306,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("pending request uses correct identity after identify")
         func pendingRequestUsesCorrectIdentity() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -342,7 +342,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("pending request replaces earlier pending with latest")
         func pendingRequestReplacesEarlierPending() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -384,7 +384,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("callbacks fire for both initial and pending requests")
         func callbacksFireForBothRequests() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -416,7 +416,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("no pending queue when no concurrent load")
         func noPendingQueueWhenNoConcurrentLoad() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
@@ -437,7 +437,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("reloadRemoteConfig concurrent calls do not crash")
         func reloadRemoteConfigConcurrentCallsDoNotCrash() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             let sut = getSut(config: config)
 
@@ -706,7 +706,7 @@ enum PostHogRemoteConfigTest {
 
             @Test("does not call featureFlagCalledCallback when sendFeatureFlagEvent is disabled")
             func doesNotCallFeatureFlagCalledCallbackWhenSendFeatureFlagEventDisabled() async {
-                let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+                let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
                 config.sendFeatureFlagEvent = false
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
@@ -794,7 +794,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("enables autocapture exceptions from remote config dict")
         func enablesAutocaptureExceptionsFromRemoteConfigDict() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -824,7 +824,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("disables autocapture exceptions from remote config dict")
         func disablesAutocaptureExceptionsFromRemoteConfigDict() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -853,7 +853,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("disables autocapture exceptions when errorTracking is boolean false")
         func disablesAutocaptureExceptionsWhenErrorTrackingIsBooleanFalse() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -889,7 +889,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("disables autocapture exceptions when errorTracking key is missing")
         func disablesAutocaptureExceptionsWhenErrorTrackingKeyIsMissing() async {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 

@@ -11,7 +11,7 @@ import Testing
 
 @Suite("PostHogStorage migration tests", .serialized)
 class PostHogStorageMigrationTest {
-    let testApiKey = "test_migration_key"
+    let testProjectToken = "test_project_token"
     var legacyUrl: URL!
     var newBaseUrl: URL!
     var fileManager: FileManager!
@@ -19,7 +19,7 @@ class PostHogStorageMigrationTest {
     init() {
         // Set up base URLs
         legacyUrl = applicationSupportDirectoryURL()
-        newBaseUrl = legacyUrl.appendingPathComponent(testApiKey)
+        newBaseUrl = legacyUrl.appendingPathComponent(testProjectToken)
 
         // Clean up any existing test directories
         fileManager = FileManager.default
@@ -82,7 +82,7 @@ class PostHogStorageMigrationTest {
         }
 
         // Initialize storage which should trigger migration
-        _ = PostHogStorage(PostHogConfig(projectToken: testApiKey))
+        _ = PostHogStorage(PostHogConfig(projectToken: testProjectToken))
 
         // Verify legacy file was removed
         #expect(!fileManager.fileExists(atPath: legacyFileUrl.path))
@@ -114,7 +114,7 @@ class PostHogStorageMigrationTest {
         }
 
         // Initialize storage which should trigger migration
-        _ = PostHogStorage(PostHogConfig(projectToken: testApiKey))
+        _ = PostHogStorage(PostHogConfig(projectToken: testProjectToken))
 
         // Verify events were migrated correctly
         let newQueueUrl = newBaseUrl.appendingPathComponent(key.rawValue)
@@ -256,7 +256,7 @@ class PostHogStorageMigrationTest {
                 ],
                 timestamp: Date(timeIntervalSince1970: 1707221234000),
                 uuid: UUID(),
-                apiKey: "test_api_key_1"
+                apiKey: "test_project_token"
             ),
             PostHogEvent(
                 event: "$snapshot",
@@ -285,7 +285,7 @@ class PostHogStorageMigrationTest {
                 ],
                 timestamp: Date(timeIntervalSince1970: 1707221235),
                 uuid: UUID(),
-                apiKey: "test_api_key_1"
+                apiKey: "test_project_token"
             ),
         ]
 
@@ -301,7 +301,7 @@ class PostHogStorageMigrationTest {
         _ = try createLegacyFile("my.application.data", content: myAppData)
 
         // Initialize storage which should trigger migration
-        _ = PostHogStorage(PostHogConfig(projectToken: testApiKey))
+        _ = PostHogStorage(PostHogConfig(projectToken: testProjectToken))
 
         // Verify storage file was migrated
         let newFileUrl = newBaseUrl.appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)
@@ -318,6 +318,6 @@ class PostHogStorageMigrationTest {
         let legacyDirContents = try fileManager.contentsOfDirectory(atPath: legacyUrl.path).sorted()
         #expect(legacyDirContents.count == 2)
         #expect(legacyDirContents[0] == "my.application.data")
-        #expect(legacyDirContents[1] == "test_migration_key")
+        #expect(legacyDirContents[1] == "test_project_token")
     }
 }

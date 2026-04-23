@@ -22,13 +22,13 @@ class PostHogIntegrationInstallationTest {
     }
 
     private func getSut(
-        apiKey: String,
+        projectToken: String,
         sessionReplay: Bool = false,
         captureApplicationLifecycleEvents: Bool = false,
         captureScreenViews: Bool = false,
         captureElementInteractions: Bool = false
     ) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: apiKey)
+        let config = PostHogConfig(projectToken: projectToken)
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
 
         #if os(iOS)
@@ -51,8 +51,8 @@ class PostHogIntegrationInstallationTest {
     #if os(iOS)
         @Test("replay integration installed only once, on first instance")
         func replayIntegrationInstalledOnce() {
-            let first = getSut(apiKey: "123", sessionReplay: true)
-            let second = getSut(apiKey: "345", sessionReplay: true)
+            let first = getSut(projectToken: "test_project_token", sessionReplay: true)
+            let second = getSut(projectToken: "test_project_token", sessionReplay: true)
 
             #expect(first.getReplayIntegration() != nil)
             #expect(second.getReplayIntegration() == nil)
@@ -65,8 +65,8 @@ class PostHogIntegrationInstallationTest {
     #if os(iOS) || targetEnvironment(macCatalyst)
         @Test("autocapture integration installed only once, on first instance")
         func autocaptureIntegrationInstalledOnce() async {
-            let first = getSut(apiKey: "123", captureElementInteractions: true)
-            let second = getSut(apiKey: "345", captureElementInteractions: true)
+            let first = getSut(projectToken: "test_project_token", captureElementInteractions: true)
+            let second = getSut(projectToken: "test_project_token", captureElementInteractions: true)
 
             #expect(first.getAutocaptureIntegration() != nil)
             #expect(second.getAutocaptureIntegration() == nil)
@@ -78,8 +78,8 @@ class PostHogIntegrationInstallationTest {
 
     @Test("app life cycle integration installed only once, on first instance")
     func appLifeCycleIntegrationInstalledOnce() async {
-        let first = getSut(apiKey: "123", captureApplicationLifecycleEvents: true)
-        let second = getSut(apiKey: "345", captureApplicationLifecycleEvents: true)
+        let first = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: true)
+        let second = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: true)
 
         #expect(first.getAppLifeCycleIntegration() != nil)
         #expect(second.getAppLifeCycleIntegration() == nil)
@@ -90,8 +90,8 @@ class PostHogIntegrationInstallationTest {
 
     @Test("screen view integration installed only once, on first instance")
     func screenViewIntegrationInstalledOnce() async {
-        let first = getSut(apiKey: "123", captureScreenViews: true)
-        let second = getSut(apiKey: "345", captureScreenViews: true)
+        let first = getSut(projectToken: "test_project_token", captureScreenViews: true)
+        let second = getSut(projectToken: "test_project_token", captureScreenViews: true)
 
         #expect(first.getScreenViewIntegration() != nil)
         #expect(second.getScreenViewIntegration() == nil)

@@ -16,7 +16,7 @@
             captureElementInteractions: Bool = true,
             captureRageClicks: Bool = true
         ) -> (MockPostHogServer, PostHogSDK, PostHogRageClickIntegration?) {
-            let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.captureElementInteractions = captureElementInteractions
             config.rageClickConfig.enabled = captureRageClicks
             config.rageClickConfig.minimumTapCount = 3

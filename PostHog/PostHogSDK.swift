@@ -92,7 +92,7 @@ let maxRetryDelay = 30.0
             }
 
             if PostHogSDK.apiKeys.contains(config.projectToken) {
-                hedgeLog("Project Token: \(config.projectToken) already has a PostHog instance.")
+                hedgeLog("Project token: \(config.projectToken) already has a PostHog instance.")
             } else {
                 PostHogSDK.apiKeys.insert(config.projectToken)
             }

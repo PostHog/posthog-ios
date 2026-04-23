@@ -48,7 +48,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Obsolete alias for <c>projectToken</c>.
     @available(*, deprecated, message: "Use projectToken instead. This will be removed in the next major version.")
-    @objc public var apiKey: String { projectToken }
+    @objc public var apiKey: String {
+        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
+        return projectToken
+    }
     @objc public var flushAt: Int = Defaults.flushAt
     @objc public var maxQueueSize: Int = Defaults.maxQueueSize
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize

@@ -10,6 +10,7 @@
     import Foundation
     @testable import PostHog
     import Testing
+    import UserNotifications
 
     @Suite("Push Notification Tests", .serialized)
     final class PostHogPushNotificationTest {
@@ -276,6 +277,157 @@
 
             // No push subscription requests should have been made
             #expect(server.pushSubscriptionRequests.count == 0)
+
+            sut.close()
+        }
+
+        // MARK: - Manual Notification Opened Capture Tests
+
+        @Test("capturePushNotificationOpened captures event with base notification properties")
+        func capturePushNotificationOpenedCapturesBaseProperties() async throws {
+            let sut = getSut()
+
+            sut.capturePushNotificationOpened(
+                title: "Hello",
+                subtitle: "Sub",
+                body: "Body",
+                userInfo: [:],
+                actionIdentifier: UNNotificationDefaultActionIdentifier
+            )
+
+            let events = getBatchedEvents(server)
+            #expect(events.count == 1)
+
+            let event = try #require(events.first)
+            #expect(event.event == "$push_notification_opened")
+            #expect(event.properties["$notification_title"] as? String == "Hello")
+            #expect(event.properties["$notification_subtitle"] as? String == "Sub")
+            #expect(event.properties["$notification_body"] as? String == "Body")
+            #expect(event.properties["$notification_action"] == nil)
+
+            sut.close()
+        }
+
+        @Test("capturePushNotificationOpened omits empty subtitle and body")
+        func capturePushNotificationOpenedOmitsEmptyFields() async throws {
+            let sut = getSut()
+
+            sut.capturePushNotificationOpened(
+                title: "Hello",
+                subtitle: "",
+                body: "",
+                userInfo: [:],
+                actionIdentifier: UNNotificationDefaultActionIdentifier
+            )
+
+            let events = getBatchedEvents(server)
+            let event = try #require(events.first)
+            #expect(event.properties["$notification_title"] as? String == "Hello")
+            #expect(event.properties["$notification_subtitle"] == nil)
+            #expect(event.properties["$notification_body"] == nil)
+
+            sut.close()
+        }
+
+        @Test("capturePushNotificationOpened flattens posthog payload into properties")
+        func capturePushNotificationOpenedFlattensPostHogPayload() async throws {
+            let sut = getSut()
+
+            sut.capturePushNotificationOpened(
+                title: "Hello",
+                subtitle: "",
+                body: "",
+                userInfo: [
+                    "posthog": [
+                        "campaign_id": "c123",
+                        "message_id": "m456",
+                    ],
+                    "other_key": "ignored",
+                ],
+                actionIdentifier: UNNotificationDefaultActionIdentifier
+            )
+
+            let events = getBatchedEvents(server)
+            let event = try #require(events.first)
+            #expect(event.properties["$notification_campaign_id"] as? String == "c123")
+            #expect(event.properties["$notification_message_id"] as? String == "m456")
+            #expect(event.properties["$notification_other_key"] == nil)
+
+            sut.close()
+        }
+
+        @Test("capturePushNotificationOpened includes action for non-default identifier")
+        func capturePushNotificationOpenedIncludesCustomAction() async throws {
+            let sut = getSut()
+
+            sut.capturePushNotificationOpened(
+                title: "Hello",
+                subtitle: "",
+                body: "",
+                userInfo: [:],
+                actionIdentifier: "OPEN_URL"
+            )
+
+            let events = getBatchedEvents(server)
+            let event = try #require(events.first)
+            #expect(event.properties["$notification_action"] as? String == "OPEN_URL")
+
+            sut.close()
+        }
+
+        @Test("capturePushNotificationOpened does nothing when SDK is opted out")
+        func capturePushNotificationOpenedNoopWhenOptedOut() async throws {
+            let sut = getSut()
+            sut.optOut()
+
+            sut.capturePushNotificationOpened(
+                title: "Hello",
+                subtitle: "Sub",
+                body: "Body",
+                userInfo: [:],
+                actionIdentifier: UNNotificationDefaultActionIdentifier
+            )
+
+            // Give the queue a chance to flush if anything had been captured
+            try await Task.sleep(nanoseconds: 500_000_000)
+            #expect(server.batchRequests.isEmpty)
+
+            sut.optIn()
+            sut.close()
+        }
+
+        @Test("capturePushNotificationOpened works when swizzling is disabled")
+        func capturePushNotificationOpenedWorksWithoutSwizzling() async throws {
+            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            config.flushAt = 1
+            config.enableSwizzling = false
+            config.capturePushNotificationSubscriptions = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            let sut = PostHogSDK.with(config)
+
+            // Integration should NOT be installed because swizzling is off
+            #expect(sut.getPushNotificationIntegration() == nil)
+
+            sut.capturePushNotificationOpened(
+                title: "Hello",
+                subtitle: "",
+                body: "",
+                userInfo: [:],
+                actionIdentifier: UNNotificationDefaultActionIdentifier
+            )
+
+            let events = getBatchedEvents(server)
+            let event = try #require(events.first)
+            #expect(event.event == "$push_notification_opened")
+            #expect(event.properties["$notification_title"] as? String == "Hello")
 
             sut.close()
         }

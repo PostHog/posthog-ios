@@ -2135,52 +2135,6 @@ let maxRetryDelay = 30.0
 
     // MARK: - Push Notifications
 
-    #if os(iOS) || os(macOS)
-        /// Requests push notification permission from the user.
-        ///
-        /// When the user grants permission, the SDK automatically registers for remote notifications.
-        /// After receiving the device token from the system, call ``handlePushNotificationDeviceToken(_:)``
-        /// from your `AppDelegate`'s `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` method
-        /// to send the token to PostHog.
-        ///
-        /// - Parameter options: The notification authorization options to request. Defaults to `[.alert, .sound, .badge]`.
-        /// - Parameter completion: A closure called with the result of the authorization request.
-        ///   The `Bool` indicates whether permission was granted, and the `Error` contains any error that occurred.
-        @available(iOS 14.0, macOS 11.0, *)
-        public func requestPushNotificationPermission(
-            options: UNAuthorizationOptions = [.alert, .sound, .badge],
-            completion: ((Bool, Error?) -> Void)? = nil
-        ) {
-            if !isEnabled() {
-                completion?(false, nil)
-                return
-            }
-
-            UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
-                if let error {
-                    hedgeLog("Error requesting push notification permission: \(error.localizedDescription)")
-                    completion?(false, error)
-                    return
-                }
-
-                if granted {
-                    hedgeLog("Push notification permission granted.")
-                    DispatchQueue.main.async {
-                        #if os(iOS)
-                            UIApplication.shared.registerForRemoteNotifications()
-                        #elseif os(macOS)
-                            NSApplication.shared.registerForRemoteNotifications()
-                        #endif
-                    }
-                } else {
-                    hedgeLog("Push notification permission denied.")
-                }
-
-                completion?(granted, nil)
-            }
-        }
-    #endif
-
     /// Sends the device token to PostHog for push notification delivery.
     /// Push notifications can be configured using PostHog Workflows to target users based on their behavior and properties.
     /// When a push notification is sent from PostHog, the device token is used to deliver the notification to the correct device.
@@ -2200,6 +2154,64 @@ let maxRetryDelay = 30.0
 
         pushSubscriptionHandler.send(deviceToken: deviceToken)
     }
+
+    #if os(iOS) || os(macOS)
+        /// Manually capture a "$push_notification_opened" event for a notification the user interacted with.
+        ///
+        /// Use this when you're not relying on the automatic swizzling installed by `capturePushNotificationSubscriptions`,
+        /// for example when `enableSwizzling` is `false`, or when you manage your own `UNUserNotificationCenterDelegate`
+        /// and want explicit control. Call it from your
+        /// `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
+        ///
+        /// - Parameter response: The `UNNotificationResponse` received from the system.
+        @available(iOS 14.0, macOS 11.0, *)
+        @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
+            let content = response.notification.request.content
+            capturePushNotificationOpened(
+                title: content.title,
+                subtitle: content.subtitle,
+                body: content.body,
+                userInfo: content.userInfo,
+                actionIdentifier: response.actionIdentifier
+            )
+        }
+
+        func capturePushNotificationOpened(
+            title: String,
+            subtitle: String,
+            body: String,
+            userInfo: [AnyHashable: Any],
+            actionIdentifier: String
+        ) {
+            if !isEnabled() {
+                return
+            }
+
+            var properties: [String: Any] = [
+                "$notification_title": title,
+            ]
+
+            if !subtitle.isEmpty {
+                properties["$notification_subtitle"] = subtitle
+            }
+
+            if !body.isEmpty {
+                properties["$notification_body"] = body
+            }
+
+            if let posthogData = userInfo["posthog"] as? [String: Any] {
+                for (key, value) in posthogData {
+                    properties["$notification_\(key)"] = value
+                }
+            }
+
+            if actionIdentifier != UNNotificationDefaultActionIdentifier {
+                properties["$notification_action"] = actionIdentifier
+            }
+
+            capture("$push_notification_opened", properties: properties)
+        }
+    #endif
 }
 
 #if TESTING

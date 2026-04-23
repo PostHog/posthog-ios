@@ -1796,6 +1796,7 @@
 			isa = PBXGroup;
 			children = (
 				81FDB9F92F806EB90095393C /* PostHogPushNotificationIntegration.swift */,
+				81FDBA012F806EB90095393C /* PostHogPushSubscriptionHandler.swift */,
 			);
 			path = PushNotifications;
 			sourceTree = "<group>";
@@ -3031,6 +3032,7 @@
 				A1B2C3D601234567DEADBEEF /* PostHogDeepLinkListener.swift in Sources */,
 				3AE3FB4E2993D1D600AFFC18 /* PostHogStorageManager.swift in Sources */,
 				81FDB9FB2F806EB90095393C /* PostHogPushNotificationIntegration.swift in Sources */,
+				81FDBA002F806EB90095393C /* PostHogPushSubscriptionHandler.swift in Sources */,
 				DA8C9B982EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift in Sources */,
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
 				DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */,

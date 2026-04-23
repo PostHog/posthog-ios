@@ -17,10 +17,11 @@ class PostHogDeviceBucketingTests {
     var cleanupJobs: [() -> Void]
 
     func getSut(
+        projectToken: String = UUID().uuidString,
         reuseAnonymousId: Bool = false,
         flushAt: Int = 1
     ) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = false
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt
@@ -144,12 +145,13 @@ class PostHogDeviceBucketingTests {
 
     @Test("persists device_id across SDK restarts")
     func persistsDeviceIdAcrossSdkRestarts() {
-        var sut = getSut()
+        let projectToken = UUID().uuidString
+        var sut = getSut(projectToken: projectToken)
         let originalDeviceId = sut.getDeviceId()
         sut.close()
 
         // Re-init with same storage (same project token hits the same storage path)
-        sut = getSut()
+        sut = getSut(projectToken: projectToken)
         #expect(sut.getDeviceId() == originalDeviceId)
     }
 }

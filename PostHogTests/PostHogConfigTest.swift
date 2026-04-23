@@ -36,6 +36,33 @@ class PostHogConfigTest: QuickSpec {
             expect(config.apiKey) == testProjectToken
         }
 
+        it("deprecated init(apiKey:) maps to project token") {
+            let config = PostHogConfig(apiKey: testProjectToken)
+
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+            expect(config.host) == URL(string: PostHogConfig.defaultHost)
+        }
+
+        it("deprecated init(apiKey:host:) maps to project token and host") {
+            let config = PostHogConfig(apiKey: testProjectToken, host: "localhost:9000")
+
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+            expect(config.host) == URL(string: "localhost:9000")!
+        }
+
+        it("deprecated init(apiKey:host:) trims whitespace-sensitive values") {
+            let config = PostHogConfig(
+                apiKey: " \n\(testProjectToken)\t ",
+                host: " \nhttps://eu.i.posthog.com/\t "
+            )
+
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+            expect(config.host) == URL(string: "https://eu.i.posthog.com/")
+        }
+
         it("trims whitespace-sensitive config values") {
             let config = PostHogConfig(
                 projectToken: " \n\(testProjectToken)\t ",

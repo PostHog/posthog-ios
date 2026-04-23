@@ -27,6 +27,13 @@
 #ifndef PLCRASH_FRAME_COMPACTUNWIND_H
 #define PLCRASH_FRAME_COMPACTUNWIND_H
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#include <CrashReporter/PLCrashNamespace.h>
+#else
+#include "PLCrashNamespace.h"
+#endif
+
+
 #include "PLCrashFeatureConfig.h"
 #include "PLCrashFrameWalker.h"
 #include "PLCrashAsyncCompactUnwindEncoding.h"

@@ -29,6 +29,13 @@
 #ifndef PLCRASH_ASYNC_MOBJECT_H
 #define PLCRASH_ASYNC_MOBJECT_H
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#include <CrashReporter/PLCrashNamespace.h>
+#else
+#include "PLCrashNamespace.h"
+#endif
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif

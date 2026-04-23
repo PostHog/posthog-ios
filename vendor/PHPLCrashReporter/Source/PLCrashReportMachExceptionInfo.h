@@ -28,6 +28,12 @@
 
 #import <Foundation/Foundation.h>
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 @interface PLCrashReportMachExceptionInfo : NSObject
 
 - (id) initWithType: (uint64_t) type codes: (NSArray *) codes;

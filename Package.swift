@@ -69,6 +69,7 @@ let package = Package(
             cSettings: [
                 .define("PLCR_PRIVATE"),
                 .define("PLCF_RELEASE_BUILD"),
+                .define("PLCRASHREPORTER_PREFIX", to: "PH"),
                 .define("SWIFT_PACKAGE"),
                 .headerSearchPath("Dependencies/protobuf-c"),
                 .headerSearchPath("Dependencies/protobuf-c/protobuf-c"),

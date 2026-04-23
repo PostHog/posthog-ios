@@ -28,6 +28,12 @@
 
 #import <Foundation/Foundation.h>
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 @interface PLCrashReportSignalInfo : NSObject
 
 - (id) initWithSignalName: (NSString *) name code: (NSString *) code address: (uint64_t) address;

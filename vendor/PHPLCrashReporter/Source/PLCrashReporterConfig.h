@@ -34,6 +34,12 @@
 #import "PLCrashFeatureConfig.h"
 #endif
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 /**
  * @ingroup enums
  * Supported mechanisms for trapping and handling crashes.

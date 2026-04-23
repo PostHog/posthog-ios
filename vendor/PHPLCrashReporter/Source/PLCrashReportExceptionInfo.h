@@ -34,6 +34,12 @@
 #import "PLCrashReportThreadInfo.h"
 #endif
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 @interface PLCrashReportExceptionInfo : NSObject
 
 - (id) initWithExceptionName: (NSString *) name reason: (NSString *) reason;

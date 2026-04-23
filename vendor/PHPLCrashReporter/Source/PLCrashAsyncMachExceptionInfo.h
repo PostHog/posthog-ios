@@ -29,6 +29,13 @@
 #ifndef PLCRASH_ASYNC_MACH_EXCEPTION_INFO_H
 #define PLCRASH_ASYNC_MACH_EXCEPTION_INFO_H
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#include <CrashReporter/PLCrashNamespace.h>
+#else
+#include "PLCrashNamespace.h"
+#endif
+
+
 #include "PLCrashFeatureConfig.h"
 #include "PLCrashMacros.h"
 

@@ -34,6 +34,12 @@
 #import "PLCrashReportSymbolInfo.h"
 #endif
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 @interface PLCrashReportStackFrameInfo : NSObject
 
 - (id) initWithInstructionPointer: (uint64_t) instructionPointer symbolInfo: (PLCrashReportSymbolInfo *) symbolInfo;

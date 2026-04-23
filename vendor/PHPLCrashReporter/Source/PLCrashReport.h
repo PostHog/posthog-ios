@@ -31,6 +31,13 @@
 #ifndef PLCRASH_REPORT_H
 #define PLCRASH_REPORT_H
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#include <CrashReporter/PLCrashNamespace.h>
+#else
+#include "PLCrashNamespace.h"
+#endif
+
+
 #if __has_include(<CrashReporter/PLCrashReportApplicationInfo.h>)
 #import <CrashReporter/PLCrashReportApplicationInfo.h>
 #import <CrashReporter/PLCrashReportBinaryImageInfo.h>

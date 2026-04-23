@@ -35,7 +35,9 @@
  * This may be used to avoid symbol conflicts between multiple libraries
  * that may both incorporate PLCrashReporter.
  */
-// #define PLCRASHREPORTER_PREFIX AcmeCo
+#ifndef PLCRASHREPORTER_PREFIX
+#define PLCRASHREPORTER_PREFIX PH
+#endif
 
 
 // We need two extra layers of indirection to make CPP substitute
@@ -79,6 +81,16 @@
 #define PLCrashReporterConfig               PLNS(PLCrashReporterConfig)
 #define PLCrashUncaughtExceptionHandler     PLNS(PLCrashUncaughtExceptionHandler)
 #define PLCrashReportFormatter              PLNS(PLCrashReportFormatter)
+
+/* Public enum/option types and values */
+#define PLCrashReporterSignalHandlerType                    PLNS(PLCrashReporterSignalHandlerType)
+#define PLCrashReporterSignalHandlerTypeBSD                 PLNS(PLCrashReporterSignalHandlerTypeBSD)
+#define PLCrashReporterSignalHandlerTypeMach                PLNS(PLCrashReporterSignalHandlerTypeMach)
+#define PLCrashReporterSymbolicationStrategy                PLNS(PLCrashReporterSymbolicationStrategy)
+#define PLCrashReporterSymbolicationStrategyNone            PLNS(PLCrashReporterSymbolicationStrategyNone)
+#define PLCrashReporterSymbolicationStrategySymbolTable     PLNS(PLCrashReporterSymbolicationStrategySymbolTable)
+#define PLCrashReporterSymbolicationStrategyObjC            PLNS(PLCrashReporterSymbolicationStrategyObjC)
+#define PLCrashReporterSymbolicationStrategyAll             PLNS(PLCrashReporterSymbolicationStrategyAll)
 
 /* Public C functions */
 #define PLCrashMachExceptionForward         PLNS(PLCrashMachExceptionForward)

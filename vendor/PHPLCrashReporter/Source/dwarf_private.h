@@ -27,6 +27,13 @@
 #ifndef PLCRASH_ASYNC_DWARF_PRIVATE_H
 #define PLCRASH_ASYNC_DWARF_PRIVATE_H 1
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#include <CrashReporter/PLCrashNamespace.h>
+#else
+#include "PLCrashNamespace.h"
+#endif
+
+
 #include "PLCrashFeatureConfig.h"
 
 #if PLCRASH_FEATURE_UNWIND_DWARF

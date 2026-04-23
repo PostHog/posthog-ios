@@ -29,6 +29,13 @@
 #ifndef PLCRASH_CONSTANTS_H
 #define PLCRASH_CONSTANTS_H
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#include <CrashReporter/PLCrashNamespace.h>
+#else
+#include "PLCrashNamespace.h"
+#endif
+
+
 #include <assert.h>
 #include <TargetConditionals.h>
 

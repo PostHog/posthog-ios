@@ -50,6 +50,12 @@ typedef enum {
 } PLCrashReportTextFormat;
 
 
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 @interface PLCrashReportTextFormatter : NSObject <PLCrashReportFormatter>
 
 + (NSString *) stringValueForCrashReport: (PLCrashReport *) report withTextFormat: (PLCrashReportTextFormat) textFormat;

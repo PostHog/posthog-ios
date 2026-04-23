@@ -3061,6 +3061,7 @@
 					"$(inherited)",
 					PLCF_RELEASE_BUILD,
 					PLCR_PRIVATE,
+					"PLCRASHREPORTER_PREFIX=PH",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3119,6 +3120,7 @@
 					"$(inherited)",
 					PLCF_RELEASE_BUILD,
 					PLCR_PRIVATE,
+					"PLCRASHREPORTER_PREFIX=PH",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3592,6 +3594,7 @@
 					"$(inherited)",
 					PLCF_RELEASE_BUILD,
 					PLCR_PRIVATE,
+					"PLCRASHREPORTER_PREFIX=PH",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",

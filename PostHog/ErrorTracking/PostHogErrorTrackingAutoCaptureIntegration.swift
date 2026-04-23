@@ -20,7 +20,7 @@ import Foundation
         var requiresSwizzling: Bool { false }
 
         private weak var postHog: PostHogSDK?
-        private var crashReporter: PLCrashReporter?
+        private var crashReporter: PHPLCrashReporter?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
@@ -83,30 +83,30 @@ import Foundation
 
         // MARK: - Private Methods
 
-        private func setupCrashReporter() -> PLCrashReporter? {
-            // Configure PLCrashReporter
+        private func setupCrashReporter() -> PHPLCrashReporter? {
+            // Configure PHPLCrashReporter
             // Note: Mach exception handling is not available on tvOS, so we fall back to BSD signal handlers
             #if os(tvOS)
-                let signalHandlerType: PLCrashReporterSignalHandlerType = .BSD
+                let signalHandlerType: PHPLCrashReporterSignalHandlerType = .BSD
             #else
-                let signalHandlerType: PLCrashReporterSignalHandlerType = .mach
+                let signalHandlerType: PHPLCrashReporterSignalHandlerType = .mach
             #endif
 
-            let config = PLCrashReporterConfig(
+            let config = PHPLCrashReporterConfig(
                 signalHandlerType: signalHandlerType,
                 symbolicationStrategy: [], // No local symbolication, we'll be doing server-side
                 shouldRegisterUncaughtExceptionHandler: true
             )
 
-            guard let reporter = PLCrashReporter(configuration: config) else {
-                hedgeLog("Failed to create PLCrashReporter instance")
+            guard let reporter = PHPLCrashReporter(configuration: config) else {
+                hedgeLog("Failed to create PHPLCrashReporter instance")
                 return nil
             }
 
             return reporter
         }
 
-        private func processPendingCrashReportIfNeeded(reporter: PLCrashReporter) {
+        private func processPendingCrashReportIfNeeded(reporter: PHPLCrashReporter) {
             // Check for pending crash report FIRST (before enabling for new crashes)
             if reporter.hasPendingCrashReport() {
                 hedgeLog("Found pending crash report, processing...")
@@ -114,7 +114,7 @@ import Foundation
             }
         }
 
-        private func enableCrashReporter(reporter: PLCrashReporter) {
+        private func enableCrashReporter(reporter: PHPLCrashReporter) {
             // Check for debugger first. Crash handler won't work when debugging
             if PostHogDebugUtils.isDebuggerAttached() {
                 hedgeLog("Crash handler is disabled because a debugger is attached. Crashes will be caught by the debugger instead.")
@@ -124,9 +124,9 @@ import Foundation
             // Enable crash reporter for this session
             do {
                 try reporter.enableAndReturnError()
-                hedgeLog("PLCrashReporter enabled successfully")
+                hedgeLog("PHPLCrashReporter enabled successfully")
             } catch {
-                hedgeLog("Failed to enable PLCrashReporter: \(error)")
+                hedgeLog("Failed to enable PHPLCrashReporter: \(error)")
             }
         }
 
@@ -150,7 +150,7 @@ import Foundation
             crashReporter.purgePendingCrashReport()
 
             do {
-                let crashReport = try PLCrashReport(data: crashData)
+                let crashReport = try PHPLCrashReport(data: crashData)
 
                 // Extract saved context from crash report's customData
                 var savedContext: [String: Any] = [:]

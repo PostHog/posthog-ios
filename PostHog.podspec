@@ -29,7 +29,7 @@ Pod::Spec.new do |s|
   s.libraries = 'c++'
   s.pod_target_xcconfig = {
     'OTHER_LDFLAGS' => '-lc++',
-    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD SWIFT_PACKAGE',
+    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD PLCRASHREPORTER_PREFIX=PH SWIFT_PACKAGE',
     'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"'
   }
 
@@ -58,6 +58,6 @@ Pod::Spec.new do |s|
     'PHPLCrashReporter' => 'vendor/PHPLCrashReporter/Resources/PrivacyInfo.xcprivacy'
   }
   
-  # Include the upload script for dSYM uploads
-  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PLCrashReporter-LICENSE.txt', 'vendor/PHPLCrashReporter/LICENSE']
+  # Include the upload script and vendored notices in source distributions
+  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PHPLCrashReporter/LICENSE', 'vendor/libwebp/COPYING', 'vendor/libwebp/PATENTS']
 end

@@ -32,6 +32,12 @@
 #import <CrashReporter/PLCrashReport.h>
 #else
 #import "PLCrashReport.h"
+#if __has_include(<CrashReporter/PLCrashNamespace.h>)
+#import <CrashReporter/PLCrashNamespace.h>
+#else
+#import "PLCrashNamespace.h"
+#endif
+
 #endif
 
 /**

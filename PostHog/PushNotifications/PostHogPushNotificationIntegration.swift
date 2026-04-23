@@ -190,40 +190,7 @@
         // MARK: - Event Capture
 
         fileprivate static func captureNotificationEngagement(response: UNNotificationResponse) {
-            guard let postHog = getInstalledPostHog() else { return }
-
-            let content = response.notification.request.content
-            let userInfo = content.userInfo
-
-            var properties: [String: Any] = [
-                "$notification_title": content.title,
-            ]
-
-            if !content.subtitle.isEmpty {
-                properties["$notification_subtitle"] = content.subtitle
-            }
-
-            if !content.body.isEmpty {
-                properties["$notification_body"] = content.body
-            }
-
-            // Include PostHog-specific payload fields if present
-            if let posthogData = userInfo["posthog"] as? [String: Any] {
-                for (key, value) in posthogData {
-                    properties["$notification_\(key)"] = value
-                }
-            }
-
-            let actionIdentifier = response.actionIdentifier
-            if actionIdentifier != UNNotificationDefaultActionIdentifier {
-                properties["$notification_action"] = actionIdentifier
-            }
-
-            postHog.capture("$push_notification_opened", properties: properties)
-        }
-
-        private static func getInstalledPostHog() -> PostHogSDK? {
-            PostHogSDK.shared
+            PostHogSDK.shared.capturePushNotificationOpened(response: response)
         }
     }
 

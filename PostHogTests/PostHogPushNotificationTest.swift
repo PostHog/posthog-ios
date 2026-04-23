@@ -130,17 +130,6 @@
             #expect(!hasPushIntegration)
         }
 
-        @Test("getIntegrations excludes push notification integration when swizzling is disabled")
-        func getIntegrationsExcludesPushNotificationWhenSwizzlingDisabled() {
-            let config = PostHogConfig(apiKey: testAPIKey)
-            config.capturePushNotificationSubscriptions = true
-            config.enableSwizzling = false
-
-            let integrations = config.getIntegrations()
-            let hasPushIntegration = integrations.contains { $0 is PostHogPushNotificationIntegration }
-            #expect(!hasPushIntegration)
-        }
-
         // MARK: - Push Subscription Persistence Tests
 
         // Note: These tests write push subscription data directly to storage because

@@ -47,7 +47,7 @@ let maxRetryDelay = 30.0
     private var flagCallReported: [String: [Any?]] = .init()
     private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
-    private static var apiKeys = Set<String>()
+    private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
@@ -91,10 +91,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            if PostHogSDK.apiKeys.contains(config.projectToken) {
+            if PostHogSDK.projectTokens.contains(config.projectToken) {
                 hedgeLog("Project token: \(config.projectToken) already has a PostHog instance.")
             } else {
-                PostHogSDK.apiKeys.insert(config.projectToken)
+                PostHogSDK.projectTokens.insert(config.projectToken)
             }
 
             enabled = true
@@ -1767,7 +1767,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
-            PostHogSDK.apiKeys.remove(config.projectToken)
+            PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.stop()
             replayQueue?.stop()

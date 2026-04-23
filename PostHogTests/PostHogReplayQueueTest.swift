@@ -29,7 +29,7 @@ class PostHogReplayQueueTests {
     private func createReplayQueue() -> PostHogReplayQueue {
         // Use unique API key per test to ensure isolated storage
         let uniqueKey = UUID().uuidString
-        let config = PostHogConfig(apiKey: uniqueKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: uniqueKey, host: "http://localhost:9001")
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
         let queue = PostHogReplayQueue(config, storage, api, nil)
@@ -142,7 +142,7 @@ class PostHogReplayQueueTests {
         server.start(snapshotCount: 1)
         defer { server.stop() }
 
-        let config = PostHogConfig(apiKey: UUID().uuidString, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
         let storage = PostHogStorage(config)
         storage.reset()
         let api = PostHogApi(config)

@@ -71,7 +71,7 @@ class PostHogApi {
             return nil
         }
 
-        let url = baseUrl.appendingPathComponent("/array/\(config.apiKey)/config")
+        let url = baseUrl.appendingPathComponent("/array/\(config.projectToken)/config")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -94,7 +94,7 @@ class PostHogApi {
         let request = getURLRequest(url)
 
         let toSend: [String: Any] = [
-            "api_key": self.config.apiKey,
+            "api_key": self.config.projectToken,
             "batch": events.map { $0.toJSON() },
             "sent_at": toISO8601String(Date()),
         ]
@@ -139,7 +139,7 @@ class PostHogApi {
         }
 
         for event in events {
-            event.apiKey = self.config.apiKey
+            event.apiKey = self.config.projectToken
         }
 
         let config = sessionConfig()
@@ -210,7 +210,7 @@ class PostHogApi {
         let request = getURLRequest(url)
 
         var toSend: [String: Any] = [
-            "api_key": self.config.apiKey,
+            "api_key": self.config.projectToken,
             "distinct_id": distinctId,
             "groups": groups,
             "timezone": TimeZone.current.identifier,

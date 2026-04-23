@@ -89,7 +89,7 @@ class PostHogSurveyEventsTest {
     }
 
     func getSut() -> PostHogSDK {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+        let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9090")
         config._surveys = true
         config.flushAt = 1
         config.disableReachabilityForTesting = true

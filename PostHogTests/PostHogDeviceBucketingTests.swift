@@ -20,7 +20,7 @@ class PostHogDeviceBucketingTests {
         reuseAnonymousId: Bool = false,
         flushAt: Int = 1
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = false
         config.reuseAnonymousId = reuseAnonymousId
         config.flushAt = flushAt

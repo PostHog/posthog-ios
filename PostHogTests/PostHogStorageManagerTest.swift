@@ -12,7 +12,7 @@ import Quick
 
 class PostHogStorageManagerTest: QuickSpec {
     func getSut(_ config: PostHogConfig? = nil) -> PostHogStorageManager {
-        let theConfig = config ?? PostHogConfig(apiKey: "123")
+        let theConfig = config ?? PostHogConfig(projectToken: "123")
         let storage = PostHogStorage(theConfig)
         storage.reset()
         return PostHogStorageManager(theConfig)
@@ -49,7 +49,7 @@ class PostHogStorageManagerTest: QuickSpec {
         }
 
         it("Can accept anon id customization via config") {
-            let config = PostHogConfig(apiKey: "123")
+            let config = PostHogConfig(projectToken: "123")
             let fixedUuid = UUID.v7()
             config.getAnonymousId = { _ in fixedUuid }
             let sut = self.getSut(config)
@@ -63,7 +63,7 @@ class PostHogStorageManagerTest: QuickSpec {
             let anonymousIdToSet = UUID.v7()
             let distinctIdToSet = UUID.v7().uuidString
 
-            let config = PostHogConfig(apiKey: "123")
+            let config = PostHogConfig(projectToken: "123")
             config.getAnonymousId = { _ in anonymousIdToSet }
 
             let sut = self.getSut(config)

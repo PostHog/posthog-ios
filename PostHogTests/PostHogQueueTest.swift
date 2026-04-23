@@ -13,7 +13,7 @@ import XCTest
 
 class PostHogQueueTest: QuickSpec {
     func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000) -> PostHogQueue {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.sendFeatureFlagEvent = false

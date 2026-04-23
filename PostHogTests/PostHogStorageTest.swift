@@ -11,7 +11,7 @@ import Testing
 
 @Suite("PostHogStorage Tests", .serialized)
 class PostHogStorageTest {
-    func getSut(config: PostHogConfig = PostHogConfig(apiKey: "123")) -> PostHogStorage {
+    func getSut(config: PostHogConfig = PostHogConfig(projectToken: "123")) -> PostHogStorage {
         PostHogStorage(config)
     }
 
@@ -25,7 +25,7 @@ class PostHogStorageTest {
 
     @Test("returns the app group container dir URL")
     func returnsTheAppGroupContainerDirURL() {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(projectToken: "123")
         config.appGroupIdentifier = testAppGroupIdentifier
         let url = appGroupContainerUrl(config: config)!
 
@@ -128,7 +128,7 @@ class PostHogStorageTest {
 
     @Test("writes to disk in an api key folder under application support directory")
     func writesToDiskInAnApiKeyFolderUnderApplicationSupportDirectory() {
-        let config = PostHogConfig(apiKey: "test_key")
+        let config = PostHogConfig(projectToken: "test_key")
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
@@ -150,7 +150,7 @@ class PostHogStorageTest {
 
     @Test("writes to disk in an api key folder under a group container directory")
     func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
-        let config = PostHogConfig(apiKey: "test_key")
+        let config = PostHogConfig(projectToken: "test_key")
         config.appGroupIdentifier = testAppGroupIdentifier
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
@@ -176,7 +176,7 @@ class PostHogStorageTest {
 
     @Test("falls back to application support directory when app group identifier is not provided")
     func fallsBackToApplicationSupportDirectoryWhenAppGroupIdentifierIsNotProvided() {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(projectToken: "123")
         config.appGroupIdentifier = nil
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl

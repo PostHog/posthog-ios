@@ -12,7 +12,7 @@ import XCTest
 @Suite("Test Feature Flags V3", .serialized)
 enum PostHogFeatureFlagsV3Test {
     class BaseTestClass {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: testAPIKey, host: "http://localhost:9001")
         var server: MockPostHogServer!
 
         init() {

@@ -82,7 +82,7 @@ class PostHogStorageMigrationTest {
         }
 
         // Initialize storage which should trigger migration
-        _ = PostHogStorage(PostHogConfig(apiKey: testApiKey))
+        _ = PostHogStorage(PostHogConfig(projectToken: testApiKey))
 
         // Verify legacy file was removed
         #expect(!fileManager.fileExists(atPath: legacyFileUrl.path))
@@ -114,7 +114,7 @@ class PostHogStorageMigrationTest {
         }
 
         // Initialize storage which should trigger migration
-        _ = PostHogStorage(PostHogConfig(apiKey: testApiKey))
+        _ = PostHogStorage(PostHogConfig(projectToken: testApiKey))
 
         // Verify events were migrated correctly
         let newQueueUrl = newBaseUrl.appendingPathComponent(key.rawValue)
@@ -301,7 +301,7 @@ class PostHogStorageMigrationTest {
         _ = try createLegacyFile("my.application.data", content: myAppData)
 
         // Initialize storage which should trigger migration
-        _ = PostHogStorage(PostHogConfig(apiKey: testApiKey))
+        _ = PostHogStorage(PostHogConfig(projectToken: testApiKey))
 
         // Verify storage file was migrated
         let newFileUrl = newBaseUrl.appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)

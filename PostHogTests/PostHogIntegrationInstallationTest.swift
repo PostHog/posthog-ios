@@ -28,7 +28,7 @@ class PostHogIntegrationInstallationTest {
         captureScreenViews: Bool = false,
         captureElementInteractions: Bool = false
     ) -> PostHogSDK {
-        let config = PostHogConfig(apiKey: apiKey)
+        let config = PostHogConfig(projectToken: apiKey)
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
 
         #if os(iOS)

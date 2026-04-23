@@ -61,9 +61,9 @@ let maxRetryDelay = 30.0
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
-        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(apiKey: ""))
+        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
     #else
-        @objc public static let shared: PostHogSDK = .init(PostHogConfig(apiKey: ""))
+        @objc public static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
     #endif
 
     deinit {
@@ -91,10 +91,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            if PostHogSDK.apiKeys.contains(config.apiKey) {
-                hedgeLog("API Key: \(config.apiKey) already has a PostHog instance.")
+            if PostHogSDK.apiKeys.contains(config.projectToken) {
+                hedgeLog("Project Token: \(config.projectToken) already has a PostHog instance.")
             } else {
-                PostHogSDK.apiKeys.insert(config.apiKey)
+                PostHogSDK.apiKeys.insert(config.projectToken)
             }
 
             enabled = true
@@ -1767,7 +1767,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
-            PostHogSDK.apiKeys.remove(config.apiKey)
+            PostHogSDK.apiKeys.remove(config.projectToken)
 
             queue?.stop()
             replayQueue?.stop()
@@ -1776,7 +1776,7 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
-            config = PostHogConfig(apiKey: "")
+            config = PostHogConfig(projectToken: "")
             remoteConfig = nil
             storage = nil
             #if !os(watchOS)

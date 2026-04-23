@@ -297,7 +297,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         #if os(iOS) || os(macOS)
             if #available(iOS 14.0, macOS 11.0, *) {
-                if capturePushNotificationSubscriptions, enableSwizzling {
+                if capturePushNotificationSubscriptions {
                     integrations.append(PostHogPushNotificationIntegration())
                 }
             }

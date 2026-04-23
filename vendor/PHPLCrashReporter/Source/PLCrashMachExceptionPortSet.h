@@ -64,11 +64,7 @@ typedef struct plcrash_mach_exception_port_set {
     thread_state_flavor_t flavors[EXC_TYPES_COUNT];
 } plcrash_mach_exception_port_set_t;
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
 #import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashMachExceptionPortSet : NSObject <NSFastEnumeration>
 

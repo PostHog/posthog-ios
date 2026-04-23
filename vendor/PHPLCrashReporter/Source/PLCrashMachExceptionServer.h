@@ -86,11 +86,7 @@ kern_return_t PLCrashMachExceptionForward (task_t task,
                                            mach_msg_type_number_t code_count,
                                            plcrash_mach_exception_port_set_t *port_state);
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
 #import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashMachExceptionServer : NSObject
 

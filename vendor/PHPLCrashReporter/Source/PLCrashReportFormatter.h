@@ -28,17 +28,8 @@
 
 #import <Foundation/Foundation.h>
 
-#if __has_include(<CrashReporter/PLCrashReport.h>)
-#import <CrashReporter/PLCrashReport.h>
-#else
 #import "PLCrashReport.h"
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
 #import "PLCrashNamespace.h"
-#endif
-
-#endif
 
 /**
  * A crash report formatter accepts a PLCrashReport instance, formats it according to implementation-specified rules,

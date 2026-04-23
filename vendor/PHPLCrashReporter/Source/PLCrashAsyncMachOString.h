@@ -29,11 +29,7 @@
 #ifndef PLCRASH_ASYNC_MACHO_STRING_H
 #define PLCRASH_ASYNC_MACHO_STRING_H
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#include <CrashReporter/PLCrashNamespace.h>
-#else
 #include "PLCrashNamespace.h"
-#endif
 
 
 #ifdef __cplusplus

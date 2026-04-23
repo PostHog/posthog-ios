@@ -28,17 +28,9 @@
 
 #import <Foundation/Foundation.h>
 
-#if __has_include(<CrashReporter/PLCrashReportSymbolInfo.h>)
-#import <CrashReporter/PLCrashReportSymbolInfo.h>
-#else
 #import "PLCrashReportSymbolInfo.h"
-#endif
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
 #import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashReportStackFrameInfo : NSObject
 

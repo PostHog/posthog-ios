@@ -29,6 +29,8 @@
 #import <Foundation/Foundation.h>
 #import <mach/machine.h>
 
+#import "PLCrashNamespace.h"
+
 /**
  * @ingroup constants
  *
@@ -45,12 +47,6 @@ typedef enum {
     /** Apple Mach-defined processor types. */
     PLCrashReportProcessorTypeEncodingMach = 1
 } PLCrashReportProcessorTypeEncoding;
-
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
-#import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashReportProcessorInfo : NSObject
 

@@ -28,11 +28,8 @@
 
 #import <Foundation/Foundation.h>
 
-#if __has_include(<CrashReporter/PLCrashMacros.h>)
-#import <CrashReporter/PLCrashMacros.h>
-#else
 #import "PLCrashMacros.h"
-#endif
+#import "PLCrashNamespace.h"
 
 @class PLCrashReportProcessorInfo;
 
@@ -111,12 +108,6 @@ extern PLCrashReportOperatingSystem PLCrashReportHostOperatingSystem;
 PLCR_EXTERNAL_DEPRECATED_NOWARN_PUSH();
 extern PLCrashReportArchitecture PLCrashReportHostArchitecture PLCR_EXTERNAL_DEPRECATED;
 PLCR_EXTERNAL_DEPRECATED_NOWARN_PUSH();
-
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
-#import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashReportSystemInfo : NSObject
 

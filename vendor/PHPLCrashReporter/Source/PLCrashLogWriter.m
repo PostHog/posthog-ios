@@ -40,11 +40,7 @@
 
 #import <stdatomic.h>
 
-#if __has_include(<CrashReporter/PLCrashReport.h>)
-#import <CrashReporter/PLCrashReport.h>
-#else
 #import "PLCrashReport.h"
-#endif
 
 #import "PLCrashLogWriter.h"
 #import "PLCrashLogWriterEncoding.h"

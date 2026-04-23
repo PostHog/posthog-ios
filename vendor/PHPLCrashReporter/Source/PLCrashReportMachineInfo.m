@@ -26,11 +26,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#if __has_include(<CrashReporter/PLCrashReportMachineInfo.h>)
-#import <CrashReporter/PLCrashReportMachineInfo.h>
-#else
 #import "PLCrashReportMachineInfo.h"
-#endif
 
 /**
  * Crash log host architecture information.

@@ -27,11 +27,7 @@
 #ifndef PLCRASH_ASYNC_COMPACT_UNWIND_ENCODING_H
 #define PLCRASH_ASYNC_COMPACT_UNWIND_ENCODING_H 1
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#include <CrashReporter/PLCrashNamespace.h>
-#else
 #include "PLCrashNamespace.h"
-#endif
 
 
 #include "PLCrashAsync.h"

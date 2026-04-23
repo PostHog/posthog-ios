@@ -29,11 +29,7 @@
 #ifndef PLCRASH_SYSCTL_H
 #define PLCRASH_SYSCTL_H
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#include <CrashReporter/PLCrashNamespace.h>
-#else
 #include "PLCrashNamespace.h"
-#endif
 
 
 #ifdef __cplusplus

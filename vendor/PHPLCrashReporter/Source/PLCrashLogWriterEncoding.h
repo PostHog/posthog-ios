@@ -17,11 +17,7 @@
 #ifndef PLCRASH_LOG_WRITER_ENCODING_H
 #define PLCRASH_LOG_WRITER_ENCODING_H
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#include <CrashReporter/PLCrashNamespace.h>
-#else
 #include "PLCrashNamespace.h"
-#endif
 
 
 #ifdef __cplusplus

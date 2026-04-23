@@ -34,11 +34,7 @@
 
 #if PLCRASH_FEATURE_MACH_EXCEPTIONS
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
 #import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashMachExceptionPort : NSObject
 

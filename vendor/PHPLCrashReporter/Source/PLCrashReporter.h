@@ -32,20 +32,11 @@
 #ifndef PLCRASH_REPORTER_H
 #define PLCRASH_REPORTER_H
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#include <CrashReporter/PLCrashNamespace.h>
-#else
 #include "PLCrashNamespace.h"
-#endif
 
 
-#if __has_include(<CrashReporter/PLCrashReporterConfig.h>)
-#import <CrashReporter/PLCrashReporterConfig.h>
-#import <CrashReporter/PLCrashMacros.h>
-#else
 #import "PLCrashReporterConfig.h"
 #import "PLCrashMacros.h"
-#endif
 
 @class PLCrashMachExceptionServer;
 @class PLCrashMachExceptionPortSet;

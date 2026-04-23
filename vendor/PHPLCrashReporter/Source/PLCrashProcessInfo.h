@@ -31,11 +31,7 @@
 #import <sys/types.h>
 #import <sys/time.h>
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#import <CrashReporter/PLCrashNamespace.h>
-#else
 #import "PLCrashNamespace.h"
-#endif
 
 @interface PLCrashProcessInfo : NSObject
 

@@ -31,11 +31,7 @@
 
 #include <TargetConditionals.h>
 
-#if __has_include(<CrashReporter/PLCrashNamespace.h>)
-#include <CrashReporter/PLCrashNamespace.h>
-#else
 #include "PLCrashNamespace.h"
-#endif
 
 /**
  * @internal

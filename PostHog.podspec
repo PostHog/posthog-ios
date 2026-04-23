@@ -36,7 +36,7 @@ Pod::Spec.new do |s|
   s.source_files = [
     'PostHog/**/*.{swift,h,hpp,m,mm,c,cpp}',
     'vendor/libwebp/**/*.{h,c}',
-    'vendor/PHPLCrashReporter/Source/**/*.{h,m,mm,c,cpp,S}',
+    'vendor/PHPLCrashReporter/Source/**/*.{h,hpp,m,mm,c,cpp,S}',
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.h',
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.c'
   ]

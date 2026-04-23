@@ -1855,11 +1855,10 @@ let maxRetryDelay = 30.0
                 return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
             }
 
-            let sessionId = resumeCurrent
+            guard (resumeCurrent
                 ? sessionManager.getSessionId()
-                : sessionManager.getNextSessionId()
-
-            guard let sessionId else {
+                : sessionManager.getNextSessionId()) != nil
+            else {
                 return hedgeLog("Could not start recording. Missing session id.")
             }
 

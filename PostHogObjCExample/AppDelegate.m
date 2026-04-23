@@ -27,7 +27,7 @@
             name:PostHogSDK.didStartNotification
             object:nil];
 
-    PostHogConfig *config = [[PostHogConfig alloc] initWithProjectToken:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
+    PostHogConfig *config = [[PostHogConfig alloc] projectToken:@"_6SG-F7I1vCuZ-HdJL3VZQqjBlaSb1_20hDPwqMNnGI"];
     config.preloadFeatureFlags = YES;
     config.sessionReplayConfig.captureLogs = YES;
     config.sessionReplayConfig.captureLogsConfig.minLogLevel = PostHogLogLevelWarn;

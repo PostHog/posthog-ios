@@ -13,7 +13,9 @@ import Foundation
     @objc public var properties: [String: Any]
     @objc public var timestamp: Date
     @objc public private(set) var uuid: UUID
-    // Only used for Replay
+    // Only used for Replay.
+    // Publicly this remains named apiKey for BeforeSendBlock compatibility,
+    // but it carries the PostHog project token and is serialized as api_key on the wire.
     var apiKey: String?
 
     init(event: String, distinctId: String, properties: [String: Any]? = nil, timestamp: Date = Date(), uuid: UUID = UUID.v7(), apiKey: String? = nil) {
@@ -55,7 +57,7 @@ import Foundation
         let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7().uuidString
         let uuidObj = UUID(uuidString: uuid) ?? UUID.v7()
 
-        let apiKey = json["api_key"] as? String
+        let projectKey = json["api_key"] as? String
 
         return PostHogEvent(
             event: event,
@@ -63,7 +65,7 @@ import Foundation
             properties: properties,
             timestamp: timestampDate,
             uuid: uuidObj,
-            apiKey: apiKey
+            apiKey: projectKey
         )
     }
 

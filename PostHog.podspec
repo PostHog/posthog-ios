@@ -41,6 +41,11 @@ Pod::Spec.new do |s|
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.c'
   ]
 
+  # Internal C++ headers should not be exported via CocoaPods umbrella/module maps
+  s.private_header_files = [
+    'vendor/PHPLCrashReporter/Source/**/*.hpp'
+  ]
+
   # Crash reporting is not supported on watchOS/visionOS
   s.watchos.exclude_files = [
     'vendor/PHPLCrashReporter/Source/**/*',

@@ -126,8 +126,8 @@ class PostHogStorageTest {
         sut.reset()
     }
 
-    @Test("writes to disk in an project token folder under application support directory")
-    func writesToDiskInAnApiKeyFolderUnderApplicationSupportDirectory() {
+    @Test("writes to disk in a project token folder under application support directory")
+    func writesToDiskInAProjectTokenFolderUnderApplicationSupportDirectory() {
         let config = PostHogConfig(projectToken: "test_project_token")
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
@@ -148,8 +148,8 @@ class PostHogStorageTest {
         sut.reset()
     }
 
-    @Test("writes to disk in an project token folder under a group container directory")
-    func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
+    @Test("writes to disk in a project token folder under a group container directory")
+    func writesToDiskInAProjectTokenFolderUnderGroupContainerDirectory() {
         let config = PostHogConfig(projectToken: "test_project_token")
         config.appGroupIdentifier = testAppGroupIdentifier
         let sut = PostHogStorage(config)

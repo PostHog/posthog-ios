@@ -57,6 +57,7 @@ import Foundation
         let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7().uuidString
         let uuidObj = UUID(uuidString: uuid) ?? UUID.v7()
 
+        // Wire field name remains api_key, but it carries the PostHog project token.
         let projectKey = json["api_key"] as? String
 
         return PostHogEvent(
@@ -78,8 +79,9 @@ import Foundation
             "uuid": uuid.uuidString,
         ]
 
-        if let apiKey {
-            json["api_key"] = apiKey
+        if let projectToken = apiKey {
+            // Wire field name remains api_key, but it carries the PostHog project token.
+            json["api_key"] = projectToken
         }
 
         return json

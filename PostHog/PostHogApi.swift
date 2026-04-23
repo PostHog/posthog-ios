@@ -94,6 +94,7 @@ class PostHogApi {
         let request = getURLRequest(url)
 
         let toSend: [String: Any] = [
+            // Wire field name remains api_key, but it carries the PostHog project token.
             "api_key": self.config.projectToken,
             "batch": events.map { $0.toJSON() },
             "sent_at": toISO8601String(Date()),
@@ -210,6 +211,7 @@ class PostHogApi {
         let request = getURLRequest(url)
 
         var toSend: [String: Any] = [
+            // Wire field name remains api_key, but it carries the PostHog project token.
             "api_key": self.config.projectToken,
             "distinct_id": distinctId,
             "groups": groups,

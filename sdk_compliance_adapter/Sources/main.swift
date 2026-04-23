@@ -44,6 +44,7 @@ app.post("init") { req async throws -> Response in
         let flushIntervalMs: Int?
 
         enum CodingKeys: String, CodingKey {
+            // Wire field name remains api_key, but it carries the PostHog project token.
             case apiKey = "api_key"
             case host
             case flushAt = "flush_at"

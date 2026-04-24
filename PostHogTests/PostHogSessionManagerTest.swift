@@ -21,7 +21,7 @@ enum PostHogSessionManagerTest {
         }
 
         func getSut() -> PostHogSDK {
-            let config = PostHogConfig(apiKey: "test-key")
+            let config = PostHogConfig(projectToken: "test_project_token")
             return PostHogSDK.with(config)
         }
 
@@ -187,7 +187,7 @@ enum PostHogSessionManagerTest {
             propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
             personProfiles: PostHogPersonProfiles = .identifiedOnly
         ) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.flushAt = flushAt
             config.preloadFeatureFlags = preloadFeatureFlags
             config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -394,7 +394,7 @@ enum PostHogSessionManagerTest {
             postHogSdkName = "posthog-react-native"
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
-            let config = PostHogConfig(apiKey: "test-key")
+            let config = PostHogConfig(projectToken: "test_project_token")
             posthog = PostHogSDK.with(config)
         }
 

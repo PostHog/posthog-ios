@@ -11,7 +11,7 @@ import Testing
 
 @Suite("PostHogStorage Tests", .serialized)
 class PostHogStorageTest {
-    func getSut(config: PostHogConfig = PostHogConfig(apiKey: "123")) -> PostHogStorage {
+    func getSut(config: PostHogConfig = PostHogConfig(projectToken: "test_project_token")) -> PostHogStorage {
         PostHogStorage(config)
     }
 
@@ -25,7 +25,7 @@ class PostHogStorageTest {
 
     @Test("returns the app group container dir URL")
     func returnsTheAppGroupContainerDirURL() {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(projectToken: "test_project_token")
         config.appGroupIdentifier = testAppGroupIdentifier
         let url = appGroupContainerUrl(config: config)!
 
@@ -126,15 +126,15 @@ class PostHogStorageTest {
         sut.reset()
     }
 
-    @Test("writes to disk in an api key folder under application support directory")
-    func writesToDiskInAnApiKeyFolderUnderApplicationSupportDirectory() {
-        let config = PostHogConfig(apiKey: "test_key")
+    @Test("writes to disk in a project token folder under application support directory")
+    func writesToDiskInAProjectTokenFolderUnderApplicationSupportDirectory() {
+        let config = PostHogConfig(projectToken: "test_project_token")
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
         sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_key"]
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_project_token"]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 
@@ -148,16 +148,16 @@ class PostHogStorageTest {
         sut.reset()
     }
 
-    @Test("writes to disk in an api key folder under a group container directory")
-    func writesToDiskInAnApiKeyFolderUnderGroupContainerDirectory() {
-        let config = PostHogConfig(apiKey: "test_key")
+    @Test("writes to disk in a project token folder under a group container directory")
+    func writesToDiskInAProjectTokenFolderUnderGroupContainerDirectory() {
+        let config = PostHogConfig(projectToken: "test_project_token")
         config.appGroupIdentifier = testAppGroupIdentifier
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
         sut.setString(forKey: .distinctId, contents: "distinct_id_value")
 
-        let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier, "test_key"]
+        let expectedSuffix = ["Library", "Application Support", testAppGroupIdentifier, "test_project_token"]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 
@@ -176,12 +176,12 @@ class PostHogStorageTest {
 
     @Test("falls back to application support directory when app group identifier is not provided")
     func fallsBackToApplicationSupportDirectoryWhenAppGroupIdentifierIsNotProvided() {
-        let config = PostHogConfig(apiKey: "123")
+        let config = PostHogConfig(projectToken: "test_project_token")
         config.appGroupIdentifier = nil
         let sut = PostHogStorage(config)
         let url = sut.appFolderUrl
 
-        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "123"]
+        let expectedSuffix = ["Library", "Application Support", testBundleIdentifier, "test_project_token"]
         let actualSuffix = Array(url.pathComponents.suffix(expectedSuffix.count))
         #expect(expectedSuffix == actualSuffix)
 

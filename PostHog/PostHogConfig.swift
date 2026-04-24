@@ -37,7 +37,21 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     }
 
     @objc public let host: URL
-    @objc public let apiKey: String
+
+    /// Your PostHog project token.
+    ///
+    /// You can find it at:
+    /// https://us.posthog.com/settings/project-details#variables
+    ///
+    /// This field was formerly named <c>apiKey</c>.
+    @objc public let projectToken: String
+
+    /// Obsolete alias for <c>projectToken</c>.
+    @available(*, deprecated, message: "Use projectToken instead. This will be removed in the next major version.")
+    @objc public var apiKey: String {
+        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
+        return projectToken
+    }
     @objc public var flushAt: Int = Defaults.flushAt
     @objc public var maxQueueSize: Int = Defaults.maxQueueSize
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
@@ -217,31 +231,50 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     // internal
     public var storageManager: PostHogStorageManager?
 
-    private static func normalizeApiKey(_ apiKey: String) -> String {
-        let normalizedApiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if normalizedApiKey.isEmpty {
-            hedgeLog("apiKey is empty after trimming whitespace; check your project API key")
+    private static func normalizeProjectToken(_ projectToken: String) -> String {
+        let normalizedProjectToken = projectToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedProjectToken.isEmpty {
+            hedgeLog("Either projectToken or apiKey must be provided.")
         }
-        return normalizedApiKey
+        return normalizedProjectToken
     }
 
-    @objc(apiKey:)
+    @objc(projectToken:)
     public init(
-        apiKey: String
+        projectToken: String
     ) {
-        self.apiKey = Self.normalizeApiKey(apiKey)
+        self.projectToken = Self.normalizeProjectToken(projectToken)
         host = URL(string: PostHogConfig.defaultHost)!
     }
 
-    @objc(apiKey:host:)
+    @objc(projectToken:host:)
     public init(
-        apiKey: String,
+        projectToken: String,
         host: String = defaultHost
     ) {
         let normalizedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        self.apiKey = Self.normalizeApiKey(apiKey)
+        self.projectToken = Self.normalizeProjectToken(projectToken)
         self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
+    }
+
+    @available(*, deprecated, message: "Use init(projectToken:) instead. This will be removed in the next major version.")
+    @objc(apiKey:)
+    public convenience init(
+        apiKey: String
+    ) {
+        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
+        self.init(projectToken: apiKey)
+    }
+
+    @available(*, deprecated, message: "Use init(projectToken:host:) instead. This will be removed in the next major version.")
+    @objc(apiKey:host:)
+    public convenience init(
+        apiKey: String,
+        host: String = defaultHost
+    ) {
+        hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
+        self.init(projectToken: apiKey, host: host)
     }
 
     /// Returns an array of integrations to be installed based on current configuration

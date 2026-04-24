@@ -66,7 +66,7 @@ enum PostHogApiTests {
         }
 
         func getSut(host: String) -> PostHogApi {
-            PostHogApi(PostHogConfig(apiKey: "123", host: host))
+            PostHogApi(PostHogConfig(projectToken: "test_project_token", host: host))
         }
     }
 

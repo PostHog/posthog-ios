@@ -59,4 +59,6 @@ FOUNDATION_EXPORT const unsigned char PostHogVersionString[];
 #import <PostHog/ph_huffman_utils.h>
 #import <PostHog/ph_yuv.h>
 
+#if __has_include(<PostHog/CrashReporter.h>)
 #import <PostHog/CrashReporter.h>
+#endif

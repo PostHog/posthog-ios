@@ -58,3 +58,5 @@ FOUNDATION_EXPORT const unsigned char PostHogVersionString[];
 #import <PostHog/ph_webpi_dec.h>
 #import <PostHog/ph_huffman_utils.h>
 #import <PostHog/ph_yuv.h>
+
+#import <PostHog/CrashReporter.h>

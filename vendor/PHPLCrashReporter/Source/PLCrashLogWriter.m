@@ -27,6 +27,7 @@
  */
 
 #import <stdlib.h>
+#import <stddef.h>
 #import <fcntl.h>
 #import <errno.h>
 #import <string.h>
@@ -56,6 +57,30 @@
  * to avoid overrunning our output limit when writing a crash report triggered by frame recursion.
  */
 #define MAX_THREAD_FRAMES 512 // matches Apple's crash reporting on Snow Leopard
+
+/** Maximum bytes read from __crash_info message strings (excluding the terminating null). */
+#define PLCRASH_SWIFT_CRASH_INFO_MESSAGE_MAX_LEN 1024
+
+/** __crash_info section name. */
+#define PLCRASH_SWIFT_CRASH_INFO_SECT_NAME "__crash_info"
+
+/**
+ * Swift runtime crash_info structure used by __crash_info section.
+ *
+ * Versions 4 and 5 are known to carry fatalError/assert/precondition messages.
+ */
+#pragma pack(push, 8)
+typedef struct {
+    uint32_t version;
+    const char *message;
+    const char *signature;
+    const char *backtrace;
+    const char *message2;
+    void *reserved;
+    void *reserved2;
+    void *reserved3; /* Introduced in version 5 */
+} plcrash_swift_crash_info_t;
+#pragma pack(pop)
 
 /**
  * @internal
@@ -180,8 +205,11 @@ enum {
     
     /** CrashReport.signal.mach_exception */
     PLCRASH_PROTO_SIGNAL_MACH_EXCEPTION_ID = 4,
-    
-    
+
+    /** CrashReport.signal.swift_crash_info_message */
+    PLCRASH_PROTO_SIGNAL_SWIFT_CRASH_INFO_MESSAGE_ID = 5,
+
+
     /** CrashReport.signal.mach_exception.type */
     PLCRASH_PROTO_SIGNAL_MACH_EXCEPTION_TYPE_ID = 1,
     
@@ -1128,14 +1156,106 @@ static size_t plcrash_writer_write_mach_signal (plcrash_async_file_t *file, plcr
 }
 
 /**
+ * Return true if @a image_name refers to libswiftCore.dylib.
+ */
+static bool plcrash_writer_is_swift_core_image (const char *image_name) {
+    if (image_name == NULL)
+        return false;
+
+    const char *basename = image_name;
+    for (const char *cursor = image_name; *cursor != '\0'; cursor++) {
+        if (*cursor == '/')
+            basename = cursor + 1;
+    }
+
+    return plcrash_async_strcmp(basename, "libswiftCore.dylib") == 0;
+}
+
+/**
+ * Copy a C string from @a task into @a destination. Returns true if at least one byte is copied
+ * and the result is a valid C string (possibly truncated to destination size).
+ */
+static bool plcrash_writer_copy_task_cstring (task_t task, const char *source, char *destination, size_t destination_size) {
+    if (source == NULL || destination == NULL || destination_size == 0)
+        return false;
+
+    for (size_t i = 0; i < destination_size - 1; i++) {
+        char ch;
+
+        if (plcrash_async_task_memcpy(task, (pl_vm_address_t) source, (pl_vm_off_t) i, &ch, sizeof(ch)) != PLCRASH_ESUCCESS)
+            return false;
+
+        destination[i] = ch;
+
+        if (ch == '\0')
+            return true;
+    }
+
+    destination[destination_size - 1] = '\0';
+    return true;
+}
+
+/**
+ * Extract Swift fatalError/assert/precondition message from libswiftCore.dylib __crash_info.
+ */
+static bool plcrash_writer_extract_swift_crash_info_message (plcrash_async_image_t *image, char *message, size_t message_length) {
+    if (image == NULL || message == NULL || message_length == 0)
+        return false;
+
+    message[0] = '\0';
+
+    if (!plcrash_writer_is_swift_core_image(image->macho_image.name))
+        return false;
+
+    static const char *segment_names[] = {
+        "__DATA",
+        "__DATA_CONST",
+        "__DATA_DIRTY"
+    };
+
+    plcrash_async_mobject_t crash_info_section;
+    plcrash_error_t map_err = PLCRASH_ENOTFOUND;
+
+    for (size_t i = 0; i < sizeof(segment_names) / sizeof(segment_names[0]); i++) {
+        map_err = plcrash_async_macho_map_section(&image->macho_image, segment_names[i], PLCRASH_SWIFT_CRASH_INFO_SECT_NAME, &crash_info_section);
+        if (map_err == PLCRASH_ESUCCESS)
+            break;
+    }
+
+    if (map_err != PLCRASH_ESUCCESS)
+        return false;
+
+    bool found = false;
+    const size_t minimal_size = offsetof(plcrash_swift_crash_info_t, reserved);
+
+    if (plcrash_async_mobject_length(&crash_info_section) >= minimal_size &&
+        plcrash_async_mobject_verify_local_pointer(&crash_info_section, crash_info_section.address, 0, minimal_size))
+    {
+        const plcrash_swift_crash_info_t *crash_info = (const plcrash_swift_crash_info_t *) crash_info_section.address;
+
+        if (crash_info->version == 4 || crash_info->version == 5) {
+            /* Prefer message, then message2. */
+            found = plcrash_writer_copy_task_cstring(image->macho_image.task, crash_info->message, message, message_length);
+            if (!found) {
+                found = plcrash_writer_copy_task_cstring(image->macho_image.task, crash_info->message2, message, message_length);
+            }
+        }
+    }
+
+    plcrash_async_mobject_free(&crash_info_section);
+    return found;
+}
+
+/**
  * @internal
  *
  * Write the crash signal message
  *
  * @param file Output file
  * @param siginfo The signal information
+ * @param swift_crash_info_message Swift crash info message from __crash_info, or NULL.
  */
-static size_t plcrash_writer_write_signal (plcrash_async_file_t *file, plcrash_log_signal_info_t *siginfo) {
+static size_t plcrash_writer_write_signal (plcrash_async_file_t *file, plcrash_log_signal_info_t *siginfo, const char *swift_crash_info_message) {
     size_t rv = 0;
     
     /* BSD signal info is always required in the current report format; this restriction will be lifted
@@ -1178,6 +1298,10 @@ static size_t plcrash_writer_write_signal (plcrash_async_file_t *file, plcrash_l
         /* Write message */
         rv += plcrash_writer_pack(file, PLCRASH_PROTO_SIGNAL_MACH_EXCEPTION_ID, PLPROTOBUF_C_TYPE_MESSAGE, &size);
         rv += plcrash_writer_write_mach_signal(file, siginfo->mach_info);
+    }
+
+    if (swift_crash_info_message != NULL && swift_crash_info_message[0] != '\0') {
+        rv += plcrash_writer_pack(file, PLCRASH_PROTO_SIGNAL_SWIFT_CRASH_INFO_MESSAGE_ID, PLPROTOBUF_C_TYPE_STRING, swift_crash_info_message);
     }
 
     return rv;
@@ -1370,6 +1494,9 @@ plcrash_error_t plcrash_log_writer_write (plcrash_log_writer_t *writer,
     }
 
     /* Binary Images */
+    bool has_swift_crash_info_message = false;
+    char swift_crash_info_message[PLCRASH_SWIFT_CRASH_INFO_MESSAGE_MAX_LEN + 1] = {0};
+
     plcrash_async_image_list_set_reading(image_list, true);
 
     plcrash_async_image_t *image = NULL;
@@ -1380,6 +1507,10 @@ plcrash_error_t plcrash_log_writer_write (plcrash_log_writer_t *writer,
         size = (uint32_t) plcrash_writer_write_binary_image(NULL, &image->macho_image);
         plcrash_writer_pack(file, PLCRASH_PROTO_BINARY_IMAGES_ID, PLPROTOBUF_C_TYPE_MESSAGE, &size);
         plcrash_writer_write_binary_image(file, &image->macho_image);
+
+        if (!has_swift_crash_info_message) {
+            has_swift_crash_info_message = plcrash_writer_extract_swift_crash_info_message(image, swift_crash_info_message, sizeof(swift_crash_info_message));
+        }
     }
 
     plcrash_async_image_list_set_reading(image_list, false);
@@ -1396,12 +1527,13 @@ plcrash_error_t plcrash_log_writer_write (plcrash_log_writer_t *writer,
     
     /* Signal */
     {
+        const char *swift_message = has_swift_crash_info_message ? swift_crash_info_message : NULL;
         uint32_t size;
         
         /* Calculate the message size */
-        size = (uint32_t) plcrash_writer_write_signal(NULL, siginfo);
+        size = (uint32_t) plcrash_writer_write_signal(NULL, siginfo, swift_message);
         plcrash_writer_pack(file, PLCRASH_PROTO_SIGNAL_ID, PLPROTOBUF_C_TYPE_MESSAGE, &size);
-        plcrash_writer_write_signal(file, siginfo);
+        plcrash_writer_write_signal(file, siginfo, swift_message);
     }
 
     /* Custom data */

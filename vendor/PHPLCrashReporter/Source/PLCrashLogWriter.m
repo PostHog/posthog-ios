@@ -1156,22 +1156,6 @@ static size_t plcrash_writer_write_mach_signal (plcrash_async_file_t *file, plcr
 }
 
 /**
- * Return true if @a image_name refers to libswiftCore.dylib.
- */
-static bool plcrash_writer_is_swift_core_image (const char *image_name) {
-    if (image_name == NULL)
-        return false;
-
-    const char *basename = image_name;
-    for (const char *cursor = image_name; *cursor != '\0'; cursor++) {
-        if (*cursor == '/')
-            basename = cursor + 1;
-    }
-
-    return plcrash_async_strcmp(basename, "libswiftCore.dylib") == 0;
-}
-
-/**
  * Copy a C string from @a task into @a destination. Returns true if at least one byte is copied
  * and the result is a valid C string (possibly truncated to destination size).
  */
@@ -1196,16 +1180,13 @@ static bool plcrash_writer_copy_task_cstring (task_t task, const char *source, c
 }
 
 /**
- * Extract Swift fatalError/assert/precondition message from libswiftCore.dylib __crash_info.
+ * Extract Swift fatalError/assert/precondition message from an image's __crash_info section.
  */
 static bool plcrash_writer_extract_swift_crash_info_message (plcrash_async_image_t *image, char *message, size_t message_length) {
     if (image == NULL || message == NULL || message_length == 0)
         return false;
 
     message[0] = '\0';
-
-    if (!plcrash_writer_is_swift_core_image(image->macho_image.name))
-        return false;
 
     static const char *segment_names[] = {
         "__DATA",
@@ -1500,6 +1481,15 @@ plcrash_error_t plcrash_log_writer_write (plcrash_log_writer_t *writer,
     plcrash_async_image_list_set_reading(image_list, true);
 
     plcrash_async_image_t *image = NULL;
+
+    /* Prefer the image containing the fault address, then fall back to scanning all images. */
+    if (siginfo->bsd_info != NULL && siginfo->bsd_info->address != NULL) {
+        plcrash_async_image_t *crash_image = plcrash_async_image_containing_address(image_list, (pl_vm_address_t) siginfo->bsd_info->address);
+        if (crash_image != NULL) {
+            has_swift_crash_info_message = plcrash_writer_extract_swift_crash_info_message(crash_image, swift_crash_info_message, sizeof(swift_crash_info_message));
+        }
+    }
+
     while ((image = plcrash_async_image_list_next(image_list, image)) != NULL) {
         uint32_t size;
 

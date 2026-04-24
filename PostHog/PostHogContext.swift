@@ -38,11 +38,7 @@ class PostHogContext {
             properties["$app_version"] = appVersion
         }
         if let appBuild = infoDictionary?["CFBundleVersion"] as? String {
-            if let appBuildInt = Int(appBuild) {
-                properties["$app_build"] = appBuildInt
-            } else {
-                properties["$app_build"] = appBuild
-            }
+            properties["$app_build"] = parseBundleVersion(appBuild)
         }
         properties["$is_testflight"] = PostHogContext.isTestFlight
         properties["$is_sideloaded"] = PostHogContext.isSideloaded

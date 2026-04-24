@@ -9,6 +9,7 @@ buildSdk:
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=ios | xcpretty #ios
 	set -o pipefail && xcrun swift build --arch arm64 #macOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=macos | xcpretty #macOS
+	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination 'platform=macOS,variant=Mac Catalyst' | xcpretty #Mac Catalyst
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=tvos | xcpretty #tvOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=watchos | xcpretty #watchOS
 	set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=xros | xcpretty #visionOS

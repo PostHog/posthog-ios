@@ -21,7 +21,7 @@ class PostHogSDKTest: QuickSpec {
                 setDefaultPersonProperties: Bool = true,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
-        let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+        let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.preloadFeatureFlags = preloadFeatureFlags
         config.sendFeatureFlagEvent = sendFeatureFlagEvent
@@ -999,7 +999,7 @@ class PostHogSDKTest: QuickSpec {
         #if os(iOS)
             context("autocapture") {
                 it("isAutocaptureActive() should be false if disabled by config") {
-                    let config = PostHogConfig(apiKey: testAPIKey)
+                    let config = PostHogConfig(projectToken: testProjectToken)
                     config.captureElementInteractions = false
                     let sut = PostHogSDK.with(config)
 
@@ -1007,7 +1007,7 @@ class PostHogSDKTest: QuickSpec {
                 }
 
                 it("isAutocaptureActive() should be false if SDK is not enabled") {
-                    let config = PostHogConfig(apiKey: testAPIKey)
+                    let config = PostHogConfig(projectToken: testProjectToken)
                     config.captureElementInteractions = true
                     let sut = PostHogSDK.with(config)
                     sut.close()

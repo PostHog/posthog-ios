@@ -1,5 +1,17 @@
 ## Next
 
+## 3.56.0
+
+### Minor Changes
+
+- 47aaf2f: Rename apiKey to projectToken with backward-compatible aliases
+
+## 3.55.1
+
+### Patch Changes
+
+- 2278539: Trim surrounding whitespace from apiKey and host config before using them.
+
 ## 3.55.0
 
 ### Minor Changes

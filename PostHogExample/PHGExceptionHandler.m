@@ -43,7 +43,10 @@
 + (void)triggerSampleInvalidArgumentException {
     // This will throw an NSInvalidArgumentException
     NSMutableArray *mutableArray = [[NSMutableArray alloc] init];
-    [mutableArray insertObject:nil atIndex:0]; // Inserting nil object
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+    [mutableArray insertObject:nil atIndex:0]; // Inserting nil object intentionally
+#pragma clang diagnostic pop
 }
 
 + (void)triggerSampleGenericException {

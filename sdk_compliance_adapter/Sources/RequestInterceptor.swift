@@ -119,7 +119,7 @@ class RequestInterceptor: URLProtocol {
                 }
 
                 if let json = try JSONSerialization.jsonObject(with: decompressed) as? [String: Any] {
-                    // Server SDK format: {"api_key": "...", "batch": [...]}
+                    // Server SDK format: {"api_key": "...", "batch": [...]} where api_key carries the project token.
                     if let batch = json["batch"] as? [[String: Any]] {
                         events = batch
                         print("[INTERCEPTOR] Found batch with \(events.count) events")

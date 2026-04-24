@@ -382,7 +382,7 @@ class PostHogStorage {
 
     private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
         let apiDir = getBaseAppFolderUrl(from: configuration)
-            .appendingPathComponent(configuration.apiKey)
+            .appendingPathComponent(configuration.projectToken)
 
         createDirectoryAtURLIfNeeded(url: apiDir)
 

@@ -21,20 +21,20 @@ dependencies: [
 ```swift
 import PostHog
 
-let config = PostHogConfig(apiKey: apiKey)
+let config = PostHogConfig(projectToken: projectToken)
 PostHogSDK.shared.setup(config)
 ```
 
 Set a custom `host` (Self-Hosted)
 
 ```swift
-let config = PostHogConfig(apiKey: apiKey, host: host)
+let config = PostHogConfig(projectToken: projectToken, host: host)
 ```
 
 Change the default configuration
 
 ```swift
-let config = PostHogConfig(apiKey: apiKey)
+let config = PostHogConfig(projectToken: projectToken)
 config.captureScreenViews = false
 config.captureApplicationLifecycleEvents = false
 config.debug = true
@@ -45,7 +45,7 @@ If you don't want to use the global/singleton instance, you can create your own 
 and hold it
 
 ```swift
-let config = PostHogConfig(apiKey: apiKey)
+let config = PostHogConfig(projectToken: projectToken)
 let postHog = PostHogSDK.with(config)
 
 PostHogSDK.shared.capture("user_signed_up")
@@ -55,7 +55,7 @@ Enable or Disable the SDK to capture events
 
 ```swift
 // During SDK setup
-let config = PostHogConfig(apiKey: apiKey)
+let config = PostHogConfig(projectToken: projectToken)
 // the SDK is enabled by default
 config.optOut = true
 PostHogSDK.shared.setup(config)
@@ -72,7 +72,7 @@ if (PostHogSDK.shared.isOptOut()) {
 Capture a screen view event
 
 ```swift
-let config = PostHogConfig(apiKey: apiKey)
+let config = PostHogConfig(projectToken: projectToken)
 // it's enabled by default
 config.captureScreenViews = true
 PostHogSDK.shared.setup(config)
@@ -232,7 +232,7 @@ Requires the iOS SDK version >= [3.6.1](https://github.com/PostHog/posthog-ios/r
 Enable the SDK to capture Session Recording.
 
 ```swift
-let config = PostHogConfig(apiKey: apiKey)
+let config = PostHogConfig(projectToken: projectToken)
 // sessionReplay is disabled by default
 config.sessionReplay = true
 // sessionReplayConfig is optional, they are enabled by default

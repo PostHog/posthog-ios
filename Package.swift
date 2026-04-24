@@ -27,7 +27,7 @@ let package = Package(
             name: "PostHog",
             dependencies: [
                 "phlibwebp",
-                "PHPLCrashReporter",
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .tvOS])),
             ],
             path: "PostHog",
             resources: [

@@ -94,6 +94,13 @@ class PostHogConfigTest: QuickSpec {
                 }
             }
 
+            context("when initialized with default tracing headers configuration") {
+                it("should disable tracing headers by default") {
+                    let sut = PostHogConfig(apiKey: testAPIKey)
+                    expect(sut.tracingHeaders).to(beNil())
+                }
+            }
+
             context("when customized") {
                 it("should allow disabling autocapture") {
                     let config = PostHogConfig(projectToken: testProjectToken)

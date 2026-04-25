@@ -176,6 +176,20 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     public static let defaultHost: String = "https://us.i.posthog.com"
 
     #if os(iOS)
+        /// When set, PostHog injects tracing headers into `URLSession` requests whose
+        /// destination hostname exactly matches one of the configured hostnames.
+        ///
+        /// Injected headers on iOS:
+        /// - `X-POSTHOG-DISTINCT-ID`
+        /// - `X-POSTHOG-SESSION-ID`
+        ///
+        /// Notes:
+        /// - Requires `enableSwizzling = true`
+        /// - Hostname matching is exact and does not include ports or subdomain wildcards
+        /// - iOS does not send `X-POSTHOG-WINDOW-ID` because mobile apps do not have a per-window/tab concept
+        /// - Existing values for these headers will be overwritten
+        @objc public var tracingHeaders: [String]?
+
         /// Enable Recording of Session Replays for iOS
         ///
         /// Note: Ingestion controls (sampling, feature flags, and event triggers) are currently applied using AND logic.
@@ -296,6 +310,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         }
 
         #if os(iOS)
+            if tracingHeaders?.isEmpty == false {
+                integrations.append(PostHogTracingHeadersIntegration())
+            }
+
             if sessionReplay {
                 integrations.append(PostHogReplayIntegration())
             }

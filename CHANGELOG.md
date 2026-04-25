@@ -1,5 +1,15 @@
 ## Next
 
+## 3.57.0
+
+### Minor Changes
+
+- 4273b7f: Add tracing header injection for URLSession requests.
+
+### Patch Changes
+
+- 6cebb23: fix: parse `build` as Int when possible on `Application Opened` events, matching `Application Installed` / `Application Updated`. Extracts the shared `CFBundleVersion` parsing into a reusable helper so all four `build` / `$app_build` / `previous_build` call sites stay consistent.
+
 ## 3.56.0
 
 ### Minor Changes

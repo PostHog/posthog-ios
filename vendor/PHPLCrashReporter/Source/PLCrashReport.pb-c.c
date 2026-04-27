@@ -868,7 +868,7 @@ const ProtobufCMessageDescriptor plcrash__crash_report__signal__mach_exception__
   (ProtobufCMessageInit) plcrash__crash_report__signal__mach_exception__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor plcrash__crash_report__signal__field_descriptors[4] =
+static const ProtobufCFieldDescriptor plcrash__crash_report__signal__field_descriptors[5] =
 {
   {
     "name",
@@ -918,17 +918,30 @@ static const ProtobufCFieldDescriptor plcrash__crash_report__signal__field_descr
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "swift_crash_info_message",
+    5,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(Plcrash__CrashReport__Signal, swift_crash_info_message),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned plcrash__crash_report__signal__field_indices_by_name[] = {
   2,   /* field[2] = address */
   1,   /* field[1] = code */
   3,   /* field[3] = mach_exception */
   0,   /* field[0] = name */
+  4,   /* field[4] = swift_crash_info_message */
 };
 static const ProtobufCIntRange plcrash__crash_report__signal__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 5 }
 };
 const ProtobufCMessageDescriptor plcrash__crash_report__signal__descriptor =
 {
@@ -938,7 +951,7 @@ const ProtobufCMessageDescriptor plcrash__crash_report__signal__descriptor =
   "Plcrash__CrashReport__Signal",
   "plcrash",
   sizeof(Plcrash__CrashReport__Signal),
-  4,
+  5,
   plcrash__crash_report__signal__field_descriptors,
   plcrash__crash_report__signal__field_indices_by_name,
   1,  plcrash__crash_report__signal__number_ranges,

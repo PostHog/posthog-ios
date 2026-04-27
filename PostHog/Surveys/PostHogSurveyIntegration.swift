@@ -505,7 +505,9 @@
 
         /// Handle a survey dismiss
         private func handleSurveyClosed(survey: PostHogDisplaySurvey) {
-            let (activeSurvey, activeSurveyCompleted) = activeSurveyLock.withLock { (self.activeSurvey, self.activeSurveyCompleted) }
+            let (activeSurvey, activeSurveyCompleted, activeSurveyResponses) = activeSurveyLock.withLock {
+                (self.activeSurvey, self.activeSurveyCompleted, self.activeSurveyResponses)
+            }
 
             guard let activeSurvey, survey.id == activeSurvey.id else {
                 hedgeLog("Received a close event for a non-active survey")
@@ -514,7 +516,7 @@
 
             // send survey dismissed event if needed
             if !activeSurveyCompleted {
-                sendSurveyDismissedEvent(survey: activeSurvey)
+                sendSurveyDismissedEvent(survey: activeSurvey, responses: activeSurveyResponses)
             }
 
             // mark as seen
@@ -543,15 +545,44 @@
         ///   - survey: The completed survey
         ///   - responses: Dictionary of collected responses for each question
         private func sendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse]) {
-            let responsesProperties: [String: Any] = responses.compactMapValues { resp in
-                switch resp.type {
-                case .link: resp.linkClicked == true ? "link clicked" : nil
-                case .multipleChoice: resp.selectedOptions
-                case .singleChoice: resp.selectedOptions?.first
-                case .openEnded: resp.textValue
-                case .rating: resp.ratingValue.map { "\($0)" }
-                }
-            }
+            let additionalProperties = buildSurveyResponseProperties(survey: survey, responses: responses).merging(
+                [
+                    "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
+
+            sendSurveyEvent(
+                event: "survey sent",
+                survey: survey,
+                additionalProperties: additionalProperties
+            )
+        }
+
+        /// Sends a `survey dismissed` event to PostHog instance
+        private func sendSurveyDismissedEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse]) {
+            let additionalProperties = buildSurveyResponseProperties(survey: survey, responses: responses).merging(
+                [
+                    "$survey_partially_completed": surveyHasResponses(responses),
+                    "$set": [
+                        getSurveyInteractionProperty(survey: survey, property: "dismissed"): true,
+                    ],
+                ],
+                uniquingKeysWith: { _, new in new }
+            )
+
+            sendSurveyEvent(
+                event: "survey dismissed",
+                survey: survey,
+                additionalProperties: additionalProperties
+            )
+        }
+
+        private func buildSurveyResponseProperties(
+            survey: PostHogSurvey,
+            responses: [String: PostHogSurveyResponse]
+        ) -> [String: Any] {
+            let responsesProperties: [String: Any] = responses.compactMapValues { getSurveyResponseValue(for: $0) }
 
             let surveyQuestions = survey.questions.enumerated().map { index, question in
                 let responseKey = question.id.isEmpty ? getOldResponseKey(for: index) : getNewResponseKey(for: question.id)
@@ -567,35 +598,21 @@
                 return questionData
             }
 
-            let questionProperties: [String: Any] = [
-                "$survey_questions": surveyQuestions,
-                "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
-            ]
-
-            // TODO: Should be doing some validation before sending the event?
-
-            let additionalProperties = questionProperties.merging(responsesProperties, uniquingKeysWith: { _, new in new })
-
-            sendSurveyEvent(
-                event: "survey sent",
-                survey: survey,
-                additionalProperties: additionalProperties
-            )
+            return ["$survey_questions": surveyQuestions].merging(responsesProperties, uniquingKeysWith: { _, new in new })
         }
 
-        /// Sends a `survey dismissed` event to PostHog instance
-        private func sendSurveyDismissedEvent(survey: PostHogSurvey) {
-            let additionalProperties: [String: Any] = [
-                "$set": [
-                    getSurveyInteractionProperty(survey: survey, property: "dismissed"): true,
-                ],
-            ]
+        private func surveyHasResponses(_ responses: [String: PostHogSurveyResponse]) -> Bool {
+            responses.values.contains { getSurveyResponseValue(for: $0) != nil }
+        }
 
-            sendSurveyEvent(
-                event: "survey dismissed",
-                survey: survey,
-                additionalProperties: additionalProperties
-            )
+        private func getSurveyResponseValue(for response: PostHogSurveyResponse) -> Any? {
+            switch response.type {
+            case .link: response.linkClicked == true ? "link clicked" : nil
+            case .multipleChoice: response.selectedOptions
+            case .singleChoice: response.selectedOptions?.first
+            case .openEnded: response.textValue
+            case .rating: response.ratingValue.map { "\($0)" }
+            }
         }
 
         private func sendSurveyEvent(event: String, survey: PostHogSurvey, additionalProperties: [String: Any] = [:]) {
@@ -989,8 +1006,8 @@
                 sendSurveySentEvent(survey: survey, responses: responses)
             }
 
-            func testSendSurveyDismissedEvent(survey: PostHogSurvey) {
-                sendSurveyDismissedEvent(survey: survey)
+            func testSendSurveyDismissedEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse] = [:]) {
+                sendSurveyDismissedEvent(survey: survey, responses: responses)
             }
 
             func testGetBaseSurveyEventProperties(for survey: PostHogSurvey) -> [String: Any] {

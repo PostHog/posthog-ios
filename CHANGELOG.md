@@ -1,5 +1,11 @@
 ## Next
 
+## 3.57.1
+
+### Patch Changes
+
+- 150e83f: fix: improve session replay screenshot performance
+
 ## 3.57.0
 
 ### Minor Changes

@@ -52,9 +52,10 @@ class RRWireframe {
             }
 
             return autoreleasepool {
-                // the scale also affects the image size/resolution, from usually 100kb to 15kb each
-                UIGraphicsImageRenderer(size: image.size, format: .init(for: .init(displayScale: 1))).image { context in
-                    context.cgContext.interpolationQuality = .none
+                // Use scale=1 to preserve the existing masked screenshot payload size.
+                let renderer = PostHogGraphicsImageRenderer(size: image.size, scale: 1)
+                return renderer.image { context in
+                    context.interpolationQuality = .none
                     image.draw(at: .zero)
 
                     if let maskableWidgets = maskableWidgets {

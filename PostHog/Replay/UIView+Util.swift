@@ -36,22 +36,17 @@
         }
 
         func toImage() -> UIImage? {
-            // Avoid Rendering Offscreen Views
-            let bounds = superview?.bounds ?? bounds
-            let size = bounds.intersection(bounds).size
+            let bounds = self.bounds
+            let size = bounds.size
 
             if !size.hasSize() {
                 return nil
             }
 
-            let rendererFormat = UIGraphicsImageRendererFormat.default()
-
-            // This can significantly improve rendering performance because the renderer won't need to
-            // process transparency.
-            rendererFormat.opaque = isOpaque
-            // Another way to improve rendering performance is to scale the renderer's content.
-            // rendererFormat.scale = 0.5
-            let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
+            // Use native screen scale for best drawHierarchy performance.
+            // Using a non-native scale can trigger internal rescaling overhead.
+            let nativeScale = (self as? UIWindow ?? window)?.screen.scale ?? 1
+            let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
 
             return autoreleasepool {
                 renderer.image { _ in

@@ -78,8 +78,8 @@ playground.xcworkspace
 
 Carthage/Build/
 
-# Accio dependency management
-Dependencies/
+# Accio dependency management (root-level only)
+/Dependencies/
 .accio/
 
 # fastlane

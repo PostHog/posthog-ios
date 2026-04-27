@@ -1,5 +1,11 @@
 ## Next
 
+## 3.57.2
+
+### Patch Changes
+
+- cc2b23b: Include survey responses on iOS dismissal events and mark whether the dismissed survey was partially completed.
+
 ## 3.57.1
 
 ### Patch Changes

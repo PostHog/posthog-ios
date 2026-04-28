@@ -10,14 +10,8 @@
     import Accelerate
     import CoreGraphics
     import Foundation
-    #if canImport(phlibwebp)
-        // SPM-only helper module. CocoaPods/Xcodeproj builds compile vendored sources directly into PostHog.
-        #if swift(>=5.9)
-            internal import phlibwebp
-        #else
-            @_implementationOnly import phlibwebp
-        #endif
-    #endif
+    // Vendored WebP is an implementation detail.
+    @_implementationOnly import phlibwebp
     import UIKit
 
     extension UIImage {

@@ -761,40 +761,52 @@ enum PostHogRemoteConfigTest {
 
     @Suite("Test Error Tracking Config")
     class TestErrorTrackingConfig: BaseTestClass {
+        private func makeIsolatedConfig(disableRemoteConfigForTesting: Bool = true) -> PostHogConfig {
+            let config = PostHogConfig(projectToken: "\(testProjectToken)-\(UUID().uuidString)", host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = disableRemoteConfigForTesting
+            return config
+        }
+
         @Test("returns isAutocaptureExceptionsEnabled false by default")
         func returnsAutocaptureExceptionsDisabledByDefault() {
-            let sut = getSut()
+            let config = makeIsolatedConfig()
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }
 
         @Test("returns isAutocaptureExceptionsEnabled true from cached config")
         func returnsAutocaptureExceptionsEnabledFromCache() {
+            let config = makeIsolatedConfig()
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
 
-            let sut = getSut(storage: storage)
+            let sut = getSut(storage: storage, config: config)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
 
         @Test("returns isAutocaptureExceptionsEnabled false from cached config when disabled")
         func returnsAutocaptureExceptionsDisabledFromCache() {
+            let config = makeIsolatedConfig()
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
             storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": false])
 
-            let sut = getSut(storage: storage)
+            let sut = getSut(storage: storage, config: config)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }
 
         @Test("enables autocapture exceptions from remote config dict")
         func enablesAutocaptureExceptionsFromRemoteConfigDict() async {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = makeIsolatedConfig(disableRemoteConfigForTesting: false)
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -824,7 +836,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("disables autocapture exceptions from remote config dict")
         func disablesAutocaptureExceptionsFromRemoteConfigDict() async {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = makeIsolatedConfig(disableRemoteConfigForTesting: false)
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -853,7 +865,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("disables autocapture exceptions when errorTracking is boolean false")
         func disablesAutocaptureExceptionsWhenErrorTrackingIsBooleanFalse() async {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = makeIsolatedConfig(disableRemoteConfigForTesting: false)
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 
@@ -889,7 +901,7 @@ enum PostHogRemoteConfigTest {
 
         @Test("disables autocapture exceptions when errorTracking key is missing")
         func disablesAutocaptureExceptionsWhenErrorTrackingKeyIsMissing() async {
-            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            let config = makeIsolatedConfig(disableRemoteConfigForTesting: false)
             config.preloadFeatureFlags = false
             config.storageManager = PostHogStorageManager(config)
 

@@ -330,6 +330,85 @@ class PostHogSurveyEventsTest {
         postHog.reset()
     }
 
+    @Test("survey dismissed event includes responses and partial completion when there are answers")
+    func surveyDismissedEventIncludesResponsesWhenThereAreAnswers() async throws {
+        let postHog = getSut()
+
+        let integration = try getSurveyIntegration(postHog)
+
+        let survey = getTestSurvey(
+            id: "dismissed-responses-survey",
+            name: "Dismissed Responses Survey",
+            questions: defaultQuestions
+        )
+
+        let responses: [String: PostHogSurveyResponse] = [
+            integration.testGetResponseKey(questionId: "qID1"): .openEnded("Great product!"),
+            integration.testGetResponseKey(questionId: "qID2"): .singleChoice("Very likely"),
+            integration.testGetResponseKey(questionId: "qID3"): .rating(4),
+            "$survey_response": .openEnded("Great product!"),
+            "$survey_response_1": .singleChoice("Very likely"),
+            "$survey_response_2": .rating(4),
+        ]
+
+        integration.testSendSurveyDismissedEvent(survey: survey, responses: responses)
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 1)
+        let event = events[0]
+
+        #expect(event.event == "survey dismissed")
+        #expect(event.properties["$survey_partially_completed"] as? Bool == true)
+        #expect(event.properties["$survey_response_qID1"] as? String == "Great product!")
+        #expect(event.properties["$survey_response_qID2"] as? String == "Very likely")
+        #expect(event.properties["$survey_response_qID3"] as? String == "4")
+        #expect(event.properties["$survey_response"] as? String == "Great product!")
+        #expect(event.properties["$survey_response_1"] as? String == "Very likely")
+        #expect(event.properties["$survey_response_2"] as? String == "4")
+
+        let questions = event.properties["$survey_questions"] as? [[String: Any]]
+        #expect(questions?.count == 3)
+        #expect(questions?[0]["response"] as? String == "Great product!")
+        #expect(questions?[1]["response"] as? String == "Very likely")
+        #expect(questions?[2]["response"] as? String == "4")
+
+        postHog.close()
+        postHog.reset()
+    }
+
+    @Test("survey dismissed event marks partial completion false when there are no answers")
+    func surveyDismissedEventMarksPartialCompletionFalseWhenThereAreNoAnswers() async throws {
+        let postHog = getSut()
+
+        let integration = try getSurveyIntegration(postHog)
+
+        let survey = getTestSurvey(
+            id: "dismissed-empty-survey",
+            name: "Dismissed Empty Survey",
+            questions: defaultQuestions
+        )
+
+        integration.testSendSurveyDismissedEvent(survey: survey, responses: [:])
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 1)
+        let event = events[0]
+
+        #expect(event.event == "survey dismissed")
+        #expect(event.properties["$survey_partially_completed"] as? Bool == false)
+
+        let questions = event.properties["$survey_questions"] as? [[String: Any]]
+        #expect(questions?.count == 3)
+        #expect(questions?[0]["response"] == nil)
+        #expect(questions?[1]["response"] == nil)
+        #expect(questions?[2]["response"] == nil)
+
+        postHog.close()
+        postHog.reset()
+    }
+
     @Test("survey dismissed event with iteration has correct interaction property")
     func surveyDismissedEventWithIterationHasCorrectInteractionProperty() async throws {
         let postHog = getSut()

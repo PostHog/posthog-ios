@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "PostHog"
-  s.version          = "3.56.0"
+  s.version          = "3.57.2"
   s.summary          = "The hassle-free way to add posthog to your iOS app."
 
   s.description      = <<-DESC
@@ -30,7 +30,8 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = {
     'OTHER_LDFLAGS' => '-lc++',
     'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD PLCRASHREPORTER_PREFIX=PH SWIFT_PACKAGE',
-    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"'
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c" "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"',
+    'SWIFT_INCLUDE_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/phlibwebp" "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/PHPLCrashReporter"'
   }
 
   s.source_files = [
@@ -41,9 +42,12 @@ Pod::Spec.new do |s|
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.c'
   ]
 
-  # Internal C++ headers should not be exported via CocoaPods umbrella/module maps
+  # Only PostHog's umbrella header should be public; vendored implementation headers stay private.
+  s.public_header_files = 'PostHog/PostHog.h'
   s.private_header_files = [
-    'vendor/PHPLCrashReporter/Source/**/*.hpp'
+    'vendor/libwebp/**/*.h',
+    'vendor/PHPLCrashReporter/Source/**/*.{h,hpp}',
+    'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.h'
   ]
 
   # Crash reporting is not supported on watchOS/visionOS
@@ -64,5 +68,5 @@ Pod::Spec.new do |s|
   }
   
   # Include the upload script and vendored notices in source distributions
-  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PHPLCrashReporter/LICENSE', 'vendor/libwebp/COPYING', 'vendor/libwebp/PATENTS']
+  s.preserve_paths = ['build-tools/upload-symbols.sh', 'vendor/PHPLCrashReporter/LICENSE', 'vendor/libwebp/COPYING', 'vendor/libwebp/PATENTS', 'PostHog/PrivateModules/**/*.modulemap']
 end

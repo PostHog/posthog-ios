@@ -1,0 +1,4 @@
+module PHPLCrashReporter {
+  umbrella header "../../../vendor/PHPLCrashReporter/Source/CrashReporter.h"
+  export *
+}

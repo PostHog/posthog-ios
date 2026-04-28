@@ -16,7 +16,6 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/microsoft/plcrashreporter.git", from: "1.8.0"),
         .package(url: "https://github.com/Quick/Quick.git", from: "6.0.0"),
         .package(url: "https://github.com/Quick/Nimble.git", from: "12.0.0"),
         .package(url: "https://github.com/AliSoftware/OHHTTPStubs.git", from: "9.0.0"),
@@ -28,7 +27,7 @@ let package = Package(
             name: "PostHog",
             dependencies: [
                 "phlibwebp",
-                .product(name: "CrashReporter", package: "plcrashreporter", condition: .when(platforms: [.iOS, .macOS, .tvOS])),
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .tvOS])),
             ],
             path: "PostHog",
             resources: [
@@ -40,7 +39,44 @@ let package = Package(
             path: "vendor/libwebp",
             publicHeadersPath: ".",
             cSettings: [
+                .define("PLCR_PRIVATE"),
                 .headerSearchPath("."),
+            ]
+        ),
+        .target(
+            name: "PHPLCrashReporter",
+            path: "vendor/PHPLCrashReporter",
+            exclude: [
+                "Source/dwarf_opstream.hpp",
+                "Source/dwarf_stack.hpp",
+                "Source/PLCrashAsyncDwarfCFAState.hpp",
+                "Source/PLCrashAsyncDwarfCIE.hpp",
+                "Source/PLCrashAsyncDwarfEncoding.hpp",
+                "Source/PLCrashAsyncDwarfExpression.hpp",
+                "Source/PLCrashAsyncDwarfFDE.hpp",
+                "Source/PLCrashAsyncDwarfPrimitives.hpp",
+                "Source/PLCrashAsyncLinkedList.hpp",
+                "Source/PLCrashReport.proto",
+                "Dependencies/protobuf-c/generate-pb-c.sh",
+                "LICENSE",
+            ],
+            sources: [
+                "Source",
+                "Dependencies/protobuf-c",
+            ],
+            resources: [.process("Resources/PrivacyInfo.xcprivacy")],
+            publicHeadersPath: "include",
+            cSettings: [
+                .define("PLCR_PRIVATE"),
+                .define("PLCF_RELEASE_BUILD"),
+                .define("PLCRASHREPORTER_PREFIX", to: "PH"),
+                .define("SWIFT_PACKAGE"),
+                .headerSearchPath("Dependencies/protobuf-c"),
+                .headerSearchPath("Dependencies/protobuf-c/protobuf-c"),
+                .headerSearchPath("Source"),
+            ],
+            linkerSettings: [
+                .linkedFramework("Foundation"),
             ]
         ),
         .testTarget(

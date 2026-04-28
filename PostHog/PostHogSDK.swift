@@ -53,7 +53,7 @@ let maxRetryDelay = 30.0
     private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
     private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
-    private static var apiKeys = Set<String>()
+    private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
@@ -67,9 +67,9 @@ let maxRetryDelay = 30.0
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
-        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(apiKey: ""))
+        @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
     #else
-        @objc public static let shared: PostHogSDK = .init(PostHogConfig(apiKey: ""))
+        @objc public static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
     #endif
 
     deinit {
@@ -97,10 +97,10 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            if PostHogSDK.apiKeys.contains(config.apiKey) {
-                hedgeLog("API Key: \(config.apiKey) already has a PostHog instance.")
+            if PostHogSDK.projectTokens.contains(config.projectToken) {
+                hedgeLog("Project token: \(config.projectToken) already has a PostHog instance.")
             } else {
-                PostHogSDK.apiKeys.insert(config.apiKey)
+                PostHogSDK.projectTokens.insert(config.projectToken)
             }
 
             enabled = true
@@ -1779,7 +1779,7 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             enabled = false
-            PostHogSDK.apiKeys.remove(config.apiKey)
+            PostHogSDK.projectTokens.remove(config.projectToken)
 
             queue?.stop()
             replayQueue?.stop()
@@ -1788,7 +1788,7 @@ let maxRetryDelay = 30.0
             replayQueue = nil
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
-            config = PostHogConfig(apiKey: "")
+            config = PostHogConfig(projectToken: "")
             remoteConfig = nil
             storage = nil
             #if !os(watchOS)
@@ -1867,11 +1867,10 @@ let maxRetryDelay = 30.0
                 return hedgeLog("Could not start recording. Session replay feature flag is disabled.")
             }
 
-            let sessionId = resumeCurrent
+            guard (resumeCurrent
                 ? sessionManager.getSessionId()
-                : sessionManager.getNextSessionId()
-
-            guard sessionId != nil else {
+                : sessionManager.getNextSessionId()) != nil
+            else {
                 return hedgeLog("Could not start recording. Missing session id.")
             }
 
@@ -2147,6 +2146,11 @@ let maxRetryDelay = 30.0
             return
         }
 
+        if isOptOutState() {
+            hedgeLog("Push subscription not sent: PostHog is in OptOut state.")
+            return
+        }
+
         guard let pushSubscriptionHandler else {
             hedgeLog("Push subscription not sent: SDK not initialized.")
             return
@@ -2184,6 +2188,11 @@ let maxRetryDelay = 30.0
             actionIdentifier: String
         ) {
             if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                hedgeLog("Push notification opened event not captured: PostHog is in OptOut state.")
                 return
             }
 

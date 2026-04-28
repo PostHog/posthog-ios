@@ -527,7 +527,7 @@ enum PostHogSurveysTest {
             server = MockPostHogServer()
             server.start()
 
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
             config._surveys = true
             config.flushAt = 1
             config.disableReachabilityForTesting = true
@@ -576,7 +576,7 @@ enum PostHogSurveysTest {
             server = MockPostHogServer()
             server.start()
 
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9090")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
             config._surveys = true
             config.flushAt = 1
             config.disableReachabilityForTesting = true
@@ -758,7 +758,7 @@ enum PostHogSurveysTest {
         let postHog: PostHogSDK
 
         init() {
-            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9090")
             config._surveys = true
             config.disableFlushOnBackgroundForTesting = true
             postHog = PostHogSDK.with(config)
@@ -1158,7 +1158,7 @@ enum PostHogSurveysTest {
         let storage: PostHogStorage
 
         init() {
-            let config = PostHogConfig(apiKey: "test", host: "http://localhost:9090")
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9090")
             config._surveys = true
             config.disableFlushOnBackgroundForTesting = true
             postHog = PostHogSDK.with(config)

@@ -11,11 +11,18 @@
     class URLSessionInterceptor {
         private let tasksLock = NSLock()
         private let shouldCapture: () -> Bool
+        private let shouldCaptureRequest: (URLRequest) -> Bool
         private let onCapture: (NetworkSample) -> Void
         private let getSessionId: (Date) -> String?
 
-        init(shouldCapture: @escaping () -> Bool, onCapture: @escaping (NetworkSample) -> Void, getSessionId: @escaping (Date) -> String?) {
+        init(
+            shouldCapture: @escaping () -> Bool,
+            shouldCaptureRequest: @escaping (URLRequest) -> Bool,
+            onCapture: @escaping (NetworkSample) -> Void,
+            getSessionId: @escaping (Date) -> String?
+        ) {
             self.shouldCapture = shouldCapture
+            self.shouldCaptureRequest = shouldCaptureRequest
             self.onCapture = onCapture
             self.getSessionId = getSessionId
         }
@@ -34,7 +41,7 @@
                 return
             }
 
-            guard let request = task.originalRequest else {
+            guard let request = task.originalRequest, shouldCaptureRequest(request) else {
                 return
             }
 

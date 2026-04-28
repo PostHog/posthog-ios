@@ -1235,7 +1235,7 @@
         }
 
         func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {
-            guard let postHog else { return }
+            guard postHog != nil else { return }
 
             let minimumDuration: TimeInterval? = bufferingLock.withLock { cachedMinimumDuration }
             guard let minimumDuration, minimumDuration > 0 else {

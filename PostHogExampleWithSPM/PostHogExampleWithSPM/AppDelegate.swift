@@ -18,7 +18,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                                   object: nil)
 
         let config = PostHogConfig(
-            apiKey: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
+            projectToken: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
         )
 
         PostHogSDK.shared.setup(config)

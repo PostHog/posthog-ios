@@ -380,7 +380,7 @@ class MockPostHogServer {
             let configData =
                 """
                 {
-                    "token": "test_api_key",
+                    "token": "test_project_token",
                     "supportedCompression": [
                         "gzip",
                         "gzip-js"

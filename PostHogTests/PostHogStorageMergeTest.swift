@@ -11,7 +11,7 @@ import Testing
 
 @Suite("PostHogStorage app group merge tests", .serialized)
 class PostHogStorageMergeTest {
-    let testApiKey = "test_merge_api_key"
+    let testProjectToken = "test_project_token"
     var baseUrl: URL!
     var fileManager: FileManager!
 
@@ -36,7 +36,7 @@ class PostHogStorageMergeTest {
 
         try? fileManager.removeItem(at: legacyUrl)
         try? fileManager.removeItem(at: appGroupUrl)
-        try? fileManager.removeItem(at: baseUrl.appendingPathComponent(testApiKey))
+        try? fileManager.removeItem(at: baseUrl.appendingPathComponent(testProjectToken))
     }
 
     private func calculateFileHash(_ url: URL) throws -> String {
@@ -67,16 +67,16 @@ class PostHogStorageMergeTest {
         return try calculateFileHash(fileUrl)
     }
 
-    private func createLegacyFile(bundleId: String, apiKey: String, fileName: String, content: Data) throws -> String {
+    private func createLegacyFile(bundleId: String, projectToken: String, fileName: String, content: Data) throws -> String {
         let bundleDir = baseUrl.appendingPathComponent(bundleId)
-        let apiKeyDir = bundleDir.appendingPathComponent(apiKey)
-        return try createFile(at: apiKeyDir, fileName: fileName, content: content)
+        let projectTokenDir = bundleDir.appendingPathComponent(projectToken)
+        return try createFile(at: projectTokenDir, fileName: fileName, content: content)
     }
 
-    private func createAppGroupFile(appGroupId: String, apiKey: String, fileName: String, content: Data) throws -> String {
+    private func createAppGroupFile(appGroupId: String, projectToken: String, fileName: String, content: Data) throws -> String {
         let appGroupDir = baseUrl.appendingPathComponent(appGroupId)
-        let apiKeyDir = appGroupDir.appendingPathComponent(apiKey)
-        return try createFile(at: apiKeyDir, fileName: fileName, content: content)
+        let projectTokenDir = appGroupDir.appendingPathComponent(projectToken)
+        return try createFile(at: projectTokenDir, fileName: fileName, content: content)
     }
 
     @Test("test app group container merge detection")
@@ -88,7 +88,7 @@ class PostHogStorageMergeTest {
         let fileContent = "test_content".data(using: .utf8)!
         _ = try createLegacyFile(
             bundleId: testBundleIdentifier,
-            apiKey: testApiKey,
+            projectToken: testProjectToken,
             fileName: "test_file.txt",
             content: fileContent
         )
@@ -96,7 +96,7 @@ class PostHogStorageMergeTest {
         // Verify legacy file exists
         let legacyFileUrl = baseUrl
             .appendingPathComponent(testBundleIdentifier)
-            .appendingPathComponent(testApiKey)
+            .appendingPathComponent(testProjectToken)
             .appendingPathComponent("test_file.txt")
         #expect(fileManager.fileExists(atPath: legacyFileUrl.path))
 
@@ -112,7 +112,7 @@ class PostHogStorageMergeTest {
         let fileContent = "test_user_123".data(using: .utf8)!
         _ = try createLegacyFile(
             bundleId: testBundleIdentifier,
-            apiKey: testApiKey,
+            projectToken: testProjectToken,
             fileName: PostHogStorage.StorageKey.distinctId.rawValue,
             content: fileContent
         )
@@ -125,22 +125,22 @@ class PostHogStorageMergeTest {
 
         // Verify file was migrated
         let migratedFileUrl = destinationUrl
-            .appendingPathComponent(testApiKey)
+            .appendingPathComponent(testProjectToken)
             .appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)
         #expect(fileManager.fileExists(atPath: migratedFileUrl.path))
 
         // Verify legacy file was removed
         let legacyFileUrl = baseUrl
             .appendingPathComponent(testBundleIdentifier)
-            .appendingPathComponent(testApiKey)
+            .appendingPathComponent(testProjectToken)
             .appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)
         #expect(!fileManager.fileExists(atPath: legacyFileUrl.path))
     }
 
     @Test("test file migration with existing files")
     func fileMigrationWithExistingFiles() throws {
-        let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testApiKey)
-        let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testApiKey)
+        let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testProjectToken)
+        let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testProjectToken)
 
         // Create test files in source
         let file1Content = "file1_content".data(using: .utf8)!
@@ -174,8 +174,8 @@ class PostHogStorageMergeTest {
 
     @Test("test nested directory migration")
     func nestedDirectoryMigration() throws {
-        let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testApiKey)
-        let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testApiKey)
+        let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testProjectToken)
+        let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testProjectToken)
 
         // Create nested structure
         let queueDir = sourceDir.appendingPathComponent(PostHogStorage.StorageKey.queue.rawValue)
@@ -211,8 +211,8 @@ class PostHogStorageMergeTest {
 
     @Test("test anonymous ID preservation")
     func anonymousIdPreservation() throws {
-        let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testApiKey)
-        let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testApiKey)
+        let sourceDir = baseUrl.appendingPathComponent(testBundleIdentifier).appendingPathComponent(testProjectToken)
+        let destDir = baseUrl.appendingPathComponent(testAppGroupIdentifier).appendingPathComponent(testProjectToken)
 
         // Create anonymous ID in destination (should be preserved)
         let existingAnonymousId = "existing_anonymous_123".data(using: .utf8)!

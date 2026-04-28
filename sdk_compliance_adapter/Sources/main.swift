@@ -44,6 +44,7 @@ app.post("init") { req async throws -> Response in
         let flushIntervalMs: Int?
 
         enum CodingKeys: String, CodingKey {
+            // Wire field name remains api_key, but it carries the PostHog project token.
             case apiKey = "api_key"
             case host
             case flushAt = "flush_at"
@@ -62,7 +63,7 @@ app.post("init") { req async throws -> Response in
     state.reset()
 
     // Create PostHog configuration
-    let config = PostHogConfig(apiKey: initReq.apiKey, host: host)
+    let config = PostHogConfig(projectToken: initReq.apiKey, host: host)
 
     // Configure for fast flushing in tests
     config.flushAt = initReq.flushAt ?? 1

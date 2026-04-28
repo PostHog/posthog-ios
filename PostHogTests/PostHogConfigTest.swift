@@ -13,7 +13,7 @@ import Quick
 class PostHogConfigTest: QuickSpec {
     override func spec() {
         it("init config with default values") {
-            let config = PostHogConfig(apiKey: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
 
             expect(config.host) == URL(string: PostHogConfig.defaultHost)
             expect(config.flushAt) == 20
@@ -33,30 +33,59 @@ class PostHogConfigTest: QuickSpec {
             #endif
         }
 
-        it("init takes api key") {
-            let config = PostHogConfig(apiKey: testAPIKey)
+        it("init takes project token") {
+            let config = PostHogConfig(projectToken: testProjectToken)
 
-            expect(config.apiKey) == testAPIKey
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+        }
+
+        it("deprecated init(apiKey:) maps to project token") {
+            let config = PostHogConfig(apiKey: testProjectToken)
+
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+            expect(config.host) == URL(string: PostHogConfig.defaultHost)
+        }
+
+        it("deprecated init(apiKey:host:) maps to project token and host") {
+            let config = PostHogConfig(apiKey: testProjectToken, host: "localhost:9000")
+
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+            expect(config.host) == URL(string: "localhost:9000")!
+        }
+
+        it("deprecated init(apiKey:host:) trims whitespace-sensitive values") {
+            let config = PostHogConfig(
+                apiKey: " \n\(testProjectToken)\t ",
+                host: " \nhttps://eu.i.posthog.com/\t "
+            )
+
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
+            expect(config.host) == URL(string: "https://eu.i.posthog.com/")
         }
 
         it("trims whitespace-sensitive config values") {
             let config = PostHogConfig(
-                apiKey: " \n\(testAPIKey)\t ",
+                projectToken: " \n\(testProjectToken)\t ",
                 host: " \nhttps://eu.i.posthog.com/\t "
             )
 
-            expect(config.apiKey) == testAPIKey
+            expect(config.projectToken) == testProjectToken
+            expect(config.apiKey) == testProjectToken
             expect(config.host) == URL(string: "https://eu.i.posthog.com/")
         }
 
         it("defaults a blank host after trimming whitespace") {
-            let config = PostHogConfig(apiKey: testAPIKey, host: " \n\t ")
+            let config = PostHogConfig(projectToken: testProjectToken, host: " \n\t ")
 
             expect(config.host) == URL(string: PostHogConfig.defaultHost)
         }
 
         it("init takes host") {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "localhost:9000")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "localhost:9000")
 
             expect(config.host) == URL(string: "localhost:9000")!
         }
@@ -64,14 +93,21 @@ class PostHogConfigTest: QuickSpec {
         #if os(iOS)
             context("when initialized with default values for captureElementInteractions") {
                 it("should enable autocapture by default") {
-                    let sut = PostHogConfig(apiKey: testAPIKey)
+                    let sut = PostHogConfig(projectToken: testProjectToken)
                     expect(sut.captureElementInteractions).to(beFalse())
+                }
+            }
+
+            context("when initialized with default tracing headers configuration") {
+                it("should disable tracing headers by default") {
+                    let sut = PostHogConfig(apiKey: testAPIKey)
+                    expect(sut.tracingHeaders).to(beNil())
                 }
             }
 
             context("when customized") {
                 it("should allow disabling autocapture") {
-                    let config = PostHogConfig(apiKey: testAPIKey)
+                    let config = PostHogConfig(projectToken: testProjectToken)
                     config.captureElementInteractions = false
                     expect(config.captureElementInteractions).to(beFalse())
                 }

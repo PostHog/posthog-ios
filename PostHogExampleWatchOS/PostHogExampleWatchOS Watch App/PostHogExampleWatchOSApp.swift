@@ -13,7 +13,7 @@ struct PostHogExampleWatchOSApp: App {
     init() {
         // TODO: init on app delegate instead
         let config = PostHogConfig(
-            apiKey: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
+            projectToken: "phc_QFbR1y41s5sxnNTZoyKG2NJo2RlsCIWkUfdpawgb40D"
         )
 
         PostHogSDK.shared.setup(config)

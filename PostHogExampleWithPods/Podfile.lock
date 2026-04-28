@@ -1,0 +1,21 @@
+PODS:
+  - PostHog (3.57.1)
+
+DEPENDENCIES:
+  - PostHog (from `../`)
+
+EXTERNAL SOURCES:
+  PostHog:
+    :git: "../"
+
+CHECKOUT OPTIONS:
+  PostHog:
+    :commit: 282be4e7e8f060e188fbbe3aaadbf95f75f6f9e2
+    :git: "../"
+
+SPEC CHECKSUMS:
+  PostHog: 5dbda1e5fbdb0fe0a1d6200cf416deeca7327555
+
+PODFILE CHECKSUM: 025f7680163dc43c6984b1c0201636169cdbb6a1
+
+COCOAPODS: 1.16.2

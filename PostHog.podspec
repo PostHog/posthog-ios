@@ -41,9 +41,12 @@ Pod::Spec.new do |s|
     'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.c'
   ]
 
-  # Internal C++ headers should not be exported via CocoaPods umbrella/module maps
+  # Only PostHog's umbrella header should be public; vendored implementation headers stay private.
+  s.public_header_files = 'PostHog/PostHog.h'
   s.private_header_files = [
-    'vendor/PHPLCrashReporter/Source/**/*.hpp'
+    'vendor/libwebp/**/*.h',
+    'vendor/PHPLCrashReporter/Source/**/*.{h,hpp}',
+    'vendor/PHPLCrashReporter/Dependencies/protobuf-c/**/*.h'
   ]
 
   # Crash reporting is not supported on watchOS/visionOS

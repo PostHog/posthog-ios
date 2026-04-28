@@ -10,6 +10,7 @@
     import Accelerate
     import CoreGraphics
     import Foundation
+
     // Vendored WebP is an implementation detail.
     @_implementationOnly import phlibwebp
     import UIKit

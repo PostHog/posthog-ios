@@ -11,13 +11,12 @@
     import CoreGraphics
     import Foundation
     #if canImport(phlibwebp)
-        // SPM package is linked via a lib since mix-code is not yet supported
-
-        // `internal import`: added in Swift 5.9 and it's the "official" feature. Should replace when we switch to swift-tools-version:5.9
-        // see: (https://github.com/swiftlang/swift-evolution/blob/main/proposals/0409-access-level-on-imports.md)
-
-        // @_implementationOnly: available since Swift 5.1
-        @_implementationOnly import phlibwebp
+        // SPM-only helper module. CocoaPods/Xcodeproj builds compile vendored sources directly into PostHog.
+        #if swift(>=5.9)
+            internal import phlibwebp
+        #else
+            @_implementationOnly import phlibwebp
+        #endif
     #endif
     import UIKit
 

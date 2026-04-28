@@ -11,7 +11,7 @@ import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
     #if canImport(PHPLCrashReporter)
-        @_implementationOnly import PHPLCrashReporter
+        import PHPLCrashReporter
     #endif
 
     @Suite("PostHogCrashReportProcessor Tests")

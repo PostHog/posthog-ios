@@ -35,7 +35,7 @@
         private func getSut(
             flushAt: Int = 1
         ) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.flushAt = flushAt
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
@@ -71,7 +71,7 @@
 
         @Test("handlePushNotificationDeviceToken does nothing when SDK is opted out")
         func handleDeviceTokenDoesNothingWhenOptedOut() {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.optOut = true
             config.capturePushNotificationSubscriptions = false
             config.captureApplicationLifecycleEvents = false
@@ -97,13 +97,13 @@
 
         @Test("capturePushNotificationSubscriptions defaults to false")
         func configDefaultsToFalse() {
-            let config = PostHogConfig(apiKey: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
             #expect(config.capturePushNotificationSubscriptions == false)
         }
 
         @Test("capturePushNotificationSubscriptions can be set to true")
         func configCanBeEnabled() {
-            let config = PostHogConfig(apiKey: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
             config.capturePushNotificationSubscriptions = true
             #expect(config.capturePushNotificationSubscriptions == true)
         }
@@ -112,7 +112,7 @@
 
         @Test("getIntegrations includes push notification integration when enabled")
         func getIntegrationsIncludesPushNotification() {
-            let config = PostHogConfig(apiKey: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
             config.capturePushNotificationSubscriptions = true
 
             let integrations = config.getIntegrations()
@@ -122,7 +122,7 @@
 
         @Test("getIntegrations excludes push notification integration when disabled")
         func getIntegrationsExcludesPushNotification() {
-            let config = PostHogConfig(apiKey: testAPIKey)
+            let config = PostHogConfig(projectToken: testProjectToken)
             config.capturePushNotificationSubscriptions = false
 
             let integrations = config.getIntegrations()
@@ -387,7 +387,7 @@
 
         @Test("capturePushNotificationOpened works when swizzling is disabled")
         func capturePushNotificationOpenedWorksWithoutSwizzling() async throws {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.flushAt = 1
             config.enableSwizzling = false
             config.capturePushNotificationSubscriptions = true

@@ -288,5 +288,42 @@ import Testing
                 #expect(exception?["thread_id"] != nil)
             }
         }
+
+        // MARK: - Swift Crash Info Type Tests
+
+        @Suite("Swift Crash Info Type")
+        struct SwiftCrashInfoTypeTests {
+            @Test("parses Swift fatal error type")
+            func parsesSwiftFatalErrorType() {
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(from: nil) == nil)
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(from: "  \n") == nil)
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "Fatal error: Unexpectedly found nil while unwrapping an Optional value: file ExampleApp/ViewController.swift, line 53\n"
+                ) == "Fatal error")
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "Assertion failed: This should NEVER happen: file ExampleApp/AnotherClass.swift, line 24\n"
+                ) == "Assertion failed")
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "PostHogExample/SwiftCrashTriggers.swift:78: Fatal error: Intentional assertionFailure for crash testing"
+                ) == "Fatal error")
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "BUG IN CLIENT: dispatch_sync called on queue already owned by current thread"
+                ) == nil)
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "ExampleApp/ViewController.m:53: Fatal error: Objective-C source should not parse as Swift fatal"
+                ) == nil)
+            }
+
+            @Test("sanitizes Swift crash info message")
+            func sanitizesSwiftCrashInfoMessage() {
+                let message = "\nFatal error: file ExampleApp/AnotherClass.swift, line 24\n"
+                #expect(PostHogCrashReportProcessor.sanitizeSwiftCrashInfoMessage(message) == "Fatal error: file ExampleApp/AnotherClass.swift, line 24")
+            }
+        }
     }
 #endif

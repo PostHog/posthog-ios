@@ -291,9 +291,17 @@ struct ContentView: View {
                     Button("Uncaught NSException") {
                         PHGExceptionHandler.triggerUncaughtNSException()
                     }
-                    // SIGTRAP - message not captured (see PostHogCrashReportProcessor for details)
+                    // SIGTRAP - Swift runtime trap with message from __crash_info
                     Button("fatalError()") {
                         SwiftCrashTriggers.triggerFatalError()
+                    }
+                    // SIGTRAP - Swift runtime trap with message from __crash_info
+                    Button("preconditionFailure()") {
+                        SwiftCrashTriggers.triggerPreconditionFailure()
+                    }
+                    // SIGTRAP - debug-only Swift assertion trap with message from __crash_info
+                    Button("assertionFailure() (Debug)") {
+                        SwiftCrashTriggers.triggerAssertionFailure()
                     }
                     // SIGTRAP - Swift runtime trap on nil unwrap
                     Button("Force unwrap nil") {

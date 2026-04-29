@@ -78,13 +78,19 @@ import Foundation
                 //
                 // For Swift runtime traps (fatalError/assert/precondition), use __crash_info
                 // to override the generic signal type while preserving the original message.
-                let crashInfoMessage = sanitizeCrashInfoMessage(signalInfo.crashInfoMessage)
-                exception["type"] = swiftFatalErrorType(from: crashInfoMessage) ?? signalInfo.name
-                exception["value"] = crashInfoMessage ?? signalMessage(signalInfo)
+                let crashInfoMessage = crashInfoMessage(from: report)
+                if let crashInfoMessage, let fatalErrorType = swiftFatalErrorType(from: crashInfoMessage) {
+                    exception["type"] = fatalErrorType
+                    exception["value"] = crashInfoMessage
+                } else {
+                    exception["type"] = signalInfo.name
+                    exception["value"] = signalMessage(signalInfo)
+                }
 
                 let signalMeta: [String: Any?] = [
                     "code": signalInfo.code,
                     "name": signalInfo.name,
+                    "crash_info_message": crashInfoMessage,
                 ].compactMapValues { $0 }
 
                 exception["mechanism"] = [
@@ -401,6 +407,13 @@ import Foundation
                 return nil
             }
             return sanitizedMessage
+        }
+
+        private static func crashInfoMessage(from report: PHPLCrashReport) -> String? {
+            guard let signalInfo = report.signalInfo else {
+                return nil
+            }
+            return sanitizeCrashInfoMessage(signalInfo.crashInfoMessage)
         }
 
         static func swiftFatalErrorType(from message: String?) -> String? {

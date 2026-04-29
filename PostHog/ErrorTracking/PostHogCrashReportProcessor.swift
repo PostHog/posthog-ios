@@ -426,7 +426,7 @@ import Foundation
         }
 
         private static func firstCaptureGroup(in message: String, matching regex: NSRegularExpression?) -> String? {
-            let range = NSRange(message.startIndex..<message.endIndex, in: message)
+            let range = NSRange(message.startIndex ..< message.endIndex, in: message)
             guard let match = regex?.firstMatch(in: message, options: [], range: range),
                   match.numberOfRanges >= 2,
                   let errorTypeRange = Range(match.range(at: 1), in: message)

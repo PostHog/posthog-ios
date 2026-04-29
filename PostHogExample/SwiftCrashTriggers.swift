@@ -15,6 +15,14 @@ enum SwiftCrashTriggers {
         OuterLayer.processFatalError()
     }
 
+    static func triggerPreconditionFailure() {
+        OuterLayer.processPreconditionFailure()
+    }
+
+    static func triggerAssertionFailure() {
+        OuterLayer.processAssertionFailure()
+    }
+
     static func triggerForceUnwrapNil() {
         OuterLayer.processForceUnwrapNil()
     }
@@ -24,6 +32,14 @@ enum SwiftCrashTriggers {
     private enum OuterLayer {
         static func processFatalError() {
             MiddleLayer.handleFatalError()
+        }
+
+        static func processPreconditionFailure() {
+            MiddleLayer.handlePreconditionFailure()
+        }
+
+        static func processAssertionFailure() {
+            MiddleLayer.handleAssertionFailure()
         }
 
         static func processForceUnwrapNil() {
@@ -36,6 +52,14 @@ enum SwiftCrashTriggers {
             InnerLayer.executeFatalError()
         }
 
+        static func handlePreconditionFailure() {
+            InnerLayer.executePreconditionFailure()
+        }
+
+        static func handleAssertionFailure() {
+            InnerLayer.executeAssertionFailure()
+        }
+
         static func handleForceUnwrapNil() {
             InnerLayer.executeForceUnwrapNil()
         }
@@ -44,6 +68,14 @@ enum SwiftCrashTriggers {
     private enum InnerLayer {
         static func executeFatalError() {
             fatalError("Intentional fatalError for crash testing")
+        }
+
+        static func executePreconditionFailure() {
+            preconditionFailure("Intentional preconditionFailure for crash testing")
+        }
+
+        static func executeAssertionFailure() {
+            assertionFailure("Intentional assertionFailure for crash testing")
         }
 
         static func executeForceUnwrapNil() {

@@ -842,8 +842,16 @@ error:
     /* Done */
     NSString *name = [NSString stringWithUTF8String: signalInfo->name];
     NSString *code = [NSString stringWithUTF8String: signalInfo->code];
+
+    NSString *crashInfoMessage = nil;
+    if (signalInfo->crash_info_message != NULL) {
+        crashInfoMessage = [NSString stringWithUTF8String: signalInfo->crash_info_message];
+    }
     
-    return [[PLCrashReportSignalInfo alloc] initWithSignalName: name code: code address: signalInfo->address];
+    return [[PLCrashReportSignalInfo alloc] initWithSignalName: name
+                                                           code: code
+                                                        address: signalInfo->address
+                                          crashInfoMessage: crashInfoMessage];
 }
 
 /**

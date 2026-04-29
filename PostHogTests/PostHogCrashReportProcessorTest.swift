@@ -11,7 +11,7 @@ import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
     #if canImport(PHPLCrashReporter)
-        import PHPLCrashReporter
+        @_implementationOnly import PHPLCrashReporter
     #endif
 
     @Suite("PostHogCrashReportProcessor Tests")
@@ -286,6 +286,43 @@ import Testing
                 let exception = exceptionList?.first
 
                 #expect(exception?["thread_id"] != nil)
+            }
+        }
+
+        // MARK: - Crash Info Type Tests
+
+        @Suite("Crash Info Type")
+        struct CrashInfoTypeTests {
+            @Test("parses Swift fatal error type")
+            func parsesSwiftFatalErrorType() {
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(from: nil) == nil)
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(from: "  \n") == nil)
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "Fatal error: Unexpectedly found nil while unwrapping an Optional value: file ExampleApp/ViewController.swift, line 53\n"
+                ) == "Fatal error")
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "Assertion failed: This should NEVER happen: file ExampleApp/AnotherClass.swift, line 24\n"
+                ) == "Assertion failed")
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "PostHogExample/SwiftCrashTriggers.swift:78: Fatal error: Intentional assertionFailure for crash testing"
+                ) == "Fatal error")
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "BUG IN CLIENT: dispatch_sync called on queue already owned by current thread"
+                ) == nil)
+
+                #expect(PostHogCrashReportProcessor.swiftFatalErrorType(
+                    from: "ExampleApp/ViewController.m:53: Fatal error: Objective-C source should not parse as Swift fatal"
+                ) == nil)
+            }
+
+            @Test("sanitizes crash info message")
+            func sanitizesCrashInfoMessage() {
+                let message = "\nFatal error: file ExampleApp/AnotherClass.swift, line 24\n"
+                #expect(PostHogCrashReportProcessor.sanitizeCrashInfoMessage(message) == "Fatal error: file ExampleApp/AnotherClass.swift, line 24")
             }
         }
     }

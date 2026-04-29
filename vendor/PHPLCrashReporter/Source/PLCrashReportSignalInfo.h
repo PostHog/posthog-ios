@@ -32,7 +32,7 @@
 
 @interface PLCrashReportSignalInfo : NSObject
 
-- (id) initWithSignalName: (NSString *) name code: (NSString *) code address: (uint64_t) address;
+- (id) initWithSignalName: (NSString *) name code: (NSString *) code address: (uint64_t) address crashInfoMessage: (NSString *) crashInfoMessage;
 
 /**
  * The signal name.
@@ -48,5 +48,10 @@
  * The faulting instruction or address.
  */
 @property(nonatomic, readonly) uint64_t address;
+
+/**
+ * Crash info message from __crash_info, if available.
+ */
+@property(nonatomic, readonly, strong) NSString *crashInfoMessage;
 
 @end

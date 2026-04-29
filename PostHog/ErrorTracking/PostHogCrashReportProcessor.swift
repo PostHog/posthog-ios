@@ -76,18 +76,21 @@ import Foundation
             } else if let signalInfo = report.signalInfo {
                 // POSIX signal - more familiar to developers (SIGTRAP, SIGABRT, etc.)
                 //
-                // Limitation: Swift crashes (fatalError, preconditionFailure, force unwrap, etc.) appear as SIGTRAP.
-                // The actual error message is stored in the __crash_info Mach-O section of libswiftCore.dylib,
-                // which PHPLCrashReporter doesn't expose. Sentry/Bugsnag parse this section to get the message.
-                // See: https://github.com/getsentry/sentry-cocoa/pull/1596
-                //      https://github.com/bugsnag/bugsnag-cocoa/pull/948
-                // Future enhancement: implement __crash_info parsing in PHPLCrashReporter for richer Swift crash messages.
-                exception["type"] = signalInfo.name
-                exception["value"] = signalMessage(signalInfo)
+                // For Swift runtime traps (fatalError/assert/precondition), use __crash_info
+                // to override the generic signal type while preserving the original message.
+                let crashInfoMessage = crashInfoMessage(from: report)
+                if let crashInfoMessage, let fatalErrorType = swiftFatalErrorType(from: crashInfoMessage) {
+                    exception["type"] = fatalErrorType
+                    exception["value"] = crashInfoMessage
+                } else {
+                    exception["type"] = signalInfo.name
+                    exception["value"] = signalMessage(signalInfo)
+                }
 
                 let signalMeta: [String: Any?] = [
                     "code": signalInfo.code,
                     "name": signalInfo.name,
+                    "crash_info_message": crashInfoMessage,
                 ].compactMapValues { $0 }
 
                 exception["mechanism"] = [
@@ -397,6 +400,54 @@ import Foundation
             } else {
                 return "\(typeName), Code \(codeStr)"
             }
+        }
+
+        static func sanitizeCrashInfoMessage(_ message: String?) -> String? {
+            guard let sanitizedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines), !sanitizedMessage.isEmpty else {
+                return nil
+            }
+            return sanitizedMessage
+        }
+
+        private static func crashInfoMessage(from report: PHPLCrashReport) -> String? {
+            guard let signalInfo = report.signalInfo else {
+                return nil
+            }
+            return sanitizeCrashInfoMessage(signalInfo.crashInfoMessage)
+        }
+
+        static func swiftFatalErrorType(from message: String?) -> String? {
+            guard let message else {
+                return nil
+            }
+            return parseSwiftFatalErrorType(message)
+        }
+
+        private static let swiftFatalErrorRegex = try? NSRegularExpression(
+            pattern: "^(Assertion failed|Fatal error|Precondition failed): ((.+): )?file .+, line \\d+$",
+            options: .caseInsensitive
+        )
+
+        private static let swiftSourceLocationFatalErrorRegex = try? NSRegularExpression(
+            pattern: "^.+\\.swift:\\d+: (Assertion failed|Fatal error|Precondition failed): .+$",
+            options: .caseInsensitive
+        )
+
+        private static func parseSwiftFatalErrorType(_ message: String) -> String? {
+            firstCaptureGroup(in: message, matching: swiftFatalErrorRegex)
+                ?? firstCaptureGroup(in: message, matching: swiftSourceLocationFatalErrorRegex)
+        }
+
+        private static func firstCaptureGroup(in message: String, matching regex: NSRegularExpression?) -> String? {
+            let range = NSRange(message.startIndex ..< message.endIndex, in: message)
+            guard let match = regex?.firstMatch(in: message, options: [], range: range),
+                  match.numberOfRanges >= 2,
+                  let errorTypeRange = Range(match.range(at: 1), in: message)
+            else {
+                return nil
+            }
+
+            return String(message[errorTypeRange])
         }
 
         private static func signalMessage(_ signal: PHPLCrashReportSignalInfo) -> String? {

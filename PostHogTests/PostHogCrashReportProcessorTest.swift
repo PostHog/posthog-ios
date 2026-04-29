@@ -289,10 +289,10 @@ import Testing
             }
         }
 
-        // MARK: - Swift Crash Info Type Tests
+        // MARK: - Crash Info Type Tests
 
-        @Suite("Swift Crash Info Type")
-        struct SwiftCrashInfoTypeTests {
+        @Suite("Crash Info Type")
+        struct CrashInfoTypeTests {
             @Test("parses Swift fatal error type")
             func parsesSwiftFatalErrorType() {
                 #expect(PostHogCrashReportProcessor.swiftFatalErrorType(from: nil) == nil)
@@ -319,10 +319,10 @@ import Testing
                 ) == nil)
             }
 
-            @Test("sanitizes Swift crash info message")
-            func sanitizesSwiftCrashInfoMessage() {
+            @Test("sanitizes crash info message")
+            func sanitizesCrashInfoMessage() {
                 let message = "\nFatal error: file ExampleApp/AnotherClass.swift, line 24\n"
-                #expect(PostHogCrashReportProcessor.sanitizeSwiftCrashInfoMessage(message) == "Fatal error: file ExampleApp/AnotherClass.swift, line 24")
+                #expect(PostHogCrashReportProcessor.sanitizeCrashInfoMessage(message) == "Fatal error: file ExampleApp/AnotherClass.swift, line 24")
             }
         }
     }

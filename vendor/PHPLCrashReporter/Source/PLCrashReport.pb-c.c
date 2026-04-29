@@ -919,12 +919,12 @@ static const ProtobufCFieldDescriptor plcrash__crash_report__signal__field_descr
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "swift_crash_info_message",
+    "crash_info_message",
     5,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Plcrash__CrashReport__Signal, swift_crash_info_message),
+    offsetof(Plcrash__CrashReport__Signal, crash_info_message),
     NULL,
     NULL,
     0,             /* flags */
@@ -934,9 +934,9 @@ static const ProtobufCFieldDescriptor plcrash__crash_report__signal__field_descr
 static const unsigned plcrash__crash_report__signal__field_indices_by_name[] = {
   2,   /* field[2] = address */
   1,   /* field[1] = code */
+  4,   /* field[4] = crash_info_message */
   3,   /* field[3] = mach_exception */
   0,   /* field[0] = name */
-  4,   /* field[4] = swift_crash_info_message */
 };
 static const ProtobufCIntRange plcrash__crash_report__signal__number_ranges[1 + 1] =
 {

@@ -78,9 +78,9 @@ import Foundation
                 //
                 // For Swift runtime traps (fatalError/assert/precondition), use __crash_info
                 // to override the generic signal type while preserving the original message.
-                let swiftCrashInfoMessage = sanitizeSwiftCrashInfoMessage(signalInfo.swiftCrashInfoMessage)
-                exception["type"] = swiftFatalErrorType(from: swiftCrashInfoMessage) ?? signalInfo.name
-                exception["value"] = swiftCrashInfoMessage ?? signalMessage(signalInfo)
+                let crashInfoMessage = sanitizeCrashInfoMessage(signalInfo.crashInfoMessage)
+                exception["type"] = swiftFatalErrorType(from: crashInfoMessage) ?? signalInfo.name
+                exception["value"] = crashInfoMessage ?? signalMessage(signalInfo)
 
                 let signalMeta: [String: Any?] = [
                     "code": signalInfo.code,
@@ -396,7 +396,7 @@ import Foundation
             }
         }
 
-        static func sanitizeSwiftCrashInfoMessage(_ message: String?) -> String? {
+        static func sanitizeCrashInfoMessage(_ message: String?) -> String? {
             guard let sanitizedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines), !sanitizedMessage.isEmpty else {
                 return nil
             }

@@ -417,9 +417,9 @@ struct  Plcrash__CrashReport__Signal
    */
   Plcrash__CrashReport__Signal__MachException *mach_exception;
   /*
-   * Swift fatalError/assert/precondition message from __crash_info, if available 
+   * Crash info message from __crash_info, if available
    */
-  char *swift_crash_info_message;
+  char *crash_info_message;
 };
 #define PLCRASH__CRASH_REPORT__SIGNAL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&plcrash__crash_report__signal__descriptor) \

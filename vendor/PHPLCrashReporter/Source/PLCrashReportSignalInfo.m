@@ -43,21 +43,21 @@
     /** Fauling instruction or address */
     uint64_t _address;
 
-    /** Swift fatalError/assert/precondition message from __crash_info */
-    __strong NSString *_swiftCrashInfoMessage;
+    /** Crash info message from __crash_info */
+    __strong NSString *_crashInfoMessage;
 }
 
 /**
  * Initialize with the given signal name and reason.
  */
-- (id) initWithSignalName: (NSString *) name code: (NSString *) code address: (uint64_t) address swiftCrashInfoMessage: (NSString *) swiftCrashInfoMessage {
+- (id) initWithSignalName: (NSString *) name code: (NSString *) code address: (uint64_t) address crashInfoMessage: (NSString *) crashInfoMessage {
     if ((self = [super init]) == nil)
         return nil;
     
     _name = name;
     _code = code;
     _address = address;
-    _swiftCrashInfoMessage = swiftCrashInfoMessage;
+    _crashInfoMessage = crashInfoMessage;
     
     return self;
 }
@@ -65,6 +65,6 @@
 @synthesize name = _name;
 @synthesize code = _code;
 @synthesize address = _address;
-@synthesize swiftCrashInfoMessage = _swiftCrashInfoMessage;
+@synthesize crashInfoMessage = _crashInfoMessage;
 
 @end

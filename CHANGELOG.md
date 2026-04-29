@@ -1,5 +1,12 @@
 ## Next
 
+## 3.57.3
+
+### Patch Changes
+
+- 8e2658e: fix: capture Swift runtime crash messages from \_\_crash_info (covers fatalErrors, asserts, preconditions, and force unwraps)
+- fb97bb4: fix: resolve PLCrashReporter dependency and symbol conflicts by vendoring/prefixing crash reporter sources
+
 ## 3.57.2
 
 ### Patch Changes

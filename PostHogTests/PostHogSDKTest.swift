@@ -112,6 +112,39 @@ class PostHogSDKTest: QuickSpec {
             server = nil
         }
 
+        it("no-ops setup when project token is empty after trimming") {
+            let config = PostHogConfig(projectToken: " \n\t ", host: "http://localhost:9001")
+
+            let sut = PostHogSDK.with(config)
+
+            expect(sut.config.projectToken).to(beEmpty())
+            expect(sut.storage).to(beNil())
+            expect(sut.getDistinctId()).to(beEmpty())
+            expect(sut.getSessionId()).to(beNil())
+
+            let validConfig = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            validConfig.disableReachabilityForTesting = true
+            validConfig.disableQueueTimerForTesting = true
+            validConfig.disableFlushOnBackgroundForTesting = true
+            sut.setup(validConfig)
+
+            expect(sut.storage).toNot(beNil())
+            expect(sut.getDistinctId()).toNot(beEmpty())
+
+            sut.close()
+        }
+
+        it("no-ops setup when legacy api key is empty after trimming") {
+            let config = PostHogConfig(apiKey: " \n\t ", host: "http://localhost:9001")
+
+            let sut = PostHogSDK.with(config)
+
+            expect(sut.config.projectToken).to(beEmpty())
+            expect(sut.storage).to(beNil())
+            expect(sut.getDistinctId()).to(beEmpty())
+            expect(sut.getSessionId()).to(beNil())
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

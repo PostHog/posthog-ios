@@ -91,6 +91,11 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            if config.projectToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                hedgeLog("Either projectToken or apiKey must be provided.")
+                return
+            }
+
             if PostHogSDK.projectTokens.contains(config.projectToken) {
                 hedgeLog("Project token: \(config.projectToken) already has a PostHog instance.")
             } else {

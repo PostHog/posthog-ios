@@ -41,6 +41,7 @@ class PostHogIntegrationInstallationTest {
 
         config.captureScreenViews = captureScreenViews
         config.disableFlushOnBackgroundForTesting = true
+        config.disableReachabilityForTesting = true
 
         let storage = PostHogStorage(config)
         storage.reset()

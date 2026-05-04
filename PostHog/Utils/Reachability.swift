@@ -45,14 +45,11 @@ import Foundation
         static let reachabilityChanged = Notification.Name("reachabilityChanged")
     }
 
-    public class Reachability {
-        public typealias NetworkReachable = (Reachability) -> Void
-        public typealias NetworkUnreachable = (Reachability) -> Void
-
+    class Reachability {
         @available(*, unavailable, renamed: "Connection")
-        public enum NetworkStatus: CustomStringConvertible {
+        enum NetworkStatus: CustomStringConvertible {
             case notReachable, reachableViaWiFi, reachableViaWWAN
-            public var description: String {
+            var description: String {
                 switch self {
                 case .reachableViaWWAN: return "Cellular"
                 case .reachableViaWiFi: return "WiFi"
@@ -61,9 +58,9 @@ import Foundation
             }
         }
 
-        public enum Connection: CustomStringConvertible {
+        enum Connection: CustomStringConvertible {
             case unavailable, wifi, cellular
-            public var description: String {
+            var description: String {
                 switch self {
                 case .cellular: return "Cellular"
                 case .wifi: return "WiFi"
@@ -72,32 +69,35 @@ import Foundation
             }
 
             @available(*, deprecated, renamed: "unavailable")
-            public static let none: Connection = .unavailable
+            static let none: Connection = .unavailable
         }
 
-        public var whenReachable: NetworkReachable?
-        public var whenUnreachable: NetworkUnreachable?
+        /// Multicast hooks: every subscriber gets called on every transition.
+        /// Returned `RegistrationToken` unsubscribes on deinit, so callers
+        /// just hold it for as long as they want to receive notifications.
+        let onReachable = PostHogMulticastCallback<Reachability>()
+        let onUnreachable = PostHogMulticastCallback<Reachability>()
 
         @available(*, deprecated, renamed: "allowsCellularConnection")
-        public let reachableOnWWAN: Bool = true
+        let reachableOnWWAN: Bool = true
 
         /// Set to `false` to force Reachability.connection to .none when on cellular connection (default value `true`)
-        public var allowsCellularConnection: Bool
+        var allowsCellularConnection: Bool
 
         // The notification center on which "reachability changed" events are being posted
-        public var notificationCenter: NotificationCenter = .default
+        var notificationCenter: NotificationCenter = .default
 
         @available(*, deprecated, renamed: "connection.description")
-        public var currentReachabilityString: String {
+        var currentReachabilityString: String {
             "\(connection)"
         }
 
         @available(*, unavailable, renamed: "connection")
-        public var currentReachabilityStatus: Connection {
+        var currentReachabilityStatus: Connection {
             connection
         }
 
-        public var connection: Connection {
+        var connection: Connection {
             if flags == nil {
                 try? setReachabilityFlags()
             }
@@ -120,10 +120,10 @@ import Foundation
             }
         }
 
-        public required init(reachabilityRef: SCNetworkReachability,
-                             queueQoS: DispatchQoS = .default,
-                             targetQueue: DispatchQueue? = nil,
-                             notificationQueue: DispatchQueue? = .main)
+        required init(reachabilityRef: SCNetworkReachability,
+                      queueQoS: DispatchQoS = .default,
+                      targetQueue: DispatchQueue? = nil,
+                      notificationQueue: DispatchQueue? = .main)
         {
             allowsCellularConnection = true
             self.reachabilityRef = reachabilityRef
@@ -131,10 +131,10 @@ import Foundation
             self.notificationQueue = notificationQueue
         }
 
-        public convenience init(hostname: String,
-                                queueQoS: DispatchQoS = .default,
-                                targetQueue: DispatchQueue? = nil,
-                                notificationQueue: DispatchQueue? = .main) throws
+        convenience init(hostname: String,
+                         queueQoS: DispatchQoS = .default,
+                         targetQueue: DispatchQueue? = nil,
+                         notificationQueue: DispatchQueue? = .main) throws
         {
             guard let ref = SCNetworkReachabilityCreateWithName(nil, hostname) else {
                 throw ReachabilityError.failedToCreateWithHostname(hostname, SCError())
@@ -142,9 +142,9 @@ import Foundation
             self.init(reachabilityRef: ref, queueQoS: queueQoS, targetQueue: targetQueue, notificationQueue: notificationQueue)
         }
 
-        public convenience init(queueQoS: DispatchQoS = .default,
-                                targetQueue: DispatchQueue? = nil,
-                                notificationQueue: DispatchQueue? = .main) throws
+        convenience init(queueQoS: DispatchQoS = .default,
+                         targetQueue: DispatchQueue? = nil,
+                         notificationQueue: DispatchQueue? = .main) throws
         {
             var zeroAddress = sockaddr()
             zeroAddress.sa_len = UInt8(MemoryLayout<sockaddr>.size)
@@ -265,7 +265,11 @@ import Foundation
         func notifyReachabilityChanged() {
             let notify = { [weak self] in
                 guard let self = self else { return }
-                self.connection != .unavailable ? self.whenReachable?(self) : self.whenUnreachable?(self)
+                if self.connection != .unavailable {
+                    self.onReachable.invoke(self)
+                } else {
+                    self.onUnreachable.invoke(self)
+                }
                 self.notificationCenter.post(name: .reachabilityChanged, object: self)
             }
 

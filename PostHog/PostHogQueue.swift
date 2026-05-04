@@ -31,6 +31,8 @@ class PostHogQueue {
     private var retryCount: TimeInterval = 0
     #if !os(watchOS)
         private let reachability: Reachability?
+        private var reachableToken: RegistrationToken?
+        private var unreachableToken: RegistrationToken?
     #endif
 
     private var isFlushing = false
@@ -123,9 +125,11 @@ class PostHogQueue {
                disableQueueTimerForTesting: Bool)
     {
         if !disableReachabilityForTesting {
-            // Setup the monitoring of network status for the queue
             #if !os(watchOS)
-                reachability?.whenReachable = { reachability in
+                // Subscribe via the multicast so events, replay, and logs queues
+                // can all receive notifications without overwriting each other.
+                reachableToken = reachability?.onReachable.subscribe { [weak self] reachability in
+                    guard let self else { return }
                     self.pausedLock.withLock {
                         if self.config.dataMode == .wifi, reachability.connection != .wifi {
                             hedgeLog("Queue is paused because its not in WiFi mode")
@@ -143,7 +147,8 @@ class PostHogQueue {
                     }
                 }
 
-                reachability?.whenUnreachable = { _ in
+                unreachableToken = reachability?.onUnreachable.subscribe { [weak self] _ in
+                    guard let self else { return }
                     self.pausedLock.withLock {
                         hedgeLog("Queue is paused because network is unreachable")
                         self.paused = true
@@ -181,6 +186,12 @@ class PostHogQueue {
             timer?.invalidate()
             timer = nil
         }
+        #if !os(watchOS)
+            // Tokens auto-unsubscribe on deinit; nilling here detaches earlier
+            // so we do not receive callbacks after stop().
+            reachableToken = nil
+            unreachableToken = nil
+        #endif
     }
 
     func flush() {

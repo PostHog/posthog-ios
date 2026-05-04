@@ -234,6 +234,7 @@ class PostHogStorage {
         case oldQueuePlist = "posthog.queue.plist" // queue from pre-3.0.0
         case replayQeueue = "posthog.replayFolder"
         case replayBufferQueue = "posthog.replayBufferFolder"
+        case logsQueue = "posthog.logsFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case flags = "posthog.flags"
@@ -395,7 +396,9 @@ class PostHogStorage {
         if !keepAnonymousId {
             deleteSafely(url(forKey: .anonymousId))
         }
-        // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
+        // .queue, .replayQeueue, .logsQueue intentionally preserved on reset so in-flight
+        // telemetry isn't lost when identity changes. Records carry capture-time distinctId,
+        // so a log captured under user A flushes as user A.
         deleteSafely(url(forKey: .oldQueueFolder))
         deleteSafely(url(forKey: .oldQueuePlist))
         deleteSafely(url(forKey: .flags))

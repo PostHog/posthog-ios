@@ -18,7 +18,7 @@ This prompts you to select the version bump (`patch`, `minor`, or `major`) and w
 
 After review, merge the PR to `main`. No GitHub release label is required.
 
-A push to `main` that includes `.changeset/**` changes automatically starts the release workflow. The workflow then:
+A push to `main` that includes `.changeset/*.md` changes automatically starts the release workflow. The workflow then:
 
 1. Checks for pending changesets
 2. Notifies the client libraries team in Slack for approval

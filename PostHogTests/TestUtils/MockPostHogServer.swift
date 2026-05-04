@@ -14,16 +14,24 @@ import XCTest
 class MockPostHogServer {
     var batchRequests = [URLRequest]()
     var snapshotRequests = [URLRequest]()
+    var logsRequests = [URLRequest]()
     var batchExpectation: XCTestExpectation?
     var snapshotExpectation: XCTestExpectation?
+    var logsExpectation: XCTestExpectation?
     var flagsExpectation: XCTestExpectation?
     var batchExpectationCount: Int?
     var snapshotExpectationCount: Int?
+    var logsExpectationCount: Int?
     var flagsExpectationCount: Int?
     var flagsRequests = [URLRequest]()
     private var stubDescriptors = [HTTPStubsDescriptor]()
     var flagsResponseDelay: TimeInterval = 0
     var flagsResponseHandler: ((URLRequest) -> HTTPStubsResponse)?
+    /// If set, the closure is invoked for each `/i/v1/logs` request (with the
+    /// 1-based request number) and returns the stub response. If `nil`, the
+    /// server replies with `200 OK`. Errors thrown inside this closure are
+    /// surfaced as test failures by OHHTTPStubs.
+    var logsResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var version: Int = 3
 
     func trackBatchRequest(_ request: URLRequest) {
@@ -39,6 +47,14 @@ class MockPostHogServer {
 
         if snapshotRequests.count >= (snapshotExpectationCount ?? 0) {
             snapshotExpectation?.fulfill()
+        }
+    }
+
+    func trackLogsRequest(_ request: URLRequest) {
+        logsRequests.append(request)
+
+        if logsRequests.count >= (logsExpectationCount ?? 0) {
+            logsExpectation?.fulfill()
         }
     }
 
@@ -322,6 +338,15 @@ class MockPostHogServer {
             }
         })
 
+        stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/logs")) { request in
+            // Default: 200 OK. Tests can install `logsResponseHandler` to vary
+            // the response per request (e.g. 413 then 200 for backpressure tests).
+            if let handler = self.logsResponseHandler {
+                return handler(request, self.logsRequests.count + 1)
+            }
+            return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+        })
+
         stubDescriptors.append(stub(condition: pathEndsWith("/config")) { _ in
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
@@ -403,14 +428,16 @@ class MockPostHogServer {
                 self.trackBatchRequest(request)
             } else if request.url?.lastPathComponent == "s" {
                 self.trackSnapshotRequest(request)
+            } else if request.url?.lastPathComponent == "logs" {
+                self.trackLogsRequest(request)
             } else if request.url?.lastPathComponent == "flags" {
                 self.trackFlags(request)
             }
         }
     }
 
-    func start(batchCount: Int = 1, snapshotCount: Int = 0) {
-        reset(batchCount: batchCount, snapshotCount: snapshotCount)
+    func start(batchCount: Int = 1, snapshotCount: Int = 0, logsCount: Int = 0) {
+        reset(batchCount: batchCount, snapshotCount: snapshotCount, logsCount: logsCount)
 
         HTTPStubs.setEnabled(true)
     }
@@ -424,18 +451,22 @@ class MockPostHogServer {
         stubDescriptors.removeAll()
     }
 
-    func reset(batchCount: Int = 1, snapshotCount: Int = 0, flagsCount: Int? = nil) {
+    func reset(batchCount: Int = 1, snapshotCount: Int = 0, flagsCount: Int? = nil, logsCount: Int = 0) {
         batchRequests = []
         snapshotRequests = []
+        logsRequests = []
         flagsRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
         snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
+        logsExpectation = XCTestExpectation(description: "\(logsCount) logs requests to occur")
         flagsExpectation = XCTestExpectation(description: "\(flagsCount ?? 1) flag requests to occur")
         batchExpectationCount = batchCount
         snapshotExpectationCount = snapshotCount
+        logsExpectationCount = logsCount
         flagsExpectationCount = flagsCount
         flagsResponseDelay = 0
         flagsResponseHandler = nil
+        logsResponseHandler = nil
         errorsWhileComputingFlags = false
         return500 = false
     }

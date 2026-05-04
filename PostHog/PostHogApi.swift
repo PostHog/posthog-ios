@@ -186,6 +186,68 @@ class PostHogApi {
         }.resume()
     }
 
+    /// POSTs an OpenTelemetry log payload to `/i/v1/logs?token=<projectToken>`.
+    /// The token is carried in the query string because the endpoint expects it
+    /// there rather than in the body.
+    ///
+    /// - Parameter completion: Invoked exactly once on every code path (including
+    ///   early-return errors) so the calling queue's `isFlushing` flag clears.
+    func logs(payload: [String: Any], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
+        let url = getEndpointURL(
+            "/i/v1/logs",
+            queryItems: URLQueryItem(name: "token", value: config.projectToken),
+            relativeTo: config.host
+        )
+        guard let url else {
+            hedgeLog("Malformed logs URL error.")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+        }
+
+        let sessionConfig = sessionConfig()
+        var headers = sessionConfig.httpAdditionalHeaders ?? [:]
+        headers["Accept-Encoding"] = "gzip"
+        headers["Content-Encoding"] = "gzip"
+        sessionConfig.httpAdditionalHeaders = headers
+
+        let request = getURLRequest(url)
+
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
+            hedgeLog("Error parsing the logs body")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+        }
+
+        let gzippedPayload: Data
+        do {
+            gzippedPayload = try data.gzipped()
+        } catch {
+            hedgeLog("Error gzipping the logs body: \(error).")
+            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+        }
+
+        URLSession(configuration: sessionConfig).uploadTask(with: request, from: gzippedPayload) { data, response, error in
+            if let error {
+                hedgeLog("Error calling the logs API: \(error).")
+                return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+            }
+
+            // Defensive guard: a nil error should normally come with a non-nil HTTP response,
+            // but we never want a missing response to crash inside a customer process.
+            guard let httpResponse = response as? HTTPURLResponse else {
+                hedgeLog("Logs API returned no HTTP response")
+                return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+            }
+
+            if !(200 ... 299 ~= httpResponse.statusCode) {
+                let jsonBody = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: .allowFragments) as? [String: Any] }
+                hedgeLog("Error sending logs to /i/v1/logs: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody)).")
+            } else {
+                hedgeLog("Logs sent successfully.")
+            }
+
+            return completion(PostHogBatchUploadInfo(statusCode: httpResponse.statusCode, error: nil))
+        }.resume()
+    }
+
     func flags(
         distinctId: String,
         anonymousId: String?,

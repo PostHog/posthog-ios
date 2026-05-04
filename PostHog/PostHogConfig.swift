@@ -206,6 +206,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// See known limitations: https://posthog.com/docs/error-tracking/installation/ios#limitations
     @objc public let errorTrackingConfig: PostHogErrorTrackingConfig = .init()
 
+    /// Configuration for the logs subsystem (manual `captureLog` capture).
+    /// Mutate fields on `config.logs` before calling `PostHogSDK.setup(_:)`.
+    @objc public let logs: PostHogLogsConfig = .init()
+
     /// Enable mobile surveys
     ///
     /// Default: true

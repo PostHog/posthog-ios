@@ -40,6 +40,7 @@ let maxRetryDelay = 30.0
 
     private var queue: PostHogQueue?
     private(set) var replayQueue: PostHogReplayQueue?
+    private(set) var logsQueue: PostHogLogsQueue?
     private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -138,12 +139,16 @@ let maxRetryDelay = 30.0
                 queue = PostHogQueue(config, theStorage, api, .batch)
                 replayQueue = PostHogReplayQueue(config, theStorage, api)
             #endif
+            logsQueue = PostHogLogsQueue(config, theStorage, api)
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                          disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
+
+            logsQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                             disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             // Create session manager instance for this PostHogSDK instance
             sessionManager.setup(config: config)
@@ -454,6 +459,7 @@ let maxRetryDelay = 30.0
 
         queue?.flush()
         replayQueue?.flush()
+        logsQueue?.flush()
     }
 
     @objc public func reset() {
@@ -1771,9 +1777,11 @@ let maxRetryDelay = 30.0
 
             queue?.stop()
             replayQueue?.stop()
+            logsQueue?.stop()
 
             queue = nil
             replayQueue = nil
+            logsQueue = nil
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             config = PostHogConfig(projectToken: "")

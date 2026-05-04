@@ -19,9 +19,11 @@
 		236B94DD004B67F9EAA98C2B /* PLCrashFrameCompactUnwind.c in Sources */ = {isa = PBXBuildFile; fileRef = 61CBAB800ACCB63AB4491646 /* PLCrashFrameCompactUnwind.c */; };
 		238D24DE5A56F04CE3FF0928 /* PLCrashReportExceptionInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = F9BB47DFE51AFE8F516B8550 /* PLCrashReportExceptionInfo.m */; };
 		291141AEC376DC2C5BB2308F /* PLCrashReport.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C2E5E5D0EEB539A69D3E21F /* PLCrashReport.m */; };
+		2B66AB398C6E33DEEE924455 /* PostHogLogsQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 275EEC0C4B14408F0D049966 /* PostHogLogsQueueTest.swift */; };
 		2E3684934C68D1CAFCF0358C /* PLCrashReportProcessorInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 4360B9439C3B5722C115465A /* PLCrashReportProcessorInfo.m */; };
 		305D4CDD7792799DE5455EB2 /* PLCrashAsyncImageList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 991CFA923BC02DA7DD6506C6 /* PLCrashAsyncImageList.cpp */; };
 		31D7081F45C6FAB2478BC354 /* PLCrashReport.pb-c.c in Sources */ = {isa = PBXBuildFile; fileRef = F808F6F63C4473F4570FE32B /* PLCrashReport.pb-c.c */; };
+		38CBA527DA86F6A20DA50F80 /* PostHogLogRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68181997A5803BEDE63ABDEA /* PostHogLogRecord.swift */; };
 		39C70993C85FF7165C85BD4D /* PLCrashAsyncDwarfFDE.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B4E325C19D4C707C5FA9255 /* PLCrashAsyncDwarfFDE.cpp */; };
 		3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108229C47940002C0084 /* UIViewExample.swift */; };
 		3A0F108929C9BD76002C0084 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0F108829C9BD76002C0084 /* Errors.swift */; };
@@ -45,6 +47,7 @@
 		3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */; };
 		3AE3FB4B2993A68500AFFC18 /* PostHogStorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4A2993A68500AFFC18 /* PostHogStorageTest.swift */; };
 		3AE3FB4E2993D1D600AFFC18 /* PostHogStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4D2993D1D600AFFC18 /* PostHogStorageManager.swift */; };
+		3B89201A418439D9DB092795 /* PostHogLogSeverity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3D3784BF8219D5CA5459CB /* PostHogLogSeverity.swift */; };
 		3D1C111BCD386DDBAB6E598C /* PLCrashFrameStackUnwind.c in Sources */ = {isa = PBXBuildFile; fileRef = 481CB44DF30DBC62657AAC48 /* PLCrashFrameStackUnwind.c */; };
 		40CA51784E9B51965327C3A2 /* PLCrashAsyncSymbolication.c in Sources */ = {isa = PBXBuildFile; fileRef = C032F7F5B744465BA103BC94 /* PLCrashAsyncSymbolication.c */; };
 		46A911BC1659B0FEFA8D1E43 /* BundleUtilsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E781EB127B3DC1290199836 /* BundleUtilsTest.swift */; };
@@ -128,12 +131,14 @@
 		69F518382BB2BA0100F52C14 /* PostHogSwizzler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F518372BB2BA0100F52C14 /* PostHogSwizzler.swift */; };
 		6C32B559ADB6AF7AA3C7515A /* PLCrashReportStackFrameInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 2ADEF41FAC443C7CF9136BBA /* PLCrashReportStackFrameInfo.m */; };
 		6DD6664F2CD3CC05588B990F /* PLCrashAsyncThread.c in Sources */ = {isa = PBXBuildFile; fileRef = 61FEE5E67007766AEB5F6DB7 /* PLCrashAsyncThread.c */; };
+		706B087A015363D827A1BFAA /* PostHogLogsQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26E4A944264DAF6626F4EFC /* PostHogLogsQueue.swift */; };
 		7212EDEEF9E1DC37D57219B9 /* PLCrashReporterConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = D647E3BDAF428D331D684092 /* PLCrashReporterConfig.m */; };
 		7470607DEDB656D74BC1B487 /* PLCrashMachExceptionPortSet.m in Sources */ = {isa = PBXBuildFile; fileRef = 47D619C6488AA0E8B84944FF /* PLCrashMachExceptionPortSet.m */; };
 		77187C93372EC6973C4386D1 /* PLCrashAsyncDwarfCIE.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4794C39420D22C8B91124E48 /* PLCrashAsyncDwarfCIE.cpp */; };
 		7FC8AD34A109E7F53B252F65 /* PLCrashAsyncSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 45DA778D797BB8B389FD4AEB /* PLCrashAsyncSignalInfo.c */; };
 		82A213327F32C797CB815DDD /* PLCrashHostInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = A38F6D8BE8A49299433A915A /* PLCrashHostInfo.m */; };
 		86E43EA3744BB24D27051588 /* PLCrashUncaughtExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 39511B75AEBE275A433E3298 /* PLCrashUncaughtExceptionHandler.m */; };
+		88D516A0861C2F4F6D57CA7A /* PostHogLogsOTLP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */; };
 		8A85D64A2CA4FB9728087065 /* PLCrashReportSymbolInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 61B25EED847481E0988A65E3 /* PLCrashReportSymbolInfo.m */; };
 		8B5424D711C21127F7ED3761 /* PLCrashReportThreadInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = DB51A204FB088EC14375B43D /* PLCrashReportThreadInfo.m */; };
 		8B64BD0F89B007D41E635B6C /* PLCrashFrameDWARFUnwind.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05FCF0F4BD9EEC66BF95699E /* PLCrashFrameDWARFUnwind.cpp */; };
@@ -551,6 +556,7 @@
 		E82B0039B6834A439AD214E9 /* PostHogRageClickConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F78338D55B15449D9EB8507B /* PostHogRageClickConfig.swift */; };
 		ED008D9300E24D2ED5DEEB00 /* PLCrashAsyncDwarfPrimitives.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A8C82A825494404A8958F15C /* PLCrashAsyncDwarfPrimitives.cpp */; };
 		EE47DB8C906D409AB6C2A23F /* RageClickDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E974D4AD3C438FAE6FE0C5 /* RageClickDetector.swift */; };
+		F6DADC57034D5B70B502F251 /* PostHogLogsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */; };
 		FAAA4C305C550B22060A9905 /* PLCrashReportMachineInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 42CE9EE391A5AE700A1D688F /* PLCrashReportMachineInfo.m */; };
 /* End PBXBuildFile section */
 
@@ -728,6 +734,7 @@
 		1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMergeTest.swift; sourceTree = "<group>"; };
 		20C01091B0ACF69D36D3B7AE /* PLCrashAsyncMachExceptionInfo.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncMachExceptionInfo.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncMachExceptionInfo.c; sourceTree = "<group>"; };
 		26E974D4AD3C438FAE6FE0C5 /* RageClickDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickDetector.swift; sourceTree = "<group>"; };
+		275EEC0C4B14408F0D049966 /* PostHogLogsQueueTest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsQueueTest.swift; sourceTree = "<group>"; };
 		2ADEF41FAC443C7CF9136BBA /* PLCrashReportStackFrameInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportStackFrameInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportStackFrameInfo.m; sourceTree = "<group>"; };
 		3139B45C2A22C4B82C567453 /* PLCrashReporter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReporter.m; path = vendor/PHPLCrashReporter/Source/PLCrashReporter.m; sourceTree = "<group>"; };
 		351BB1903238AF5443032040 /* PLCrashAsyncThread_x86.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncThread_x86.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncThread_x86.c; sourceTree = "<group>"; };
@@ -775,6 +782,7 @@
 		6423E3B086633C68584B5558 /* PLCrashSignalHandler.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = PLCrashSignalHandler.mm; path = vendor/PHPLCrashReporter/Source/PLCrashSignalHandler.mm; sourceTree = "<group>"; };
 		64544DAFC6E061EFD58C57D1 /* PLCrashReportBinaryImageInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportBinaryImageInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportBinaryImageInfo.m; sourceTree = "<group>"; };
 		64F80D1792DC64921EF42266 /* PLCrashAsyncDwarfCFAState.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfCFAState.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfCFAState.cpp; sourceTree = "<group>"; };
+		68181997A5803BEDE63ABDEA /* PostHogLogRecord.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogRecord.swift; sourceTree = "<group>"; };
 		690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeBasedEpochGenerator.swift; sourceTree = "<group>"; };
 		690FF02F2AE7C5BA00A0B06B /* PostHogExampleWithPods.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithPods.xcodeproj; path = PostHogExampleWithPods/PostHogExampleWithPods.xcodeproj; sourceTree = "<group>"; };
 		690FF0532AE7DB3700A0B06B /* PostHogExampleWithSPM.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWithSPM.xcodeproj; path = PostHogExampleWithSPM/PostHogExampleWithSPM.xcodeproj; sourceTree = "<group>"; };
@@ -865,10 +873,12 @@
 		7BBC5F0B51D6B521B4AC49B2 /* PLCrashAsyncObjCSection.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = PLCrashAsyncObjCSection.mm; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncObjCSection.mm; sourceTree = "<group>"; };
 		7E23F6C473BBAA67C23A0812 /* PLCrashReportTextFormatter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportTextFormatter.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportTextFormatter.m; sourceTree = "<group>"; };
 		826D9ED566BF6FEFBA430555 /* BundleUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleUtils.swift; sourceTree = "<group>"; };
+		8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsOTLP.swift; sourceTree = "<group>"; };
 		8AC7B7E5D1441557C48E5951 /* CrashReporterFramework.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CrashReporterFramework.m; path = vendor/PHPLCrashReporter/Source/CrashReporterFramework.m; sourceTree = "<group>"; };
 		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c/protobuf-c.c"; sourceTree = "<group>"; };
 		97A462C12E6F54A281DE5023 /* PLCrashProcessInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashProcessInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashProcessInfo.m; sourceTree = "<group>"; };
 		991CFA923BC02DA7DD6506C6 /* PLCrashAsyncImageList.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncImageList.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncImageList.cpp; sourceTree = "<group>"; };
+		9B3D3784BF8219D5CA5459CB /* PostHogLogSeverity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogSeverity.swift; sourceTree = "<group>"; };
 		9BB480CAA746FD368A680D33 /* PLCrashAsyncThread_current.S */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; name = PLCrashAsyncThread_current.S; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncThread_current.S; sourceTree = "<group>"; };
 		9DBE5F51C6078BEF346BFDBB /* PLCrashReportMachExceptionInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportMachExceptionInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportMachExceptionInfo.m; sourceTree = "<group>"; };
 		9E781EB127B3DC1290199836 /* BundleUtilsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleUtilsTest.swift; sourceTree = "<group>"; };
@@ -879,6 +889,7 @@
 		A38F6D8BE8A49299433A915A /* PLCrashHostInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashHostInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashHostInfo.m; sourceTree = "<group>"; };
 		A8C82A825494404A8958F15C /* PLCrashAsyncDwarfPrimitives.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfPrimitives.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfPrimitives.cpp; sourceTree = "<group>"; };
 		AA43A324507226180D2483CD /* PLCrashReporterNSError.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReporterNSError.m; path = vendor/PHPLCrashReporter/Source/PLCrashReporterNSError.m; sourceTree = "<group>"; };
+		BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsConfig.swift; sourceTree = "<group>"; };
 		C032F7F5B744465BA103BC94 /* PLCrashAsyncSymbolication.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncSymbolication.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncSymbolication.c; sourceTree = "<group>"; };
 		CB453C289F1DC872BE9945FC /* PLCrashAsyncCompactUnwindEncoding.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncCompactUnwindEncoding.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncCompactUnwindEncoding.c; sourceTree = "<group>"; };
 		CL000001CDE129010001FF00 /* PostHogFeatureFlagResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFeatureFlagResult.swift; sourceTree = "<group>"; };
@@ -1326,6 +1337,7 @@
 		E8A53C31C8B0DDB72E7F1F15 /* PLCrashAsyncDwarfCFAStateEvaluation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfCFAStateEvaluation.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfCFAStateEvaluation.cpp; sourceTree = "<group>"; };
 		E8E1E01C22EB902B360AE5A3 /* PLCrashAsyncDwarfEncoding.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfEncoding.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfEncoding.cpp; sourceTree = "<group>"; };
 		ECBFEE10291A87FD4E8A2E5B /* CrashReporter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CrashReporter.m; path = vendor/PHPLCrashReporter/Source/CrashReporter.m; sourceTree = "<group>"; };
+		F26E4A944264DAF6626F4EFC /* PostHogLogsQueue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsQueue.swift; sourceTree = "<group>"; };
 		F78338D55B15449D9EB8507B /* PostHogRageClickConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRageClickConfig.swift; sourceTree = "<group>"; };
 		F808F6F63C4473F4570FE32B /* PLCrashReport.pb-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "PLCrashReport.pb-c.c"; path = "vendor/PHPLCrashReporter/Source/PLCrashReport.pb-c.c"; sourceTree = "<group>"; };
 		F9BB47DFE51AFE8F516B8550 /* PLCrashReportExceptionInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportExceptionInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportExceptionInfo.m; sourceTree = "<group>"; };
@@ -1541,6 +1553,7 @@
 				69ED1A9E2C8F451B00FE7A91 /* PostHogPersonProfiles.swift */,
 				DB7100032F80000100000001 /* Tracing */,
 				DAB565D82D14C51E0088F720 /* SwiftUI */,
+				D977A46D673A5FA52C03105F /* Logs */,
 			);
 			path = PostHog;
 			sourceTree = "<group>";
@@ -1594,6 +1607,7 @@
 				DADE7DFD2F7EA90D00C4650C /* PostHogDeepLinkIntegrationTests.swift */,
 				DA641B382F6D873600BAD1E9 /* PostHogReplayQueueTest.swift */,
 				DAEA0FD02F6D5191000E33D8 /* PostHogReplayBufferQueueTest.swift */,
+				275EEC0C4B14408F0D049966 /* PostHogLogsQueueTest.swift */,
 			);
 			path = PostHogTests;
 			sourceTree = "<group>";
@@ -1751,6 +1765,19 @@
 				69F518082BAC768300F52C14 /* Info.plist */,
 			);
 			path = PostHogExampleStoryboard;
+			sourceTree = "<group>";
+		};
+		D977A46D673A5FA52C03105F /* Logs */ = {
+			isa = PBXGroup;
+			children = (
+				68181997A5803BEDE63ABDEA /* PostHogLogRecord.swift */,
+				BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */,
+				8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */,
+				F26E4A944264DAF6626F4EFC /* PostHogLogsQueue.swift */,
+				9B3D3784BF8219D5CA5459CB /* PostHogLogSeverity.swift */,
+			);
+			name = Logs;
+			path = Logs;
 			sourceTree = "<group>";
 		};
 		DA1044862D0B1D2D00C4ACF3 /* SwiftUI */ = {
@@ -2583,8 +2610,6 @@
 			dependencies = (
 			);
 			name = PostHog;
-			packageProductDependencies = (
-			);
 			productName = PostHog;
 			productReference = 3AC745B5296D6FE60025C109 /* PostHog.framework */;
 			productType = "com.apple.product-type.framework";
@@ -3222,6 +3247,11 @@
 				0FF4B41BE5641E70EE173698 /* dwarf_opstream.cpp in Sources */,
 				C37F162E2DDFDCDCF1577CE6 /* PLCrashAsyncThread_current.S in Sources */,
 				11DBAC5CDB163BB965933820 /* protobuf-c.c in Sources */,
+				38CBA527DA86F6A20DA50F80 /* PostHogLogRecord.swift in Sources */,
+				F6DADC57034D5B70B502F251 /* PostHogLogsConfig.swift in Sources */,
+				88D516A0861C2F4F6D57CA7A /* PostHogLogsOTLP.swift in Sources */,
+				706B087A015363D827A1BFAA /* PostHogLogsQueue.swift in Sources */,
+				3B89201A418439D9DB092795 /* PostHogLogSeverity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3279,6 +3309,7 @@
 				DA697CB42EF935490019640F /* PostHogCrashReportProcessorTest.swift in Sources */,
 				DA697CB52EF935490019640F /* PostHogExceptionProcessorTest.swift in Sources */,
 				DA641B392F6D873600BAD1E9 /* PostHogReplayQueueTest.swift in Sources */,
+				2B66AB398C6E33DEEE924455 /* PostHogLogsQueueTest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -75,8 +75,17 @@ import Foundation
             public static let none: Connection = .unavailable
         }
 
+        @available(*, deprecated, message: "Subscribe via onReachable for multi-subscriber safety. Setting this overwrites any prior setter.")
         public var whenReachable: NetworkReachable?
+
+        @available(*, deprecated, message: "Subscribe via onUnreachable for multi-subscriber safety. Setting this overwrites any prior setter.")
         public var whenUnreachable: NetworkUnreachable?
+
+        /// Multicast hooks: every subscriber gets called on every transition.
+        /// Returned `RegistrationToken` unsubscribes on deinit, so callers
+        /// just hold it for as long as they want to receive notifications.
+        let onReachable = PostHogMulticastCallback<Reachability>()
+        let onUnreachable = PostHogMulticastCallback<Reachability>()
 
         @available(*, deprecated, renamed: "allowsCellularConnection")
         public let reachableOnWWAN: Bool = true
@@ -265,7 +274,15 @@ import Foundation
         func notifyReachabilityChanged() {
             let notify = { [weak self] in
                 guard let self = self else { return }
-                self.connection != .unavailable ? self.whenReachable?(self) : self.whenUnreachable?(self)
+                if self.connection != .unavailable {
+                    // Legacy single-callback first for any external callers; the
+                    // multicast covers all internal subscribers.
+                    self.whenReachable?(self)
+                    self.onReachable.invoke(self)
+                } else {
+                    self.whenUnreachable?(self)
+                    self.onUnreachable.invoke(self)
+                }
                 self.notificationCenter.post(name: .reachabilityChanged, object: self)
             }
 

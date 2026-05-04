@@ -4,9 +4,10 @@ permissions:
   contents: read
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
+    paths:
+      - '.changeset/**'
   workflow_dispatch:
 
 # Concurrency control: only one release process can run at a time
@@ -18,12 +19,6 @@ jobs:
   check-changesets:
     name: Check for changesets
     runs-on: ubuntu-latest
-    # Run when PR with 'release' label is merged to main, or when manually triggered
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request'
-       && github.event.pull_request.merged == true
-       && contains(github.event.pull_request.labels.*.name, 'release'))
     outputs:
       has-changesets: ${{ steps.check.outputs.has-changesets }}
     steps:

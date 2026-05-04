@@ -17,6 +17,5 @@
 ## If releasing new changes
 
 - [ ] Ran `pnpm changeset` to generate a changeset file
-- [ ] Added the `release` label to the PR
 
 <!-- For more details check RELEASING.md -->

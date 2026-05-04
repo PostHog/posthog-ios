@@ -8,15 +8,6 @@ import Foundation
 
 public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
-@objc public final class BoxedBeforeSendBlock: NSObject {
-    @objc public let block: BeforeSendBlock
-
-    @objc(block:)
-    public init(block: @escaping BeforeSendBlock) {
-        self.block = block
-    }
-}
-
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
     enum Defaults {
         #if os(tvOS)
@@ -221,6 +212,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// See known limitations: https://posthog.com/docs/error-tracking/installation/ios#limitations
     @objc public let errorTrackingConfig: PostHogErrorTrackingConfig = .init()
 
+    /// Configuration for the logs subsystem (manual `captureLog` capture).
+    /// Mutate fields on `config.logs` before calling `PostHogSDK.setup(_:)`.
+    @objc public let logs: PostHogLogsConfig = .init()
+
     /// Enable mobile surveys
     ///
     /// Default: true
@@ -368,18 +363,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Hook that allows to sanitize the event
     /// The hook is called before the event is cached or sent over the wire
-    private var beforeSend: BeforeSendBlock = { $0 }
-
-    private static func buildBeforeSendBlock(_ blocks: [BeforeSendBlock]) -> BeforeSendBlock {
-        { event in
-            blocks.reduce(event) { event, block in
-                event.flatMap(block)
-            }
-        }
-    }
+    private var beforeSend = BeforeSendChain<PostHogEvent>()
 
     public func setBeforeSend(_ blocks: [BeforeSendBlock]) {
-        beforeSend = Self.buildBeforeSendBlock(blocks)
+        beforeSend.set(blocks)
     }
 
     public func setBeforeSend(_ blocks: BeforeSendBlock...) {
@@ -392,6 +379,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     }
 
     func runBeforeSend(_ event: PostHogEvent) -> PostHogEvent? {
-        beforeSend(event)
+        beforeSend.run(event)
     }
 }

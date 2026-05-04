@@ -34,6 +34,17 @@ class PostHogApi {
         return config
     }
 
+    /// `sessionConfig()` plus gzip request/response encoding. Used by the upload
+    /// endpoints (/batch, /s/, /i/v1/logs) which always send gzipped bodies.
+    private func gzippedSessionConfig() -> URLSessionConfiguration {
+        let config = sessionConfig()
+        var headers = config.httpAdditionalHeaders ?? [:]
+        headers["Accept-Encoding"] = "gzip"
+        headers["Content-Encoding"] = "gzip"
+        config.httpAdditionalHeaders = headers
+        return config
+    }
+
     private func getURLRequest(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -79,17 +90,13 @@ class PostHogApi {
         return request
     }
 
-    func batch(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
+    func batch(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
         guard let url = getEndpointURL("/batch", relativeTo: config.host) else {
             hedgeLog("Malformed batch URL error.")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let config = sessionConfig()
-        var headers = config.httpAdditionalHeaders ?? [:]
-        headers["Accept-Encoding"] = "gzip"
-        headers["Content-Encoding"] = "gzip"
-        config.httpAdditionalHeaders = headers
+        let config = gzippedSessionConfig()
 
         let request = getURLRequest(url)
 
@@ -102,7 +109,7 @@ class PostHogApi {
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the batch body")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
         var gzippedPayload: Data?
@@ -110,44 +117,40 @@ class PostHogApi {
             gzippedPayload = try data.gzipped()
         } catch {
             hedgeLog("Error gzipping the batch body: \(error).")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+            return completion(PostHogUploadInfo(statusCode: nil, error: error))
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
             if error != nil {
                 hedgeLog("Error calling the batch API: \(String(describing: error)).")
-                return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+                return completion(PostHogUploadInfo(statusCode: nil, error: error))
             }
 
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: .allowFragments) as? [String: Any] }
+                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
                 let errorMessage = "Error sending events to batch API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
             } else {
                 hedgeLog("Events sent successfully.")
             }
 
-            return completion(PostHogBatchUploadInfo(statusCode: httpResponse.statusCode, error: error))
+            return completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: error))
         }.resume()
     }
 
-    func snapshot(events: [PostHogEvent], completion: @escaping (PostHogBatchUploadInfo) -> Void) {
+    func snapshot(events: [PostHogEvent], completion: @escaping (PostHogUploadInfo) -> Void) {
         guard let url = getEndpointURL(config.snapshotEndpoint, relativeTo: config.host) else {
             hedgeLog("Malformed snapshot URL error.")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
         for event in events {
             event.apiKey = self.config.projectToken
         }
 
-        let config = sessionConfig()
-        var headers = config.httpAdditionalHeaders ?? [:]
-        headers["Accept-Encoding"] = "gzip"
-        headers["Content-Encoding"] = "gzip"
-        config.httpAdditionalHeaders = headers
+        let config = gzippedSessionConfig()
 
         let request = getURLRequest(url)
 
@@ -155,7 +158,7 @@ class PostHogApi {
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the snapshot body")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
         var gzippedPayload: Data?
@@ -163,26 +166,84 @@ class PostHogApi {
             gzippedPayload = try data.gzipped()
         } catch {
             hedgeLog("Error gzipping the snapshot body: \(error).")
-            return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+            return completion(PostHogUploadInfo(statusCode: nil, error: error))
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
             if error != nil {
                 hedgeLog("Error calling the snapshot API: \(String(describing: error)).")
-                return completion(PostHogBatchUploadInfo(statusCode: nil, error: error))
+                return completion(PostHogUploadInfo(statusCode: nil, error: error))
             }
 
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: .allowFragments) as? [String: Any] }
+                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
                 let errorMessage = "Error sending events to snapshot API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
             } else {
                 hedgeLog("Snapshots sent successfully.")
             }
 
-            return completion(PostHogBatchUploadInfo(statusCode: httpResponse.statusCode, error: error))
+            return completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: error))
+        }.resume()
+    }
+
+    /// POSTs an OpenTelemetry log payload to `/i/v1/logs?token=<projectToken>`.
+    /// The token is carried in the query string because the endpoint expects it
+    /// there rather than in the body.
+    ///
+    /// - Parameter completion: Invoked exactly once on every code path (including
+    ///   early-return errors) so the calling queue's `isFlushing` flag clears.
+    func logs(payload: [String: Any], completion: @escaping (PostHogUploadInfo) -> Void) {
+        let url = getEndpointURL(
+            "/i/v1/logs",
+            queryItems: URLQueryItem(name: "token", value: config.projectToken),
+            relativeTo: config.host
+        )
+        guard let url else {
+            hedgeLog("Malformed logs URL error.")
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+        }
+
+        let sessionConfig = gzippedSessionConfig()
+
+        let request = getURLRequest(url)
+
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
+            hedgeLog("Error parsing the logs body")
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+        }
+
+        let gzippedPayload: Data
+        do {
+            gzippedPayload = try data.gzipped()
+        } catch {
+            hedgeLog("Error gzipping the logs body: \(error).")
+            return completion(PostHogUploadInfo(statusCode: nil, error: error))
+        }
+
+        URLSession(configuration: sessionConfig).uploadTask(with: request, from: gzippedPayload) { data, response, error in
+            if let error {
+                hedgeLog("Error calling the logs API: \(error).")
+                return completion(PostHogUploadInfo(statusCode: nil, error: error))
+            }
+
+            // Defensive guard: a nil error should normally come with a non-nil HTTP response,
+            // but we never want a missing response to crash inside a customer process.
+            guard let httpResponse = response as? HTTPURLResponse else {
+                hedgeLog("Logs API returned no HTTP response")
+                return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+            }
+
+            if !(200 ... 299 ~= httpResponse.statusCode) {
+                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
+                hedgeLog("Error sending logs to /i/v1/logs: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody)).")
+            } else {
+                hedgeLog("Logs sent successfully.")
+            }
+
+            return completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil))
         }.resume()
     }
 
@@ -257,7 +318,7 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any]
+                let jsonBody = fromJSONData(data, options: .allowFragments)
                 let errorMessage = "Error calling flags API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
 
@@ -301,7 +362,7 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any]
+                let jsonBody = fromJSONData(data, options: .allowFragments)
                 let errorMessage = "Error calling the remote config API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
 

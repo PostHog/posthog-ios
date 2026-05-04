@@ -38,8 +38,9 @@ let maxRetryDelay = 30.0
     private let cachedPersonPropertiesLock = NSLock()
     private var cachedPersonPropertiesHash: String?
 
-    private var queue: PostHogQueue?
+    private var queue: PostHogQueue<PostHogEvent>?
     private(set) var replayQueue: PostHogReplayQueue?
+    private(set) var logsQueue: PostHogLogsQueue?
     private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -137,11 +138,13 @@ let maxRetryDelay = 30.0
             }
 
             #if !os(watchOS)
-                queue = PostHogQueue(config, theStorage, api, .batch, reachability)
+                queue = PostHogQueue(config, theStorage, .batch(api: api), reachability)
                 replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
+                logsQueue = PostHogLogsQueue(config, theStorage, api, reachability)
             #else
-                queue = PostHogQueue(config, theStorage, api, .batch)
+                queue = PostHogQueue(config, theStorage, .batch(api: api))
                 replayQueue = PostHogReplayQueue(config, theStorage, api)
+                logsQueue = PostHogLogsQueue(config, theStorage, api)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
@@ -149,6 +152,9 @@ let maxRetryDelay = 30.0
 
             replayQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                                disableQueueTimerForTesting: config.disableQueueTimerForTesting)
+
+            logsQueue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
+                             disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             // Create session manager instance for this PostHogSDK instance
             sessionManager.setup(config: config)
@@ -459,6 +465,7 @@ let maxRetryDelay = 30.0
 
         queue?.flush()
         replayQueue?.flush()
+        logsQueue?.flush()
     }
 
     @objc public func reset() {
@@ -1204,7 +1211,7 @@ let maxRetryDelay = 30.0
         return resultEvent
     }
 
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue) {
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>) {
         queue.add(event)
         onEventCaptured.invoke(event)
     }
@@ -1776,9 +1783,11 @@ let maxRetryDelay = 30.0
 
             queue?.stop()
             replayQueue?.stop()
+            logsQueue?.stop()
 
             queue = nil
             replayQueue = nil
+            logsQueue = nil
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             config = PostHogConfig(projectToken: "")

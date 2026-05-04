@@ -70,11 +70,9 @@ func appGroupContainerUrl(config: PostHogConfig) -> URL? {
 
 func getBundleIdentifier() -> String {
     #if TESTING // only visible to test targets
-        return Bundle.main.bundleIdentifier ?? "com.posthog.test"
+        return bundleIdentifier(fallback: "com.posthog.test")
     #else
-        // Can be nil for command-line tools, XCTest hosts, Swift Playgrounds etc
-        // Should theoretically never be nil for a shipping app
-        return Bundle.main.bundleIdentifier ?? "com.posthog.unknown"
+        return bundleIdentifier(fallback: "com.posthog.unknown")
     #endif
 }
 
@@ -234,6 +232,7 @@ class PostHogStorage {
         case oldQueuePlist = "posthog.queue.plist" // queue from pre-3.0.0
         case replayQeueue = "posthog.replayFolder"
         case replayBufferQueue = "posthog.replayBufferFolder"
+        case logsQueue = "posthog.logsFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case flags = "posthog.flags"
@@ -395,7 +394,9 @@ class PostHogStorage {
         if !keepAnonymousId {
             deleteSafely(url(forKey: .anonymousId))
         }
-        // .queue, .replayQeueue not needed since it'll be deleted by the queue.clear()
+        // .queue, .replayQeueue, .logsQueue intentionally preserved on reset so in-flight
+        // telemetry isn't lost when identity changes. Records carry capture-time distinctId,
+        // so a log captured under user A flushes as user A.
         deleteSafely(url(forKey: .oldQueueFolder))
         deleteSafely(url(forKey: .oldQueuePlist))
         deleteSafely(url(forKey: .flags))

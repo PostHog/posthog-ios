@@ -17,6 +17,10 @@ import Foundation
     import WatchKit
 #endif
 
+#if os(iOS) || os(macOS)
+    import UserNotifications
+#endif
+
 let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
@@ -38,6 +42,7 @@ let maxRetryDelay = 30.0
     private let cachedPersonPropertiesLock = NSLock()
     private var cachedPersonPropertiesHash: String?
 
+    private var api: PostHogApi?
     private var queue: PostHogQueue?
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var storage: PostHogStorage?
@@ -47,6 +52,7 @@ let maxRetryDelay = 30.0
     private var flagCallReported: [String: [Any?]] = .init()
     private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
+    private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
     private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
@@ -102,6 +108,7 @@ let maxRetryDelay = 30.0
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let api = PostHogApi(config)
+            self.api = api
 
             config.storageManager = config.storageManager ?? PostHogStorageManager(config)
 
@@ -114,6 +121,10 @@ let maxRetryDelay = 30.0
             }, { [weak self] flagKey, flagValue in
                 self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
             })
+
+            pushSubscriptionHandler = PostHogPushSubscriptionHandler(api, theStorage) { [weak self] in
+                self?.getDistinctId() ?? ""
+            }
 
             #if !os(watchOS)
                 do {
@@ -454,6 +465,7 @@ let maxRetryDelay = 30.0
 
         queue?.flush()
         replayQueue?.flush()
+        pushSubscriptionHandler?.retryIfNeeded()
     }
 
     @objc public func reset() {
@@ -2119,6 +2131,96 @@ let maxRetryDelay = 30.0
             integration.contextDidChange(context)
         }
     }
+
+    // MARK: - Push Notifications
+
+    /// Sends the device token to PostHog for push notification delivery.
+    /// Push notifications can be configured using PostHog Workflows to target users based on their behavior and properties.
+    /// When a push notification is sent from PostHog, the device token is used to deliver the notification to the correct device.
+    ///
+    /// - Parameter deviceToken: The device token as a hexadecimal string. If you receive a `Data` token from
+    ///   `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, convert it first via
+    ///   `token.map { String(format: "%02x", $0) }.joined()`.
+    @objc public func handlePushNotificationDeviceToken(_ deviceToken: String) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            hedgeLog("Push subscription not sent: PostHog is in OptOut state.")
+            return
+        }
+
+        guard let pushSubscriptionHandler else {
+            hedgeLog("Push subscription not sent: SDK not initialized.")
+            return
+        }
+
+        pushSubscriptionHandler.send(deviceToken: deviceToken)
+    }
+
+    #if os(iOS) || os(macOS)
+        /// Manually capture a "$push_notification_opened" event for a notification the user interacted with.
+        ///
+        /// Use this when you're not relying on the automatic swizzling installed by `capturePushNotificationSubscriptions`,
+        /// for example when `enableSwizzling` is `false`, or when you manage your own `UNUserNotificationCenterDelegate`
+        /// and want explicit control. Call it from your
+        /// `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
+        ///
+        /// - Parameter response: The `UNNotificationResponse` received from the system.
+        @available(iOS 14.0, macOS 11.0, *)
+        @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
+            let content = response.notification.request.content
+            capturePushNotificationOpened(
+                title: content.title,
+                subtitle: content.subtitle,
+                body: content.body,
+                userInfo: content.userInfo,
+                actionIdentifier: response.actionIdentifier
+            )
+        }
+
+        func capturePushNotificationOpened(
+            title: String,
+            subtitle: String,
+            body: String,
+            userInfo: [AnyHashable: Any],
+            actionIdentifier: String
+        ) {
+            if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                hedgeLog("Push notification opened event not captured: PostHog is in OptOut state.")
+                return
+            }
+
+            var properties: [String: Any] = [
+                "$notification_title": title,
+            ]
+
+            if !subtitle.isEmpty {
+                properties["$notification_subtitle"] = subtitle
+            }
+
+            if !body.isEmpty {
+                properties["$notification_body"] = body
+            }
+
+            if let posthogData = userInfo["posthog"] as? [String: Any] {
+                for (key, value) in posthogData {
+                    properties["$notification_\(key)"] = value
+                }
+            }
+
+            if actionIdentifier != UNNotificationDefaultActionIdentifier {
+                properties["$notification_action"] = actionIdentifier
+            }
+
+            capture("$push_notification_opened", properties: properties)
+        }
+    #endif
 }
 
 #if TESTING
@@ -2160,6 +2262,15 @@ let maxRetryDelay = 30.0
                 $0 as? PostHogScreenViewIntegration
             }.first
         }
+
+        #if os(iOS) || os(macOS)
+            @available(iOS 14.0, macOS 11.0, *)
+            func getPushNotificationIntegration() -> PostHogPushNotificationIntegration? {
+                installedIntegrations.compactMap {
+                    $0 as? PostHogPushNotificationIntegration
+                }.first
+            }
+        #endif
     }
 #endif
 

@@ -21,6 +21,8 @@ class MockPostHogServer {
     var snapshotExpectationCount: Int?
     var flagsExpectationCount: Int?
     var flagsRequests = [URLRequest]()
+    var pushSubscriptionRequests = [URLRequest]()
+    var returnPushSubscription500 = false
     private var stubDescriptors = [HTTPStubsDescriptor]()
     var flagsResponseDelay: TimeInterval = 0
     var flagsResponseHandler: ((URLRequest) -> HTTPStubsResponse)?
@@ -322,6 +324,15 @@ class MockPostHogServer {
             }
         })
 
+        stubDescriptors.append(stub(condition: pathEndsWith("/push_subscriptions")) { request in
+            self.pushSubscriptionRequests.append(request)
+            if self.return500 || self.returnPushSubscription500 {
+                return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            } else {
+                return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+        })
+
         stubDescriptors.append(stub(condition: pathEndsWith("/config")) { _ in
             if self.return500 {
                 return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
@@ -428,6 +439,7 @@ class MockPostHogServer {
         batchRequests = []
         snapshotRequests = []
         flagsRequests = []
+        pushSubscriptionRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
         snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
         flagsExpectation = XCTestExpectation(description: "\(flagsCount ?? 1) flag requests to occur")
@@ -438,6 +450,7 @@ class MockPostHogServer {
         flagsResponseHandler = nil
         errorsWhileComputingFlags = false
         return500 = false
+        returnPushSubscription500 = false
     }
 
     func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {

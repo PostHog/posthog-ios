@@ -17,6 +17,11 @@ class PostHogIntegrationInstallationTest {
         #if os(iOS) || targetEnvironment(macCatalyst)
             PostHogAutocaptureIntegration.clearInstalls()
         #endif
+        #if os(iOS) || os(macOS)
+            if #available(iOS 14.0, macOS 11.0, *) {
+                PostHogPushNotificationIntegration.clearInstalls()
+            }
+        #endif
         PostHogAppLifeCycleIntegration.clearInstalls()
         PostHogScreenViewIntegration.clearInstalls()
     }
@@ -26,7 +31,8 @@ class PostHogIntegrationInstallationTest {
         sessionReplay: Bool = false,
         captureApplicationLifecycleEvents: Bool = false,
         captureScreenViews: Bool = false,
-        captureElementInteractions: Bool = false
+        captureElementInteractions: Bool = false,
+        capturePushNotificationSubscriptions: Bool = false
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: projectToken)
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
@@ -37,6 +43,10 @@ class PostHogIntegrationInstallationTest {
 
         #if os(iOS) || targetEnvironment(macCatalyst)
             config.captureElementInteractions = captureElementInteractions
+        #endif
+
+        #if os(iOS) || os(macOS)
+            config.capturePushNotificationSubscriptions = capturePushNotificationSubscriptions
         #endif
 
         config.captureScreenViews = captureScreenViews

@@ -56,6 +56,11 @@ class MockPostHogServer {
 
     var errorsWhileComputingFlags = false
     var return500 = false
+    /// Optional override for `/batch` responses. When set, takes precedence
+    /// over `return500`. The closure receives the incoming request and the
+    /// 1-based index of that request in the batch sequence so callers can
+    /// vary the response (e.g. 413 then 200).
+    var batchResponseHandler: ((URLRequest, Int) -> HTTPStubsResponse)?
     var returnReplay = false
     var returnReplayWithVariant = false
     var returnReplayWithMultiVariant = false
@@ -306,12 +311,15 @@ class MockPostHogServer {
             return response
         })
 
-        stubDescriptors.append(stub(condition: pathEndsWith("/batch")) { _ in
-            if self.return500 {
-                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
-            } else {
-                HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+        stubDescriptors.append(stub(condition: pathEndsWith("/batch")) { request in
+            if let handler = self.batchResponseHandler {
+                let index = self.batchRequests.count + 1
+                return handler(request, index)
             }
+            if self.return500 {
+                return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            }
+            return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/s")) { _ in
@@ -438,6 +446,7 @@ class MockPostHogServer {
         flagsResponseHandler = nil
         errorsWhileComputingFlags = false
         return500 = false
+        batchResponseHandler = nil
     }
 
     func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {

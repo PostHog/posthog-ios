@@ -7,6 +7,12 @@
 
 import Foundation
 
+/// Clamps `value` to a minimum of 1. Used wherever we initialise / halve
+/// `currentBatchCap` / `currentFlushAt` so we never store a value below 1.
+private func clamped(_ value: Int) -> Int {
+    max(1, value)
+}
+
 /**
  # Queue
 
@@ -77,8 +83,8 @@ class PostHogQueue {
             self.api = api
             self.reachability = reachability
             self.endpoint = endpoint
-            currentBatchCap = max(1, config.maxBatchSize)
-            currentFlushAt = max(1, config.flushAt)
+            currentBatchCap = clamped(config.maxBatchSize)
+            currentFlushAt = clamped(config.flushAt)
 
             switch endpoint {
             case .batch:
@@ -94,8 +100,8 @@ class PostHogQueue {
             self.config = config
             self.api = api
             self.endpoint = endpoint
-            currentBatchCap = max(1, config.maxBatchSize)
-            currentFlushAt = max(1, config.flushAt)
+            currentBatchCap = clamped(config.maxBatchSize)
+            currentFlushAt = clamped(config.flushAt)
 
             switch endpoint {
             case .batch:
@@ -154,8 +160,8 @@ class PostHogQueue {
         if statusCode == 413 {
             let halvedCap: Int? = batchSizeLock.withLock {
                 guard currentBatchCap > 1 else { return nil }
-                currentBatchCap = max(1, currentBatchCap / 2)
-                currentFlushAt = max(1, currentFlushAt / 2)
+                currentBatchCap = clamped(currentBatchCap / 2)
+                currentFlushAt = clamped(currentFlushAt / 2)
                 return currentBatchCap
             }
             if let halvedCap {

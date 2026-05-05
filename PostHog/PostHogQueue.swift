@@ -12,9 +12,31 @@ import Foundation
 private let retriableStatusCodes: Set<Int> = [429, 500, 502, 503, 504]
 
 /// Clamps `value` to a minimum of 1. Used wherever we initialise / halve
-/// `currentBatchCap` / `currentFlushAt` so we never store a value below 1.
+/// the adaptive batch limits so we never store a value below 1.
 private func clamped(_ value: Int) -> Int {
     max(1, value)
+}
+
+/// Adaptive limits for the events queue. Both `cap` and `flushAt` are halved
+/// together on HTTP 413 and stay reduced for the SDK's lifetime — matching
+/// posthog-android. Stored privately rather than mutating
+/// `config.maxBatchSize` / `config.flushAt` so user-supplied config fields
+/// aren't silently changed.
+private struct BatchLimits {
+    var cap: Int
+    var flushAt: Int
+
+    static func initial(from config: PostHogConfig) -> BatchLimits {
+        BatchLimits(cap: clamped(config.maxBatchSize), flushAt: clamped(config.flushAt))
+    }
+
+    /// Halves both `cap` and `flushAt`, returning the new cap.
+    @discardableResult
+    mutating func halve() -> Int {
+        cap = clamped(cap / 2)
+        flushAt = clamped(flushAt / 2)
+        return cap
+    }
 }
 
 /**
@@ -52,15 +74,8 @@ class PostHogQueue {
     private let endpoint: PostHogApiEndpoint
     private let dispatchQueue: DispatchQueue
 
-    /// Both halved on HTTP 413; the batch is dropped once the cap reaches 1.
-    /// Once reduced, both stay reduced for the SDK's lifetime — matches
-    /// posthog-android. There is no ramp-back-up on healthy sends and no
-    /// reset on the poison drop. Stored privately rather than mutating
-    /// `config.maxBatchSize` / `config.flushAt` so user-supplied config
-    /// fields aren't silently changed.
-    private var currentBatchCap: Int
-    private var currentFlushAt: Int
-    private let batchSizeLock = NSLock()
+    private var batchLimits: BatchLimits
+    private let batchLimitsLock = NSLock()
 
     /// Internal, used for testing
     var depth: Int {
@@ -75,8 +90,7 @@ class PostHogQueue {
             self.api = api
             self.reachability = reachability
             self.endpoint = endpoint
-            currentBatchCap = clamped(config.maxBatchSize)
-            currentFlushAt = clamped(config.flushAt)
+            batchLimits = .initial(from: config)
 
             switch endpoint {
             case .batch:
@@ -92,8 +106,7 @@ class PostHogQueue {
             self.config = config
             self.api = api
             self.endpoint = endpoint
-            currentBatchCap = clamped(config.maxBatchSize)
-            currentFlushAt = clamped(config.flushAt)
+            batchLimits = .initial(from: config)
 
             switch endpoint {
             case .batch:
@@ -149,11 +162,9 @@ class PostHogQueue {
         // `config.maxRetries` consecutive failures (PostHogQueue.kt:208-212).
         // We don't have an equivalent safeguard yet — track as a follow-up.
         if statusCode == 413 {
-            let halvedCap: Int? = batchSizeLock.withLock {
-                guard currentBatchCap > 1 else { return nil }
-                currentBatchCap = clamped(currentBatchCap / 2)
-                currentFlushAt = clamped(currentFlushAt / 2)
-                return currentBatchCap
+            let halvedCap: Int? = batchLimitsLock.withLock {
+                guard batchLimits.cap > 1 else { return nil }
+                return batchLimits.halve()
             }
             if let halvedCap {
                 hedgeLog("Queue: HTTP 413, halved batch cap to \(halvedCap)")
@@ -252,7 +263,7 @@ class PostHogQueue {
             return
         }
 
-        let cap = batchSizeLock.withLock { currentBatchCap }
+        let cap = batchLimitsLock.withLock { batchLimits.cap }
         take(cap) { payload in
             if !payload.events.isEmpty {
                 self.eventHandler(payload)
@@ -264,7 +275,7 @@ class PostHogQueue {
     }
 
     func flushIfOverThreshold() {
-        let threshold = batchSizeLock.withLock { currentFlushAt }
+        let threshold = batchLimitsLock.withLock { batchLimits.flushAt }
         if fileQueue.depth >= threshold {
             flush()
         }
@@ -352,13 +363,13 @@ class PostHogQueue {
         /// Exposes the adaptive batch cap so 413 halving and poison-drop
         /// tests can assert the cap value.
         var currentBatchCapForTesting: Int {
-            batchSizeLock.withLock { currentBatchCap }
+            batchLimitsLock.withLock { batchLimits.cap }
         }
 
         /// Exposes the adaptive flush threshold so 413 tests can assert it
         /// was halved alongside the batch cap.
         var currentFlushAtForTesting: Int {
-            batchSizeLock.withLock { currentFlushAt }
+            batchLimitsLock.withLock { batchLimits.flushAt }
         }
     }
 #endif

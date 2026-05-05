@@ -144,6 +144,10 @@ class PostHogQueue {
         // threshold and retry without popping. Once the cap reaches 1, drop
         // the batch — we can't shrink any further, so retrying is futile.
         // Matches posthog-android's `deleteFilesIfAPIError`.
+        //
+        // TODO: posthog-android also drops all queued events after
+        // `config.maxRetries` consecutive failures (PostHogQueue.kt:208-212).
+        // We don't have an equivalent safeguard yet — track as a follow-up.
         if statusCode == 413 {
             let halvedCap: Int? = batchSizeLock.withLock {
                 guard currentBatchCap > 1 else { return nil }

@@ -17,6 +17,26 @@ private func clamped(_ value: Int) -> Int {
     max(1, value)
 }
 
+// MARK: - Shared queue policy helpers (used by PostHogQueue and PostHogLogsQueue)
+
+/// Halves a batch cap, bounded by the actual batch size that triggered the
+/// halving. The `min(cap, actualBatchSize)` bound avoids wasting halvings on
+/// a partial batch — queue depth was below the cap — when the server only
+/// saw `actualBatchSize` records anyway. Result is clamped to `>= 1`.
+/// Mirrors posthog-android's `BatchLimits.halve` and posthog-js-lite.
+func halveBatchCap(_ cap: Int, actualBatchSize: Int) -> Int {
+    max(1, min(cap, actualBatchSize) / 2)
+}
+
+/// True when `retryCount` has exceeded `maxRetries` after just being
+/// incremented for the current attempt. Comparison is `>` (not `>=`) so the
+/// configured value is the count of *retries* allowed before the drop fires
+/// — with the default of 3 you get attempts 1–3 retried, attempt 4 drops.
+/// Matches posthog-android.
+func retryCountExceeded(_ retryCount: TimeInterval, maxRetries: Int) -> Bool {
+    Int(retryCount) > maxRetries
+}
+
 /// Adaptive limits for the events queue. Both `cap` and `flushAt` are halved
 /// together on HTTP 413 and stay reduced for the SDK's lifetime — matching
 /// posthog-android. Stored privately rather than mutating
@@ -30,16 +50,13 @@ private struct BatchLimits {
         BatchLimits(cap: clamped(config.maxBatchSize), flushAt: clamped(config.flushAt))
     }
 
-    /// Halves both `cap` and `flushAt`, returning the new cap. `actualBatchSize`
-    /// (the number of events actually sent) bounds the halving so a 413 with
-    /// a partial batch — queue depth was below `cap` — doesn't waste halvings
-    /// on a cap that wasn't reached anyway. `flushAt` is also clamped to the
-    /// new `cap` so we never buffer more events than a single batch can drain
-    /// (e.g. cap=1 with flushAt=10 would otherwise pile 10 events to send 1
-    /// at a time). Mirrors posthog-js-lite's behaviour.
+    /// Halves both `cap` and `flushAt`, returning the new cap. `flushAt` is
+    /// clamped to the new `cap` so we never buffer more events than a single
+    /// batch can drain (e.g. cap=1 with flushAt=10 would otherwise pile 10
+    /// events to send 1 at a time).
     @discardableResult
     mutating func halve(actualBatchSize: Int) -> Int {
-        cap = clamped(min(cap, actualBatchSize) / 2)
+        cap = halveBatchCap(cap, actualBatchSize: actualBatchSize)
         flushAt = clamped(min(flushAt / 2, cap))
         return cap
     }
@@ -152,7 +169,7 @@ class PostHogQueue {
 
         if isRetriable {
             retryCount += 1
-            if retryCountExceededMax() {
+            if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
                 dropAllQueuedEvents(reason: "max retries (\(config.maxRetries)) exceeded")
                 payload.completion(true)
                 return
@@ -170,7 +187,7 @@ class PostHogQueue {
         // Matches posthog-android's `deleteFilesIfAPIError`.
         if statusCode == 413 {
             retryCount += 1
-            if retryCountExceededMax() {
+            if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
                 dropAllQueuedEvents(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
                 payload.completion(true)
                 return
@@ -196,15 +213,6 @@ class PostHogQueue {
         // posthog-android and posthog-js-lite.
         retryCount = 0
         payload.completion(true)
-    }
-
-    /// True when `retryCount` has exceeded `config.maxRetries` after just
-    /// being incremented for the current attempt. Comparison is `>` (not `>=`)
-    /// so the configured value is the count of *retries* allowed before the
-    /// drop fires — with the default of 3 you get attempts 1–3 retried,
-    /// attempt 4 drops. Matches posthog-android.
-    private func retryCountExceededMax() -> Bool {
-        Int(retryCount) > config.maxRetries
     }
 
     /// Drops every queued event from disk and resets the retry / pause state.

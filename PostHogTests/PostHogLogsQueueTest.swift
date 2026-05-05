@@ -282,6 +282,41 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
+    @Test("drops the entire queue once retryCount exceeds maxRetries on repeated 413")
+    func handle413MaxRetriesDropsAll() async throws {
+        // Mirrors PostHogQueue's safeguard: a permanently-broken backend that
+        // keeps returning 413 should not leave the logs queue retrying forever.
+        // After config.maxRetries failed attempts, the queue drops everything
+        // and resets the retry / cap state.
+        let (queue, config) = makeQueue(maxBufferSize: 100, maxBatchSize: 64)
+        config.maxRetries = 1
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        server.logsResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: ["error": "too large"], statusCode: 413, headers: nil)
+        }
+
+        // Enough records that cap-halving alone won't drain the queue before
+        // retryCount exceeds maxRetries.
+        for i in 0 ..< 32 {
+            queue.add(makeRecord(body: "log-\(i)"))
+        }
+        await waitUntil { queue.depth == 32 }
+
+        // Drive flushes until the queue drops everything via the maxRetries path.
+        // First flush: batchSize=32 → 413 → retryCount=1 (not > 1) → halve cap.
+        // Second flush: batchSize=16 → 413 → retryCount=2 (> 1) → drop ALL records.
+        queue.flush()
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        queue.flush()
+        await waitUntil { queue.depth == 0 }
+        #expect(queue.depth == 0)
+        // Cap was reset alongside the drop.
+        #expect(queue.currentBatchCapForTesting == 64)
+    }
+
     @Test("non-413 4xx drops the batch (poison-pill)")
     func handleNon413_4xxDrops() async throws {
         let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 100)

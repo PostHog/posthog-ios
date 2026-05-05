@@ -375,12 +375,19 @@ class PostHogLogsQueue {
         let retriable = statusCode == -1 || statusCode == 408 || statusCode == 429 || (500 ... 599 ~= statusCode)
 
         if retriable {
-            stateLock.withLock {
+            let droppedAll: Bool = stateLock.withLock {
                 retryCount += 1
+                if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+                    return true
+                }
                 let delay = min(retryCount * retryDelay, maxRetryDelay)
                 pausedUntil = Date().addingTimeInterval(delay)
                 hedgeLog("Logs queue: pausing \(delay)s after retry #\(Int(retryCount))")
                 isFlushing = false
+                return false
+            }
+            if droppedAll {
+                dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
             }
             return
         }
@@ -400,11 +407,18 @@ class PostHogLogsQueue {
                 }
                 return
             }
-            stateLock.withLock {
-                currentBatchCap = max(1, currentBatchCap / 2)
+            let droppedAll: Bool = stateLock.withLock {
+                retryCount += 1
+                if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+                    return true
+                }
+                currentBatchCap = halveBatchCap(currentBatchCap, actualBatchSize: batchSize)
                 hedgeLog("Logs queue: HTTP 413, halved batch cap to \(currentBatchCap)")
-                retryCount = 0
                 isFlushing = false
+                return false
+            }
+            if droppedAll {
+                dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
             }
             return
         }
@@ -428,6 +442,21 @@ class PostHogLogsQueue {
         fileQueue.pop(batchSize)
         stateLock.withLock {
             retryCount = 0
+            isFlushing = false
+        }
+    }
+
+    /// Drops every queued record from disk and resets the retry / pause /
+    /// cap state. Called when `retryCount` exceeds `config.maxRetries` to
+    /// avoid retrying forever against a permanently-broken backend. Mirrors
+    /// `PostHogQueue.dropAllQueuedEvents`.
+    private func dropAllQueuedRecords(reason: String) {
+        hedgeLog("Logs queue: dropping all queued records — \(reason)")
+        fileQueue.clear()
+        stateLock.withLock {
+            retryCount = 0
+            pausedUntil = nil
+            currentBatchCap = max(1, logsConfig.maxBatchSize)
             isFlushing = false
         }
     }

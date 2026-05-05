@@ -177,7 +177,9 @@ class PostHogQueueTest: QuickSpec {
 
             sut.add(PostHogEvent(event: "evt", distinctId: "id"))
 
-            for _ in 0 ..< 5 { sut.flush() }
+            for _ in 0 ..< 5 {
+                sut.flush()
+            }
             expect(sut.depth).toEventually(equal(0), timeout: .seconds(5))
 
             sut.clear()

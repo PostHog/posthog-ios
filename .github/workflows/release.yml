@@ -280,8 +280,54 @@ jobs:
         with:
           xcode-version: '16.2'
 
+      - name: Check if CocoaPods version already exists
+        id: check-cocoapods-version
+        env:
+          RELEASE_VERSION: ${{ needs.create-github-release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          version_exists_on_cocoapods() {
+            pod trunk info PostHog --no-ansi | grep -F -- "- $1 (" > /dev/null
+          }
+
+          if version_exists_on_cocoapods "$RELEASE_VERSION"; then
+            echo "PostHog ($RELEASE_VERSION) already exists on CocoaPods. Skipping publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PostHog ($RELEASE_VERSION) is not on CocoaPods yet. Publishing..."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to CocoaPods
-        run: make releaseCocoaPods
+        if: steps.check-cocoapods-version.outputs.exists != 'true'
+        env:
+          RELEASE_VERSION: ${{ needs.create-github-release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          set +e
+          make releaseCocoaPods
+          publish_exit_code=$?
+          set -e
+
+          if [ "$publish_exit_code" -eq 0 ]; then
+            exit 0
+          fi
+
+          echo "::warning::CocoaPods publish failed with exit code $publish_exit_code. Checking if PostHog ($RELEASE_VERSION) was published anyway..."
+
+          version_exists_on_cocoapods() {
+            pod trunk info PostHog --no-ansi | grep -F -- "- $1 (" > /dev/null
+          }
+
+          if version_exists_on_cocoapods "$RELEASE_VERSION"; then
+            echo "PostHog ($RELEASE_VERSION) is available on CocoaPods after the failed publish. Treating the publish as successful."
+            exit 0
+          fi
+
+          echo "::error::PostHog ($RELEASE_VERSION) is still not available on CocoaPods after the failed publish."
+          exit 1
 
       # Notify in case of failure
       - name: Send failure event to PostHog

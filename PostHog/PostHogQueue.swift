@@ -40,9 +40,31 @@ class PostHogQueue {
     private let endpoint: PostHogApiEndpoint
     private let dispatchQueue: DispatchQueue
 
+    /// Both halved on HTTP 413; the batch is dropped once the cap reaches 1.
+    /// Once reduced, both stay reduced for the SDK's lifetime — matches
+    /// posthog-android. There is no ramp-back-up on healthy sends and no
+    /// reset on the poison drop. Stored privately rather than mutating
+    /// `config.maxBatchSize` / `config.flushAt` so user-supplied config
+    /// fields aren't silently changed.
+    private var currentBatchCap: Int
+    private var currentFlushAt: Int
+    private let batchSizeLock = NSLock()
+
     /// Internal, used for testing
     var depth: Int {
         fileQueue.depth
+    }
+
+    /// Internal, used for testing — exposes the adaptive batch cap so 413
+    /// halving and poison-drop tests can assert the cap value.
+    var currentBatchCapForTesting: Int {
+        batchSizeLock.withLock { currentBatchCap }
+    }
+
+    /// Internal, used for testing — exposes the adaptive flush threshold so
+    /// 413 tests can assert it was halved alongside the batch cap.
+    var currentFlushAtForTesting: Int {
+        batchSizeLock.withLock { currentFlushAt }
     }
 
     let fileQueue: PostHogFileBackedQueue
@@ -53,6 +75,8 @@ class PostHogQueue {
             self.api = api
             self.reachability = reachability
             self.endpoint = endpoint
+            currentBatchCap = max(1, config.maxBatchSize)
+            currentFlushAt = max(1, config.flushAt)
 
             switch endpoint {
             case .batch:
@@ -68,6 +92,8 @@ class PostHogQueue {
             self.config = config
             self.api = api
             self.endpoint = endpoint
+            currentBatchCap = max(1, config.maxBatchSize)
+            currentFlushAt = max(1, config.flushAt)
 
             switch endpoint {
             case .batch:
@@ -99,24 +125,54 @@ class PostHogQueue {
         // -1 means its not anything related to the API but rather network or something else, so we try again
         let statusCode = result.statusCode ?? -1
 
-        var shouldRetry = false
-        if 300 ... 399 ~= statusCode || statusCode == -1 {
-            shouldRetry = true
-        }
+        // Network error (-1), 3xx redirect, or transient server error: pause and
+        // retry the same batch. The 5xx subset is intentionally narrow to match
+        // posthog-android's RETRYABLE_STATUS_CODES.
+        let retriable = statusCode == -1
+            || (300 ... 399 ~= statusCode)
+            || statusCode == 429
+            || statusCode == 500
+            || statusCode == 502
+            || statusCode == 503
+            || statusCode == 504
 
-        // TODO: https://github.com/PostHog/posthog-android/pull/130
-        // fix: reduce batch size if API returns 413
-
-        if shouldRetry {
+        if retriable {
             retryCount += 1
             let delay = min(retryCount * retryDelay, maxRetryDelay)
             pauseFor(seconds: delay)
             hedgeLog("Pausing queue consumption for \(delay) seconds due to \(retryCount) API failure(s).")
-        } else {
-            retryCount = 0
+            payload.completion(false)
+            return
         }
 
-        payload.completion(!shouldRetry)
+        // 413 Payload Too Large: halve both the batch cap and the flush
+        // threshold and retry without popping. Once the cap reaches 1, drop
+        // the batch — we can't shrink any further, so retrying is futile.
+        // Matches posthog-android's `deleteFilesIfAPIError`.
+        if statusCode == 413 {
+            let halvedCap: Int? = batchSizeLock.withLock {
+                guard currentBatchCap > 1 else { return nil }
+                currentBatchCap = max(1, currentBatchCap / 2)
+                currentFlushAt = max(1, currentFlushAt / 2)
+                return currentBatchCap
+            }
+            if let halvedCap {
+                hedgeLog("Queue: HTTP 413, halved batch cap to \(halvedCap)")
+                retryCount = 0
+                payload.completion(false)
+                return
+            }
+            hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
+            retryCount = 0
+            payload.completion(true)
+            return
+        }
+
+        // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
+        // batch. The cap stays where it is — no ramp-up, matching
+        // posthog-android and posthog-js-lite.
+        retryCount = 0
+        payload.completion(true)
     }
 
     func start(disableReachabilityForTesting: Bool,
@@ -188,7 +244,8 @@ class PostHogQueue {
             return
         }
 
-        take(config.maxBatchSize) { payload in
+        let cap = batchSizeLock.withLock { currentBatchCap }
+        take(cap) { payload in
             if !payload.events.isEmpty {
                 self.eventHandler(payload)
             } else {
@@ -199,7 +256,8 @@ class PostHogQueue {
     }
 
     func flushIfOverThreshold() {
-        if fileQueue.depth >= config.flushAt {
+        let threshold = batchSizeLock.withLock { currentFlushAt }
+        if fileQueue.depth >= threshold {
             flush()
         }
     }

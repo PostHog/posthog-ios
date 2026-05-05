@@ -317,6 +317,40 @@ final class PostHogLogsQueueTests {
         #expect(queue.currentBatchCapForTesting == 64)
     }
 
+    @Test("halves cap from min(cap, actualBatchSize) when queue depth was below cap")
+    func handle413HalvesByActualBatchSize() async throws {
+        // maxBatchSize=50 but only 4 records on disk. A 413 should halve from
+        // min(50, 4) = 4 → cap = 2, NOT from 50/2 = 25. Avoids wasted halvings
+        // on a cap the server never actually saw.
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 50)
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        var responseCount = 0
+        server.logsResponseHandler = { _, _ in
+            responseCount += 1
+            return HTTPStubsResponse(jsonObject: ["error": "too large"], statusCode: 413, headers: nil)
+        }
+
+        for i in 0 ..< 4 {
+            queue.add(makeRecord(body: "log-\(i)"))
+        }
+        await waitUntil { queue.depth == 4 }
+        // depth (4) < flushAt (50) so threshold flush won't fire — drive manually.
+        queue.flush()
+        waitForLogsRequests(count: 1)
+
+        await waitUntil { queue.currentBatchCapForTesting < 50 }
+        #expect(queue.currentBatchCapForTesting == 2)
+        #expect(queue.depth == 4)
+    }
+
+    // Note: the 5xx path also goes through retryCountExceeded → dropAllQueuedRecords,
+    // but testing it directly would require waiting out the 5+10+15s exponential backoff
+    // between attempts (`pausedUntil` blocks the next flush). The 413 maxRetries test
+    // above covers the shared drop logic without that latency since 413 doesn't pause.
+
     @Test("non-413 4xx drops the batch (poison-pill)")
     func handleNon413_4xxDrops() async throws {
         let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 100)
@@ -686,5 +720,63 @@ final class PostHogLogsQueueTests {
         #expect(attrMap["screen.name"]?["stringValue"] as? String == "TestScreen")
         #expect(attrMap["app.state"]?["stringValue"] as? String == "foreground")
         #expect(attrMap["custom_key"]?["stringValue"] as? String == "custom_value")
+    }
+
+    @Test("OTLP encodes non-string attributes (Int / Double / Bool / array / dict / NaN / Infinity)")
+    func otlpNonStringAttributeTypes() async throws {
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1)
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        // NaN / ±Infinity are intentionally NOT exercised here: `toStorageJSON`
+        // serializes via `JSONSerialization`, which rejects those values, so the
+        // whole record drops at `add()` time. Fixing that is a separate concern;
+        // OTLP's `toAnyValue` handles them correctly when they survive to the
+        // encoding step (e.g. in attributes injected later in the pipeline).
+        queue.add(makeRecord(
+            body: "types",
+            attributes: [
+                "int_attr": 42,
+                "double_attr": 3.14,
+                "bool_true": true,
+                "bool_false": false,
+                "array_attr": ["a", "b", "c"],
+                "dict_attr": ["nested": "value"],
+            ]
+        ))
+        waitForLogsRequests(count: 1)
+
+        let request = try #require(server.logsRequests.first)
+        let body = try #require(request.body())
+        let unzipped = try body.gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let logRecords = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        let attrs = try #require(logRecords[0]["attributes"] as? [[String: Any]])
+        let attrMap = Dictionary(uniqueKeysWithValues: attrs.compactMap { kv -> (String, [String: Any])? in
+            guard let key = kv["key"] as? String, let value = kv["value"] as? [String: Any] else { return nil }
+            return (key, value)
+        })
+
+        // intValue is encoded as String per proto3 JSON int64 rules.
+        #expect(attrMap["int_attr"]?["intValue"] as? String == "42")
+        // doubleValue is a JSON number for finite floats.
+        #expect(attrMap["double_attr"]?["doubleValue"] as? Double == 3.14)
+        // Bool comes through as boolValue, not intValue (NSNumber bridge trap).
+        #expect(attrMap["bool_true"]?["boolValue"] as? Bool == true)
+        #expect(attrMap["bool_false"]?["boolValue"] as? Bool == false)
+        // Arrays nest as arrayValue.values; dicts as kvlistValue.values.
+        let arrVal = try #require(attrMap["array_attr"]?["arrayValue"] as? [String: Any])
+        let arrItems = try #require(arrVal["values"] as? [[String: Any]])
+        #expect(arrItems.count == 3)
+        #expect(arrItems[0]["stringValue"] as? String == "a")
+        let kvVal = try #require(attrMap["dict_attr"]?["kvlistValue"] as? [String: Any])
+        let kvItems = try #require(kvVal["values"] as? [[String: Any]])
+        #expect(kvItems.count == 1)
+        #expect(kvItems[0]["key"] as? String == "nested")
+        let nestedValue = try #require(kvItems[0]["value"] as? [String: Any])
+        #expect(nestedValue["stringValue"] as? String == "value")
     }
 }

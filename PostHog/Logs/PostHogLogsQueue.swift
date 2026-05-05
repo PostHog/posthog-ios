@@ -266,13 +266,16 @@ class PostHogLogsQueue {
 
     // MARK: - Flush
 
-    /// Caller must already be on `dispatchQueue`. Skips the re-dispatch that
-    /// `flush()` would normally do — used by `add()` after a write to avoid
-    /// scheduling a second work item on the same serial queue.
+    /// Called from `add()` after a write. Same dispatch shape as `flush()` —
+    /// `add()` runs on the caller's thread (any thread), so the file peek + JSON
+    /// decode + OTLP build that `executeFlushOnDispatchQueue` does must hop to
+    /// `dispatchQueue` rather than block the caller.
     private func flushIfOverThreshold() {
         guard fileQueue.depth >= (stateLock.withLock { currentBatchCap }) else { return }
         guard let cap = acquireFlushSlot() else { return }
-        executeFlushOnDispatchQueue(cap: cap)
+        dispatchQueue.async { [weak self] in
+            self?.executeFlushOnDispatchQueue(cap: cap)
+        }
     }
 
     func flush() {

@@ -86,6 +86,18 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: true
     @objc public var enableSwizzling: Bool = true
 
+    #if os(iOS) || os(macOS)
+        /// Automatically capture push notification engagement events when users interact with notifications.
+        ///
+        /// When enabled, the SDK will swizzle `UNUserNotificationCenterDelegate` methods to automatically
+        /// capture a "Push Notification Opened" event whenever a user taps a push notification.
+        ///
+        /// Requires `enableSwizzling` to be `true`.
+        ///
+        /// Default: false
+        @objc public var capturePushNotificationSubscriptions: Bool = false
+    #endif
+
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enable autocapture for iOS
         /// Default: false
@@ -331,6 +343,14 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
             if rageClickConfig.enabled {
                 integrations.append(PostHogRageClickIntegration())
+            }
+        #endif
+
+        #if os(iOS) || os(macOS)
+            if #available(iOS 14.0, macOS 11.0, *) {
+                if capturePushNotificationSubscriptions {
+                    integrations.append(PostHogPushNotificationIntegration())
+                }
             }
         #endif
 

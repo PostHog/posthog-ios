@@ -33,12 +33,14 @@ private struct BatchLimits {
     /// Halves both `cap` and `flushAt`, returning the new cap. `actualBatchSize`
     /// (the number of events actually sent) bounds the halving so a 413 with
     /// a partial batch — queue depth was below `cap` — doesn't waste halvings
-    /// on a cap that wasn't reached anyway. Mirrors posthog-js-lite's
-    /// behaviour; posthog-android halves from `config.maxBatchSize` directly.
+    /// on a cap that wasn't reached anyway. `flushAt` is also clamped to the
+    /// new `cap` so we never buffer more events than a single batch can drain
+    /// (e.g. cap=1 with flushAt=10 would otherwise pile 10 events to send 1
+    /// at a time). Mirrors posthog-js-lite's behaviour.
     @discardableResult
     mutating func halve(actualBatchSize: Int) -> Int {
         cap = clamped(min(cap, actualBatchSize) / 2)
-        flushAt = clamped(flushAt / 2)
+        flushAt = clamped(min(flushAt / 2, cap))
         return cap
     }
 }

@@ -143,6 +143,29 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("clamps flushAt to cap on halve so we don't buffer more than a batch") {
+            // cap=20, flushAt=10. A 413 fires on a partial batch of 2 events.
+            // Cap halves aggressively (min(20, 2) / 2 = 1) while flushAt would
+            // halve to 5 — leaving flushAt > cap and piling 5 events to send
+            // 1 at a time. Clamping flushAt to cap keeps them in step.
+            let sut = self.getSut(flushAt: 10, maxBatchSize: 20)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+            }
+
+            for i in 0 ..< 2 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+            sut.flush()
+
+            _ = getBatchedEvents(server)
+
+            expect(sut.currentBatchCapForTesting).toEventually(equal(1))
+            expect(sut.currentFlushAtForTesting).toEventually(equal(1))
+
+            sut.clear()
+        }
+
         it("drops batch on HTTP 413 when cap is already 1") {
             let sut = self.getSut(flushAt: 1, maxBatchSize: 1)
             server.batchResponseHandler = { _, _ in

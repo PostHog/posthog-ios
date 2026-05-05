@@ -121,6 +121,27 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("halves cap based on actual batch size when queue depth was below cap") {
+            // cap=10, but only 4 events were sent (queue depth was below cap).
+            // Halve from `min(cap, batchSize)` = 4 → cap = 2, not 5. Avoids
+            // wasted halvings on a cap that wasn't reached anyway.
+            let sut = self.getSut(flushAt: 4, maxBatchSize: 10)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+            }
+
+            for i in 0 ..< 4 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+
+            _ = getBatchedEvents(server)
+
+            expect(sut.currentBatchCapForTesting).toEventually(equal(2))
+            expect(sut.depth).toEventually(equal(4))
+
+            sut.clear()
+        }
+
         it("drops batch on HTTP 413 when cap is already 1") {
             let sut = self.getSut(flushAt: 1, maxBatchSize: 1)
             server.batchResponseHandler = { _, _ in

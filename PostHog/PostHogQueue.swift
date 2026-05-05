@@ -30,10 +30,14 @@ private struct BatchLimits {
         BatchLimits(cap: clamped(config.maxBatchSize), flushAt: clamped(config.flushAt))
     }
 
-    /// Halves both `cap` and `flushAt`, returning the new cap.
+    /// Halves both `cap` and `flushAt`, returning the new cap. `actualBatchSize`
+    /// (the number of events actually sent) bounds the halving so a 413 with
+    /// a partial batch — queue depth was below `cap` — doesn't waste halvings
+    /// on a cap that wasn't reached anyway. Mirrors posthog-js-lite's
+    /// behaviour; posthog-android halves from `config.maxBatchSize` directly.
     @discardableResult
-    mutating func halve() -> Int {
-        cap = clamped(cap / 2)
+    mutating func halve(actualBatchSize: Int) -> Int {
+        cap = clamped(min(cap, actualBatchSize) / 2)
         flushAt = clamped(flushAt / 2)
         return cap
     }
@@ -162,9 +166,10 @@ class PostHogQueue {
         // `config.maxRetries` consecutive failures (PostHogQueue.kt:208-212).
         // We don't have an equivalent safeguard yet — track as a follow-up.
         if statusCode == 413 {
+            let actualBatchSize = payload.events.count
             let halvedCap: Int? = batchLimitsLock.withLock {
                 guard batchLimits.cap > 1 else { return nil }
-                return batchLimits.halve()
+                return batchLimits.halve(actualBatchSize: actualBatchSize)
             }
             if let halvedCap {
                 hedgeLog("Queue: HTTP 413, halved batch cap to \(halvedCap)")

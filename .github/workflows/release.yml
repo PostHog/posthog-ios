@@ -62,7 +62,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      committed: ${{ steps.commit-version-bump.outputs.committed }}
+      committed: ${{ steps.commit-version-bump.outputs.commit-hash != '' }}
       new-version: ${{ steps.apply-changesets.outputs.new-version }}
     steps:
       - name: Notify Slack - Approved
@@ -110,22 +110,26 @@ jobs:
           NEW_VERSION: ${{ steps.apply-changesets.outputs.new-version }}
         run: ./scripts/bump-version.sh "$NEW_VERSION"
 
-      - name: Commit version bump
-        id: commit-version-bump
-        env:
-          GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
-          NEW_VERSION: ${{ steps.apply-changesets.outputs.new-version }}
+      - name: Check for version bump changes
+        id: check-changes
         run: |
-          git add -A
-          if git diff --staged --quiet; then
+          if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit"
             echo "committed=false" >> "$GITHUB_OUTPUT"
           else
-            git commit -m "chore: release v$NEW_VERSION [version bump] [skip ci]"
-            git push origin main
             echo "committed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Commit version bump
+        id: commit-version-bump
+        if: steps.check-changes.outputs.committed == 'true'
+        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde # v0.2.20
+        with:
+          commit_message: "chore: release v${{ steps.apply-changesets.outputs.new-version }} [version bump] [skip ci]"
+          repo: ${{ github.repository }}
+          branch: main
+        env:
+          GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
       - name: Notify Slack - Failed
         continue-on-error: true
         if: ${{ failure() && needs.notify-approval-needed.outputs.slack_ts != '' }}

@@ -67,18 +67,6 @@ class PostHogQueue {
         fileQueue.depth
     }
 
-    /// Internal, used for testing — exposes the adaptive batch cap so 413
-    /// halving and poison-drop tests can assert the cap value.
-    var currentBatchCapForTesting: Int {
-        batchSizeLock.withLock { currentBatchCap }
-    }
-
-    /// Internal, used for testing — exposes the adaptive flush threshold so
-    /// 413 tests can assert it was halved alongside the batch cap.
-    var currentFlushAtForTesting: Int {
-        batchSizeLock.withLock { currentFlushAt }
-    }
-
     let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)
@@ -354,3 +342,19 @@ class PostHogQueue {
         return true
     }
 }
+
+#if TESTING
+    extension PostHogQueue {
+        /// Exposes the adaptive batch cap so 413 halving and poison-drop
+        /// tests can assert the cap value.
+        var currentBatchCapForTesting: Int {
+            batchSizeLock.withLock { currentBatchCap }
+        }
+
+        /// Exposes the adaptive flush threshold so 413 tests can assert it
+        /// was halved alongside the batch cap.
+        var currentFlushAtForTesting: Int {
+            batchSizeLock.withLock { currentFlushAt }
+        }
+    }
+#endif

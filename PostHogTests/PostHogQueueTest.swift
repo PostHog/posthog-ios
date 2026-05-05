@@ -14,11 +14,12 @@ import Quick
 import XCTest
 
 class PostHogQueueTest: QuickSpec {
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50) -> PostHogQueue {
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3) -> PostHogQueue {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.maxBatchSize = maxBatchSize
+        config.maxRetries = maxRetries
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
@@ -155,6 +156,29 @@ class PostHogQueueTest: QuickSpec {
             expect(sut.depth).toEventually(equal(0))
             // Cap stays at 1 — no reset to maxBatchSize, matching Android.
             expect(sut.currentBatchCapForTesting) == 1
+
+            sut.clear()
+        }
+
+        it("drops the entire queue once retryCount exceeds maxRetries on repeated 413") {
+            // 413 increments retryCount the same way 5xx / network errors do
+            // — they go through the same `retryCountExceededMax()` check —
+            // so this test covers both paths' drop logic. We use 413 here
+            // because it doesn't set `pausedUntil`, letting the test drive
+            // multiple retries without waiting out the exponential backoff.
+            //
+            // maxBatchSize large enough that 413-halving alone wouldn't drop
+            // the batch within maxRetries attempts; the maxRetries cap fires
+            // first.
+            let sut = self.getSut(flushAt: 1, maxBatchSize: 50, maxRetries: 2)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+            }
+
+            sut.add(PostHogEvent(event: "evt", distinctId: "id"))
+
+            for _ in 0 ..< 5 { sut.flush() }
+            expect(sut.depth).toEventually(equal(0), timeout: .seconds(5))
 
             sut.clear()
         }

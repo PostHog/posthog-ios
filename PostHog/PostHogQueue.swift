@@ -150,6 +150,11 @@ class PostHogQueue {
 
         if isRetriable {
             retryCount += 1
+            if retryCountExceededMax() {
+                dropAllQueuedEvents(reason: "max retries (\(config.maxRetries)) exceeded")
+                payload.completion(true)
+                return
+            }
             let delay = min(retryCount * retryDelay, maxRetryDelay)
             pauseFor(seconds: delay)
             hedgeLog("Pausing queue consumption for \(delay) seconds due to \(retryCount) API failure(s).")
@@ -161,11 +166,13 @@ class PostHogQueue {
         // threshold and retry without popping. Once the cap reaches 1, drop
         // the batch — we can't shrink any further, so retrying is futile.
         // Matches posthog-android's `deleteFilesIfAPIError`.
-        //
-        // TODO: posthog-android also drops all queued events after
-        // `config.maxRetries` consecutive failures (PostHogQueue.kt:208-212).
-        // We don't have an equivalent safeguard yet — track as a follow-up.
         if statusCode == 413 {
+            retryCount += 1
+            if retryCountExceededMax() {
+                dropAllQueuedEvents(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
+                payload.completion(true)
+                return
+            }
             let actualBatchSize = payload.events.count
             let halvedCap: Int? = batchLimitsLock.withLock {
                 guard batchLimits.cap > 1 else { return nil }
@@ -173,7 +180,6 @@ class PostHogQueue {
             }
             if let halvedCap {
                 hedgeLog("Queue: HTTP 413, halved batch cap to \(halvedCap)")
-                retryCount = 0
                 payload.completion(false)
                 return
             }
@@ -188,6 +194,26 @@ class PostHogQueue {
         // posthog-android and posthog-js-lite.
         retryCount = 0
         payload.completion(true)
+    }
+
+    /// True when `retryCount` has exceeded `config.maxRetries` after just
+    /// being incremented for the current attempt. Comparison is `>` (not `>=`)
+    /// so the configured value is the count of *retries* allowed before the
+    /// drop fires — with the default of 3 you get attempts 1–3 retried,
+    /// attempt 4 drops. Matches posthog-android.
+    private func retryCountExceededMax() -> Bool {
+        Int(retryCount) > config.maxRetries
+    }
+
+    /// Drops every queued event from disk and resets the retry / pause state.
+    /// Called when `retryCount` exceeds `config.maxRetries` to avoid
+    /// retrying forever against a permanently-broken backend. Matches
+    /// posthog-android's `dropAllEvents`.
+    private func dropAllQueuedEvents(reason: String) {
+        hedgeLog("Queue: dropping all queued events — \(reason)")
+        fileQueue.clear()
+        retryCount = 0
+        pausedUntil = nil
     }
 
     func start(disableReachabilityForTesting: Bool,

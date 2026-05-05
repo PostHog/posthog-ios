@@ -135,11 +135,12 @@ let maxRetryDelay = 30.0
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, api, .batch, reachability)
                 replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
+                logsQueue = PostHogLogsQueue(config, theStorage, api, reachability)
             #else
                 queue = PostHogQueue(config, theStorage, api, .batch)
                 replayQueue = PostHogReplayQueue(config, theStorage, api)
+                logsQueue = PostHogLogsQueue(config, theStorage, api)
             #endif
-            logsQueue = PostHogLogsQueue(config, theStorage, api)
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                          disableQueueTimerForTesting: config.disableQueueTimerForTesting)

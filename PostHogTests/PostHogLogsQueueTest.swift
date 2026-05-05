@@ -30,7 +30,9 @@ final class PostHogLogsQueueTests {
         maxBatchSize: Int = 50,
         rateCapMaxLogs: Int = 0, // disabled by default in tests so add(...) never silently drops
         rateCapWindowSeconds: TimeInterval = 10,
-        beforeSend: PostHogBeforeSendLogBlock? = nil
+        beforeSend: PostHogBeforeSendLogBlock? = nil,
+        reachability: Reachability? = nil,
+        disableReachabilityForTesting: Bool = true
     ) -> (PostHogLogsQueue, PostHogConfig) {
         // Unique project token per test → isolated storage folder.
         let token = "logs_test_\(UUID().uuidString)"
@@ -43,10 +45,10 @@ final class PostHogLogsQueueTests {
 
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        let queue = PostHogLogsQueue(config, storage, api)
-        // Start without the periodic timer so tests are deterministic. The
-        // reachability flag is accepted for API symmetry but currently ignored.
-        queue.start(disableReachabilityForTesting: true, disableQueueTimerForTesting: true)
+        let queue = PostHogLogsQueue(config, storage, api, reachability)
+        // Start without the periodic timer so tests are deterministic.
+        // Reachability is opt-in per test via the parameter.
+        queue.start(disableReachabilityForTesting: disableReachabilityForTesting, disableQueueTimerForTesting: true)
         queue.clear()
         return (queue, config)
     }
@@ -522,6 +524,36 @@ final class PostHogLogsQueueTests {
         queue.add(makeRecord(body: "after-clear"))
         await waitUntil { queue.depth >= 1 }
         #expect(queue.depth >= 1)
+    }
+
+    // MARK: - Reachability
+
+    @Test("flush is suppressed while reachability reports unreachable, resumes on reconnect")
+    func reachabilityPauseAndResume() async throws {
+        let reachability = try Reachability()
+        let (queue, _) = makeQueue(
+            reachability: reachability,
+            disableReachabilityForTesting: false
+        )
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        // Simulate network going down. Subsequent flushes are paused.
+        reachability.onUnreachable.invoke(reachability)
+
+        queue.add(makeRecord(body: "while-offline"))
+        queue.flush()
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        #expect(server.logsRequests.isEmpty)
+        #expect(queue.depth == 1)
+
+        // Simulate WiFi back. The reachable callback unpauses and proactively
+        // triggers a flush.
+        reachability.onReachable.invoke(reachability)
+        waitForLogsRequests(count: 1)
+        #expect(server.logsRequests.count == 1)
+        await waitUntil { queue.depth == 0 }
     }
 
     // MARK: - SDK integration

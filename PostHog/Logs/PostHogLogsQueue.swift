@@ -8,11 +8,9 @@ import Foundation
 /// Persists log records to disk and flushes them to `/i/v1/logs` in OTLP/JSON
 /// batches. Owns its own folder, flush timer, and retry state.
 ///
-/// **Reachability**: `Reachability.whenReachable` / `whenUnreachable` are
-/// single-value properties — registering more than one subscriber overwrites
-/// the previous one. The events queue owns those slots, so this queue does not
-/// subscribe. Transient network failures fall through to the same exponential
-/// `pausedUntil` backoff used for HTTP 5xx.
+/// **Reachability**: subscribes to `Reachability.onReachable` / `onUnreachable`
+/// (the multicast hooks). Pauses on no network and on cellular when
+/// `dataMode == .wifi`; auto-flushes on WiFi reconnect.
 ///
 /// **Thread safety**: `add(_:)` and `flush()` are callable from any thread and
 /// return immediately. In-memory state is guarded by `stateLock`; on-disk state
@@ -21,15 +19,26 @@ import Foundation
 /// completion queue (`pop` path) concurrently. `stateLock` and `timerLock` are
 /// never held simultaneously.
 class PostHogLogsQueue {
+    private let config: PostHogConfig
     private let logsConfig: PostHogLogsConfig
     private let api: PostHogApi
 
     let fileQueue: PostHogFileBackedQueue
     private let dispatchQueue: DispatchQueue
 
+    #if !os(watchOS)
+        private weak var reachability: Reachability?
+        private var reachableToken: RegistrationToken?
+        private var unreachableToken: RegistrationToken?
+    #endif
+
     // MARK: State (guarded by stateLock unless noted)
 
     private let stateLock = NSLock()
+    /// Set by reachability callbacks: `true` while the network is unreachable
+    /// or while we're in WiFi-only mode on a non-WiFi connection. Distinct
+    /// from `pausedUntil`, which is the post-failure backoff window.
+    private var paused = false
     private var pausedUntil: Date?
     private var retryCount: TimeInterval = 0
     private var isFlushing = false
@@ -62,20 +71,62 @@ class PostHogLogsQueue {
         stateLock.withLock { currentBatchCap }
     }
 
-    init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
-        logsConfig = config.logs
-        self.api = api
-        fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .logsQueue))
-        dispatchQueue = DispatchQueue(label: "com.posthog.LogsQueue", target: .global(qos: .utility))
-        currentBatchCap = max(1, config.logs.maxBatchSize)
-    }
+    #if !os(watchOS)
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
+            self.config = config
+            logsConfig = config.logs
+            self.api = api
+            self.reachability = reachability
+            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .logsQueue))
+            dispatchQueue = DispatchQueue(label: "com.posthog.LogsQueue", target: .global(qos: .utility))
+            currentBatchCap = max(1, config.logs.maxBatchSize)
+        }
+    #else
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
+            self.config = config
+            logsConfig = config.logs
+            self.api = api
+            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .logsQueue))
+            dispatchQueue = DispatchQueue(label: "com.posthog.LogsQueue", target: .global(qos: .utility))
+            currentBatchCap = max(1, config.logs.maxBatchSize)
+        }
+    #endif
 
     // MARK: - Lifecycle
 
-    /// `disableReachabilityForTesting` is accepted for API symmetry with
-    /// `PostHogQueue.start(...)` but currently has no effect — the logs queue
-    /// does not subscribe to reachability (see class doc).
-    func start(disableReachabilityForTesting _: Bool, disableQueueTimerForTesting: Bool) {
+    func start(disableReachabilityForTesting: Bool, disableQueueTimerForTesting: Bool) {
+        if !disableReachabilityForTesting {
+            #if !os(watchOS)
+                // The events queue owns startNotifier(); we only subscribe to
+                // the broadcast. Multicast → events, replay, and logs each
+                // get their own callback without stomping each other.
+                reachableToken = reachability?.onReachable.subscribe { [weak self] reachability in
+                    guard let self else { return }
+                    self.stateLock.withLock {
+                        if self.config.dataMode == .wifi, reachability.connection != .wifi {
+                            hedgeLog("Logs queue is paused because it is not in WiFi mode")
+                            self.paused = true
+                        } else {
+                            self.paused = false
+                        }
+                    }
+                    if reachability.connection == .wifi {
+                        let flushing = self.stateLock.withLock { self.isFlushing }
+                        if !flushing {
+                            self.flush()
+                        }
+                    }
+                }
+                unreachableToken = reachability?.onUnreachable.subscribe { [weak self] _ in
+                    guard let self else { return }
+                    self.stateLock.withLock {
+                        hedgeLog("Logs queue is paused because network is unreachable")
+                        self.paused = true
+                    }
+                }
+            #endif
+        }
+
         if disableQueueTimerForTesting { return }
 
         let interval = logsConfig.flushIntervalSeconds
@@ -102,12 +153,19 @@ class PostHogLogsQueue {
             timer?.invalidate()
             timer = nil
         }
+        #if !os(watchOS)
+            // Tokens auto-unsubscribe on deinit; nilling here detaches earlier
+            // so we do not receive callbacks after stop().
+            reachableToken = nil
+            unreachableToken = nil
+        #endif
     }
 
     /// Internal, used for testing.
     func clear() {
         fileQueue.clear()
         stateLock.withLock {
+            paused = false
             pausedUntil = nil
             retryCount = 0
             isFlushing = false
@@ -232,6 +290,10 @@ class PostHogLogsQueue {
         stateLock.withLock {
             if isFlushing {
                 hedgeLog("Logs queue: already flushing")
+                return nil
+            }
+            if paused {
+                hedgeLog("Logs queue: paused (network unreachable or non-WiFi in WiFi-only mode)")
                 return nil
             }
             if let pausedUntil, pausedUntil > Date() {

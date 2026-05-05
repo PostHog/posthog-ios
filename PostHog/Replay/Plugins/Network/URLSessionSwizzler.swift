@@ -72,7 +72,7 @@
                 return id
             } catch {
                 lock.withLock {
-                    registrations.removeValue(forKey: id)
+                    _ = registrations.removeValue(forKey: id)
                 }
                 throw error
             }

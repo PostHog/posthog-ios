@@ -110,10 +110,18 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Defaults to false.
     @objc public var reuseAnonymousId: Bool = false
 
+    private var _propertiesSanitizer: PostHogPropertiesSanitizer?
+    var legacyPropertiesSanitizer: PostHogPropertiesSanitizer? {
+        _propertiesSanitizer
+    }
+
     /// Hook that allows to sanitize the event properties
     /// The hook is called before the event is cached or sent over the wire
     @available(*, deprecated, message: "Use beforeSend instead")
-    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer?
+    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer? {
+        get { _propertiesSanitizer }
+        set { _propertiesSanitizer = newValue }
+    }
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 

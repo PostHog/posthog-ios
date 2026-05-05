@@ -1074,7 +1074,7 @@ let maxRetryDelay = 30.0
     }
 
     private func sanitizeProperties(_ properties: [String: Any]) -> [String: Any] {
-        if let sanitizer = config.propertiesSanitizer {
+        if let sanitizer = config.legacyPropertiesSanitizer {
             return sanitizer.sanitize(properties)
         }
         return properties

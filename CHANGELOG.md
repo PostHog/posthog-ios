@@ -1,5 +1,11 @@
 ## Next
 
+## 3.57.5
+
+### Patch Changes
+
+- 04f7aa0: Clean up CocoaPods validation warnings from deprecated sanitizer access, unused lock results, and duplicate C++ linker flags.
+
 ## 3.57.4
 
 ### Patch Changes

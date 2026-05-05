@@ -183,6 +183,82 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("maxRetries drop wipes the entire queue, not just the current batch") {
+            // Five events queued, batch cap of 1 → at most one event sent per
+            // attempt. Without `dropAllQueuedEvents`, a maxRetries drop would
+            // only pop the failing batch (1 event), leaving the other 4
+            // queued. The Android-style "drop everything" semantics is what
+            // we want.
+            let sut = self.getSut(flushAt: 1, maxBatchSize: 1, maxRetries: 1)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+            }
+
+            for i in 0 ..< 5 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+
+            for _ in 0 ..< 5 { sut.flush() }
+            expect(sut.depth).toEventually(equal(0), timeout: .seconds(5))
+
+            sut.clear()
+        }
+
+        it("queue keeps working after a maxRetries drop — retryCount is reset") {
+            // After events get dropped the queue must continue to accept and
+            // flush new ones; otherwise the SDK is permanently broken until
+            // the host app restarts.
+            let sut = self.getSut(flushAt: 1, maxBatchSize: 50, maxRetries: 1)
+            var attempt = 0
+            server.batchResponseHandler = { _, _ in
+                attempt += 1
+                // First two attempts fail with 413 → triggers maxRetries drop.
+                // Subsequent attempts succeed.
+                return attempt <= 2
+                    ? HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+                    : HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+
+            sut.add(PostHogEvent(event: "doomed", distinctId: "id"))
+            for _ in 0 ..< 5 { sut.flush() }
+            expect(sut.depth).toEventually(equal(0), timeout: .seconds(5))
+
+            // New event after the drop should flush successfully.
+            sut.add(PostHogEvent(event: "after-drop", distinctId: "id"))
+            let events = getBatchedEvents(server)
+            expect(events.contains(where: { $0.event == "after-drop" })) == true
+            expect(sut.depth).toEventually(equal(0))
+
+            sut.clear()
+        }
+
+        it("retryCount resets on a successful 2xx after prior failures") {
+            // Mixed sequence: 5xx → 5xx → 200. The 200 must reset retryCount
+            // so that subsequent failures restart counting from zero, not
+            // from the accumulated value. Without this reset, a flaky network
+            // would eventually trip maxRetries and drop events even though
+            // most attempts succeeded.
+            let sut = self.getSut(flushAt: 1, maxBatchSize: 50, maxRetries: 3)
+            var attempt = 0
+            server.batchResponseHandler = { _, _ in
+                attempt += 1
+                if attempt <= 2 {
+                    return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+                }
+                return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+            }
+
+            sut.add(PostHogEvent(event: "evt", distinctId: "id"))
+            // The 5xx path sets pausedUntil with exponential backoff (~5s,
+            // 10s); we just need the eventual success to land within the
+            // test's wait window.
+            let events = getBatchedEvents(server, timeout: 30)
+            expect(events.contains(where: { $0.event == "evt" })) == true
+            expect(sut.depth).toEventually(equal(0))
+
+            sut.clear()
+        }
+
         it("retains batch on retriable 5xx and does not change cap") {
             let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
             server.batchResponseHandler = { _, _ in

@@ -7,6 +7,10 @@
 
 import Foundation
 
+/// HTTP status codes that trigger an exponential-backoff retry. Matches
+/// posthog-android's `RETRYABLE_STATUS_CODES` exactly.
+private let retriableStatusCodes: Set<Int> = [429, 500, 502, 503, 504]
+
 /// Clamps `value` to a minimum of 1. Used wherever we initialise / halve
 /// `currentBatchCap` / `currentFlushAt` so we never store a value below 1.
 private func clamped(_ value: Int) -> Int {
@@ -133,18 +137,13 @@ class PostHogQueue {
         // -1 means its not anything related to the API but rather network or something else, so we try again
         let statusCode = result.statusCode ?? -1
 
-        // Network error (-1), 3xx redirect, or transient server error: pause and
-        // retry the same batch. The 5xx subset is intentionally narrow to match
-        // posthog-android's RETRYABLE_STATUS_CODES.
-        let retriable = statusCode == -1
+        // Network error (-1), 3xx redirect, or transient server error: pause
+        // and retry the same batch.
+        let isRetriable = statusCode == -1
             || (300 ... 399 ~= statusCode)
-            || statusCode == 429
-            || statusCode == 500
-            || statusCode == 502
-            || statusCode == 503
-            || statusCode == 504
+            || retriableStatusCodes.contains(statusCode)
 
-        if retriable {
+        if isRetriable {
             retryCount += 1
             let delay = min(retryCount * retryDelay, maxRetryDelay)
             pauseFor(seconds: delay)

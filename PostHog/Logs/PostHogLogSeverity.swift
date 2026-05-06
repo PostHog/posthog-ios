@@ -11,7 +11,7 @@ import Foundation
 /// Named `PostHogLogSeverity` rather than `PostHogLogLevel` to avoid colliding
 /// with the iOS-only `PostHogLogLevel` used by the session-replay console
 /// capture plugin.
-@objc(PostHogLogSeverity) public enum PostHogLogSeverity: Int {
+@objc(PostHogLogSeverity) public enum PostHogLogSeverity: Int, CaseIterable {
     case trace
     case debug
     case info
@@ -46,26 +46,13 @@ import Foundation
 
     /// OTLP `severityText` (uppercase identifier).
     public var severityText: String {
-        switch self {
-        case .trace: return "TRACE"
-        case .debug: return "DEBUG"
-        case .info: return "INFO"
-        case .warn: return "WARN"
-        case .error: return "ERROR"
-        case .fatal: return "FATAL"
-        }
+        name.uppercased()
     }
 
-    /// Parse a severity from its lowercase string form. Returns `nil` for unknown values.
+    /// Parse a severity from its canonical lowercase name. Tolerates surrounding
+    /// whitespace and casing. Returns `nil` for unknown values.
     public static func from(name: String) -> PostHogLogSeverity? {
-        switch name.lowercased() {
-        case "trace": return .trace
-        case "debug": return .debug
-        case "info": return .info
-        case "warn", "warning": return .warn
-        case "error": return .error
-        case "fatal", "critical": return .fatal
-        default: return nil
-        }
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return PostHogLogSeverity.allCases.first { $0.name == normalized }
     }
 }

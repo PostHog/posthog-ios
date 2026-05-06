@@ -202,7 +202,6 @@ final class PostHogLogsCaptureTests {
         let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
         let records = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
         #expect(records.count == 2)
-<<<<<<< HEAD
 
         // Both records should carry severityNumber 9 (info) AND the bodies
         // we sent. A regression where `logger.info` routed to a different
@@ -214,12 +213,6 @@ final class PostHogLogsCaptureTests {
             (record["body"] as? [String: Any])?["stringValue"] as? String
         })
         #expect(bodies == ["via-direct", "via-facade"])
-=======
-        // Both should carry severityNumber 9 (info).
-        for record in records {
-            #expect(record["severityNumber"] as? Int == 9)
-        }
->>>>>>> e51c72bb7 (feat(logs): add public captureLog API and logger facade)
     }
 
     @Test("logger covers all six severity levels")

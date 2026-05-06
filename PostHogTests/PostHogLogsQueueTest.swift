@@ -324,6 +324,48 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
+    @Test("413 poison-drop does not consume the maxRetries budget — queue drains record-by-record")
+    func handle413PoisonDropIsNotARetry() async throws {
+        // Pin down: cap=1 + 413 (poison drop) is a *resolution*, not a retry.
+        // It must not increment retryCount.
+        //
+        // Scenario: maxBatchSize=8 + 8 oversized records + default maxRetries=3.
+        // The cap halves 3 times (8→4→2→1, retryCount accumulating to 3) before
+        // reaching cap=1. If poison-drop counted as a retry, the next flush would
+        // push retryCount to 4 > 3 and fire dropAll — wiping ALL 8 records together.
+        // The correct behaviour treats poison-drop as a clean resolution: the
+        // offending record is popped, retryCount resets to 0, cap resets to max
+        // (logs `capAfterPoisonDrop` policy), and the queue continues draining.
+        //
+        // Observable difference: the buggy path makes ~4 HTTP requests (3
+        // halvings + 1 dropAll). The correct path makes far more — each record
+        // costs at least one halve cycle + one poison drop.
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 8)
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        server.logsResponseHandler = { _, _ in
+            HTTPStubsResponse(jsonObject: ["error": "too large"], statusCode: 413, headers: nil)
+        }
+
+        for i in 0 ..< 8 {
+            queue.add(makeRecord(body: "log-\(i)"))
+        }
+
+        // Drive flushes until the queue drains.
+        while queue.depth > 0 {
+            queue.flush()
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        #expect(queue.depth == 0)
+        // dropAll path would produce ≤ 4 requests (3 halvings + dropAll itself).
+        // Record-by-record drain produces > 8 — at minimum one request per
+        // record dropped, plus the halve cycles in between.
+        #expect(server.logsRequests.count > 8)
+    }
+
     @Test("drops the entire queue once retryCount exceeds maxRetries on repeated 413")
     func handle413MaxRetriesDropsAll() async throws {
         // Mirrors PostHogQueue's safeguard: a permanently-broken backend that

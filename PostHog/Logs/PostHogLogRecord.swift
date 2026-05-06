@@ -13,6 +13,13 @@ import Foundation
 /// which exposes a redaction-safe subset of these fields; everything here is
 /// SDK-internal.
 final class PostHogLogRecord: NSObject {
+    /// Valid `appState` wire values. Raw values are written directly into the
+    /// stored record's `appState: String?` field.
+    enum AppState: String {
+        case foreground
+        case background
+    }
+
     /// The log message body. Required; empty bodies are dropped at capture time.
     var body: String
 

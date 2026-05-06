@@ -790,7 +790,7 @@ final class PostHogLogsQueueTests {
         #expect(logRecords.count == 1)
         let rec = logRecords[0]
         #expect(rec["severityNumber"] as? Int == 13)
-        #expect(rec["severityText"] as? String == "WARN")
+        #expect(rec["severityText"] as? String == "warn")
         let bodyAny = try #require(rec["body"] as? [String: Any])
         #expect(bodyAny["stringValue"] as? String == "hello")
 

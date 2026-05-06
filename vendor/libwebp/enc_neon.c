@@ -11,6 +11,7 @@
 //
 // adapted from libvpx (https://www.webmproject.org/code/)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #if defined(WEBP_USE_NEON)

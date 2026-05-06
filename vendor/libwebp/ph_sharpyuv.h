@@ -9,6 +9,7 @@
 //
 // Sharp RGB to YUV conversion.
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_SHARPYUV_SHARPYUV_H_
 #define WEBP_SHARPYUV_SHARPYUV_H_
 

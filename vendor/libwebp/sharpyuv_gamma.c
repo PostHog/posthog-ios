@@ -9,6 +9,7 @@
 //
 // Gamma correction utilities.
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_sharpyuv_gamma.h"
 
 #include "./ph_utils.h"

@@ -11,6 +11,7 @@
 //
 // Author: somnath@google.com (Somnath Banerjee)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_DEC_WEBPI_DEC_H_
 #define WEBP_DEC_WEBPI_DEC_H_
 

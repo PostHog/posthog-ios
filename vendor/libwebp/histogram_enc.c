@@ -9,6 +9,7 @@
 //
 // Author: Jyrki Alakuijala (jyrki@google.com)
 //
+#include "./phlibwebp_prefix.h"
 #ifdef HAVE_CONFIG_H
 #include "./ph_config.h"
 #endif

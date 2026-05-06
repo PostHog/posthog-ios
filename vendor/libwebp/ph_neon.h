@@ -10,6 +10,7 @@
 //  NEON common code.
 
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_DSP_NEON_H_
 #define WEBP_DSP_NEON_H_
 

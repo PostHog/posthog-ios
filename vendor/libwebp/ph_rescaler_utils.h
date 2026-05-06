@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_UTILS_RESCALER_UTILS_H_
 #define WEBP_UTILS_RESCALER_UTILS_H_
 

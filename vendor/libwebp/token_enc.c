@@ -16,6 +16,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>
 #include <string.h>
 

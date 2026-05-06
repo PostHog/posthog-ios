@@ -12,6 +12,7 @@
 // Author: Skal (pascal.massimino@gmail.com)
 //         Vikas Arora (vikaas.arora@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_UTILS_BIT_READER_UTILS_H_
 #define WEBP_UTILS_BIT_READER_UTILS_H_
 

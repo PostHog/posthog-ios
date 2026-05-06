@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include <string.h>   // for memset()
 #include "./ph_thread_utils.h"
 #include "./ph_utils.h"

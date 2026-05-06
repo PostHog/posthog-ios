@@ -10,6 +10,7 @@
 // Speed-critical functions for Sharp YUV.
 
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_SHARPYUV_SHARPYUV_DSP_H_
 #define WEBP_SHARPYUV_SHARPYUV_DSP_H_
 

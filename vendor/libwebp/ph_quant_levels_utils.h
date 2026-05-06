@@ -11,6 +11,7 @@
 //
 // Author:  Vikas Arora (vikasa@google.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_UTILS_QUANT_LEVELS_UTILS_H_
 #define WEBP_UTILS_QUANT_LEVELS_UTILS_H_
 

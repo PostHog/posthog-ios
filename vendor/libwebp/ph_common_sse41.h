@@ -11,6 +11,7 @@
 //
 // Author: Vincent Rabaud (vrabaud@google.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_DSP_COMMON_SSE41_H_
 #define WEBP_DSP_COMMON_SSE41_H_
 

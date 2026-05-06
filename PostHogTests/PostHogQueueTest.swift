@@ -211,7 +211,7 @@ class PostHogQueueTest: QuickSpec {
         it("maxRetries drop wipes the entire queue, not just the current batch") {
             // Multiple events queued. After enough 413s to trip maxRetries,
             // the drop must clear ALL of them, not just whatever batch was
-            // in flight. Matches posthog-android's `dropAllEvents`.
+            // in flight.
             let sut = self.getSut(flushAt: 100, maxBatchSize: 50, maxRetries: 1)
             server.start(batchCount: 2)
             server.batchResponseHandler = { _, _ in

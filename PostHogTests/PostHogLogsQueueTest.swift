@@ -28,6 +28,9 @@ final class PostHogLogsQueueTests {
     private func makeQueue(
         maxBufferSize: Int = 100,
         maxBatchSize: Int = 50,
+        // Set very high so threshold flush never fires unintentionally.
+        // Tests that exercise threshold behaviour pass an explicit value.
+        flushAt: Int = .max,
         rateCapMaxLogs: Int = 0, // disabled by default in tests so add(...) never silently drops
         rateCapWindowSeconds: TimeInterval = 10,
         beforeSend: PostHogBeforeSendLogBlock? = nil,
@@ -39,6 +42,7 @@ final class PostHogLogsQueueTests {
         let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
         config.logs.maxBufferSize = maxBufferSize
         config.logs.maxBatchSize = maxBatchSize
+        config.logs.flushAt = flushAt
         config.logs.rateCapMaxLogs = rateCapMaxLogs
         config.logs.rateCapWindowSeconds = rateCapWindowSeconds
         if let beforeSend {
@@ -57,7 +61,7 @@ final class PostHogLogsQueueTests {
 
     private func makeRecord(
         body: String = "hello",
-        level: PostHogLogSeverity = .info,
+        level: PostHogLogLevel = .info,
         attributes: [String: Any] = [:],
         distinctId: String? = "user-123"
     ) -> PostHogLogRecord {
@@ -154,7 +158,7 @@ final class PostHogLogsQueueTests {
 
     @Test("threshold flush triggers when depth reaches maxBatchSize")
     func thresholdFlush() async throws {
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 2)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 2, flushAt: 2)
         defer { queue.clear()
             queue.stop()
         }
@@ -191,7 +195,7 @@ final class PostHogLogsQueueTests {
 
     @Test("413 halves batch cap and retries the same records")
     func handle413HalvesCap() async throws {
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 4)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 4, flushAt: 4)
         defer { queue.clear()
             queue.stop()
         }
@@ -224,14 +228,14 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
-    @Test("cap stays put on 2xx — no ramp, matches events / posthog-android")
+    @Test("cap stays put on 2xx — no ramp")
     func capStaysPutOnSuccess() async throws {
         // After a 413 halves the cap, a healthy 200 must NOT ramp the cap
         // back up. Logs / events / replay all share the conservative
         // "halve and stay" cap behaviour from posthog-android and
         // posthog-js-lite. A regression that ramped on success would
         // silently ship.
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 10)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 10, flushAt: 10)
         defer { queue.clear()
             queue.stop()
         }
@@ -262,7 +266,7 @@ final class PostHogLogsQueueTests {
     @Test("413 on a single-record batch drops the poison record and leaves the cap at 1")
     func handle413SingleRecordDrops() async throws {
         let configuredMax = 8
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: configuredMax)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: configuredMax, flushAt: configuredMax)
         defer { queue.clear()
             queue.stop()
         }
@@ -333,7 +337,7 @@ final class PostHogLogsQueueTests {
         // Observable difference: the buggy path makes ~4 HTTP requests (3
         // halvings + 1 dropAll). The correct path makes far more — each record
         // costs at least one halve cycle + one poison drop.
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 8)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 8, flushAt: 8)
         defer { queue.clear()
             queue.stop()
         }
@@ -737,7 +741,7 @@ final class PostHogLogsQueueTests {
 
     @Test("OTLP payload includes resource and per-record context")
     func otlpPayloadShape() async throws {
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1, flushAt: 1)
         defer { queue.clear()
             queue.stop()
         }
@@ -803,7 +807,7 @@ final class PostHogLogsQueueTests {
 
     @Test("OTLP encodes non-string attributes (Int / Double / Bool / array / dict / NaN / Infinity)")
     func otlpNonStringAttributeTypes() async throws {
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1, flushAt: 1)
         defer { queue.clear()
             queue.stop()
         }
@@ -914,7 +918,7 @@ final class PostHogLogsQueueTests {
         // to keep handling the field correctly. This test pushes a record
         // with traceFlags = 1 through a real flush and asserts the OTLP
         // `flags` field on the wire is the literal integer 1.
-        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1)
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1, flushAt: 1)
         defer { queue.clear()
             queue.stop()
         }

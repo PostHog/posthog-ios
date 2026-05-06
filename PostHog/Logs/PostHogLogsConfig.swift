@@ -25,7 +25,8 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     enum Defaults {
         static let flushIntervalSeconds: TimeInterval = PostHogConfig.Defaults.flushIntervalSeconds
         static let maxBatchSize: Int = PostHogConfig.Defaults.maxBatchSize
-        static let maxBufferSize: Int = 100
+        static let maxBufferSize: Int = PostHogConfig.Defaults.maxQueueSize
+        static let flushAt: Int = PostHogConfig.Defaults.flushAt
         static let rateCapMaxLogs: Int = 500
         static let rateCapWindowSeconds: TimeInterval = 10
     }
@@ -39,9 +40,14 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     /// dropped (FIFO).
     @objc public var maxBufferSize: Int = Defaults.maxBufferSize
 
+    /// Threshold at which the queue triggers a flush automatically. Smaller
+    /// than `maxBatchSize` lets the queue fire smaller batches on a steady
+    /// cadence rather than waiting for the full cap.
+    @objc public var flushAt: Int = Defaults.flushAt
+
     /// Initial maximum number of records sent in a single request. Halved on
-    /// HTTP 413 responses (down to 1, then dropping the offender) and ramped
-    /// back up by 1 on each healthy send.
+    /// HTTP 413 responses (down to 1, then dropping the offender). Cap stays
+    /// where halved — no ramp on success.
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
 
     /// OpenTelemetry `service.name` resource attribute. Defaults to the host

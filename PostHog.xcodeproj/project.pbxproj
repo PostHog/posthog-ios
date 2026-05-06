@@ -47,7 +47,6 @@
 		3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */; };
 		3AE3FB4B2993A68500AFFC18 /* PostHogStorageTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4A2993A68500AFFC18 /* PostHogStorageTest.swift */; };
 		3AE3FB4E2993D1D600AFFC18 /* PostHogStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB4D2993D1D600AFFC18 /* PostHogStorageManager.swift */; };
-		3B89201A418439D9DB092795 /* PostHogLogSeverity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3D3784BF8219D5CA5459CB /* PostHogLogSeverity.swift */; };
 		3D1C111BCD386DDBAB6E598C /* PLCrashFrameStackUnwind.c in Sources */ = {isa = PBXBuildFile; fileRef = 481CB44DF30DBC62657AAC48 /* PLCrashFrameStackUnwind.c */; };
 		40CA51784E9B51965327C3A2 /* PLCrashAsyncSymbolication.c in Sources */ = {isa = PBXBuildFile; fileRef = C032F7F5B744465BA103BC94 /* PLCrashAsyncSymbolication.c */; };
 		46A911BC1659B0FEFA8D1E43 /* BundleUtilsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E781EB127B3DC1290199836 /* BundleUtilsTest.swift */; };
@@ -884,7 +883,6 @@
 		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c/protobuf-c.c"; sourceTree = "<group>"; };
 		97A462C12E6F54A281DE5023 /* PLCrashProcessInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashProcessInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashProcessInfo.m; sourceTree = "<group>"; };
 		991CFA923BC02DA7DD6506C6 /* PLCrashAsyncImageList.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncImageList.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncImageList.cpp; sourceTree = "<group>"; };
-		9B3D3784BF8219D5CA5459CB /* PostHogLogSeverity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogSeverity.swift; sourceTree = "<group>"; };
 		9BB480CAA746FD368A680D33 /* PLCrashAsyncThread_current.S */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; name = PLCrashAsyncThread_current.S; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncThread_current.S; sourceTree = "<group>"; };
 		9DBE5F51C6078BEF346BFDBB /* PLCrashReportMachExceptionInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportMachExceptionInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportMachExceptionInfo.m; sourceTree = "<group>"; };
 		9E781EB127B3DC1290199836 /* BundleUtilsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleUtilsTest.swift; sourceTree = "<group>"; };
@@ -1786,7 +1784,6 @@
 				BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */,
 				8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */,
 				F26E4A944264DAF6626F4EFC /* PostHogLogsQueue.swift */,
-				9B3D3784BF8219D5CA5459CB /* PostHogLogSeverity.swift */,
 			);
 			name = Logs;
 			path = Logs;
@@ -3266,7 +3263,6 @@
 				F01DFEA6844945E7A794FCC9 /* QueueEndpoint+Factories.swift in Sources */,
 				88D516A0861C2F4F6D57CA7A /* PostHogLogsOTLP.swift in Sources */,
 				706B087A015363D827A1BFAA /* PostHogLogsQueue.swift in Sources */,
-				3B89201A418439D9DB092795 /* PostHogLogSeverity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

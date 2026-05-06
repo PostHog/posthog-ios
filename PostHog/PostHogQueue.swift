@@ -57,7 +57,6 @@ class PostHogQueue<Record> {
     /// incremented for the current attempt. Comparison is `>` (not `>=`) so the
     /// configured value is the count of *retries* allowed before the drop fires
     /// — with the default of 3 you get attempts 1–3 retried, attempt 4 drops.
-    /// Matches posthog-android.
     private static func retryCountExceeded(_ retryCount: TimeInterval, maxRetries: Int) -> Bool {
         Int(retryCount) > maxRetries
     }
@@ -181,8 +180,7 @@ class PostHogQueue<Record> {
             }
 
             // Cap stays at 1 — the offender is gone but we keep being
-            // cautious until a successful send. Matches posthog-android and
-            // posthog-js-lite.
+            // cautious until a successful send.
             hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
             retryCount = 0
             payload.completion(true)
@@ -190,8 +188,7 @@ class PostHogQueue<Record> {
         }
 
         // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
-        // batch. Cap stays where it is — no ramp on success, matching
-        // posthog-android and posthog-js-lite.
+        // batch. Cap stays where it is — no ramp on success.
         retryCount = 0
         payload.completion(true)
     }
@@ -200,8 +197,7 @@ class PostHogQueue<Record> {
     /// Called when `retryCount` exceeds `config.maxRetries` to avoid retrying
     /// forever against a permanently-broken backend. Cap is left where it is
     /// — new records starting against a known-bad backend benefit from the
-    /// conservative cap until proven otherwise. Matches posthog-android's
-    /// `dropAllEvents`.
+    /// conservative cap until proven otherwise.
     private func dropAllQueuedRecords(reason: String) {
         hedgeLog("Queue: dropping all queued records — \(reason)")
         fileQueue.clear()

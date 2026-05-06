@@ -6,8 +6,7 @@
 import Foundation
 
 extension QueueEndpoint where Record == PostHogEvent {
-    /// `/batch` endpoint for analytics events. Cap stays put on 2xx and stays
-    /// at 1 after a poison drop — matches posthog-android.
+    /// `/batch` endpoint for analytics events.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .queue,
@@ -50,10 +49,8 @@ extension QueueEndpoint where Record == PostHogEvent {
 }
 
 extension QueueEndpoint where Record == PostHogLogRecord {
-    /// `/i/v1/logs` OTLP/JSON endpoint. Wider retriable set than events
-    /// (includes `408` and all 5xx) and `redirectIsRetriable: false`. Cap
-    /// behaviour is otherwise identical to the events / replay endpoints —
-    /// halve on 413, stay otherwise — owned by `PostHogQueue.handleResult`.
+    /// `/i/v1/logs` OTLP/JSON endpoint. Retriable set covers `408`, `429`,
+    /// and all 5xx; 3xx redirects are not retriable.
     static func logs(
         api: PostHogApi,
         resourceAttributes: @escaping () -> [String: Any]
@@ -69,10 +66,7 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             oldStorageKeys: [],
             dispatchQueueLabel: "com.posthog.LogsQueue",
             initialCap: { $0.logs.maxBatchSize },
-            // Logs queue uses the cap itself as the flush threshold — there is
-            // no separate `flushAt`. Initialising both equal keeps the
-            // generic queue's `flushIfOverThreshold` behaving identically.
-            initialFlushAt: { $0.logs.maxBatchSize },
+            initialFlushAt: { $0.logs.flushAt },
             maxQueueSize: { $0.logs.maxBufferSize },
             flushIntervalSeconds: { $0.logs.flushIntervalSeconds },
             encode: { record in toJSONData(record.toStorageJSON()) },

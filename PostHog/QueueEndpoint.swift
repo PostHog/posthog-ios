@@ -15,8 +15,8 @@ import Foundation
 /// construction sites and to keep factory methods composable.
 ///
 /// Adaptive batch-cap policy is uniform across all three endpoints (halve on
-/// 413, stay put otherwise — matches posthog-android and posthog-js-lite), so
-/// `PostHogQueue.handleResult` hardcodes it rather than parameterising.
+/// 413, stay put otherwise), so `PostHogQueue.handleResult` hardcodes it
+/// rather than parameterising.
 struct QueueEndpoint<Record> {
     // MARK: Storage / threading
 

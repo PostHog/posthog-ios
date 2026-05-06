@@ -99,29 +99,16 @@ class PostHogLogsQueue {
 
     // MARK: - Add
 
-    /// Enqueue a log record. Runs `beforeSend` and the rate cap on the
-    /// calling thread, then delegates to the inner generic queue (which
-    /// performs the synchronous disk write per its `add()` contract).
+    /// Enqueue a log record. Runs the rate cap on the calling thread, then
+    /// delegates to the inner generic queue (which performs the synchronous
+    /// disk write per its `add()` contract).
     func add(_ record: PostHogLogRecord) {
-        // beforeSend runs before the rate cap so dropped records do not
-        // consume budget.
-        guard let processed = logsConfig.runBeforeSend(record) else {
-            return
-        }
-
-        // A user filter may have emptied the body — re-check so we never put
-        // an empty record on the wire.
-        if processed.body.isEmpty {
-            hedgeLog("Logs queue: empty body after beforeSend, dropping record")
-            return
-        }
-
         if !consumeRateCap() {
             noteRateCapDropped()
             return
         }
 
-        inner.add(processed)
+        inner.add(record)
     }
 
     func flush() {

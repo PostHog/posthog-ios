@@ -521,49 +521,50 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 50)
     }
 
-    // MARK: - beforeSend
+    // MARK: - beforeSend chain
 
-    @Test("beforeSend returning nil drops the record")
+    @Test("beforeSend returning nil signals drop")
     func beforeSendDrop() async throws {
-        let (queue, _) = makeQueue(beforeSend: { _ in nil })
+        let (queue, config) = makeQueue(beforeSend: { _ in nil })
         defer { queue.clear()
             queue.stop()
         }
 
-        queue.add(makeRecord(body: "should-be-dropped"))
-        // Give the (would-be) async write time to run.
-        await waitUntil(timeoutNanoseconds: 500_000_000) { queue.depth > 0 }
+        let processed = config.logs.runBeforeSend(makeRecord(body: "should-be-dropped"))
+        #expect(processed == nil)
+        // SDK-side check would short-circuit here; queue would never see it.
         #expect(queue.depth == 0)
     }
 
-    @Test("beforeSend mutating body to empty drops the record")
+    @Test("beforeSend can mutate body to empty (SDK caller drops on empty)")
     func beforeSendEmptyBodyDrops() async throws {
-        let (queue, _) = makeQueue(beforeSend: { record in
-            var copy = record
-            copy.body = ""
-            return copy
+        let (queue, config) = makeQueue(beforeSend: { record in
+            record.body = ""
+            return record
         })
         defer { queue.clear()
             queue.stop()
         }
 
-        queue.add(makeRecord(body: "non-empty"))
-        await waitUntil(timeoutNanoseconds: 500_000_000) { queue.depth > 0 }
-        #expect(queue.depth == 0)
+        let processed = config.logs.runBeforeSend(makeRecord(body: "non-empty"))
+        #expect(processed?.body.isEmpty == true)
+        // SDK caller (`captureLog`) drops empty bodies after beforeSend.
     }
 
-    @Test("beforeSend mutating the record changes what is queued")
+    @Test("beforeSend mutating the record changes what gets queued")
     func beforeSendMutates() async throws {
-        let (queue, _) = makeQueue(beforeSend: { record in
-            var copy = record
-            copy.body = "redacted"
-            return copy
+        let (queue, config) = makeQueue(beforeSend: { record in
+            record.body = "redacted"
+            return record
         })
         defer { queue.clear()
             queue.stop()
         }
 
-        queue.add(makeRecord(body: "original"))
+        let processed = try #require(config.logs.runBeforeSend(makeRecord(body: "original")))
+        #expect(processed.body == "redacted")
+        // SDK caller passes the mutated record to queue.add.
+        queue.add(processed)
         await waitUntil { queue.depth == 1 }
 
         // Peek the persisted record — it should carry the mutated body.

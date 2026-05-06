@@ -17,8 +17,8 @@ func appVersionString() -> String? {
 /// (PostHog uses this for both the `$os_version` event property and the
 /// `os.version` OTLP resource attribute).
 func osVersionString() -> String {
-    let v = ProcessInfo.processInfo.operatingSystemVersion
-    return "\(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+    let version = ProcessInfo.processInfo.operatingSystemVersion
+    return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
 }
 
 /// Compile-time platform name as a plain string ("iOS" / "macOS" / "tvOS" /

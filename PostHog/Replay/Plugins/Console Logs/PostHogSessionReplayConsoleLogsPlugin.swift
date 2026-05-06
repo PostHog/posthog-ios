@@ -64,12 +64,13 @@
                 return
             }
 
-            // `PostHogLogLevel`` needs to be an Int enum for objc interop
-            // So we need to convert this to a String before sending upstream
-            let level = switch output.level {
-            case .error: "error"
-            case .info: "info"
+            // rrweb's console plugin only knows three levels (`info` / `warn` /
+            // `error`), so map `trace` / `debug` down to `info` and `fatal` up
+            // to `error`.
+            let level: String = switch output.level {
+            case .trace, .debug, .info: "info"
             case .warn: "warn"
+            case .error, .fatal: "error"
             }
 
             var snapshotsData: [Any] = []

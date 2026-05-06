@@ -186,8 +186,8 @@ class PostHogLogsQueue {
         for (key, value) in logsConfig.resourceAttributes {
             attrs[key] = value
         }
-        attrs["service.name"] = logsConfig.serviceName ?? bundleIdentifierFallback()
-        if let version = logsConfig.serviceVersion ?? bundleShortVersion() {
+        attrs["service.name"] = logsConfig.serviceName ?? bundleIdentifier(fallback: "unknown_service")
+        if let version = logsConfig.serviceVersion ?? appVersionString() {
             attrs["service.version"] = version
         }
         if let env = logsConfig.environment {
@@ -196,16 +196,8 @@ class PostHogLogsQueue {
         attrs["telemetry.sdk.name"] = postHogSdkName
         attrs["telemetry.sdk.version"] = postHogVersion
         attrs["os.name"] = osName()
-        attrs["os.version"] = osVersion()
+        attrs["os.version"] = osVersionString()
         return attrs
-    }
-
-    private static func bundleIdentifierFallback() -> String {
-        Bundle.main.bundleIdentifier ?? "unknown_service"
-    }
-
-    private static func bundleShortVersion() -> String? {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
     private static func osName() -> String {
@@ -222,10 +214,5 @@ class PostHogLogsQueue {
         #else
             return "unknown"
         #endif
-    }
-
-    private static func osVersion() -> String {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }
 }

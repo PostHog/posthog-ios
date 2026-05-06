@@ -70,11 +70,9 @@ func appGroupContainerUrl(config: PostHogConfig) -> URL? {
 
 func getBundleIdentifier() -> String {
     #if TESTING // only visible to test targets
-        return Bundle.main.bundleIdentifier ?? "com.posthog.test"
+        return bundleIdentifier(fallback: "com.posthog.test")
     #else
-        // Can be nil for command-line tools, XCTest hosts, Swift Playgrounds etc
-        // Should theoretically never be nil for a shipping app
-        return Bundle.main.bundleIdentifier ?? "com.posthog.unknown"
+        return bundleIdentifier(fallback: "com.posthog.unknown")
     #endif
 }
 

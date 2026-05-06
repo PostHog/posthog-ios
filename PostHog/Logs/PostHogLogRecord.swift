@@ -10,9 +10,8 @@ import Foundation
 /// Records are produced by `captureLog` (or `logger.<level>`), persisted to disk
 /// via `PostHogLogsQueue`, and serialized as OpenTelemetry log records on the wire.
 ///
-/// Reference type so user-supplied `beforeSend` callbacks can mutate the record
-/// in-place. Bridged to Objective-C as `PostHogLogRecord`. `traceFlags` is
-/// Swift-only because optional `Int` cannot be expressed in Objective-C.
+/// Reference type so user-supplied `beforeSend` callbacks can mutate the
+/// record in-place. Bridged to Objective-C as `PostHogLogRecord`.
 @objc(PostHogLogRecord) public final class PostHogLogRecord: NSObject {
     /// The log message body. Required; empty bodies are dropped at capture time.
     @objc public var body: String
@@ -30,9 +29,20 @@ import Foundation
     /// Optional W3C trace context — 16 hex characters.
     @objc public var spanId: String?
 
-    /// Optional W3C trace flags. Swift-only — Objective-C consumers cannot read
-    /// or set this field because optional `Int` is not representable in ObjC.
-    public var traceFlags: Int?
+    /// Optional W3C trace flags. The lower 8 bits are the W3C bitfield; bit 0
+    /// is the `sampled` flag. `nil` means "field absent on the wire"; `0`
+    /// means "explicitly emit as 0" — matches the React Native / JS SDKs'
+    /// behaviour. Stored as `NSNumber?` so Objective-C consumers can read /
+    /// set it; Swift callers can use the `traceFlagsValue` sugar accessor for
+    /// an `Int?`.
+    @objc public var traceFlags: NSNumber?
+
+    /// Swift-friendly accessor over `traceFlags`. Same storage; `Int?` shape
+    /// rather than `NSNumber?`.
+    public var traceFlagsValue: Int? {
+        get { traceFlags?.intValue }
+        set { traceFlags = newValue.map { NSNumber(value: $0) } }
+    }
 
     /// Capture-time wall clock in nanoseconds since Unix epoch, encoded as a
     /// string per OTLP/JSON. Snapshotted at capture so identity / session
@@ -62,7 +72,7 @@ import Foundation
         attributes: [String: Any] = [:],
         traceId: String? = nil,
         spanId: String? = nil,
-        traceFlags: Int? = nil,
+        traceFlags: NSNumber? = nil,
         timeUnixNano: String? = nil,
         observedTimeUnixNano: String? = nil,
         distinctId: String? = nil,
@@ -141,7 +151,7 @@ import Foundation
             attributes: attributes,
             traceId: json["traceId"] as? String,
             spanId: json["spanId"] as? String,
-            traceFlags: json["traceFlags"] as? Int,
+            traceFlags: json["traceFlags"] as? NSNumber,
             timeUnixNano: timeUnixNano,
             observedTimeUnixNano: observedTimeUnixNano,
             distinctId: json["distinctId"] as? String,

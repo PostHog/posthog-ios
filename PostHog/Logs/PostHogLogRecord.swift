@@ -76,7 +76,7 @@ public struct PostHogLogRecord {
         self.traceId = traceId
         self.spanId = spanId
         self.traceFlags = traceFlags
-        let now = timeUnixNano ?? PostHogLogRecord.nanosNow()
+        let now = timeUnixNano ?? nanosNow()
         self.timeUnixNano = now
         self.observedTimeUnixNano = observedTimeUnixNano ?? now
         self.distinctId = distinctId
@@ -84,17 +84,6 @@ public struct PostHogLogRecord {
         self.screenName = screenName
         self.appState = appState
         self.featureFlagKeys = featureFlagKeys
-    }
-    /// Current wall clock as a uint64 nanosecond string. OTLP/JSON encodes
-    /// uint64 as a string because JSON numbers cannot represent uint64 precisely.
-    public static func nanosNow() -> String {
-        let secs = Date().timeIntervalSince1970
-        // Avoid Double precision loss at large magnitudes by splitting into
-        // whole seconds + nanos within the second.
-        let whole = UInt64(secs)
-        let frac = secs - Double(whole)
-        let nanosInSecond = UInt64(frac * 1_000_000_000)
-        return "\(whole * 1_000_000_000 + nanosInSecond)"
     }
 
     // MARK: - Persistence
@@ -141,7 +130,7 @@ public struct PostHogLogRecord {
         let levelName = (json["level"] as? String) ?? "info"
         let level = PostHogLogSeverity.from(name: levelName) ?? .info
         let attributes = (json["attributes"] as? [String: Any]) ?? [:]
-        let timeUnixNano = (json["timeUnixNano"] as? String) ?? PostHogLogRecord.nanosNow()
+        let timeUnixNano = (json["timeUnixNano"] as? String) ?? nanosNow()
         let observedTimeUnixNano = (json["observedTimeUnixNano"] as? String) ?? timeUnixNano
         let featureFlagKeys = (json["featureFlagKeys"] as? [String]) ?? []
         return PostHogLogRecord(

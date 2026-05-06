@@ -919,6 +919,7 @@ let maxRetryDelay = 30.0
 
     /// Capture a structured log record at `.info` severity.
     ///
+<<<<<<< HEAD
     /// Log records ship to PostHog via a separate `/i/v1/logs` endpoint and
     /// are persisted to disk so they survive app restarts. The call performs
     /// a **synchronous disk write on the calling thread**, then the network
@@ -927,6 +928,14 @@ let maxRetryDelay = 30.0
     /// through `config.logs.beforeSend` and the per-window rate cap before
     /// enqueueing — both can drop a record silently. An empty or
     /// whitespace-only `body` is always dropped.
+=======
+    /// Log records ship to PostHog via a separate `/i/v1/logs` endpoint and are
+    /// persisted to disk so they survive app restarts. The call returns
+    /// immediately: the disk write is synchronous; the network send is async.
+    /// Records run through `config.logs.beforeSend` and the per-window rate cap
+    /// before enqueueing — both can drop a record silently. An empty `body` is
+    /// always dropped.
+>>>>>>> e51c72bb7 (feat(logs): add public captureLog API and logger facade)
     ///
     /// - Parameter body: The log message. Required and non-empty.
     @objc(captureLogWithBody:)
@@ -1005,7 +1014,11 @@ let maxRetryDelay = 30.0
     {
         if !isEnabled() { return }
         if isOptOutState() { return }
+<<<<<<< HEAD
         guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+=======
+        guard !body.isEmpty else {
+>>>>>>> e51c72bb7 (feat(logs): add public captureLog API and logger facade)
             hedgeLog("captureLog: empty body, dropping")
             return
         }
@@ -1038,7 +1051,11 @@ let maxRetryDelay = 30.0
         )
 
         guard let processed = config.logs.runBeforeSend(record) else { return }
+<<<<<<< HEAD
         if processed.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+=======
+        if processed.body.isEmpty {
+>>>>>>> e51c72bb7 (feat(logs): add public captureLog API and logger facade)
             hedgeLog("captureLog: empty body after beforeSend, dropping")
             return
         }

@@ -73,7 +73,7 @@
 		690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0F02AEFF24200A0B06B /* OHHTTPStubs */; };
 		690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */; };
 		69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */; };
-		69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */; };
+		69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */; };
 		69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */; };
 		69261D1D2AD967CD00232EC7 /* PostHogFileBackedQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */; };
 		69261D1F2AD9681300232EC7 /* PostHogConsumerPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */; };
@@ -803,7 +803,7 @@
 		690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDKTest.swift; sourceTree = "<group>"; };
 		690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWatchOS.xcodeproj; path = PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRemoteConfig.swift; sourceTree = "<group>"; };
-		69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogBatchUploadInfo.swift; sourceTree = "<group>"; };
+		69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogUploadInfo.swift; sourceTree = "<group>"; };
 		69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEvent.swift; sourceTree = "<group>"; };
 		69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueue.swift; sourceTree = "<group>"; };
 		69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConsumerPayload.swift; sourceTree = "<group>"; };
@@ -1545,7 +1545,7 @@
 				3AE3FB4D2993D1D600AFFC18 /* PostHogStorageManager.swift */,
 				3AE3FB48299391DF00AFFC18 /* PostHogStorage.swift */,
 				69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */,
-				69261D182AD9673500232EC7 /* PostHogBatchUploadInfo.swift */,
+				69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */,
 				69261D1C2AD967CD00232EC7 /* PostHogFileBackedQueue.swift */,
 				69261D1E2AD9681300232EC7 /* PostHogConsumerPayload.swift */,
 				E5D8E83880254E4B86DEBF70 /* QueueEndpoint.swift */,
@@ -3020,7 +3020,7 @@
 				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,
 				690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */,
 				69F518162BAC7F9200F52C14 /* UIView+Util.swift in Sources */,
-				69261D192AD9673500232EC7 /* PostHogBatchUploadInfo.swift in Sources */,
+				69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */,
 				DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */,
 				DA26419C2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift in Sources */,
 				DA5B85882CD21CBB00686389 /* AutocaptureEventProcessing.swift in Sources */,

@@ -140,7 +140,7 @@ class PostHogQueue<Record> {
         }
     }
 
-    private func handleResult(_ result: PostHogBatchUploadInfo, _ payload: PostHogConsumerPayload<Record>) {
+    private func handleResult(_ result: PostHogUploadInfo, _ payload: PostHogConsumerPayload<Record>) {
         // -1 means its not anything related to the API but rather network or something else, so we try again
         let statusCode = result.statusCode ?? -1
 

@@ -47,7 +47,7 @@ struct QueueEndpoint<Record> {
 
     /// Build the wire payload from a list of records and POST it. The queue
     /// passes its `handleResult` continuation as `completion`.
-    let send: ([Record], @escaping (PostHogBatchUploadInfo) -> Void) -> Void
+    let send: ([Record], @escaping (PostHogUploadInfo) -> Void) -> Void
 
     // MARK: Retry policy
 

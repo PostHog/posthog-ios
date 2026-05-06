@@ -54,10 +54,24 @@ import Foundation
     // logs queue itself does not read SDK state, so a record carries everything
     // needed to be sent independently of when the flush actually happens.
 
+    /// The user's PostHog distinct id at capture time. `nil` if no user is
+    /// identified. `beforeSend` callbacks may rewrite this for redaction.
     @objc public var distinctId: String?
+
+    /// Active PostHog session id at capture time. `nil` if no session is
+    /// active.
     @objc public var sessionId: String?
+
+    /// Last-seen screen name at capture time, populated automatically when
+    /// screen view tracking is enabled.
     @objc public var screenName: String?
+
+    /// `"foreground"` or `"background"` at capture time.
     @objc public var appState: String?
+
+    /// Keys of feature flags that were active at capture time. Useful for
+    /// correlating log records with experiment cohorts. Empty when no flags
+    /// are loaded.
     @objc public var featureFlagKeys: [String]
 
     public init(

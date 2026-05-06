@@ -12,11 +12,17 @@ import Foundation
 /// with the iOS-only `PostHogLogLevel` used by the session-replay console
 /// capture plugin.
 @objc(PostHogLogSeverity) public enum PostHogLogSeverity: Int, CaseIterable {
+    /// Finest-grained tracing detail (`severityNumber` 1).
     case trace
+    /// Diagnostic information useful while debugging (`severityNumber` 5).
     case debug
+    /// Default level for regular runtime events (`severityNumber` 9).
     case info
+    /// Something unexpected, but the operation continued (`severityNumber` 13).
     case warn
+    /// An operation failed; the app may continue (`severityNumber` 17).
     case error
+    /// An unrecoverable failure; the app likely cannot continue (`severityNumber` 21).
     case fatal
 
     /// Lowercase identifier (e.g. `"info"`) used as the wire-format string and

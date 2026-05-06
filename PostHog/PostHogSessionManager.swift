@@ -123,6 +123,13 @@ import Foundation
         return currentSessionId
     }
 
+    /// Thread-safe snapshot of the cached app-background flag. Reads under
+    /// `sessionLock`; safe from any thread. Used by `captureLog` to tag log
+    /// records without needing main-thread access to UIApplication.
+    var isAppInBackgroundSnapshot: Bool {
+        sessionLock.withLock { isAppInBackground }
+    }
+
     func getNextSessionId() -> String? {
         // if this is RN, return the current session id
         guard isNotReactNative() else {

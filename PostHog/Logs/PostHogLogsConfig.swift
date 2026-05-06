@@ -14,9 +14,9 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
 /// before calling `PostHogSDK.setup(_:)`.
 @objc(PostHogLogsConfig) public final class PostHogLogsConfig: NSObject {
     enum Defaults {
-        static let flushIntervalSeconds: TimeInterval = 30
+        static let flushIntervalSeconds: TimeInterval = PostHogConfig.Defaults.flushIntervalSeconds
+        static let maxBatchSize: Int = PostHogConfig.Defaults.maxBatchSize
         static let maxBufferSize: Int = 100
-        static let maxBatchSize: Int = 50
         static let rateCapMaxLogs: Int = 500
         static let rateCapWindowSeconds: TimeInterval = 10
     }

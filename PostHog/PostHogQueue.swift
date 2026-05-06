@@ -57,8 +57,8 @@ class PostHogQueue<Record> {
     /// incremented for the current attempt. Comparison is `>` (not `>=`) so the
     /// configured value is the count of *retries* allowed before the drop fires
     /// — with the default of 3 you get attempts 1–3 retried, attempt 4 drops.
-    private static func retryCountExceeded(_ retryCount: TimeInterval, maxRetries: Int) -> Bool {
-        Int(retryCount) > maxRetries
+    private static func retryCountExceeded(_ retryCount: Int, maxRetries: Int) -> Bool {
+        retryCount > maxRetries
     }
 
     private let config: PostHogConfig
@@ -66,10 +66,15 @@ class PostHogQueue<Record> {
     private let configuredMaxQueueSize: Int
     private let timerInterval: TimeInterval
 
+    /// Guards `paused`, `pausedUntil`, and `retryCount`. These are touched from
+    /// the URLSession completion queue (handleResult), the timer's main-thread
+    /// callback (canFlush), and the reachability callbacks (onReachable /
+    /// onUnreachable) — all without coordination — so a single state lock keeps
+    /// the trio consistent against ThreadSanitizer.
+    private let stateLock = NSLock()
     private var paused: Bool = false
-    private let pausedLock = NSLock()
     private var pausedUntil: Date?
-    private var retryCount: TimeInterval = 0
+    private var retryCount: Int = 0
     #if !os(watchOS)
         private let reachability: Reachability?
         private var reachableToken: RegistrationToken?
@@ -78,8 +83,12 @@ class PostHogQueue<Record> {
 
     private var isFlushing = false
     private let isFlushingLock = NSLock()
-    private var timer: Timer?
+    /// Guards `timer` and `stopped`. The flag is set by `stop()` so a `start()`
+    /// whose main-thread block hasn't fired yet can short-circuit instead of
+    /// scheduling a timer that escapes invalidation.
     private let timerLock = NSLock()
+    private var timer: Timer?
+    private var stopped: Bool = false
     private let dispatchQueue: DispatchQueue
 
     private var batchLimits: BatchLimits
@@ -139,15 +148,18 @@ class PostHogQueue<Record> {
             || endpoint.retriableStatusCodes.contains(statusCode)
 
         if isRetriable {
-            retryCount += 1
-            if Self.retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+            let newCount = stateLock.withLock { () -> Int in
+                retryCount += 1
+                return retryCount
+            }
+            if Self.retryCountExceeded(newCount, maxRetries: config.maxRetries) {
                 dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
                 payload.completion(true)
                 return
             }
-            let delay = min(retryCount * retryDelay, maxRetryDelay)
+            let delay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
             pauseFor(seconds: delay)
-            hedgeLog("Pausing queue consumption for \(delay) seconds due to \(retryCount) API failure(s).")
+            hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
             payload.completion(false)
             return
         }
@@ -164,8 +176,11 @@ class PostHogQueue<Record> {
             let canHalve = batchLimitsLock.withLock { batchLimits.cap > 1 }
 
             if canHalve {
-                retryCount += 1
-                if Self.retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+                let newCount = stateLock.withLock { () -> Int in
+                    retryCount += 1
+                    return retryCount
+                }
+                if Self.retryCountExceeded(newCount, maxRetries: config.maxRetries) {
                     dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
                     payload.completion(true)
                     return
@@ -182,14 +197,14 @@ class PostHogQueue<Record> {
             // Cap stays at 1 — the offender is gone but we keep being
             // cautious until a successful send.
             hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
-            retryCount = 0
+            stateLock.withLock { retryCount = 0 }
             payload.completion(true)
             return
         }
 
         // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
         // batch. Cap stays where it is — no ramp on success.
-        retryCount = 0
+        stateLock.withLock { retryCount = 0 }
         payload.completion(true)
     }
 
@@ -201,8 +216,10 @@ class PostHogQueue<Record> {
     private func dropAllQueuedRecords(reason: String) {
         hedgeLog("Queue: dropping all queued records — \(reason)")
         fileQueue.clear()
-        retryCount = 0
-        pausedUntil = nil
+        stateLock.withLock {
+            retryCount = 0
+            pausedUntil = nil
+        }
     }
 
     func start(disableReachabilityForTesting: Bool,
@@ -214,7 +231,7 @@ class PostHogQueue<Record> {
                 // can all receive notifications without overwriting each other.
                 reachableToken = reachability?.onReachable.subscribe { [weak self] reachability in
                     guard let self else { return }
-                    self.pausedLock.withLock {
+                    self.stateLock.withLock {
                         if self.config.dataMode == .wifi, reachability.connection != .wifi {
                             hedgeLog("Queue is paused because its not in WiFi mode")
                             self.paused = true
@@ -223,9 +240,12 @@ class PostHogQueue<Record> {
                         }
                     }
 
-                    // Always trigger a flush when we are on wifi
+                    // Always trigger a flush when we are on wifi. The
+                    // `isFlushing` snapshot is only an optimisation —
+                    // `flush()` re-checks under the lock.
                     if reachability.connection == .wifi {
-                        if !self.isFlushing {
+                        let busy = self.isFlushingLock.withLock { self.isFlushing }
+                        if !busy {
                             self.flush()
                         }
                     }
@@ -233,7 +253,7 @@ class PostHogQueue<Record> {
 
                 unreachableToken = reachability?.onUnreachable.subscribe { [weak self] _ in
                     guard let self else { return }
-                    self.pausedLock.withLock {
+                    self.stateLock.withLock {
                         hedgeLog("Queue is paused because network is unreachable")
                         self.paused = true
                     }
@@ -248,15 +268,26 @@ class PostHogQueue<Record> {
         }
 
         if !disableQueueTimerForTesting {
-            timerLock.withLock {
-                DispatchQueue.main.async {
-                    self.timer = Timer.scheduledTimer(withTimeInterval: self.timerInterval, repeats: true, block: { _ in
-                        if !self.isFlushing {
-                            self.flush()
-                        }
+            // Schedule on the main runloop so the Timer fires in a default
+            // mode. The lock is re-acquired *inside* the dispatched block so a
+            // concurrent `stop()` (which sets `stopped = true`) can short-
+            // circuit and prevent a leaked timer.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.timerLock.withLock {
+                    guard !self.stopped else { return }
+                    self.timer = Timer.scheduledTimer(withTimeInterval: self.timerInterval, repeats: true, block: { [weak self] _ in
+                        self?.timerFired()
                     })
                 }
             }
+        }
+    }
+
+    private func timerFired() {
+        let busy = isFlushingLock.withLock { isFlushing }
+        if !busy {
+            flush()
         }
     }
 
@@ -266,10 +297,26 @@ class PostHogQueue<Record> {
     }
 
     func stop() {
-        timerLock.withLock {
-            timer?.invalidate()
+        // Snapshot the timer under the lock, then invalidate on the main
+        // thread (Timer requires invalidation on the runloop it was scheduled
+        // on). Setting `stopped = true` blocks any in-flight `start()` whose
+        // main-thread block has not yet fired from creating a new timer.
+        let timerToInvalidate: Timer? = timerLock.withLock {
+            stopped = true
+            let snapshot = timer
             timer = nil
+            return snapshot
         }
+        if let timerToInvalidate {
+            if Thread.isMainThread {
+                timerToInvalidate.invalidate()
+            } else {
+                DispatchQueue.main.async {
+                    timerToInvalidate.invalidate()
+                }
+            }
+        }
+
         #if !os(watchOS)
             // Tokens auto-unsubscribe on deinit; nilling here detaches earlier
             // so we do not receive callbacks after stop().
@@ -301,6 +348,12 @@ class PostHogQueue<Record> {
         }
     }
 
+    /// Enqueues a record on the caller's thread. Encoding plus the
+    /// `fileQueue.add` disk write are synchronous — sized in microseconds for
+    /// a healthy filesystem but technically blocking. We keep it sync to
+    /// preserve crash durability: a process kill between `add()` returning and
+    /// a deferred write would lose the record. Callers on hot paths (main
+    /// thread, frame loops) should be aware.
     func add(_ record: Record) {
         if fileQueue.depth >= configuredMaxQueueSize {
             hedgeLog("Queue is full, dropping oldest record")
@@ -319,13 +372,19 @@ class PostHogQueue<Record> {
     }
 
     private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload<Record>) -> Void) {
-        dispatchQueue.async {
-            self.isFlushingLock.withLock {
-                if self.isFlushing {
-                    return
-                }
+        dispatchQueue.async { [weak self] in
+            guard let self else { return }
+
+            // Atomically test-and-set the flushing flag. `withLock` returns
+            // the closure value, so a `false` here means another flush is
+            // already in flight and we bail out of the function — not just
+            // the closure.
+            let acquired: Bool = self.isFlushingLock.withLock {
+                if self.isFlushing { return false }
                 self.isFlushing = true
+                return true
             }
+            if !acquired { return }
 
             let items = self.fileQueue.peek(count)
 
@@ -338,7 +397,8 @@ class PostHogQueue<Record> {
                 processing.append(record)
             }
 
-            completion(PostHogConsumerPayload(records: processing) { success in
+            completion(PostHogConsumerPayload(records: processing) { [weak self] success in
+                guard let self else { return }
                 if success, items.count > 0 {
                     self.fileQueue.pop(items.count)
                     hedgeLog("Completed!")
@@ -352,24 +412,27 @@ class PostHogQueue<Record> {
     }
 
     private func pauseFor(seconds: TimeInterval) {
-        pausedUntil = Date().addingTimeInterval(seconds)
+        let until = Date().addingTimeInterval(seconds)
+        stateLock.withLock { pausedUntil = until }
     }
 
     private func canFlush() -> Bool {
-        if isFlushing {
+        let busy = isFlushingLock.withLock { isFlushing }
+        if busy {
             hedgeLog("Already flushing")
             return false
         }
 
-        if paused {
+        let (isPaused, until) = stateLock.withLock { (paused, pausedUntil) }
+        if isPaused {
             // We don't flush data if the queue is paused
             hedgeLog("The queue is paused due to the reachability check")
             return false
         }
 
-        if let pausedUntil, pausedUntil > Date() {
+        if let until, until > Date() {
             // We don't flush data if the queue is temporarily paused
-            hedgeLog("The queue is paused until `\(pausedUntil)`")
+            hedgeLog("The queue is paused until `\(until)`")
             return false
         }
 

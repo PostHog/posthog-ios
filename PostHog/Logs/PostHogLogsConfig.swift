@@ -10,15 +10,6 @@ import Foundation
 /// on the thread that called `captureLog`.
 public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
 
-@objc public final class BoxedBeforeSendLogBlock: NSObject {
-    @objc public let block: PostHogBeforeSendLogBlock
-
-    @objc(block:)
-    public init(block: @escaping PostHogBeforeSendLogBlock) {
-        self.block = block
-    }
-}
-
 /// Configuration for the PostHog logs subsystem. Mutate fields on `config.logs`
 /// before calling `PostHogSDK.setup(_:)`.
 @objc(PostHogLogsConfig) public final class PostHogLogsConfig: NSObject {

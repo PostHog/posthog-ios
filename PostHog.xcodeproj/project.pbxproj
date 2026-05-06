@@ -59,6 +59,7 @@
 		690FF05F2AE7E2D400A0B06B /* Data+Gzip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */; };
 		690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */; };
 		D9CC0D1E00010000000000B2 /* BeforeSendChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9CC0D1E00010000000000B1 /* BeforeSendChain.swift */; };
+		C236F4F79DBF4F55B918D685 /* BoxedBeforeSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4085030E312423F8599009D /* BoxedBeforeSend.swift */; };
 		690FF0B52AEBBD3C00A0B06B /* DictUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0B42AEBBD3C00A0B06B /* DictUtils.swift */; };
 		690FF0BB2AEF8B8200A0B06B /* PostHogContextTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0BA2AEF8B8200A0B06B /* PostHogContextTest.swift */; };
 		690FF0BF2AEFA97F00A0B06B /* FileUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0BE2AEFA97F00A0B06B /* FileUtils.swift */; };
@@ -793,6 +794,7 @@
 		690FF05E2AE7E2D400A0B06B /* Data+Gzip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Gzip.swift"; sourceTree = "<group>"; };
 		690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtils.swift; sourceTree = "<group>"; };
 		D9CC0D1E00010000000000B1 /* BeforeSendChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeforeSendChain.swift; sourceTree = "<group>"; };
+		D4085030E312423F8599009D /* BoxedBeforeSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxedBeforeSend.swift; sourceTree = "<group>"; };
 		690FF0B42AEBBD3C00A0B06B /* DictUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictUtils.swift; sourceTree = "<group>"; };
 		690FF0BA2AEF8B8200A0B06B /* PostHogContextTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogContextTest.swift; sourceTree = "<group>"; };
 		690FF0BE2AEFA97F00A0B06B /* FileUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUtils.swift; sourceTree = "<group>"; };
@@ -1475,6 +1477,7 @@
 				690FF0B42AEBBD3C00A0B06B /* DictUtils.swift */,
 				690FF0AE2AEB9C1400A0B06B /* DateUtils.swift */,
 				D9CC0D1E00010000000000B1 /* BeforeSendChain.swift */,
+				D4085030E312423F8599009D /* BoxedBeforeSend.swift */,
 				699C5FE52C20178E007DB818 /* UUIDUtils.swift */,
 				826D9ED566BF6FEFBA430555 /* BundleUtils.swift */,
 				690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */,
@@ -3020,6 +3023,7 @@
 				6926DA8E2ADD2876005760D2 /* PostHogContext.swift in Sources */,
 				690FF0AF2AEB9C1400A0B06B /* DateUtils.swift in Sources */,
 				D9CC0D1E00010000000000B2 /* BeforeSendChain.swift in Sources */,
+				C236F4F79DBF4F55B918D685 /* BoxedBeforeSend.swift in Sources */,
 				69F518162BAC7F9200F52C14 /* UIView+Util.swift in Sources */,
 				69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */,
 				DAC699EC2CCA73E5000D1D6B /* ForwardingPickerViewDelegate.swift in Sources */,

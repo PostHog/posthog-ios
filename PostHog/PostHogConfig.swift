@@ -8,15 +8,6 @@ import Foundation
 
 public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
-@objc public final class BoxedBeforeSendBlock: NSObject {
-    @objc public let block: BeforeSendBlock
-
-    @objc(block:)
-    public init(block: @escaping BeforeSendBlock) {
-        self.block = block
-    }
-}
-
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
     enum Defaults {
         #if os(tvOS)

@@ -184,25 +184,34 @@ class PostHogQueueTest: QuickSpec {
         }
 
         it("drops the entire queue once retryCount exceeds maxRetries on repeated 413") {
-            // 413 increments retryCount the same way 5xx / network errors do
-            // — they go through the same `retryCountExceededMax()` check —
-            // so this test covers both paths' drop logic. We use 413 here
-            // because it doesn't set `pausedUntil`, letting the test drive
-            // multiple retries without waiting out the exponential backoff.
+            // 413 with cap > 1 increments retryCount the same way 5xx /
+            // network errors do — they go through the same
+            // `retryCountExceeded()` check — so this test covers both paths'
+            // drop logic. We use 413 here because it doesn't set
+            // `pausedUntil`, letting the test drive multiple retries without
+            // waiting out the exponential backoff.
             //
-            // maxBatchSize large enough that 413-halving alone wouldn't drop
-            // the batch within maxRetries attempts; the maxRetries cap fires
-            // first.
-            let sut = self.getSut(flushAt: 1, maxBatchSize: 50, maxRetries: 2)
+            // 20 events with maxBatchSize=20 so halving sequence is 10 → 5
+            // → drop — cap doesn't reach 1 before maxRetries=2 is exceeded
+            // on the third attempt; the maxRetries cap fires first instead
+            // of the poison-drop path. Each flush is awaited via
+            // `currentBatchCapForTesting` so the gate inside `take()`
+            // doesn't swallow back-to-back calls.
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 20, maxRetries: 2)
+            server.start(batchCount: 3)
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
             }
 
-            sut.add(PostHogEvent(event: "evt", distinctId: "id"))
-
-            for _ in 0 ..< 5 {
-                sut.flush()
+            for i in 0 ..< 20 {
+                sut.add(PostHogEvent(event: "evt\(i)", distinctId: "id"))
             }
+
+            sut.flush()
+            expect(sut.currentBatchCapForTesting).toEventually(equal(10))
+            sut.flush()
+            expect(sut.currentBatchCapForTesting).toEventually(equal(5))
+            sut.flush()
             expect(sut.depth).toEventually(equal(0), timeout: .seconds(5))
 
             sut.clear()

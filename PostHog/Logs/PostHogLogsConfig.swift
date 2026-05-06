@@ -72,18 +72,10 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     /// record; returning a record with an empty `body` also drops it.
     /// Multiple blocks compose left-to-right; if any returns `nil`, later
     /// blocks are skipped.
-    private var beforeSend: PostHogBeforeSendLogBlock = { $0 }
-
-    private static func buildBeforeSendBlock(_ blocks: [PostHogBeforeSendLogBlock]) -> PostHogBeforeSendLogBlock {
-        { record in
-            blocks.reduce(record) { record, block in
-                record.flatMap(block)
-            }
-        }
-    }
+    private var beforeSend = BeforeSendChain<PostHogLogRecord>()
 
     public func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) {
-        beforeSend = Self.buildBeforeSendBlock(blocks)
+        beforeSend.set(blocks)
     }
 
     public func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) {
@@ -96,7 +88,7 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     }
 
     func runBeforeSend(_ record: PostHogLogRecord) -> PostHogLogRecord? {
-        beforeSend(record)
+        beforeSend.run(record)
     }
 
     @objc override public init() {

@@ -376,18 +376,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Hook that allows to sanitize the event
     /// The hook is called before the event is cached or sent over the wire
-    private var beforeSend: BeforeSendBlock = { $0 }
-
-    private static func buildBeforeSendBlock(_ blocks: [BeforeSendBlock]) -> BeforeSendBlock {
-        { event in
-            blocks.reduce(event) { event, block in
-                event.flatMap(block)
-            }
-        }
-    }
+    private var beforeSend = BeforeSendChain<PostHogEvent>()
 
     public func setBeforeSend(_ blocks: [BeforeSendBlock]) {
-        beforeSend = Self.buildBeforeSendBlock(blocks)
+        beforeSend.set(blocks)
     }
 
     public func setBeforeSend(_ blocks: BeforeSendBlock...) {
@@ -400,6 +392,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     }
 
     func runBeforeSend(_ event: PostHogEvent) -> PostHogEvent? {
-        beforeSend(event)
+        beforeSend.run(event)
     }
 }

@@ -224,6 +224,46 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
+    @Test("cap ramps +1 toward maxBatchSize on healthy 2xx send")
+    func capRampsOnSuccess() async throws {
+        // Halve cap once via a 413, then send 200s and assert cap ramps back
+        // toward maxBatchSize at +1 per healthy send. Pins down the
+        // `capAfterSuccess: { cap, max in min(cap+1, max) }` policy for the
+        // logs endpoint — a regression that returned `cap` (events policy)
+        // instead would silently ship.
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 10)
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        server.logsResponseHandler = { _, n in
+            if n == 1 {
+                return HTTPStubsResponse(jsonObject: ["error": "too large"], statusCode: 413, headers: nil)
+            }
+            return HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+        }
+
+        for i in 0 ..< 10 {
+            queue.add(makeRecord(body: "log-\(i)"))
+        }
+        // Threshold flush fires (depth == cap == 10). 413 → halves cap.
+        waitForLogsRequests(count: 1)
+        await waitUntil { queue.currentBatchCapForTesting == 5 }
+        #expect(queue.currentBatchCapForTesting == 5)
+
+        // Next flush: 200 with batch=5 → cap should ramp 5 → 6.
+        queue.flush()
+        waitForLogsRequests(count: 2)
+        await waitUntil { queue.currentBatchCapForTesting == 6 }
+        #expect(queue.currentBatchCapForTesting == 6)
+
+        // Another flush: 200 → ramp 6 → 7.
+        queue.flush()
+        waitForLogsRequests(count: 3)
+        await waitUntil { queue.currentBatchCapForTesting == 7 }
+        #expect(queue.currentBatchCapForTesting == 7)
+    }
+
     @Test("413 on a single-record batch drops the poison record and resets the cap")
     func handle413SingleRecordDrops() async throws {
         let configuredMax = 8
@@ -780,5 +820,98 @@ final class PostHogLogsQueueTests {
         #expect(kvItems[0]["key"] as? String == "nested")
         let nestedValue = try #require(kvItems[0]["value"] as? [String: Any])
         #expect(nestedValue["stringValue"] as? String == "value")
+    }
+
+    // MARK: - Persistence round-trip
+
+    @Test("PostHogLogRecord round-trips all optional fields through the disk codec")
+    func recordRoundTripsThroughDiskCodec() throws {
+        // Pure codec test — no queue, no network. Constructs a record with
+        // every optional field populated, serializes to JSON, deserializes,
+        // and asserts every field survives. Catches regressions in
+        // toStorageJSON / fromStorageJSON for traceId, spanId, traceFlags
+        // (NSNumber? bridging), per-record context, and attributes.
+        let original = PostHogLogRecord(
+            body: "hello",
+            level: .warn,
+            attributes: [
+                "string_attr": "value",
+                "int_attr": 42,
+                "bool_attr": true,
+            ],
+            traceId: "0af7651916cd43dd8448eb211c80319c",
+            spanId: "b7ad6b7169203331",
+            traceFlags: NSNumber(value: 1),
+            distinctId: "user-A",
+            sessionId: "sess-1",
+            screenName: "Screen",
+            appState: "foreground",
+            featureFlagKeys: ["flag-a", "flag-b"]
+        )
+
+        let json = original.toStorageJSON()
+        let data = try JSONSerialization.data(withJSONObject: json, options: [])
+        let decoded = try #require(PostHogLogRecord.fromStorageJSON(data))
+
+        #expect(decoded.body == "hello")
+        #expect(decoded.level == .warn)
+        #expect(decoded.attributes["string_attr"] as? String == "value")
+        #expect(decoded.attributes["int_attr"] as? Int == 42)
+        #expect(decoded.attributes["bool_attr"] as? Bool == true)
+        #expect(decoded.traceId == "0af7651916cd43dd8448eb211c80319c")
+        #expect(decoded.spanId == "b7ad6b7169203331")
+        #expect(decoded.traceFlags?.intValue == 1)
+        #expect(decoded.traceFlagsValue == 1) // Swift sugar accessor
+        #expect(decoded.distinctId == "user-A")
+        #expect(decoded.sessionId == "sess-1")
+        #expect(decoded.screenName == "Screen")
+        #expect(decoded.appState == "foreground")
+        #expect(decoded.featureFlagKeys == ["flag-a", "flag-b"])
+        #expect(decoded.timeUnixNano == original.timeUnixNano)
+    }
+
+    @Test("traceFlags appears as `flags` on the OTLP wire payload")
+    func traceFlagsOnTheWire() async throws {
+        // After switching `traceFlags` from `Int?` to `@objc public var
+        // traceFlags: NSNumber?`, the disk codec and OTLP encoder both have
+        // to keep handling the field correctly. This test pushes a record
+        // with traceFlags = 1 through a real flush and asserts the OTLP
+        // `flags` field on the wire is the literal integer 1.
+        let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 1)
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        let record = PostHogLogRecord(
+            body: "traced",
+            level: .info,
+            attributes: [:],
+            traceId: "0af7651916cd43dd8448eb211c80319c",
+            spanId: "b7ad6b7169203331",
+            traceFlags: NSNumber(value: 1),
+            distinctId: "user-1",
+            sessionId: "sess-1",
+            screenName: nil,
+            appState: "foreground",
+            featureFlagKeys: []
+        )
+        queue.add(record)
+        waitForLogsRequests(count: 1)
+
+        let request = try #require(server.logsRequests.first)
+        let body = try #require(request.body())
+        let unzipped = try body.gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let logRecords = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        let rec = logRecords[0]
+
+        #expect(rec["traceId"] as? String == "0af7651916cd43dd8448eb211c80319c")
+        #expect(rec["spanId"] as? String == "b7ad6b7169203331")
+        // OTLP renames the field on the wire: traceFlags -> flags.
+        // JSONSerialization decodes a JSON number to NSNumber, which bridges
+        // back to Int for the cast.
+        #expect(rec["flags"] as? Int == 1)
     }
 }

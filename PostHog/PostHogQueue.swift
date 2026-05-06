@@ -7,17 +7,13 @@
 
 import Foundation
 
-/// HTTP status codes that trigger an exponential-backoff retry. Matches
-/// posthog-android's `RETRYABLE_STATUS_CODES` exactly.
-private let retriableStatusCodes: Set<Int> = [429, 500, 502, 503, 504]
-
 /// Clamps `value` to a minimum of 1. Used wherever we initialise / halve
 /// the adaptive batch limits so we never store a value below 1.
 private func clamped(_ value: Int) -> Int {
     max(1, value)
 }
 
-// MARK: - Shared queue policy helpers (used by PostHogQueue and PostHogLogsQueue)
+// MARK: - Shared queue policy helpers (used across queues)
 
 /// Halves a batch cap, bounded by the actual batch size that triggered the
 /// halving. The `min(cap, actualBatchSize)` bound avoids wasting halvings on
@@ -37,23 +33,21 @@ func retryCountExceeded(_ retryCount: TimeInterval, maxRetries: Int) -> Bool {
     Int(retryCount) > maxRetries
 }
 
-/// Adaptive limits for the events queue. Both `cap` and `flushAt` are halved
-/// together on HTTP 413 and stay reduced for the SDK's lifetime — matching
-/// posthog-android. Stored privately rather than mutating
+/// Adaptive limits stored privately on the queue rather than mutating
 /// `config.maxBatchSize` / `config.flushAt` so user-supplied config fields
-/// aren't silently changed.
+/// aren't silently changed. Both `cap` and `flushAt` are halved together on
+/// HTTP 413.
 private struct BatchLimits {
     var cap: Int
     var flushAt: Int
 
-    static func initial(from config: PostHogConfig) -> BatchLimits {
-        BatchLimits(cap: clamped(config.maxBatchSize), flushAt: clamped(config.flushAt))
+    static func initial(cap: Int, flushAt: Int) -> BatchLimits {
+        BatchLimits(cap: clamped(cap), flushAt: clamped(flushAt))
     }
 
     /// Halves both `cap` and `flushAt`, returning the new cap. `flushAt` is
     /// clamped to the new `cap` so we never buffer more events than a single
-    /// batch can drain (e.g. cap=1 with flushAt=10 would otherwise pile 10
-    /// events to send 1 at a time).
+    /// batch can drain.
     @discardableResult
     mutating func halve(actualBatchSize: Int) -> Int {
         cap = halveBatchCap(cap, actualBatchSize: actualBatchSize)
@@ -70,16 +64,18 @@ private struct BatchLimits {
  2. Ensure that we can survive app closing or offline situations
  3. Not hold too much in memory
 
+ Generic over `Record` so the same infrastructure can ship analytics events,
+ replay snapshots, and OTLP log records — see `QueueEndpoint<Record>` for the
+ per-wire codec, send, and retry/cap policy that varies between them.
  */
 
-class PostHogQueue {
-    enum PostHogApiEndpoint: Int {
-        case batch
-        case snapshot
-    }
-
+class PostHogQueue<Record> {
     private let config: PostHogConfig
-    private let api: PostHogApi
+    private let endpoint: QueueEndpoint<Record>
+    private let configuredMaxCap: Int
+    private let configuredMaxQueueSize: Int
+    private let timerInterval: TimeInterval
+
     private var paused: Bool = false
     private let pausedLock = NSLock()
     private var pausedUntil: Date?
@@ -94,7 +90,6 @@ class PostHogQueue {
     private let isFlushingLock = NSLock()
     private var timer: Timer?
     private let timerLock = NSLock()
-    private let endpoint: PostHogApiEndpoint
     private let dispatchQueue: DispatchQueue
 
     private var batchLimits: BatchLimits
@@ -108,69 +103,57 @@ class PostHogQueue {
     let fileQueue: PostHogFileBackedQueue
 
     #if !os(watchOS)
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint, _ reachability: Reachability?) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>, _ reachability: Reachability?) {
             self.config = config
-            self.api = api
-            self.reachability = reachability
             self.endpoint = endpoint
-            batchLimits = .initial(from: config)
-
-            switch endpoint {
-            case .batch:
-                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueues: [storage.url(forKey: .oldQueueFolder), storage.url(forKey: .oldQueuePlist)])
-                dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
-            case .snapshot:
-                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .replayQeueue))
-                dispatchQueue = DispatchQueue(label: "com.posthog.ReplayQueue", target: .global(qos: .utility))
-            }
+            self.reachability = reachability
+            configuredMaxCap = clamped(endpoint.initialCap(config))
+            configuredMaxQueueSize = endpoint.maxQueueSize(config)
+            timerInterval = endpoint.flushIntervalSeconds(config)
+            batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
+            fileQueue = PostHogFileBackedQueue(
+                queue: storage.url(forKey: endpoint.storageKey),
+                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
+            )
+            dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
     #else
-        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ endpoint: PostHogApiEndpoint) {
+        init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>) {
             self.config = config
-            self.api = api
             self.endpoint = endpoint
-            batchLimits = .initial(from: config)
-
-            switch endpoint {
-            case .batch:
-                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue), oldQueues: [storage.url(forKey: .oldQueueFolder), storage.url(forKey: .oldQueuePlist)])
-                dispatchQueue = DispatchQueue(label: "com.posthog.Queue", target: .global(qos: .utility))
-            case .snapshot:
-                fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .replayQeueue))
-                dispatchQueue = DispatchQueue(label: "com.posthog.ReplayQueue", target: .global(qos: .utility))
-            }
+            configuredMaxCap = clamped(endpoint.initialCap(config))
+            configuredMaxQueueSize = endpoint.maxQueueSize(config)
+            timerInterval = endpoint.flushIntervalSeconds(config)
+            batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
+            fileQueue = PostHogFileBackedQueue(
+                queue: storage.url(forKey: endpoint.storageKey),
+                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
+            )
+            dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
     #endif
 
-    private func eventHandler(_ payload: PostHogConsumerPayload) {
-        hedgeLog("Sending batch of \(payload.events.count) events to PostHog")
-
-        switch endpoint {
-        case .batch:
-            api.batch(events: payload.events) { result in
-                self.handleResult(result, payload)
-            }
-        case .snapshot:
-            api.snapshot(events: payload.events) { result in
-                self.handleResult(result, payload)
-            }
+    private func sendBatch(_ payload: PostHogConsumerPayload<Record>) {
+        hedgeLog("Sending batch of \(payload.records.count) records to PostHog")
+        endpoint.send(payload.records) { [weak self] result in
+            self?.handleResult(result, payload)
         }
     }
 
-    private func handleResult(_ result: PostHogBatchUploadInfo, _ payload: PostHogConsumerPayload) {
+    private func handleResult(_ result: PostHogBatchUploadInfo, _ payload: PostHogConsumerPayload<Record>) {
         // -1 means its not anything related to the API but rather network or something else, so we try again
         let statusCode = result.statusCode ?? -1
 
-        // Network error (-1), 3xx redirect, or transient server error: pause
-        // and retry the same batch.
+        // Network error (-1), 3xx redirect (events only), or transient server
+        // error: pause and retry the same batch.
         let isRetriable = statusCode == -1
-            || (300 ... 399 ~= statusCode)
-            || retriableStatusCodes.contains(statusCode)
+            || (endpoint.redirectIsRetriable && (300 ... 399 ~= statusCode))
+            || endpoint.retriableStatusCodes.contains(statusCode)
 
         if isRetriable {
             retryCount += 1
             if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
-                dropAllQueuedEvents(reason: "max retries (\(config.maxRetries)) exceeded")
+                dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
                 payload.completion(true)
                 return
             }
@@ -181,49 +164,66 @@ class PostHogQueue {
             return
         }
 
-        // 413 Payload Too Large: halve both the batch cap and the flush
-        // threshold and retry without popping. Once the cap reaches 1, drop
-        // the batch — we can't shrink any further, so retrying is futile.
-        // Matches posthog-android's `deleteFilesIfAPIError`.
+        // 413 Payload Too Large. Two paths:
+        //  - cap > 1: this is a retry. Increment retryCount, drop all if
+        //    `maxRetries` exceeded, otherwise halve cap and retry the same
+        //    records.
+        //  - cap == 1: poison drop. The offending record can't shrink any
+        //    further, so we drop the batch and apply the endpoint's poison
+        //    cap policy. Don't count it as a retry — the drop *is* the
+        //    resolution, not another attempt.
         if statusCode == 413 {
-            retryCount += 1
-            if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
-                dropAllQueuedEvents(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
-                payload.completion(true)
-                return
-            }
-            let actualBatchSize = payload.events.count
-            let halvedCap: Int? = batchLimitsLock.withLock {
-                guard batchLimits.cap > 1 else { return nil }
-                return batchLimits.halve(actualBatchSize: actualBatchSize)
-            }
-            if let halvedCap {
+            let canHalve = batchLimitsLock.withLock { batchLimits.cap > 1 }
+
+            if canHalve {
+                retryCount += 1
+                if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+                    dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
+                    payload.completion(true)
+                    return
+                }
+                let actualBatchSize = payload.records.count
+                let halvedCap = batchLimitsLock.withLock {
+                    batchLimits.halve(actualBatchSize: actualBatchSize)
+                }
                 hedgeLog("Queue: HTTP 413, halved batch cap to \(halvedCap)")
                 payload.completion(false)
                 return
             }
+
             hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
+            batchLimitsLock.withLock {
+                batchLimits.cap = clamped(endpoint.capAfterPoisonDrop(batchLimits.cap, configuredMaxCap))
+            }
             retryCount = 0
             payload.completion(true)
             return
         }
 
         // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
-        // batch. The cap stays where it is — no ramp-up, matching
-        // posthog-android and posthog-js-lite.
+        // batch and apply the endpoint's success-cap policy (events: stay
+        // put; logs: ramp +1 toward configured max).
+        if 200 ... 299 ~= statusCode {
+            batchLimitsLock.withLock {
+                batchLimits.cap = clamped(endpoint.capAfterSuccess(batchLimits.cap, configuredMaxCap))
+            }
+        }
         retryCount = 0
         payload.completion(true)
     }
 
-    /// Drops every queued event from disk and resets the retry / pause state.
-    /// Called when `retryCount` exceeds `config.maxRetries` to avoid
-    /// retrying forever against a permanently-broken backend. Matches
+    /// Drops every queued record from disk and resets the retry / pause state.
+    /// Called when `retryCount` exceeds `config.maxRetries` to avoid retrying
+    /// forever against a permanently-broken backend. Matches
     /// posthog-android's `dropAllEvents`.
-    private func dropAllQueuedEvents(reason: String) {
-        hedgeLog("Queue: dropping all queued events — \(reason)")
+    private func dropAllQueuedRecords(reason: String) {
+        hedgeLog("Queue: dropping all queued records — \(reason)")
         fileQueue.clear()
         retryCount = 0
         pausedUntil = nil
+        batchLimitsLock.withLock {
+            batchLimits.cap = clamped(endpoint.capAfterDropAll(batchLimits.cap, configuredMaxCap))
+        }
     }
 
     func start(disableReachabilityForTesting: Bool,
@@ -271,7 +271,7 @@ class PostHogQueue {
         if !disableQueueTimerForTesting {
             timerLock.withLock {
                 DispatchQueue.main.async {
-                    self.timer = Timer.scheduledTimer(withTimeInterval: self.config.flushIntervalSeconds, repeats: true, block: { _ in
+                    self.timer = Timer.scheduledTimer(withTimeInterval: self.timerInterval, repeats: true, block: { _ in
                         if !self.isFlushing {
                             self.flush()
                         }
@@ -306,8 +306,8 @@ class PostHogQueue {
 
         let cap = batchLimitsLock.withLock { batchLimits.cap }
         take(cap) { payload in
-            if !payload.events.isEmpty {
-                self.eventHandler(payload)
+            if !payload.records.isEmpty {
+                self.sendBatch(payload)
             } else {
                 // there's nothing to be sent
                 payload.completion(true)
@@ -322,24 +322,24 @@ class PostHogQueue {
         }
     }
 
-    func add(_ event: PostHogEvent) {
-        if fileQueue.depth >= config.maxQueueSize {
-            hedgeLog("Queue is full, dropping oldest event")
+    func add(_ record: Record) {
+        if fileQueue.depth >= configuredMaxQueueSize {
+            hedgeLog("Queue is full, dropping oldest record")
             // first is always oldest
             fileQueue.delete(index: 0)
         }
 
-        guard let data = toJSONData(event.toJSON()) else {
-            hedgeLog("Tried to queue unserialisable PostHogEvent")
+        guard let data = endpoint.encode(record) else {
+            hedgeLog("Tried to queue unserialisable record")
             return
         }
 
         fileQueue.add(data)
-        hedgeLog("Queued event '\(event.event)'. Depth: \(fileQueue.depth)")
+        hedgeLog("Queued record. Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
     }
 
-    private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload) -> Void) {
+    private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload<Record>) -> Void) {
         dispatchQueue.async {
             self.isFlushingLock.withLock {
                 if self.isFlushing {
@@ -350,17 +350,16 @@ class PostHogQueue {
 
             let items = self.fileQueue.peek(count)
 
-            var processing = [PostHogEvent]()
+            var processing: [Record] = []
 
             for item in items {
-                // each element is a PostHogEvent if fromJSON succeeds
-                guard let event = PostHogEvent.fromJSON(item) else {
+                guard let record = self.endpoint.decode(item) else {
                     continue
                 }
-                processing.append(event)
+                processing.append(record)
             }
 
-            completion(PostHogConsumerPayload(events: processing) { success in
+            completion(PostHogConsumerPayload(records: processing) { success in
                 if success, items.count > 0 {
                     self.fileQueue.pop(items.count)
                     hedgeLog("Completed!")

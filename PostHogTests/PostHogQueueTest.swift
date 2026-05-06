@@ -14,7 +14,7 @@ import Quick
 import XCTest
 
 class PostHogQueueTest: QuickSpec {
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3) -> PostHogQueue {
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3) -> PostHogQueue<PostHogEvent> {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
@@ -23,7 +23,7 @@ class PostHogQueueTest: QuickSpec {
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        return PostHogQueue(config, storage, api, .batch, nil)
+        return PostHogQueue(config, storage, .batch(api: api), nil)
     }
 
     override func spec() {

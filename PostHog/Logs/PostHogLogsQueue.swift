@@ -5,171 +5,92 @@
 
 import Foundation
 
-/// Persists log records to disk and flushes them to `/i/v1/logs` in OTLP/JSON
-/// batches. Owns its own folder, flush timer, and retry state.
-///
-/// **Reachability**: subscribes to `Reachability.onReachable` / `onUnreachable`
-/// (the multicast hooks). Pauses on no network and on cellular when
-/// `dataMode == .wifi`; auto-flushes on WiFi reconnect.
+/// Wraps a `PostHogQueue<PostHogLogRecord>` to add the two log-specific
+/// behaviours that don't fit on the generic queue: a `beforeSend` hook and a
+/// tumbling-window rate cap. Everything else (disk persistence, reachability,
+/// flush timer, retry/backoff, HTTP 413 adaptive batching, `maxRetries`
+/// queue-wide drop) is owned by the inner generic queue, which uses the
+/// `QueueEndpoint<PostHogLogRecord>.logs(...)` spec for OTLP encoding and
+/// post-flush cap policy.
 ///
 /// **Thread safety**: `add(_:)` and `flush()` are callable from any thread and
-/// return immediately. In-memory state is guarded by `stateLock`; on-disk state
-/// is owned by `PostHogFileBackedQueue` whose own internal lock makes its
-/// operations safe to call from `dispatchQueue` (write path) and the URLSession
-/// completion queue (`pop` path) concurrently. `stateLock` and `timerLock` are
-/// never held simultaneously.
+/// return immediately. `stateLock` guards the rate-cap window state; the inner
+/// queue owns its own locks for retry / cap state.
 class PostHogLogsQueue {
     private let config: PostHogConfig
     private let logsConfig: PostHogLogsConfig
-    private let api: PostHogApi
+    private let inner: PostHogQueue<PostHogLogRecord>
 
-    let fileQueue: PostHogFileBackedQueue
-    private let dispatchQueue: DispatchQueue
-
-    #if !os(watchOS)
-        private weak var reachability: Reachability?
-        private var reachableToken: RegistrationToken?
-        private var unreachableToken: RegistrationToken?
-    #endif
-
-    // MARK: State (guarded by stateLock unless noted)
+    // MARK: Rate-cap state (guarded by stateLock)
 
     private let stateLock = NSLock()
-    /// Set by reachability callbacks: `true` while the network is unreachable
-    /// or while we're in WiFi-only mode on a non-WiFi connection. Distinct
-    /// from `pausedUntil`, which is the post-failure backoff window.
-    private var paused = false
-    private var pausedUntil: Date?
-    private var retryCount: TimeInterval = 0
-    private var isFlushing = false
-    /// Initial value matches `logsConfig.maxBatchSize`; halved on HTTP 413,
-    /// ramped back up by 1 on healthy sends. Bounded by [1, maxBatchSize].
-    private var currentBatchCap: Int
     private var rateCapWindowStart: Date?
     private var rateCapCount: Int = 0
     /// Flips to `true` the first time we drop a record in the current window;
-    /// reset when the window rolls. Used to emit one warning per window instead
-    /// of one per dropped record.
+    /// reset when the window rolls. Used to emit one warning per window
+    /// instead of one per dropped record.
     private var rateCapDropWarned = false
 
-    // MARK: Timer (guarded by timerLock — never held with stateLock)
-
-    private let timerLock = NSLock()
-    private var timer: Timer?
-    /// Set by `stop()`. Prevents the deferred `DispatchQueue.main.async` block
-    /// inside `start()` from racing in and creating a timer after teardown.
-    private var stopped = false
-
     /// Internal, used for testing
-    var depth: Int {
-        fileQueue.depth
-    }
+    var depth: Int { inner.depth }
 
-    /// Internal, used for testing — exposes the adaptive batch cap so 413
-    /// poison-drop tests can assert the cap was reset to `maxBatchSize`.
+    /// Internal, used for testing — exposes the underlying file-backed queue
+    /// so tests can peek at on-disk records directly.
+    var fileQueue: PostHogFileBackedQueue { inner.fileQueue }
+
+    /// Internal, used for testing — exposes the adaptive batch cap.
     var currentBatchCapForTesting: Int {
-        stateLock.withLock { currentBatchCap }
+        #if TESTING
+            return inner.currentBatchCapForTesting
+        #else
+            return 0
+        #endif
     }
 
     #if !os(watchOS)
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
             self.config = config
             logsConfig = config.logs
-            self.api = api
-            self.reachability = reachability
-            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .logsQueue))
-            dispatchQueue = DispatchQueue(label: "com.posthog.LogsQueue", target: .global(qos: .utility))
-            currentBatchCap = max(1, config.logs.maxBatchSize)
+            let logsConfigSnapshot = config.logs
+            // Resource attributes are evaluated lazily at flush time so any
+            // user mutations of `config.logs.serviceName` between SDK setup
+            // and the first flush are picked up. They don't change after init
+            // in practice, but the closure shape keeps the option open
+            // without re-init.
+            let endpoint = QueueEndpoint<PostHogLogRecord>.logs(
+                api: api,
+                resourceAttributes: { Self.buildResourceAttributes(logsConfigSnapshot) }
+            )
+            inner = PostHogQueue(config, storage, endpoint, reachability)
         }
     #else
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
             self.config = config
             logsConfig = config.logs
-            self.api = api
-            fileQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .logsQueue))
-            dispatchQueue = DispatchQueue(label: "com.posthog.LogsQueue", target: .global(qos: .utility))
-            currentBatchCap = max(1, config.logs.maxBatchSize)
+            let logsConfigSnapshot = config.logs
+            let endpoint = QueueEndpoint<PostHogLogRecord>.logs(
+                api: api,
+                resourceAttributes: { Self.buildResourceAttributes(logsConfigSnapshot) }
+            )
+            inner = PostHogQueue(config, storage, endpoint)
         }
     #endif
 
     // MARK: - Lifecycle
 
     func start(disableReachabilityForTesting: Bool, disableQueueTimerForTesting: Bool) {
-        if !disableReachabilityForTesting {
-            #if !os(watchOS)
-                // The events queue owns startNotifier(); we only subscribe to
-                // the broadcast. Multicast → events, replay, and logs each
-                // get their own callback without stomping each other.
-                reachableToken = reachability?.onReachable.subscribe { [weak self] reachability in
-                    guard let self else { return }
-                    self.stateLock.withLock {
-                        if self.config.dataMode == .wifi, reachability.connection != .wifi {
-                            hedgeLog("Logs queue is paused because it is not in WiFi mode")
-                            self.paused = true
-                        } else {
-                            self.paused = false
-                        }
-                    }
-                    if reachability.connection == .wifi {
-                        let flushing = self.stateLock.withLock { self.isFlushing }
-                        if !flushing {
-                            self.flush()
-                        }
-                    }
-                }
-                unreachableToken = reachability?.onUnreachable.subscribe { [weak self] _ in
-                    guard let self else { return }
-                    self.stateLock.withLock {
-                        hedgeLog("Logs queue is paused because network is unreachable")
-                        self.paused = true
-                    }
-                }
-            #endif
-        }
-
-        if disableQueueTimerForTesting { return }
-
-        let interval = logsConfig.flushIntervalSeconds
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.timerLock.withLock {
-                // If stop() ran before this main-async block fires, do not
-                // create a timer that would outlive teardown.
-                guard !self.stopped, self.timer == nil else { return }
-                self.timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true, block: { [weak self] _ in
-                    guard let self else { return }
-                    let flushing = self.stateLock.withLock { self.isFlushing }
-                    if !flushing {
-                        self.flush()
-                    }
-                })
-            }
-        }
+        inner.start(disableReachabilityForTesting: disableReachabilityForTesting,
+                    disableQueueTimerForTesting: disableQueueTimerForTesting)
     }
 
     func stop() {
-        timerLock.withLock {
-            stopped = true
-            timer?.invalidate()
-            timer = nil
-        }
-        #if !os(watchOS)
-            // Tokens auto-unsubscribe on deinit; nilling here detaches earlier
-            // so we do not receive callbacks after stop().
-            reachableToken = nil
-            unreachableToken = nil
-        #endif
+        inner.stop()
     }
 
     /// Internal, used for testing.
     func clear() {
-        fileQueue.clear()
+        inner.clear()
         stateLock.withLock {
-            paused = false
-            pausedUntil = nil
-            retryCount = 0
-            isFlushing = false
-            currentBatchCap = max(1, logsConfig.maxBatchSize)
             rateCapWindowStart = nil
             rateCapCount = 0
             rateCapDropWarned = false
@@ -178,12 +99,12 @@ class PostHogLogsQueue {
 
     // MARK: - Add
 
-    /// Enqueue a log record. The disk write runs synchronously on the calling
-    /// thread so the record is durably persisted by the time this returns —
-    /// matching `PostHogQueue.add(_:)`'s contract for events.
+    /// Enqueue a log record. Runs `beforeSend` and the rate cap on the
+    /// calling thread, then delegates to the inner generic queue (which
+    /// performs the synchronous disk write per its `add()` contract).
     func add(_ record: PostHogLogRecord) {
-        // beforeSend runs before the rate cap so dropped records do not consume
-        // budget.
+        // beforeSend runs before the rate cap so dropped records do not
+        // consume budget.
         var processed = record
         if let beforeSend = logsConfig.beforeSend {
             guard let result = beforeSend(record) else {
@@ -192,8 +113,8 @@ class PostHogLogsQueue {
             processed = result
         }
 
-        // A user filter may have emptied the body — re-check so we never put an
-        // empty record on the wire.
+        // A user filter may have emptied the body — re-check so we never put
+        // an empty record on the wire.
         if processed.body.isEmpty {
             hedgeLog("Logs queue: empty body after beforeSend, dropping record")
             return
@@ -204,23 +125,19 @@ class PostHogLogsQueue {
             return
         }
 
-        let storageJSON = processed.toStorageJSON()
-        guard let data = toJSONData(storageJSON) else {
-            hedgeLog("Could not serialize log record, dropping")
-            return
-        }
-
-        if fileQueue.depth >= logsConfig.maxBufferSize {
-            hedgeLog("Logs buffer is full (\(logsConfig.maxBufferSize)), dropping oldest record")
-            fileQueue.delete(index: 0)
-        }
-        fileQueue.add(data)
-        flushIfOverThreshold()
+        inner.add(processed)
     }
 
-    /// Tumbling-window rate cap. Returns `true` if the record should be admitted,
-    /// `false` if the per-window limit has been reached. We re-anchor the window
-    /// on any negative elapsed so wall-clock jumps don't strand the counter.
+    func flush() {
+        inner.flush()
+    }
+
+    // MARK: - Rate cap
+
+    /// Tumbling-window rate cap. Returns `true` if the record should be
+    /// admitted, `false` if the per-window limit has been reached. Re-anchors
+    /// the window on any negative elapsed so wall-clock jumps don't strand
+    /// the counter.
     private func consumeRateCap() -> Bool {
         if logsConfig.rateCapMaxLogs <= 0 {
             return true
@@ -252,10 +169,8 @@ class PostHogLogsQueue {
         }
     }
 
-    /// Logs the first rate-cap drop in each window and silences subsequent ones,
-    /// to avoid spamming console at high record rates. The `hedgeLog` call runs
-    /// inside the lock so any future swap to a non-thread-safe sink can rely on
-    /// the warning being emitted under serialized state.
+    /// Logs the first rate-cap drop in each window and silences subsequent
+    /// ones, to avoid spamming console at high record rates.
     private func noteRateCapDropped() {
         stateLock.withLock {
             guard !rateCapDropWarned else { return }
@@ -264,95 +179,14 @@ class PostHogLogsQueue {
         }
     }
 
-    // MARK: - Flush
+    // MARK: - Resource attributes
 
-    /// Called from `add()` after a write. Same dispatch shape as `flush()` —
-    /// `add()` runs on the caller's thread (any thread), so the file peek + JSON
-    /// decode + OTLP build that `executeFlushOnDispatchQueue` does must hop to
-    /// `dispatchQueue` rather than block the caller.
-    private func flushIfOverThreshold() {
-        guard fileQueue.depth >= (stateLock.withLock { currentBatchCap }) else { return }
-        guard let cap = acquireFlushSlot() else { return }
-        dispatchQueue.async { [weak self] in
-            self?.executeFlushOnDispatchQueue(cap: cap)
-        }
-    }
-
-    func flush() {
-        guard let cap = acquireFlushSlot() else { return }
-        dispatchQueue.async { [weak self] in
-            self?.executeFlushOnDispatchQueue(cap: cap)
-        }
-    }
-
-    /// Atomically reserves the flush slot and reads `currentBatchCap` in the
-    /// same critical section, so a concurrent 413 cannot halve the cap between
-    /// this decision and the peek below. Returns nil if a flush is already in
-    /// flight or the queue is in a backoff window.
-    private func acquireFlushSlot() -> Int? {
-        stateLock.withLock {
-            if isFlushing {
-                hedgeLog("Logs queue: already flushing")
-                return nil
-            }
-            if paused {
-                hedgeLog("Logs queue: paused (network unreachable or non-WiFi in WiFi-only mode)")
-                return nil
-            }
-            if let pausedUntil, pausedUntil > Date() {
-                hedgeLog("Logs queue: paused until \(pausedUntil)")
-                return nil
-            }
-            isFlushing = true
-            return currentBatchCap
-        }
-    }
-
-    /// Caller must be on `dispatchQueue` and must have already set `isFlushing`.
-    private func executeFlushOnDispatchQueue(cap: Int) {
-        let items = fileQueue.peek(cap)
-        if items.isEmpty {
-            stateLock.withLock { isFlushing = false }
-            return
-        }
-
-        var records: [PostHogLogRecord] = []
-        records.reserveCapacity(items.count)
-        for item in items {
-            if let record = PostHogLogRecord.fromStorageJSON(item) {
-                records.append(record)
-            }
-        }
-
-        // If every record on disk is corrupt we still need to pop them so we
-        // do not loop forever on the same bad files.
-        if records.isEmpty {
-            hedgeLog("Logs queue: dropping \(items.count) unreadable record(s)")
-            fileQueue.pop(items.count)
-            stateLock.withLock { isFlushing = false }
-            return
-        }
-
-        let payload = PostHogLogsOTLP.buildPayload(
-            records: records,
-            resourceAttributes: buildResourceAttributes(),
-            scopeVersion: postHogVersion
-        )
-
-        let batchSize = items.count
-        hedgeLog("Sending batch of \(batchSize) log records to PostHog")
-
-        api.logs(payload: payload) { [weak self] result in
-            self?.handleResult(result, batchSize: batchSize)
-        }
-    }
-
-    /// Resource attributes attached to every batch. SDK-managed keys are layered
-    /// on top of the user-supplied `resourceAttributes` so SDK keys win on key
-    /// collision and users can't shadow `service.name`, `os.*`, etc.
-    private func buildResourceAttributes() -> [String: Any] {
+    /// Resource attributes attached to every batch. SDK-managed keys are
+    /// layered on top of the user-supplied `resourceAttributes` so SDK keys
+    /// win on key collision and users can't shadow `service.name`, `os.*`,
+    /// etc.
+    private static func buildResourceAttributes(_ logsConfig: PostHogLogsConfig) -> [String: Any] {
         var attrs: [String: Any] = [:]
-        // User-supplied first so SDK keys can overwrite.
         for (key, value) in logsConfig.resourceAttributes {
             attrs[key] = value
         }
@@ -370,111 +204,15 @@ class PostHogLogsQueue {
         return attrs
     }
 
-    private func handleResult(_ result: PostHogBatchUploadInfo, batchSize: Int) {
-        let statusCode = result.statusCode ?? -1
-
-        // Network error (-1) or transient server error (5xx, 408, 429): retry the
-        // same records after exponential backoff.
-        let retriable = statusCode == -1 || statusCode == 408 || statusCode == 429 || (500 ... 599 ~= statusCode)
-
-        if retriable {
-            let droppedAll: Bool = stateLock.withLock {
-                retryCount += 1
-                if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
-                    return true
-                }
-                let delay = min(retryCount * retryDelay, maxRetryDelay)
-                pausedUntil = Date().addingTimeInterval(delay)
-                hedgeLog("Logs queue: pausing \(delay)s after retry #\(Int(retryCount))")
-                isFlushing = false
-                return false
-            }
-            if droppedAll {
-                dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
-            }
-            return
-        }
-
-        // 413 Payload Too Large: halve the cap and retry without popping. If the
-        // batch is already a single record there is nothing to halve — drop it
-        // so we don't loop forever on a poison record.
-        if statusCode == 413 {
-            if batchSize <= 1 {
-                hedgeLog("Logs queue: dropping single oversized record (HTTP 413)")
-                fileQueue.pop(1)
-                stateLock.withLock {
-                    // Reset cap since the offender is now gone.
-                    currentBatchCap = max(1, logsConfig.maxBatchSize)
-                    retryCount = 0
-                    isFlushing = false
-                }
-                return
-            }
-            let droppedAll: Bool = stateLock.withLock {
-                retryCount += 1
-                if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
-                    return true
-                }
-                currentBatchCap = halveBatchCap(currentBatchCap, actualBatchSize: batchSize)
-                hedgeLog("Logs queue: HTTP 413, halved batch cap to \(currentBatchCap)")
-                isFlushing = false
-                return false
-            }
-            if droppedAll {
-                dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
-            }
-            return
-        }
-
-        // 2xx: pop the records and slowly ramp the cap back up toward configured max.
-        if 200 ... 299 ~= statusCode {
-            fileQueue.pop(batchSize)
-            stateLock.withLock {
-                if currentBatchCap < logsConfig.maxBatchSize {
-                    currentBatchCap = min(logsConfig.maxBatchSize, currentBatchCap + 1)
-                }
-                retryCount = 0
-                isFlushing = false
-            }
-            return
-        }
-
-        // Any other 4xx (auth, malformed, etc.) — pop the batch so a single bad
-        // record can't poison the queue indefinitely.
-        hedgeLog("Logs queue: dropping \(batchSize) record(s) after non-retriable HTTP \(statusCode)")
-        fileQueue.pop(batchSize)
-        stateLock.withLock {
-            retryCount = 0
-            isFlushing = false
-        }
-    }
-
-    /// Drops every queued record from disk and resets the retry / pause /
-    /// cap state. Called when `retryCount` exceeds `config.maxRetries` to
-    /// avoid retrying forever against a permanently-broken backend. Mirrors
-    /// `PostHogQueue.dropAllQueuedEvents`.
-    private func dropAllQueuedRecords(reason: String) {
-        hedgeLog("Logs queue: dropping all queued records — \(reason)")
-        fileQueue.clear()
-        stateLock.withLock {
-            retryCount = 0
-            pausedUntil = nil
-            currentBatchCap = max(1, logsConfig.maxBatchSize)
-            isFlushing = false
-        }
-    }
-
-    // MARK: - Resource attribute helpers
-
-    private func bundleIdentifierFallback() -> String {
+    private static func bundleIdentifierFallback() -> String {
         Bundle.main.bundleIdentifier ?? "unknown_service"
     }
 
-    private func bundleShortVersion() -> String? {
+    private static func bundleShortVersion() -> String? {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
     }
 
-    private func osName() -> String {
+    private static func osName() -> String {
         #if os(visionOS)
             return "visionOS"
         #elseif os(watchOS)
@@ -490,7 +228,7 @@ class PostHogLogsQueue {
         #endif
     }
 
-    private func osVersion() -> String {
+    private static func osVersion() -> String {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }

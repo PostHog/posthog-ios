@@ -34,6 +34,17 @@ class PostHogApi {
         return config
     }
 
+    /// `sessionConfig()` plus gzip request/response encoding. Used by the upload
+    /// endpoints (/batch, /s/, /i/v1/logs) which always send gzipped bodies.
+    private func gzippedSessionConfig() -> URLSessionConfiguration {
+        let config = sessionConfig()
+        var headers = config.httpAdditionalHeaders ?? [:]
+        headers["Accept-Encoding"] = "gzip"
+        headers["Content-Encoding"] = "gzip"
+        config.httpAdditionalHeaders = headers
+        return config
+    }
+
     private func getURLRequest(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -85,11 +96,7 @@ class PostHogApi {
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
 
-        let config = sessionConfig()
-        var headers = config.httpAdditionalHeaders ?? [:]
-        headers["Accept-Encoding"] = "gzip"
-        headers["Content-Encoding"] = "gzip"
-        config.httpAdditionalHeaders = headers
+        let config = gzippedSessionConfig()
 
         let request = getURLRequest(url)
 
@@ -143,11 +150,7 @@ class PostHogApi {
             event.apiKey = self.config.projectToken
         }
 
-        let config = sessionConfig()
-        var headers = config.httpAdditionalHeaders ?? [:]
-        headers["Accept-Encoding"] = "gzip"
-        headers["Content-Encoding"] = "gzip"
-        config.httpAdditionalHeaders = headers
+        let config = gzippedSessionConfig()
 
         let request = getURLRequest(url)
 
@@ -203,11 +206,7 @@ class PostHogApi {
             return completion(PostHogBatchUploadInfo(statusCode: nil, error: nil))
         }
 
-        let sessionConfig = sessionConfig()
-        var headers = sessionConfig.httpAdditionalHeaders ?? [:]
-        headers["Accept-Encoding"] = "gzip"
-        headers["Content-Encoding"] = "gzip"
-        sessionConfig.httpAdditionalHeaders = headers
+        let sessionConfig = gzippedSessionConfig()
 
         let request = getURLRequest(url)
 

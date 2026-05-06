@@ -9,10 +9,14 @@ import Foundation
 ///
 /// Encapsulates everything that differs between the events `/batch`, replay
 /// `/snapshot`, and logs `/i/v1/logs` endpoints — disk codec, payload assembly,
-/// retry policy, and adaptive-cap policy — so the queue itself stays
-/// record-type-agnostic. Implemented as a struct of closures rather than a
-/// protocol with `associatedtype` to avoid existential / `Self`-requirement
-/// friction at SDK construction sites and to keep factory methods composable.
+/// retriable status set — so the queue itself stays record-type-agnostic.
+/// Implemented as a struct of closures rather than a protocol with
+/// `associatedtype` to avoid existential / `Self`-requirement friction at SDK
+/// construction sites and to keep factory methods composable.
+///
+/// Adaptive batch-cap policy is uniform across all three endpoints (halve on
+/// 413, stay put otherwise — matches posthog-android and posthog-js-lite), so
+/// `PostHogQueue.handleResult` hardcodes it rather than parameterising.
 struct QueueEndpoint<Record> {
     // MARK: Storage / threading
 
@@ -56,16 +60,4 @@ struct QueueEndpoint<Record> {
     let retriableStatusCodes: Set<Int>
     /// Whether 3xx redirects are retriable. Events: yes. Logs: no.
     let redirectIsRetriable: Bool
-
-    // MARK: Cap policy (post-flush)
-
-    /// New cap after a successful flush. Events: stays put. Logs: `min(cap+1, max)`.
-    let capAfterSuccess: (_ currentCap: Int, _ maxCap: Int) -> Int
-    /// New cap after a poison-drop (size-1 batch + 413). Events: stays at 1.
-    /// Logs: resets to `max` since the offending record is gone.
-    let capAfterPoisonDrop: (_ currentCap: Int, _ maxCap: Int) -> Int
-    /// New cap after a queue-wide drop triggered by `maxRetries` being
-    /// exceeded. Events: stays where it is. Logs: resets to `max` because the
-    /// queue is now empty and the next batch should start fresh.
-    let capAfterDropAll: (_ currentCap: Int, _ maxCap: Int) -> Int
 }

@@ -23,15 +23,12 @@ extension QueueEndpoint where Record == PostHogEvent {
                 api.batch(events: events, completion: completion)
             },
             retriableStatusCodes: [429, 500, 502, 503, 504],
-            redirectIsRetriable: true,
-            capAfterSuccess: { cap, _ in cap },
-            capAfterPoisonDrop: { _, _ in 1 },
-            capAfterDropAll: { cap, _ in cap }
+            redirectIsRetriable: true
         )
     }
 
-    /// `/snapshot` endpoint for session-replay snapshots. Same retry / cap
-    /// shape as `/batch` — they share `PostHogQueue.handleResult` exactly.
+    /// `/snapshot` endpoint for session-replay snapshots. Same retry shape
+    /// as `/batch` — they share `PostHogQueue.handleResult` exactly.
     static func snapshot(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .replayQeueue,
@@ -47,19 +44,16 @@ extension QueueEndpoint where Record == PostHogEvent {
                 api.snapshot(events: events, completion: completion)
             },
             retriableStatusCodes: [429, 500, 502, 503, 504],
-            redirectIsRetriable: true,
-            capAfterSuccess: { cap, _ in cap },
-            capAfterPoisonDrop: { _, _ in 1 },
-            capAfterDropAll: { cap, _ in cap }
+            redirectIsRetriable: true
         )
     }
 }
 
 extension QueueEndpoint where Record == PostHogLogRecord {
     /// `/i/v1/logs` OTLP/JSON endpoint. Wider retriable set than events
-    /// (includes `408` and all 5xx). Cap ramps `+1` on each healthy send and
-    /// resets to `max` after a poison-drop, since the oversized record is gone
-    /// and remaining records fit normally.
+    /// (includes `408` and all 5xx) and `redirectIsRetriable: false`. Cap
+    /// behaviour is otherwise identical to the events / replay endpoints —
+    /// halve on 413, stay otherwise — owned by `PostHogQueue.handleResult`.
     static func logs(
         api: PostHogApi,
         resourceAttributes: @escaping () -> [String: Any]
@@ -95,10 +89,7 @@ extension QueueEndpoint where Record == PostHogLogRecord {
                 api.logs(payload: payload, completion: completion)
             },
             retriableStatusCodes: retriable,
-            redirectIsRetriable: false,
-            capAfterSuccess: { cap, max in min(cap + 1, max) },
-            capAfterPoisonDrop: { _, max in max },
-            capAfterDropAll: { _, max in max }
+            redirectIsRetriable: false
         )
     }
 }

@@ -64,7 +64,6 @@ class PostHogQueue<Record> {
 
     private let config: PostHogConfig
     private let endpoint: QueueEndpoint<Record>
-    private let configuredMaxCap: Int
     private let configuredMaxQueueSize: Int
     private let timerInterval: TimeInterval
 
@@ -99,7 +98,6 @@ class PostHogQueue<Record> {
             self.config = config
             self.endpoint = endpoint
             self.reachability = reachability
-            configuredMaxCap = clamped(endpoint.initialCap(config))
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
@@ -113,7 +111,6 @@ class PostHogQueue<Record> {
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ endpoint: QueueEndpoint<Record>) {
             self.config = config
             self.endpoint = endpoint
-            configuredMaxCap = clamped(endpoint.initialCap(config))
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
@@ -183,39 +180,33 @@ class PostHogQueue<Record> {
                 return
             }
 
+            // Cap stays at 1 — the offender is gone but we keep being
+            // cautious until a successful send. Matches posthog-android and
+            // posthog-js-lite.
             hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
-            batchLimitsLock.withLock {
-                batchLimits.cap = clamped(endpoint.capAfterPoisonDrop(batchLimits.cap, configuredMaxCap))
-            }
             retryCount = 0
             payload.completion(true)
             return
         }
 
         // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
-        // batch and apply the endpoint's success-cap policy (events: stay
-        // put; logs: ramp +1 toward configured max).
-        if 200 ... 299 ~= statusCode {
-            batchLimitsLock.withLock {
-                batchLimits.cap = clamped(endpoint.capAfterSuccess(batchLimits.cap, configuredMaxCap))
-            }
-        }
+        // batch. Cap stays where it is — no ramp on success, matching
+        // posthog-android and posthog-js-lite.
         retryCount = 0
         payload.completion(true)
     }
 
     /// Drops every queued record from disk and resets the retry / pause state.
     /// Called when `retryCount` exceeds `config.maxRetries` to avoid retrying
-    /// forever against a permanently-broken backend. Matches
-    /// posthog-android's `dropAllEvents`.
+    /// forever against a permanently-broken backend. Cap is left where it is
+    /// — new records starting against a known-bad backend benefit from the
+    /// conservative cap until proven otherwise. Matches posthog-android's
+    /// `dropAllEvents`.
     private func dropAllQueuedRecords(reason: String) {
         hedgeLog("Queue: dropping all queued records — \(reason)")
         fileQueue.clear()
         retryCount = 0
         pausedUntil = nil
-        batchLimitsLock.withLock {
-            batchLimits.cap = clamped(endpoint.capAfterDropAll(batchLimits.cap, configuredMaxCap))
-        }
     }
 
     func start(disableReachabilityForTesting: Bool,

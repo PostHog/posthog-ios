@@ -224,13 +224,13 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
-    @Test("cap ramps +1 toward maxBatchSize on healthy 2xx send")
-    func capRampsOnSuccess() async throws {
-        // Halve cap once via a 413, then send 200s and assert cap ramps back
-        // toward maxBatchSize at +1 per healthy send. Pins down the
-        // `capAfterSuccess: { cap, max in min(cap+1, max) }` policy for the
-        // logs endpoint — a regression that returned `cap` (events policy)
-        // instead would silently ship.
+    @Test("cap stays put on 2xx — no ramp, matches events / posthog-android")
+    func capStaysPutOnSuccess() async throws {
+        // After a 413 halves the cap, a healthy 200 must NOT ramp the cap
+        // back up. Logs / events / replay all share the conservative
+        // "halve and stay" cap behaviour from posthog-android and
+        // posthog-js-lite. A regression that ramped on success would
+        // silently ship.
         let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 10)
         defer { queue.clear()
             queue.stop()
@@ -246,25 +246,20 @@ final class PostHogLogsQueueTests {
         for i in 0 ..< 10 {
             queue.add(makeRecord(body: "log-\(i)"))
         }
-        // Threshold flush fires (depth == cap == 10). 413 → halves cap.
+        // Threshold flush fires (depth == cap == 10). 413 → halves cap to 5.
         waitForLogsRequests(count: 1)
         await waitUntil { queue.currentBatchCapForTesting == 5 }
         #expect(queue.currentBatchCapForTesting == 5)
 
-        // Next flush: 200 with batch=5 → cap should ramp 5 → 6.
+        // Next flush: 200 with batch=5 → cap should STAY at 5 (no ramp).
         queue.flush()
         waitForLogsRequests(count: 2)
-        await waitUntil { queue.currentBatchCapForTesting == 6 }
-        #expect(queue.currentBatchCapForTesting == 6)
-
-        // Another flush: 200 → ramp 6 → 7.
-        queue.flush()
-        waitForLogsRequests(count: 3)
-        await waitUntil { queue.currentBatchCapForTesting == 7 }
-        #expect(queue.currentBatchCapForTesting == 7)
+        // Wait for the response to be processed and assert cap unchanged.
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        #expect(queue.currentBatchCapForTesting == 5)
     }
 
-    @Test("413 on a single-record batch drops the poison record and resets the cap")
+    @Test("413 on a single-record batch drops the poison record and leaves the cap at 1")
     func handle413SingleRecordDrops() async throws {
         let configuredMax = 8
         let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: configuredMax)
@@ -272,9 +267,6 @@ final class PostHogLogsQueueTests {
             queue.stop()
         }
 
-        // Halve the cap once so we can verify the poison-drop path resets it.
-        // First request: 413 with batchSize > 1 → halve. Second request: 413 with
-        // batchSize == 1 → drop record + reset cap to configuredMax.
         server.logsResponseHandler = { _, _ in
             HTTPStubsResponse(jsonObject: ["error": "too large"], statusCode: 413, headers: nil)
         }
@@ -295,9 +287,10 @@ final class PostHogLogsQueueTests {
         }
 
         #expect(queue.depth == 0)
-        // After the poison-drop branch fires, the cap must be reset to the
-        // configured maximum so the next batch isn't unnecessarily small.
-        #expect(queue.currentBatchCapForTesting == configuredMax)
+        // After the poison-drop branch fires, the cap stays at 1 — same as
+        // events / posthog-android. New records starting will use the small
+        // cap until a successful send happens (no ramp).
+        #expect(queue.currentBatchCapForTesting == 1)
     }
 
     // MARK: - 5xx / network failures
@@ -397,8 +390,10 @@ final class PostHogLogsQueueTests {
         queue.flush()
         await waitUntil { queue.depth == 0 }
         #expect(queue.depth == 0)
-        // Cap was reset alongside the drop.
-        #expect(queue.currentBatchCapForTesting == 64)
+        // Cap stays where it was when dropAll fired — no reset. Matches
+        // events / posthog-android behaviour: new records start at the
+        // halved cap until a successful send proves the backend is healthy.
+        #expect(queue.currentBatchCapForTesting == 16)
     }
 
     @Test("halves cap from min(cap, actualBatchSize) when queue depth was below cap")

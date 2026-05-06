@@ -186,9 +186,9 @@ class PostHogLogsQueue {
         for (key, value) in logsConfig.resourceAttributes {
             attrs[key] = value
         }
-        attrs["service.name"] = logsConfig.serviceName ?? bundleIdentifier(fallback: "unknown_service")
-        if let version = logsConfig.serviceVersion ?? appVersionString() {
-            attrs["service.version"] = version
+        attrs["service.name"] = logsConfig.serviceName
+        if !logsConfig.serviceVersion.isEmpty {
+            attrs["service.version"] = logsConfig.serviceVersion
         }
         if let env = logsConfig.environment {
             attrs["deployment.environment"] = env

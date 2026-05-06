@@ -44,13 +44,14 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     /// back up by 1 on each healthy send.
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
 
-    /// OpenTelemetry `service.name` resource attribute. When nil, the bundle
-    /// identifier is used (or `"unknown_service"` if missing).
-    @objc public var serviceName: String?
+    /// OpenTelemetry `service.name` resource attribute. Defaults to the host
+    /// app's bundle identifier (or `"unknown_service"` if unavailable).
+    @objc public var serviceName: String = bundleIdentifier(fallback: "unknown_service")
 
-    /// OpenTelemetry `service.version` resource attribute. When nil, the host
-    /// app's `CFBundleShortVersionString` is used if available.
-    @objc public var serviceVersion: String?
+    /// OpenTelemetry `service.version` resource attribute. Defaults to the
+    /// host app's `CFBundleShortVersionString`, or empty if unavailable.
+    /// Empty values are omitted from the wire payload.
+    @objc public var serviceVersion: String = appVersionString() ?? ""
 
     /// OpenTelemetry `deployment.environment` resource attribute. Omitted from
     /// the payload when nil.

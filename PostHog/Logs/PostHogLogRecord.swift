@@ -9,9 +9,6 @@ import Foundation
 ///
 /// Records are produced by `captureLog` (or `logger.<level>`), persisted to disk
 /// via `PostHogLogsQueue`, and serialized as OpenTelemetry log records on the wire.
-///
-/// Reference type so user-supplied `beforeSend` callbacks can mutate the
-/// record in-place. Bridged to Objective-C as `PostHogLogRecord`.
 @objc(PostHogLogRecord) public final class PostHogLogRecord: NSObject {
     /// The log message body. Required; empty bodies are dropped at capture time.
     @objc public var body: String
@@ -31,10 +28,7 @@ import Foundation
 
     /// Optional W3C trace flags. The lower 8 bits are the W3C bitfield; bit 0
     /// is the `sampled` flag. `nil` means "field absent on the wire"; `0`
-    /// means "explicitly emit as 0" — matches the React Native / JS SDKs'
-    /// behaviour. Stored as `NSNumber?` so Objective-C consumers can read /
-    /// set it; Swift callers can use the `traceFlagsValue` sugar accessor for
-    /// an `Int?`.
+    /// means "explicitly emit as 0".
     @objc public var traceFlags: NSNumber?
 
     /// Swift-friendly accessor over `traceFlags`. Same storage; `Int?` shape

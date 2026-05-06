@@ -10,6 +10,15 @@ import Foundation
 /// on the thread that called `captureLog`.
 public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
 
+@objc public final class BoxedBeforeSendLogBlock: NSObject {
+    @objc public let block: PostHogBeforeSendLogBlock
+
+    @objc(block:)
+    public init(block: @escaping PostHogBeforeSendLogBlock) {
+        self.block = block
+    }
+}
+
 /// Configuration for the PostHog logs subsystem. Mutate fields on `config.logs`
 /// before calling `PostHogSDK.setup(_:)`.
 @objc(PostHogLogsConfig) public final class PostHogLogsConfig: NSObject {
@@ -59,9 +68,36 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     /// Tumbling window in seconds used by the rate cap.
     @objc public var rateCapWindowSeconds: TimeInterval = Defaults.rateCapWindowSeconds
 
-    /// Optional callback invoked before the record is enqueued. Returning `nil`
-    /// drops the record; returning a record with an empty `body` also drops it.
-    public var beforeSend: PostHogBeforeSendLogBlock?
+    /// Hook invoked before each record is enqueued. Returning `nil` drops the
+    /// record; returning a record with an empty `body` also drops it.
+    /// Multiple blocks compose left-to-right; if any returns `nil`, later
+    /// blocks are skipped.
+    private var beforeSend: PostHogBeforeSendLogBlock = { $0 }
+
+    private static func buildBeforeSendBlock(_ blocks: [PostHogBeforeSendLogBlock]) -> PostHogBeforeSendLogBlock {
+        { record in
+            blocks.reduce(record) { record, block in
+                record.flatMap(block)
+            }
+        }
+    }
+
+    public func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) {
+        beforeSend = Self.buildBeforeSendBlock(blocks)
+    }
+
+    public func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) {
+        setBeforeSend(blocks)
+    }
+
+    @available(*, unavailable, message: "Use setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) instead")
+    @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) {
+        setBeforeSend(blocks.map(\.block))
+    }
+
+    func runBeforeSend(_ record: PostHogLogRecord) -> PostHogLogRecord? {
+        beforeSend(record)
+    }
 
     @objc override public init() {
         super.init()

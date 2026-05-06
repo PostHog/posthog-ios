@@ -105,12 +105,8 @@ class PostHogLogsQueue {
     func add(_ record: PostHogLogRecord) {
         // beforeSend runs before the rate cap so dropped records do not
         // consume budget.
-        var processed = record
-        if let beforeSend = logsConfig.beforeSend {
-            guard let result = beforeSend(record) else {
-                return
-            }
-            processed = result
+        guard let processed = logsConfig.runBeforeSend(record) else {
+            return
         }
 
         // A user filter may have emptied the body — re-check so we never put

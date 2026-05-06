@@ -41,7 +41,9 @@ final class PostHogLogsQueueTests {
         config.logs.maxBatchSize = maxBatchSize
         config.logs.rateCapMaxLogs = rateCapMaxLogs
         config.logs.rateCapWindowSeconds = rateCapWindowSeconds
-        config.logs.beforeSend = beforeSend
+        if let beforeSend {
+            config.logs.setBeforeSend(beforeSend)
+        }
 
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)

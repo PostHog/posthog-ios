@@ -10,37 +10,38 @@ import Foundation
 /// Records are produced by `captureLog` (or `logger.<level>`), persisted to disk
 /// via `PostHogLogsQueue`, and serialized as OpenTelemetry log records on the wire.
 ///
-/// `PostHogLogRecord` is a value type so user-supplied `beforeSend` callbacks can
-/// mutate a local copy and return a transformed instance without affecting the
-/// queued record before it has been processed.
-public struct PostHogLogRecord {
+/// Reference type so user-supplied `beforeSend` callbacks can mutate the record
+/// in-place. Bridged to Objective-C as `PostHogLogRecord`. `traceFlags` is
+/// Swift-only because optional `Int` cannot be expressed in Objective-C.
+@objc(PostHogLogRecord) public final class PostHogLogRecord: NSObject {
     /// The log message body. Required; empty bodies are dropped at capture time.
-    public var body: String
+    @objc public var body: String
 
     /// Severity level. Defaults to `.info`.
-    public var level: PostHogLogSeverity
+    @objc public var level: PostHogLogSeverity
 
     /// Optional attributes attached to the record. Values must be JSON-serializable;
     /// `nil` values are filtered out before sending.
-    public var attributes: [String: Any]
+    @objc public var attributes: [String: Any]
 
     /// Optional W3C trace context — 32 hex characters.
-    public var traceId: String?
+    @objc public var traceId: String?
 
     /// Optional W3C trace context — 16 hex characters.
-    public var spanId: String?
+    @objc public var spanId: String?
 
-    /// Optional W3C trace flags.
+    /// Optional W3C trace flags. Swift-only — Objective-C consumers cannot read
+    /// or set this field because optional `Int` is not representable in ObjC.
     public var traceFlags: Int?
 
     /// Capture-time wall clock in nanoseconds since Unix epoch, encoded as a
     /// string per OTLP/JSON. Snapshotted at capture so identity / session
     /// changes between capture and flush cannot corrupt the record.
-    public var timeUnixNano: String
+    @objc public var timeUnixNano: String
 
     /// Equal to `timeUnixNano` for in-process synchronous capture; the OTLP
     /// shape carries both fields so we populate both.
-    public var observedTimeUnixNano: String
+    @objc public var observedTimeUnixNano: String
 
     // MARK: - Per-capture context snapshot
 
@@ -49,11 +50,11 @@ public struct PostHogLogRecord {
     // logs queue itself does not read SDK state, so a record carries everything
     // needed to be sent independently of when the flush actually happens.
 
-    public var distinctId: String?
-    public var sessionId: String?
-    public var screenName: String?
-    public var appState: String?
-    public var featureFlagKeys: [String]
+    @objc public var distinctId: String?
+    @objc public var sessionId: String?
+    @objc public var screenName: String?
+    @objc public var appState: String?
+    @objc public var featureFlagKeys: [String]
 
     public init(
         body: String,
@@ -84,6 +85,7 @@ public struct PostHogLogRecord {
         self.screenName = screenName
         self.appState = appState
         self.featureFlagKeys = featureFlagKeys
+        super.init()
     }
 
     // MARK: - Persistence

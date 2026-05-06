@@ -13,26 +13,6 @@ private func clamped(_ value: Int) -> Int {
     max(1, value)
 }
 
-// MARK: - Shared queue policy helpers (used across queues)
-
-/// Halves a batch cap, bounded by the actual batch size that triggered the
-/// halving. The `min(cap, actualBatchSize)` bound avoids wasting halvings on
-/// a partial batch — queue depth was below the cap — when the server only
-/// saw `actualBatchSize` records anyway. Result is clamped to `>= 1`.
-/// Mirrors posthog-android's `BatchLimits.halve` and posthog-js-lite.
-func halveBatchCap(_ cap: Int, actualBatchSize: Int) -> Int {
-    max(1, min(cap, actualBatchSize) / 2)
-}
-
-/// True when `retryCount` has exceeded `maxRetries` after just being
-/// incremented for the current attempt. Comparison is `>` (not `>=`) so the
-/// configured value is the count of *retries* allowed before the drop fires
-/// — with the default of 3 you get attempts 1–3 retried, attempt 4 drops.
-/// Matches posthog-android.
-func retryCountExceeded(_ retryCount: TimeInterval, maxRetries: Int) -> Bool {
-    Int(retryCount) > maxRetries
-}
-
 /// Adaptive limits stored privately on the queue rather than mutating
 /// `config.maxBatchSize` / `config.flushAt` so user-supplied config fields
 /// aren't silently changed. Both `cap` and `flushAt` are halved together on
@@ -45,12 +25,15 @@ private struct BatchLimits {
         BatchLimits(cap: clamped(cap), flushAt: clamped(flushAt))
     }
 
-    /// Halves both `cap` and `flushAt`, returning the new cap. `flushAt` is
+    /// Halves both `cap` and `flushAt`, returning the new cap. The cap is
+    /// bounded by the actual batch size that triggered the halving — partial
+    /// batches (queue depth below cap) shouldn't waste a halving step since
+    /// the server only saw `actualBatchSize` records anyway. `flushAt` is
     /// clamped to the new `cap` so we never buffer more events than a single
-    /// batch can drain.
+    /// batch can drain. Mirrors posthog-android's `BatchLimits.halve`.
     @discardableResult
     mutating func halve(actualBatchSize: Int) -> Int {
-        cap = halveBatchCap(cap, actualBatchSize: actualBatchSize)
+        cap = max(1, min(cap, actualBatchSize) / 2)
         flushAt = clamped(min(flushAt / 2, cap))
         return cap
     }
@@ -70,6 +53,15 @@ private struct BatchLimits {
  */
 
 class PostHogQueue<Record> {
+    /// True when `retryCount` has exceeded `maxRetries` after just being
+    /// incremented for the current attempt. Comparison is `>` (not `>=`) so the
+    /// configured value is the count of *retries* allowed before the drop fires
+    /// — with the default of 3 you get attempts 1–3 retried, attempt 4 drops.
+    /// Matches posthog-android.
+    private static func retryCountExceeded(_ retryCount: TimeInterval, maxRetries: Int) -> Bool {
+        Int(retryCount) > maxRetries
+    }
+
     private let config: PostHogConfig
     private let endpoint: QueueEndpoint<Record>
     private let configuredMaxCap: Int
@@ -152,7 +144,7 @@ class PostHogQueue<Record> {
 
         if isRetriable {
             retryCount += 1
-            if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+            if Self.retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
                 dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
                 payload.completion(true)
                 return
@@ -177,7 +169,7 @@ class PostHogQueue<Record> {
 
             if canHalve {
                 retryCount += 1
-                if retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
+                if Self.retryCountExceeded(retryCount, maxRetries: config.maxRetries) {
                     dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
                     payload.completion(true)
                     return

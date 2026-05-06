@@ -186,20 +186,4 @@ class PostHogLogsQueue {
         attrs["os.version"] = osVersionString()
         return attrs
     }
-
-    private static func osName() -> String {
-        #if os(visionOS)
-            return "visionOS"
-        #elseif os(watchOS)
-            return "watchOS"
-        #elseif os(tvOS)
-            return "tvOS"
-        #elseif os(macOS) || targetEnvironment(macCatalyst)
-            return "macOS"
-        #elseif os(iOS)
-            return "iOS"
-        #else
-            return "unknown"
-        #endif
-    }
 }

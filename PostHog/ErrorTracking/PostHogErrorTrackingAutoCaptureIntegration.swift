@@ -153,7 +153,7 @@ import Foundation
                 // Extract saved context from crash report's customData
                 var savedContext: [String: Any] = [:]
                 if let customData = crashReport.customData {
-                    savedContext = (try? JSONSerialization.jsonObject(with: customData, options: [])) as? [String: Any] ?? [:]
+                    savedContext = fromJSONData(customData) ?? [:]
                 }
 
                 // Extract identity and event properties from saved context

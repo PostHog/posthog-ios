@@ -122,7 +122,7 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: .allowFragments) as? [String: Any] }
+                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
                 let errorMessage = "Error sending events to batch API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
             } else {
@@ -175,7 +175,7 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: .allowFragments) as? [String: Any] }
+                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
                 let errorMessage = "Error sending events to snapshot API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
             } else {
@@ -238,7 +238,7 @@ class PostHogApi {
             }
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: .allowFragments) as? [String: Any] }
+                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
                 hedgeLog("Error sending logs to /i/v1/logs: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody)).")
             } else {
                 hedgeLog("Logs sent successfully.")
@@ -319,7 +319,7 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any]
+                let jsonBody = fromJSONData(data, options: .allowFragments)
                 let errorMessage = "Error calling flags API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
 
@@ -363,7 +363,7 @@ class PostHogApi {
             let httpResponse = response as! HTTPURLResponse
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any]
+                let jsonBody = fromJSONData(data, options: .allowFragments)
                 let errorMessage = "Error calling the remote config API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
                 hedgeLog(errorMessage)
 

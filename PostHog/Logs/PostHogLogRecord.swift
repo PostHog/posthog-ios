@@ -119,7 +119,7 @@ public struct PostHogLogRecord {
     }
 
     static func fromStorageJSON(_ data: Data) -> PostHogLogRecord? {
-        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+        guard let json = fromJSONData(data) else {
             return nil
         }
         return fromStorageJSON(json)

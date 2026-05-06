@@ -83,7 +83,7 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             flushIntervalSeconds: { $0.logs.flushIntervalSeconds },
             encode: { record in toJSONData(record.toStorageJSON()) },
             decode: { data in
-                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+                guard let json = fromJSONData(data) else { return nil }
                 return PostHogLogRecord.fromStorageJSON(json)
             },
             send: { records, completion in

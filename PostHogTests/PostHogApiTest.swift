@@ -146,6 +146,58 @@ enum PostHogApiTests {
         }
     }
 
+    /// Pins the Content-Encoding policy that the shared-URLSession refactor
+    /// depends on: gzip moved off the session's `httpAdditionalHeaders` and
+    /// onto each `URLRequest` instead. Upload endpoints (/batch, /s, /i/v1/logs)
+    /// must declare `Content-Encoding: gzip` because their bodies are gzipped;
+    /// /flags must NOT declare it because its body is plain JSON. Without this
+    /// guard, a regression that re-introduced session-level gzip would silently
+    /// mis-label /flags requests on the wire.
+    @Suite("Content-Encoding header per endpoint")
+    class TestContentEncodingHeader: BaseTestSuite {
+        @Test("/batch declares gzip Content-Encoding")
+        func batchDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/s declares gzip Content-Encoding")
+        func snapshotDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.snapshot(events: [], completion: completion)
+            }
+            let request = try #require(server.snapshotRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/i/v1/logs declares gzip Content-Encoding")
+        func logsDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { (completion: @escaping (PostHogUploadInfo) -> Void) in
+                sut.logs(payload: ["resourceLogs": []], completion: completion)
+            }
+            let request = try #require(server.logsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/flags does not declare Content-Encoding")
+        func flagsDoesNotDeclareGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { data, _ in
+                    completion(data)
+                }
+            }
+            let request = try #require(server.flagsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+        }
+    }
+
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
         @Test("with host containing no path")

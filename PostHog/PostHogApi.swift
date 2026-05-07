@@ -43,42 +43,40 @@ class PostHogApi {
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
 
+    /// One `URLSession` instance shared by every request the SDK makes.
+    /// Per-request `URLSession` is an anti-pattern — Apple's guidance (WWDC 2018
+    /// session 714) is to reuse a single session so the connection pool stays
+    /// warm, TLS handshakes amortise across requests, and HTTP/2 multiplexing
+    /// can carry concurrent flushes (events / replay / logs / flags) over one
+    /// TCP connection.
+    private let session: URLSession
+
     init(_ config: PostHogConfig) {
         self.config = config
-    }
 
-    func sessionConfig() -> URLSessionConfiguration {
-        // Use custom configuration if provided, otherwise use default
-        let config = self.config.urlSessionConfiguration ?? URLSessionConfiguration.default
-
-        // Sends a conditional request (If-Modified-Since/If-None-Match) to the server.
-        // If server returns 304 Not Modified, uses cache; otherwise downloads fresh data.
-        // This only affects static resources like /config and it ensures that we don't operate with stale config or flags.
-        config.requestCachePolicy = .reloadRevalidatingCacheData
-
-        config.httpAdditionalHeaders = [
+        let sessionConfig = config.urlSessionConfiguration ?? URLSessionConfiguration.default
+        // Sends a conditional request (If-Modified-Since/If-None-Match) to the
+        // server. Used by /array/<token>/config so we don't operate with stale
+        // config or flags.
+        sessionConfig.requestCachePolicy = .reloadRevalidatingCacheData
+        sessionConfig.httpAdditionalHeaders = [
             "Content-Type": "application/json; charset=utf-8",
             "User-Agent": "\(postHogSdkName)/\(postHogVersion)",
+            "Accept-Encoding": "gzip",
         ]
-
-        return config
+        session = URLSession(configuration: sessionConfig)
     }
 
-    /// `sessionConfig()` plus gzip request/response encoding. Used by the upload
-    /// endpoints (/batch, /s/, /i/v1/logs) which always send gzipped bodies.
-    private func gzippedSessionConfig() -> URLSessionConfiguration {
-        let config = sessionConfig()
-        var headers = config.httpAdditionalHeaders ?? [:]
-        headers["Accept-Encoding"] = "gzip"
-        headers["Content-Encoding"] = "gzip"
-        config.httpAdditionalHeaders = headers
-        return config
-    }
-
-    private func getURLRequest(_ url: URL) -> URLRequest {
+    /// Builds a POST `URLRequest`. Pass `gzipped: true` for upload endpoints
+    /// (/batch, /s/, /i/v1/logs) that send gzipped bodies — the
+    /// `Content-Encoding: gzip` header tells the server to decompress.
+    private func getURLRequest(_ url: URL, gzipped: Bool = false) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = defaultTimeout
+        if gzipped {
+            request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
+        }
         return request
     }
 
@@ -126,13 +124,11 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let config = gzippedSessionConfig()
-
-        let request = getURLRequest(url)
+        let request = getURLRequest(url, gzipped: true)
 
         let toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
-            "api_key": self.config.projectToken,
+            "api_key": config.projectToken,
             "batch": events.map { $0.toJSON() },
             "sent_at": toISO8601String(Date()),
         ]
@@ -142,7 +138,7 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        var gzippedPayload: Data?
+        let gzippedPayload: Data
         do {
             gzippedPayload = try data.gzipped()
         } catch {
@@ -150,7 +146,7 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: error))
         }
 
-        URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
+        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
             processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -162,12 +158,10 @@ class PostHogApi {
         }
 
         for event in events {
-            event.apiKey = self.config.projectToken
+            event.apiKey = config.projectToken
         }
 
-        let config = gzippedSessionConfig()
-
-        let request = getURLRequest(url)
+        let request = getURLRequest(url, gzipped: true)
 
         let toSend = events.map { $0.toJSON() }
 
@@ -176,7 +170,7 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        var gzippedPayload: Data?
+        let gzippedPayload: Data
         do {
             gzippedPayload = try data.gzipped()
         } catch {
@@ -184,7 +178,7 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: error))
         }
 
-        URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
+        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
             processUploadResponse(endpointName: "snapshot", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -206,9 +200,7 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let sessionConfig = gzippedSessionConfig()
-
-        let request = getURLRequest(url)
+        let request = getURLRequest(url, gzipped: true)
 
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
             hedgeLog("Error parsing the logs body")
@@ -223,7 +215,7 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: error))
         }
 
-        URLSession(configuration: sessionConfig).uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
             processUploadResponse(endpointName: "logs", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -248,13 +240,11 @@ class PostHogApi {
             return completion(nil, nil)
         }
 
-        let config = sessionConfig()
-
         let request = getURLRequest(url)
 
         var toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
-            "api_key": self.config.projectToken,
+            "api_key": config.projectToken,
             "distinct_id": distinctId,
             "groups": groups,
             "timezone": TimeZone.current.identifier,
@@ -276,7 +266,7 @@ class PostHogApi {
             toSend["group_properties"] = groupProperties
         }
 
-        if let evaluationContexts = self.config.evaluationContexts, !evaluationContexts.isEmpty {
+        if let evaluationContexts = config.evaluationContexts, !evaluationContexts.isEmpty {
             toSend["evaluation_contexts"] = evaluationContexts
         }
 
@@ -285,7 +275,7 @@ class PostHogApi {
             return completion(nil, nil)
         }
 
-        URLSession(configuration: config).uploadTask(with: request, from: data) { data, response, error in
+        session.uploadTask(with: request, from: data) { data, response, error in
             if error != nil {
                 hedgeLog("Error calling the flags API: \(String(describing: error))")
                 return completion(nil, error)
@@ -327,9 +317,7 @@ class PostHogApi {
             return
         }
 
-        let config = sessionConfig()
-
-        let task = URLSession(configuration: config).dataTask(with: request) { data, response, error in
+        let task = session.dataTask(with: request) { data, response, error in
             if let error {
                 hedgeLog("Error calling the remote config API: \(error.localizedDescription)")
                 return completion(nil, error)

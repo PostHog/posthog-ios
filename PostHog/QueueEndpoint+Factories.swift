@@ -21,8 +21,12 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.batch(events: events, completion: completion)
             },
-            retriableStatusCodes: [429, 500, 502, 503, 504],
-            redirectIsRetriable: true
+            // `/batch` retries 429, the listed 5xx, plus 3xx redirects.
+            isRetriableStatusCode: { code in
+                code == 429
+                    || [500, 502, 503, 504].contains(code)
+                    || (300 ... 399).contains(code)
+            }
         )
     }
 
@@ -42,26 +46,23 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.snapshot(events: events, completion: completion)
             },
-            retriableStatusCodes: [429, 500, 502, 503, 504],
-            redirectIsRetriable: true
+            isRetriableStatusCode: { code in
+                code == 429
+                    || [500, 502, 503, 504].contains(code)
+                    || (300 ... 399).contains(code)
+            }
         )
     }
 }
 
 extension QueueEndpoint where Record == PostHogLogRecord {
-    /// `/i/v1/logs` OTLP/JSON endpoint. Retriable set covers `408`, `429`,
-    /// and all 5xx; 3xx redirects are not retriable.
+    /// `/i/v1/logs` OTLP/JSON endpoint. Retries `408`, `429`, and all 5xx;
+    /// 3xx redirects are not retriable.
     static func logs(
         api: PostHogApi,
         resourceAttributes: @escaping () -> [String: Any]
     ) -> QueueEndpoint<PostHogLogRecord> {
-        // 408, 429, and all 5xx are retriable for logs.
-        var retriable: Set<Int> = [408, 429]
-        for code in 500 ... 599 {
-            retriable.insert(code)
-        }
-
-        return QueueEndpoint<PostHogLogRecord>(
+        QueueEndpoint<PostHogLogRecord>(
             storageKey: .logsQueue,
             oldStorageKeys: [],
             dispatchQueueLabel: "com.posthog.LogsQueue",
@@ -82,8 +83,9 @@ extension QueueEndpoint where Record == PostHogLogRecord {
                 )
                 api.logs(payload: payload, completion: completion)
             },
-            retriableStatusCodes: retriable,
-            redirectIsRetriable: false
+            isRetriableStatusCode: { code in
+                code == 408 || code == 429 || (500 ... 599).contains(code)
+            }
         )
     }
 }

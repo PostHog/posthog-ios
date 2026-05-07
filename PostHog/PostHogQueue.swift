@@ -133,11 +133,9 @@ class PostHogQueue<Record> {
         // -1 means its not anything related to the API but rather network or something else, so we try again
         let statusCode = result.statusCode ?? -1
 
-        // Network error (-1), 3xx redirect (events only), or transient server
-        // error: pause and retry the same batch.
-        let isRetriable = statusCode == -1
-            || (endpoint.redirectIsRetriable && (300 ... 399 ~= statusCode))
-            || endpoint.retriableStatusCodes.contains(statusCode)
+        // Network error (-1) is universally retriable; everything else is
+        // up to the endpoint's retry policy.
+        let isRetriable = statusCode == -1 || endpoint.isRetriableStatusCode(statusCode)
 
         if isRetriable {
             let newCount = stateLock.withLock { () -> Int in

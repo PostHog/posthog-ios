@@ -55,9 +55,9 @@ struct QueueEndpoint<Record> {
 
     // MARK: Retry policy
 
-    /// Status codes that trigger an exponential-backoff retry of the same
-    /// batch. Events: `[429, 500, 502, 503, 504]`. Logs: `[408, 429, 500..599]`.
-    let retriableStatusCodes: Set<Int>
-    /// Whether 3xx redirects are retriable. Events: yes. Logs: no.
-    let redirectIsRetriable: Bool
+    /// Returns `true` if the given HTTP status code should trigger an
+    /// exponential-backoff retry of the same batch. Each endpoint owns its
+    /// retry policy — the queue handles `-1` (network error) separately,
+    /// since that case is universal.
+    let isRetriableStatusCode: (Int) -> Bool
 }

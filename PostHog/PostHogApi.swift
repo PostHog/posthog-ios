@@ -7,6 +7,36 @@
 
 import Foundation
 
+/// Common URLSession upload-response handler shared by `/batch`, `/snapshot`,
+/// and `/i/v1/logs`. Routes through `as?` so a missing HTTP response can't
+/// crash inside a customer process.
+private func processUploadResponse(
+    endpointName: String,
+    data: Data?,
+    response: URLResponse?,
+    error: Error?,
+    completion: @escaping (PostHogUploadInfo) -> Void
+) {
+    if let error {
+        hedgeLog("Error calling the \(endpointName) API: \(error).")
+        return completion(PostHogUploadInfo(statusCode: nil, error: error))
+    }
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+        hedgeLog("\(endpointName) API returned no HTTP response")
+        return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+    }
+
+    if !(200 ... 299 ~= httpResponse.statusCode) {
+        let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
+        hedgeLog("Error sending to \(endpointName) API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody)).")
+    } else {
+        hedgeLog("\(endpointName) sent successfully.")
+    }
+
+    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil))
+}
+
 class PostHogApi {
     private let config: PostHogConfig
 
@@ -121,22 +151,7 @@ class PostHogApi {
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
-            if error != nil {
-                hedgeLog("Error calling the batch API: \(String(describing: error)).")
-                return completion(PostHogUploadInfo(statusCode: nil, error: error))
-            }
-
-            let httpResponse = response as! HTTPURLResponse
-
-            if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
-                let errorMessage = "Error sending events to batch API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
-                hedgeLog(errorMessage)
-            } else {
-                hedgeLog("Events sent successfully.")
-            }
-
-            return completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: error))
+            processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
 
@@ -170,22 +185,7 @@ class PostHogApi {
         }
 
         URLSession(configuration: config).uploadTask(with: request, from: gzippedPayload!) { data, response, error in
-            if error != nil {
-                hedgeLog("Error calling the snapshot API: \(String(describing: error)).")
-                return completion(PostHogUploadInfo(statusCode: nil, error: error))
-            }
-
-            let httpResponse = response as! HTTPURLResponse
-
-            if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
-                let errorMessage = "Error sending events to snapshot API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
-                hedgeLog(errorMessage)
-            } else {
-                hedgeLog("Snapshots sent successfully.")
-            }
-
-            return completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: error))
+            processUploadResponse(endpointName: "snapshot", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
 
@@ -224,26 +224,7 @@ class PostHogApi {
         }
 
         URLSession(configuration: sessionConfig).uploadTask(with: request, from: gzippedPayload) { data, response, error in
-            if let error {
-                hedgeLog("Error calling the logs API: \(error).")
-                return completion(PostHogUploadInfo(statusCode: nil, error: error))
-            }
-
-            // Defensive guard: a nil error should normally come with a non-nil HTTP response,
-            // but we never want a missing response to crash inside a customer process.
-            guard let httpResponse = response as? HTTPURLResponse else {
-                hedgeLog("Logs API returned no HTTP response")
-                return completion(PostHogUploadInfo(statusCode: nil, error: nil))
-            }
-
-            if !(200 ... 299 ~= httpResponse.statusCode) {
-                let jsonBody = data.flatMap { fromJSONData($0, options: .allowFragments) }
-                hedgeLog("Error sending logs to /i/v1/logs: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody)).")
-            } else {
-                hedgeLog("Logs sent successfully.")
-            }
-
-            return completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil))
+            processUploadResponse(endpointName: "logs", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
 

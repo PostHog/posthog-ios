@@ -32,8 +32,7 @@ enum PostHogLogsOTLP {
         if let url = value as? URL { return ["stringValue": url.absoluteString] }
         if let date = value as? Date { return ["stringValue": toISO8601String(date)] }
         // Last resort: stringify so the user gets *something* rather than a
-        // silently dropped attribute. Matches the JS SDK's behaviour for
-        // non-primitive values.
+        // silently dropped attribute.
         return ["stringValue": String(describing: value)]
     }
 
@@ -62,18 +61,9 @@ enum PostHogLogsOTLP {
     }
 
     /// Handles arrays and string-keyed dictionaries. Returns `nil` for other
-    /// types.
-    ///
-    /// Note: nested dicts are encoded as OTLP `kvlistValue`. The JS core
-    /// encoder used by posthog-js (browser + react-native) takes a
-    /// `JSON.stringify` shortcut here. PostHog's logs backend stringifies both
-    /// shapes to a flat `Map(LowCardinality(String), String)` ClickHouse cell
-    /// today, so the wire-format difference is invisible at query time.
-    /// Keeping `kvlistValue` is mildly future-proof if the backend ever adds
-    /// nested-key support, and matters for users routing through a generic
-    /// OTLP/HTTP receiver (Jaeger, Tempo, OTel Collector). Neither scenario is
-    /// concrete today — if cross-SDK wire parity becomes more important,
-    /// switching to `JSON.stringify` is a small change.
+    /// types. Nested dicts are encoded as OTLP `kvlistValue` so users routing
+    /// through a generic OTLP/HTTP receiver (Jaeger, Tempo, OTel Collector)
+    /// see structured nesting rather than a stringified blob.
     private static func compositeAnyValue(_ value: Any) -> [String: Any]? {
         if let array = value as? [Any] {
             let mapped = array.compactMap { toAnyValue($0) }

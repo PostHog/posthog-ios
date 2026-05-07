@@ -5,6 +5,14 @@
 
 import Foundation
 
+/// Retry policy shared by `/batch` (events) and `/snapshot` (replay): 429,
+/// the listed 5xx, plus 3xx redirects.
+private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
+    code == 429
+        || [500, 502, 503, 504].contains(code)
+        || (300 ... 399).contains(code)
+}
+
 extension QueueEndpoint where Record == PostHogEvent {
     /// `/batch` endpoint for analytics events.
     static func batch(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
@@ -21,17 +29,12 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.batch(events: events, completion: completion)
             },
-            // `/batch` retries 429, the listed 5xx, plus 3xx redirects.
-            isRetriableStatusCode: { code in
-                code == 429
-                    || [500, 502, 503, 504].contains(code)
-                    || (300 ... 399).contains(code)
-            }
+            isRetriableStatusCode: isEventsRetriableStatusCode
         )
     }
 
-    /// `/snapshot` endpoint for session-replay snapshots. Same retry shape
-    /// as `/batch` — they share `PostHogQueue.handleResult` exactly.
+    /// `/snapshot` endpoint for session-replay snapshots. Shares its retry
+    /// policy with `/batch`.
     static func snapshot(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .replayQeueue,
@@ -46,11 +49,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             send: { events, completion in
                 api.snapshot(events: events, completion: completion)
             },
-            isRetriableStatusCode: { code in
-                code == 429
-                    || [500, 502, 503, 504].contains(code)
-                    || (300 ... 399).contains(code)
-            }
+            isRetriableStatusCode: isEventsRetriableStatusCode
         )
     }
 }
@@ -58,9 +57,14 @@ extension QueueEndpoint where Record == PostHogEvent {
 extension QueueEndpoint where Record == PostHogLogRecord {
     /// `/i/v1/logs` OTLP/JSON endpoint. Retries `408`, `429`, and all 5xx;
     /// 3xx redirects are not retriable.
+    ///
+    /// `resourceAttributes` is taken by value — the caller snapshots
+    /// `config.logs` once at SDK setup and passes the merged dict here, so
+    /// post-setup mutations of `config.logs.resourceAttributes` are not
+    /// honored (matches the doc contract on `PostHogLogsConfig`).
     static func logs(
         api: PostHogApi,
-        resourceAttributes: @escaping () -> [String: Any]
+        resourceAttributes: [String: Any]
     ) -> QueueEndpoint<PostHogLogRecord> {
         QueueEndpoint<PostHogLogRecord>(
             storageKey: .logsQueue,
@@ -78,7 +82,7 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             send: { records, completion in
                 let payload = PostHogLogsOTLP.buildPayload(
                     records: records,
-                    resourceAttributes: resourceAttributes(),
+                    resourceAttributes: resourceAttributes,
                     scopeVersion: postHogVersion
                 )
                 api.logs(payload: payload, completion: completion)

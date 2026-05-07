@@ -15,11 +15,16 @@ import Foundation
 ///
 /// **Thread safety**: `add(_:)` and `flush()` are callable from any thread and
 /// return immediately. `stateLock` guards the rate-cap window state; the inner
-/// queue owns its own locks for retry / cap state.
+/// queue owns its own locks for retry / cap state. All `config.logs` values
+/// are snapshotted at init so post-setup mutations on the config don't race
+/// with reads on the queue's threads.
 class PostHogLogsQueue {
-    private let config: PostHogConfig
-    private let logsConfig: PostHogLogsConfig
     private let inner: PostHogQueue<PostHogLogRecord>
+
+    // MARK: Snapshotted from `config.logs` at init
+
+    private let rateCapMaxLogs: Int
+    private let rateCapWindowSeconds: TimeInterval
 
     // MARK: Rate-cap state (guarded by stateLock)
 
@@ -49,28 +54,23 @@ class PostHogLogsQueue {
 
     #if !os(watchOS)
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
-            self.config = config
-            logsConfig = config.logs
-            let logsConfigSnapshot = config.logs
-            // Resource attributes are evaluated lazily at flush time so any
-            // user mutations of `config.logs.serviceName` between SDK setup
-            // and the first flush are picked up. They don't change after init
-            // in practice, but the closure shape keeps the option open
-            // without re-init.
+            rateCapMaxLogs = config.logs.rateCapMaxLogs
+            rateCapWindowSeconds = config.logs.rateCapWindowSeconds
+            let resourceAttributes = Self.buildResourceAttributes(config.logs)
             let endpoint = QueueEndpoint<PostHogLogRecord>.logs(
                 api: api,
-                resourceAttributes: { Self.buildResourceAttributes(logsConfigSnapshot) }
+                resourceAttributes: resourceAttributes
             )
             inner = PostHogQueue(config, storage, endpoint, reachability)
         }
     #else
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
-            self.config = config
-            logsConfig = config.logs
-            let logsConfigSnapshot = config.logs
+            rateCapMaxLogs = config.logs.rateCapMaxLogs
+            rateCapWindowSeconds = config.logs.rateCapWindowSeconds
+            let resourceAttributes = Self.buildResourceAttributes(config.logs)
             let endpoint = QueueEndpoint<PostHogLogRecord>.logs(
                 api: api,
-                resourceAttributes: { Self.buildResourceAttributes(logsConfigSnapshot) }
+                resourceAttributes: resourceAttributes
             )
             inner = PostHogQueue(config, storage, endpoint)
         }
@@ -122,12 +122,12 @@ class PostHogLogsQueue {
     /// the window on any negative elapsed so wall-clock jumps don't strand
     /// the counter.
     private func consumeRateCap() -> Bool {
-        if logsConfig.rateCapMaxLogs <= 0 {
+        if rateCapMaxLogs <= 0 {
             return true
         }
         return stateLock.withLock {
             rollRateCapWindowIfNeeded()
-            if rateCapCount >= logsConfig.rateCapMaxLogs {
+            if rateCapCount >= rateCapMaxLogs {
                 return false
             }
             rateCapCount += 1
@@ -145,7 +145,7 @@ class PostHogLogsQueue {
             return
         }
         let elapsed = now.timeIntervalSince(start)
-        if elapsed < 0 || elapsed >= logsConfig.rateCapWindowSeconds {
+        if elapsed < 0 || elapsed >= rateCapWindowSeconds {
             rateCapWindowStart = now
             rateCapCount = 0
             rateCapDropWarned = false
@@ -158,7 +158,7 @@ class PostHogLogsQueue {
         stateLock.withLock {
             guard !rateCapDropWarned else { return }
             rateCapDropWarned = true
-            hedgeLog("Logs queue rate cap exceeded (\(logsConfig.rateCapMaxLogs) per \(logsConfig.rateCapWindowSeconds)s), dropping records this window")
+            hedgeLog("Logs queue rate cap exceeded (\(rateCapMaxLogs) per \(rateCapWindowSeconds)s), dropping records this window")
         }
     }
 

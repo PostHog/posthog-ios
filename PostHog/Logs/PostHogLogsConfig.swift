@@ -44,8 +44,7 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
 
     /// OpenTelemetry `service.name` resource attribute. Defaults to the host
-    /// app's bundle identifier (via `getBundleIdentifier()` — same helper the
-    /// events queue uses for `$app_namespace`).
+    /// app's bundle identifier.
     @objc public var serviceName: String = getBundleIdentifier()
 
     /// OpenTelemetry `service.version` resource attribute. Defaults to the

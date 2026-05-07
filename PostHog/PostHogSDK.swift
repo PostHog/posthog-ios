@@ -92,7 +92,7 @@ let maxRetryDelay = 30.0
             }
 
             if config.projectToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                hedgeLog("Either projectToken or apiKey must be provided.")
+                hedgeLog("PostHog SDK will be disabled because projectToken or apiKey is empty.")
                 return
             }
 

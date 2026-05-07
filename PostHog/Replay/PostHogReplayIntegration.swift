@@ -338,6 +338,7 @@
         }
 
         private func tryStartScreenshotCapture() -> Bool {
+            // Drop overlapping screenshot captures instead of queueing them up behind slow renders.
             screenshotCaptureLock.withLock {
                 if isScreenshotCaptureInFlight {
                     return false
@@ -886,6 +887,7 @@
         private func prepareScreenshotCapture(
             _ window: UIWindow
         ) -> (wireframe: RRWireframe, windowSize: CGSize, timestampDate: Date)? {
+            // Collect UIKit-derived metadata on the main thread before screenshot rendering continues.
             if !Thread.isMainThread {
                 return DispatchQueue.main.sync {
                     prepareScreenshotCapture(window)

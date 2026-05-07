@@ -1,10 +1,3 @@
-//
-//  FPSCounterView.swift
-//  PostHog
-//
-//  Created by Ioannis Josephides on 6/5/26.
-//
-
 import QuartzCore
 import SwiftUI
 import UIKit

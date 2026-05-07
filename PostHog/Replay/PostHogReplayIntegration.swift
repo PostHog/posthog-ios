@@ -883,6 +883,22 @@
             return wireframe
         }
 
+        private func prepareScreenshotCapture(
+            _ window: UIWindow
+        ) -> (wireframe: RRWireframe, windowSize: CGSize, timestampDate: Date)? {
+            if !Thread.isMainThread {
+                return DispatchQueue.main.sync {
+                    prepareScreenshotCapture(window)
+                }
+            }
+
+            guard let wireframe = autoreleasepool(invoking: { prepareScreenshotWireframe(window) }) else {
+                return nil
+            }
+
+            return (wireframe, window.bounds.size, Date())
+        }
+
         private func captureScreenshotImage(
             _ wireframe: RRWireframe,
             window: UIWindow,
@@ -1170,20 +1186,10 @@
                 }
             }
 
-            // capture timestamp early on main thread
-            let timestampDate = Date()
-
             if postHog.config.sessionReplayConfig.screenshotMode {
                 guard tryStartScreenshotCapture() else {
                     return
                 }
-
-                guard let wireframe = autoreleasepool(invoking: { prepareScreenshotWireframe(window) }) else {
-                    finishScreenshotCapture()
-                    return
-                }
-
-                let windowSize = window.bounds.size
 
                 if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
                     return PostHogReplayIntegration.dispatchQueue.async { [weak self] in
@@ -1192,34 +1198,42 @@
                         }
                         defer { self.finishScreenshotCapture() }
 
+                        guard postHog.isSessionReplayActive(), let screenshotCapture = self.prepareScreenshotCapture(window) else {
+                            return
+                        }
+
                         guard postHog.isSessionReplayActive() else {
                             return
                         }
 
                         self.captureScreenshotImage(
-                            wireframe,
+                            screenshotCapture.wireframe,
                             window: window,
-                            windowSize: windowSize,
+                            windowSize: screenshotCapture.windowSize,
                             screenName: screenName,
                             postHog: postHog,
-                            timestampDate: timestampDate
+                            timestampDate: screenshotCapture.timestampDate
                         )
                     }
                 }
 
                 defer { finishScreenshotCapture() }
+                guard let screenshotCapture = prepareScreenshotCapture(window) else {
+                    return
+                }
+
                 return captureScreenshotImage(
-                    wireframe,
+                    screenshotCapture.wireframe,
                     window: window,
-                    windowSize: windowSize,
+                    windowSize: screenshotCapture.windowSize,
                     screenName: screenName,
                     postHog: postHog,
-                    timestampDate: timestampDate
+                    timestampDate: screenshotCapture.timestampDate
                 )
             }
 
             // Wireframe mode always stays on main thread
-            generateSnapshot(window, screenName, postHog: postHog, timestampDate: timestampDate)
+            generateSnapshot(window, screenName, postHog: postHog, timestampDate: Date())
         }
 
         private func handleEventCaptured(event: String) {

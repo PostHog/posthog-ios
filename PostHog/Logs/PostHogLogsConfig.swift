@@ -68,10 +68,6 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
     /// Tumbling window in seconds used by the rate cap.
     @objc public var rateCapWindowSeconds: TimeInterval = Defaults.rateCapWindowSeconds
 
-    /// Hook invoked before each record is enqueued. Returning `nil` drops the
-    /// record; returning a record with an empty `body` also drops it.
-    /// Multiple blocks compose left-to-right; if any returns `nil`, later
-    /// blocks are skipped.
     private var beforeSend = BeforeSendChain<PostHogMutableLogRecord>()
 
     public func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) {

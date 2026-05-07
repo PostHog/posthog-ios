@@ -16,7 +16,6 @@ final class PostHogLogRecord: NSObject {
     /// The log message body. Required; empty bodies are dropped at capture time.
     var body: String
 
-    /// Severity level. Defaults to `.info`.
     var level: PostHogLogLevel
 
     /// Attributes attached to the record. Values must be JSON-serializable;

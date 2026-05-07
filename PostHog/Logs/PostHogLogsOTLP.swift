@@ -36,12 +36,8 @@ enum PostHogLogsOTLP {
         return ["stringValue": String(describing: value)]
     }
 
-    /// Handles `NSNumber`, `Double`, `Float`, and integer types. Returns `nil`
-    /// for non-numeric values so the main dispatcher can keep walking the type
-    /// ladder.
-    ///
-    /// Order matters: `NSNumber` bridges booleans, so the `Bool` check in
-    /// `toAnyValue` must run before this helper.
+    /// `NSNumber` bridges booleans, so the `Bool` check in `toAnyValue` must
+    /// run before this helper.
     private static func numericAnyValue(_ value: Any) -> [String: Any]? {
         if let number = value as? NSNumber {
             // Identify floats via the underlying CFNumber type so we don't
@@ -60,10 +56,8 @@ enum PostHogLogsOTLP {
         return nil
     }
 
-    /// Handles arrays and string-keyed dictionaries. Returns `nil` for other
-    /// types. Nested dicts are encoded as OTLP `kvlistValue` so users routing
-    /// through a generic OTLP/HTTP receiver (Jaeger, Tempo, OTel Collector)
-    /// see structured nesting rather than a stringified blob.
+    /// Nested dicts are encoded as OTLP `kvlistValue` so generic OTLP/HTTP
+    /// receivers see structured nesting rather than a stringified blob.
     private static func compositeAnyValue(_ value: Any) -> [String: Any]? {
         if let array = value as? [Any] {
             let mapped = array.compactMap { toAnyValue($0) }
@@ -132,15 +126,8 @@ enum PostHogLogsOTLP {
         return json
     }
 
-    /// Builds the full OTLP request payload (`{ "resourceLogs": [...] }`).
-    ///
-    /// - Parameters:
-    ///   - records: Records to include in this batch.
-    ///   - resourceAttributes: Already-merged map (SDK-managed keys overlaid on
-    ///     top of the user's `resourceAttributes` config — that merging happens
-    ///     in `PostHogLogsQueue` so this function stays pure).
-    ///   - scopeVersion: Version string for the OTLP `InstrumentationScope`
-    ///     (typically `postHogVersion`).
+    /// Builds the full OTLP request payload. `resourceAttributes` must
+    /// already be merged by the caller (`PostHogLogsQueue`) so this stays pure.
     static func buildPayload(
         records: [PostHogLogRecord],
         resourceAttributes: [String: Any],

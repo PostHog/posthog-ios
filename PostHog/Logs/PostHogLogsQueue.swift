@@ -5,19 +5,10 @@
 
 import Foundation
 
-/// Wraps a `PostHogQueue<PostHogLogRecord>` to add the two log-specific
-/// behaviours that don't fit on the generic queue: a `beforeSend` hook and a
-/// tumbling-window rate cap. Everything else (disk persistence, reachability,
-/// flush timer, retry/backoff, HTTP 413 adaptive batching, `maxRetries`
-/// queue-wide drop) is owned by the inner generic queue, which uses the
-/// `QueueEndpoint<PostHogLogRecord>.logs(...)` spec for OTLP encoding and
-/// post-flush cap policy.
-///
-/// **Thread safety**: `add(_:)` and `flush()` are callable from any thread and
-/// return immediately. `stateLock` guards the rate-cap window state; the inner
-/// queue owns its own locks for retry / cap state. All `config.logs` values
-/// are snapshotted at init so post-setup mutations on the config don't race
-/// with reads on the queue's threads.
+/// Wraps `PostHogQueue<PostHogLogRecord>` with a tumbling-window rate cap;
+/// everything else (persistence, retry, 413 halving, reachability) is owned
+/// by the inner generic queue. `config.logs` values are snapshotted at init
+/// so post-setup mutations don't race the queue threads.
 class PostHogLogsQueue {
     private let inner: PostHogQueue<PostHogLogRecord>
 
@@ -36,14 +27,10 @@ class PostHogLogsQueue {
     /// instead of one per dropped record.
     private var rateCapDropWarned = false
 
-    /// Internal, used for testing
     var depth: Int { inner.depth }
 
-    /// Internal, used for testing — exposes the underlying file-backed queue
-    /// so tests can peek at on-disk records directly.
     var fileQueue: PostHogFileBackedQueue { inner.fileQueue }
 
-    /// Internal, used for testing — exposes the adaptive batch cap.
     var currentBatchCapForTesting: Int {
         #if TESTING
             return inner.currentBatchCapForTesting
@@ -87,7 +74,6 @@ class PostHogLogsQueue {
         inner.stop()
     }
 
-    /// Internal, used for testing.
     func clear() {
         inner.clear()
         stateLock.withLock {
@@ -99,9 +85,6 @@ class PostHogLogsQueue {
 
     // MARK: - Add
 
-    /// Enqueue a log record. Runs the rate cap on the calling thread, then
-    /// delegates to the inner generic queue (which performs the synchronous
-    /// disk write per its `add()` contract).
     func add(_ record: PostHogLogRecord) {
         if !consumeRateCap() {
             noteRateCapDropped()
@@ -117,10 +100,8 @@ class PostHogLogsQueue {
 
     // MARK: - Rate cap
 
-    /// Tumbling-window rate cap. Returns `true` if the record should be
-    /// admitted, `false` if the per-window limit has been reached. Re-anchors
-    /// the window on any negative elapsed so wall-clock jumps don't strand
-    /// the counter.
+    /// Re-anchors the window on any negative elapsed so wall-clock jumps
+    /// don't strand the counter.
     private func consumeRateCap() -> Bool {
         if rateCapMaxLogs <= 0 {
             return true

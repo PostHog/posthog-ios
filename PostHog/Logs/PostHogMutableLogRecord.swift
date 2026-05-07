@@ -20,7 +20,6 @@ import Foundation
     /// after `beforeSend` returns.
     @objc public var body: String
 
-    /// Severity level.
     @objc public var level: PostHogLogLevel
 
     /// Attributes attached to the record. Values must be JSON-serializable;

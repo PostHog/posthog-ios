@@ -5,15 +5,10 @@
 
 import Foundation
 
-/// ObjC bridges for the Swift function-typed `beforeSend` chains.
-///
-/// Swift function types (`(PostHogEvent) -> PostHogEvent?`,
-/// `(PostHogMutableLogRecord) -> PostHogMutableLogRecord?`) aren't `@objc`-bridgeable, so
-/// ObjC callers pass these boxed wrappers to `setBeforeSend(_:)` instead.
-/// Each function shape needs its own concrete `@objc` class — `@objc` classes
-/// can't be generic, so the duplication below is the minimum overhead for
-/// ObjC interop. Swift callers use the variadic `setBeforeSend(_:)` overloads
-/// directly and never see these boxes.
+/// ObjC wrappers for the Swift function-typed `beforeSend` chains: Swift
+/// function types aren't `@objc`-bridgeable, and `@objc` classes can't be
+/// generic, so each function shape gets its own concrete box. Swift callers
+/// use the variadic `setBeforeSend(_:)` overloads and never see these.
 
 /// ObjC wrapper for the events `beforeSend` block. Use with
 /// `PostHogConfig.setBeforeSend(_:)`.

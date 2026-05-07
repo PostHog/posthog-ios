@@ -46,6 +46,9 @@ struct QueueEndpoint<Record> {
     /// Deserialize a record from disk. Returns `nil` for unreadable items;
     /// the queue skips them.
     let decode: (Data) -> Record?
+    /// Short label for this record used in queue debug logs. Events return
+    /// the event name; snapshots / logs return a generic label.
+    let describe: (Record) -> String
 
     // MARK: Send
 

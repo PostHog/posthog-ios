@@ -26,6 +26,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             flushIntervalSeconds: { $0.flushIntervalSeconds },
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
+            describe: { event in "event '\(event.event)'" },
             send: { events, completion in
                 api.batch(events: events, completion: completion)
             },
@@ -46,6 +47,7 @@ extension QueueEndpoint where Record == PostHogEvent {
             flushIntervalSeconds: { $0.flushIntervalSeconds },
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
+            describe: { _ in "snapshot" },
             send: { events, completion in
                 api.snapshot(events: events, completion: completion)
             },
@@ -79,6 +81,7 @@ extension QueueEndpoint where Record == PostHogLogRecord {
                 guard let json = fromJSONData(data) else { return nil }
                 return PostHogLogRecord.fromStorageJSON(json)
             },
+            describe: { _ in "log" },
             send: { records, completion in
                 let payload = PostHogLogsOTLP.buildPayload(
                     records: records,

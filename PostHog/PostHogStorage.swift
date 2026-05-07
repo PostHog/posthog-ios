@@ -394,9 +394,9 @@ class PostHogStorage {
         if !keepAnonymousId {
             deleteSafely(url(forKey: .anonymousId))
         }
-        // .queue, .replayQeueue, .logsQueue intentionally preserved on reset so in-flight
-        // telemetry isn't lost when identity changes. Records carry capture-time distinctId,
-        // so a log captured under user A flushes as user A.
+        // .queue, .replayQeueue, .logsQueue not deleted here — each queue manages its own
+        // disk state via clear() and the per-record distinctId captured at enqueue time
+        // (see PostHogLogRecord) lets in-flight telemetry survive an identity change.
         deleteSafely(url(forKey: .oldQueueFolder))
         deleteSafely(url(forKey: .oldQueuePlist))
         deleteSafely(url(forKey: .flags))

@@ -350,7 +350,7 @@ class PostHogQueue<Record> {
         }
 
         fileQueue.add(data)
-        hedgeLog("Queued record. Depth: \(fileQueue.depth)")
+        hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
     }
 

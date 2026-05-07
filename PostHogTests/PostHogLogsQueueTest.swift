@@ -529,6 +529,17 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 50)
     }
 
+    @Test("events and snapshot endpoints opt out of the rate cap")
+    func nonLogsEndpointsDisableRateCap() {
+        // Regression guard: rate cap is a logs-only opt-in. If a future change
+        // accidentally enables it on events / replay, every record would
+        // start being throttled at the queue's add(_:).
+        let config = PostHogConfig(projectToken: "x", host: "http://localhost:9001")
+        let api = PostHogApi(config)
+        #expect(QueueEndpoint<PostHogEvent>.batch(api: api).rateCapMax(config) == 0)
+        #expect(QueueEndpoint<PostHogEvent>.snapshot(api: api).rateCapMax(config) == 0)
+    }
+
     // MARK: - beforeSend chain
 
     @Test("beforeSend returning nil signals drop")

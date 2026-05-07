@@ -884,13 +884,13 @@
             return wireframe
         }
 
-        private func prepareScreenshotCapture(
+        private func collectScreenshotMetadata(
             _ window: UIWindow
         ) -> (wireframe: RRWireframe, windowSize: CGSize, timestampDate: Date)? {
             // Collect UIKit-derived metadata on the main thread before screenshot rendering continues.
             if !Thread.isMainThread {
                 return DispatchQueue.main.sync {
-                    prepareScreenshotCapture(window)
+                    collectScreenshotMetadata(window)
                 }
             }
 
@@ -901,7 +901,7 @@
             return (wireframe, window.bounds.size, Date())
         }
 
-        private func captureScreenshotImage(
+        private func renderAndEnqueueScreenshot(
             _ wireframe: RRWireframe,
             window: UIWindow,
             windowSize: CGSize,
@@ -1200,7 +1200,7 @@
                         }
                         defer { self.finishScreenshotCapture() }
 
-                        guard postHog.isSessionReplayActive(), let screenshotCapture = self.prepareScreenshotCapture(window) else {
+                        guard postHog.isSessionReplayActive(), let screenshotCapture = self.collectScreenshotMetadata(window) else {
                             return
                         }
 
@@ -1208,7 +1208,7 @@
                             return
                         }
 
-                        self.captureScreenshotImage(
+                        self.renderAndEnqueueScreenshot(
                             screenshotCapture.wireframe,
                             window: window,
                             windowSize: screenshotCapture.windowSize,
@@ -1220,11 +1220,11 @@
                 }
 
                 defer { finishScreenshotCapture() }
-                guard let screenshotCapture = prepareScreenshotCapture(window) else {
+                guard let screenshotCapture = collectScreenshotMetadata(window) else {
                     return
                 }
 
-                return captureScreenshotImage(
+                return renderAndEnqueueScreenshot(
                     screenshotCapture.wireframe,
                     window: window,
                     windowSize: screenshotCapture.windowSize,

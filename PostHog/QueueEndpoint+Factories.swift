@@ -24,6 +24,8 @@ extension QueueEndpoint where Record == PostHogEvent {
             initialFlushAt: { $0.flushAt },
             maxQueueSize: { $0.maxQueueSize },
             flushIntervalSeconds: { $0.flushIntervalSeconds },
+            rateCapMax: { _ in 0 },
+            rateCapWindowSeconds: { _ in 0 },
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { event in "event '\(event.event)'" },
@@ -45,6 +47,8 @@ extension QueueEndpoint where Record == PostHogEvent {
             initialFlushAt: { $0.flushAt },
             maxQueueSize: { $0.maxQueueSize },
             flushIntervalSeconds: { $0.flushIntervalSeconds },
+            rateCapMax: { _ in 0 },
+            rateCapWindowSeconds: { _ in 0 },
             encode: { event in toJSONData(event.toJSON()) },
             decode: { data in PostHogEvent.fromJSON(data) },
             describe: { _ in "snapshot" },
@@ -79,6 +83,8 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             initialFlushAt: { $0.logs.flushAt },
             maxQueueSize: { $0.logs.maxBufferSize },
             flushIntervalSeconds: { $0.logs.flushIntervalSeconds },
+            rateCapMax: { $0.logs.rateCapMaxLogs },
+            rateCapWindowSeconds: { $0.logs.rateCapWindowSeconds },
             encode: { record in toJSONData(record.toStorageJSON()) },
             decode: { data in
                 guard let json = fromJSONData(data) else { return nil }

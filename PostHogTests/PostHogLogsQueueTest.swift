@@ -36,7 +36,7 @@ final class PostHogLogsQueueTests {
         beforeSend: PostHogBeforeSendLogBlock? = nil,
         reachability: Reachability? = nil,
         disableReachabilityForTesting: Bool = true
-    ) -> (PostHogLogsQueue, PostHogConfig) {
+    ) -> (PostHogQueue<PostHogLogRecord>, PostHogConfig) {
         // Unique project token per test → isolated storage folder.
         let token = "logs_test_\(UUID().uuidString)"
         let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
@@ -51,7 +51,9 @@ final class PostHogLogsQueueTests {
 
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        let queue = PostHogLogsQueue(config, storage, api, reachability)
+        let resourceAttributes = PostHogLogsOTLP.buildResourceAttributes(config.logs)
+        let endpoint = QueueEndpoint<PostHogLogRecord>.logs(api: api, resourceAttributes: resourceAttributes)
+        let queue = PostHogQueue(config, storage, endpoint, reachability)
         // Start without the periodic timer so tests are deterministic.
         // Reachability is opt-in per test via the parameter.
         queue.start(disableReachabilityForTesting: disableReachabilityForTesting, disableQueueTimerForTesting: true)

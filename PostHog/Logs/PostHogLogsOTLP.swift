@@ -129,8 +129,34 @@ enum PostHogLogsOTLP {
         return json
     }
 
+    /// Resource attributes attached to every batch. SDK-managed keys are
+    /// layered on top of the user-supplied `resourceAttributes` so SDK keys
+    /// win on key collision and users can't shadow `service.name`, `os.*`,
+    /// etc. The caller snapshots `config.logs` once at SDK setup and passes
+    /// the result to `QueueEndpoint<PostHogLogRecord>.logs`, so post-setup
+    /// mutations of `config.logs.resourceAttributes` are not honored.
+    static func buildResourceAttributes(_ logsConfig: PostHogLogsConfig) -> [String: Any] {
+        var attrs: [String: Any] = [:]
+        for (key, value) in logsConfig.resourceAttributes {
+            attrs[key] = value
+        }
+        attrs["service.name"] = logsConfig.serviceName
+        if !logsConfig.serviceVersion.isEmpty {
+            attrs["service.version"] = logsConfig.serviceVersion
+        }
+        if let env = logsConfig.environment {
+            attrs["deployment.environment"] = env
+        }
+        attrs["telemetry.sdk.name"] = postHogSdkName
+        attrs["telemetry.sdk.version"] = postHogVersion
+        attrs["os.name"] = osName()
+        attrs["os.version"] = osVersionString()
+        return attrs
+    }
+
     /// Builds the full OTLP request payload. `resourceAttributes` must
-    /// already be merged by the caller (`PostHogLogsQueue`) so this stays pure.
+    /// already be merged by the caller (via `buildResourceAttributes`) so
+    /// this stays pure.
     static func buildPayload(
         records: [PostHogLogRecord],
         resourceAttributes: [String: Any],

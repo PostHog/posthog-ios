@@ -232,14 +232,8 @@ class PostHogQueue<Record> {
                         }
                     }
 
-                    // Always trigger a flush when we are on wifi. The
-                    // `isFlushing` snapshot is only an optimisation —
-                    // `flush()` re-checks under the lock.
                     if reachability.connection == .wifi {
-                        let busy = self.isFlushingLock.withLock { self.isFlushing }
-                        if !busy {
-                            self.flush()
-                        }
+                        self.flush()
                     }
                 }
 
@@ -277,10 +271,7 @@ class PostHogQueue<Record> {
     }
 
     private func timerFired() {
-        let busy = isFlushingLock.withLock { isFlushing }
-        if !busy {
-            flush()
-        }
+        flush()
     }
 
     /// Internal, used for testing
@@ -367,6 +358,11 @@ class PostHogQueue<Record> {
         dispatchQueue.async { [weak self] in
             guard let self else { return }
 
+            // Re-check pause state on the dispatch queue: the synchronous
+            // `canFlush()` snapshot can lie if reachability flipped or
+            // `pausedUntil` was set between the caller's check and now.
+            if self.pauseReason() != nil { return }
+
             // Atomically test-and-set the flushing flag. `withLock` returns
             // the closure value, so a `false` here means another flush is
             // already in flight and we bail out of the function — not just
@@ -376,7 +372,10 @@ class PostHogQueue<Record> {
                 self.isFlushing = true
                 return true
             }
-            if !acquired { return }
+            if !acquired {
+                hedgeLog("Already flushing")
+                return
+            }
 
             let items = self.fileQueue.peek(count)
 
@@ -408,26 +407,21 @@ class PostHogQueue<Record> {
         stateLock.withLock { pausedUntil = until }
     }
 
-    private func canFlush() -> Bool {
-        let busy = isFlushingLock.withLock { isFlushing }
-        if busy {
-            hedgeLog("Already flushing")
-            return false
-        }
-
+    /// Returns a human-readable pause reason if the queue is currently
+    /// paused, or `nil` if it can flush. Used by both the synchronous
+    /// pre-check in `flush()` and the re-check inside `take()`.
+    private func pauseReason() -> String? {
         let (isPaused, until) = stateLock.withLock { (paused, pausedUntil) }
-        if isPaused {
-            // We don't flush data if the queue is paused
-            hedgeLog("The queue is paused due to the reachability check")
+        if isPaused { return "paused due to the reachability check" }
+        if let until, until > Date() { return "paused until `\(until)`" }
+        return nil
+    }
+
+    private func canFlush() -> Bool {
+        if let reason = pauseReason() {
+            hedgeLog("The queue is \(reason)")
             return false
         }
-
-        if let until, until > Date() {
-            // We don't flush data if the queue is temporarily paused
-            hedgeLog("The queue is paused until `\(until)`")
-            return false
-        }
-
         return true
     }
 }

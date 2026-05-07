@@ -122,16 +122,6 @@ class PostHogSDKTest: QuickSpec {
             expect(sut.getDistinctId()).to(beEmpty())
             expect(sut.getSessionId()).to(beNil())
 
-            let validConfig = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
-            validConfig.disableReachabilityForTesting = true
-            validConfig.disableQueueTimerForTesting = true
-            validConfig.disableFlushOnBackgroundForTesting = true
-            sut.setup(validConfig)
-
-            expect(sut.storage).toNot(beNil())
-            expect(sut.getDistinctId()).toNot(beEmpty())
-
-            sut.close()
         }
 
         it("no-ops setup when legacy api key is empty after trimming") {

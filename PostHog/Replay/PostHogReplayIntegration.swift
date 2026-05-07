@@ -40,6 +40,9 @@
         private var eventCapturedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
+        private let screenshotCaptureLock = NSLock()
+        private var isScreenshotCaptureInFlight = false
+
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
@@ -334,6 +337,23 @@
             }
         }
 
+        private func tryStartScreenshotCapture() -> Bool {
+            screenshotCaptureLock.withLock {
+                if isScreenshotCaptureInFlight {
+                    return false
+                }
+
+                isScreenshotCaptureInFlight = true
+                return true
+            }
+        }
+
+        private func finishScreenshotCapture() {
+            screenshotCaptureLock.withLock {
+                isScreenshotCaptureInFlight = false
+            }
+        }
+
         /// Determines whether the given session should be recorded based on sample rate configuration.
         /// Local config sample rate takes precedence over remote config.
         /// Returns `true` if no sample rate is configured (record everything).
@@ -512,16 +532,33 @@
         }
 
         private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
-            var hasChanges = false
-
             guard let wireframe = autoreleasepool(invoking: {
-                postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window)
+                toWireframe(window)
             }) else {
                 return
             }
 
-            // capture timestamp after snapshot was taken
+            // capture current timestamp
             let timestampDate = Date()
+            captureSnapshot(
+                wireframe,
+                window: window,
+                windowSize: window.bounds.size,
+                screenName: screenName,
+                postHog: postHog,
+                timestampDate: timestampDate
+            )
+        }
+
+        private func captureSnapshot(
+            _ wireframe: RRWireframe,
+            window: UIWindow,
+            windowSize: CGSize,
+            screenName: String?,
+            postHog: PostHogSDK,
+            timestampDate: Date
+        ) {
+            var hasChanges = false
             let timestamp = timestampDate.toMillis()
 
             let snapshotStatus = windowViewsLock.withLock {
@@ -531,9 +568,8 @@
             var snapshotsData: [Any] = []
 
             if !snapshotStatus.sentMetaEvent {
-                let size = window.bounds.size
-                let width = size.width.toInt() ?? 0
-                let height = size.height.toInt() ?? 0
+                let width = windowSize.width.toInt() ?? 0
+                let height = windowSize.height.toInt() ?? 0
 
                 var data: [String: Any] = ["width": width, "height": height]
 
@@ -791,6 +827,13 @@
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
+                // Skip backing layers for child UIViews. Those are visited when
+                // findMaskableWidgets recurses into the child view, so traversing
+                // them here duplicates large layer subtrees on iOS 26.
+                if let sublayerView = sublayer.delegate as? UIView, sublayerView !== view {
+                    continue
+                }
+
                 // Skip layers tagged with .postHogNoMask()
                 if sublayer.postHogNoMask {
                     continue
@@ -823,7 +866,7 @@
             }
         }
 
-        private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
+        private func prepareScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
             // this will bail on view controller animations (interactive or not)
             if !window.isVisible() || isAnimatingTransition(window) {
                 return nil
@@ -831,19 +874,11 @@
 
             var maskableWidgets: [CGRect] = []
             var maskChildren = false
+
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
 
             let wireframe = createBasicWireframe(window)
-
-            if let image = window.toImage() {
-                if !image.size.hasSize() {
-                    return nil
-                }
-
-                wireframe.maskableWidgets = maskableWidgets
-
-                wireframe.image = image
-            }
+            wireframe.maskableWidgets = maskableWidgets
             wireframe.type = "screenshot"
             return wireframe
         }
@@ -1111,8 +1146,45 @@
                 }
             }
 
-            // this cannot run off of the main thread because most properties require to be called within the main thread
-            // this method has to be fast and do as little as possible
+            if postHog.config.sessionReplayConfig.screenshotMode {
+                guard tryStartScreenshotCapture() else {
+                    return
+                }
+
+                guard let wireframe = autoreleasepool(invoking: { prepareScreenshotWireframe(window) }) else {
+                    finishScreenshotCapture()
+                    return
+                }
+
+                let windowSize = window.bounds.size
+
+                return PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                    guard let self else {
+                        return
+                    }
+                    defer { self.finishScreenshotCapture() }
+
+                    guard postHog.isSessionReplayActive() else {
+                        return
+                    }
+
+                    autoreleasepool {
+                        if let image = window.toImage(), image.size.hasSize() {
+                            wireframe.image = image
+                            self.captureSnapshot(
+                                wireframe,
+                                window: window,
+                                windowSize: windowSize,
+                                screenName: screenName,
+                                postHog: postHog,
+                                timestampDate: Date()
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Wireframe mode reads UIKit view properties extensively and stays on the main thread.
             generateSnapshot(window, screenName, postHog: postHog)
         }
 

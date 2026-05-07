@@ -54,12 +54,8 @@ let maxRetryDelay = 30.0
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
-    private var screenViewToken: RegistrationToken?
-    private let lastScreenLock = NSLock()
-    private var lastScreenName: String?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
-    /// Each method is a thin wrapper around `captureLog(_:level:attributes:)`.
     @objc public lazy var logger: PostHogLogger = .init(sdk: self)
 
     #if os(iOS)
@@ -80,7 +76,6 @@ let maxRetryDelay = 30.0
         #endif
 
         sessionIdChangedToken = nil
-        screenViewToken = nil
         uninstallIntegrations()
     }
 
@@ -172,12 +167,10 @@ let maxRetryDelay = 30.0
                 self?.notifyContextDidChange()
             }
 
-            // Cache the latest screen name so `captureLog` can tag log records
-            // without needing main-thread access to UIViewController helpers.
-            screenViewToken = DI.main.screenViewPublisher.onScreenView.subscribe { [weak self] name in
-                guard let self else { return }
-                self.lastScreenLock.withLock { self.lastScreenName = name }
-            }
+            // Force-init the lazy `logger` so its screen-view subscription is
+            // active for the first `captureLog` call (the lazy init would
+            // otherwise only fire on first `.logger` access).
+            _ = logger
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -226,13 +219,6 @@ let maxRetryDelay = 30.0
         }
 
         return config.storageManager?.getDeviceId() ?? ""
-    }
-
-    /// Latest reported screen name, captured by subscribing to the screen-view
-    /// publisher. Used by `captureLog` to tag log records without needing
-    /// main-thread access to `UIViewController.ph_topViewController()`.
-    var currentScreenName: String? {
-        lastScreenLock.withLock { lastScreenName }
     }
 
     @objc public func getSessionId() -> String? {
@@ -1021,7 +1007,7 @@ let maxRetryDelay = 30.0
         // alter the record because the snapshot is frozen here.
         let distinctId = getDistinctId()
         let sessionId = sessionManager.getSessionId(readOnly: true)
-        let screenName = currentScreenName
+        let screenName = logger.lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
             // Bool flags are active iff true; multivariant (non-bool) values
@@ -1963,8 +1949,7 @@ let maxRetryDelay = 30.0
             context = nil
             sessionManager.endSession()
             didEnterBackgroundToken = nil
-            screenViewToken = nil
-            lastScreenLock.withLock { lastScreenName = nil }
+            logger.detach()
             toggleHedgeLog(false)
 
             uninstallIntegrations()

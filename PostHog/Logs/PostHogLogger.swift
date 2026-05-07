@@ -5,14 +5,34 @@
 
 import Foundation
 
-/// Convenience facade over `PostHogSDK.captureLog`. Each method is a one-liner
-/// that calls `captureLog(_:level:attributes:)` with the matching level — kept
-/// here only to give callers a `logger.info("...")` shape.
+/// Convenience facade for capturing log records. Use `PostHogSDK.shared.logger`
+/// to call `trace`, `debug`, `info`, `warn`, `error`, or `fatal`.
 @objc public final class PostHogLogger: NSObject {
     private weak var sdk: PostHogSDK?
+    private let lastScreenLock = NSLock()
+    private var _lastScreenName: String?
+    private var screenViewToken: RegistrationToken?
+
+    /// Latest reported screen name, populated by the screen-view publisher.
+    /// `nil` until the first navigation after SDK setup.
+    var lastScreenName: String? {
+        lastScreenLock.withLock { _lastScreenName }
+    }
 
     init(sdk: PostHogSDK) {
         self.sdk = sdk
+        super.init()
+        screenViewToken = DI.main.screenViewPublisher.onScreenView.subscribe { [weak self] name in
+            guard let self else { return }
+            self.lastScreenLock.withLock { self._lastScreenName = name }
+        }
+    }
+
+    /// Releases the screen-view subscription and clears the cache. Called by
+    /// `PostHogSDK.close()`.
+    func detach() {
+        screenViewToken = nil
+        lastScreenLock.withLock { _lastScreenName = nil }
     }
 
     /// Capture a `.trace` record. Finest-grained detail; usually only enabled

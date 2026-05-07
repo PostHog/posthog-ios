@@ -270,6 +270,7 @@
 		DA5E52E32E09930600159D20 /* fixture_survey_unknown_question_type.json in Resources */ = {isa = PBXBuildFile; fileRef = DA5E52E02E09930600159D20 /* fixture_survey_unknown_question_type.json */; };
 		DA5E52EB2E0996C400159D20 /* PostHogSurveyEnumsTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5E52EA2E0996C400159D20 /* PostHogSurveyEnumsTest.swift */; };
 		DA641B392F6D873600BAD1E9 /* PostHogReplayQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA641B382F6D873600BAD1E9 /* PostHogReplayQueueTest.swift */; };
+		DA684CB62FABD1B9001CE4EA /* FPSCounterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA684CB52FABD1B9001CE4EA /* FPSCounterView.swift */; };
 		DA690C6A2DA54BCC0045FF4E /* PostHogSurveyAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA690C692DA54BC70045FF4E /* PostHogSurveyAppearance.swift */; };
 		DA690C6C2DA54BD70045FF4E /* PostHogSurveyConditions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA690C6B2DA54BD10045FF4E /* PostHogSurveyConditions.swift */; };
 		DA690C6E2DA54BEC0045FF4E /* PostHogSurveyQuestion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA690C6D2DA54BE40045FF4E /* PostHogSurveyQuestion.swift */; };
@@ -990,6 +991,7 @@
 		DA5E52E12E09930600159D20 /* fixture_survey_unknown_type.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_unknown_type.json; sourceTree = "<group>"; };
 		DA5E52EA2E0996C400159D20 /* PostHogSurveyEnumsTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyEnumsTest.swift; sourceTree = "<group>"; };
 		DA641B382F6D873600BAD1E9 /* PostHogReplayQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayQueueTest.swift; sourceTree = "<group>"; };
+		DA684CB52FABD1B9001CE4EA /* FPSCounterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPSCounterView.swift; sourceTree = "<group>"; };
 		DA690C692DA54BC70045FF4E /* PostHogSurveyAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyAppearance.swift; sourceTree = "<group>"; };
 		DA690C6B2DA54BD10045FF4E /* PostHogSurveyConditions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyConditions.swift; sourceTree = "<group>"; };
 		DA690C6D2DA54BE40045FF4E /* PostHogSurveyQuestion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyQuestion.swift; sourceTree = "<group>"; };
@@ -1425,6 +1427,7 @@
 				699991562AFE0E9F000DCB78 /* PostHogExample.entitlements */,
 				3A0F108129C4792E002C0084 /* Views */,
 				3AA34CF9296D951A003398F4 /* PostHogExampleApp.swift */,
+				DA684CB52FABD1B9001CE4EA /* FPSCounterView.swift */,
 				3AE3FB2B2991320300AFFC18 /* Api.swift */,
 				3AA34D16296D9993003398F4 /* AppDelegate.swift */,
 				3AA34CFB296D951A003398F4 /* ContentView.swift */,
@@ -2931,6 +2934,7 @@
 			files = (
 				3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */,
 				3AA34CFC296D951A003398F4 /* ContentView.swift in Sources */,
+				DA684CB62FABD1B9001CE4EA /* FPSCounterView.swift in Sources */,
 				DA3BB4AF2ED88DE90097A97A /* PHGExceptionHandler.m in Sources */,
 				3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */,
 				3A0F108329C47940002C0084 /* UIViewExample.swift in Sources */,
@@ -3416,6 +3420,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogExample/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PostHogExample;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -3460,6 +3465,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogExample/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PostHogExample;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -4306,6 +4312,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PostHogExample/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PostHogExample;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

@@ -38,6 +38,16 @@ struct QueueEndpoint<Record> {
     /// Periodic flush interval for the queue's timer.
     let flushIntervalSeconds: (PostHogConfig) -> TimeInterval
 
+    // MARK: Rate cap
+
+    /// Records accepted per `rateCapWindowSeconds` before `add(_:)` starts
+    /// dropping. Return `0` to disable the cap entirely; events and replay
+    /// disable it, logs reads `config.logs.rateCapMaxLogs`.
+    let rateCapMax: (PostHogConfig) -> Int
+    /// Tumbling-window length used by the rate cap. Ignored when
+    /// `rateCapMax` is `0`.
+    let rateCapWindowSeconds: (PostHogConfig) -> TimeInterval
+
     // MARK: Codec
 
     /// Serialize a record for disk persistence. Returns `nil` if the record

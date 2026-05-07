@@ -40,7 +40,7 @@ let maxRetryDelay = 30.0
 
     private var queue: PostHogQueue<PostHogEvent>?
     private(set) var replayQueue: PostHogReplayQueue?
-    private(set) var logsQueue: PostHogLogsQueue?
+    private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
@@ -137,14 +137,23 @@ let maxRetryDelay = 30.0
                 config.optOut = optOut ?? config.optOut
             }
 
+            // Snapshot resource attributes once so post-setup mutations of
+            // `config.logs.resourceAttributes` aren't honored — matches the
+            // doc contract on `PostHogLogsConfig`.
+            let logsResourceAttributes = PostHogLogsOTLP.buildResourceAttributes(config.logs)
+            let logsEndpoint = QueueEndpoint<PostHogLogRecord>.logs(
+                api: api,
+                resourceAttributes: logsResourceAttributes
+            )
+
             #if !os(watchOS)
                 queue = PostHogQueue(config, theStorage, .batch(api: api), reachability)
                 replayQueue = PostHogReplayQueue(config, theStorage, api, reachability)
-                logsQueue = PostHogLogsQueue(config, theStorage, api, reachability)
+                logsQueue = PostHogQueue(config, theStorage, logsEndpoint, reachability)
             #else
                 queue = PostHogQueue(config, theStorage, .batch(api: api))
                 replayQueue = PostHogReplayQueue(config, theStorage, api)
-                logsQueue = PostHogLogsQueue(config, theStorage, api)
+                logsQueue = PostHogQueue(config, theStorage, logsEndpoint)
             #endif
 
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,

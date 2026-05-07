@@ -68,7 +68,10 @@ extension QueueEndpoint where Record == PostHogLogRecord {
         api: PostHogApi,
         resourceAttributes: [String: Any]
     ) -> QueueEndpoint<PostHogLogRecord> {
-        QueueEndpoint<PostHogLogRecord>(
+        // Snapshot the SDK version once so it can't disagree with the
+        // `telemetry.sdk.version` we baked into `resourceAttributes`.
+        let scopeVersion = postHogVersion
+        return QueueEndpoint<PostHogLogRecord>(
             storageKey: .logsQueue,
             oldStorageKeys: [],
             dispatchQueueLabel: "com.posthog.LogsQueue",
@@ -86,7 +89,7 @@ extension QueueEndpoint where Record == PostHogLogRecord {
                 let payload = PostHogLogsOTLP.buildPayload(
                     records: records,
                     resourceAttributes: resourceAttributes,
-                    scopeVersion: postHogVersion
+                    scopeVersion: scopeVersion
                 )
                 api.logs(payload: payload, completion: completion)
             },

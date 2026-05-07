@@ -118,16 +118,16 @@ class PostHogLogsQueue {
 
     /// Caller must hold `stateLock`.
     private func rollRateCapWindowIfNeeded() {
-        let now = Date()
+        let current = now()
         guard let start = rateCapWindowStart else {
-            rateCapWindowStart = now
+            rateCapWindowStart = current
             rateCapCount = 0
             rateCapDropWarned = false
             return
         }
-        let elapsed = now.timeIntervalSince(start)
+        let elapsed = current.timeIntervalSince(start)
         if elapsed < 0 || elapsed >= rateCapWindowSeconds {
-            rateCapWindowStart = now
+            rateCapWindowStart = current
             rateCapCount = 0
             rateCapDropWarned = false
         }

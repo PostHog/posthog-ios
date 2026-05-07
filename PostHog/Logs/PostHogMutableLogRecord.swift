@@ -24,6 +24,10 @@ import Foundation
 
     /// Attributes attached to the record. Values must be JSON-serializable;
     /// non-serializable entries are dropped at flush time.
+    ///
+    /// **From ObjC**: this bridges to an immutable `NSDictionary`. To mutate,
+    /// take a `mutableCopy` and assign back to the property — in-place
+    /// mutation on the returned dictionary will fail.
     @objc public var attributes: [String: Any]
 
     /// Optional W3C trace context — 32 hex characters.
@@ -54,6 +58,9 @@ import Foundation
     /// Keys of feature flags that were active at capture time. Useful for
     /// correlating log records with experiment cohorts; empty when no flags
     /// are loaded. Clear or filter for redaction.
+    ///
+    /// **From ObjC**: bridges to an immutable `NSArray`. Replace the property
+    /// to mutate; in-place mutation on the returned array will fail.
     @objc public var featureFlagKeys: [String]
 
     init(_ record: PostHogLogRecord) {

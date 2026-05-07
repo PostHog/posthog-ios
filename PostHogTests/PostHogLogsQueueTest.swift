@@ -331,8 +331,8 @@ final class PostHogLogsQueueTests {
         // reaching cap=1. If poison-drop counted as a retry, the next flush would
         // push retryCount to 4 > 3 and fire dropAll — wiping ALL 8 records together.
         // The correct behaviour treats poison-drop as a clean resolution: the
-        // offending record is popped, retryCount resets to 0, cap resets to max
-        // (logs `capAfterPoisonDrop` policy), and the queue continues draining.
+        // offending record is popped, retryCount resets to 0, cap stays at 1,
+        // and the queue continues draining.
         //
         // Observable difference: the buggy path makes ~4 HTTP requests (3
         // halvings + 1 dropAll). The correct path makes far more — each record
@@ -478,12 +478,18 @@ final class PostHogLogsQueueTests {
 
     @Test("rate cap window resets after the configured interval")
     func rateCapWindowResets() async throws {
-        // 1-second window so we don't slow the test suite too much.
+        // Drive the rate-cap clock via the `now` seam in DateUtils so the test
+        // is deterministic. Restore on exit so we don't leak state to other
+        // serialized tests.
+        var current = Date()
+        now = { current }
+        defer { now = { Date() } }
+
         let (queue, _) = makeQueue(
             maxBufferSize: 100,
             maxBatchSize: 100,
             rateCapMaxLogs: 2,
-            rateCapWindowSeconds: 1
+            rateCapWindowSeconds: 10
         )
         defer { queue.clear()
             queue.stop()
@@ -495,8 +501,8 @@ final class PostHogLogsQueueTests {
         await waitUntil { queue.depth == 2 }
         #expect(queue.depth == 2)
 
-        // Wait past the window edge.
-        try await Task.sleep(nanoseconds: 1_100_000_000)
+        // Advance past the window edge without sleeping.
+        current = current.addingTimeInterval(11)
 
         queue.add(makeRecord(body: "after-window"))
         await waitUntil { queue.depth == 3 }
@@ -536,7 +542,7 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 0)
     }
 
-    @Test("beforeSend can mutate body to empty (SDK caller drops on empty)")
+    @Test("beforeSend mutating body to empty drops the record")
     func beforeSendEmptyBodyDrops() async throws {
         let (queue, config) = makeQueue(beforeSend: { record in
             record.body = ""
@@ -546,9 +552,10 @@ final class PostHogLogsQueueTests {
             queue.stop()
         }
 
+        // Empty body is the documented sentinel for drop; runBeforeSend
+        // enforces it at the boundary so capture-side callers don't have to.
         let processed = config.logs.runBeforeSend(makeRecord(body: "non-empty"))
-        #expect(processed?.body.isEmpty == true)
-        // SDK caller (`captureLog`) drops empty bodies after beforeSend.
+        #expect(processed == nil)
     }
 
     @Test("beforeSend mutating the record changes what gets queued")

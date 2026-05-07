@@ -269,11 +269,10 @@ class PostHogQueueTest: QuickSpec {
             sut.flush()
             expect(sut.depth).toEventually(equal(0))
 
-            // After dropAll, events queue's `capAfterDropAll` policy is
-            // "stay" — cap should remain at 2, NOT reset to maxBatchSize.
-            // (Logs queue's policy is the opposite — reset to max.)
-            // A regression that wired logs' policy to the events factory
-            // would flip cap back to 50 here.
+            // dropAll never resets the adaptive cap — it stays where the
+            // last 413 left it, for both events and logs. New records start
+            // against the conservative cap until a successful send proves
+            // the backend is healthy.
             expect(sut.currentBatchCapForTesting) == 2
 
             // New event after the drop should flush successfully — retryCount

@@ -301,8 +301,10 @@ class PostHogQueue<Record> {
         }
 
         #if !os(watchOS)
-            // Tokens auto-unsubscribe on deinit; nilling here detaches earlier
-            // so we do not receive callbacks after stop().
+            // Releases the multicast tokens; new subscriber callbacks won't be
+            // dispatched after this. Callbacks already past the multicast
+            // snapshot can still complete — the `[weak self]` capture on each
+            // subscription neutralises them once the queue is also nilled.
             reachableToken = nil
             unreachableToken = nil
         #endif

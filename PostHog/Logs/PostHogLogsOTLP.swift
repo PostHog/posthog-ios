@@ -122,7 +122,10 @@ enum PostHogLogsOTLP {
         }
         if let traceId = record.traceId { json["traceId"] = traceId }
         if let spanId = record.spanId { json["spanId"] = spanId }
-        if let traceFlags = record.traceFlags { json["flags"] = traceFlags }
+        // Coerce to uint32 so `NSNumber` from an ObjC `@YES`/`@NO` (which
+        // bridges to a CFBoolean and would JSON-encode as a bool) lands as
+        // an integer per the OTLP `flags` field spec.
+        if let traceFlags = record.traceFlags { json["flags"] = traceFlags.uint32Value }
         return json
     }
 

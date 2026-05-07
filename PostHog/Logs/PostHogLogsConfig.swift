@@ -86,6 +86,9 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
     func runBeforeSend(_ record: PostHogLogRecord) -> PostHogLogRecord? {
         let view = PostHogMutableLogRecord(record)
         guard let mutated = beforeSend.run(view) else { return nil }
+        // Empty body is the documented sentinel for "drop this record" — enforce
+        // here so capture-side callers can't forget the check.
+        if mutated.body.isEmpty { return nil }
         mutated.apply(to: record)
         return record
     }

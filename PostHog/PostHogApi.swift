@@ -43,33 +43,31 @@ class PostHogApi {
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
 
-    /// One `URLSession` instance shared by every request the SDK makes.
-    /// Per-request `URLSession` is an anti-pattern — Apple's guidance (WWDC 2018
-    /// session 714) is to reuse a single session so the connection pool stays
-    /// warm, TLS handshakes amortise across requests, and HTTP/2 multiplexing
-    /// can carry concurrent flushes (events / replay / logs / flags) over one
-    /// TCP connection.
+    /// Shared so connection pool, TLS state, and HTTP/2 streams survive
+    /// between calls instead of being torn down per request.
     private let session: URLSession
 
     init(_ config: PostHogConfig) {
         self.config = config
 
-        let sessionConfig = config.urlSessionConfiguration ?? URLSessionConfiguration.default
-        // Sends a conditional request (If-Modified-Since/If-None-Match) to the
-        // server. Used by /array/<token>/config so we don't operate with stale
-        // config or flags.
+        // Copy first so SDK mutations don't leak back to the caller's object.
+        let sessionConfig = (config.urlSessionConfiguration?.copy() as? URLSessionConfiguration)
+            ?? URLSessionConfiguration.default
+        // Conditional request (If-Modified-Since/If-None-Match): server returns
+        // 304 → cache hit, otherwise fresh body. Needed for /array/<token>/config
+        // so we don't operate on stale config or flags.
         sessionConfig.requestCachePolicy = .reloadRevalidatingCacheData
-        sessionConfig.httpAdditionalHeaders = [
-            "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "\(postHogSdkName)/\(postHogVersion)",
-            "Accept-Encoding": "gzip",
-        ]
+        // Merge over caller-supplied headers; SDK keys overwrite collisions.
+        var headers = sessionConfig.httpAdditionalHeaders ?? [:]
+        headers["Content-Type"] = "application/json; charset=utf-8"
+        headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
+        headers["Accept-Encoding"] = "gzip"
+        sessionConfig.httpAdditionalHeaders = headers
         session = URLSession(configuration: sessionConfig)
     }
 
-    /// Builds a POST `URLRequest`. Pass `gzipped: true` for upload endpoints
-    /// (/batch, /s/, /i/v1/logs) that send gzipped bodies — the
-    /// `Content-Encoding: gzip` header tells the server to decompress.
+    /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
+    /// (/batch, /s/, /i/v1/logs) whose bodies are gzipped.
     private func getURLRequest(_ url: URL, gzipped: Bool = false) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

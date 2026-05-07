@@ -146,13 +146,9 @@ enum PostHogApiTests {
         }
     }
 
-    /// Pins the Content-Encoding policy that the shared-URLSession refactor
-    /// depends on: gzip moved off the session's `httpAdditionalHeaders` and
-    /// onto each `URLRequest` instead. Upload endpoints (/batch, /s, /i/v1/logs)
-    /// must declare `Content-Encoding: gzip` because their bodies are gzipped;
-    /// /flags must NOT declare it because its body is plain JSON. Without this
-    /// guard, a regression that re-introduced session-level gzip would silently
-    /// mis-label /flags requests on the wire.
+    /// Guards the per-request Content-Encoding policy: upload endpoints
+    /// declare `gzip`, /flags does not. A regression that re-added
+    /// session-level gzip would silently mis-label /flags on the wire.
     @Suite("Content-Encoding header per endpoint")
     class TestContentEncodingHeader: BaseTestSuite {
         @Test("/batch declares gzip Content-Encoding")
@@ -178,7 +174,7 @@ enum PostHogApiTests {
         @Test("/i/v1/logs declares gzip Content-Encoding")
         func logsDeclaresGzip() async throws {
             let sut = getSut(host: "http://localhost")
-            _ = await getApiResponse { (completion: @escaping (PostHogUploadInfo) -> Void) in
+            _ = await getApiResponse { completion in
                 sut.logs(payload: ["resourceLogs": []], completion: completion)
             }
             let request = try #require(server.logsRequests.first)

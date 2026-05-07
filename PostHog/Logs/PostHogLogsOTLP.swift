@@ -114,7 +114,7 @@ enum PostHogLogsOTLP {
             "timeUnixNano": record.timeUnixNano,
             "observedTimeUnixNano": record.observedTimeUnixNano,
             "severityNumber": record.level.severityNumber,
-            "severityText": record.level.severityText,
+            "severityText": record.level.name,
             "body": ["stringValue": record.body],
         ]
         if !attrs.isEmpty {

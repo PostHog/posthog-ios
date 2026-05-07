@@ -28,8 +28,7 @@ import Foundation
         }
     }
 
-    /// Releases the screen-view subscription and clears the cache. Called by
-    /// `PostHogSDK.close()`.
+    /// Releases the screen-view subscription and clears the cache.
     func detach() {
         screenViewToken = nil
         lastScreenLock.withLock { _lastScreenName = nil }
@@ -37,34 +36,64 @@ import Foundation
 
     /// Capture a `.trace` record. Finest-grained detail; usually only enabled
     /// while diagnosing.
-    @objc public func trace(_ body: String, attributes: [String: Any]? = nil) {
+    @objc(traceWithBody:) public func trace(_ body: String) {
+        sdk?.captureLog(body, level: .trace, attributes: nil)
+    }
+
+    /// Capture a `.trace` record with structured attributes.
+    @objc(traceWithBody:attributes:) public func trace(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .trace, attributes: attributes)
     }
 
     /// Capture a `.debug` record. Diagnostic detail useful during development.
-    @objc public func debug(_ body: String, attributes: [String: Any]? = nil) {
+    @objc(debugWithBody:) public func debug(_ body: String) {
+        sdk?.captureLog(body, level: .debug, attributes: nil)
+    }
+
+    /// Capture a `.debug` record with structured attributes.
+    @objc(debugWithBody:attributes:) public func debug(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .debug, attributes: attributes)
     }
 
     /// Capture an `.info` record. Default level for regular runtime events.
-    @objc public func info(_ body: String, attributes: [String: Any]? = nil) {
+    @objc(infoWithBody:) public func info(_ body: String) {
+        sdk?.captureLog(body, level: .info, attributes: nil)
+    }
+
+    /// Capture an `.info` record with structured attributes.
+    @objc(infoWithBody:attributes:) public func info(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .info, attributes: attributes)
     }
 
     /// Capture a `.warn` record. Something unexpected happened but the operation
     /// continued.
-    @objc public func warn(_ body: String, attributes: [String: Any]? = nil) {
+    @objc(warnWithBody:) public func warn(_ body: String) {
+        sdk?.captureLog(body, level: .warn, attributes: nil)
+    }
+
+    /// Capture a `.warn` record with structured attributes.
+    @objc(warnWithBody:attributes:) public func warn(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .warn, attributes: attributes)
     }
 
     /// Capture an `.error` record. An operation failed; the app may continue.
-    @objc public func error(_ body: String, attributes: [String: Any]? = nil) {
+    @objc(errorWithBody:) public func error(_ body: String) {
+        sdk?.captureLog(body, level: .error, attributes: nil)
+    }
+
+    /// Capture an `.error` record with structured attributes.
+    @objc(errorWithBody:attributes:) public func error(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .error, attributes: attributes)
     }
 
     /// Capture a `.fatal` record. An unrecoverable failure; the app likely
     /// cannot continue.
-    @objc public func fatal(_ body: String, attributes: [String: Any]? = nil) {
+    @objc(fatalWithBody:) public func fatal(_ body: String) {
+        sdk?.captureLog(body, level: .fatal, attributes: nil)
+    }
+
+    /// Capture a `.fatal` record with structured attributes.
+    @objc(fatalWithBody:attributes:) public func fatal(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .fatal, attributes: attributes)
     }
 }

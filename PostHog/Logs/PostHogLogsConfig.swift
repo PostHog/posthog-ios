@@ -24,9 +24,8 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
         static let rateCapWindowSeconds: TimeInterval = 10
     }
 
-    /// How often the queue checks for records to flush. Read once when the
-    /// queue is started by `PostHogSDK.setup(_:)`; mutating this after setup
-    /// has no effect on the already-scheduled timer.
+    /// How often the queue checks for records to flush. Set before
+    /// `PostHogSDK.setup(_:)`; later mutations are ignored.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
     /// Maximum number of records held on disk. When full, the oldest record is
@@ -38,9 +37,8 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     /// cadence rather than waiting for the full cap.
     @objc public var flushAt: Int = Defaults.flushAt
 
-    /// Initial maximum number of records sent in a single request. Halved on
-    /// HTTP 413 responses (down to 1, then dropping the offender). Cap stays
-    /// where halved — no ramp on success.
+    /// Initial maximum number of records sent in a single request. May be
+    /// reduced under server backpressure.
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
 
     /// OpenTelemetry `service.name` resource attribute. Defaults to the host
@@ -89,9 +87,10 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
 
     func runBeforeSend(_ record: PostHogLogRecord) -> PostHogLogRecord? {
         guard let result = beforeSend.run(record) else { return nil }
-        // Empty body is the documented sentinel for "drop this record" — enforce
-        // here so capture-side callers can't forget the check.
-        if result.body.isEmpty { return nil }
+        // Empty (or whitespace-only) body is the documented sentinel for
+        // "drop this record" — enforce here so capture-side callers can't
+        // forget the check.
+        if result.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return nil }
         return result
     }
 

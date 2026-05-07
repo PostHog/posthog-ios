@@ -195,8 +195,9 @@ final class PostHogLogsCaptureTests {
         let sdk = setupSdk(maxBatchSize: 2)
         defer { sdk.close() }
 
+        let logger = try #require(sdk.logger)
         sdk.captureLog("via-direct", level: .info)
-        sdk.logger.info("via-facade")
+        logger.info("via-facade")
         sdk.flush()
 
         waitForLogsRequests(count: 1)
@@ -226,12 +227,13 @@ final class PostHogLogsCaptureTests {
         let sdk = setupSdk(maxBatchSize: 6)
         defer { sdk.close() }
 
-        sdk.logger.trace("t")
-        sdk.logger.debug("d")
-        sdk.logger.info("i")
-        sdk.logger.warn("w")
-        sdk.logger.error("e")
-        sdk.logger.fatal("f")
+        let logger = try #require(sdk.logger)
+        logger.trace("t")
+        logger.debug("d")
+        logger.info("i")
+        logger.warn("w")
+        logger.error("e")
+        logger.fatal("f")
         sdk.flush()
 
         waitForLogsRequests(count: 1)
@@ -337,5 +339,69 @@ final class PostHogLogsCaptureTests {
 
         waitForLogsRequests(count: 1)
         #expect(server.logsRequests.count == 1)
+    }
+
+    // MARK: - Trace context
+
+    @Test("captureLog with traceId/spanId/traceFlags lands on the OTLP wire")
+    func captureWithTraceContext() async throws {
+        let sdk = setupSdk(maxBatchSize: 1)
+        defer { sdk.close() }
+
+        sdk.captureLog(
+            "traced",
+            level: .info,
+            attributes: nil,
+            traceId: "0af7651916cd43dd8448eb211c80319c",
+            spanId: "b7ad6b7169203331",
+            traceFlags: 1
+        )
+        sdk.flush()
+
+        waitForLogsRequests(count: 1)
+        let request = try #require(server.logsRequests.first)
+        let body = try #require(request.body())
+        let unzipped = try body.gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let records = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        let rec = records[0]
+
+        #expect(rec["traceId"] as? String == "0af7651916cd43dd8448eb211c80319c")
+        #expect(rec["spanId"] as? String == "b7ad6b7169203331")
+        // OTLP renames the field to `flags` on the wire.
+        #expect(rec["flags"] as? Int == 1)
+    }
+
+    // MARK: - Rate cap at the SDK boundary
+
+    @Test("captureLog drops records past rateCapMaxLogs in the same window")
+    func captureRateCapDropsAtSDKBoundary() async throws {
+        let sdk = setupSdk(rateCapMaxLogs: 3)
+        defer { sdk.close() }
+
+        // Drive a deterministic clock so the rate-cap window can't roll
+        // mid-test. Restore on exit so other serialised tests aren't affected.
+        let fixed = Date()
+        now = { fixed }
+        defer { now = { Date() } }
+
+        for i in 0 ..< 10 {
+            sdk.captureLog("rc-\(i)")
+        }
+        sdk.flush()
+
+        // Only the first 3 should have been admitted; the rest dropped at the
+        // queue's tumbling-window cap. Drain the single batch and count bodies.
+        waitForLogsRequests(count: 1)
+        let request = try #require(server.logsRequests.first)
+        let body = try #require(request.body())
+        let unzipped = try body.gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let records = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        #expect(records.count == 3)
     }
 }

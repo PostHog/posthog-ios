@@ -13,8 +13,6 @@ import Foundation
 /// callback returns have no effect — the record is encoded into the on-disk
 /// queue as soon as `beforeSend` finishes.
 @objc public final class PostHogLogRecord: NSObject {
-    /// Valid `appState` wire values. Raw values are written directly into the
-    /// stored record's `appState: String?` field.
     enum AppState: String {
         case foreground
         case background
@@ -65,9 +63,7 @@ import Foundation
     /// `nil` (or rewrite) to redact navigation context.
     @objc public var screenName: String?
 
-    /// `"foreground"` or `"background"` at capture time. Read-only in
-    /// practice — there's rarely a reason to rewrite this.
-    @objc public var appState: String?
+    var appState: String?
 
     /// Feature flag keys that were active at capture time. Empty when no
     /// flags are loaded. Useful for correlating logs with experiment
@@ -78,10 +74,6 @@ import Foundation
     @objc public var featureFlagKeys: [String]
 
     // MARK: - Wire-format internals
-
-    //
-    // Hidden from external code. Snapshotted at capture so identity / session
-    // changes between capture and flush cannot corrupt the record.
 
     var timeUnixNano: String
     var observedTimeUnixNano: String
@@ -120,12 +112,8 @@ import Foundation
 
     // MARK: - Persistence
 
-    //
-    // Records are persisted to disk via PostHogFileBackedQueue, so they need to
-    // round-trip through a JSON representation. We keep the on-disk shape internal
-    // (it is not the OTLP wire shape) — the queue rebuilds the OTLP payload at
-    // flush time so we can change the wire format without rewriting persisted
-    // records.
+    // The on-disk shape is internal and decoupled from the OTLP wire format,
+    // so the wire format can change without rewriting persisted records.
 
     func toStorageJSON() -> [String: Any] {
         var json: [String: Any] = [
@@ -136,8 +124,6 @@ import Foundation
             "featureFlagKeys": featureFlagKeys,
         ]
         if !attributes.isEmpty {
-            // Drop unserializable values defensively. sanitizeDictionary treats nil
-            // entries as empty input, so we only call it when we have content.
             json["attributes"] = sanitizeDictionary(attributes) ?? [:]
         }
         if let traceId { json["traceId"] = traceId }

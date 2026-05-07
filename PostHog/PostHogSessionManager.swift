@@ -123,9 +123,8 @@ import Foundation
         return currentSessionId
     }
 
-    /// Thread-safe snapshot of the cached app-background flag. Reads under
-    /// `sessionLock`; safe from any thread. Used by `captureLog` to tag log
-    /// records without needing main-thread access to UIApplication.
+    /// Thread-safe snapshot of the cached app-background flag. Safe to read
+    /// from any thread.
     var isAppInBackgroundSnapshot: Bool {
         sessionLock.withLock { isAppInBackground }
     }

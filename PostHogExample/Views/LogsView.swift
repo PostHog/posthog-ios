@@ -15,7 +15,7 @@
                 Section("Levels") {
                     ForEach(Self.levelButtons, id: \.0) { label, level in
                         Button(label) {
-                            PostHogSDK.shared.logger.callMethodFor(level: level, body: "test \(label) at \(Date())", attributes: ["source": "example"])
+                            PostHogSDK.shared.logger?.callMethodFor(level: level, body: "test \(label) at \(Date())", attributes: ["source": "example"])
                             lastAction = "Sent \(label)"
                         }
                     }
@@ -35,7 +35,7 @@
                     }
                     Button("Flood 1000 (rate-cap demo)") {
                         for i in 0 ..< 1000 {
-                            PostHogSDK.shared.logger.info("flood \(i)")
+                            PostHogSDK.shared.logger?.info("flood \(i)")
                         }
                         lastAction = "Submitted 1000 — rate cap will drop most"
                     }
@@ -59,7 +59,7 @@
             .navigationTitle("Logs")
         }
 
-        private static let levelButtons: [(String, PostHogLogLevel)] = [
+        private static let levelButtons: [(String, PostHogLogSeverity)] = [
             ("trace", .trace),
             ("debug", .debug),
             ("info", .info),
@@ -72,7 +72,7 @@
     private extension PostHogLogger {
         // Avoids a 6-way switch in the View body — same body and attributes for
         // every level button.
-        func callMethodFor(level: PostHogLogLevel, body: String, attributes: [String: Any]? = nil) {
+        func callMethodFor(level: PostHogLogSeverity, body: String, attributes: [String: Any]? = nil) {
             switch level {
             case .trace: trace(body, attributes: attributes)
             case .debug: debug(body, attributes: attributes)

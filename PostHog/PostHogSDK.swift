@@ -56,7 +56,8 @@ let maxRetryDelay = 30.0
     private var didEnterBackgroundToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
-    @objc public lazy var logger: PostHogLogger = .init(sdk: self)
+    /// `nil` before `setup(_:)` is called.
+    @objc public private(set) var logger: PostHogLogger?
 
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
@@ -167,10 +168,7 @@ let maxRetryDelay = 30.0
                 self?.notifyContextDidChange()
             }
 
-            // Force-init the lazy `logger` so its screen-view subscription is
-            // active for the first `captureLog` call (the lazy init would
-            // otherwise only fire on first `.logger` access).
-            _ = logger
+            logger = PostHogLogger(sdk: self)
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -467,8 +465,7 @@ let maxRetryDelay = 30.0
     }
 
     /// Trigger an immediate flush of every queue — events, session-replay
-    /// snapshots, and structured logs. Each queue sends to its own endpoint
-    /// (`/batch`, `/snapshot`, `/i/v1/logs`); calling this drains all three.
+    /// snapshots, and structured logs.
     @objc public func flush() {
         if !isEnabled() {
             return
@@ -932,7 +929,7 @@ let maxRetryDelay = 30.0
     ///   - level: Severity. Use `.trace`/`.debug` for diagnostic detail,
     ///     `.info` for regular events, `.warn`/`.error`/`.fatal` for problems.
     @objc(captureLogWithBody:level:)
-    public func captureLog(_ body: String, level: PostHogLogLevel) {
+    public func captureLog(_ body: String, level: PostHogLogSeverity) {
         captureLogInternal(body, level: level, attributes: nil, traceId: nil, spanId: nil, traceFlags: nil)
     }
 
@@ -945,7 +942,7 @@ let maxRetryDelay = 30.0
     ///     Values must be JSON-serializable; non-serializable entries are
     ///     dropped.
     @objc(captureLogWithBody:level:attributes:)
-    public func captureLog(_ body: String, level: PostHogLogLevel, attributes: [String: Any]?) {
+    public func captureLog(_ body: String, level: PostHogLogSeverity, attributes: [String: Any]?) {
         captureLogInternal(body, level: level, attributes: attributes, traceId: nil, spanId: nil, traceFlags: nil)
     }
 
@@ -963,7 +960,7 @@ let maxRetryDelay = 30.0
     ///     `nil` omits the field on the wire; `0` emits an explicit zero.
     @objc(captureLogWithBody:level:attributes:traceId:spanId:traceFlags:)
     public func captureLog(_ body: String,
-                           level: PostHogLogLevel,
+                           level: PostHogLogSeverity,
                            attributes: [String: Any]?,
                            traceId: String?,
                            spanId: String?,
@@ -975,10 +972,8 @@ let maxRetryDelay = 30.0
     /// Swift-native variant of `captureLog` with default values for every
     /// argument except `body`. Most call sites can write `captureLog("...")`
     /// or `captureLog("...", level: .warn, attributes: [...])`.
-    ///
-    /// See the `@objc` overload above for the parameter contract.
     public func captureLog(_ body: String,
-                           level: PostHogLogLevel = .info,
+                           level: PostHogLogSeverity = .info,
                            attributes: [String: Any]? = nil,
                            traceId: String? = nil,
                            spanId: String? = nil,
@@ -988,7 +983,7 @@ let maxRetryDelay = 30.0
     }
 
     private func captureLogInternal(_ body: String,
-                                    level: PostHogLogLevel,
+                                    level: PostHogLogSeverity,
                                     attributes: [String: Any]?,
                                     traceId: String?,
                                     spanId: String?,
@@ -1007,16 +1002,16 @@ let maxRetryDelay = 30.0
         // alter the record because the snapshot is frozen here.
         let distinctId = getDistinctId()
         let sessionId = sessionManager.getSessionId(readOnly: true)
-        let screenName = logger.lastScreenName
+        let screenName = logger?.lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
             // Bool flags are active iff true; multivariant (non-bool) values
             // are always active.
             if let boolValue = value as? Bool { return boolValue ? key : nil }
             return key
-        } ?? []
+        }.sorted() ?? []
 
-        let nanos = String(UInt64(now().timeIntervalSince1970 * 1_000_000_000))
+        let nanos = nanosNow()
         let record = PostHogLogRecord(
             body: body,
             level: level,
@@ -1033,11 +1028,9 @@ let maxRetryDelay = 30.0
             featureFlagKeys: featureFlagKeys
         )
 
+        // `runBeforeSend` enforces the empty-body drop, so we don't need a
+        // post-callback check here.
         guard let processed = config.logs.runBeforeSend(record) else { return }
-        if processed.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            hedgeLog("captureLog: empty body after beforeSend, dropping")
-            return
-        }
         logsQueue.add(processed)
     }
 
@@ -1949,7 +1942,8 @@ let maxRetryDelay = 30.0
             context = nil
             sessionManager.endSession()
             didEnterBackgroundToken = nil
-            logger.detach()
+            logger?.detach()
+            logger = nil
             toggleHedgeLog(false)
 
             uninstallIntegrations()

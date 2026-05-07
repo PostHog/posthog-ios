@@ -27,7 +27,6 @@ import Foundation
     /// An unrecoverable failure; the app likely cannot continue.
     case fatal
 
-    /// Lowercase identifier used as the wire-format string and disk codec key.
     var name: String {
         switch self {
         case .trace: return "trace"
@@ -51,14 +50,7 @@ import Foundation
         }
     }
 
-    /// OTLP `severityText` — the lowercase identifier (`"trace"`, `"debug"`,
-    /// `"info"`, `"warn"`, `"error"`, `"fatal"`).
-    var severityText: String {
-        name
-    }
-
-    /// Parse a severity from its canonical lowercase name. Tolerates
-    /// surrounding whitespace and casing. Returns `nil` for unknown values.
+    /// Tolerates surrounding whitespace and casing. Returns `nil` for unknown values.
     static func from(name: String) -> PostHogLogSeverity? {
         let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return PostHogLogSeverity.allCases.first { $0.name == normalized }

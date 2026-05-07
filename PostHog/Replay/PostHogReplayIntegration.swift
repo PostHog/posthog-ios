@@ -828,13 +828,6 @@
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
-                // Skip backing layers for child UIViews. Those are visited when
-                // findMaskableWidgets recurses into the child view, so traversing
-                // them here duplicates large layer subtrees on iOS 26.
-                if let sublayerView = sublayer.delegate as? UIView, sublayerView !== view {
-                    continue
-                }
-
                 // Skip layers tagged with .postHogNoMask()
                 if sublayer.postHogNoMask {
                     continue
@@ -843,6 +836,13 @@
                 // Check if layer is manually tagged with .postHogMask()
                 if sublayer.postHogNoCapture {
                     maskableWidgets.append(sublayer.toAbsoluteRect(window))
+                    continue
+                }
+
+                // Skip backing layers for child UIViews. Those are visited when
+                // findMaskableWidgets recurses into the child view, so traversing
+                // them here would duplicate large layer subtrees on iOS 26.
+                if let sublayerView = sublayer.delegate as? UIView, sublayerView !== view {
                     continue
                 }
 

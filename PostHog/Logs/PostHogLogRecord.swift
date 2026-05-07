@@ -16,7 +16,7 @@ final class PostHogLogRecord: NSObject {
     /// The log message body. Required; empty bodies are dropped at capture time.
     var body: String
 
-    var level: PostHogLogLevel
+    var level: PostHogLogSeverity
 
     /// Attributes attached to the record. Values must be JSON-serializable;
     /// `nil` values are filtered out before sending.
@@ -71,7 +71,7 @@ final class PostHogLogRecord: NSObject {
 
     init(
         body: String,
-        level: PostHogLogLevel = .info,
+        level: PostHogLogSeverity = .info,
         attributes: [String: Any] = [:],
         traceId: String? = nil,
         spanId: String? = nil,
@@ -143,7 +143,7 @@ final class PostHogLogRecord: NSObject {
     static func fromStorageJSON(_ json: [String: Any]) -> PostHogLogRecord? {
         guard let body = json["body"] as? String else { return nil }
         let levelName = (json["level"] as? String) ?? "info"
-        let level = PostHogLogLevel.from(name: levelName) ?? .info
+        let level = PostHogLogSeverity.from(name: levelName) ?? .info
         let attributes = (json["attributes"] as? [String: Any]) ?? [:]
         let timeUnixNano = (json["timeUnixNano"] as? String) ?? nanosNow()
         let observedTimeUnixNano = (json["observedTimeUnixNano"] as? String) ?? timeUnixNano

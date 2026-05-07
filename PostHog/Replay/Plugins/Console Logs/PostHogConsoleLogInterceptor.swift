@@ -98,11 +98,9 @@
             }
         }
 
-        /// Determines if the log message should be captured, based on config.
-        /// Compares `severityNumber` (OTLP-aligned, severity-monotonic), not
-        /// `rawValue` — see `PostHogLogLevel` for why rawValue can't be used.
+        /// Determines if the log message should be captured, based on config
         private func shouldCaptureLog(entry: PostHogLogEntry, config: PostHogConfig) -> Bool {
-            entry.level.severityNumber >= config.sessionReplayConfig.captureLogsConfig.minLogLevel.severityNumber
+            entry.level.rawValue >= config.sessionReplayConfig.captureLogsConfig.minLogLevel.rawValue
         }
 
         /// Console logs can be really large.

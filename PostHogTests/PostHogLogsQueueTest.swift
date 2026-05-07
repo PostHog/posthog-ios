@@ -61,7 +61,7 @@ final class PostHogLogsQueueTests {
 
     private func makeRecord(
         body: String = "hello",
-        level: PostHogLogLevel = .info,
+        level: PostHogLogSeverity = .info,
         attributes: [String: Any] = [:],
         distinctId: String? = "user-123"
     ) -> PostHogLogRecord {

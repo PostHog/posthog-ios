@@ -373,7 +373,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         setBeforeSend(blocks)
     }
 
-    @available(*, unavailable, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
+    @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) {
         setBeforeSend(blocks.map(\.block))
     }

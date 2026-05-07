@@ -14,7 +14,7 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
 
 /// Configuration for the PostHog logs subsystem. Mutate fields on `config.logs`
 /// before calling `PostHogSDK.setup(_:)`.
-@objc(PostHogLogsConfig) public final class PostHogLogsConfig: NSObject {
+@objc public final class PostHogLogsConfig: NSObject {
     enum Defaults {
         static let flushIntervalSeconds: TimeInterval = PostHogConfig.Defaults.flushIntervalSeconds
         static let maxBatchSize: Int = PostHogConfig.Defaults.maxBatchSize
@@ -59,6 +59,10 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
     /// Additional OpenTelemetry resource attributes attached to every batch.
     /// SDK-managed keys (`telemetry.sdk.*`, `os.*`, `service.name`) win on key
     /// collision so users can't shadow them.
+    ///
+    /// **From ObjC**: bridges to an immutable `NSDictionary`. Replace the
+    /// property to change it; in-place mutation on the returned dictionary
+    /// will fail.
     @objc public var resourceAttributes: [String: Any] = [:]
 
     /// Maximum number of records accepted per `rateCapWindowSeconds`. Set to
@@ -78,7 +82,7 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
         setBeforeSend(blocks)
     }
 
-    @available(*, unavailable, message: "Use setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) instead")
+    @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) {
         setBeforeSend(blocks.map(\.block))
     }

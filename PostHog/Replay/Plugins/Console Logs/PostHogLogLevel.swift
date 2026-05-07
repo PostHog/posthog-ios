@@ -10,12 +10,9 @@ import Foundation
 /// Severity level for a captured log entry. Used by both the session-replay
 /// console-log subsystem (iOS-only) and the cross-platform logs feature.
 ///
-/// Case order preserves the original public rawValues for `info` (0), `warn`
-/// (1), and `error` (2) — those shipped before the enum was extended with
-/// `trace`, `debug`, and `fatal`, so any ObjC consumer holding their integer
-/// constants stays binary-compatible. Severity comparisons (`>=`) must use
-/// `severityNumber`, not `rawValue` — rawValue order is no longer
-/// severity-monotonic.
+/// Use `severityNumber` (or `PostHogLogLevelHelpers` from ObjC) for `>=`-style
+/// severity comparisons. Comparing `rawValue` directly will give the wrong
+/// order — the cases are not declared in severity order.
 ///
 /// Maps to OpenTelemetry severity numbers (`TRACE=1`, `DEBUG=5`, `INFO=9`,
 /// `WARN=13`, `ERROR=17`, `FATAL=21`) for the OTLP wire format.
@@ -49,8 +46,10 @@ import Foundation
         }
     }
 
-    /// OTLP `severityNumber` (1, 5, 9, 13, 17, 21).
-    var severityNumber: Int {
+    /// OTLP `severityNumber` (1, 5, 9, 13, 17, 21). Use this for severity
+    /// comparisons — comparing `rawValue` will give the wrong order.
+    /// ObjC callers: see `PostHogLogLevelHelpers`.
+    public var severityNumber: Int {
         switch self {
         case .trace: return 1
         case .debug: return 5
@@ -61,10 +60,10 @@ import Foundation
         }
     }
 
-    /// OTLP `severityText` — the lowercase identifier (`"trace"`, `"info"`, …).
-    /// The OTLP spec permits any casing; PostHog's logs ingestion normalizes
-    /// either, but lowercase keeps the wire payload consistent.
-    var severityText: String {
+    /// OTLP `severityText` — the lowercase identifier (`"trace"`, `"debug"`,
+    /// `"info"`, `"warn"`, `"error"`, `"fatal"`).
+    /// ObjC callers: see `PostHogLogLevelHelpers`.
+    public var severityText: String {
         name
     }
 
@@ -73,5 +72,32 @@ import Foundation
     static func from(name: String) -> PostHogLogLevel? {
         let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return PostHogLogLevel.allCases.first { $0.name == normalized }
+    }
+}
+
+/// Severity helpers for `PostHogLogLevel` — call from ObjC to get the OTLP
+/// severity number or text for a level.
+///
+/// Use `severityNumberForLevel:` for `>=`-style severity comparisons; comparing
+/// the raw enum integer directly will give the wrong order for `trace` /
+/// `debug` / `fatal`.
+///
+/// ```objc
+/// NSInteger n = [PostHogLogLevelHelpers severityNumberForLevel:record.level];
+/// if (n >= [PostHogLogLevelHelpers severityNumberForLevel:PostHogLogLevelWarn]) {
+///     // ...
+/// }
+/// ```
+@objc public final class PostHogLogLevelHelpers: NSObject {
+    /// OTLP severity number for `level` (1 = trace, 5 = debug, 9 = info,
+    /// 13 = warn, 17 = error, 21 = fatal).
+    @objc public static func severityNumber(for level: PostHogLogLevel) -> Int {
+        level.severityNumber
+    }
+
+    /// OTLP severity text for `level` (`"trace"`, `"debug"`, `"info"`,
+    /// `"warn"`, `"error"`, `"fatal"`).
+    @objc public static func severityText(for level: PostHogLogLevel) -> String {
+        level.severityText
     }
 }

@@ -14,6 +14,7 @@
 // Author: Jyrki Alakuijala (jyrki@google.com)
 // Converted to C by Aleksander Kramarz (akramarz@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>
 
 #include "./ph_lossless_common.h"

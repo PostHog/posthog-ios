@@ -11,6 +11,7 @@
 //
 // Author: Urvang (urvang@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_filters_utils.h"
 #include <stdlib.h>
 #include <string.h>

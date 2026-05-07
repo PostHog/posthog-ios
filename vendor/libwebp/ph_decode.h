@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_WEBP_DECODE_H_
 #define WEBP_WEBP_DECODE_H_
 

@@ -11,6 +11,7 @@
 //
 // Author: Vikas Arora (vikaas.arora@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_ENC_VP8LI_ENC_H_
 #define WEBP_ENC_VP8LI_ENC_H_
 

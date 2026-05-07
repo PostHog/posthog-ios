@@ -28,6 +28,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #endif
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
+        static let maxRetries: Int = 3
     }
 
     @objc(PostHogDataMode) public enum PostHogDataMode: Int {
@@ -56,6 +57,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var maxQueueSize: Int = Defaults.maxQueueSize
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
+
+    /// Maximum number of consecutive flush attempts before the entire queue is
+    /// dropped to avoid infinite retries against a permanently-broken backend.
+    /// Increments on every retriable failure including HTTP 413 cap halving;
+    /// resets on a successful 2xx response. Default 3.
+    @objc public var maxRetries: Int = Defaults.maxRetries
     @objc public var dataMode: PostHogDataMode = .any
     @objc public var sendFeatureFlagEvent: Bool = true
     @objc public var preloadFeatureFlags: Bool = true
@@ -110,10 +117,18 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Defaults to false.
     @objc public var reuseAnonymousId: Bool = false
 
+    private var _propertiesSanitizer: PostHogPropertiesSanitizer?
+    var legacyPropertiesSanitizer: PostHogPropertiesSanitizer? {
+        _propertiesSanitizer
+    }
+
     /// Hook that allows to sanitize the event properties
     /// The hook is called before the event is cached or sent over the wire
     @available(*, deprecated, message: "Use beforeSend instead")
-    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer?
+    @objc public var propertiesSanitizer: PostHogPropertiesSanitizer? {
+        get { _propertiesSanitizer }
+        set { _propertiesSanitizer = newValue }
+    }
     /// Determines the behavior for processing user profiles.
     @objc public var personProfiles: PostHogPersonProfiles = .identifiedOnly
 

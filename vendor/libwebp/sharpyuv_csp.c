@@ -9,6 +9,7 @@
 //
 // Colorspace utilities.
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_sharpyuv_csp.h"
 
 #include "./ph_utils.h"

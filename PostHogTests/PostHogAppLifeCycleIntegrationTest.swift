@@ -40,6 +40,12 @@ final class PostHogAppLifeCycleIntegrationTest {
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
         config.disableFlushOnBackgroundForTesting = disableFlushOnBackgroundForTesting
+        // Reachability now genuinely fires events queue callbacks (the events
+        // queue used to be silently disconnected by the replay queue's
+        // subscription). On a `.wifi` connection the queue auto-flushes shortly
+        // after start, which is fine in production but causes lifecycle tests
+        // to see an early single-event batch instead of the expected count.
+        config.disableReachabilityForTesting = true
 
         let storage = PostHogStorage(config)
         storage.reset()

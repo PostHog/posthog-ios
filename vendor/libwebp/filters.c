@@ -11,6 +11,7 @@
 //
 // Author: Urvang (urvang@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 #include "./ph_utils.h"
 #include <stdlib.h>

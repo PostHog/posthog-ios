@@ -11,6 +11,7 @@
 //
 // Entropy encoding (Huffman) for webp lossless.
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>
 #include <string.h>
 #include "./ph_huffman_encode_utils.h"

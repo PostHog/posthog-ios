@@ -25,6 +25,7 @@ class PostHogIdentityTests {
         config.flushAt = flushAt
         config.maxBatchSize = flushAt
         config.disableFlushOnBackgroundForTesting = true
+        config.disableReachabilityForTesting = true
         let sut = PostHogSDK.with(config)
         cleanupJobs.append {
             sut.reset()

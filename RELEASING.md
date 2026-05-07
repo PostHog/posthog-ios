@@ -20,7 +20,7 @@ The changeset file will be created in the `.changeset/` directory.
 
 ### 2. Create a Pull Request
 
-Create a PR with your changes and the changeset file(s). Add the `release` label to the PR.
+Create a PR with your changes and the changeset file(s). No release label is required.
 
 ### 3. Merge the PR
 
@@ -72,7 +72,7 @@ If the release workflow fails with "No changesets found", ensure your PR include
 
 ### Release not triggered
 
-Make sure the PR has the `release` label applied before merging.
+Make sure the PR includes a changeset file and was merged to `main`, or trigger the workflow manually from the Actions tab.
 
 ### Manual CocoaPods publish (emergency only)
 

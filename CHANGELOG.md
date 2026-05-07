@@ -1,5 +1,23 @@
 ## Next
 
+## 3.57.6
+
+### Patch Changes
+
+- 2e76fa6: fix: duplicate symbol linker errors when posthog-ios is used alongside other dependencies that also include libwebp, such as SDWebImageWebPCoder or KingfisherWebP
+
+## 3.57.5
+
+### Patch Changes
+
+- 04f7aa0: Clean up CocoaPods validation warnings from deprecated sanitizer access, unused lock results, and duplicate C++ linker flags.
+
+## 3.57.4
+
+### Patch Changes
+
+- 8407036: Fix events queue not responding to network reachability changes. The replay queue's subscription was silently overwriting the events queue's `whenReachable` / `whenUnreachable` callbacks since v3.0, so `dataMode = .wifi` was ignored, auto-flush on WiFi reconnect did not fire, and the offline pause was reactive after a wasted request. `Reachability` now exposes `onReachable` / `onUnreachable` multicast hooks; the legacy single-callback fields are deprecated.
+
 ## 3.57.3
 
 ### Patch Changes

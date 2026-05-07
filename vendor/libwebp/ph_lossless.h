@@ -13,6 +13,7 @@
 //          Jyrki Alakuijala (jyrki@google.com)
 
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_DSP_LOSSLESS_H_
 #define WEBP_DSP_LOSSLESS_H_
 

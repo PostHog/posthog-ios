@@ -11,6 +11,7 @@
 //
 // Author: somnath@google.com (Somnath Banerjee)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 #include "./ph_yuv.h"
 #include "./ph_utils.h"

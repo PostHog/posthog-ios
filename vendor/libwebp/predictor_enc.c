@@ -14,6 +14,7 @@
 //          Urvang Joshi (urvang@google.com)
 //          Vincent Rabaud (vrabaud@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>
 #include <string.h>
 

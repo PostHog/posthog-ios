@@ -12,6 +12,7 @@
 // Author: Vikas Arora (vikaas.arora@gmail.com)
 //
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>
 
 #include "./ph_lossless.h"

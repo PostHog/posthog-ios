@@ -13,6 +13,7 @@
 //          Jyrki Alakuijala (jyrki@google.com)
 //          Urvang Joshi (urvang@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #include <math.h>

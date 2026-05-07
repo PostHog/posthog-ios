@@ -9,6 +9,7 @@
 //
 // Endian related functions.
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_UTILS_ENDIAN_INL_UTILS_H_
 #define WEBP_UTILS_ENDIAN_INL_UTILS_H_
 

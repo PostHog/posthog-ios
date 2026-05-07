@@ -14,6 +14,7 @@
 // Author: Vincent Rabaud (vrabaud@google.com)
 //
 
+#include "./phlibwebp_prefix.h"
 #include <string.h>
 
 #include "./ph_lossless_common.h"

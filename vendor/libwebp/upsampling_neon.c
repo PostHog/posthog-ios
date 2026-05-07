@@ -12,6 +12,7 @@
 // Author: mans@mansr.com (Mans Rullgard)
 // Based on SSE code by: somnath@google.com (Somnath Banerjee)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #if defined(WEBP_USE_NEON)

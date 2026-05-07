@@ -12,6 +12,7 @@
 // Authors: Somnath Banerjee (somnath@google.com)
 //          Johann Koenig (johannkoenig@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #if defined(WEBP_USE_NEON)

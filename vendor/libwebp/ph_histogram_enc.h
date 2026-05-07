@@ -11,6 +11,7 @@
 //
 // Models the histograms of literal and distance codes.
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_ENC_HISTOGRAM_ENC_H_
 #define WEBP_ENC_HISTOGRAM_ENC_H_
 

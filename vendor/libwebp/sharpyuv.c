@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_sharpyuv.h"
 
 #include "./ph_utils.h"

@@ -11,6 +11,7 @@
 //
 // Author: Urvang (urvang@google.com)
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_WEBP_FORMAT_CONSTANTS_H_
 #define WEBP_WEBP_FORMAT_CONSTANTS_H_
 

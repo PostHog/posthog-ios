@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_encode.h"
 
 #if !(defined(WEBP_DISABLE_STATS) || defined(WEBP_REDUCE_SIZE))

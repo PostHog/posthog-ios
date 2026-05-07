@@ -14,6 +14,7 @@
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #pragma clang diagnostic ignored "-Wnon-modular-include-in-framework-module"
 
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_WEBP_TYPES_H_
 #define WEBP_WEBP_TYPES_H_
 

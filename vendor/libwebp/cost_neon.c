@@ -9,6 +9,7 @@
 //
 // ARM NEON version of cost functions
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #if defined(WEBP_USE_NEON)

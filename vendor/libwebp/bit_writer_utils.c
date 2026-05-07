@@ -12,6 +12,7 @@
 // Author: Skal (pascal.massimino@gmail.com)
 //         Vikas Arora (vikaas.arora@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include <string.h>   // for memcpy()
 #include <stdlib.h>
 

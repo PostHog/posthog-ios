@@ -5,69 +5,80 @@
 
 import Foundation
 
-/// Internal carrier for a captured log entry.
+/// A captured log entry passed to your `beforeSend` callback. Mutate the
+/// fields below to redact, enrich, or rewrite the record; return `nil` to
+/// drop it.
 ///
-/// Records are produced by `captureLog` (or `logger.<level>`), persisted to
-/// disk via `PostHogLogsQueue`, and serialized as OpenTelemetry log records on
-/// the wire. The public `beforeSend` surface is `PostHogMutableLogRecord`,
-/// which exposes a redaction-safe subset of these fields; everything here is
-/// SDK-internal.
-final class PostHogLogRecord: NSObject {
-    /// The log message body. Required; empty bodies are dropped at capture time.
-    var body: String
+/// Instances are created by the SDK at capture time. Mutations made after the
+/// callback returns have no effect — the record is encoded into the on-disk
+/// queue as soon as `beforeSend` finishes.
+@objc public final class PostHogLogRecord: NSObject {
+    /// The log message text. Set to an empty string to drop the record (same
+    /// effect as returning `nil`).
+    @objc public var body: String
 
-    var level: PostHogLogSeverity
+    /// Severity of the log entry. Reassign to re-classify (e.g. demote a
+    /// noisy `.warn` to `.debug`).
+    @objc public var level: PostHogLogSeverity
 
-    /// Attributes attached to the record. Values must be JSON-serializable;
-    /// `nil` values are filtered out before sending.
-    var attributes: [String: Any]
+    /// Free-form attributes attached to this record. Values must be
+    /// JSON-serializable (`String`, `Int`, `Double`, `Bool`, arrays/dicts of
+    /// the same, `NSNumber`); anything else is silently dropped at flush
+    /// time. Use this to add structured context (request ids, build numbers,
+    /// experiment buckets) or to remove keys you don't want sent.
+    ///
+    /// **From ObjC**: bridges to an immutable `NSDictionary`. To mutate, take
+    /// a `mutableCopy`, edit it, and assign back to the property — in-place
+    /// mutation on the returned dictionary will fail.
+    @objc public var attributes: [String: Any]
 
-    /// Optional W3C trace context — 32 hex characters.
-    var traceId: String?
+    /// W3C trace id (32 hex characters) if you've correlated this log with a
+    /// distributed trace. `nil` when no trace context is associated. Set or
+    /// rewrite for tracing integrations.
+    @objc public var traceId: String?
 
-    /// Optional W3C trace context — 16 hex characters.
-    var spanId: String?
+    /// W3C span id (16 hex characters) if this log belongs to a span. `nil`
+    /// when no span is active.
+    @objc public var spanId: String?
 
-    /// Optional W3C trace flags. The lower 8 bits are the W3C bitfield; bit 0
-    /// is the `sampled` flag. `nil` means "field absent on the wire"; `0`
-    /// means "explicitly emit as 0".
-    var traceFlags: NSNumber?
+    /// W3C trace flags. Lower 8 bits are the bitfield; bit 0 is the
+    /// `sampled` flag. `nil` omits the field on the wire; `0` explicitly
+    /// emits zero.
+    @objc public var traceFlags: NSNumber?
 
-    /// Capture-time wall clock in nanoseconds since Unix epoch, encoded as a
-    /// string per OTLP/JSON. Snapshotted at capture so identity / session
-    /// changes between capture and flush cannot corrupt the record.
-    var timeUnixNano: String
+    /// PostHog distinct id of the user at capture time, or `nil` if no user
+    /// is identified. Set to `nil` (or to a hash) to redact.
+    @objc public var distinctId: String?
 
-    /// Equal to `timeUnixNano` for in-process synchronous capture; the OTLP
-    /// shape carries both fields so we populate both.
-    var observedTimeUnixNano: String
+    /// PostHog session id at capture time, or `nil` if no session is active.
+    /// Set to `nil` to disassociate the record from the session.
+    @objc public var sessionId: String?
 
-    // MARK: - Per-capture context snapshot
+    /// Last screen name observed by automatic screen-view tracking, or `nil`
+    /// if screen tracking is disabled or no screen has been seen yet. Set to
+    /// `nil` (or rewrite) to redact navigation context.
+    @objc public var screenName: String?
+
+    /// `"foreground"` or `"background"` at capture time. Read-only in
+    /// practice — there's rarely a reason to rewrite this.
+    @objc public var appState: String?
+
+    /// Feature flag keys that were active at capture time. Empty when no
+    /// flags are loaded. Useful for correlating logs with experiment
+    /// cohorts; clear or filter to redact.
+    ///
+    /// **From ObjC**: bridges to an immutable `NSArray`. Replace the
+    /// property to mutate; in-place mutation will fail.
+    @objc public var featureFlagKeys: [String]
+
+    // MARK: - Wire-format internals
 
     //
-    // These fields are filled in by the caller (PostHogSDK) at capture time. The
-    // logs queue itself does not read SDK state, so a record carries everything
-    // needed to be sent independently of when the flush actually happens.
+    // Hidden from external code. Snapshotted at capture so identity / session
+    // changes between capture and flush cannot corrupt the record.
 
-    /// The user's PostHog distinct id at capture time. `nil` if no user is
-    /// identified. `beforeSend` callbacks may rewrite this for redaction.
-    var distinctId: String?
-
-    /// Active PostHog session id at capture time. `nil` if no session is
-    /// active.
-    var sessionId: String?
-
-    /// Last-seen screen name at capture time, populated automatically when
-    /// screen view tracking is enabled.
-    var screenName: String?
-
-    /// `"foreground"` or `"background"` at capture time.
-    var appState: String?
-
-    /// Keys of feature flags that were active at capture time. Useful for
-    /// correlating log records with experiment cohorts. Empty when no flags
-    /// are loaded.
-    var featureFlagKeys: [String]
+    var timeUnixNano: String
+    var observedTimeUnixNano: String
 
     init(
         body: String,

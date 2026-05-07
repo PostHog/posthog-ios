@@ -30,10 +30,10 @@ private struct BatchLimits {
     /// batches (queue depth below cap) shouldn't waste a halving step since
     /// the server only saw `actualBatchSize` records anyway. `flushAt` is
     /// clamped to the new `cap` so we never buffer more events than a single
-    /// batch can drain. Mirrors posthog-android's `BatchLimits.halve`.
+    /// batch can drain.
     @discardableResult
     mutating func halve(actualBatchSize: Int) -> Int {
-        cap = max(1, min(cap, actualBatchSize) / 2)
+        cap = clamped(min(cap, actualBatchSize) / 2)
         flushAt = clamped(min(flushAt / 2, cap))
         return cap
     }

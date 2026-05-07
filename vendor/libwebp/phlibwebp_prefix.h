@@ -3,6 +3,18 @@
 
 // Prefix all global symbols from PostHog's vendored libwebp copy.
 // This lets apps link PostHog alongside other dependencies that also vendor libwebp.
+//
+// Regenerating after a libwebp update:
+// 1. Build a sample that compiles phlibwebp, then locate the built phlibwebp.o.
+// 2. Generate mappings from defined global symbols:
+//      nm -gU /path/to/phlibwebp.o \
+//        | awk '$2 != "U" {print $NF}' \
+//        | sed 's/^_//' \
+//        | grep -E '^[A-Za-z_][A-Za-z0-9_]*$' \
+//        | sort -u \
+//        | awk '{ printf "#define %-45s PH%s\\n", $1, $1 }'
+// 3. Rerun WebP collision samples across the matrix to catch architecture-specific
+//    symbols that may only appear on simulator/device slices.
 
 #define ChunkAppend                                   PHChunkAppend
 #define ChunkDelete                                   PHChunkDelete

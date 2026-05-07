@@ -53,14 +53,6 @@ private struct BatchLimits {
  */
 
 class PostHogQueue<Record> {
-    /// True when `retryCount` has exceeded `maxRetries` after just being
-    /// incremented for the current attempt. Comparison is `>` (not `>=`) so the
-    /// configured value is the count of *retries* allowed before the drop fires
-    /// — with the default of 3 you get attempts 1–3 retried, attempt 4 drops.
-    private static func retryCountExceeded(_ retryCount: Int, maxRetries: Int) -> Bool {
-        retryCount > maxRetries
-    }
-
     private let config: PostHogConfig
     private let endpoint: QueueEndpoint<Record>
     private let configuredMaxQueueSize: Int
@@ -152,7 +144,9 @@ class PostHogQueue<Record> {
                 retryCount += 1
                 return retryCount
             }
-            if Self.retryCountExceeded(newCount, maxRetries: config.maxRetries) {
+            // `>` not `>=`: maxRetries is the count of retries allowed before
+            // dropping — default 3 retries attempts 1-3, drops on attempt 4.
+            if newCount > config.maxRetries {
                 dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
                 payload.completion(true)
                 return
@@ -180,7 +174,7 @@ class PostHogQueue<Record> {
                     retryCount += 1
                     return retryCount
                 }
-                if Self.retryCountExceeded(newCount, maxRetries: config.maxRetries) {
+                if newCount > config.maxRetries {
                     dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
                     payload.completion(true)
                     return

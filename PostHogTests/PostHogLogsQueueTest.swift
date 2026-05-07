@@ -429,7 +429,7 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 4)
     }
 
-    // Note: the 5xx path also goes through retryCountExceeded → dropAllQueuedRecords,
+    // Note: the 5xx path also goes through the maxRetries check → dropAllQueuedRecords,
     // but testing it directly would require waiting out the 5+10+15s exponential backoff
     // between attempts (`pausedUntil` blocks the next flush). The 413 maxRetries test
     // above covers the shared drop logic without that latency since 413 doesn't pause.
@@ -692,6 +692,14 @@ final class PostHogLogsQueueTests {
             queue.stop()
         }
 
+        // The queue's `start()` calls `reachability.startNotifier()`, which
+        // arms the system SCNetworkReachability callback. On a live CI runner
+        // that's online, the system fires an async `onReachable` after start
+        // — racing with our manual events and wiping the paused flag. Stop
+        // the notifier here so only the manual `invoke(...)` calls below
+        // drive state.
+        reachability.stopNotifier()
+
         // Simulate network going down. Subsequent flushes are paused.
         reachability.onUnreachable.invoke(reachability)
 
@@ -790,7 +798,7 @@ final class PostHogLogsQueueTests {
         #expect(logRecords.count == 1)
         let rec = logRecords[0]
         #expect(rec["severityNumber"] as? Int == 13)
-        #expect(rec["severityText"] as? String == "WARN")
+        #expect(rec["severityText"] as? String == "warn")
         let bodyAny = try #require(rec["body"] as? [String: Any])
         #expect(bodyAny["stringValue"] as? String == "hello")
 

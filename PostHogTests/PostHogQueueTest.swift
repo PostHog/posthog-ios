@@ -185,11 +185,11 @@ class PostHogQueueTest: QuickSpec {
 
         it("drops the entire queue once retryCount exceeds maxRetries on repeated 413") {
             // 413 with cap > 1 increments retryCount the same way 5xx /
-            // network errors do — they go through the same
-            // `retryCountExceeded()` check — so this test covers both paths'
-            // drop logic. We use 413 here because it doesn't set
-            // `pausedUntil`, letting the test drive multiple retries without
-            // waiting out the exponential backoff.
+            // network errors do — both paths use the same
+            // `newCount > config.maxRetries` check — so this test covers
+            // both paths' drop logic. We use 413 here because it doesn't
+            // set `pausedUntil`, letting the test drive multiple retries
+            // without waiting out the exponential backoff.
             //
             // 20 events with maxBatchSize=20 so halving sequence is 10 → 5
             // → drop — cap doesn't reach 1 before maxRetries=2 is exceeded

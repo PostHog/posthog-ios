@@ -10,7 +10,7 @@ import Foundation
 /// record's `body` to an empty string also drops it. Multiple blocks compose
 /// left-to-right; if any returns `nil`, later blocks are skipped. Runs
 /// synchronously on the thread that called `captureLog`.
-public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHogMutableLogRecord?
+public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
 
 /// Configuration for the PostHog logs subsystem. Mutate fields on `config.logs`
 /// before calling `PostHogSDK.setup(_:)`.
@@ -72,7 +72,7 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
     /// Tumbling window in seconds used by the rate cap.
     @objc public var rateCapWindowSeconds: TimeInterval = Defaults.rateCapWindowSeconds
 
-    private var beforeSend = BeforeSendChain<PostHogMutableLogRecord>()
+    private var beforeSend = BeforeSendChain<PostHogLogRecord>()
 
     public func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) {
         beforeSend.set(blocks)
@@ -88,13 +88,11 @@ public typealias PostHogBeforeSendLogBlock = (PostHogMutableLogRecord) -> PostHo
     }
 
     func runBeforeSend(_ record: PostHogLogRecord) -> PostHogLogRecord? {
-        let view = PostHogMutableLogRecord(record)
-        guard let mutated = beforeSend.run(view) else { return nil }
+        guard let result = beforeSend.run(record) else { return nil }
         // Empty body is the documented sentinel for "drop this record" — enforce
         // here so capture-side callers can't forget the check.
-        if mutated.body.isEmpty { return nil }
-        mutated.apply(to: record)
-        return record
+        if result.body.isEmpty { return nil }
+        return result
     }
 
     @objc override public init() {

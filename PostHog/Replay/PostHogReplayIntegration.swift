@@ -531,15 +531,15 @@
             }
         }
 
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
-            guard let wireframe = autoreleasepool(invoking: {
-                toWireframe(window)
-            }) else {
+        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK, timestampDate: Date) {
+            guard
+                let wireframe = autoreleasepool(invoking: {
+                    toWireframe(window)
+                })
+            else {
                 return
             }
 
-            // capture current timestamp
-            let timestampDate = Date()
             captureSnapshot(
                 wireframe,
                 window: window,
@@ -883,6 +883,29 @@
             return wireframe
         }
 
+        private func captureScreenshotImage(
+            _ wireframe: RRWireframe,
+            window: UIWindow,
+            windowSize: CGSize,
+            screenName: String?,
+            postHog: PostHogSDK,
+            timestampDate: Date
+        ) {
+            autoreleasepool {
+                if let image = window.toImage(), image.size.hasSize() {
+                    wireframe.image = image
+                    captureSnapshot(
+                        wireframe,
+                        window: window,
+                        windowSize: windowSize,
+                        screenName: screenName,
+                        postHog: postHog,
+                        timestampDate: timestampDate
+                    )
+                }
+            }
+        }
+
         /// Check if any view controller in the hierarchy is animating a transition
         private func isAnimatingTransition(_ window: UIWindow) -> Bool {
             guard let rootViewController = window.rootViewController else { return false }
@@ -1135,6 +1158,7 @@
             }
 
             var screenName: String?
+
             if let controller = window.rootViewController {
                 // SwiftUI only supported with screenshotMode
                 if controller is AnyObjectUIHostingViewController, !postHog.config.sessionReplayConfig.screenshotMode {
@@ -1145,6 +1169,9 @@
                     screenName = UIViewController.getViewControllerName(controller)
                 }
             }
+
+            // capture timestamp early on main thread
+            let timestampDate = Date()
 
             if postHog.config.sessionReplayConfig.screenshotMode {
                 guard tryStartScreenshotCapture() else {
@@ -1158,34 +1185,41 @@
 
                 let windowSize = window.bounds.size
 
-                return PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                    guard let self else {
-                        return
-                    }
-                    defer { self.finishScreenshotCapture() }
-
-                    guard postHog.isSessionReplayActive() else {
-                        return
-                    }
-
-                    autoreleasepool {
-                        if let image = window.toImage(), image.size.hasSize() {
-                            wireframe.image = image
-                            self.captureSnapshot(
-                                wireframe,
-                                window: window,
-                                windowSize: windowSize,
-                                screenName: screenName,
-                                postHog: postHog,
-                                timestampDate: Date()
-                            )
+                if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
+                    return PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                        guard let self else {
+                            return
                         }
+                        defer { self.finishScreenshotCapture() }
+
+                        guard postHog.isSessionReplayActive() else {
+                            return
+                        }
+
+                        self.captureScreenshotImage(
+                            wireframe,
+                            window: window,
+                            windowSize: windowSize,
+                            screenName: screenName,
+                            postHog: postHog,
+                            timestampDate: timestampDate
+                        )
                     }
                 }
+
+                defer { finishScreenshotCapture() }
+                return captureScreenshotImage(
+                    wireframe,
+                    window: window,
+                    windowSize: windowSize,
+                    screenName: screenName,
+                    postHog: postHog,
+                    timestampDate: timestampDate
+                )
             }
 
-            // Wireframe mode reads UIKit view properties extensively and stays on the main thread.
-            generateSnapshot(window, screenName, postHog: postHog)
+            // Wireframe mode always stays on main thread
+            generateSnapshot(window, screenName, postHog: postHog, timestampDate: timestampDate)
         }
 
         private func handleEventCaptured(event: String) {

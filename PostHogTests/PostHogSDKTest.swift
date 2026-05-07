@@ -121,7 +121,6 @@ class PostHogSDKTest: QuickSpec {
             expect(sut.storage).to(beNil())
             expect(sut.getDistinctId()).to(beEmpty())
             expect(sut.getSessionId()).to(beNil())
-
         }
 
         it("no-ops setup when legacy api key is empty after trimming") {

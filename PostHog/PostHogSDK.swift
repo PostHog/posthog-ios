@@ -1713,6 +1713,7 @@ let maxRetryDelay = 30.0
     }
 
     private func isEnabled() -> Bool {
+        let enabled = setupLock.withLock { self.enabled }
         if !enabled {
             hedgeLog("PostHog method was called without `setup` being complete. Call wil be ignored.")
         }

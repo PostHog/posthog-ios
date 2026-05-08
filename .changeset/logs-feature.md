@@ -6,7 +6,7 @@ Add a logs feature for shipping structured log records from iOS, macOS, tvOS, wa
 
 ```swift
 PostHogSDK.shared.captureLog("hello", level: .info, attributes: ["k": "v"])
-PostHogSDK.shared.logger.info("ready")
+PostHogSDK.shared.logger?.info("ready")
 PostHogSDK.shared.flush()
 ```
 

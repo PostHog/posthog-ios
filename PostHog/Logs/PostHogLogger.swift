@@ -24,7 +24,12 @@ import Foundation
         super.init()
         screenViewToken = DI.main.screenViewPublisher.onScreenView.subscribe { [weak self] name in
             guard let self else { return }
-            self.lastScreenLock.withLock { self._lastScreenName = name }
+            // Only overwrite when the sanitizer recovers something meaningful;
+            // preserves the last useful name across noisy intermediate
+            // viewDidAppears (e.g. the AnyView-wrapped HostingControllers
+            // SwiftUI emits during initial layout).
+            guard let cleaned = Self.sanitize(rawScreenName: name) else { return }
+            self.lastScreenLock.withLock { self._lastScreenName = cleaned }
         }
     }
 
@@ -32,6 +37,53 @@ import Foundation
     func detach() {
         screenViewToken = nil
         lastScreenLock.withLock { _lastScreenName = nil }
+    }
+
+    /// Strips SwiftUI's `UIHostingController` / `ModifiedContent` wrappers to
+    /// surface the user's actual view type. Returns `nil` when the inner type
+    /// was erased to `AnyView` (no useful name to surface). UIKit class names
+    /// pass through unchanged.
+    static func sanitize(rawScreenName name: String) -> String? {
+        var current = name
+        if let inner = stripGeneric(current, wrapper: "UIHostingController") {
+            current = inner
+        }
+        while let inner = stripGeneric(current, wrapper: "ModifiedContent"),
+              let firstArg = firstGenericArgument(inner)
+        {
+            current = firstArg
+        }
+        if current.isEmpty || current == "AnyView" { return nil }
+        return current
+    }
+
+    /// Returns the body of `wrapper<…>` if `s` matches that exact shape (no
+    /// trailing junk after the closing `>`). nil otherwise.
+    private static func stripGeneric(_ s: String, wrapper: String) -> String? {
+        let prefix = wrapper + "<"
+        guard s.hasPrefix(prefix), s.hasSuffix(">") else { return nil }
+        let start = s.index(s.startIndex, offsetBy: prefix.count)
+        let end = s.index(before: s.endIndex)
+        return String(s[start ..< end])
+    }
+
+    /// Returns the first comma-separated generic argument from a body string,
+    /// respecting nested `<…>` so `ModifiedContent<X, Y>, B` splits at the
+    /// outer comma. Returns `s` trimmed if there's no top-level comma.
+    private static func firstGenericArgument(_ s: String) -> String? {
+        var depth = 0
+        for (offset, ch) in s.enumerated() {
+            if ch == "<" {
+                depth += 1
+            } else if ch == ">" {
+                depth -= 1
+            } else if ch == "," && depth == 0 {
+                let idx = s.index(s.startIndex, offsetBy: offset)
+                return String(s[..<idx]).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        let trimmed = s.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     /// Capture a `.trace` record. Finest-grained detail; usually only enabled

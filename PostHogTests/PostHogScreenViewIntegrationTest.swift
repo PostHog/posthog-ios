@@ -120,6 +120,68 @@ final class ScreenViewIntegrationTest {
         sut.close()
     }
 
+    // MARK: - PostHogLogger.sanitize
+
+    @Test("sanitize: pure UIKit class names pass through unchanged")
+    func sanitizePassesUIKitNames() {
+        #expect(PostHogLogger.sanitize(rawScreenName: "MyHomeViewController") == "MyHomeViewController")
+        #expect(PostHogLogger.sanitize(rawScreenName: "SettingsVC") == "SettingsVC")
+    }
+
+    @Test("sanitize: UIHostingController<X> → X")
+    func sanitizeStripsHostingController() {
+        #expect(PostHogLogger.sanitize(rawScreenName: "UIHostingController<HomeView>") == "HomeView")
+    }
+
+    @Test("sanitize: ModifiedContent<X, _> → X (peels one modifier)")
+    func sanitizePeelsOneModifier() {
+        let raw = "UIHostingController<ModifiedContent<DetailView, EnvironmentValueWriter>>"
+        #expect(PostHogLogger.sanitize(rawScreenName: raw) == "DetailView")
+    }
+
+    @Test("sanitize: nested ModifiedContent recurses to innermost user view")
+    func sanitizeRecursesNestedModifiers() {
+        // `WindowGroup { ContentView().padding().background(...) }` produces
+        // a left-leaning ModifiedContent chain like this — the user's view
+        // is at the innermost left.
+        let raw = "UIHostingController<ModifiedContent<ModifiedContent<HomeView, A>, B>>"
+        #expect(PostHogLogger.sanitize(rawScreenName: raw) == "HomeView")
+    }
+
+    @Test("sanitize: AnyView at the inner position returns nil (type was erased)")
+    func sanitizeReturnsNilForAnyView() {
+        // The exact shape we observed end-to-end in PostHogExample.
+        let raw = "UIHostingController<ModifiedContent<AnyView, RootModifier>>"
+        #expect(PostHogLogger.sanitize(rawScreenName: raw) == nil)
+        #expect(PostHogLogger.sanitize(rawScreenName: "UIHostingController<AnyView>") == nil)
+        #expect(PostHogLogger.sanitize(rawScreenName: "AnyView") == nil)
+    }
+
+    @Test("sanitize: empty / whitespace-only returns nil")
+    func sanitizeReturnsNilForEmpty() {
+        #expect(PostHogLogger.sanitize(rawScreenName: "") == nil)
+    }
+
+    @Test("logger.lastScreenName preserves the previous useful name when an AnyView fires after it")
+    func loggerKeepsLastUsefulNameWhenSwizzleProducesAnyView() async throws {
+        // SwiftUI initial layout often emits multiple viewDidAppears: a
+        // useful one (e.g. ContentView) followed by AnyView-wrapped ones
+        // from container chrome. The sanitizer's nil signal must not erase
+        // the good name we already had.
+        let sut = getSut(captureScreenViews: false)
+        let logger = try #require(sut.logger)
+
+        sut.screen("HomeView")
+        #expect(logger.lastScreenName == "HomeView")
+
+        // Simulate a noisy intermediate viewDidAppear that the publisher
+        // would fan out (e.g. from auto-capture in a mixed app).
+        mockScreenView.simulateScreenView(screen: "UIHostingController<ModifiedContent<AnyView, RootModifier>>")
+        #expect(logger.lastScreenName == "HomeView")
+
+        sut.close()
+    }
+
     @Test("captureScreenViews=false + manual screen() updates the logger's lastScreenName")
     func loggerLastScreenNamePopulatedFromManualScreen() async throws {
         // End-to-end: with auto-capture disabled (no integration installed),

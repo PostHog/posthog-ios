@@ -1,5 +1,11 @@
 ## Next
 
+## 3.57.6
+
+### Patch Changes
+
+- 2e76fa6: fix: duplicate symbol linker errors when posthog-ios is used alongside other dependencies that also include libwebp, such as SDWebImageWebPCoder or KingfisherWebP
+
 ## 3.57.5
 
 ### Patch Changes

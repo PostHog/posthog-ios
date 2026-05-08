@@ -261,11 +261,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     public var storageManager: PostHogStorageManager?
 
     private static func normalizeProjectToken(_ projectToken: String) -> String {
-        let normalizedProjectToken = projectToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        if normalizedProjectToken.isEmpty {
-            hedgeLog("Either projectToken or apiKey must be provided.")
-        }
-        return normalizedProjectToken
+        projectToken.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @objc(projectToken:)

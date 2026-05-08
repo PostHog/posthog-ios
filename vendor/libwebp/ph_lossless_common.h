@@ -14,6 +14,7 @@
 //          Vincent Rabaud (vrabaud@google.com)
 
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_DSP_LOSSLESS_COMMON_H_
 #define WEBP_DSP_LOSSLESS_COMMON_H_
 

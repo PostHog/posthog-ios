@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 // define to 0 to have run-time table initialization

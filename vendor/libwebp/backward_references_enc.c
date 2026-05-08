@@ -10,6 +10,7 @@
 // Author: Jyrki Alakuijala (jyrki@google.com)
 //
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_backward_references_enc.h"
 
 #include "./ph_dsp.h"

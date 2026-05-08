@@ -11,6 +11,7 @@
 //
 // Author: Christian Duvivier (cduvivier@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE2)

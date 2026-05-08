@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_utils.h"
 #include "./ph_format_constants.h"  // RIFF constants
 #include "./ph_mux_types.h"         // ALPHA_FLAG

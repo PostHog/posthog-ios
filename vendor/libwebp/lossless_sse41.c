@@ -9,6 +9,7 @@
 //
 // SSE41 variant of methods for lossless decoder
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_dsp.h"
 
 #if defined(WEBP_USE_SSE41)

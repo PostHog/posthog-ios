@@ -12,6 +12,7 @@
 // Authors: Urvang (urvang@google.com)
 //          Vikas (vikasa@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_muxi.h"
 #include "./ph_utils.h"
 

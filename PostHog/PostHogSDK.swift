@@ -91,6 +91,11 @@ let maxRetryDelay = 30.0
                 return
             }
 
+            if config.projectToken.isEmpty {
+                hedgeLog("PostHog SDK will be disabled because projectToken or apiKey is empty.")
+                return
+            }
+
             if PostHogSDK.projectTokens.contains(config.projectToken) {
                 hedgeLog("Project token: \(config.projectToken) already has a PostHog instance.")
             } else {

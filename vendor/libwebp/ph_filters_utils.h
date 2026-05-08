@@ -12,6 +12,7 @@
 // Author: Urvang (urvang@google.com)
 
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
+#include "./phlibwebp_prefix.h"
 #ifndef WEBP_UTILS_FILTERS_UTILS_H_
 #define WEBP_UTILS_FILTERS_UTILS_H_
 

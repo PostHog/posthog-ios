@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>  // for abs()
 
 #include "./ph_dsp.h"

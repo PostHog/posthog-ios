@@ -11,6 +11,7 @@
 //
 // Author: Jyrki Alakuijala (jyrki@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include <stdlib.h>
 #include <string.h>
 #include "./ph_color_cache_utils.h"

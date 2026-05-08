@@ -11,6 +11,7 @@
 //
 // Author: Skal (pascal.massimino@gmail.com)
 
+#include "./phlibwebp_prefix.h"
 #ifdef HAVE_CONFIG_H
 #include "./ph_config.h"
 #endif

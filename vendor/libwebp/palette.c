@@ -11,6 +11,7 @@
 //
 // Author: Vincent Rabaud (vrabaud@google.com)
 
+#include "./phlibwebp_prefix.h"
 #include "./ph_palette.h"
 
 #include <stdlib.h>

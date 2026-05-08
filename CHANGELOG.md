@@ -1,5 +1,24 @@
 ## Next
 
+## 3.58.0
+
+### Minor Changes
+
+- 7e9bf5f: Add a logs feature for shipping structured log records from iOS, macOS, tvOS, watchOS, and visionOS apps:
+
+  ```swift
+  PostHogSDK.shared.captureLog("hello", level: .info, attributes: ["k": "v"])
+  PostHogSDK.shared.logger?.info("ready")
+  PostHogSDK.shared.flush()
+  ```
+
+  Configure batching, rate limiting, service metadata, and a `beforeSend` filter via `config.logs`. Records are persisted to disk and survive app restarts. Manual capture only — console autocapture is not included.
+
+### Patch Changes
+
+- 78bb5e8: fix: synchronize SDK enabled state
+- 85afba6: Keep the SDK disabled when no project token or API key is provided.
+
 ## 3.57.6
 
 ### Patch Changes

@@ -46,6 +46,10 @@ final class PostHogScreenViewIntegration: PostHogIntegration {
     }
 
     func start() {
+        // We own the swizzle directly via startAutoCapture rather than
+        // subscribing to onScreenView. Subscribing would put us downstream of
+        // PostHogSDK.screen()'s own publisher invoke, so every manual
+        // screen() call would fire two events instead of one.
         DI.main.screenViewPublisher.startAutoCapture { [weak self] screenName in
             self?.postHog?.screen(screenName)
         }

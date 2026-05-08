@@ -7,8 +7,6 @@
 
 import Foundation
 
-/// Clamps `value` to a minimum of 1. Used wherever we initialise / halve
-/// the adaptive batch limits so we never store a value below 1.
 private func clamped(_ value: Int) -> Int {
     max(1, value)
 }
@@ -507,14 +505,10 @@ class PostHogQueue<Record> {
 
 #if TESTING
     extension PostHogQueue {
-        /// Exposes the adaptive batch cap so 413 halving and poison-drop
-        /// tests can assert the cap value.
         var currentBatchCapForTesting: Int {
             batchLimitsLock.withLock { batchLimits.cap }
         }
 
-        /// Exposes the adaptive flush threshold so 413 tests can assert it
-        /// was halved alongside the batch cap.
         var currentFlushAtForTesting: Int {
             batchLimitsLock.withLock { batchLimits.flushAt }
         }

@@ -83,8 +83,10 @@ extension QueueEndpoint where Record == PostHogLogRecord {
             initialFlushAt: { $0.logs.flushAt },
             maxQueueSize: { $0.logs.maxBufferSize },
             flushIntervalSeconds: { $0.logs.flushIntervalSeconds },
-            rateCapMax: { $0.logs.rateCapMaxLogs },
-            rateCapWindowSeconds: { $0.logs.rateCapWindowSeconds },
+            // Clamp to 0; a negative window would make `elapsed >= window`
+            // trivially true and reset the counter on every call.
+            rateCapMax: { max(0, $0.logs.rateCapMaxLogs) },
+            rateCapWindowSeconds: { max(0, $0.logs.rateCapWindowSeconds) },
             encode: { record in toJSONData(record.toStorageJSON()) },
             decode: { data in
                 guard let json = fromJSONData(data) else { return nil }

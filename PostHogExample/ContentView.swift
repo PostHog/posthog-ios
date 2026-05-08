@@ -170,6 +170,11 @@ struct ContentView: View {
                         } label: {
                             Text("Session Recording Tests")
                         }
+                        NavigationLink {
+                            LogsView()
+                        } label: {
+                            Text("Logs")
+                        }
                     #endif
                     NavigationLink {
                         ContentView()

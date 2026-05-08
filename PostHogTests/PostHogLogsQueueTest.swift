@@ -529,6 +529,28 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 50)
     }
 
+    @Test("rate cap disabled when rateCapMaxLogs is negative (clamped at init)")
+    func rateCapDisabledWhenNegative() async throws {
+        // A negative window would make `elapsed >= window` trivially true and
+        // reset the counter on every call, so both inputs are clamped to 0
+        // (the documented "no cap" sentinel) at queue init.
+        let (queue, _) = makeQueue(
+            maxBufferSize: 100,
+            maxBatchSize: 1000,
+            rateCapMaxLogs: -5,
+            rateCapWindowSeconds: -1
+        )
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        for i in 0 ..< 25 {
+            queue.add(makeRecord(body: "log-\(i)"))
+        }
+        await waitUntil { queue.depth == 25 }
+        #expect(queue.depth == 25)
+    }
+
     @Test("events and snapshot endpoints opt out of the rate cap")
     func nonLogsEndpointsDisableRateCap() {
         // Regression guard: rate cap is a logs-only opt-in. If a future change

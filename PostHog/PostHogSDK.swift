@@ -55,6 +55,10 @@ let maxRetryDelay = 30.0
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
 
+    /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
+    /// `nil` before `setup(_:)` is called.
+    @objc public private(set) var logger: PostHogLogger?
+
     #if os(iOS)
         private weak var replayIntegration: PostHogReplayIntegration?
         private weak var surveysIntegration: PostHogSurveyIntegration?
@@ -172,6 +176,8 @@ let maxRetryDelay = 30.0
             sessionIdChangedToken = sessionManager.onSessionIdChanged.subscribe { [weak self] in
                 self?.notifyContextDidChange()
             }
+
+            logger = PostHogLogger(sdk: self)
 
             if !config.optOut {
                 // don't install integrations if in opt-out state
@@ -467,6 +473,8 @@ let maxRetryDelay = 30.0
         return props
     }
 
+    /// Trigger an immediate flush of every queue — events, session-replay
+    /// snapshots, and structured logs.
     @objc public func flush() {
         if !isEnabled() {
             return
@@ -904,6 +912,137 @@ let maxRetryDelay = 30.0
         )
     }
 
+    // MARK: - Logs capture
+
+    /// Capture a structured log record at `.info` severity.
+    ///
+    /// Log records ship to PostHog via a separate `/i/v1/logs` endpoint and
+    /// are persisted to disk so they survive app restarts. The call performs
+    /// a **synchronous disk write on the calling thread**, then the network
+    /// send happens asynchronously — same contract as `capture(_:)` for
+    /// events. Avoid calling from the main thread on hot paths. Records run
+    /// through `config.logs.beforeSend` and the per-window rate cap before
+    /// enqueueing — both can drop a record silently. An empty or
+    /// whitespace-only `body` is always dropped.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
+    @objc(captureLogWithBody:)
+    public func captureLog(_ body: String) {
+        captureLogInternal(body, level: .info, attributes: nil, traceId: nil, spanId: nil, traceFlags: nil)
+    }
+
+    /// Capture a structured log record at the given severity.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - level: Severity. Use `.trace`/`.debug` for diagnostic detail,
+    ///     `.info` for regular events, `.warn`/`.error`/`.fatal` for problems.
+    @objc(captureLogWithBody:level:)
+    public func captureLog(_ body: String, level: PostHogLogSeverity) {
+        captureLogInternal(body, level: level, attributes: nil, traceId: nil, spanId: nil, traceFlags: nil)
+    }
+
+    /// Capture a structured log record with caller-supplied attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - level: Severity.
+    ///   - attributes: Per-record attributes (request id, duration, etc.).
+    ///     Values must be JSON-serializable; non-serializable entries are
+    ///     dropped.
+    @objc(captureLogWithBody:level:attributes:)
+    public func captureLog(_ body: String, level: PostHogLogSeverity, attributes: [String: Any]?) {
+        captureLogInternal(body, level: level, attributes: attributes, traceId: nil, spanId: nil, traceFlags: nil)
+    }
+
+    /// Capture a structured log record with W3C trace context. Intended for
+    /// callers correlating logs with distributed traces; most apps should use
+    /// the simpler overload.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - level: Severity.
+    ///   - attributes: Per-record attributes. Same rules as the simpler overload.
+    ///   - traceId: 32-character lowercase hex W3C trace id.
+    ///   - spanId: 16-character lowercase hex W3C span id.
+    ///   - traceFlags: W3C trace flags bitfield (bit 0 is the `sampled` flag).
+    ///     `nil` omits the field on the wire; `0` emits an explicit zero.
+    @objc(captureLogWithBody:level:attributes:traceId:spanId:traceFlags:)
+    public func captureLog(_ body: String,
+                           level: PostHogLogSeverity,
+                           attributes: [String: Any]?,
+                           traceId: String?,
+                           spanId: String?,
+                           traceFlags: NSNumber?)
+    {
+        captureLogInternal(body, level: level, attributes: attributes, traceId: traceId, spanId: spanId, traceFlags: traceFlags?.intValue)
+    }
+
+    /// Swift-native variant of `captureLog` with default values for every
+    /// argument except `body`. Most call sites can write `captureLog("...")`
+    /// or `captureLog("...", level: .warn, attributes: [...])`.
+    public func captureLog(_ body: String,
+                           level: PostHogLogSeverity = .info,
+                           attributes: [String: Any]? = nil,
+                           traceId: String? = nil,
+                           spanId: String? = nil,
+                           traceFlags: Int? = nil)
+    {
+        captureLogInternal(body, level: level, attributes: attributes, traceId: traceId, spanId: spanId, traceFlags: traceFlags)
+    }
+
+    private func captureLogInternal(_ body: String,
+                                    level: PostHogLogSeverity,
+                                    attributes: [String: Any]?,
+                                    traceId: String?,
+                                    spanId: String?,
+                                    traceFlags: Int?)
+    {
+        if !isEnabled() { return }
+        if isOptOutState() { return }
+        guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            hedgeLog("captureLog: empty body, dropping")
+            return
+        }
+        guard let logsQueue else { return }
+
+        // Capture-time context snapshot — cheap reads only, safe from any
+        // thread. Identity/session changes between capture and flush will not
+        // alter the record because the snapshot is frozen here.
+        let distinctId = getDistinctId()
+        let sessionId = sessionManager.getSessionId(readOnly: true)
+        let screenName = logger?.lastScreenName
+        let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
+        let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
+            // Bool flags are active iff true; multivariant (non-bool) values
+            // are always active.
+            if let boolValue = value as? Bool { return boolValue ? key : nil }
+            return key
+        }.sorted() ?? []
+
+        let nanos = nanosNow()
+        let record = PostHogLogRecord(
+            body: body,
+            level: level,
+            attributes: attributes ?? [:],
+            traceId: traceId,
+            spanId: spanId,
+            traceFlags: traceFlags.map { NSNumber(value: $0) },
+            timeUnixNano: nanos,
+            observedTimeUnixNano: nanos,
+            distinctId: distinctId.isEmpty ? nil : distinctId,
+            sessionId: sessionId,
+            screenName: screenName,
+            appState: appState.rawValue,
+            featureFlagKeys: featureFlagKeys
+        )
+
+        // `runBeforeSend` enforces the empty-body drop, so we don't need a
+        // post-callback check here.
+        guard let processed = config.logs.runBeforeSend(record) else { return }
+        logsQueue.add(processed)
+    }
+
     /// Internal capture method that handles all event capture logic.
     ///
     /// - Parameters:
@@ -1026,6 +1165,10 @@ let maxRetryDelay = 30.0
         }
 
         queueEvent(event, queue: queue)
+
+        // Fanout to subscribers (e.g. the logs feature's lastScreenName).
+        // Subscribers must not re-enter screen() from the callback.
+        DI.main.screenViewPublisher.onNewScreenName(screenTitle)
     }
 
     func autocapture(
@@ -1812,6 +1955,8 @@ let maxRetryDelay = 30.0
             context = nil
             sessionManager.endSession()
             didEnterBackgroundToken = nil
+            logger?.detach()
+            logger = nil
             toggleHedgeLog(false)
 
             uninstallIntegrations()

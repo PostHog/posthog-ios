@@ -36,7 +36,7 @@ final class PostHogLogsQueueTests {
         beforeSend: PostHogBeforeSendLogBlock? = nil,
         reachability: Reachability? = nil,
         disableReachabilityForTesting: Bool = true
-    ) -> (PostHogLogsQueue, PostHogConfig) {
+    ) -> (PostHogQueue<PostHogLogRecord>, PostHogConfig) {
         // Unique project token per test → isolated storage folder.
         let token = "logs_test_\(UUID().uuidString)"
         let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
@@ -51,7 +51,9 @@ final class PostHogLogsQueueTests {
 
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
-        let queue = PostHogLogsQueue(config, storage, api, reachability)
+        let resourceAttributes = PostHogLogsOTLP.buildResourceAttributes(config.logs)
+        let endpoint = QueueEndpoint<PostHogLogRecord>.logs(api: api, resourceAttributes: resourceAttributes)
+        let queue = PostHogQueue(config, storage, endpoint, reachability)
         // Start without the periodic timer so tests are deterministic.
         // Reachability is opt-in per test via the parameter.
         queue.start(disableReachabilityForTesting: disableReachabilityForTesting, disableQueueTimerForTesting: true)
@@ -529,10 +531,9 @@ final class PostHogLogsQueueTests {
 
     @Test("rate cap disabled when rateCapMaxLogs is negative (clamped at init)")
     func rateCapDisabledWhenNegative() async throws {
-        // A negative value used to land in the lock without short-circuiting,
-        // and (more subtly) a negative window made `elapsed >= window`
-        // trivially true so the counter reset on every call. Both are now
-        // clamped to 0 at queue init and treated as "no cap".
+        // A negative window would make `elapsed >= window` trivially true and
+        // reset the counter on every call, so both inputs are clamped to 0
+        // (the documented "no cap" sentinel) at queue init.
         let (queue, _) = makeQueue(
             maxBufferSize: 100,
             maxBatchSize: 1000,
@@ -548,6 +549,17 @@ final class PostHogLogsQueueTests {
         }
         await waitUntil { queue.depth == 25 }
         #expect(queue.depth == 25)
+    }
+
+    @Test("events and snapshot endpoints opt out of the rate cap")
+    func nonLogsEndpointsDisableRateCap() {
+        // Regression guard: rate cap is a logs-only opt-in. If a future change
+        // accidentally enables it on events / replay, every record would
+        // start being throttled at the queue's add(_:).
+        let config = PostHogConfig(projectToken: "x", host: "http://localhost:9001")
+        let api = PostHogApi(config)
+        #expect(QueueEndpoint<PostHogEvent>.batch(api: api).rateCapMax(config) == 0)
+        #expect(QueueEndpoint<PostHogEvent>.snapshot(api: api).rateCapMax(config) == 0)
     }
 
     // MARK: - beforeSend chain

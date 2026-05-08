@@ -84,6 +84,21 @@ class PostHogQueue<Record> {
     private var batchLimits: BatchLimits
     private let batchLimitsLock = NSLock()
 
+    /// Records accepted per `rateCapWindowSeconds`. `0` disables the cap and
+    /// is the default for endpoints that don't opt in.
+    private let rateCapMax: Int
+    private let rateCapWindowSeconds: TimeInterval
+
+    /// Guards the tumbling-window state below. Separate from `stateLock` so a
+    /// hot-path `add(_:)` doesn't contend with reachability / retry traffic.
+    private let rateCapLock = NSLock()
+    private var rateCapWindowStart: Date?
+    private var rateCapCount: Int = 0
+    /// Flips to `true` the first time we drop a record in the current window;
+    /// reset when the window rolls. Used to emit one warning per window
+    /// instead of one per dropped record.
+    private var rateCapDropWarned = false
+
     /// Internal, used for testing
     var depth: Int {
         fileQueue.depth
@@ -99,6 +114,8 @@ class PostHogQueue<Record> {
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
+            rateCapMax = endpoint.rateCapMax(config)
+            rateCapWindowSeconds = endpoint.rateCapWindowSeconds(config)
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
@@ -112,6 +129,8 @@ class PostHogQueue<Record> {
             configuredMaxQueueSize = endpoint.maxQueueSize(config)
             timerInterval = endpoint.flushIntervalSeconds(config)
             batchLimits = .initial(cap: endpoint.initialCap(config), flushAt: endpoint.initialFlushAt(config))
+            rateCapMax = endpoint.rateCapMax(config)
+            rateCapWindowSeconds = endpoint.rateCapWindowSeconds(config)
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
                 oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
@@ -275,6 +294,11 @@ class PostHogQueue<Record> {
     /// Internal, used for testing
     func clear() {
         fileQueue.clear()
+        rateCapLock.withLock {
+            rateCapWindowStart = nil
+            rateCapCount = 0
+            rateCapDropWarned = false
+        }
     }
 
     func stop() {
@@ -331,11 +355,22 @@ class PostHogQueue<Record> {
         }
     }
 
-    /// Enqueues a record on the caller's thread. The disk write is synchronous
-    /// to preserve crash durability — a process kill between `add()` returning
-    /// and a deferred write would lose the record. Callers on hot paths should
-    /// be aware.
+    /// Enqueues a record on the caller's thread. Encoding plus the
+    /// `fileQueue.add` disk write are synchronous — sized in microseconds for
+    /// a healthy filesystem but technically blocking. We keep it sync to
+    /// preserve crash durability: a process kill between `add()` returning and
+    /// a deferred write would lose the record. Callers on hot paths (main
+    /// thread, frame loops) should be aware.
+    ///
+    /// Rate cap drops happen *before* the FIFO eviction check so a new record
+    /// over the cap doesn't displace an older queued one — the rate cap is a
+    /// caller-side throttle, not a buffer policy.
     func add(_ record: Record) {
+        if !consumeRateCap() {
+            noteRateCapDropped()
+            return
+        }
+
         if fileQueue.depth >= configuredMaxQueueSize {
             hedgeLog("Queue is full, dropping oldest record")
             // first is always oldest
@@ -350,6 +385,50 @@ class PostHogQueue<Record> {
         fileQueue.add(data)
         hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
+    }
+
+    /// Returns `true` if the record can be enqueued, `false` if the per-window
+    /// cap has been reached. Re-anchors the window on negative elapsed so
+    /// wall-clock jumps don't strand the counter.
+    private func consumeRateCap() -> Bool {
+        if rateCapMax <= 0 {
+            return true
+        }
+        return rateCapLock.withLock {
+            rollRateCapWindowIfNeeded()
+            if rateCapCount >= rateCapMax {
+                return false
+            }
+            rateCapCount += 1
+            return true
+        }
+    }
+
+    /// Caller must hold `rateCapLock`.
+    private func rollRateCapWindowIfNeeded() {
+        let current = now()
+        guard let start = rateCapWindowStart else {
+            rateCapWindowStart = current
+            rateCapCount = 0
+            rateCapDropWarned = false
+            return
+        }
+        let elapsed = current.timeIntervalSince(start)
+        if elapsed < 0 || elapsed >= rateCapWindowSeconds {
+            rateCapWindowStart = current
+            rateCapCount = 0
+            rateCapDropWarned = false
+        }
+    }
+
+    /// Logs the first rate-cap drop in each window and silences subsequent
+    /// ones, to avoid spamming console at high record rates.
+    private func noteRateCapDropped() {
+        rateCapLock.withLock {
+            guard !rateCapDropWarned else { return }
+            rateCapDropWarned = true
+            hedgeLog("Queue rate cap exceeded (\(rateCapMax) per \(rateCapWindowSeconds)s), dropping records this window")
+        }
     }
 
     private func take(_ count: Int, completion: @escaping (PostHogConsumerPayload<Record>) -> Void) {

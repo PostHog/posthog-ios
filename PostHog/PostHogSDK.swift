@@ -30,7 +30,7 @@ let maxRetryDelay = 30.0
     }
 
     private var enabled = false
-    private let setupLock = NSLock()
+    private let setupLock = NSRecursiveLock()
     private let optOutLock = NSLock()
     private let groupsLock = NSLock()
     private let flagCallReportedLock = NSLock()

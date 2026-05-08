@@ -549,4 +549,41 @@ enum PostHogSessionManagerTest {
             #expect(newSessionId == rnSessionId)
         }
     }
+
+    @Suite("setup() seeds isAppInBackground from current application state")
+    struct AppStateSeeding {
+        let mockAppLifecycle: MockApplicationLifecyclePublisher
+
+        init() {
+            mockAppLifecycle = MockApplicationLifecyclePublisher()
+            DI.main.appLifecyclePublisher = mockAppLifecycle
+        }
+
+        @Test("late setup() with foreground app: snapshot reads false, not the initial true")
+        func seedsForegroundOnLateSetup() throws {
+            // The bug: NotificationCenter doesn't replay past lifecycle
+            // events. If setup() runs after didBecomeActive already fired,
+            // the SDK's flag would otherwise stay at its defensive default
+            // (`true` = background) until the next state change. With the
+            // seed in place, setup() reads the current state up-front.
+            mockAppLifecycle.isInBackground = false
+
+            let config = PostHogConfig(projectToken: "test_seed_fg_\(UUID().uuidString)")
+            let sdk = PostHogSDK.with(config)
+            defer { sdk.close() }
+
+            #expect(sdk.getSessionManager()?.isAppInBackgroundSnapshot == false)
+        }
+
+        @Test("setup() with backgrounded app: snapshot reads true")
+        func seedsBackgroundOnSetup() throws {
+            mockAppLifecycle.isInBackground = true
+
+            let config = PostHogConfig(projectToken: "test_seed_bg_\(UUID().uuidString)")
+            let sdk = PostHogSDK.with(config)
+            defer { sdk.close() }
+
+            #expect(sdk.getSessionManager()?.isAppInBackgroundSnapshot == true)
+        }
+    }
 }

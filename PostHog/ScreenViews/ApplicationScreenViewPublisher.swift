@@ -14,8 +14,14 @@ import Foundation
 protocol ScreenViewPublishing: AnyObject {
     /// Fanout for screen changes — fired by `PostHogSDK.screen()` (which
     /// covers both manual calls and the SwiftUI `.postHogScreenView`
-    /// modifier). Subscribers must not re-enter `screen()` from the callback.
+    /// modifier). Consumers should `.subscribe` only; broadcasting is the
+    /// publisher's job via `onNewScreenName(_:)`.
     var onScreenView: PostHogMulticastCallback<String> { get }
+
+    /// Broadcasts a screen name to subscribers. Encapsulates the underlying
+    /// multicast invocation so callers don't reach into `onScreenView` to
+    /// fire it themselves.
+    func onNewScreenName(_ screenName: String)
 
     /// Owned by `PostHogScreenViewIntegration`; activates the
     /// `viewDidAppear` swizzle and routes each visible-VC name to `handler`.
@@ -33,6 +39,10 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
     private let handlerLock = NSLock()
     private var autoCaptureHandler: ((String) -> Void)?
     private var hasSwizzled: Bool = false
+
+    func onNewScreenName(_ screenName: String) {
+        onScreenView.invoke(screenName)
+    }
 
     func startAutoCapture(_ handler: @escaping (String) -> Void) {
         handlerLock.withLock { autoCaptureHandler = handler }

@@ -35,6 +35,12 @@ import Foundation
         didBecomeActiveToken = nil
         didEnterBackgroundToken = nil
         applicationEventToken = nil
+        // NotificationCenter doesn't replay past lifecycle events, so a late
+        // setup() (called after `didBecomeActive` already fired) would
+        // otherwise leave `isAppInBackground` at its initial `true` value
+        // until the next foreground/background transition.
+        let backgrounded = DI.main.appLifecyclePublisher.isInBackground
+        sessionLock.withLock { isAppInBackground = backgrounded }
         registerNotifications()
         registerApplicationSendEvent()
     }

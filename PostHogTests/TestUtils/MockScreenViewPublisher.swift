@@ -14,6 +14,10 @@ final class MockScreenViewPublisher: ScreenViewPublishing {
     private(set) var didStopAutoCapture = false
     private var autoCaptureHandler: ((String) -> Void)?
 
+    func onNewScreenName(_ screenName: String) {
+        onScreenView.invoke(screenName)
+    }
+
     func startAutoCapture(_ handler: @escaping (String) -> Void) {
         autoCaptureHandler = handler
         didStartAutoCapture = true

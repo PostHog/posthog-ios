@@ -20,6 +20,11 @@ protocol AppLifecyclePublishing: AnyObject {
     var onDidEnterBackground: PostHogMulticastCallback<Void> { get }
     /// Callback for the `didFinishLaunching` event.
     var onDidFinishLaunching: PostHogMulticastCallback<Void> { get }
+    /// Snapshot of the current background state. NotificationCenter doesn't
+    /// replay past lifecycle events, so consumers that care about the value
+    /// at subscription time should seed from this rather than waiting for
+    /// the next state-change callback.
+    var isInBackground: Bool { get }
 }
 
 /**
@@ -45,6 +50,20 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     let onDidBecomeActive = PostHogMulticastCallback<Void>()
     let onDidEnterBackground = PostHogMulticastCallback<Void>()
     let onDidFinishLaunching = PostHogMulticastCallback<Void>()
+
+    /// `UIApplication.applicationState` requires main-thread access. From any
+    /// other thread we return the optimistic `false` rather than risk a
+    /// `DispatchQueue.main.sync` deadlock if the caller already holds a lock
+    /// the main thread is waiting on. macOS / watchOS have no equivalent
+    /// foreground-vs-background concept, so they also report `false`.
+    var isInBackground: Bool {
+        #if os(iOS) || os(tvOS) || os(visionOS)
+            guard Thread.isMainThread else { return false }
+            return UIApplication.shared.applicationState == .background
+        #else
+            return false
+        #endif
+    }
 
     private init() {
         let defaultCenter = NotificationCenter.default

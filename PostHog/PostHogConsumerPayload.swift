@@ -7,7 +7,10 @@
 
 import Foundation
 
-struct PostHogConsumerPayload {
-    let events: [PostHogEvent]
+/// Payload handed from `PostHogQueue.take` to the send pipeline. Generic over
+/// the record type so the same queue infrastructure can ship `PostHogEvent`
+/// (events / replay snapshots) and `PostHogLogRecord` (logs).
+struct PostHogConsumerPayload<Record> {
+    let records: [Record]
     let completion: (Bool) -> Void
 }

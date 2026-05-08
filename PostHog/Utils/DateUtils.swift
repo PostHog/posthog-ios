@@ -43,3 +43,15 @@ public func toISO8601Date(_ date: String) -> Date? {
 let secondsPerDay: Double = 86400
 
 var now: () -> Date = { Date() }
+
+/// Current wall clock as a uint64 nanosecond string. OTLP/JSON encodes
+/// uint64 as a string because JSON numbers cannot represent uint64 precisely.
+func nanosNow() -> String {
+    let secs = now().timeIntervalSince1970
+    // Avoid Double precision loss at large magnitudes by splitting into
+    // whole seconds + nanos within the second.
+    let whole = UInt64(secs)
+    let frac = secs - Double(whole)
+    let nanosInSecond = UInt64(frac * 1_000_000_000)
+    return "\(whole * 1_000_000_000 + nanosInSecond)"
+}

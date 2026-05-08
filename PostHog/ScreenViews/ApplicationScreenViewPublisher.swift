@@ -12,22 +12,47 @@ import Foundation
 #endif
 
 protocol ScreenViewPublishing: AnyObject {
-    /// Registers a callback for a view appeared event
+    /// Fanout for screen changes — fired by `PostHogSDK.screen()` (which
+    /// covers both manual calls and the SwiftUI `.postHogScreenView`
+    /// modifier). Consumers should `.subscribe` only; broadcasting is the
+    /// publisher's job via `onNewScreenName(_:)`.
     var onScreenView: PostHogMulticastCallback<String> { get }
+
+    /// Broadcasts a screen name to subscribers. Encapsulates the underlying
+    /// multicast invocation so callers don't reach into `onScreenView` to
+    /// fire it themselves.
+    func onNewScreenName(_ screenName: String)
+
+    /// Owned by `PostHogScreenViewIntegration`; activates the
+    /// `viewDidAppear` swizzle and routes each visible-VC name to `handler`.
+    /// Idempotent.
+    func startAutoCapture(_ handler: @escaping (String) -> Void)
+    func stopAutoCapture()
 }
 
 final class ApplicationScreenViewPublisher: ScreenViewPublishing {
-    private(set) lazy var onScreenView = PostHogMulticastCallback<String> { [weak self] subscriberCount in
-        if subscriberCount > 0 {
-            self?.swizzleViewDidAppear()
-        } else {
-            self?.unswizzleViewDidAppear()
-        }
+    static let shared = ApplicationScreenViewPublisher()
+    private init() {}
+
+    private(set) lazy var onScreenView = PostHogMulticastCallback<String>()
+
+    private let handlerLock = NSLock()
+    private var autoCaptureHandler: ((String) -> Void)?
+    private var hasSwizzled: Bool = false
+
+    func onNewScreenName(_ screenName: String) {
+        onScreenView.invoke(screenName)
     }
 
-    static let shared = ApplicationScreenViewPublisher()
+    func startAutoCapture(_ handler: @escaping (String) -> Void) {
+        handlerLock.withLock { autoCaptureHandler = handler }
+        swizzleViewDidAppear()
+    }
 
-    private var hasSwizzled: Bool = false
+    func stopAutoCapture() {
+        unswizzleViewDidAppear()
+        handlerLock.withLock { autoCaptureHandler = nil }
+    }
 
     #if os(iOS) || os(tvOS)
         private func swizzleViewDidAppear() {
@@ -52,7 +77,10 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
             )
         }
 
-        // Called from swizzled `viewDidAppearOverride`
+        // Called from swizzled `viewDidAppearOverride`. Hands the visible
+        // VC's name to the integration's handler, which calls screen() — that
+        // is what fans out via onScreenView. Going direct (not via
+        // onScreenView) keeps the auto-capture path loop-free.
         fileprivate func viewDidAppear(in viewController: UIViewController?) {
             // ignore views from keyboard window
             guard let window = viewController?.viewIfLoaded?.window, !window.isKeyboardWindow else {
@@ -61,9 +89,10 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
 
             guard let top = findVisibleViewController(viewController) else { return }
 
-            if let name = UIViewController.getViewControllerName(top) {
-                onScreenView.invoke(name)
-            }
+            guard let name = UIViewController.getViewControllerName(top) else { return }
+
+            let handler = handlerLock.withLock { autoCaptureHandler }
+            handler?(name)
         }
 
         private func findVisibleViewController(_ controller: UIViewController?) -> UIViewController? {

@@ -104,7 +104,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
 
         let bundle = Bundle.main
 
-        let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
+        let versionName = appVersionString()
         let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
 
         // capture app installed/updated
@@ -175,7 +175,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
         if isFreshAppLaunch {
             let bundle = Bundle.main
 
-            let versionName = bundle.infoDictionary?["CFBundleShortVersionString"] as? String
+            let versionName = appVersionString()
             let versionCode = bundle.infoDictionary?["CFBundleVersion"] as? String
 
             if versionName != nil {

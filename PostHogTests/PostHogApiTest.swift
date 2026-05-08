@@ -146,6 +146,54 @@ enum PostHogApiTests {
         }
     }
 
+    /// Guards the per-request Content-Encoding policy: upload endpoints
+    /// declare `gzip`, /flags does not. A regression that re-added
+    /// session-level gzip would silently mis-label /flags on the wire.
+    @Suite("Content-Encoding header per endpoint")
+    class TestContentEncodingHeader: BaseTestSuite {
+        @Test("/batch declares gzip Content-Encoding")
+        func batchDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/s declares gzip Content-Encoding")
+        func snapshotDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.snapshot(events: [], completion: completion)
+            }
+            let request = try #require(server.snapshotRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/i/v1/logs declares gzip Content-Encoding")
+        func logsDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.logs(payload: ["resourceLogs": []], completion: completion)
+            }
+            let request = try #require(server.logsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/flags does not declare Content-Encoding")
+        func flagsDoesNotDeclareGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { data, _ in
+                    completion(data)
+                }
+            }
+            let request = try #require(server.flagsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+        }
+    }
+
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
         @Test("with host containing no path")

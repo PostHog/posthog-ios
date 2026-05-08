@@ -30,6 +30,10 @@ func toJSONData(_ dicts: [[String: Any]?], options: JSONSerialization.WritingOpt
     }
 }
 
+func fromJSONData(_ data: Data, options: JSONSerialization.ReadingOptions = []) -> [String: Any]? {
+    try? JSONSerialization.jsonObject(with: data, options: options) as? [String: Any]
+}
+
 public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     if dict == nil || dict!.isEmpty {
         return nil

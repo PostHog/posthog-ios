@@ -30,7 +30,7 @@ import Foundation
     // NOTE: Ideally we would use the NSCoding behaviour but it gets needlessly complex
     // given we only need this for sending to the API
     static func fromJSON(_ data: Data) -> PostHogEvent? {
-        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+        guard let json = fromJSONData(data) else {
             return nil
         }
 

@@ -72,8 +72,7 @@ class PostHogContext {
                 let macOSVersion = processInfo.operatingSystemVersionString
 
                 if isMacCatalystApp {
-                    let osVersion = ProcessInfo.processInfo.operatingSystemVersion
-                    properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+                    properties["$os_version"] = osVersionString()
                 } else {
                     let osVersionString = processInfo.operatingSystemVersionString
                     if let versionRange = osVersionString.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
@@ -103,10 +102,8 @@ class PostHogContext {
             // For native macOS apps, use the hardware model similar to iOS/macCatalyst
             // Get the user-friendly hardware name from the model identifier
             properties["$device_name"] = macModelToFriendlyName(deviceModel)
-            let processInfo = ProcessInfo.processInfo
             properties["$os_name"] = "macOS"
-            let osVersion = processInfo.operatingSystemVersion
-            properties["$os_version"] = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+            properties["$os_version"] = osVersionString()
         #endif
 
         return properties

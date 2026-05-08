@@ -1,5 +1,11 @@
 ## Next
 
+## 3.58.1
+
+### Patch Changes
+
+- f91bb4e: Add an experimental `sessionReplayConfig.screenshotModeBackgroundCapture` option for Session Replay screenshot mode, allowing screenshot rendering to be scheduled on a background queue to reduce main-thread pressure.
+
 ## 3.58.0
 
 ### Minor Changes

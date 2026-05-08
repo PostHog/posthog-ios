@@ -51,14 +51,15 @@ final class ApplicationLifecyclePublisher: AppLifecyclePublishing {
     let onDidEnterBackground = PostHogMulticastCallback<Void>()
     let onDidFinishLaunching = PostHogMulticastCallback<Void>()
 
-    /// Reads the current platform application state. UIApplication and
-    /// NSApplication require main-thread access, so we hop if needed.
-    /// macOS and watchOS apps don't have a clear "background" state in the
-    /// same sense; we report `false`.
+    /// `UIApplication.applicationState` requires main-thread access. From any
+    /// other thread we return the optimistic `false` rather than risk a
+    /// `DispatchQueue.main.sync` deadlock if the caller already holds a lock
+    /// the main thread is waiting on. macOS / watchOS have no equivalent
+    /// foreground-vs-background concept, so they also report `false`.
     var isInBackground: Bool {
         #if os(iOS) || os(tvOS) || os(visionOS)
-            let read: () -> Bool = { UIApplication.shared.applicationState == .background }
-            return Thread.isMainThread ? read() : DispatchQueue.main.sync(execute: read)
+            guard Thread.isMainThread else { return false }
+            return UIApplication.shared.applicationState == .background
         #else
             return false
         #endif

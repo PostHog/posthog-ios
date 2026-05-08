@@ -561,11 +561,8 @@ enum PostHogSessionManagerTest {
 
         @Test("late setup() with foreground app: snapshot reads false, not the initial true")
         func seedsForegroundOnLateSetup() throws {
-            // The bug: NotificationCenter doesn't replay past lifecycle
-            // events. If setup() runs after didBecomeActive already fired,
-            // the SDK's flag would otherwise stay at its defensive default
-            // (`true` = background) until the next state change. With the
-            // seed in place, setup() reads the current state up-front.
+            // Regression: without the seed, a late setup() would stay at
+            // the defensive default (`true`) until the next state change.
             mockAppLifecycle.isInBackground = false
 
             let config = PostHogConfig(projectToken: "test_seed_fg_\(UUID().uuidString)")

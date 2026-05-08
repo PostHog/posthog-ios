@@ -57,32 +57,32 @@ import Foundation
         return current
     }
 
-    /// Returns the body of `wrapper<…>` if `s` matches that exact shape (no
-    /// trailing junk after the closing `>`). nil otherwise.
-    private static func stripGeneric(_ s: String, wrapper: String) -> String? {
+    /// Returns the body of `wrapper<…>` if `string` matches that exact shape
+    /// (no trailing junk after the closing `>`). nil otherwise.
+    private static func stripGeneric(_ string: String, wrapper: String) -> String? {
         let prefix = wrapper + "<"
-        guard s.hasPrefix(prefix), s.hasSuffix(">") else { return nil }
-        let start = s.index(s.startIndex, offsetBy: prefix.count)
-        let end = s.index(before: s.endIndex)
-        return String(s[start ..< end])
+        guard string.hasPrefix(prefix), string.hasSuffix(">") else { return nil }
+        let start = string.index(string.startIndex, offsetBy: prefix.count)
+        let end = string.index(before: string.endIndex)
+        return String(string[start ..< end])
     }
 
     /// Returns the first comma-separated generic argument from a body string,
     /// respecting nested `<…>` so `ModifiedContent<X, Y>, B` splits at the
-    /// outer comma. Returns `s` trimmed if there's no top-level comma.
-    private static func firstGenericArgument(_ s: String) -> String? {
+    /// outer comma. Returns the input trimmed if there's no top-level comma.
+    private static func firstGenericArgument(_ string: String) -> String? {
         var depth = 0
-        for (offset, ch) in s.enumerated() {
-            if ch == "<" {
+        for (offset, char) in string.enumerated() {
+            if char == "<" {
                 depth += 1
-            } else if ch == ">" {
+            } else if char == ">" {
                 depth -= 1
-            } else if ch == "," && depth == 0 {
-                let idx = s.index(s.startIndex, offsetBy: offset)
-                return String(s[..<idx]).trimmingCharacters(in: .whitespaces)
+            } else if char == ",", depth == 0 {
+                let idx = string.index(string.startIndex, offsetBy: offset)
+                return String(string[..<idx]).trimmingCharacters(in: .whitespaces)
             }
         }
-        let trimmed = s.trimmingCharacters(in: .whitespaces)
+        let trimmed = string.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? nil : trimmed
     }
 

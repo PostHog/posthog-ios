@@ -39,10 +39,12 @@ class PostHogLogsQueue {
         #endif
     }
 
+    // Clamp to 0; a negative window would make `elapsed >= window`
+    // trivially true and reset the counter on every call.
     #if !os(watchOS)
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi, _ reachability: Reachability?) {
-            rateCapMaxLogs = config.logs.rateCapMaxLogs
-            rateCapWindowSeconds = config.logs.rateCapWindowSeconds
+            rateCapMaxLogs = max(0, config.logs.rateCapMaxLogs)
+            rateCapWindowSeconds = max(0, config.logs.rateCapWindowSeconds)
             let resourceAttributes = Self.buildResourceAttributes(config.logs)
             let endpoint = QueueEndpoint<PostHogLogRecord>.logs(
                 api: api,
@@ -52,8 +54,8 @@ class PostHogLogsQueue {
         }
     #else
         init(_ config: PostHogConfig, _ storage: PostHogStorage, _ api: PostHogApi) {
-            rateCapMaxLogs = config.logs.rateCapMaxLogs
-            rateCapWindowSeconds = config.logs.rateCapWindowSeconds
+            rateCapMaxLogs = max(0, config.logs.rateCapMaxLogs)
+            rateCapWindowSeconds = max(0, config.logs.rateCapWindowSeconds)
             let resourceAttributes = Self.buildResourceAttributes(config.logs)
             let endpoint = QueueEndpoint<PostHogLogRecord>.logs(
                 api: api,
@@ -103,7 +105,8 @@ class PostHogLogsQueue {
     /// Re-anchors the window on any negative elapsed so wall-clock jumps
     /// don't strand the counter.
     private func consumeRateCap() -> Bool {
-        if rateCapMaxLogs <= 0 {
+        // Both clamp to 0 in init when invalid; treat 0 as "no cap".
+        if rateCapMaxLogs <= 0 || rateCapWindowSeconds <= 0 {
             return true
         }
         return stateLock.withLock {

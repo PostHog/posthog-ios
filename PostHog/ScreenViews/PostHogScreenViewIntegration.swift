@@ -14,7 +14,6 @@ final class PostHogScreenViewIntegration: PostHogIntegration {
     private static var integrationInstalled = false
 
     private weak var postHog: PostHogSDK?
-    private var screenViewToken: RegistrationToken?
 
     func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
         let didInstall = PostHogScreenViewIntegration.integrationInstalledLock.withLock {
@@ -46,31 +45,14 @@ final class PostHogScreenViewIntegration: PostHogIntegration {
         }
     }
 
-    /**
-     Start capturing screen view events
-     */
     func start() {
-        let screenViewPublisher = DI.main.screenViewPublisher
-        screenViewToken = screenViewPublisher.onScreenView.subscribe { [weak self] screen in
-            self?.captureScreenView(screen: screen)
+        DI.main.screenViewPublisher.startAutoCapture { [weak self] screenName in
+            self?.postHog?.screen(screenName)
         }
     }
 
-    /**
-     Stop capturing screen view events
-     */
     func stop() {
-        screenViewToken = nil
-    }
-
-    private func captureScreenView(screen screenName: String) {
-        guard let postHog else { return }
-
-        if postHog.config.captureScreenViews {
-            postHog.screen(screenName)
-        } else {
-            hedgeLog("Skipping $screen event - captureScreenViews is disabled in configuration")
-        }
+        DI.main.screenViewPublisher.stopAutoCapture()
     }
 }
 

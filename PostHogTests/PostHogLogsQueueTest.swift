@@ -527,6 +527,29 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 50)
     }
 
+    @Test("rate cap disabled when rateCapMaxLogs is negative (clamped at init)")
+    func rateCapDisabledWhenNegative() async throws {
+        // A negative value used to land in the lock without short-circuiting,
+        // and (more subtly) a negative window made `elapsed >= window`
+        // trivially true so the counter reset on every call. Both are now
+        // clamped to 0 at queue init and treated as "no cap".
+        let (queue, _) = makeQueue(
+            maxBufferSize: 100,
+            maxBatchSize: 1000,
+            rateCapMaxLogs: -5,
+            rateCapWindowSeconds: -1
+        )
+        defer { queue.clear()
+            queue.stop()
+        }
+
+        for i in 0 ..< 25 {
+            queue.add(makeRecord(body: "log-\(i)"))
+        }
+        await waitUntil { queue.depth == 25 }
+        #expect(queue.depth == 25)
+    }
+
     // MARK: - beforeSend chain
 
     @Test("beforeSend returning nil signals drop")

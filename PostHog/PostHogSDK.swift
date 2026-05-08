@@ -1156,6 +1156,10 @@ let maxRetryDelay = 30.0
         }
 
         queueEvent(event, queue: queue)
+
+        // Fanout to subscribers (e.g. the logs feature's lastScreenName).
+        // Subscribers must not re-enter screen() from the callback.
+        DI.main.screenViewPublisher.onScreenView.invoke(screenTitle)
     }
 
     func autocapture(

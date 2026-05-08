@@ -42,21 +42,25 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
 
     /// OpenTelemetry `service.name` resource attribute. Defaults to the host
-    /// app's bundle identifier.
+    /// app's bundle identifier. Set before `PostHogSDK.setup(_:)`; later
+    /// mutations are ignored.
     @objc public var serviceName: String = getBundleIdentifier()
 
     /// OpenTelemetry `service.version` resource attribute. Defaults to the
     /// host app's `CFBundleShortVersionString`, or empty if unavailable.
-    /// Empty values are omitted from the wire payload.
+    /// Empty values are omitted from the wire payload. Set before
+    /// `PostHogSDK.setup(_:)`; later mutations are ignored.
     @objc public var serviceVersion: String = appVersionString() ?? ""
 
     /// OpenTelemetry `deployment.environment` resource attribute. Omitted from
-    /// the payload when nil.
+    /// the payload when nil. Set before `PostHogSDK.setup(_:)`; later
+    /// mutations are ignored.
     @objc public var environment: String?
 
     /// Additional OpenTelemetry resource attributes attached to every batch.
     /// SDK-managed keys (`telemetry.sdk.*`, `os.*`, `service.name`) win on key
-    /// collision so users can't shadow them.
+    /// collision so users can't shadow them. Set before
+    /// `PostHogSDK.setup(_:)`; later mutations are ignored.
     ///
     /// **From ObjC**: bridges to an immutable `NSDictionary`. Replace the
     /// property to change it; in-place mutation on the returned dictionary
@@ -64,10 +68,13 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     @objc public var resourceAttributes: [String: Any] = [:]
 
     /// Maximum number of records accepted per `rateCapWindowSeconds`. Set to
-    /// `0` to disable.
+    /// `0` (or any non-positive value) to disable the cap. Set before
+    /// `PostHogSDK.setup(_:)`; later mutations are ignored.
     @objc public var rateCapMaxLogs: Int = Defaults.rateCapMaxLogs
 
-    /// Tumbling window in seconds used by the rate cap.
+    /// Tumbling window in seconds used by the rate cap. Must be positive;
+    /// non-positive values disable the cap. Set before `PostHogSDK.setup(_:)`;
+    /// later mutations are ignored.
     @objc public var rateCapWindowSeconds: TimeInterval = Defaults.rateCapWindowSeconds
 
     private var beforeSend = BeforeSendChain<PostHogLogRecord>()

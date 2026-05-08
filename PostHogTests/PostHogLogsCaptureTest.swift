@@ -374,6 +374,65 @@ final class PostHogLogsCaptureTests {
         #expect(rec["flags"] as? Int == 1)
     }
 
+    // MARK: - Body edge cases
+
+    @Test("captureLog with whitespace-only body is dropped")
+    func captureWhitespaceBody() async throws {
+        let sdk = setupSdk()
+        defer { sdk.close() }
+
+        // Documented contract: empty OR whitespace-only bodies are dropped at
+        // capture time. Previously only `""` had a regression test.
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        let baseline = server.logsRequests.count
+        sdk.captureLog("   \n\t  ")
+        sdk.flush()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        #expect(server.logsRequests.count == baseline)
+    }
+
+    @Test("captureLog round-trips multi-byte unicode through gzip + JSON")
+    func captureUnicodeBodyRoundTrip() async throws {
+        let sdk = setupSdk(maxBatchSize: 1)
+        defer { sdk.close() }
+
+        // Mix of multi-byte UTF-8: 4-byte emoji, RTL Arabic, CJK,
+        // zero-width joiner family — exercises the full encode path
+        // (sanitize → JSONSerialization → gzip → server-side ungzip → JSON).
+        let body = "🚀 مرحبا 你好 👨‍👩‍👧‍👦"
+        sdk.captureLog(body)
+        sdk.flush()
+
+        waitForLogsRequests(count: 1)
+        let request = try #require(server.logsRequests.first)
+        let unzipped = try #require(request.body()).gunzipped()
+        let json = try #require(JSONSerialization.jsonObject(with: unzipped) as? [String: Any])
+        let resourceLogs = try #require(json["resourceLogs"] as? [[String: Any]])
+        let scopeLogs = try #require(resourceLogs[0]["scopeLogs"] as? [[String: Any]])
+        let records = try #require(scopeLogs[0]["logRecords"] as? [[String: Any]])
+        let bodyValue = try #require(records[0]["body"] as? [String: Any])
+        #expect(bodyValue["stringValue"] as? String == body)
+    }
+
+    // MARK: - Lifecycle edge cases
+
+    @Test("captureLog after close() is a silent no-op (no crash)")
+    func captureAfterClose() async throws {
+        let sdk = setupSdk()
+        let logger = try #require(sdk.logger)
+
+        sdk.close()
+
+        // captureLogInternal guards on `logsQueue` which is nilled in close();
+        // the facade's `weak sdk` is moot here (singleton outlives) but still
+        // exercises the path. Smoke test: nothing crashes.
+        sdk.captureLog("post-close")
+        logger.info("post-close-via-facade")
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+    }
+
     // MARK: - Rate cap at the SDK boundary
 
     @Test("captureLog drops records past rateCapMaxLogs in the same window")

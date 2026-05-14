@@ -570,7 +570,11 @@
             )
         }
 
-        /// Sends a `survey sent` event with all collected responses.
+        /// Sends a `survey sent` event to PostHog instance
+        /// Sends a survey completion event to PostHog with all collected responses
+        /// - Parameters:
+        ///   - survey: The completed survey
+        ///   - responses: Dictionary of collected responses for each question
         private func sendSurveySentEvent(
             survey: PostHogSurvey,
             responses: [String: PostHogSurveyResponse],

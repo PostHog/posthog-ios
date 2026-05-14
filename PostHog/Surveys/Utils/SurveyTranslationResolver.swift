@@ -171,18 +171,18 @@
         question: PostHogSurveyQuestion,
         translation: PostHogSurveyQuestionTranslation
     ) -> Bool {
-        if let q = translation.question, q != question.question { return true }
-        if let d = translation.description, d != question.description { return true }
-        if let b = translation.buttonText, b != question.buttonText { return true }
+        if let translated = translation.question, translated != question.question { return true }
+        if let translated = translation.description, translated != question.description { return true }
+        if let translated = translation.buttonText, translated != question.buttonText { return true }
 
         switch question {
         case let .link(link):
-            if let t = translation.link, t != link.link { return true }
+            if let translated = translation.link, translated != link.link { return true }
         case let .rating(rating):
-            if let t = translation.lowerBoundLabel, t != rating.lowerBoundLabel { return true }
-            if let t = translation.upperBoundLabel, t != rating.upperBoundLabel { return true }
+            if let translated = translation.lowerBoundLabel, translated != rating.lowerBoundLabel { return true }
+            if let translated = translation.upperBoundLabel, translated != rating.upperBoundLabel { return true }
         case let .singleChoice(choice), let .multipleChoice(choice):
-            if let t = translation.choices, t != choice.choices { return true }
+            if let translated = translation.choices, translated != choice.choices { return true }
         case .open, .unknown:
             break
         }

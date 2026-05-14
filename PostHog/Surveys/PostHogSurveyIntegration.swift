@@ -47,6 +47,7 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
+        private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         private var activeSurveyResponses: [String: PostHogSurveyResponse] = [:] // keyed by question identifier
         private var activeSurveyCompleted: Bool = false
         private var activeSurveyQuestionIndex: Int = 0
@@ -296,8 +297,8 @@
                         let language = self.resolveDisplayLanguage()
                         let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
 
-                        // set survey as active, stamping the matched language for events
-                        self.setActiveSurvey(survey: survey, language: translations.matchedKey)
+                        // set survey as active, stamping the matched language + per-question translations for events
+                        self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
 
                         DispatchQueue.main.async { [weak self] in
                             if let self {
@@ -465,8 +466,8 @@
         ///   - response: The user's response to the current question
         /// - Returns: The next question to display based on branching logic, or nil if there was an error
         private func handleSurveyResponse(survey: PostHogDisplaySurvey, index: Int, response: PostHogSurveyResponse) -> PostHogNextSurveyQuestion? {
-            let (activeSurvey, activeSurveyQuestionIndex, activeSurveyLanguage) = activeSurveyLock.withLock {
-                (self.activeSurvey, self.activeSurveyQuestionIndex, self.activeSurveyLanguage)
+            let (activeSurvey, activeSurveyQuestionIndex, activeSurveyLanguage, activeSurveyQuestionTranslations) = activeSurveyLock.withLock {
+                (self.activeSurvey, self.activeSurveyQuestionIndex, self.activeSurveyLanguage, self.activeSurveyQuestionTranslations)
             }
 
             guard let activeSurvey, survey.id == activeSurvey.id else {
@@ -507,7 +508,12 @@
             // send event if needed
             // TODO: Partial responses
             if isCompleted {
-                sendSurveySentEvent(survey: activeSurvey, responses: allResponses, language: activeSurveyLanguage)
+                sendSurveySentEvent(
+                    survey: activeSurvey,
+                    responses: allResponses,
+                    language: activeSurveyLanguage,
+                    questionTranslations: activeSurveyQuestionTranslations
+                )
             }
 
             return nextSurveyQuestion
@@ -515,8 +521,20 @@
 
         /// Handle a survey dismiss
         private func handleSurveyClosed(survey: PostHogDisplaySurvey) {
-            let (activeSurvey, activeSurveyCompleted, activeSurveyResponses, activeSurveyLanguage) = activeSurveyLock.withLock {
-                (self.activeSurvey, self.activeSurveyCompleted, self.activeSurveyResponses, self.activeSurveyLanguage)
+            let (
+                activeSurvey,
+                activeSurveyCompleted,
+                activeSurveyResponses,
+                activeSurveyLanguage,
+                activeSurveyQuestionTranslations
+            ) = activeSurveyLock.withLock {
+                (
+                    self.activeSurvey,
+                    self.activeSurveyCompleted,
+                    self.activeSurveyResponses,
+                    self.activeSurveyLanguage,
+                    self.activeSurveyQuestionTranslations
+                )
             }
 
             guard let activeSurvey, survey.id == activeSurvey.id else {
@@ -526,7 +544,12 @@
 
             // send survey dismissed event if needed
             if !activeSurveyCompleted {
-                sendSurveyDismissedEvent(survey: activeSurvey, responses: activeSurveyResponses, language: activeSurveyLanguage)
+                sendSurveyDismissedEvent(
+                    survey: activeSurvey,
+                    responses: activeSurveyResponses,
+                    language: activeSurveyLanguage,
+                    questionTranslations: activeSurveyQuestionTranslations
+                )
             }
 
             // mark as seen
@@ -556,8 +579,17 @@
         ///   - survey: The completed survey
         ///   - responses: Dictionary of collected responses for each question
         ///   - language: The resolved survey display language (matched key from `translations`), or nil
-        private func sendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse], language: String? = nil) {
-            let additionalProperties = buildSurveyResponseProperties(survey: survey, responses: responses).merging(
+        private func sendSurveySentEvent(
+            survey: PostHogSurvey,
+            responses: [String: PostHogSurveyResponse],
+            language: String? = nil,
+            questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
+        ) {
+            let additionalProperties = buildSurveyResponseProperties(
+                survey: survey,
+                responses: responses,
+                questionTranslations: questionTranslations
+            ).merging(
                 [
                     "$set": [getSurveyInteractionProperty(survey: survey, property: "responded"): true],
                 ],
@@ -573,8 +605,17 @@
         }
 
         /// Sends a `survey dismissed` event to PostHog instance
-        private func sendSurveyDismissedEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse], language: String? = nil) {
-            let additionalProperties = buildSurveyResponseProperties(survey: survey, responses: responses).merging(
+        private func sendSurveyDismissedEvent(
+            survey: PostHogSurvey,
+            responses: [String: PostHogSurveyResponse],
+            language: String? = nil,
+            questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
+        ) {
+            let additionalProperties = buildSurveyResponseProperties(
+                survey: survey,
+                responses: responses,
+                questionTranslations: questionTranslations
+            ).merging(
                 [
                     "$survey_partially_completed": surveyHasResponses(responses),
                     "$set": [
@@ -594,15 +635,22 @@
 
         private func buildSurveyResponseProperties(
             survey: PostHogSurvey,
-            responses: [String: PostHogSurveyResponse]
+            responses: [String: PostHogSurveyResponse],
+            questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
         ) -> [String: Any] {
             let responsesProperties: [String: Any] = responses.compactMapValues { getSurveyResponseValue(for: $0) }
 
             let surveyQuestions = survey.questions.enumerated().map { index, question in
                 let responseKey = question.id.isEmpty ? getOldResponseKey(for: index) : getNewResponseKey(for: question.id)
+                // Use translated question text (if applied) so $survey_questions matches what the user saw.
+                let translatedText: String? = {
+                    guard let translations = questionTranslations, translations.indices.contains(index) else { return nil }
+                    return translations[index]?.question
+                }()
+                let effectiveQuestion = translatedText ?? question.question
                 var questionData: [String: Any] = [
                     "id": question.id,
-                    "question": question.question,
+                    "question": effectiveQuestion,
                 ]
 
                 if let response = responsesProperties[responseKey] {
@@ -665,11 +713,12 @@
             return surveyProperty
         }
 
-        private func setActiveSurvey(survey: PostHogSurvey, language: String? = nil) {
+        private func setActiveSurvey(survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil) {
             activeSurveyLock.withLock {
                 if activeSurvey == nil {
                     activeSurvey = survey
                     activeSurveyLanguage = language
+                    activeSurveyQuestionTranslations = questionTranslations
                     activeSurveyCompleted = false
                     activeSurveyResponses = [:]
                     activeSurveyQuestionIndex = 0
@@ -681,6 +730,7 @@
             activeSurveyLock.withLock {
                 activeSurvey = nil
                 activeSurveyLanguage = nil
+                activeSurveyQuestionTranslations = nil
                 activeSurveyCompleted = false
                 activeSurveyResponses = [:]
                 activeSurveyQuestionIndex = 0

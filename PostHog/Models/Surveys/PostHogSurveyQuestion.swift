@@ -27,6 +27,9 @@ protocol PostHogSurveyQuestionProperties {
     var originalQuestionIndex: Int? { get }
     /// Question branching logic if any (optional)
     var branching: PostHogSurveyQuestionBranching? { get }
+    /// Optional localized overrides keyed by language code (e.g. "fr", "pt-BR").
+    /// Applied at display time based on the resolved survey display language.
+    var translations: [String: PostHogSurveyQuestionTranslation]? { get }
 }
 
 /// Represents different types of survey questions with their associated data
@@ -90,6 +93,10 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
         wrappedQuestion?.branching
     }
 
+    var translations: [String: PostHogSurveyQuestionTranslation]? {
+        wrappedQuestion?.translations
+    }
+
     private var wrappedQuestion: PostHogSurveyQuestionProperties? {
         switch self {
         case let .open(question): question
@@ -116,6 +123,29 @@ struct PostHogOpenSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
+
+    init(
+        id: String,
+        question: String,
+        description: String?,
+        descriptionContentType: PostHogSurveyTextContentType?,
+        optional: Bool?,
+        buttonText: String?,
+        originalQuestionIndex: Int?,
+        branching: PostHogSurveyQuestionBranching?,
+        translations: [String: PostHogSurveyQuestionTranslation]? = nil
+    ) {
+        self.id = id
+        self.question = question
+        self.description = description
+        self.descriptionContentType = descriptionContentType
+        self.optional = optional
+        self.buttonText = buttonText
+        self.originalQuestionIndex = originalQuestionIndex
+        self.branching = branching
+        self.translations = translations
+    }
 }
 
 /// Represents a survey question with an associated link
@@ -128,8 +158,33 @@ struct PostHogLinkSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
     /// URL link associated with the question
     let link: String?
+
+    init(
+        id: String,
+        question: String,
+        description: String?,
+        descriptionContentType: PostHogSurveyTextContentType?,
+        optional: Bool?,
+        buttonText: String?,
+        originalQuestionIndex: Int?,
+        branching: PostHogSurveyQuestionBranching?,
+        link: String?,
+        translations: [String: PostHogSurveyQuestionTranslation]? = nil
+    ) {
+        self.id = id
+        self.question = question
+        self.description = description
+        self.descriptionContentType = descriptionContentType
+        self.optional = optional
+        self.buttonText = buttonText
+        self.originalQuestionIndex = originalQuestionIndex
+        self.branching = branching
+        self.link = link
+        self.translations = translations
+    }
 }
 
 /// Represents a rating-based survey question
@@ -142,12 +197,43 @@ struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
     /// Display type for the rating ("number" or "emoji")
     let display: PostHogSurveyRatingDisplayType
     /// Scale of the rating (3, 5, 7, or 10)
     let scale: PostHogSurveyRatingScale
     let lowerBoundLabel: String
     let upperBoundLabel: String
+
+    init(
+        id: String,
+        question: String,
+        description: String?,
+        descriptionContentType: PostHogSurveyTextContentType?,
+        optional: Bool?,
+        buttonText: String?,
+        originalQuestionIndex: Int?,
+        branching: PostHogSurveyQuestionBranching?,
+        display: PostHogSurveyRatingDisplayType,
+        scale: PostHogSurveyRatingScale,
+        lowerBoundLabel: String,
+        upperBoundLabel: String,
+        translations: [String: PostHogSurveyQuestionTranslation]? = nil
+    ) {
+        self.id = id
+        self.question = question
+        self.description = description
+        self.descriptionContentType = descriptionContentType
+        self.optional = optional
+        self.buttonText = buttonText
+        self.originalQuestionIndex = originalQuestionIndex
+        self.branching = branching
+        self.display = display
+        self.scale = scale
+        self.lowerBoundLabel = lowerBoundLabel
+        self.upperBoundLabel = upperBoundLabel
+        self.translations = translations
+    }
 }
 
 /// Represents a multiple-choice or single-choice survey question
@@ -160,12 +246,41 @@ struct PostHogMultipleSurveyQuestion: PostHogSurveyQuestionProperties, Decodable
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
     /// List of choices for multiple-choice or single-choice questions
     let choices: [String]
     /// Indicates if there is an open choice option (optional)
     let hasOpenChoice: Bool?
     /// Indicates if choices should be shuffled or not (optional)
     let shuffleOptions: Bool?
+
+    init(
+        id: String,
+        question: String,
+        description: String?,
+        descriptionContentType: PostHogSurveyTextContentType?,
+        optional: Bool?,
+        buttonText: String?,
+        originalQuestionIndex: Int?,
+        branching: PostHogSurveyQuestionBranching?,
+        choices: [String],
+        hasOpenChoice: Bool?,
+        shuffleOptions: Bool?,
+        translations: [String: PostHogSurveyQuestionTranslation]? = nil
+    ) {
+        self.id = id
+        self.question = question
+        self.description = description
+        self.descriptionContentType = descriptionContentType
+        self.optional = optional
+        self.buttonText = buttonText
+        self.originalQuestionIndex = originalQuestionIndex
+        self.branching = branching
+        self.choices = choices
+        self.hasOpenChoice = hasOpenChoice
+        self.shuffleOptions = shuffleOptions
+        self.translations = translations
+    }
 }
 
 /// Represents branching logic for a question based on user responses

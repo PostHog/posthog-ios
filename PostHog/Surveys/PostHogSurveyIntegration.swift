@@ -293,11 +293,8 @@
                 // Check if there is a new popover surveys to be displayed
                 getActiveMatchingSurveys { activeSurveys in
                     if let survey = activeSurveys.first(where: self.canRenderSurvey) {
-                        // resolve the user's language once, apply translations to a display copy
                         let language = self.resolveDisplayLanguage()
                         let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
-
-                        // set survey as active, stamping the matched language + per-question translations for events
                         self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
 
                         DispatchQueue.main.async { [weak self] in
@@ -573,12 +570,7 @@
             )
         }
 
-        /// Sends a `survey sent` event to PostHog instance
-        /// Sends a survey completion event to PostHog with all collected responses
-        /// - Parameters:
-        ///   - survey: The completed survey
-        ///   - responses: Dictionary of collected responses for each question
-        ///   - language: The resolved survey display language (matched key from `translations`), or nil
+        /// Sends a `survey sent` event with all collected responses.
         private func sendSurveySentEvent(
             survey: PostHogSurvey,
             responses: [String: PostHogSurveyResponse],
@@ -737,13 +729,10 @@
             }
         }
 
-        /// Resolves the language to use for the next survey display. Priority chain:
-        ///   1. `PostHogSurveysConfig.overrideDisplayLanguage`
-        ///   2. The `"language"` person property persisted by `identify()`
-        ///   3. The device locale (BCP-47 form — underscores converted to hyphens)
         private func resolveDisplayLanguage() -> String? {
-            // `surveysConfig` is `@available(macOS, unavailable)` — use the package-internal
-            // backing property to stay compilable across all SwiftPM platforms.
+            // `surveysConfig` is `@available(macOS, unavailable)`, but this integration is
+            // also compiled for non-iOS targets under TESTING. Read the backing property
+            // directly so the file stays compilable on every platform.
             let override = config?._surveysConfig.overrideDisplayLanguage
             let personProperties = storage?.getDictionary(forKey: .personPropertiesForFlags) as? [String: Any]
             let rawLocale = Locale.current.identifier

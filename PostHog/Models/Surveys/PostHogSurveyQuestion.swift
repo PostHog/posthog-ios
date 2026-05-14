@@ -27,8 +27,6 @@ protocol PostHogSurveyQuestionProperties {
     var originalQuestionIndex: Int? { get }
     /// Question branching logic if any (optional)
     var branching: PostHogSurveyQuestionBranching? { get }
-    /// Optional localized overrides keyed by language code (e.g. "fr", "pt-BR").
-    /// Applied at display time based on the resolved survey display language.
     var translations: [String: PostHogSurveyQuestionTranslation]? { get }
 }
 

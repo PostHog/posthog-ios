@@ -40,8 +40,6 @@ struct PostHogSurvey: Decodable, Identifiable {
     let endDate: Date?
     /// The schedule for the survey (optional). Determines how often the survey can be shown.
     let schedule: PostHogSurveySchedule?
-    /// Optional localized overrides keyed by language code (e.g. "fr", "pt-BR").
-    /// Applied at display time based on the resolved survey display language.
     let translations: [String: PostHogSurveyTranslation]?
 
     init(

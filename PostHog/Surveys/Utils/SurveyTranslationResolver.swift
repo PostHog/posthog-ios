@@ -9,14 +9,10 @@
 
     import Foundation
 
-    /// Outcome of resolving translations for one survey at display time.
-    ///
-    /// - `matchedKey`: the original-cased key from a `translations` dictionary that drove
-    ///   the change (preferring the survey-level key when both survey and question matched).
-    ///   `nil` when no translation was applied at all.
-    /// - `survey`: the resolved survey-level translation, or `nil` if none matched.
-    /// - `questions`: per-question translation, indexed positionally against
-    ///   `survey.questions`. `nil` entries leave the question untranslated.
+    /// `matchedKey` is the original-cased key from a `translations` dictionary that drove
+    /// the change (preferring the survey-level key when both survey and question matched),
+    /// or `nil` when no user-visible field actually changed. `questions` is indexed
+    /// positionally against `survey.questions`.
     struct ResolvedSurveyTranslations {
         let matchedKey: String?
         let survey: PostHogSurveyTranslation?
@@ -89,10 +85,9 @@
         return nil
     }
 
-    /// Resolves which translations should be applied to `survey` given the user's
-    /// `targetLanguage`. Tracks whether the resolution actually changed any user-visible
-    /// field; if not, `matchedKey` is `nil` so callers don't mistakenly stamp
-    /// `$survey_language` onto events.
+    /// Returns a non-nil `matchedKey` only when applying the matched translation would
+    /// actually change a user-visible field — so callers don't stamp `$survey_language`
+    /// onto events when nothing on screen changed.
     func resolveSurveyTranslations(
         survey: PostHogSurvey,
         targetLanguage: String?

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.58.2
+
+### Patch Changes
+
+- ce2c65a: fix: silence vendored libwebp macro redefinition warning
+
 ## 3.58.1
 
 ### Patch Changes

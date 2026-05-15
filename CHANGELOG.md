@@ -1,5 +1,11 @@
 ## Next
 
+## 3.58.3
+
+### Patch Changes
+
+- 90ceeea: fix: silence PHPLCrashReporter CocoaPods module warnings
+
 ## 3.58.2
 
 ### Patch Changes

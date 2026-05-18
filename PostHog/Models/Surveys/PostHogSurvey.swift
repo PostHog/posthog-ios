@@ -40,6 +40,43 @@ struct PostHogSurvey: Decodable, Identifiable {
     let endDate: Date?
     /// The schedule for the survey (optional). Determines how often the survey can be shown.
     let schedule: PostHogSurveySchedule?
+    let translations: [String: PostHogSurveyTranslation]?
+
+    init(
+        id: String,
+        name: String,
+        type: PostHogSurveyType,
+        questions: [PostHogSurveyQuestion],
+        featureFlagKeys: [PostHogSurveyFeatureFlagKeyValue]?,
+        linkedFlagKey: String?,
+        targetingFlagKey: String?,
+        internalTargetingFlagKey: String?,
+        conditions: PostHogSurveyConditions?,
+        appearance: PostHogSurveyAppearance?,
+        currentIteration: Int?,
+        currentIterationStartDate: Date?,
+        startDate: Date?,
+        endDate: Date?,
+        schedule: PostHogSurveySchedule?,
+        translations: [String: PostHogSurveyTranslation]? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.questions = questions
+        self.featureFlagKeys = featureFlagKeys
+        self.linkedFlagKey = linkedFlagKey
+        self.targetingFlagKey = targetingFlagKey
+        self.internalTargetingFlagKey = internalTargetingFlagKey
+        self.conditions = conditions
+        self.appearance = appearance
+        self.currentIteration = currentIteration
+        self.currentIterationStartDate = currentIterationStartDate
+        self.startDate = startDate
+        self.endDate = endDate
+        self.schedule = schedule
+        self.translations = translations
+    }
 }
 
 struct PostHogSurveyFeatureFlagKeyValue: Equatable, Decodable {

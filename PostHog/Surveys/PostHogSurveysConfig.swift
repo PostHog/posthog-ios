@@ -14,6 +14,20 @@ import Foundation
     ///
     /// Defaults to `PostHogSurveysDefaultDelegate` which provides a standard survey UI.
     public var surveysDelegate: PostHogSurveysDelegate = PostHogSurveysDefaultDelegate()
+
+    /// Optional explicit override for the language used when rendering surveys.
+    ///
+    /// When set, surveys with matching entries in `translations` will be rendered in
+    /// this language regardless of the device locale or any `language` person property.
+    ///
+    /// Format: a language tag such as `"fr"`, `"pt-BR"`, `"zh-CN"`. Matching is
+    /// case-insensitive and falls back to the base language (e.g. `"pt"` if `"pt-BR"`
+    /// is requested but only `"pt"` is provided).
+    ///
+    /// Blank or `nil` values are treated as unset.
+    ///
+    /// Default: `nil`.
+    @objc public var overrideDisplayLanguage: String?
 }
 
 /// To be called when a survey is successfully shown to the user

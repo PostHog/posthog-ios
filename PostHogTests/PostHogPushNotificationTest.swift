@@ -143,7 +143,6 @@
 
             // Simulate a persisted push subscription (as if a previous send failed or device was offline)
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
-                "distinctId": sut.getDistinctId(),
                 "deviceToken": "deadbeef01020304",
                 "appId": "com.example.test",
             ])
@@ -174,7 +173,6 @@
 
             // Simulate a persisted push subscription
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
-                "distinctId": sut.getDistinctId(),
                 "deviceToken": "aabbccdd",
                 "appId": "com.example.test",
             ])
@@ -200,7 +198,6 @@
 
             // Simulate a persisted push subscription
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
-                "distinctId": sut.getDistinctId(),
                 "deviceToken": "abcdef01",
                 "appId": "com.example.test",
             ])
@@ -234,7 +231,6 @@
 
             // Simulate a persisted push subscription
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
-                "distinctId": sut.getDistinctId(),
                 "deviceToken": "01020304",
                 "appId": "com.example.test",
             ])

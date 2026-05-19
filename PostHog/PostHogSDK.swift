@@ -136,7 +136,7 @@ let maxRetryDelay = 30.0
                 self?.reportFeatureFlagCalled(flagKey: flagKey, flagValue: flagValue)
             })
 
-            pushSubscriptionHandler = PostHogPushSubscriptionHandler(api, theStorage) { [weak self] in
+            pushSubscriptionHandler = PostHogPushSubscriptionHandler(api, theStorage, config) { [weak self] in
                 self?.getDistinctId() ?? ""
             }
 

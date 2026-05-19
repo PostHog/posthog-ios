@@ -184,6 +184,16 @@
                 #expect(resolved.questions.allSatisfy { $0 == nil })
             }
 
+            @Test("returns nil matchedKey when translation matches but values are identical")
+            func nilWhenTranslationIsNoop() throws {
+                let data = try loadFixture("fixture_survey_translation_noop")
+                let survey = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+                let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "fr")
+                #expect(resolved.matchedKey == nil)
+                #expect(resolved.survey == nil)
+                #expect(resolved.questions.allSatisfy { $0 == nil })
+            }
+
             private func decodeTranslationsFixture() throws -> PostHogSurvey {
                 let data = try loadFixture("fixture_survey_translations")
                 return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
@@ -293,6 +303,33 @@
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey sent")
                 #expect(events[0].properties["$survey_language"] as? String == "pt")
+                postHog.close()
+                postHog.reset()
+            }
+
+            @Test("survey sent carries translated question text in $survey_questions")
+            func surveySentCarriesTranslatedQuestionText() async throws {
+                let postHog = getSut()
+                let integration = try getSurveyIntegration(postHog)
+                let translation = PostHogSurveyQuestionTranslation(
+                    question: "Question traduite?",
+                    description: nil,
+                    buttonText: nil,
+                    link: nil,
+                    lowerBoundLabel: nil,
+                    upperBoundLabel: nil,
+                    choices: nil
+                )
+                integration.testSendSurveySentEvent(
+                    survey: minimalSurvey(),
+                    responses: ["$survey_response": .openEnded("ok")],
+                    language: "fr",
+                    questionTranslations: [translation]
+                )
+                let events = try await getServerEvents(server)
+                #expect(events.count == 1)
+                let questions = events[0].properties["$survey_questions"] as? [[String: Any]]
+                #expect(questions?.first?["question"] as? String == "Question traduite?")
                 postHog.close()
                 postHog.reset()
             }

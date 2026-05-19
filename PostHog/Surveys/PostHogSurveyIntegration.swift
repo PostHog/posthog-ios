@@ -1082,12 +1082,32 @@
                 sendSurveyShownEvent(survey: survey, language: language)
             }
 
-            func testSendSurveySentEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse], language: String? = nil) {
-                sendSurveySentEvent(survey: survey, responses: responses, language: language)
+            func testSendSurveySentEvent(
+                survey: PostHogSurvey,
+                responses: [String: PostHogSurveyResponse],
+                language: String? = nil,
+                questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
+            ) {
+                sendSurveySentEvent(
+                    survey: survey,
+                    responses: responses,
+                    language: language,
+                    questionTranslations: questionTranslations
+                )
             }
 
-            func testSendSurveyDismissedEvent(survey: PostHogSurvey, responses: [String: PostHogSurveyResponse] = [:], language: String? = nil) {
-                sendSurveyDismissedEvent(survey: survey, responses: responses, language: language)
+            func testSendSurveyDismissedEvent(
+                survey: PostHogSurvey,
+                responses: [String: PostHogSurveyResponse] = [:],
+                language: String? = nil,
+                questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
+            ) {
+                sendSurveyDismissedEvent(
+                    survey: survey,
+                    responses: responses,
+                    language: language,
+                    questionTranslations: questionTranslations
+                )
             }
 
             func testGetBaseSurveyEventProperties(for survey: PostHogSurvey) -> [String: Any] {

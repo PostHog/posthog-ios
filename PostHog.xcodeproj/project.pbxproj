@@ -158,6 +158,7 @@
 		A54E1C29388E43AEA3B0FC83 /* LogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7B59CE7B8148E5A72D554F /* LogsView.swift */; };
 		A9B17C56137763FF18EFD0C0 /* CrashReporter.m in Sources */ = {isa = PBXBuildFile; fileRef = ECBFEE10291A87FD4E8A2E5B /* CrashReporter.m */; };
 		ABB09493E02B20855285B547 /* PLCrashAsyncMObject.c in Sources */ = {isa = PBXBuildFile; fileRef = D81133CFD99A504078A7C854 /* PLCrashAsyncMObject.c */; };
+		BB04FDE3FEF9ED62590825AC /* fixture_survey_translation_noop.json in Resources */ = {isa = PBXBuildFile; fileRef = F4F3132F8AB899CDD425012C /* fixture_survey_translation_noop.json */; };
 		BE35097A002BF72D11C07FF6 /* PLCrashAsyncMachOImage.c in Sources */ = {isa = PBXBuildFile; fileRef = DB8675A0F452E915420ED0AC /* PLCrashAsyncMachOImage.c */; };
 		C1604B68CADF9BB54A3911EF /* PLCrashReportProcessInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 9F885D26FB2B0DE9BDAF22BF /* PLCrashReportProcessInfo.m */; };
 		C236F4F79DBF4F55B918D685 /* BoxedBeforeSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4085030E312423F8599009D /* BoxedBeforeSend.swift */; };
@@ -1362,6 +1363,7 @@
 		E8A53C31C8B0DDB72E7F1F15 /* PLCrashAsyncDwarfCFAStateEvaluation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfCFAStateEvaluation.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfCFAStateEvaluation.cpp; sourceTree = "<group>"; };
 		E8E1E01C22EB902B360AE5A3 /* PLCrashAsyncDwarfEncoding.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfEncoding.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfEncoding.cpp; sourceTree = "<group>"; };
 		ECBFEE10291A87FD4E8A2E5B /* CrashReporter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CrashReporter.m; path = vendor/PHPLCrashReporter/Source/CrashReporter.m; sourceTree = "<group>"; };
+		F4F3132F8AB899CDD425012C /* fixture_survey_translation_noop.json */ = {isa = PBXFileReference; includeInIndex = 1; path = fixture_survey_translation_noop.json; sourceTree = "<group>"; };
 		F78338D55B15449D9EB8507B /* PostHogRageClickConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRageClickConfig.swift; sourceTree = "<group>"; };
 		F808F6F63C4473F4570FE32B /* PLCrashReport.pb-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "PLCrashReport.pb-c.c"; path = "vendor/PHPLCrashReporter/Source/PLCrashReport.pb-c.c"; sourceTree = "<group>"; };
 		F9BB47DFE51AFE8F516B8550 /* PLCrashReportExceptionInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportExceptionInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportExceptionInfo.m; sourceTree = "<group>"; };
@@ -2457,6 +2459,7 @@
 				DA7185462D07E11200396388 /* output_2.webp */,
 				DA7185472D07E11200396388 /* output_3.webp */,
 				0DD06A7329293F85392FD46C /* fixture_survey_translations.json */,
+				F4F3132F8AB899CDD425012C /* fixture_survey_translation_noop.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -2942,6 +2945,7 @@
 				DAA5EE2E2D43605000D437E0 /* fixture_survey_branching_response_based.json in Resources */,
 				DA71854D2D07E11200396388 /* input_1.png in Resources */,
 				E89B5DEB2E380EF6D86E66A8 /* fixture_survey_translations.json in Resources */,
+				BB04FDE3FEF9ED62590825AC /* fixture_survey_translation_noop.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -168,7 +168,7 @@
             }
 
             @Test("falls back to base language")
-            func basesLanguageFallback() throws {
+            func baseLanguageFallback() throws {
                 let survey = try decodeTranslationsFixture()
                 let resolved = resolveSurveyTranslations(survey: survey, targetLanguage: "pt-BR")
                 #expect(resolved.matchedKey == "pt")

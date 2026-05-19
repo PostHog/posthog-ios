@@ -70,16 +70,15 @@
         }
 
         let normalizedTarget = target.lowercased()
-
-        if let exact = translations.keys.first(where: { $0.lowercased() == normalizedTarget }) {
-            return exact
+        let findKey: (String) -> String? = { target in
+            translations.keys.first(where: { $0.lowercased() == target })
         }
+
+        if let exact = findKey(normalizedTarget) { return exact }
 
         if let hyphen = normalizedTarget.firstIndex(of: "-") {
             let base = String(normalizedTarget[..<hyphen])
-            if let baseMatch = translations.keys.first(where: { $0.lowercased() == base }) {
-                return baseMatch
-            }
+            if let baseMatch = findKey(base) { return baseMatch }
         }
 
         return nil

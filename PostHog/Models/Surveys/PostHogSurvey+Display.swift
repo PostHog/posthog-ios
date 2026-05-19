@@ -7,7 +7,8 @@
             questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
         ) -> PostHogDisplaySurvey {
             let translatedQuestions = questions.enumerated().compactMap { index, question in
-                question.toDisplayQuestion(translation: questionTranslations?[safe: index] ?? nil)
+                let translation = questionTranslations.flatMap { index < $0.count ? $0[index] : nil }
+                return question.toDisplayQuestion(translation: translation)
             }
             return PostHogDisplaySurvey(
                 id: id,
@@ -17,12 +18,6 @@
                 startDate: startDate,
                 endDate: endDate
             )
-        }
-    }
-
-    private extension Array {
-        subscript(safe index: Int) -> Element? {
-            indices.contains(index) ? self[index] : nil
         }
     }
 

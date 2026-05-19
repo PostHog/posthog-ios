@@ -111,9 +111,8 @@
         let surveyTranslation = surveyKey.flatMap { survey.translations?[$0] }
         let surveyChanged = surveyTranslation.map { surveyTranslationChangesAnything(survey: survey, translation: $0) } ?? false
 
-        var anyQuestionChanged = false
+        var firstQuestionKey: String?
         var questionTranslations: [PostHogSurveyQuestionTranslation?] = []
-        var questionKeys: [String?] = []
         for question in survey.questions {
             let key = findBestTranslationMatch(
                 translations: question.translations,
@@ -121,24 +120,16 @@
             )
             let translation = key.flatMap { question.translations?[$0] }
             let changes = translation.map { questionTranslationChangesAnything(question: question, translation: $0) } ?? false
-            if changes {
-                anyQuestionChanged = true
-                questionTranslations.append(translation)
-                questionKeys.append(key)
-            } else {
-                questionTranslations.append(nil)
-                questionKeys.append(nil)
-            }
+            questionTranslations.append(changes ? translation : nil)
+            if changes, firstQuestionKey == nil { firstQuestionKey = key }
         }
 
-        if !surveyChanged, !anyQuestionChanged { return empty }
+        if !surveyChanged, firstQuestionKey == nil { return empty }
 
-        let matchedKey: String?
-        if surveyChanged {
-            matchedKey = surveyKey
-        } else {
-            matchedKey = questionKeys.compactMap { $0 }.first
-        }
+        // Prefer the survey-level key if it actually drove a change; otherwise fall back
+        // to whichever question's translation key did. In the common case both refer to
+        // the same target language and the choice is purely cosmetic.
+        let matchedKey = surveyChanged ? surveyKey : firstQuestionKey
 
         return ResolvedSurveyTranslations(
             matchedKey: matchedKey,

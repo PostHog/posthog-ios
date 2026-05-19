@@ -738,7 +738,7 @@
             // also compiled for non-iOS targets under TESTING. Read the backing property
             // directly so the file stays compilable on every platform.
             let override = config?._surveysConfig.overrideDisplayLanguage
-            let personProperties = storage?.getDictionary(forKey: .personPropertiesForFlags) as? [String: Any]
+            let personProperties = remoteConfig?.getPersonPropertiesForFlags()
             let rawLocale = Locale.current.identifier
             let deviceLocale = rawLocale.replacingOccurrences(of: "_", with: "-")
             return detectSurveyLanguage(

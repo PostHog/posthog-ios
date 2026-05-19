@@ -237,7 +237,8 @@
                         optional: false,
                         buttonText: nil,
                         originalQuestionIndex: 0,
-                        branching: nil
+                        branching: nil,
+                        translations: nil
                     ))],
                     featureFlagKeys: nil,
                     linkedFlagKey: nil,
@@ -249,7 +250,8 @@
                     currentIterationStartDate: nil,
                     startDate: Date(),
                     endDate: nil,
-                    schedule: nil
+                    schedule: nil,
+                    translations: nil
                 )
             }
 

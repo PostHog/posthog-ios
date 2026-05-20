@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Verifies that state written by the current SDK can be read by an older SDK.
+# Verifies that persisted state written by the current SDK does not break an older SDK.
+# The current-writer path seeds identity storage plus analytics, replay, and logs queues.
 # Usage: DOWNGRADE_REF=<downgrade-ref> ./scripts/test-downgrade-compatibility.sh
-# Historical validation: WRITE_REF=3.48.1 DOWNGRADE_REF=3.48.0 ./scripts/test-downgrade-compatibility.sh
+# Historical event-queue validation: WRITE_REF=3.48.3 DOWNGRADE_REF=3.48.0 ./scripts/test-downgrade-compatibility.sh
 
 set -euo pipefail
 
@@ -10,6 +11,7 @@ DOWNGRADE_REF="${1:-${DOWNGRADE_REF:-3.48.0}}"
 WRITE_REF="${WRITE_REF:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SMOKE_TEMPLATE_DIR="$SCRIPT_DIR/downgrade-compatibility-smoke"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/posthog-ios-downgrade-compat.XXXXXX")"
 
 cleanup() {
@@ -65,94 +67,9 @@ fi
 create_smoke_package() {
     local package_dir="$1"
     local dependency_path="$2"
-    local config_initializer_label="$3"
-    local escaped_dependency_path="${dependency_path//\\/\\\\}"
-    escaped_dependency_path="${escaped_dependency_path//\"/\\\"}"
-    local package_identity
-    package_identity="$(basename "$dependency_path")"
-    package_identity="${package_identity%.git}"
-    package_identity="$(printf '%s' "$package_identity" | tr '[:upper:]' '[:lower:]')"
 
-    mkdir -p "$package_dir/Sources/DowngradeCompatibilitySmoke"
-
-    cat > "$package_dir/Package.swift" <<EOF
-// swift-tools-version:5.3
-import PackageDescription
-
-let package = Package(
-    name: "DowngradeCompatibilitySmoke",
-    platforms: [.macOS(.v10_15)],
-    products: [
-        .executable(name: "DowngradeCompatibilitySmoke", targets: ["DowngradeCompatibilitySmoke"]),
-    ],
-    dependencies: [
-        .package(path: "$escaped_dependency_path"),
-    ],
-    targets: [
-        .target(
-            name: "DowngradeCompatibilitySmoke",
-            dependencies: [.product(name: "PostHog", package: "$package_identity")]
-        ),
-    ]
-)
-EOF
-
-    cat > "$package_dir/Sources/DowngradeCompatibilitySmoke/main.swift" <<'EOF'
-import Foundation
-import PostHog
-
-let mode = CommandLine.arguments.dropFirst().first ?? "read"
-let token = ProcessInfo.processInfo.environment["POSTHOG_DOWNGRADE_TEST_TOKEN"] ?? "downgrade_compatibility_project"
-
-let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-print("Application Support: \(appSupport.path)")
-
-let config = PostHogConfig(__CONFIG_INITIALIZER_LABEL__: token, host: "http://127.0.0.1:9")
-config.flushAt = 10_000
-config.maxQueueSize = 10_000
-config.preloadFeatureFlags = false
-config.captureApplicationLifecycleEvents = false
-config.captureScreenViews = false
-config.enableSwizzling = false
-
-PostHogSDK.shared.setup(config)
-
-switch mode {
-case "write":
-    PostHogSDK.shared.identify(
-        "downgrade-compatibility-user",
-        userProperties: ["source": "downgrade-compatibility"]
-    )
-    PostHogSDK.shared.group(
-        type: "organization",
-        key: "posthog",
-        groupProperties: ["ci": true]
-    )
-
-    for index in 0 ..< 5 {
-        PostHogSDK.shared.capture(
-            "downgrade compatibility event",
-            properties: ["index": index, "source": "current-sdk"]
-        )
-    }
-
-    print("Wrote current SDK state for token \(token)")
-case "read":
-    PostHogSDK.shared.capture(
-        "downgrade compatibility read smoke",
-        properties: ["source": "downgraded-sdk"]
-    )
-    print("Downgraded SDK started and read latest state for token \(token)")
-default:
-    fatalError("Unknown mode: \(mode)")
-}
-
-// Give any setup-time async work a short chance to start so startup crashes are observable.
-Thread.sleep(forTimeInterval: 0.2)
-EOF
-
-    perl -pi -e "s/__CONFIG_INITIALIZER_LABEL__/$config_initializer_label/g" \
-        "$package_dir/Sources/DowngradeCompatibilitySmoke/main.swift"
+    mkdir -p "$package_dir"
+    cp -R "$SMOKE_TEMPLATE_DIR/." "$package_dir"
 
     local dependency_resolved="$dependency_path/Package.resolved"
     if [ -f "$dependency_resolved" ]; then
@@ -163,25 +80,57 @@ EOF
 run_smoke() {
     local package_dir="$1"
     local mode="$2"
+    local dependency_path="$3"
+    local include_current_storage_writes="${4:-0}"
 
     # CFFIXED_USER_HOME makes Foundation's user-domain Application Support
     # directory point at our temp home on macOS, keeping the smoke state isolated.
     CFFIXED_USER_HOME="$STATE_HOME" \
     HOME="$STATE_HOME" \
     POSTHOG_DOWNGRADE_TEST_TOKEN="$TOKEN" \
+    POSTHOG_DOWNGRADE_SMOKE_DEPENDENCY_PATH="$dependency_path" \
+    POSTHOG_DOWNGRADE_SMOKE_CURRENT_WRITER="$include_current_storage_writes" \
     xcrun swift run --package-path "$package_dir" DowngradeCompatibilitySmoke "$mode"
 }
 
-count_queue_files() {
+count_storage_files() {
+    local folder_name="$1"
     local state_root="$STATE_HOME/Library/Application Support"
     if [ ! -d "$state_root" ]; then
         echo 0
         return
     fi
 
-    find "$state_root" -type f \
-        \( -path "*/posthog.queueFolder/*" -o -path "*/posthog.queueFolder.uuid/*" \) \
-        | wc -l | tr -d ' '
+    find "$state_root" -type f -path "*/$folder_name/*" | wc -l | tr -d ' '
+}
+
+count_storage_key_files() {
+    local file_name="$1"
+    local state_root="$STATE_HOME/Library/Application Support"
+    if [ ! -d "$state_root" ]; then
+        echo 0
+        return
+    fi
+
+    find "$state_root" -type f -name "$file_name" | wc -l | tr -d ' '
+}
+
+count_event_queue_files() {
+    local current_queue_count
+    local legacy_queue_count
+    current_queue_count="$(count_storage_files "posthog.queueFolder.uuid")"
+    legacy_queue_count="$(count_storage_files "posthog.queueFolder")"
+    echo $((current_queue_count + legacy_queue_count))
+}
+
+require_positive_count() {
+    local description="$1"
+    local count="$2"
+    if [ "$count" -eq 0 ]; then
+        echo "Expected $description to be persisted, but none were found. State tree:" >&2
+        find "$STATE_HOME/Library/Application Support" -maxdepth 8 -print | sort >&2 || true
+        exit 1
+    fi
 }
 
 if [ -n "$WRITE_REF" ]; then
@@ -190,34 +139,49 @@ if [ -n "$WRITE_REF" ]; then
     git clone --quiet --shared "$REPO_ROOT" "$WRITER_REPO_DIR"
     git -C "$WRITER_REPO_DIR" checkout --quiet "$WRITE_REF"
     WRITER_DEPENDENCY_PATH="$WRITER_REPO_DIR"
-    WRITER_CONFIG_LABEL="apiKey"
     WRITER_DESCRIPTION="$WRITE_REF"
+    INCLUDE_CURRENT_STORAGE_WRITES=0
 else
     WRITER_DEPENDENCY_PATH="$REPO_ROOT"
-    WRITER_CONFIG_LABEL="projectToken"
     WRITER_DESCRIPTION="current checkout at $REPO_ROOT"
+    INCLUDE_CURRENT_STORAGE_WRITES=1
 fi
 
 echo "Writing state with $WRITER_DESCRIPTION"
-create_smoke_package "$CURRENT_SMOKE_DIR" "$WRITER_DEPENDENCY_PATH" "$WRITER_CONFIG_LABEL"
-run_smoke "$CURRENT_SMOKE_DIR" write
+create_smoke_package "$CURRENT_SMOKE_DIR" "$WRITER_DEPENDENCY_PATH"
+run_smoke "$CURRENT_SMOKE_DIR" write "$WRITER_DEPENDENCY_PATH" "$INCLUDE_CURRENT_STORAGE_WRITES"
 
-QUEUE_FILE_COUNT="$(count_queue_files)"
-if [ "$QUEUE_FILE_COUNT" -eq 0 ]; then
-    echo "Expected the current SDK to write queued event files, but none were found. State tree:" >&2
-    find "$STATE_HOME/Library/Application Support" -maxdepth 8 -print | sort >&2 || true
-    exit 1
+EVENT_QUEUE_FILE_COUNT="$(count_event_queue_files)"
+require_positive_count "queued analytics event files" "$EVENT_QUEUE_FILE_COUNT"
+require_positive_count "persisted distinctId" "$(count_storage_key_files "posthog.distinctId")"
+require_positive_count "persisted group properties" "$(count_storage_key_files "posthog.groups")"
+
+echo "Writer SDK persisted $EVENT_QUEUE_FILE_COUNT analytics event queue file(s)."
+
+if [ "$INCLUDE_CURRENT_STORAGE_WRITES" = "1" ]; then
+    REPLAY_QUEUE_FILE_COUNT="$(count_storage_files "posthog.replayFolder.uuid")"
+    LEGACY_REPLAY_QUEUE_FILE_COUNT="$(count_storage_files "posthog.replayFolder")"
+    LOGS_QUEUE_FILE_COUNT="$(count_storage_files "posthog.logsFolder")"
+
+    require_positive_count "queued replay snapshot files" "$REPLAY_QUEUE_FILE_COUNT"
+    require_positive_count "queued log files" "$LOGS_QUEUE_FILE_COUNT"
+
+    if [ "$LEGACY_REPLAY_QUEUE_FILE_COUNT" -ne 0 ]; then
+        echo "Expected current SDK replay snapshots to avoid legacy posthog.replayFolder, but found $LEGACY_REPLAY_QUEUE_FILE_COUNT file(s)." >&2
+        find "$STATE_HOME/Library/Application Support" -maxdepth 8 -print | sort >&2 || true
+        exit 1
+    fi
+
+    echo "Current SDK also persisted $REPLAY_QUEUE_FILE_COUNT replay snapshot file(s) and $LOGS_QUEUE_FILE_COUNT log file(s)."
 fi
-
-echo "Current SDK wrote $QUEUE_FILE_COUNT queue file(s)."
 
 echo "Checking out downgraded SDK ref $DOWNGRADE_REF"
 mkdir -p "$(dirname "$OLD_REPO_DIR")"
 git clone --quiet --shared "$REPO_ROOT" "$OLD_REPO_DIR"
 git -C "$OLD_REPO_DIR" checkout --quiet "$DOWNGRADE_REF"
 
-create_smoke_package "$DOWNGRADED_SMOKE_DIR" "$OLD_REPO_DIR" "apiKey"
+create_smoke_package "$DOWNGRADED_SMOKE_DIR" "$OLD_REPO_DIR"
 echo "Starting downgraded SDK ($DOWNGRADE_REF) against current SDK state"
-run_smoke "$DOWNGRADED_SMOKE_DIR" read
+run_smoke "$DOWNGRADED_SMOKE_DIR" read "$OLD_REPO_DIR" 0
 
 echo "Downgrade compatibility smoke test passed for $DOWNGRADE_REF"

@@ -36,9 +36,13 @@ jobs:
       fail-fast: false
       matrix:
         downgrade_ref:
-          # Regression guard for https://github.com/PostHog/posthog-ios/issues/537:
+          # Pin persisted-storage schema boundaries rather than the last N releases.
           # 3.48.0 force-parsed queue filenames as Doubles during startup.
           - 3.48.0
+          # 3.48.3 introduced the UUID event queue folder.
+          - 3.48.3
+          # 3.58.0 introduced the persisted logs queue.
+          - 3.58.0
     name: Downgrade compatibility (${{ matrix.downgrade_ref }})
     steps:
       - uses: actions/checkout@v6

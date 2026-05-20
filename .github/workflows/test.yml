@@ -29,3 +29,21 @@ jobs:
             ${{ runner.os }}-spm-
       - name: Test SDK
         run: make test
+
+  downgrade-compatibility:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        downgrade_ref:
+          # Regression guard for https://github.com/PostHog/posthog-ios/issues/537:
+          # 3.48.0 force-parsed queue filenames as Doubles during startup.
+          - 3.48.0
+    name: Downgrade compatibility (${{ matrix.downgrade_ref }})
+    steps:
+      - uses: actions/checkout@v6
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Test downgrade compatibility
+        run: make testDowngradeCompatibility downgrade_ref=${{ matrix.downgrade_ref }}

@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
 
 build: buildSdk buildExamples
 
@@ -87,6 +87,9 @@ testOnMacSimulator:
 #   make test filter=PostHogPropertiesSerializationTests        # Run specific test suite, class or method
 test:
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
+
+testDowngradeCompatibility:
+	./scripts/test-downgrade-compatibility.sh $(or $(downgrade_ref),3.48.0)
 
 
 lint:

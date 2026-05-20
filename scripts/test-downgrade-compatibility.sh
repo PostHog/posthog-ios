@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Verifies that state written by the current SDK can be read by an older SDK.
-# Usage: ./scripts/test-downgrade-compatibility.sh <downgrade-ref>
-# Historical validation: WRITE_REF=3.48.1 ./scripts/test-downgrade-compatibility.sh 3.48.0
+# Usage: DOWNGRADE_REF=<downgrade-ref> ./scripts/test-downgrade-compatibility.sh
+# Historical validation: WRITE_REF=3.48.1 DOWNGRADE_REF=3.48.0 ./scripts/test-downgrade-compatibility.sh
 
 set -euo pipefail
 
@@ -153,6 +153,11 @@ EOF
 
     perl -pi -e "s/__CONFIG_INITIALIZER_LABEL__/$config_initializer_label/g" \
         "$package_dir/Sources/DowngradeCompatibilitySmoke/main.swift"
+
+    local dependency_resolved="$dependency_path/Package.resolved"
+    if [ -f "$dependency_resolved" ]; then
+        cp "$dependency_resolved" "$package_dir/Package.resolved"
+    fi
 }
 
 run_smoke() {

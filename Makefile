@@ -89,7 +89,7 @@ test:
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
 testDowngradeCompatibility:
-	./scripts/test-downgrade-compatibility.sh $(or $(downgrade_ref),3.48.0)
+	DOWNGRADE_REF="$${DOWNGRADE_REF:-3.48.0}" ./scripts/test-downgrade-compatibility.sh
 
 
 lint:

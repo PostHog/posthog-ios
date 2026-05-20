@@ -318,8 +318,7 @@ class PostHogApi {
             return completion(false)
         }
 
-        let config = sessionConfig()
-        let request = getURLRequest(url)
+        let request = getURLRequest(url, gzipped: true)
 
         #if os(macOS)
             let platform = "macos"
@@ -340,7 +339,15 @@ class PostHogApi {
             return completion(false)
         }
 
-        URLSession(configuration: config).uploadTask(with: request, from: data) { responseData, response, error in
+        let gzippedPayload: Data
+        do {
+            gzippedPayload = try data.gzipped()
+        } catch {
+            hedgeLog("Error gzipping the push subscription body: \(error).")
+            return completion(false)
+        }
+
+        session.uploadTask(with: request, from: gzippedPayload) { responseData, response, error in
             if error != nil {
                 hedgeLog("Error calling the push subscriptions API: \(String(describing: error)).")
                 return completion(false)

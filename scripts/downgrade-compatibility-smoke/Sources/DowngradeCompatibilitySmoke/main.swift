@@ -81,4 +81,3 @@ case "read":
 default:
     fatalError("Unknown mode: \(mode)")
 }
-

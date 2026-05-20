@@ -85,15 +85,25 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var enableSwizzling: Bool = true
 
     #if os(iOS) || os(macOS)
-        /// Automatically capture push notification engagement events when users interact with notifications.
+        /// Automatically register the device's APNS token with PostHog by swizzling
+        /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`.
         ///
-        /// When enabled, the SDK will swizzle `UNUserNotificationCenterDelegate` methods to automatically
-        /// capture a "Push Notification Opened" event whenever a user taps a push notification.
+        /// - Note: Requires `enableSwizzling` to be `true`. To register tokens without
+        ///   swizzling, call `handlePushNotificationDeviceToken(_:)` directly from your
+        ///   `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` implementation.
         ///
-        /// Requires `enableSwizzling` to be `true`.
+        /// Default: true
+        @objc public var capturePushNotificationSubscriptions: Bool = true
+
+        /// Automatically capture a `$push_notification_opened` event when a user taps a
+        /// notification, by swizzling `UNUserNotificationCenterDelegate`.
         ///
-        /// Default: false
-        @objc public var capturePushNotificationSubscriptions: Bool = false
+        /// - Note: Requires `enableSwizzling` to be `true`. To capture opened events without
+        ///   swizzling, call `capturePushNotificationOpened(response:)` directly from your
+        ///   `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
+        ///
+        /// Default: true
+        @objc public var capturePushNotificationOpened: Bool = true
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
@@ -355,7 +365,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         #if os(iOS) || os(macOS)
             if #available(iOS 14.0, macOS 11.0, *) {
                 if capturePushNotificationSubscriptions {
-                    integrations.append(PostHogPushNotificationIntegration())
+                    integrations.append(PostHogPushNotificationSubscriptionIntegration())
+                }
+                if capturePushNotificationOpened {
+                    integrations.append(PostHogPushNotificationOpenIntegration())
                 }
             }
         #endif

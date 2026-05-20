@@ -53,12 +53,8 @@ let maxRetryDelay = 30.0
     private var flagCallReported: [String: [Any?]] = .init()
     private(set) var remoteConfig: PostHogRemoteConfig?
     private var context: PostHogContext?
-<<<<<<< HEAD
-    private static var projectTokens = Set<String>()
-=======
     private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
-    private static var apiKeys = Set<String>()
->>>>>>> d41eeb32f3 (cleanup PostHogSDK)
+    private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
@@ -497,12 +493,8 @@ let maxRetryDelay = 30.0
 
         queue?.flush()
         replayQueue?.flush()
-<<<<<<< HEAD
         logsQueue?.flush()
-        retrySendPushSubscriptionIfNeeded()
-=======
         pushSubscriptionHandler?.retryIfNeeded()
->>>>>>> d41eeb32f3 (cleanup PostHogSDK)
     }
 
     @objc public func reset() {
@@ -2433,9 +2425,9 @@ let maxRetryDelay = 30.0
 
         #if os(iOS) || os(macOS)
             @available(iOS 14.0, macOS 11.0, *)
-            func getPushNotificationIntegration() -> PostHogPushNotificationIntegration? {
+            func getPushNotificationIntegration() -> PostHogPushNotificationOpenIntegration? {
                 installedIntegrations.compactMap {
-                    $0 as? PostHogPushNotificationIntegration
+                    $0 as? PostHogPushNotificationOpenIntegration
                 }.first
             }
         #endif

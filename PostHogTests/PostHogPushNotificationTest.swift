@@ -17,7 +17,8 @@
         var server: MockPostHogServer!
 
         init() {
-            PostHogPushNotificationIntegration.clearInstalls()
+            PostHogPushNotificationOpenIntegration.clearInstalls()
+            PostHogPushNotificationSubscriptionIntegration.clearInstalls()
             PostHogAppLifeCycleIntegration.clearInstalls()
             PostHogScreenViewIntegration.clearInstalls()
 
@@ -40,6 +41,7 @@
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationOpened = false
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.disableFlushOnBackgroundForTesting = true
@@ -74,6 +76,7 @@
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.optOut = true
             config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationOpened = false
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.disableReachabilityForTesting = true
@@ -95,39 +98,76 @@
 
         // MARK: - Config Default Tests
 
-        @Test("capturePushNotificationSubscriptions defaults to false")
-        func configDefaultsToFalse() {
+        @Test("capturePushNotificationSubscriptions defaults to true")
+        func subscriptionsDefaultsToTrue() {
             let config = PostHogConfig(projectToken: testProjectToken)
+            #expect(config.capturePushNotificationSubscriptions == true)
+        }
+
+        @Test("capturePushNotificationOpened defaults to true")
+        func openedDefaultsToTrue() {
+            let config = PostHogConfig(projectToken: testProjectToken)
+            #expect(config.capturePushNotificationOpened == true)
+        }
+
+        @Test("capturePushNotificationSubscriptions can be disabled")
+        func subscriptionsCanBeDisabled() {
+            let config = PostHogConfig(projectToken: testProjectToken)
+            config.capturePushNotificationSubscriptions = false
             #expect(config.capturePushNotificationSubscriptions == false)
         }
 
-        @Test("capturePushNotificationSubscriptions can be set to true")
-        func configCanBeEnabled() {
+        @Test("capturePushNotificationOpened can be disabled")
+        func openedCanBeDisabled() {
             let config = PostHogConfig(projectToken: testProjectToken)
-            config.capturePushNotificationSubscriptions = true
-            #expect(config.capturePushNotificationSubscriptions == true)
+            config.capturePushNotificationOpened = false
+            #expect(config.capturePushNotificationOpened == false)
         }
 
         // MARK: - getIntegrations Tests
 
-        @Test("getIntegrations includes push notification integration when enabled")
-        func getIntegrationsIncludesPushNotification() {
+        @Test("getIntegrations includes subscription integration when capturePushNotificationSubscriptions is enabled")
+        func getIntegrationsIncludesSubscriptionIntegration() {
             let config = PostHogConfig(projectToken: testProjectToken)
             config.capturePushNotificationSubscriptions = true
+            config.capturePushNotificationOpened = false
 
             let integrations = config.getIntegrations()
-            let hasPushIntegration = integrations.contains { $0 is PostHogPushNotificationIntegration }
-            #expect(hasPushIntegration)
+            #expect(integrations.contains { $0 is PostHogPushNotificationSubscriptionIntegration })
+            #expect(!integrations.contains { $0 is PostHogPushNotificationOpenIntegration })
         }
 
-        @Test("getIntegrations excludes push notification integration when disabled")
-        func getIntegrationsExcludesPushNotification() {
+        @Test("getIntegrations includes opened integration when capturePushNotificationOpened is enabled")
+        func getIntegrationsIncludesOpenedIntegration() {
             let config = PostHogConfig(projectToken: testProjectToken)
             config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationOpened = true
 
             let integrations = config.getIntegrations()
-            let hasPushIntegration = integrations.contains { $0 is PostHogPushNotificationIntegration }
-            #expect(!hasPushIntegration)
+            #expect(!integrations.contains { $0 is PostHogPushNotificationSubscriptionIntegration })
+            #expect(integrations.contains { $0 is PostHogPushNotificationOpenIntegration })
+        }
+
+        @Test("getIntegrations excludes both push integrations when both flags are disabled")
+        func getIntegrationsExcludesBothWhenDisabled() {
+            let config = PostHogConfig(projectToken: testProjectToken)
+            config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationOpened = false
+
+            let integrations = config.getIntegrations()
+            #expect(!integrations.contains { $0 is PostHogPushNotificationSubscriptionIntegration })
+            #expect(!integrations.contains { $0 is PostHogPushNotificationOpenIntegration })
+        }
+
+        @Test("getIntegrations includes both push integrations when both flags are enabled")
+        func getIntegrationsIncludesBothWhenEnabled() {
+            let config = PostHogConfig(projectToken: testProjectToken)
+            config.capturePushNotificationSubscriptions = true
+            config.capturePushNotificationOpened = true
+
+            let integrations = config.getIntegrations()
+            #expect(integrations.contains { $0 is PostHogPushNotificationSubscriptionIntegration })
+            #expect(integrations.contains { $0 is PostHogPushNotificationOpenIntegration })
         }
 
         // MARK: - Push Subscription Persistence Tests
@@ -204,13 +244,14 @@
 
             // First flush: should fail
             sut.flush()
-            try await Task.sleep(nanoseconds: 2_000_000_000)
+            // Wait for the request to complete (async) and the 5s linear backoff window to expire
+            try await Task.sleep(nanoseconds: 6_000_000_000)
 
             // Subscription should still be persisted
             let persistedAfterFailure = sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String]
             #expect(persistedAfterFailure?["deviceToken"] == "abcdef01")
 
-            // Now allow success
+            // Now allow success — backoff window has elapsed so retry should proceed
             server.returnPushSubscription500 = false
             sut.flush()
             try await Task.sleep(nanoseconds: 2_000_000_000)
@@ -387,6 +428,7 @@
             config.flushAt = 1
             config.enableSwizzling = false
             config.capturePushNotificationSubscriptions = true
+            config.capturePushNotificationOpened = true
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.disableReachabilityForTesting = true

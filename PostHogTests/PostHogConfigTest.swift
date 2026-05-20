@@ -29,7 +29,8 @@ class PostHogConfigTest: QuickSpec {
             expect(config.optOut) == false
 
             #if os(iOS) || os(macOS)
-                expect(config.capturePushNotificationSubscriptions) == false
+                expect(config.capturePushNotificationSubscriptions) == true
+                expect(config.capturePushNotificationOpened) == true
             #endif
         }
 

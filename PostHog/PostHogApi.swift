@@ -321,11 +321,17 @@ class PostHogApi {
         let config = sessionConfig()
         let request = getURLRequest(url)
 
+        #if os(macOS)
+            let platform = "macos"
+        #else
+            let platform = "ios"
+        #endif
+
         let toSend: [String: Any] = [
             "api_key": config.projectToken,
             "distinct_id": distinctId,
-            "token": deviceToken,
-            "platform": "ios",
+            "device_token": deviceToken,
+            "platform": platform,
             "app_id": appId,
         ]
 

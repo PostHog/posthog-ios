@@ -322,7 +322,7 @@ class PostHogApi {
         let request = getURLRequest(url)
 
         let toSend: [String: Any] = [
-            "api_key": self.config.apiKey,
+            "api_key": config.projectToken,
             "distinct_id": distinctId,
             "token": deviceToken,
             "platform": "ios",

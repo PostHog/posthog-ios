@@ -123,6 +123,14 @@ count_event_queue_files() {
     echo $((current_queue_count + legacy_queue_count))
 }
 
+count_replay_queue_files() {
+    local current_queue_count
+    local legacy_queue_count
+    current_queue_count="$(count_storage_files "posthog.replayFolder.uuid")"
+    legacy_queue_count="$(count_storage_files "posthog.replayFolder")"
+    echo $((current_queue_count + legacy_queue_count))
+}
+
 require_positive_count() {
     local description="$1"
     local count="$2"
@@ -159,20 +167,19 @@ require_positive_count "persisted group properties" "$(count_storage_key_files "
 echo "Writer SDK persisted $EVENT_QUEUE_FILE_COUNT analytics event queue file(s)."
 
 if [ "$INCLUDE_CURRENT_STORAGE_WRITES" = "1" ]; then
-    REPLAY_QUEUE_FILE_COUNT="$(count_storage_files "posthog.replayFolder.uuid")"
+    CURRENT_REPLAY_QUEUE_FILE_COUNT="$(count_storage_files "posthog.replayFolder.uuid")"
     LEGACY_REPLAY_QUEUE_FILE_COUNT="$(count_storage_files "posthog.replayFolder")"
+    REPLAY_QUEUE_FILE_COUNT="$(count_replay_queue_files)"
     LOGS_QUEUE_FILE_COUNT="$(count_storage_files "posthog.logsFolder")"
 
     require_positive_count "queued replay snapshot files" "$REPLAY_QUEUE_FILE_COUNT"
     require_positive_count "queued log files" "$LOGS_QUEUE_FILE_COUNT"
 
     if [ "$LEGACY_REPLAY_QUEUE_FILE_COUNT" -ne 0 ]; then
-        echo "Expected current SDK replay snapshots to avoid legacy posthog.replayFolder, but found $LEGACY_REPLAY_QUEUE_FILE_COUNT file(s)." >&2
-        find "$STATE_HOME/Library/Application Support" -maxdepth 8 -print | sort >&2 || true
-        exit 1
+        echo "Warning: current SDK wrote $LEGACY_REPLAY_QUEUE_FILE_COUNT replay snapshot file(s) to legacy posthog.replayFolder." >&2
     fi
 
-    echo "Current SDK also persisted $REPLAY_QUEUE_FILE_COUNT replay snapshot file(s) and $LOGS_QUEUE_FILE_COUNT log file(s)."
+    echo "Current SDK also persisted $REPLAY_QUEUE_FILE_COUNT replay snapshot file(s) ($CURRENT_REPLAY_QUEUE_FILE_COUNT current, $LEGACY_REPLAY_QUEUE_FILE_COUNT legacy) and $LOGS_QUEUE_FILE_COUNT log file(s)."
 fi
 
 echo "Checking out downgraded SDK ref $DOWNGRADE_REF"

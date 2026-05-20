@@ -7,21 +7,37 @@
 
 import Foundation
 
+private let maxRestoreAttempts = 3
+
 class PostHogFileBackedQueue {
     let queue: URL
     private var items = [String]()
     private let itemsLock = NSLock()
+    private let restoreAttemptsKey: String?
 
     var depth: Int {
         itemsLock.withLock { items.count }
     }
 
-    init(queue: URL, oldQueues: [URL] = []) {
+    init(queue: URL, oldQueues: [URL] = [], restoreAttemptsKey: String? = nil) {
         self.queue = queue
-        setup(oldQueues: oldQueues)
+        self.restoreAttemptsKey = restoreAttemptsKey
+        setup(oldQueues: oldQueues, trackAttempts: true)
     }
 
-    private func setup(oldQueues: [URL]) {
+    private func setup(oldQueues: [URL], trackAttempts: Bool) {
+        if trackAttempts, let key = restoreAttemptsKey {
+            let previousAttempts = UserDefaults.standard.integer(forKey: key)
+
+            if previousAttempts >= maxRestoreAttempts {
+                hedgeLog("Queue restore failed \(previousAttempts) consecutive time(s), clearing queue directory")
+                deleteSafely(queue)
+                UserDefaults.standard.set(0, forKey: key)
+            }
+
+            UserDefaults.standard.set(UserDefaults.standard.integer(forKey: key) + 1, forKey: key)
+        }
+
         do {
             try FileManager.default.createDirectory(atPath: queue.path, withIntermediateDirectories: true)
         } catch {
@@ -48,6 +64,11 @@ class PostHogFileBackedQueue {
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
+            return
+        }
+
+        if trackAttempts, let key = restoreAttemptsKey {
+            UserDefaults.standard.set(0, forKey: key)
         }
     }
 
@@ -83,7 +104,7 @@ class PostHogFileBackedQueue {
     /// Internal, used for testing
     func clear() {
         deleteSafely(queue)
-        setup(oldQueues: [])
+        setup(oldQueues: [], trackAttempts: false)
     }
 
     /// Reloads items from disk and sorts by creation date.

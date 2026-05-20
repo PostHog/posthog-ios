@@ -263,5 +263,52 @@ class PostHogFileBackedQueueTest: QuickSpec {
 
             sut.clear()
         }
+
+        it("clears queue after maxRestoreAttempts consecutive failed setups") {
+            let attemptsKey = "test.queueRestoreAttempts"
+            let queueURL = applicationSupportDirectoryURL().appendingPathComponent("recoverQueue")
+
+            // Seed the queue with a file so we can verify it gets cleared
+            try FileManager.default.createDirectory(atPath: queueURL.path, withIntermediateDirectories: true)
+            let seedFile = queueURL.appendingPathComponent("seed.dat")
+            try "data".data(using: .utf8)!.write(to: seedFile)
+
+            // Simulate failed setups by pre-setting the counter to maxRestoreAttempts
+            UserDefaults.standard.set(3, forKey: attemptsKey)
+
+            let sut = PostHogFileBackedQueue(queue: queueURL, restoreAttemptsKey: attemptsKey)
+
+            // Queue should be empty — the directory was cleared before setup ran
+            expect(sut.depth) == 0
+            expect(FileManager.default.fileExists(atPath: seedFile.path)) == false
+
+            // Counter resets to 0 after clearing — the clean directory setup will succeed
+            expect(UserDefaults.standard.integer(forKey: attemptsKey)) == 0
+
+            // Successful setup resets counter to 0
+            _ = PostHogFileBackedQueue(queue: queueURL, restoreAttemptsKey: attemptsKey)
+            expect(UserDefaults.standard.integer(forKey: attemptsKey)) == 0
+
+            sut.clear()
+            UserDefaults.standard.removeObject(forKey: attemptsKey)
+        }
+
+        it("does not increment setup attempt counter when clear() reinitialises the queue") {
+            let attemptsKey = "test.queueRestoreAttemptsClear"
+            let queueURL = applicationSupportDirectoryURL().appendingPathComponent("clearQueue")
+
+            UserDefaults.standard.set(0, forKey: attemptsKey)
+
+            let sut = PostHogFileBackedQueue(queue: queueURL, restoreAttemptsKey: attemptsKey)
+            // Counter is 0 after a successful init
+            expect(UserDefaults.standard.integer(forKey: attemptsKey)) == 0
+
+            sut.clear()
+
+            // clear() must not touch the counter
+            expect(UserDefaults.standard.integer(forKey: attemptsKey)) == 0
+
+            UserDefaults.standard.removeObject(forKey: attemptsKey)
+        }
     }
 }

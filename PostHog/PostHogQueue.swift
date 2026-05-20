@@ -118,7 +118,8 @@ class PostHogQueue<Record> {
             rateCapWindowSeconds = endpoint.rateCapWindowSeconds(config)
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
-                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
+                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
+                restoreAttemptsKey: "restore_attempt_\(endpoint.storageKey.rawValue)"
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -133,7 +134,8 @@ class PostHogQueue<Record> {
             rateCapWindowSeconds = endpoint.rateCapWindowSeconds(config)
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
-                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
+                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
+                restoreAttemptsKey: "restore_attempt_\(endpoint.storageKey.rawValue)"
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }

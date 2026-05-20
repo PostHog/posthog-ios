@@ -30,6 +30,23 @@ TOKEN="downgrade_compatibility_project"
 
 mkdir -p "$STATE_HOME/Library/Application Support"
 
+validate_ref() {
+    local ref="$1"
+    local label="$2"
+
+    # Keep ref inputs safe for git refspecs/options. CI passes static matrix values,
+    # but this script is also useful locally via DOWNGRADE_REF/WRITE_REF.
+    if [[ -z "$ref" || "$ref" == -* || "$ref" == *..* || ! "$ref" =~ ^[A-Za-z0-9._/+%-]+$ ]]; then
+        echo "Invalid $label: $ref" >&2
+        exit 64
+    fi
+}
+
+validate_ref "$DOWNGRADE_REF" "downgrade ref"
+if [ -n "$WRITE_REF" ]; then
+    validate_ref "$WRITE_REF" "writer ref"
+fi
+
 ensure_ref() {
     local ref="$1"
     if ! git -C "$REPO_ROOT" rev-parse --verify --quiet "$ref^{commit}" >/dev/null; then

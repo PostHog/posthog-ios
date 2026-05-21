@@ -24,6 +24,13 @@
         private static var integrationInstalled = false
         private static var swizzledAppDelegateClass: AnyClass?
 
+        // Weak reference to the live instance so static swizzled methods can route
+        // through it instead of coupling to PostHogSDK.shared.
+        private static weak var current: PostHogPushNotificationSubscriptionIntegration?
+        private static var currentLock = NSLock()
+
+        private weak var postHog: PostHogSDK?
+
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             let didInstall = Self.integrationInstalledLock.withLock {
                 if Self.integrationInstalled { return false }
@@ -31,12 +38,17 @@
                 return true
             }
             guard didInstall else { return .skipped(.alreadyInstalled) }
+            self.postHog = postHog
+            Self.currentLock.withLock { Self.current = self }
             start()
             return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
+            guard self.postHog === postHog || self.postHog == nil else { return }
             stop()
+            self.postHog = nil
+            Self.currentLock.withLock { Self.current = nil }
             Self.integrationInstalledLock.withLock {
                 Self.integrationInstalled = false
             }
@@ -81,9 +93,17 @@
 
         private func unswizzleAppDelegateMethods() {
             guard let appDelegateClass = Self.swizzledAppDelegateClass else { return }
+            // Calling swizzle() reverses the exchange. If swizzleAddingIfNeeded *added* the
+            // method (it did not originally exist), this swaps the IMPs back but does not
+            // remove the added methods from the class — that is a known limitation.
             swizzle(forClass: appDelegateClass, original: Self.didRegisterSelector, new: Self.swizzledDidRegisterSelector)
             swizzle(forClass: appDelegateClass, original: Self.didFailSelector, new: Self.swizzledDidFailSelector)
             Self.swizzledAppDelegateClass = nil
+        }
+
+        fileprivate static func handleDeviceToken(_ deviceToken: Data) {
+            let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
+            currentLock.withLock { current }?.postHog?.handlePushNotificationDeviceToken(tokenString)
         }
 
         #if os(iOS)
@@ -115,6 +135,45 @@
         #endif
     }
 
+    // MARK: - NSObject Swizzled Token Methods
+
+    @available(iOS 14.0, macOS 11.0, *)
+    extension NSObject {
+        #if os(iOS)
+            @objc func ph_swizzled_application(
+                _ application: UIApplication,
+                didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+            ) {
+                PostHogPushNotificationSubscriptionIntegration.handleDeviceToken(deviceToken)
+                ph_swizzled_application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+            }
+
+            @objc func ph_swizzled_application(
+                _ application: UIApplication,
+                didFailToRegisterForRemoteNotificationsWithError error: Error
+            ) {
+                hedgeLog("Failed to register for remote notifications: \(error.localizedDescription)")
+                ph_swizzled_application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+            }
+        #elseif os(macOS)
+            @objc func ph_swizzled_application(
+                _ application: NSApplication,
+                didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+            ) {
+                PostHogPushNotificationSubscriptionIntegration.handleDeviceToken(deviceToken)
+                ph_swizzled_application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+            }
+
+            @objc func ph_swizzled_application(
+                _ application: NSApplication,
+                didFailToRegisterForRemoteNotificationsWithError error: Error
+            ) {
+                hedgeLog("Failed to register for remote notifications: \(error.localizedDescription)")
+                ph_swizzled_application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+            }
+        #endif
+    }
+
     #if TESTING
         @available(iOS 14.0, macOS 11.0, *)
         extension PostHogPushNotificationSubscriptionIntegration {
@@ -122,6 +181,7 @@
                 integrationInstalledLock.withLock {
                     integrationInstalled = false
                 }
+                currentLock.withLock { current = nil }
                 swizzledAppDelegateClass = nil
             }
         }

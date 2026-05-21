@@ -15,12 +15,22 @@
     /// so `swizzle()` (not `swizzleAddingIfNeeded`) is used. The set of already-swizzled
     /// delegate classes is tracked to avoid double-swizzling if the same class is assigned
     /// to the notification center more than once.
+    ///
+    /// **Cold-start buffering:** If a notification tap launches the app before `PostHog.setup()`
+    /// is called, the response is buffered and replayed in `install(_:)`.
     @available(iOS 14.0, macOS 11.0, *)
     final class PostHogPushNotificationOpenIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
         private static var integrationInstalledLock = NSLock()
         private static var integrationInstalled = false
+
+        // Guards both `current` and `pendingResponse` as a single consistent unit:
+        // a notification response and the integration that will consume it must be
+        // observed/mutated atomically to avoid a TOCTOU gap between the two.
+        private static var stateLock = NSLock()
+        private static weak var current: PostHogPushNotificationOpenIntegration?
+        private static var pendingResponse: UNNotificationResponse?
 
         private weak var postHog: PostHogSDK?
 
@@ -38,17 +48,28 @@
             guard didInstall else { return .skipped(.alreadyInstalled) }
 
             self.postHog = postHog
+
+            // Atomically register as current and drain any buffered cold-start response.
+            let pending = Self.stateLock.withLock {
+                Self.current = self
+                defer { Self.pendingResponse = nil }
+                return Self.pendingResponse
+            }
+            if let pending {
+                postHog.capturePushNotificationOpened(response: pending)
+            }
+
             start()
             return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            if self.postHog === postHog || self.postHog == nil {
-                stop()
-                self.postHog = nil
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
-                }
+            guard self.postHog === postHog || self.postHog == nil else { return }
+            stop()
+            self.postHog = nil
+            Self.stateLock.withLock { Self.current = nil }
+            Self.integrationInstalledLock.withLock {
+                Self.integrationInstalled = false
             }
         }
 
@@ -103,7 +124,15 @@
         }
 
         fileprivate static func captureNotificationEngagement(response: UNNotificationResponse) {
-            PostHogSDK.shared.capturePushNotificationOpened(response: response)
+            // Atomically check for a live integration; if none, buffer for cold-start replay.
+            let integration: PostHogPushNotificationOpenIntegration? = stateLock.withLock {
+                if let current {
+                    return current
+                }
+                pendingResponse = response
+                return nil
+            }
+            integration?.postHog?.capturePushNotificationOpened(response: response)
         }
     }
 
@@ -131,42 +160,6 @@
             PostHogPushNotificationOpenIntegration.captureNotificationEngagement(response: response)
             ph_swizzled_userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
         }
-
-        #if os(iOS)
-            @objc func ph_swizzled_application(
-                _ application: UIApplication,
-                didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-            ) {
-                let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
-                PostHogSDK.shared.handlePushNotificationDeviceToken(tokenString)
-                ph_swizzled_application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-            }
-
-            @objc func ph_swizzled_application(
-                _ application: UIApplication,
-                didFailToRegisterForRemoteNotificationsWithError error: Error
-            ) {
-                hedgeLog("Failed to register for remote notifications: \(error.localizedDescription)")
-                ph_swizzled_application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-            }
-        #elseif os(macOS)
-            @objc func ph_swizzled_application(
-                _ application: NSApplication,
-                didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-            ) {
-                let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
-                PostHogSDK.shared.handlePushNotificationDeviceToken(tokenString)
-                ph_swizzled_application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-            }
-
-            @objc func ph_swizzled_application(
-                _ application: NSApplication,
-                didFailToRegisterForRemoteNotificationsWithError error: Error
-            ) {
-                hedgeLog("Failed to register for remote notifications: \(error.localizedDescription)")
-                ph_swizzled_application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-            }
-        #endif
     }
 
     #if TESTING
@@ -175,6 +168,10 @@
             static func clearInstalls() {
                 integrationInstalledLock.withLock {
                     integrationInstalled = false
+                }
+                stateLock.withLock {
+                    current = nil
+                    pendingResponse = nil
                 }
                 swizzledDelegateClassesLock.withLock {
                     swizzledDelegateClasses.removeAll()

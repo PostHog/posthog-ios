@@ -2317,7 +2317,7 @@ let maxRetryDelay = 30.0
         }
 
         guard let pushSubscriptionHandler else {
-            hedgeLog("Push subscription not sent: SDK not initialized.")
+            hedgeLog("Push subscription not sent: capturePushNotificationSubscriptions is disabled in config.")
             return
         }
 
@@ -2327,7 +2327,7 @@ let maxRetryDelay = 30.0
     #if os(iOS) || os(macOS)
         /// Manually capture a "$push_notification_opened" event for a notification the user interacted with.
         ///
-        /// Use this when you're not relying on the automatic swizzling installed by `capturePushNotificationSubscriptions`,
+        /// Use this when you're not relying on the automatic swizzling installed by `capturePushNotificationOpened`,
         /// for example when `enableSwizzling` is `false`, or when you manage your own `UNUserNotificationCenterDelegate`
         /// and want explicit control. Call it from your
         /// `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.

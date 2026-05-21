@@ -41,7 +41,7 @@ extension QueueEndpoint where Record == PostHogEvent {
     static func snapshot(api: PostHogApi) -> QueueEndpoint<PostHogEvent> {
         QueueEndpoint<PostHogEvent>(
             storageKey: .replayQeueue,
-            oldStorageKeys: [],
+            oldStorageKeys: [.oldReplayQueue],
             dispatchQueueLabel: "com.posthog.ReplayQueue",
             initialCap: { $0.maxBatchSize },
             initialFlushAt: { $0.flushAt },

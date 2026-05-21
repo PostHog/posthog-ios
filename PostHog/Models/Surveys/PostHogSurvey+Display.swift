@@ -2,12 +2,19 @@
     import Foundation
 
     extension PostHogSurvey {
-        func toDisplaySurvey() -> PostHogDisplaySurvey {
-            PostHogDisplaySurvey(
+        func toDisplaySurvey(
+            surveyTranslation: PostHogSurveyTranslation? = nil,
+            questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
+        ) -> PostHogDisplaySurvey {
+            let translatedQuestions = questions.enumerated().compactMap { index, question in
+                let translation = questionTranslations.flatMap { index < $0.count ? $0[index] : nil }
+                return question.toDisplayQuestion(translation: translation)
+            }
+            return PostHogDisplaySurvey(
                 id: id,
-                name: name,
-                questions: questions.compactMap { $0.toDisplayQuestion() },
-                appearance: appearance?.toDisplayAppearance(),
+                name: surveyTranslation?.name ?? name,
+                questions: translatedQuestions,
+                appearance: appearance?.toDisplayAppearance(translation: surveyTranslation),
                 startDate: startDate,
                 endDate: endDate
             )
@@ -15,53 +22,53 @@
     }
 
     extension PostHogSurveyQuestion {
-        func toDisplayQuestion() -> PostHogDisplaySurveyQuestion? {
+        func toDisplayQuestion(translation: PostHogSurveyQuestionTranslation? = nil) -> PostHogDisplaySurveyQuestion? {
             switch self {
             case let .open(question):
                 return PostHogDisplayOpenQuestion(
                     id: question.id,
-                    question: question.question,
-                    questionDescription: question.description,
+                    question: translation?.question ?? question.question,
+                    questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: question.buttonText
+                    buttonText: translation?.buttonText ?? question.buttonText
                 )
 
             case let .link(question):
                 return PostHogDisplayLinkQuestion(
                     id: question.id,
-                    question: question.question,
-                    questionDescription: question.description,
+                    question: translation?.question ?? question.question,
+                    questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: question.buttonText,
-                    link: question.link ?? ""
+                    buttonText: translation?.buttonText ?? question.buttonText,
+                    link: translation?.link ?? question.link ?? ""
                 )
 
             case let .rating(question):
                 return PostHogDisplayRatingQuestion(
                     id: question.id,
-                    question: question.question,
-                    questionDescription: question.description,
+                    question: translation?.question ?? question.question,
+                    questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: question.buttonText,
+                    buttonText: translation?.buttonText ?? question.buttonText,
                     ratingType: question.display.toDisplayRatingType(),
                     scaleLowerBound: question.scale.range.lowerBound,
                     scaleUpperBound: question.scale.range.upperBound,
-                    lowerBoundLabel: question.lowerBoundLabel,
-                    upperBoundLabel: question.upperBoundLabel
+                    lowerBoundLabel: translation?.lowerBoundLabel ?? question.lowerBoundLabel,
+                    upperBoundLabel: translation?.upperBoundLabel ?? question.upperBoundLabel
                 )
 
             case let .singleChoice(question), let .multipleChoice(question):
                 return PostHogDisplayChoiceQuestion(
                     id: question.id,
-                    question: question.question,
-                    questionDescription: question.description,
+                    question: translation?.question ?? question.question,
+                    questionDescription: translation?.description ?? question.description,
                     questionDescriptionContentType: question.descriptionContentType?.toDisplayContentType(),
                     isOptional: question.optional ?? false,
-                    buttonText: question.buttonText,
-                    choices: question.choices,
+                    buttonText: translation?.buttonText ?? question.buttonText,
+                    choices: translation?.choices ?? question.choices,
                     hasOpenChoice: question.hasOpenChoice ?? false,
                     shuffleOptions: question.shuffleOptions ?? false,
                     isMultipleChoice: isMultipleChoice
@@ -99,7 +106,7 @@
     }
 
     extension PostHogSurveyAppearance {
-        func toDisplayAppearance() -> PostHogDisplaySurveyAppearance {
+        func toDisplayAppearance(translation: PostHogSurveyTranslation? = nil) -> PostHogDisplaySurveyAppearance {
             PostHogDisplaySurveyAppearance(
                 fontFamily: fontFamily,
                 backgroundColor: backgroundColor,
@@ -116,10 +123,10 @@
                 placeholder: placeholder,
                 surveyPopupDelaySeconds: surveyPopupDelaySeconds,
                 displayThankYouMessage: displayThankYouMessage ?? true,
-                thankYouMessageHeader: thankYouMessageHeader,
-                thankYouMessageDescription: thankYouMessageDescription,
+                thankYouMessageHeader: translation?.thankYouMessageHeader ?? thankYouMessageHeader,
+                thankYouMessageDescription: translation?.thankYouMessageDescription ?? thankYouMessageDescription,
                 thankYouMessageDescriptionContentType: thankYouMessageDescriptionContentType?.toDisplayContentType(),
-                thankYouMessageCloseButtonText: thankYouMessageCloseButtonText
+                thankYouMessageCloseButtonText: translation?.thankYouMessageCloseButtonText ?? thankYouMessageCloseButtonText
             )
         }
     }

@@ -665,7 +665,8 @@ enum PostHogSurveysTest {
                 currentIterationStartDate: nil,
                 startDate: nil,
                 endDate: nil,
-                schedule: schedule
+                schedule: schedule,
+                translations: nil
             )
         }
 
@@ -1787,7 +1788,8 @@ private extension PostHogSurvey {
                     optional: nil,
                     buttonText: nil,
                     originalQuestionIndex: nil,
-                    branching: nil
+                    branching: nil,
+                    translations: nil
                 )
             ),
         ],
@@ -1818,7 +1820,8 @@ private extension PostHogSurvey {
             currentIterationStartDate: currentIterationStartDate,
             startDate: startDate,
             endDate: endDate,
-            schedule: schedule
+            schedule: schedule,
+            translations: nil
         )
     }
 }
@@ -1836,7 +1839,8 @@ private extension PostHogOpenSurveyQuestion {
             optional: nil,
             buttonText: nil,
             originalQuestionIndex: nil,
-            branching: branching
+            branching: branching,
+            translations: nil
         )
     }
 }
@@ -1856,6 +1860,7 @@ private extension PostHogMultipleSurveyQuestion {
             buttonText: nil,
             originalQuestionIndex: nil,
             branching: branching,
+            translations: nil,
             choices: choices,
             hasOpenChoice: false,
             shuffleOptions: nil
@@ -1879,6 +1884,7 @@ private extension PostHogRatingSurveyQuestion {
             buttonText: nil,
             originalQuestionIndex: nil,
             branching: branching,
+            translations: nil,
             display: display,
             scale: scale,
             lowerBoundLabel: "",

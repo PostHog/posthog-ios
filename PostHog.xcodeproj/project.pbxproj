@@ -136,6 +136,7 @@
 		81FDB9FB2F806EB90095393C /* PostHogPushNotificationOpenIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81FDB9F92F806EB90095393C /* PostHogPushNotificationOpenIntegration.swift */; };
 		81FDBA002F806EB90095393C /* PostHogPushSubscriptionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81FDBA012F806EB90095393C /* PostHogPushSubscriptionHandler.swift */; };
 		81FDBA022F806EB90095393C /* PostHogPushNotificationSubscriptionIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81FDBA032F806EB90095393C /* PostHogPushNotificationSubscriptionIntegration.swift */; };
+		81FDBA062F9A1BC00095393C /* PushNotificationPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81FDBA052F9A1BC00095393C /* PushNotificationPublisher.swift */; };
 		6C32B559ADB6AF7AA3C7515A /* PLCrashReportStackFrameInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 2ADEF41FAC443C7CF9136BBA /* PLCrashReportStackFrameInfo.m */; };
 		6DD6664F2CD3CC05588B990F /* PLCrashAsyncThread.c in Sources */ = {isa = PBXBuildFile; fileRef = 61FEE5E67007766AEB5F6DB7 /* PLCrashAsyncThread.c */; };
 		7212EDEEF9E1DC37D57219B9 /* PLCrashReporterConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = D647E3BDAF428D331D684092 /* PLCrashReporterConfig.m */; };
@@ -888,6 +889,7 @@
 		81FDB9F92F806EB90095393C /* PostHogPushNotificationOpenIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPushNotificationOpenIntegration.swift; sourceTree = "<group>"; };
 		81FDBA012F806EB90095393C /* PostHogPushSubscriptionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPushSubscriptionHandler.swift; sourceTree = "<group>"; };
 		81FDBA032F806EB90095393C /* PostHogPushNotificationSubscriptionIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPushNotificationSubscriptionIntegration.swift; sourceTree = "<group>"; };
+		81FDBA052F9A1BC00095393C /* PushNotificationPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationPublisher.swift; sourceTree = "<group>"; };
 		69F7521A6F2A46D4AC6356F5 /* PLCrashAsyncMachOString.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncMachOString.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncMachOString.c; sourceTree = "<group>"; };
 		6C2E5E5D0EEB539A69D3E21F /* PLCrashReport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReport.m; path = vendor/PHPLCrashReporter/Source/PLCrashReport.m; sourceTree = "<group>"; };
 		7BBC5F0B51D6B521B4AC49B2 /* PLCrashAsyncObjCSection.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = PLCrashAsyncObjCSection.mm; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncObjCSection.mm; sourceTree = "<group>"; };
@@ -1804,6 +1806,7 @@
 				81FDB9F92F806EB90095393C /* PostHogPushNotificationOpenIntegration.swift */,
 				81FDBA012F806EB90095393C /* PostHogPushSubscriptionHandler.swift */,
 				81FDBA032F806EB90095393C /* PostHogPushNotificationSubscriptionIntegration.swift */,
+				81FDBA052F9A1BC00095393C /* PushNotificationPublisher.swift */,
 			);
 			path = PushNotifications;
 			sourceTree = "<group>";
@@ -3041,6 +3044,7 @@
 				81FDB9FB2F806EB90095393C /* PostHogPushNotificationOpenIntegration.swift in Sources */,
 				81FDBA002F806EB90095393C /* PostHogPushSubscriptionHandler.swift in Sources */,
 				81FDBA022F806EB90095393C /* PostHogPushNotificationSubscriptionIntegration.swift in Sources */,
+					81FDBA062F9A1BC00095393C /* PushNotificationPublisher.swift in Sources */,
 				DA8C9B982EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift in Sources */,
 				3AE3FB49299391DF00AFFC18 /* PostHogStorage.swift in Sources */,
 				DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */,

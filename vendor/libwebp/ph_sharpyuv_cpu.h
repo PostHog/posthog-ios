@@ -18,6 +18,9 @@
 // SharpYuvInit() replaces the use of the function pointer.
 #undef WEBP_EXTERN
 #define WEBP_EXTERN extern
+// phlibwebp_prefix.h prefixes VP8GetCPUInfo globally. This header intentionally
+// remaps it locally while including ph_cpu.h to create SharpYuvGetCPUInfo.
+#undef VP8GetCPUInfo
 #define VP8GetCPUInfo SharpYuvGetCPUInfo
 #include "./ph_cpu.h"
 

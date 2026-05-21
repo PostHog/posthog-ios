@@ -4,6 +4,18 @@
 
 - Add survey translations support. Surveys can carry per-language overrides for user-visible strings via a `translations` map keyed by language code. At display time the SDK resolves a language (`PostHogSurveysConfig.overrideDisplayLanguage` → person property `"language"` → device locale), applies any matching translation onto the display model, and stamps the matched key as `$survey_language` on every survey event when a translation actually took effect. Matching is case-insensitive with a base-language fallback (e.g. `"pt-BR"` falls back to `"pt"`).
 
+## 3.58.3
+
+### Patch Changes
+
+- 90ceeea: fix: silence PHPLCrashReporter CocoaPods module warnings
+
+## 3.58.2
+
+### Patch Changes
+
+- ce2c65a: fix: silence vendored libwebp macro redefinition warning
+
 ## 3.58.1
 
 ### Patch Changes

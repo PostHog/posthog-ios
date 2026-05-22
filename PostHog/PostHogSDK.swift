@@ -40,7 +40,7 @@ let maxRetryDelay = 30.0
 
     private let lastScreenLock = NSLock()
     private var _lastScreenName: String?
-    var lastScreenName: String? {
+    private var lastScreenName: String? {
         lastScreenLock.withLock { _lastScreenName }
     }
 
@@ -440,10 +440,12 @@ let maxRetryDelay = 30.0
 
             props["$process_person_profile"] = hasPersonProcessing()
 
-            // Only stamp if the caller didn't supply one — `merging(properties)`
-            // below keeps the existing value on conflict, so seeding would
-            // shadow a caller-supplied override.
-            if let name = lastScreenName, properties?["$screen_name"] == nil {
+            // Only stamp if the caller didn't supply a non-empty value —
+            // `merging(properties)` below keeps the existing value on conflict,
+            // so seeding would shadow a caller-supplied override. Treat caller
+            // empty/whitespace as absent (likely accidental).
+            let callerScreenName = properties?["$screen_name"] as? String
+            if let name = lastScreenName, !name.isEmpty, callerScreenName.isNilOrEmpty {
                 props["$screen_name"] = name
             }
         }
@@ -1986,11 +1988,13 @@ let maxRetryDelay = 30.0
             didEnterBackgroundToken = nil
             logger?.detach()
             logger = nil
-            lastScreenLock.withLock { _lastScreenName = nil }
             toggleHedgeLog(false)
 
             uninstallIntegrations()
         }
+        // Outside setupLock to avoid lock-ordering coupling between
+        // setupLock and lastScreenLock.
+        lastScreenLock.withLock { _lastScreenName = nil }
     }
 
     #if os(iOS)

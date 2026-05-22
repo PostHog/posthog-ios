@@ -38,6 +38,12 @@ let maxRetryDelay = 30.0
     private let cachedPersonPropertiesLock = NSLock()
     private var cachedPersonPropertiesHash: String?
 
+    private let lastScreenLock = NSLock()
+    private var _lastScreenName: String?
+    var lastScreenName: String? {
+        lastScreenLock.withLock { _lastScreenName }
+    }
+
     private var queue: PostHogQueue<PostHogEvent>?
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
@@ -433,6 +439,13 @@ let maxRetryDelay = 30.0
             }
 
             props["$process_person_profile"] = hasPersonProcessing()
+
+            // Only stamp if the caller didn't supply one — `merging(properties)`
+            // below keeps the existing value on conflict, so seeding would
+            // shadow a caller-supplied override.
+            if let name = lastScreenName, properties?["$screen_name"] == nil {
+                props["$screen_name"] = name
+            }
         }
 
         let sdkInfo = context?.sdkInfo()
@@ -500,6 +513,8 @@ let maxRetryDelay = 30.0
 
         // Clear all in-memory caches (feature flags, session replay state, etc.)
         remoteConfig?.clear()
+
+        lastScreenLock.withLock { _lastScreenName = nil }
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()
@@ -1138,6 +1153,10 @@ let maxRetryDelay = 30.0
         screen(screenTitle, properties: nil)
     }
 
+    /// Captures a `$screen` event and caches `screenTitle` so it is automatically
+    /// attached as `$screen_name` to every subsequent event (until `reset()` or
+    /// `close()`). Callers can override per-event by passing `$screen_name` in
+    /// `properties` on the next `capture(_:properties:)` call.
     @objc(screenWithTitle:properties:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
@@ -1151,6 +1170,8 @@ let maxRetryDelay = 30.0
         guard let queue else {
             return
         }
+
+        lastScreenLock.withLock { _lastScreenName = screenTitle }
 
         let props = [
             "$screen_name": screenTitle,
@@ -1958,6 +1979,7 @@ let maxRetryDelay = 30.0
             didEnterBackgroundToken = nil
             logger?.detach()
             logger = nil
+            lastScreenLock.withLock { _lastScreenName = nil }
             toggleHedgeLog(false)
 
             uninstallIntegrations()

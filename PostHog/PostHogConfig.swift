@@ -72,6 +72,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     }
 
     @objc public var captureApplicationLifecycleEvents: Bool = true
+    /// When enabled, `$screen_name` is also automatically attached to subsequent
+    /// events. Disable this and avoid calling `PostHogSDK.shared.screen()` to opt
+    /// out of `$screen_name` stamping entirely.
     @objc public var captureScreenViews: Bool = true
 
     /// Enable method swizzling for SDK functionality that depends on it

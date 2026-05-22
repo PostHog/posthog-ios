@@ -16,7 +16,4 @@ These all affect what your events carry on the wire. Review your dashboards/insi
 - **`$screen` event override semantics flipped.** `screen("Home", properties: ["$screen_name": "Override"])` now ships `$screen_name = "Override"` on the `$screen` event. Previously the `screenTitle` arg won (`{ prop, _ in prop }`). This aligns iOS with Android. Customers who passed `$screen_name` defensively in `properties` will see their override take effect.
 - **`screen("")` is silently dropped.** Previously an empty `screenTitle` emitted a `$screen` event with `$screen_name = ""`; now nothing is emitted and the cache is untouched. Customers using empty-string as a sentinel in dashboards will see those rows disappear.
 - **`screen("AnyView")` (literal manual call) is honored.** Only `AnyView` that surfaced from stripping `UIHostingController<...>` / `ModifiedContent<...>` wrappers is dropped (auto-capture noise from `body: some View` type erasure). A caller who literally typed `screen("AnyView")` gets that event through.
-
-## Known asymmetry
-
-Live `captureException(_:)` calls (caught and rethrown by your code) **will** carry `$screen_name`. Crash-replay `$exception` events fired from the error-tracking auto-capture integration (out-of-process crashes) **will not** — that path bypasses `buildProperties` via `skipBuildProperties: true` to preserve the snapshot taken at crash time. If you segment exception analytics by `$screen_name`, expect a gap on the crash-replay rows.
+- **Out-of-process crash reports carry `$screen_name` too.** `screen()` now refreshes the crash-replay context snapshot, so an `$exception` event reconstructed from a crash that happened on a given screen will ship with that screen name — matching the behavior of live `captureException(_:)` calls.

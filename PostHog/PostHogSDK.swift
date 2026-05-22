@@ -1209,6 +1209,10 @@ let maxRetryDelay = 30.0
         // Fanout to subscribers (sanitized; downstream listeners no longer
         // need to re-apply sanitize). Subscribers must not re-enter screen().
         DI.main.screenViewPublisher.onNewScreenName(cleaned)
+
+        // Refresh the crash-replay snapshot so an out-of-process crash on this
+        // screen carries the right $screen_name on the resulting $exception.
+        notifyContextDidChange()
     }
 
     func autocapture(

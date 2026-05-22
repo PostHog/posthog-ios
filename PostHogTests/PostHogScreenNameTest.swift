@@ -78,6 +78,18 @@ class PostHogScreenNameTest: QuickSpec {
             sut.close()
         }
 
+        it("screen() with screen_name in properties carries the override on the $screen event") {
+            let sut = self.getSut(captured: captured)
+
+            sut.screen("Home", properties: ["$screen_name": "Override"])
+
+            let event = captured.events.first { $0.event == "$screen" }!
+            expect(event.properties["$screen_name"] as? String) == "Override"
+
+            sut.reset()
+            sut.close()
+        }
+
         it("reset clears screen_name from subsequent events") {
             let sut = self.getSut(captured: captured)
 

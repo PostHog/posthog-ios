@@ -40,7 +40,7 @@ let maxRetryDelay = 30.0
 
     private let lastScreenLock = NSLock()
     private var _lastScreenName: String?
-    private var lastScreenName: String? {
+    var lastScreenName: String? {
         lastScreenLock.withLock { _lastScreenName }
     }
 
@@ -1028,7 +1028,7 @@ let maxRetryDelay = 30.0
         // alter the record because the snapshot is frozen here.
         let distinctId = getDistinctId()
         let sessionId = sessionManager.getSessionId(readOnly: true)
-        let screenName = logger?.lastScreenName
+        let screenName = lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
             // Bool flags are active iff true; multivariant (non-bool) values
@@ -1180,11 +1180,18 @@ let maxRetryDelay = 30.0
             return
         }
 
-        lastScreenLock.withLock { _lastScreenName = screenTitle }
+        // Strip SwiftUI wrappers (UIHostingController<X> → X). Drops degenerate
+        // inputs (empty, AnyView) — for those we skip the $screen event and
+        // leave the cache untouched so the last useful name survives.
+        guard let cleaned = PostHogLogger.sanitize(rawScreenName: screenTitle) else {
+            return
+        }
+
+        lastScreenLock.withLock { _lastScreenName = cleaned }
 
         let props = [
-            "$screen_name": screenTitle,
-        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
+            "$screen_name": cleaned,
+        ].merging(sanitizeDictionary(properties) ?? [:]) { _, new in new }
 
         let distinctId = getDistinctId()
 
@@ -1196,9 +1203,9 @@ let maxRetryDelay = 30.0
 
         queueEvent(event, queue: queue)
 
-        // Fanout to subscribers (e.g. the logs feature's lastScreenName).
-        // Subscribers must not re-enter screen() from the callback.
-        DI.main.screenViewPublisher.onNewScreenName(screenTitle)
+        // Fanout to subscribers (sanitized; downstream listeners no longer
+        // need to re-apply sanitize). Subscribers must not re-enter screen().
+        DI.main.screenViewPublisher.onNewScreenName(cleaned)
     }
 
     func autocapture(
@@ -1986,7 +1993,6 @@ let maxRetryDelay = 30.0
             context = nil
             sessionManager.endSession()
             didEnterBackgroundToken = nil
-            logger?.detach()
             logger = nil
             toggleHedgeLog(false)
 

@@ -9,34 +9,16 @@ import Foundation
 /// to call `trace`, `debug`, `info`, `warn`, `error`, or `fatal`.
 @objc public final class PostHogLogger: NSObject {
     private weak var sdk: PostHogSDK?
-    private let lastScreenLock = NSLock()
-    private var _lastScreenName: String?
-    private var screenViewToken: RegistrationToken?
 
-    /// Latest reported screen name, populated by the screen-view publisher.
-    /// `nil` until the first navigation after SDK setup.
+    /// Latest reported screen name. Delegates to `PostHogSDK.lastScreenName`,
+    /// which is sanitized in `screen()` before being cached.
     var lastScreenName: String? {
-        lastScreenLock.withLock { _lastScreenName }
+        sdk?.lastScreenName
     }
 
     init(sdk: PostHogSDK) {
         self.sdk = sdk
         super.init()
-        screenViewToken = DI.main.screenViewPublisher.onScreenView.subscribe { [weak self] name in
-            guard let self else { return }
-            // Only overwrite when the sanitizer recovers something meaningful;
-            // preserves the last useful name across noisy intermediate
-            // viewDidAppears (e.g. the AnyView-wrapped HostingControllers
-            // SwiftUI emits during initial layout).
-            guard let cleaned = Self.sanitize(rawScreenName: name) else { return }
-            self.lastScreenLock.withLock { self._lastScreenName = cleaned }
-        }
-    }
-
-    /// Releases the screen-view subscription and clears the cache.
-    func detach() {
-        screenViewToken = nil
-        lastScreenLock.withLock { _lastScreenName = nil }
     }
 
     /// Strips SwiftUI's `UIHostingController` / `ModifiedContent` wrappers to

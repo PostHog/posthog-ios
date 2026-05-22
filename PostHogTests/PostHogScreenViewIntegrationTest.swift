@@ -162,21 +162,19 @@ final class ScreenViewIntegrationTest {
         #expect(PostHogLogger.sanitize(rawScreenName: "") == nil)
     }
 
-    @Test("logger.lastScreenName preserves the previous useful name when an AnyView fires after it")
-    func loggerKeepsLastUsefulNameWhenSwizzleProducesAnyView() async throws {
+    @Test("screen() with degenerate input preserves the previous useful name")
+    func screenWithDegenerateInputPreservesLastUsefulName() async throws {
         // SwiftUI initial layout often emits multiple viewDidAppears: a
         // useful one (e.g. ContentView) followed by AnyView-wrapped ones
-        // from container chrome. The sanitizer's nil signal must not erase
-        // the good name we already had.
+        // from container chrome. SDK.screen() sanitizes; degenerate inputs
+        // must not erase the good name we already had.
         let sut = getSut(captureScreenViews: false)
         let logger = try #require(sut.logger)
 
         sut.screen("HomeView")
         #expect(logger.lastScreenName == "HomeView")
 
-        // Simulate a noisy intermediate viewDidAppear that the publisher
-        // would fan out (e.g. from auto-capture in a mixed app).
-        mockScreenView.simulateScreenView(screen: "UIHostingController<ModifiedContent<AnyView, RootModifier>>")
+        sut.screen("UIHostingController<ModifiedContent<AnyView, RootModifier>>")
         #expect(logger.lastScreenName == "HomeView")
 
         sut.close()

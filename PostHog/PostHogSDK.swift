@@ -442,10 +442,11 @@ let maxRetryDelay = 30.0
 
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,
-            // so seeding would shadow a caller-supplied override. Treat caller
-            // empty/whitespace as absent (likely accidental).
-            let callerScreenName = properties?["$screen_name"] as? String
-            if let name = lastScreenName, !name.isEmpty, callerScreenName.isNilOrEmpty {
+            // so seeding would shadow a caller-supplied override. Whitespace-only
+            // caller values are treated as absent (almost always accidental).
+            let trimmedCallerScreenName = (properties?["$screen_name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let name = lastScreenName, !name.isEmpty, trimmedCallerScreenName.isNilOrEmpty {
                 props["$screen_name"] = name
             }
         }
@@ -1176,18 +1177,20 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let queue else {
-            return
-        }
-
         // Strip SwiftUI wrappers (UIHostingController<X> → X). Drops degenerate
-        // inputs (empty, AnyView) — for those we skip the $screen event and
-        // leave the cache untouched so the last useful name survives.
+        // inputs (empty, stripped-AnyView) — for those we skip the $screen event
+        // and leave the cache untouched so the last useful name survives.
         guard let cleaned = PostHogLogger.sanitize(rawScreenName: screenTitle) else {
             return
         }
 
+        // Cache the name before the queue check so a screen() call during init
+        // (queue not yet assigned) still seeds the cache for subsequent events.
         lastScreenLock.withLock { _lastScreenName = cleaned }
+
+        guard let queue else {
+            return
+        }
 
         let props = [
             "$screen_name": cleaned,

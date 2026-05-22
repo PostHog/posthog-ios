@@ -22,20 +22,25 @@ import Foundation
     }
 
     /// Strips SwiftUI's `UIHostingController` / `ModifiedContent` wrappers to
-    /// surface the user's actual view type. Returns `nil` when the inner type
-    /// was erased to `AnyView` (no useful name to surface). UIKit class names
-    /// pass through unchanged.
+    /// surface the user's actual view type. Empty inputs always return `nil`.
+    /// An `AnyView` result is dropped only when it surfaced from stripping
+    /// (auto-capture noise from `body: some View` erasure); a caller who
+    /// manually passes `"AnyView"` is honored as-is.
     static func sanitize(rawScreenName name: String) -> String? {
         var current = name
+        var didStrip = false
         if let inner = stripGeneric(current, wrapper: "UIHostingController") {
             current = inner
+            didStrip = true
         }
         while let inner = stripGeneric(current, wrapper: "ModifiedContent"),
               let firstArg = firstGenericArgument(inner)
         {
             current = firstArg
+            didStrip = true
         }
-        if current.isEmpty || current == "AnyView" { return nil }
+        if current.isEmpty { return nil }
+        if didStrip, current == "AnyView" { return nil }
         return current
     }
 

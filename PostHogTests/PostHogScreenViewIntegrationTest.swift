@@ -148,13 +148,19 @@ final class ScreenViewIntegrationTest {
         #expect(PostHogLogger.sanitize(rawScreenName: raw) == "HomeView")
     }
 
-    @Test("sanitize: AnyView at the inner position returns nil (type was erased)")
-    func sanitizeReturnsNilForAnyView() {
+    @Test("sanitize: AnyView surfaced from stripping returns nil")
+    func sanitizeReturnsNilForAnyViewFromStripping() {
         // The exact shape we observed end-to-end in PostHogExample.
         let raw = "UIHostingController<ModifiedContent<AnyView, RootModifier>>"
         #expect(PostHogLogger.sanitize(rawScreenName: raw) == nil)
         #expect(PostHogLogger.sanitize(rawScreenName: "UIHostingController<AnyView>") == nil)
-        #expect(PostHogLogger.sanitize(rawScreenName: "AnyView") == nil)
+    }
+
+    @Test("sanitize: literal AnyView passes through (caller intent)")
+    func sanitizeKeepsLiteralAnyView() {
+        // A caller who typed `screen("AnyView")` deliberately gets that
+        // name through; only the auto-capture noise case is dropped.
+        #expect(PostHogLogger.sanitize(rawScreenName: "AnyView") == "AnyView")
     }
 
     @Test("sanitize: empty / whitespace-only returns nil")

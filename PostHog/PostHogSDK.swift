@@ -1186,7 +1186,13 @@ let maxRetryDelay = 30.0
 
         // Cache the name before the queue check so a screen() call during init
         // (queue not yet assigned) still seeds the cache for subsequent events.
-        lastScreenLock.withLock { _lastScreenName = cleaned }
+        // Track whether the value actually changed so we can skip the crash-
+        // replay snapshot refresh on duplicate viewDidAppears for the same VC.
+        let screenNameChanged = lastScreenLock.withLock { () -> Bool in
+            let changed = _lastScreenName != cleaned
+            _lastScreenName = cleaned
+            return changed
+        }
 
         guard let queue else {
             return
@@ -1207,12 +1213,19 @@ let maxRetryDelay = 30.0
         queueEvent(event, queue: queue)
 
         // Fanout to subscribers (sanitized; downstream listeners no longer
-        // need to re-apply sanitize). Subscribers must not re-enter screen().
+        // need to re-apply sanitize). Currently no in-tree subscribers — kept
+        // as an extension point for external consumers. Subscribers must not
+        // re-enter screen().
         DI.main.screenViewPublisher.onNewScreenName(cleaned)
 
-        // Refresh the crash-replay snapshot so an out-of-process crash on this
-        // screen carries the right $screen_name on the resulting $exception.
-        notifyContextDidChange()
+        // Refresh the crash-replay snapshot only when the screen actually
+        // changed — `viewDidAppear` re-fires for the same VC on every tab
+        // switch / sheet dismiss, and the snapshot includes a full event-
+        // properties build + JSON serialize + customData write that we don't
+        // want to repeat on the main thread for no behavior change.
+        if screenNameChanged {
+            notifyContextDidChange()
+        }
     }
 
     func autocapture(

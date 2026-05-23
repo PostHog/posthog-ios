@@ -1180,7 +1180,7 @@ let maxRetryDelay = 30.0
         // Strip SwiftUI wrappers (UIHostingController<X> → X). Drops degenerate
         // inputs (empty, stripped-AnyView) — for those we skip the $screen event
         // and leave the cache untouched so the last useful name survives.
-        guard let cleaned = PostHogLogger.sanitize(rawScreenName: screenTitle) else {
+        guard let cleaned = PostHogScreenNameSanitizer.sanitize(rawScreenName: screenTitle) else {
             return
         }
 

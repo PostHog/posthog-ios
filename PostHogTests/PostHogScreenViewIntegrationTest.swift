@@ -120,23 +120,23 @@ final class ScreenViewIntegrationTest {
         sut.close()
     }
 
-    // MARK: - PostHogLogger.sanitize
+    // MARK: - PostHogScreenNameSanitizer
 
     @Test("sanitize: pure UIKit class names pass through unchanged")
     func sanitizePassesUIKitNames() {
-        #expect(PostHogLogger.sanitize(rawScreenName: "MyHomeViewController") == "MyHomeViewController")
-        #expect(PostHogLogger.sanitize(rawScreenName: "SettingsVC") == "SettingsVC")
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: "MyHomeViewController") == "MyHomeViewController")
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: "SettingsVC") == "SettingsVC")
     }
 
     @Test("sanitize: UIHostingController<X> → X")
     func sanitizeStripsHostingController() {
-        #expect(PostHogLogger.sanitize(rawScreenName: "UIHostingController<HomeView>") == "HomeView")
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: "UIHostingController<HomeView>") == "HomeView")
     }
 
     @Test("sanitize: ModifiedContent<X, _> → X (peels one modifier)")
     func sanitizePeelsOneModifier() {
         let raw = "UIHostingController<ModifiedContent<DetailView, EnvironmentValueWriter>>"
-        #expect(PostHogLogger.sanitize(rawScreenName: raw) == "DetailView")
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: raw) == "DetailView")
     }
 
     @Test("sanitize: nested ModifiedContent recurses to innermost user view")
@@ -145,27 +145,27 @@ final class ScreenViewIntegrationTest {
         // a left-leaning ModifiedContent chain like this — the user's view
         // is at the innermost left.
         let raw = "UIHostingController<ModifiedContent<ModifiedContent<HomeView, A>, B>>"
-        #expect(PostHogLogger.sanitize(rawScreenName: raw) == "HomeView")
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: raw) == "HomeView")
     }
 
     @Test("sanitize: AnyView surfaced from stripping returns nil")
     func sanitizeReturnsNilForAnyViewFromStripping() {
         // The exact shape we observed end-to-end in PostHogExample.
         let raw = "UIHostingController<ModifiedContent<AnyView, RootModifier>>"
-        #expect(PostHogLogger.sanitize(rawScreenName: raw) == nil)
-        #expect(PostHogLogger.sanitize(rawScreenName: "UIHostingController<AnyView>") == nil)
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: raw) == nil)
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: "UIHostingController<AnyView>") == nil)
     }
 
     @Test("sanitize: literal AnyView passes through (caller intent)")
     func sanitizeKeepsLiteralAnyView() {
         // A caller who typed `screen("AnyView")` deliberately gets that
         // name through; only the auto-capture noise case is dropped.
-        #expect(PostHogLogger.sanitize(rawScreenName: "AnyView") == "AnyView")
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: "AnyView") == "AnyView")
     }
 
     @Test("sanitize: empty / whitespace-only returns nil")
     func sanitizeReturnsNilForEmpty() {
-        #expect(PostHogLogger.sanitize(rawScreenName: "") == nil)
+        #expect(PostHogScreenNameSanitizer.sanitize(rawScreenName: "") == nil)
     }
 
     @Test("screen() with degenerate input preserves the previous useful name")
@@ -175,36 +175,30 @@ final class ScreenViewIntegrationTest {
         // from container chrome. SDK.screen() sanitizes; degenerate inputs
         // must not erase the good name we already had.
         let sut = getSut(captureScreenViews: false)
-        let logger = try #require(sut.logger)
 
         sut.screen("HomeView")
-        #expect(logger.lastScreenName == "HomeView")
+        #expect(sut.lastScreenName == "HomeView")
 
         sut.screen("UIHostingController<ModifiedContent<AnyView, RootModifier>>")
-        #expect(logger.lastScreenName == "HomeView")
+        #expect(sut.lastScreenName == "HomeView")
 
         sut.close()
     }
 
-    @Test("captureScreenViews=false + manual screen() updates the logger's lastScreenName")
-    func loggerLastScreenNamePopulatedFromManualScreen() async throws {
+    @Test("captureScreenViews=false + manual screen() seeds the SDK cache")
+    func screenCachePopulatedFromManualCall() async throws {
         // End-to-end: with auto-capture disabled (no integration installed),
         // a manual screen() call (or the SwiftUI .postHogScreenView modifier
-        // which routes through it) must still feed the logs feature's
-        // screen.name attribute. This is the regression that motivated
-        // option-3 unification.
+        // which routes through it) must still feed the SDK's screen-name
+        // cache so the logs feature and cross-event stamping pick it up.
         let sut = getSut(captureScreenViews: false)
-        let logger = try #require(sut.logger)
 
         sut.screen("HomeScreen")
-
-        // The logger's screen-view subscription updates synchronously inside
-        // the publisher invocation, so it's safe to read immediately.
-        #expect(logger.lastScreenName == "HomeScreen")
+        #expect(sut.lastScreenName == "HomeScreen")
 
         // A second call should overwrite the cache, not append.
         sut.screen("DetailsScreen")
-        #expect(logger.lastScreenName == "DetailsScreen")
+        #expect(sut.lastScreenName == "DetailsScreen")
 
         sut.close()
     }

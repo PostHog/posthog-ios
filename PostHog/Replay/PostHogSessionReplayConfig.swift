@@ -40,6 +40,16 @@
         /// Default: false
         @objc public var screenshotMode: Bool = false
 
+        /// Schedule screenshot image capture on a background queue when `screenshotMode` is enabled.
+        ///
+        /// Warning: Enabling this option will trigger Main Thread Checker warnings and may
+        /// briefly freeze the app the first time a screenshot is captured. Consider disabling
+        /// Main Thread Checker in your scheme's run diagnostics when enabling this.
+        ///
+        /// Experimental.
+        /// Default: false
+        @objc public var screenshotModeBackgroundCapture: Bool = false
+
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

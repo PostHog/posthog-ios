@@ -1,0 +1,38 @@
+{
+    "id": "translated-survey",
+    "name": "Hello",
+    "type": "popover",
+    "questions": [
+        {
+            "id": "q1",
+            "type": "rating",
+            "question": "How was it?",
+            "scale": 5,
+            "display": "number",
+            "lowerBoundLabel": "Bad",
+            "upperBoundLabel": "Great",
+            "translations": {
+                "fr": { "question": "Comment etait-ce?", "lowerBoundLabel": "Mauvais" }
+            }
+        },
+        {
+            "id": "q2",
+            "type": "single_choice",
+            "question": "Pick one",
+            "choices": ["One", "Two"],
+            "translations": {
+                "fr": { "choices": ["Un", "Deux"] }
+            }
+        }
+    ],
+    "appearance": {
+        "thankYouMessageHeader": "Thanks!",
+        "thankYouMessageDescription": "We appreciate it",
+        "thankYouMessageCloseButtonText": "Close"
+    },
+    "translations": {
+        "fr": { "name": "Bonjour", "thankYouMessageHeader": "Merci!" },
+        "pt": { "thankYouMessageHeader": "Obrigado" }
+    },
+    "start_date": "2025-01-16T22:23:38.805000Z"
+}

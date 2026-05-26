@@ -27,6 +27,7 @@ protocol PostHogSurveyQuestionProperties {
     var originalQuestionIndex: Int? { get }
     /// Question branching logic if any (optional)
     var branching: PostHogSurveyQuestionBranching? { get }
+    var translations: [String: PostHogSurveyQuestionTranslation]? { get }
 }
 
 /// Represents different types of survey questions with their associated data
@@ -90,6 +91,10 @@ enum PostHogSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
         wrappedQuestion?.branching
     }
 
+    var translations: [String: PostHogSurveyQuestionTranslation]? {
+        wrappedQuestion?.translations
+    }
+
     private var wrappedQuestion: PostHogSurveyQuestionProperties? {
         switch self {
         case let .open(question): question
@@ -116,6 +121,7 @@ struct PostHogOpenSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
 }
 
 /// Represents a survey question with an associated link
@@ -128,6 +134,7 @@ struct PostHogLinkSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
     /// URL link associated with the question
     let link: String?
 }
@@ -142,6 +149,7 @@ struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
     /// Display type for the rating ("number" or "emoji")
     let display: PostHogSurveyRatingDisplayType
     /// Scale of the rating (3, 5, 7, or 10)
@@ -160,6 +168,7 @@ struct PostHogMultipleSurveyQuestion: PostHogSurveyQuestionProperties, Decodable
     let buttonText: String?
     let originalQuestionIndex: Int?
     let branching: PostHogSurveyQuestionBranching?
+    let translations: [String: PostHogSurveyQuestionTranslation]?
     /// List of choices for multiple-choice or single-choice questions
     let choices: [String]
     /// Indicates if there is an open choice option (optional)

@@ -40,6 +40,7 @@ struct PostHogSurvey: Decodable, Identifiable {
     let endDate: Date?
     /// The schedule for the survey (optional). Determines how often the survey can be shown.
     let schedule: PostHogSurveySchedule?
+    let translations: [String: PostHogSurveyTranslation]?
 }
 
 struct PostHogSurveyFeatureFlagKeyValue: Equatable, Decodable {

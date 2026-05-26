@@ -31,7 +31,8 @@ class PostHogSurveyEventsTest {
             optional: false,
             buttonText: nil,
             originalQuestionIndex: 0,
-            branching: nil
+            branching: nil,
+            translations: nil
         )),
         .singleChoice(PostHogMultipleSurveyQuestion(
             id: "qID2",
@@ -42,6 +43,7 @@ class PostHogSurveyEventsTest {
             buttonText: nil,
             originalQuestionIndex: 1,
             branching: nil,
+            translations: nil,
             choices: ["Very likely", "Somewhat likely", "Not likely"],
             hasOpenChoice: false,
             shuffleOptions: false
@@ -55,6 +57,7 @@ class PostHogSurveyEventsTest {
             buttonText: nil,
             originalQuestionIndex: 2,
             branching: nil,
+            translations: nil,
             display: .number,
             scale: .fivePoint,
             lowerBoundLabel: "Poor",
@@ -84,7 +87,8 @@ class PostHogSurveyEventsTest {
             currentIterationStartDate: currentIterationStartDate,
             startDate: Date(),
             endDate: nil,
-            schedule: nil
+            schedule: nil,
+            translations: nil
         )
     }
 
@@ -190,7 +194,8 @@ class PostHogSurveyEventsTest {
                 optional: false,
                 buttonText: nil,
                 originalQuestionIndex: 0,
-                branching: nil
+                branching: nil,
+                translations: nil
             )),
             .singleChoice(PostHogMultipleSurveyQuestion(
                 id: "qID2",
@@ -201,6 +206,7 @@ class PostHogSurveyEventsTest {
                 buttonText: nil,
                 originalQuestionIndex: 1,
                 branching: nil,
+                translations: nil,
                 choices: ["Very likely", "Somewhat likely", "Not likely"],
                 hasOpenChoice: false,
                 shuffleOptions: false
@@ -214,6 +220,7 @@ class PostHogSurveyEventsTest {
                 buttonText: nil,
                 originalQuestionIndex: 2,
                 branching: nil,
+                translations: nil,
                 display: .number,
                 scale: .fivePoint,
                 lowerBoundLabel: "Poor",
@@ -270,7 +277,8 @@ class PostHogSurveyEventsTest {
                     optional: false,
                     buttonText: nil,
                     originalQuestionIndex: 0,
-                    branching: nil
+                    branching: nil,
+                    translations: nil
                 )),
             ]
         )

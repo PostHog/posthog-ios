@@ -673,7 +673,7 @@ class PostHogRemoteConfig {
         }
     }
 
-    private func getPersonPropertiesForFlags() -> [String: Any] {
+    func getPersonPropertiesForFlags() -> [String: Any] {
         personPropertiesForFlagsLock.withLock {
             var properties = personPropertiesForFlags
 

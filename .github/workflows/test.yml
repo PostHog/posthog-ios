@@ -14,12 +14,12 @@ jobs:
   test:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
       - name: Cache SPM dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             .build
@@ -29,3 +29,27 @@ jobs:
             ${{ runner.os }}-spm-
       - name: Test SDK
         run: make test
+
+  downgrade-compatibility:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        downgrade_ref:
+          # Pin persisted-storage schema boundaries rather than the last N releases.
+          # 3.48.0 force-parsed queue filenames as Doubles during startup.
+          - 3.48.0
+          # 3.48.3 introduced the UUID event queue folder.
+          - 3.48.3
+          # 3.58.0 introduced the persisted logs queue.
+          - 3.58.0
+    name: Downgrade compatibility (${{ matrix.downgrade_ref }})
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Test downgrade compatibility
+        env:
+          DOWNGRADE_REF: ${{ matrix.downgrade_ref }}
+        run: make testDowngradeCompatibility

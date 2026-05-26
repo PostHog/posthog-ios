@@ -40,6 +40,9 @@
         private var eventCapturedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
 
+        private let screenshotRenderLock = NSLock()
+        private var isScreenshotRenderInFlight = false
+
         private let eventTriggersLock = NSLock()
         private var eventTriggers: [String]?
         private var triggerActivatedSessionId: String?
@@ -334,6 +337,24 @@
             }
         }
 
+        private func tryStartScreenshotRender() -> Bool {
+            // Drop overlapping screenshot renders instead of queueing them up behind slow renders.
+            screenshotRenderLock.withLock {
+                if isScreenshotRenderInFlight {
+                    return false
+                }
+
+                isScreenshotRenderInFlight = true
+                return true
+            }
+        }
+
+        private func finishScreenshotRender() {
+            screenshotRenderLock.withLock {
+                isScreenshotRenderInFlight = false
+            }
+        }
+
         /// Determines whether the given session should be recorded based on sample rate configuration.
         /// Local config sample rate takes precedence over remote config.
         /// Returns `true` if no sample rate is configured (record everything).
@@ -511,17 +532,34 @@
             }
         }
 
-        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK) {
-            var hasChanges = false
-
-            guard let wireframe = autoreleasepool(invoking: {
-                postHog.config.sessionReplayConfig.screenshotMode ? toScreenshotWireframe(window) : toWireframe(window)
-            }) else {
+        private func generateSnapshot(_ window: UIWindow, _ screenName: String? = nil, postHog: PostHogSDK, timestampDate: Date) {
+            guard
+                let wireframe = autoreleasepool(invoking: {
+                    toWireframe(window)
+                })
+            else {
                 return
             }
 
-            // capture timestamp after snapshot was taken
-            let timestampDate = Date()
+            captureSnapshot(
+                wireframe,
+                window: window,
+                windowSize: window.bounds.size,
+                screenName: screenName,
+                postHog: postHog,
+                timestampDate: timestampDate
+            )
+        }
+
+        private func captureSnapshot(
+            _ wireframe: RRWireframe,
+            window: UIWindow,
+            windowSize: CGSize,
+            screenName: String?,
+            postHog: PostHogSDK,
+            timestampDate: Date
+        ) {
+            var hasChanges = false
             let timestamp = timestampDate.toMillis()
 
             let snapshotStatus = windowViewsLock.withLock {
@@ -531,9 +569,8 @@
             var snapshotsData: [Any] = []
 
             if !snapshotStatus.sentMetaEvent {
-                let size = window.bounds.size
-                let width = size.width.toInt() ?? 0
-                let height = size.height.toInt() ?? 0
+                let width = windowSize.width.toInt() ?? 0
+                let height = windowSize.height.toInt() ?? 0
 
                 var data: [String: Any] = ["width": width, "height": height]
 
@@ -802,6 +839,13 @@
                     continue
                 }
 
+                // Skip backing layers for child UIViews. Those are visited when
+                // findMaskableWidgets recurses into the child view, so traversing
+                // them here would duplicate large layer subtrees on iOS 26.
+                if let sublayerView = sublayer.delegate as? UIView, sublayerView !== view {
+                    continue
+                }
+
                 // Text-based layers
                 if swiftUITextBasedViewTypes.contains(where: sublayer.isKind(of:)) {
                     if isTextInputSensitive(view) {
@@ -823,7 +867,7 @@
             }
         }
 
-        private func toScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
+        private func prepareScreenshotWireframe(_ window: UIWindow) -> RRWireframe? {
             // this will bail on view controller animations (interactive or not)
             if !window.isVisible() || isAnimatingTransition(window) {
                 return nil
@@ -831,21 +875,75 @@
 
             var maskableWidgets: [CGRect] = []
             var maskChildren = false
+
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
 
             let wireframe = createBasicWireframe(window)
-
-            if let image = window.toImage() {
-                if !image.size.hasSize() {
-                    return nil
-                }
-
-                wireframe.maskableWidgets = maskableWidgets
-
-                wireframe.image = image
-            }
+            wireframe.maskableWidgets = maskableWidgets
             wireframe.type = "screenshot"
             return wireframe
+        }
+
+        // To be called from main thread
+        private func collectScreenshotMetadata(
+            _ window: UIWindow
+        ) -> (wireframe: RRWireframe, windowSize: CGSize, timestampDate: Date)? {
+            guard let wireframe = autoreleasepool(invoking: { prepareScreenshotWireframe(window) }) else {
+                return nil
+            }
+
+            return (wireframe, window.bounds.size, Date())
+        }
+
+        private func renderAndEnqueueScreenshot(
+            _ wireframe: RRWireframe,
+            window: UIWindow,
+            windowSize: CGSize,
+            screenName: String?,
+            postHog: PostHogSDK,
+            timestampDate: Date
+        ) {
+            autoreleasepool {
+                if let image = window.toImage(), image.size.hasSize() {
+                    wireframe.image = image
+                    captureSnapshot(
+                        wireframe,
+                        window: window,
+                        windowSize: windowSize,
+                        screenName: screenName,
+                        postHog: postHog,
+                        timestampDate: timestampDate
+                    )
+                }
+            }
+        }
+
+        private func performScreenshotCapture(
+            window: UIWindow,
+            screenName: String?,
+            postHog: PostHogSDK
+        ) {
+            defer { finishScreenshotRender() }
+
+            let screenshotCapture: (wireframe: RRWireframe, windowSize: CGSize, timestampDate: Date)?
+            if Thread.isMainThread {
+                screenshotCapture = collectScreenshotMetadata(window)
+            } else {
+                screenshotCapture = DispatchQueue.main.sync { collectScreenshotMetadata(window) }
+            }
+
+            guard let screenshotCapture, postHog.isSessionReplayActive() else {
+                return
+            }
+
+            renderAndEnqueueScreenshot(
+                screenshotCapture.wireframe,
+                window: window,
+                windowSize: screenshotCapture.windowSize,
+                screenName: screenName,
+                postHog: postHog,
+                timestampDate: screenshotCapture.timestampDate
+            )
         }
 
         /// Check if any view controller in the hierarchy is animating a transition
@@ -1100,6 +1198,7 @@
             }
 
             var screenName: String?
+
             if let controller = window.rootViewController {
                 // SwiftUI only supported with screenshotMode
                 if controller is AnyObjectUIHostingViewController, !postHog.config.sessionReplayConfig.screenshotMode {
@@ -1111,9 +1210,23 @@
                 }
             }
 
-            // this cannot run off of the main thread because most properties require to be called within the main thread
-            // this method has to be fast and do as little as possible
-            generateSnapshot(window, screenName, postHog: postHog)
+            if postHog.config.sessionReplayConfig.screenshotMode {
+                guard tryStartScreenshotRender() else {
+                    return
+                }
+
+                if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
+                    PostHogReplayIntegration.dispatchQueue.async { [weak self] in
+                        self?.performScreenshotCapture(window: window, screenName: screenName, postHog: postHog)
+                    }
+                } else {
+                    performScreenshotCapture(window: window, screenName: screenName, postHog: postHog)
+                }
+                return
+            }
+
+            // Wireframe mode always stays on main thread
+            generateSnapshot(window, screenName, postHog: postHog, timestampDate: Date())
         }
 
         private func handleEventCaptured(event: String) {

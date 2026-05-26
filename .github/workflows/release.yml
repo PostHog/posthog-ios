@@ -295,7 +295,7 @@ jobs:
           fi
 
           echo "::warning::pod trunk push failed. Verifying via pod trunk info..."
-          if pod trunk info PostHog --no-ansi | grep -F -- "- $RELEASE_VERSION ("; then
+          if pod trunk info PostHog --no-ansi | grep -E -- "^[[:space:]]*- ${RELEASE_VERSION//./\\.} \("; then
             echo "PostHog $RELEASE_VERSION is on trunk despite the failed push. Treating as success."
             exit 0
           fi

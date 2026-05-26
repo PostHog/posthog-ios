@@ -285,7 +285,23 @@ jobs:
           xcode-version: '16.2'
 
       - name: Publish to CocoaPods
-        run: make releaseCocoaPods
+        env:
+          RELEASE_VERSION: ${{ needs.create-github-release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if make releaseCocoaPods; then
+            exit 0
+          fi
+
+          echo "::warning::pod trunk push failed. Verifying via pod trunk info..."
+          if pod trunk info PostHog --no-ansi | grep -F -- "- $RELEASE_VERSION ("; then
+            echo "PostHog $RELEASE_VERSION is on trunk despite the failed push. Treating as success."
+            exit 0
+          fi
+
+          echo "::error::PostHog $RELEASE_VERSION is not on trunk after failed push."
+          exit 1
 
       # Notify in case of failure
       - name: Send failure event to PostHog

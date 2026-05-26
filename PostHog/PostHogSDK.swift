@@ -38,6 +38,12 @@ let maxRetryDelay = 30.0
     private let cachedPersonPropertiesLock = NSLock()
     private var cachedPersonPropertiesHash: String?
 
+    private let lastScreenLock = NSLock()
+    private var _lastScreenName: String?
+    var lastScreenName: String? {
+        lastScreenLock.withLock { _lastScreenName }
+    }
+
     private var queue: PostHogQueue<PostHogEvent>?
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
@@ -433,6 +439,16 @@ let maxRetryDelay = 30.0
             }
 
             props["$process_person_profile"] = hasPersonProcessing()
+
+            // Only stamp if the caller didn't supply a non-empty value —
+            // `merging(properties)` below keeps the existing value on conflict,
+            // so seeding would shadow a caller-supplied override. Whitespace-only
+            // caller values are treated as absent (almost always accidental).
+            let trimmedCallerScreenName = (properties?["$screen_name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let name = lastScreenName, !name.isEmpty, trimmedCallerScreenName.isNilOrEmpty {
+                props["$screen_name"] = name
+            }
         }
 
         let sdkInfo = context?.sdkInfo()
@@ -500,6 +516,8 @@ let maxRetryDelay = 30.0
 
         // Clear all in-memory caches (feature flags, session replay state, etc.)
         remoteConfig?.clear()
+
+        lastScreenLock.withLock { _lastScreenName = nil }
 
         // reload flags as anon user
         remoteConfig?.reloadFeatureFlags()
@@ -1011,7 +1029,7 @@ let maxRetryDelay = 30.0
         // alter the record because the snapshot is frozen here.
         let distinctId = getDistinctId()
         let sessionId = sessionManager.getSessionId(readOnly: true)
-        let screenName = logger?.lastScreenName
+        let screenName = lastScreenName
         let appState: PostHogLogRecord.AppState = sessionManager.isAppInBackgroundSnapshot ? .background : .foreground
         let featureFlagKeys: [String] = (remoteConfig?.getFeatureFlags() as? [String: Any])?.compactMap { key, value in
             // Bool flags are active iff true; multivariant (non-bool) values
@@ -1138,6 +1156,17 @@ let maxRetryDelay = 30.0
         screen(screenTitle, properties: nil)
     }
 
+    /// Records a screen view by capturing a `$screen` event with `screenTitle`.
+    ///
+    /// The title is also cached and automatically attached as `$screen_name` to
+    /// every subsequent event (until `reset()` or `close()` clears it).
+    ///
+    /// To override the auto-attached value on a specific event, pass `$screen_name`
+    /// in that event's `properties` dictionary.
+    ///
+    /// - Parameters:
+    ///   - screenTitle: The screen name to record.
+    ///   - properties: Additional properties to attach to this `$screen` event.
     @objc(screenWithTitle:properties:)
     public func screen(_ screenTitle: String, properties: [String: Any]? = nil) {
         if !isEnabled() {
@@ -1148,13 +1177,30 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Strip SwiftUI wrappers (UIHostingController<X> → X). Drops degenerate
+        // inputs (empty, stripped-AnyView) — for those we skip the $screen event
+        // and leave the cache untouched so the last useful name survives.
+        guard let cleaned = PostHogScreenNameSanitizer.sanitize(rawScreenName: screenTitle) else {
+            return
+        }
+
+        // Cache the name before the queue check so a screen() call during init
+        // (queue not yet assigned) still seeds the cache for subsequent events.
+        // Track whether the value actually changed so we can skip the crash-
+        // replay snapshot refresh on duplicate viewDidAppears for the same VC.
+        let screenNameChanged = lastScreenLock.withLock { () -> Bool in
+            let changed = _lastScreenName != cleaned
+            _lastScreenName = cleaned
+            return changed
+        }
+
         guard let queue else {
             return
         }
 
         let props = [
-            "$screen_name": screenTitle,
-        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
+            "$screen_name": cleaned,
+        ].merging(sanitizeDictionary(properties) ?? [:]) { _, new in new }
 
         let distinctId = getDistinctId()
 
@@ -1166,9 +1212,20 @@ let maxRetryDelay = 30.0
 
         queueEvent(event, queue: queue)
 
-        // Fanout to subscribers (e.g. the logs feature's lastScreenName).
-        // Subscribers must not re-enter screen() from the callback.
-        DI.main.screenViewPublisher.onNewScreenName(screenTitle)
+        // Fanout to subscribers (sanitized; downstream listeners no longer
+        // need to re-apply sanitize). Currently no in-tree subscribers — kept
+        // as an extension point for external consumers. Subscribers must not
+        // re-enter screen().
+        DI.main.screenViewPublisher.onNewScreenName(cleaned)
+
+        // Refresh the crash-replay snapshot only when the screen actually
+        // changed — `viewDidAppear` re-fires for the same VC on every tab
+        // switch / sheet dismiss, and the snapshot includes a full event-
+        // properties build + JSON serialize + customData write that we don't
+        // want to repeat on the main thread for no behavior change.
+        if screenNameChanged {
+            notifyContextDidChange()
+        }
     }
 
     func autocapture(
@@ -1956,12 +2013,14 @@ let maxRetryDelay = 30.0
             context = nil
             sessionManager.endSession()
             didEnterBackgroundToken = nil
-            logger?.detach()
             logger = nil
             toggleHedgeLog(false)
 
             uninstallIntegrations()
         }
+        // Outside setupLock to avoid lock-ordering coupling between
+        // setupLock and lastScreenLock.
+        lastScreenLock.withLock { _lastScreenName = nil }
     }
 
     #if os(iOS)

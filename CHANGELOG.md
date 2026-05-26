@@ -1,5 +1,13 @@
 ## Next
 
+## 3.59.0
+
+### Minor Changes
+
+- c0341fe: Auto-attach `$screen_name` to every captured event after `PostHogSDK.shared.screen()` has been called (manually or via screen-view auto-capture). Cached value is cleared by `reset()` and `close()`.
+
+  **To opt out of `$screen_name` stamping entirely**, set `PostHogConfig.captureScreenViews = false` **and** stop calling `screen()` manually. Disabling `captureScreenViews` alone is not sufficient — a single manual `screen("Home")` call will re-enable stamping.
+
 ### Minor Changes
 
 - Add survey translations support. Surveys can carry per-language overrides for user-visible strings via a `translations` map keyed by language code. At display time the SDK resolves a language (`PostHogSurveysConfig.overrideDisplayLanguage` → person property `"language"` → device locale), applies any matching translation onto the display model, and stamps the matched key as `$survey_language` on every survey event when a translation actually took effect. Matching is case-insensitive with a base-language fallback (e.g. `"pt-BR"` falls back to `"pt"`).

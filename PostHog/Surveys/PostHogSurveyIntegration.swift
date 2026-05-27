@@ -258,12 +258,15 @@
                 return []
             }
 
-            do {
-                let jsonData = try JSONSerialization.data(withJSONObject: surveysJSON)
-                return try PostHogApi.jsonDecoder.decode([PostHogSurvey].self, from: jsonData)
-            } catch {
-                hedgeLog("Error decoding Surveys: \(error)")
-                return []
+            // Decode each survey individually so one malformed entry doesn't drop the entire list
+            return surveysJSON.compactMap { surveyJSON in
+                do {
+                    let jsonData = try JSONSerialization.data(withJSONObject: surveyJSON)
+                    return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: jsonData)
+                } catch {
+                    hedgeLog("Error decoding Survey: \(error)")
+                    return nil
+                }
             }
         }
 

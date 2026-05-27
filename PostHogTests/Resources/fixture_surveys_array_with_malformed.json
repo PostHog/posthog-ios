@@ -1,0 +1,31 @@
+[
+    {
+        "id": "valid-survey-id",
+        "name": "Valid survey",
+        "type": "popover",
+        "questions": [
+            {
+                "id": "300",
+                "type": "open",
+                "question": "What would you like to see?",
+                "originalQuestionIndex": 0,
+                "descriptionContentType": "text"
+            }
+        ]
+    },
+    {
+        "id": "malformed-survey-id",
+        "name": "Malformed rating survey",
+        "type": "popover",
+        "questions": [
+            {
+                "id": "301",
+                "type": "rating",
+                "display": "number",
+                "question": "How likely are you to recommend us?",
+                "originalQuestionIndex": 0,
+                "descriptionContentType": "text"
+            }
+        ]
+    }
+]

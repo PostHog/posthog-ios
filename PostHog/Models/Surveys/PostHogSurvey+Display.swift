@@ -56,8 +56,8 @@
                     ratingType: question.display.toDisplayRatingType(),
                     scaleLowerBound: question.scale.range.lowerBound,
                     scaleUpperBound: question.scale.range.upperBound,
-                    lowerBoundLabel: translation?.lowerBoundLabel ?? question.lowerBoundLabel,
-                    upperBoundLabel: translation?.upperBoundLabel ?? question.upperBoundLabel
+                    lowerBoundLabel: translation?.lowerBoundLabel ?? question.lowerBoundLabel ?? "",
+                    upperBoundLabel: translation?.upperBoundLabel ?? question.upperBoundLabel ?? ""
                 )
 
             case let .singleChoice(question), let .multipleChoice(question):

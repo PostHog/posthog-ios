@@ -154,8 +154,8 @@ struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let display: PostHogSurveyRatingDisplayType
     /// Scale of the rating (3, 5, 7, or 10)
     let scale: PostHogSurveyRatingScale
-    let lowerBoundLabel: String
-    let upperBoundLabel: String
+    let lowerBoundLabel: String?
+    let upperBoundLabel: String?
 }
 
 /// Represents a multiple-choice or single-choice survey question

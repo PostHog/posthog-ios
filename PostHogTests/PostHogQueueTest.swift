@@ -371,8 +371,8 @@ class PostHogQueueTest: QuickSpec {
 
         it("pops batch on 5xx codes outside the narrow retriable set") {
             // 501/505/etc. are NOT in the narrow 5xx retriable set
-            // {500, 502, 503, 504} (matching posthog-android). Treat as
-            // non-retriable so a poison record can't block the queue.
+            // {500, 502, 503, 504}. Treat as non-retriable so a poison
+            // record can't block the queue.
             let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 501, headers: nil)

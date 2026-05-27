@@ -17,63 +17,99 @@ import Foundation
 
     /// Capture a `.trace` record. Finest-grained detail; usually only enabled
     /// while diagnosing.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
     @objc(traceWithBody:) public func trace(_ body: String) {
         sdk?.captureLog(body, level: .trace, attributes: nil)
     }
 
     /// Capture a `.trace` record with structured attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
     @objc(traceWithBody:attributes:) public func trace(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .trace, attributes: attributes)
     }
 
     /// Capture a `.debug` record. Diagnostic detail useful during development.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
     @objc(debugWithBody:) public func debug(_ body: String) {
         sdk?.captureLog(body, level: .debug, attributes: nil)
     }
 
     /// Capture a `.debug` record with structured attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
     @objc(debugWithBody:attributes:) public func debug(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .debug, attributes: attributes)
     }
 
     /// Capture an `.info` record. Default level for regular runtime events.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
     @objc(infoWithBody:) public func info(_ body: String) {
         sdk?.captureLog(body, level: .info, attributes: nil)
     }
 
     /// Capture an `.info` record with structured attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
     @objc(infoWithBody:attributes:) public func info(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .info, attributes: attributes)
     }
 
     /// Capture a `.warn` record. Something unexpected happened but the operation
     /// continued.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
     @objc(warnWithBody:) public func warn(_ body: String) {
         sdk?.captureLog(body, level: .warn, attributes: nil)
     }
 
     /// Capture a `.warn` record with structured attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
     @objc(warnWithBody:attributes:) public func warn(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .warn, attributes: attributes)
     }
 
     /// Capture an `.error` record. An operation failed; the app may continue.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
     @objc(errorWithBody:) public func error(_ body: String) {
         sdk?.captureLog(body, level: .error, attributes: nil)
     }
 
     /// Capture an `.error` record with structured attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
     @objc(errorWithBody:attributes:) public func error(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .error, attributes: attributes)
     }
 
     /// Capture a `.fatal` record. An unrecoverable failure; the app likely
     /// cannot continue.
+    ///
+    /// - Parameter body: The log message. Required and non-empty.
     @objc(fatalWithBody:) public func fatal(_ body: String) {
         sdk?.captureLog(body, level: .fatal, attributes: nil)
     }
 
     /// Capture a `.fatal` record with structured attributes.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
     @objc(fatalWithBody:attributes:) public func fatal(_ body: String, attributes: [String: Any]? = nil) {
         sdk?.captureLog(body, level: .fatal, attributes: attributes)
     }

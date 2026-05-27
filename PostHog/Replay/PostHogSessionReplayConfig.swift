@@ -7,6 +7,9 @@
 #if os(iOS)
     import Foundation
 
+    /// Configuration for iOS session replay capture.
+    ///
+    /// Mutate fields on `config.sessionReplayConfig` before calling `PostHogSDK.setup(_:)`.
     @objc(PostHogSessionReplayConfig) public class PostHogSessionReplayConfig: NSObject {
         /// Enable masking of all text and text input fields
         /// Default: true
@@ -21,10 +24,12 @@
         /// Default: true
         @objc public var maskAllSandboxedViews: Bool = true
 
-        /// Enable masking of images that likely originated from user's photo library (UIKit only)
-        /// Default: false
+        /// Deprecated placeholder for photo-library image masking.
         ///
-        /// - Note: Deprecated
+        /// This property has no effect. To manually mask user photos, see the privacy controls
+        /// documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS
+        ///
+        /// Default: `false`.
         @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
         @objc public var maskPhotoLibraryImages: Bool = false
 

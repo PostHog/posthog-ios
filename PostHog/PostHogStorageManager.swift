@@ -7,7 +7,11 @@
 
 import Foundation
 
-// Internal class to manage the storage metadata of the PostHog SDK
+/// Manages persisted identity metadata for a PostHog SDK instance.
+///
+/// - Warning: This class is public for backwards compatibility, but is intended for
+///   SDK-internal use only. Application code should use `PostHogSDK` identity APIs
+///   instead of interacting with storage directly.
 public class PostHogStorageManager {
     private let storage: PostHogStorage!
 
@@ -30,6 +34,9 @@ public class PostHogStorageManager {
         idGen = config.getAnonymousId
     }
 
+    /// Returns the persisted anonymous ID, creating one if needed.
+    ///
+    /// - Returns: The anonymous ID for this install.
     public func getAnonymousId() -> String {
         anonLock.withLock {
             if anonymousId == nil {
@@ -49,6 +56,9 @@ public class PostHogStorageManager {
         return anonymousId ?? ""
     }
 
+    /// Persists an anonymous ID.
+    ///
+    /// - Parameter id: Anonymous ID to store.
     public func setAnonymousId(_ id: String) {
         anonLock.withLock {
             setAnonId(id)
@@ -61,8 +71,11 @@ public class PostHogStorageManager {
     }
 
     /// Returns the stable device identifier used for device-level feature flag bucketing.
-    /// This ID persists across identify() and reset() calls, only changing on a fresh
+    ///
+    /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
     /// app install or manual cache clearing.
+    ///
+    /// - Returns: The stable device ID for this install.
     public func getDeviceId() -> String {
         deviceIdLock.withLock {
             if deviceId == nil {
@@ -80,6 +93,9 @@ public class PostHogStorageManager {
         return deviceId ?? ""
     }
 
+    /// Returns the persisted distinct ID, falling back to the anonymous ID.
+    ///
+    /// - Returns: The current distinct ID.
     public func getDistinctId() -> String {
         var distinctId: String?
         distinctLock.withLock {
@@ -107,6 +123,9 @@ public class PostHogStorageManager {
         return distinctId ?? ""
     }
 
+    /// Persists the current distinct ID.
+    ///
+    /// - Parameter id: Distinct ID to store.
     public func setDistinctId(_ id: String) {
         distinctLock.withLock {
             distinctId = id
@@ -114,6 +133,9 @@ public class PostHogStorageManager {
         }
     }
 
+    /// Returns whether the current distinct ID is identified.
+    ///
+    /// - Returns: `true` after a successful identify flow, otherwise `false`.
     public func isIdentified() -> Bool {
         identifiedLock.withLock {
             if isIdentifiedValue == nil {
@@ -123,6 +145,9 @@ public class PostHogStorageManager {
         return isIdentifiedValue ?? false
     }
 
+    /// Persists whether the current distinct ID is identified.
+    ///
+    /// - Parameter isIdentified: New identified state.
     public func setIdentified(_ isIdentified: Bool) {
         identifiedLock.withLock {
             isIdentifiedValue = isIdentified
@@ -130,6 +155,9 @@ public class PostHogStorageManager {
         }
     }
 
+    /// Returns whether person profile processing has been enabled locally.
+    ///
+    /// - Returns: `true` when identified/person processing has been activated.
     public func isPersonProcessing() -> Bool {
         personProcessingLock.withLock {
             if personProcessingEnabled == nil {
@@ -139,6 +167,9 @@ public class PostHogStorageManager {
         return personProcessingEnabled ?? false
     }
 
+    /// Persists whether person profile processing is enabled locally.
+    ///
+    /// - Parameter enable: New person-processing state.
     public func setPersonProcessing(_ enable: Bool) {
         personProcessingLock.withLock {
             // only set if its different to avoid IO since this is called more often
@@ -149,6 +180,11 @@ public class PostHogStorageManager {
         }
     }
 
+    /// Clears cached identity metadata and optionally removes persisted values.
+    ///
+    /// - Parameters:
+    ///   - keepAnonymousId: Whether to keep the current anonymous ID cached and persisted.
+    ///   - resetStorage: Whether to remove values from the backing store as well as memory.
     public func reset(keepAnonymousId: Bool = false, _ resetStorage: Bool = false) {
         // resetStorage is only used for testing, when the reset method is called,
         // the storage is also cleared, so we don't do here to not do it twice.

@@ -8,20 +8,23 @@
 #if os(iOS)
     import Foundation
 
+    /// Configuration for console log capture inside session replay recordings.
+    ///
+    /// Used when `PostHogSessionReplayConfig.captureLogs` is enabled.
     @objc public class PostHogSessionReplayConsoleLogConfig: NSObject {
         /// Block to process and format captured console output for session replay.
         ///
         /// This block is called whenever console output is captured. It allows you to:
         /// 1. Filter or modify log messages before they are sent to session replay
         /// 2. Determine the appropriate log level (info/warn/error) for each message
-        /// 3. Format, sanitize or skip a log messages (e.g. remove sensitive data or PII)
+        /// 3. Format, sanitize, or skip log messages (e.g. remove sensitive data or PII)
         ///
         /// The default implementation:
         /// - Detect log level (best effort)
         /// - Process OSLog messages to remove metadata
         ///
-        /// - Parameter output: The raw console output to process
-        /// - Returns: Array of `PostHogConsoleLogResult` objects, one for each processed log entry. Return an empty array to skip a log output
+        /// - Parameter output: The raw console output to process.
+        /// - Returns: A `PostHogLogEntry` to capture, or `nil` to skip the log output.
         @objc public var logSanitizer: ((String) -> PostHogLogEntry?) = PostHogSessionReplayConsoleLogConfig.defaultLogSanitizer
 
         /// The minimum log level to capture in session replay.

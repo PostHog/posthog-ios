@@ -1,6 +1,7 @@
 #if os(iOS)
     import Foundation
 
+    /// Convenience URLSession APIs that capture session replay network telemetry for manual requests.
     public extension URLSession {
         private func getMonotonicTimeInMilliseconds() -> UInt64 {
             // Get the raw mach time
@@ -79,14 +80,39 @@
             }
         }
 
+        /// Performs `data(for:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Request to execute.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.data(for:)`.
         func postHogData(for request: URLRequest, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
             try await executeRequest(request: request, action: { try await data(for: request) }, postHog: postHog)
         }
 
+        /// Performs `data(from:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - url: URL to request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.data(from:)`.
         func postHogData(from url: URL, postHog: PostHogSDK? = nil) async throws -> (Data, URLResponse) {
             try await executeRequest(action: { try await data(from: url) }, postHog: postHog)
         }
 
+        /// Performs `upload(for:fromFile:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Upload request to execute.
+        ///   - fileURL: File URL to upload.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.upload(for:fromFile:)`.
         func postHogUpload(
             for request: URLRequest,
             fromFile fileURL: URL,
@@ -95,6 +121,15 @@
             try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL) }, postHog: postHog)
         }
 
+        /// Performs `upload(for:from:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Upload request to execute.
+        ///   - bodyData: Request body data to upload.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.upload(for:from:)`.
         func postHogUpload(
             for request: URLRequest,
             from bodyData: Data,
@@ -103,6 +138,15 @@
             try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData) }, postHog: postHog)
         }
 
+        /// Performs `data(for:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Request to execute.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.data(for:delegate:)`.
         @available(iOS 15.0, *)
         func postHogData(
             for request: URLRequest,
@@ -112,6 +156,15 @@
             try await executeRequest(request: request, action: { try await data(for: request, delegate: delegate) }, postHog: postHog)
         }
 
+        /// Performs `data(from:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - url: URL to request.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.data(from:delegate:)`.
         @available(iOS 15.0, *)
         func postHogData(
             from url: URL,
@@ -121,6 +174,16 @@
             try await executeRequest(action: { try await data(from: url, delegate: delegate) }, postHog: postHog)
         }
 
+        /// Performs `upload(for:fromFile:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Upload request to execute.
+        ///   - fileURL: File URL to upload.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.upload(for:fromFile:delegate:)`.
         @available(iOS 15.0, *)
         func postHogUpload(
             for request: URLRequest,
@@ -131,6 +194,16 @@
             try await executeRequest(request: request, action: { try await upload(for: request, fromFile: fileURL, delegate: delegate) }, postHog: postHog)
         }
 
+        /// Performs `upload(for:from:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Upload request to execute.
+        ///   - bodyData: Request body data to upload.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The data and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.upload(for:from:delegate:)`.
         @available(iOS 15.0, *)
         func postHogUpload(
             for request: URLRequest,
@@ -141,6 +214,15 @@
             try await executeRequest(request: request, action: { try await upload(for: request, from: bodyData, delegate: delegate) }, postHog: postHog)
         }
 
+        /// Performs `download(for:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - request: Download request to execute.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The downloaded file URL and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.download(for:delegate:)`.
         @available(iOS 15.0, *)
         func postHogDownload(
             for request: URLRequest,
@@ -150,6 +232,15 @@
             try await executeRequest(request: request, action: { try await download(for: request, delegate: delegate) }, postHog: postHog)
         }
 
+        /// Performs `download(from:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - url: URL to download.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The downloaded file URL and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.download(from:delegate:)`.
         @available(iOS 15.0, *)
         func postHogDownload(
             from url: URL,
@@ -159,6 +250,15 @@
             try await executeRequest(action: { try await download(from: url, delegate: delegate) }, postHog: postHog)
         }
 
+        /// Performs `download(resumeFrom:delegate:)` and captures network telemetry for session replay.
+        ///
+        /// - Parameters:
+        ///   - resumeData: Resume data from a previously cancelled download.
+        ///   - delegate: Task delegate for the request.
+        ///   - postHog: SDK instance used to read the session ID and emit telemetry.
+        ///     Pass an initialized instance; `nil` performs the request without capturing replay telemetry.
+        /// - Returns: The downloaded file URL and URL response returned by `URLSession`.
+        /// - Throws: Any error thrown by `URLSession.download(resumeFrom:delegate:)`.
         @available(iOS 15.0, *)
         func postHogDownload(
             resumeFrom resumeData: Data,

@@ -8,6 +8,7 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import UIKit
 
+    /// UIKit autocapture labeling helpers.
     public extension UIView {
         /**
          Adds a custom label to this view for use with PostHog's auto-capture functionality.

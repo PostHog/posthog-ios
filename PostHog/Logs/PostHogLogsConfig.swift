@@ -10,6 +10,9 @@ import Foundation
 /// record's `body` to an empty string also drops it. Multiple blocks compose
 /// left-to-right; if any returns `nil`, later blocks are skipped. Runs
 /// synchronously on the thread that called `captureLog`.
+///
+/// - Parameter record: The log record about to be queued.
+/// - Returns: The record to queue, or `nil` to drop it.
 public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord?
 
 /// Configuration for the PostHog logs subsystem. Mutate fields on `config.logs`
@@ -79,14 +82,26 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
 
     private var beforeSend = BeforeSendChain<PostHogLogRecord>()
 
+    /// Replaces the log `beforeSend` chain with the provided blocks.
+    ///
+    /// Blocks run synchronously in array order before a log is enqueued. Returning
+    /// `nil` from any block drops the log and skips the remaining blocks.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop log records.
     public func setBeforeSend(_ blocks: [PostHogBeforeSendLogBlock]) {
         beforeSend.set(blocks)
     }
 
+    /// Replaces the log `beforeSend` chain with the provided blocks.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop log records.
     public func setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) {
         setBeforeSend(blocks)
     }
 
+    /// Replaces the log `beforeSend` chain from Objective-C boxed callbacks.
+    ///
+    /// - Parameter blocks: Ordered Objective-C callback boxes.
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) {
         setBeforeSend(blocks.map(\.block))
@@ -101,6 +116,7 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
         return result
     }
 
+    /// Creates a logs configuration with default queueing, resource, and rate-cap options.
     @objc override public init() {
         super.init()
     }

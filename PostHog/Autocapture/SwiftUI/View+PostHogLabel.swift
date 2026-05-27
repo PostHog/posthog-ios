@@ -8,6 +8,7 @@
 #if os(iOS) || targetEnvironment(macCatalyst)
     import SwiftUI
 
+    /// SwiftUI autocapture labeling helpers.
     public extension View {
         /**
          Adds a custom label to this view for use with PostHog's auto-capture functionality.
@@ -27,6 +28,7 @@
          ```
 
          - Parameter label: A custom label that uniquely identifies the element for analytics purposes.
+         - Returns: A modified view that applies the label to the underlying UIKit view when possible.
          */
         func postHogLabel(_ label: String?) -> some View {
             modifier(PostHogLabelTaggerViewModifier(label: label))

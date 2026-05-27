@@ -191,6 +191,21 @@ enum PostHogSurveysTest {
                     throw TestError("Expected a rating question")
                 }
             }
+
+            @Test("rating question decodes without bound labels")
+            func ratingQuestionDecodesWithoutBoundLabels() throws {
+                let data = try loadFixture("fixture_survey_question_rating_no_bounds")
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                if case let .rating(question) = sut.questions[0] {
+                    #expect(question.scale == .tenPoint)
+                    #expect(question.display == .number)
+                    #expect(question.lowerBoundLabel == nil)
+                    #expect(question.upperBoundLabel == nil)
+                } else {
+                    throw TestError("Expected a rating question")
+                }
+            }
         }
 
         @Suite("Question branching decodes correctly")
@@ -1723,6 +1738,40 @@ enum PostHogSurveysTest {
         }
     }
 
+    @Suite("Test resilient survey list decoding")
+    struct TestResilientSurveyListDecoding {
+        @Test("atomic array decode fails when one survey is malformed")
+        func atomicArrayDecodeFailsOnMalformedEntry() throws {
+            let data = try loadFixture("fixture_surveys_array_with_malformed")
+
+            // Documents Swift's atomic [Decodable] behavior: a single malformed
+            // element throws and drops the entire array. This is the root cause
+            // of issue #611 and the reason decodeSurveys decodes per-element.
+            #expect(throws: DecodingError.self) {
+                _ = try PostHogApi.jsonDecoder.decode([PostHogSurvey].self, from: data)
+            }
+        }
+
+        @Test("per-element decoding skips malformed entries and keeps valid ones")
+        func perElementDecodingSkipsMalformedEntries() throws {
+            let data = try loadFixture("fixture_surveys_array_with_malformed")
+            let rawArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+            let arrayItems = try #require(rawArray)
+
+            // Mirrors PostHogSurveyIntegration.decodeSurveys: decode each entry
+            // individually so a malformed survey can't take down the whole list.
+            let decoded: [PostHogSurvey] = arrayItems.compactMap { item in
+                guard let itemData = try? JSONSerialization.data(withJSONObject: item) else {
+                    return nil
+                }
+                return try? PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: itemData)
+            }
+
+            #expect(decoded.count == 1)
+            #expect(decoded.first?.id == "valid-survey-id")
+        }
+    }
+
     @Suite("Test survey to display model mapping")
     struct TestSurveyToDisplayMapping {
         private func makeAppearance(delay: TimeInterval?) -> PostHogSurveyAppearance {
@@ -1764,6 +1813,35 @@ enum PostHogSurveysTest {
             let displaySurvey = survey.toDisplaySurvey()
 
             #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
+        }
+
+        @Test("rating display defaults missing bound labels to empty string")
+        func ratingDisplayDefaultsMissingBoundLabelsToEmptyString() throws {
+            let ratingQuestion = PostHogRatingSurveyQuestion(
+                id: "r-1",
+                question: "How likely?",
+                description: nil,
+                descriptionContentType: nil,
+                optional: nil,
+                buttonText: nil,
+                originalQuestionIndex: 0,
+                branching: nil,
+                translations: nil,
+                display: .number,
+                scale: .tenPoint,
+                lowerBoundLabel: nil,
+                upperBoundLabel: nil
+            )
+            let survey = PostHogSurvey.testInstance(
+                name: "rating-no-bounds",
+                questions: [.rating(ratingQuestion)]
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+            let displayQuestion = try #require(displaySurvey.questions.first as? PostHogDisplayRatingQuestion)
+
+            #expect(displayQuestion.lowerBoundLabel == "")
+            #expect(displayQuestion.upperBoundLabel == "")
         }
     }
 }

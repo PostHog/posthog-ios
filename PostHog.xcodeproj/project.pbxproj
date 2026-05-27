@@ -526,6 +526,8 @@
 		DAA5EE362D4368A900D437E0 /* fixture_survey_question_multiple_choice.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE312D4368A900D437E0 /* fixture_survey_question_multiple_choice.json */; };
 		DAA5EE372D4368A900D437E0 /* fixture_survey_question_rating.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE322D4368A900D437E0 /* fixture_survey_question_rating.json */; };
 		DAA5EE382D4368A900D437E0 /* fixture_survey_question_single_choice.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE332D4368A900D437E0 /* fixture_survey_question_single_choice.json */; };
+		F22413BB1C82340F203271A4 /* fixture_survey_question_rating_no_bounds.json in Resources */ = {isa = PBXBuildFile; fileRef = 45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */; };
+		867168FF2DB362371B6ACBA2 /* fixture_surveys_array_with_malformed.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */; };
 		DAAD96982F7EF3DC002A8379 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DAAD96992F7EF3DC002A8379 /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DAB565CA2D142F8F0088F720 /* PostHogNoMaskViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */; };
@@ -1327,6 +1329,8 @@
 		DAA5EE312D4368A900D437E0 /* fixture_survey_question_multiple_choice.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_multiple_choice.json; sourceTree = "<group>"; };
 		DAA5EE322D4368A900D437E0 /* fixture_survey_question_rating.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_rating.json; sourceTree = "<group>"; };
 		DAA5EE332D4368A900D437E0 /* fixture_survey_question_single_choice.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_single_choice.json; sourceTree = "<group>"; };
+		45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_rating_no_bounds.json; sourceTree = "<group>"; };
+		0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_surveys_array_with_malformed.json; sourceTree = "<group>"; };
 		DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = PostHog.modulemap; sourceTree = "<group>"; };
 		DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogNoMaskViewModifier.swift; sourceTree = "<group>"; };
 		DAB565DE2D14C55C0088F720 /* PostHogTagViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogTagViewModifier.swift; sourceTree = "<group>"; };
@@ -2446,6 +2450,8 @@
 				DAA5EE312D4368A900D437E0 /* fixture_survey_question_multiple_choice.json */,
 				DAA5EE322D4368A900D437E0 /* fixture_survey_question_rating.json */,
 				DAA5EE332D4368A900D437E0 /* fixture_survey_question_single_choice.json */,
+				45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */,
+				0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */,
 				DA5E52E02E09930600159D20 /* fixture_survey_unknown_question_type.json */,
 				DA5E52E12E09930600159D20 /* fixture_survey_unknown_type.json */,
 				DAA0222F2D78158600197660 /* fixture_survey_conditions_event_repeated.json */,
@@ -2947,6 +2953,8 @@
 				DA5E52E32E09930600159D20 /* fixture_survey_unknown_question_type.json in Resources */,
 				DAA5EE372D4368A900D437E0 /* fixture_survey_question_rating.json in Resources */,
 				DAA5EE382D4368A900D437E0 /* fixture_survey_question_single_choice.json in Resources */,
+				F22413BB1C82340F203271A4 /* fixture_survey_question_rating_no_bounds.json in Resources */,
+				867168FF2DB362371B6ACBA2 /* fixture_surveys_array_with_malformed.json in Resources */,
 				DAA5EE2D2D43605000D437E0 /* fixture_survey_basic.json in Resources */,
 				DAA5EE2E2D43605000D437E0 /* fixture_survey_branching_response_based.json in Resources */,
 				DA71854D2D07E11200396388 /* input_1.png in Resources */,

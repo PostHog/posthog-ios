@@ -234,6 +234,12 @@ app.post("get_feature_flag") { req async throws -> Response in
     let value = sdk.getFeatureFlag(flagReq.key, sendFeatureFlagEvent: true)
     print("[ADAPTER] Flag \(flagReq.key) resolved to: \(String(describing: value))")
 
+    // Flush that $feature_flag_called event now and wait for it to land. With flushAt=1
+    // it would otherwise auto-flush asynchronously and could arrive in the *next* test's
+    // mock window, inflating $feature_flag_called counts (the side_effect test failure).
+    sdk.flush()
+    try await Task.sleep(nanoseconds: 1_000_000_000)
+
     var result: [String: Any] = ["success": true]
     result["value"] = value ?? NSNull()
 

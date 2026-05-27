@@ -9,6 +9,7 @@
 
     import SwiftUI
 
+    /// SwiftUI session replay unmasking helpers.
     public extension View {
         /**
          Marks a SwiftUI View to be excluded from masking in PostHog session replay recordings.

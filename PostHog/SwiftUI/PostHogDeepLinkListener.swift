@@ -32,11 +32,14 @@
         }
     }
 
+    /// SwiftUI deep link capture helpers.
     public extension View {
-        /// Attach a PostHog deep link listener to this view. The listener will forward
-        /// .onOpenURL and .onContinueUserActivity events to the provided PostHogSDK instance.
-        /// - Parameter posthog: The PostHogSDK instance to use for tracking. If not provided,
-        ///   the currently installed instance will be used if available.
+        /// Attach a PostHog deep link listener to this view.
+        ///
+        /// The listener forwards `.onOpenURL` and `.onContinueUserActivity` events to PostHog.
+        ///
+        /// - Parameter posthog: SDK instance to use for tracking. Defaults to `PostHogSDK.shared`.
+        /// - Returns: A modified view that captures supported deep link events.
         func postHogDeepLinkListener(_ posthog: PostHogSDK? = nil) -> some View {
             let sdk = posthog ?? PostHogSDK.shared
             return modifier(PostHogDeepLinkListener(posthog: sdk))

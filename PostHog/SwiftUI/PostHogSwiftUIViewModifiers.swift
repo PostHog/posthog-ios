@@ -9,16 +9,15 @@
     import Foundation
     import SwiftUI
 
+    /// SwiftUI analytics capture helpers.
     public extension View {
-        /**
-         Marks a SwiftUI View to be tracked as a $screen event in PostHog when onAppear is called.
-
-         - Parameters:
-         - screenName: The name of the screen. Defaults to the type of the view.
-         - properties: Additional properties to be tracked with the screen.
-         - postHog: The instance to be used when sending the $screen event
-         - Returns: A modified view that will be tracked as a screen in PostHog.
-         */
+        /// Marks a SwiftUI view to be tracked as a `$screen` event when `onAppear` runs.
+        ///
+        /// - Parameters:
+        ///   - screenName: The screen name. Defaults to the view's type name.
+        ///   - properties: Additional properties to attach to the `$screen` event.
+        ///   - postHog: SDK instance used to send the event. Defaults to `PostHogSDK.shared`.
+        /// - Returns: A modified view that captures a screen view when it appears.
         func postHogScreenView(_ screenName: String? = nil,
                                _ properties: [String: Any]? = nil,
                                postHog: PostHogSDK? = nil) -> some View
@@ -30,6 +29,13 @@
                                                        postHog: postHog))
         }
 
+        /// Captures a custom event when this SwiftUI view appears.
+        ///
+        /// - Parameters:
+        ///   - event: Event name to capture.
+        ///   - properties: Additional event properties.
+        ///   - postHog: SDK instance used to send the event. Defaults to `PostHogSDK.shared`.
+        /// - Returns: A modified view that captures the event when it appears.
         func postHogViewSeen(_ event: String,
                              _ properties: [String: Any]? = nil,
                              postHog: PostHogSDK? = nil) -> some View

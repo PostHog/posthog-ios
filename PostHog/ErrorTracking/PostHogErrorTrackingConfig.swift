@@ -29,6 +29,10 @@ import Foundation
     /// Default: false
     private var _autoCapture: Bool = false
 
+    /// Whether crash autocapture is enabled.
+    ///
+    /// When enabled, fatal crashes are persisted and sent as `$exception` events on the next launch.
+    /// Default: `false`.
     @available(watchOS, unavailable, message: "Crash autocapture is not available on watchOS")
     @available(visionOS, unavailable, message: "Crash autocapture is not available on visionOS")
     @objc public var autoCapture: Bool {
@@ -92,6 +96,7 @@ import Foundation
 
     // MARK: - Initialization
 
+    /// Creates an error tracking configuration with default in-app frame detection.
     override public init() {
         super.init()
 

@@ -30,14 +30,35 @@ import Foundation
 #if !os(watchOS)
     import SystemConfiguration
 
+    /// Errors thrown while creating or configuring reachability monitoring.
     public enum ReachabilityError: Error {
+        /// Failed to create reachability with a socket address.
+        ///
+        /// - Parameters:
+        ///   - sockaddr: Socket address used to create the reachability reference.
+        ///   - errorCode: SystemConfiguration `SCError()` code.
         case failedToCreateWithAddress(sockaddr, Int32)
+        /// Failed to create reachability with a hostname.
+        ///
+        /// - Parameters:
+        ///   - hostname: Hostname used to create the reachability reference.
+        ///   - errorCode: SystemConfiguration `SCError()` code.
         case failedToCreateWithHostname(String, Int32)
+        /// Failed to install the reachability callback.
+        ///
+        /// - Parameter errorCode: SystemConfiguration `SCError()` code.
         case unableToSetCallback(Int32)
+        /// Failed to set the reachability dispatch queue.
+        ///
+        /// - Parameter errorCode: SystemConfiguration `SCError()` code.
         case unableToSetDispatchQueue(Int32)
+        /// Failed to read current reachability flags.
+        ///
+        /// - Parameter errorCode: SystemConfiguration `SCError()` code.
         case unableToGetFlags(Int32)
     }
 
+    /// Legacy reachability notification name.
     @available(*, unavailable, renamed: "Notification.Name.reachabilityChanged")
     public let ReachabilityChangedNotification = NSNotification.Name("ReachabilityChangedNotification")
 

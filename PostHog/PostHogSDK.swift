@@ -21,8 +21,11 @@ let retryDelay = 5.0
 let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
-// swiftlint:disable:next type_body_length <- Should be removed once PostHogSDK is refactored
-@objc public class PostHogSDK: NSObject {
+/// Main entry point for capturing analytics, feature flags, logs, surveys, and session replay.
+///
+/// Use `PostHogSDK.shared` for the default singleton instance, or `PostHogSDK.with(_:)`
+/// to create an additional configured instance.
+@objc public class PostHogSDK: NSObject { // swiftlint:disable:this type_body_length
     private(set) var config: PostHogConfig
 
     private init(_ config: PostHogConfig) {
@@ -72,8 +75,14 @@ let maxRetryDelay = 30.0
 
     // nonisolated(unsafe) is introduced in Swift 5.10
     #if swift(>=5.10)
+        /// Shared singleton SDK instance used by most applications.
+        ///
+        /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
         @objc public nonisolated(unsafe) static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
     #else
+        /// Shared singleton SDK instance used by most applications.
+        ///
+        /// Call `setup(_:)` once with a `PostHogConfig` before using capture APIs.
         @objc public static let shared: PostHogSDK = .init(PostHogConfig(projectToken: ""))
     #endif
 
@@ -86,6 +95,9 @@ let maxRetryDelay = 30.0
         uninstallIntegrations()
     }
 
+    /// Enables or disables SDK debug logging at runtime.
+    ///
+    /// - Parameter enabled: Pass `true` to enable verbose logs or `false` to disable them.
     @objc public func debug(_ enabled: Bool = true) {
         if !isEnabled() {
             return
@@ -94,6 +106,12 @@ let maxRetryDelay = 30.0
         toggleHedgeLog(enabled)
     }
 
+    /// Initializes this SDK instance with the provided configuration.
+    ///
+    /// Call this once, as early as possible in app startup. Calls made before setup completes are ignored.
+    /// Calling setup again on the same instance logs a warning and has no effect.
+    ///
+    /// - Parameter config: The configuration to install.
     @objc public func setup(_ config: PostHogConfig) {
         setupLock.withLock {
             toggleHedgeLog(config.debug)
@@ -207,6 +225,11 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Returns the current PostHog distinct ID.
+    ///
+    /// Before `identify(_:)`, this is the anonymous ID. After identify, this is the identified user's ID.
+    ///
+    /// - Returns: The current distinct ID, or an empty string when the SDK is not set up.
     @objc public func getDistinctId() -> String {
         if !isEnabled() {
             return ""
@@ -215,6 +238,9 @@ let maxRetryDelay = 30.0
         return config.storageManager?.getDistinctId() ?? ""
     }
 
+    /// Returns the anonymous ID generated for this install.
+    ///
+    /// - Returns: The anonymous ID, or an empty string when the SDK is not set up.
     @objc public func getAnonymousId() -> String {
         if !isEnabled() {
             return ""
@@ -224,8 +250,11 @@ let maxRetryDelay = 30.0
     }
 
     /// Returns the stable device identifier used for device-level feature flag bucketing.
+    ///
     /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
     /// app install, manual cache clearing, or OS-initiated storage cleanup.
+    ///
+    /// - Returns: The stable device ID, or an empty string when the SDK is not set up.
     @objc public func getDeviceId() -> String {
         if !isEnabled() {
             return ""
@@ -234,6 +263,9 @@ let maxRetryDelay = 30.0
         return config.storageManager?.getDeviceId() ?? ""
     }
 
+    /// Returns the current session ID without rotating or creating a session.
+    ///
+    /// - Returns: The current session ID, or `nil` if no session is active or the SDK is not set up.
     @objc public func getSessionId() -> String? {
         if !isEnabled() {
             return nil
@@ -242,6 +274,7 @@ let maxRetryDelay = 30.0
         return sessionManager.getSessionId(readOnly: true)
     }
 
+    /// Starts or resumes the current analytics session.
     @objc public func startSession() {
         if !isEnabled() {
             return
@@ -250,6 +283,7 @@ let maxRetryDelay = 30.0
         sessionManager.startSession()
     }
 
+    /// Ends the current analytics session.
     @objc public func endSession() {
         if !isEnabled() {
             return
@@ -277,6 +311,9 @@ let maxRetryDelay = 30.0
         capture("Deep Link Opened", properties: properties)
     }
 
+    /// Captures a deep link opened event for a URL.
+    ///
+    /// - Parameter url: The URL that was opened.
     @objc public func captureDeepLink(url: URL) {
         captureDeepLink(url: url as URL?, referrer: nil)
     }
@@ -285,8 +322,7 @@ let maxRetryDelay = 30.0
         /// Capture deep link events from an array of URLs.
         ///
         /// Use this method with macOS `NSApplicationDelegate.application(_:open:)`.
-        /// File URLs are automatically filtered out - only custom URL schemes and
-        /// universal links are captured.
+        /// File URLs are automatically filtered out; every other URL in the array is captured.
         ///
         /// - Parameter urls: The URLs that were opened.
         @objc public func captureDeepLink(urls: [URL]) {
@@ -501,6 +537,10 @@ let maxRetryDelay = 30.0
         logsQueue?.flush()
     }
 
+    /// Resets local identity, super properties, feature flag cache, and session state.
+    ///
+    /// Call this when a user logs out. The next captured event will use a new anonymous identity
+    /// unless `PostHogConfig.reuseAnonymousId` is enabled.
     @objc public func reset() {
         if !isEnabled() {
             return
@@ -541,6 +581,12 @@ let maxRetryDelay = 30.0
     }
 
     // register is a reserved word in ObjC
+    /// Registers super properties that are included with every subsequent event.
+    ///
+    /// New values overwrite existing values for the same keys and persist across app restarts
+    /// until removed with `unregister(_:)` or cleared by `reset()`.
+    ///
+    /// - Parameter properties: Event properties to persist and attach to future captures.
     @objc(registerProperties:)
     public func register(_ properties: [String: Any]) {
         if !isEnabled() {
@@ -562,6 +608,9 @@ let maxRetryDelay = 30.0
         notifyContextDidChange()
     }
 
+    /// Removes a previously registered super property.
+    ///
+    /// - Parameter key: The property key to stop attaching to future events.
     @objc(unregisterProperties:)
     public func unregister(_ key: String) {
         if !isEnabled() {
@@ -578,10 +627,22 @@ let maxRetryDelay = 30.0
         notifyContextDidChange()
     }
 
+    /// Identifies the current user with a stable distinct ID.
+    ///
+    /// By default, the first successful identify call links prior anonymous events to the provided ID.
+    /// If `PostHogConfig.reuseAnonymousId` is `true`, prior anonymous events are not linked.
+    /// Empty IDs, opted-out users, and configurations with `personProfiles == .never` are ignored.
+    ///
+    /// - Parameter distinctId: Stable user identifier from your application.
     @objc public func identify(_ distinctId: String) {
         identify(distinctId, userProperties: nil, userPropertiesSetOnce: nil)
     }
 
+    /// Identifies the current user and sets person properties.
+    ///
+    /// - Parameters:
+    ///   - distinctId: Stable user identifier from your application.
+    ///   - userProperties: Properties to set on the person profile. Existing values are overwritten.
     @objc(identifyWithDistinctId:userProperties:)
     public func identify(_ distinctId: String,
                          userProperties: [String: Any]? = nil)
@@ -589,6 +650,12 @@ let maxRetryDelay = 30.0
         identify(distinctId, userProperties: userProperties, userPropertiesSetOnce: nil)
     }
 
+    /// Identifies the current user and sets person properties.
+    ///
+    /// - Parameters:
+    ///   - distinctId: Stable user identifier from your application.
+    ///   - userProperties: Properties to set on the person profile. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Properties to set only if they do not already exist.
     @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:)
     public func identify(_ distinctId: String,
                          userProperties: [String: Any]? = nil,
@@ -683,7 +750,7 @@ let maxRetryDelay = 30.0
     /// Sets properties on the person profile associated with the current distinct_id.
     ///
     /// Updates user properties that are stored with the person profile in PostHog.
-    /// If `personProfiles` is set to `never` and no profile exists, this call will be ignored.
+    /// If `personProfiles` is set to `never`, this call will be ignored.
     ///
     /// This method sends a `$set` event to PostHog.
     ///
@@ -699,7 +766,7 @@ let maxRetryDelay = 30.0
     /// Sets properties on the person profile associated with the current distinct_id.
     ///
     /// Updates user properties that are stored with the person profile in PostHog.
-    /// If `personProfiles` is set to `never` and no profile exists, this call will be ignored.
+    /// If `personProfiles` is set to `never`, this call will be ignored.
     ///
     /// This method sends a `$set` event to PostHog.
     ///
@@ -854,10 +921,18 @@ let maxRetryDelay = 30.0
         return context?.personPropertiesContext() ?? [:]
     }
 
+    /// Captures a custom event for the current user.
+    ///
+    /// - Parameter event: Event name to capture.
     @objc public func capture(_ event: String) {
         capture(event, distinctId: nil, properties: nil, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
+    /// Captures a custom event with event properties.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - properties: Event properties attached only to this event.
     @objc(captureWithEvent:properties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil)
@@ -865,6 +940,12 @@ let maxRetryDelay = 30.0
         capture(event, distinctId: nil, properties: properties, userProperties: nil, userPropertiesSetOnce: nil, groups: nil)
     }
 
+    /// Captures a custom event and updates person properties.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
     @objc(captureWithEvent:properties:userProperties:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
@@ -873,6 +954,13 @@ let maxRetryDelay = 30.0
         capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: nil, groups: nil)
     }
 
+    /// Captures a custom event and updates person properties.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
     @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
@@ -882,6 +970,14 @@ let maxRetryDelay = 30.0
         capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: nil)
     }
 
+    /// Captures a custom event with group context.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
+    ///   - groups: Group type/key pairs to attach to this event.
     @objc(captureWithEvent:properties:userProperties:userPropertiesSetOnce:groups:)
     public func capture(_ event: String,
                         properties: [String: Any]? = nil,
@@ -892,6 +988,15 @@ let maxRetryDelay = 30.0
         capture(event, distinctId: nil, properties: properties, userProperties: userProperties, userPropertiesSetOnce: userPropertiesSetOnce, groups: groups)
     }
 
+    /// Captures a custom event for an explicit distinct ID.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
+    ///   - groups: Group type/key pairs to attach to this event.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:)
     public func capture(_ event: String,
                         distinctId: String? = nil,
@@ -909,6 +1014,16 @@ let maxRetryDelay = 30.0
                 timestamp: nil)
     }
 
+    /// Captures a custom event for an explicit distinct ID and timestamp.
+    ///
+    /// - Parameters:
+    ///   - event: Event name to capture.
+    ///   - distinctId: Optional distinct ID override. Defaults to the current SDK distinct ID.
+    ///   - properties: Event properties attached only to this event.
+    ///   - userProperties: Person properties to set. Existing values are overwritten.
+    ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
+    ///   - groups: Group type/key pairs to attach to this event.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
     public func capture(_ event: String,
                         distinctId: String? = nil,
@@ -999,6 +1114,14 @@ let maxRetryDelay = 30.0
     /// Swift-native variant of `captureLog` with default values for every
     /// argument except `body`. Most call sites can write `captureLog("...")`
     /// or `captureLog("...", level: .warn, attributes: [...])`.
+    ///
+    /// - Parameters:
+    ///   - body: The log message. Required and non-empty.
+    ///   - level: Severity. Defaults to `.info`.
+    ///   - attributes: Per-record attributes. Values must be JSON-serializable.
+    ///   - traceId: Optional 32-character lowercase hex W3C trace ID.
+    ///   - spanId: Optional 16-character lowercase hex W3C span ID.
+    ///   - traceFlags: Optional W3C trace flags bitfield.
     public func captureLog(_ body: String,
                            level: PostHogLogSeverity = .info,
                            attributes: [String: Any]? = nil,
@@ -1152,6 +1275,9 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Records a screen view by capturing a `$screen` event.
+    ///
+    /// - Parameter screenTitle: The screen name to record.
     @objc public func screen(_ screenTitle: String) {
         screen(screenTitle, properties: nil)
     }
@@ -1301,6 +1427,12 @@ let maxRetryDelay = 30.0
         return properties
     }
 
+    /// Assigns an additional distinct ID to the current user.
+    ///
+    /// Use alias when a user should be connected to another identifier that was previously used
+    /// to track them. This sends a `$create_alias` event.
+    ///
+    /// - Parameter alias: The additional distinct ID to associate with the current user.
     @objc public func alias(_ alias: String) {
         if !isEnabled() {
             return
@@ -1425,11 +1557,24 @@ let maxRetryDelay = 30.0
         onEventCaptured.invoke(event)
     }
 
+    /// Associates subsequent events with a group.
+    ///
+    /// - Parameters:
+    ///   - type: Group type, such as `"company"` or `"organization"`.
+    ///   - key: Group key from your application.
     @objc(groupWithType:key:)
     public func group(type: String, key: String) {
         group(type: type, key: key, groupProperties: nil)
     }
 
+    /// Associates subsequent events with a group and optionally updates group properties.
+    ///
+    /// This sends a `$groupidentify` event and reloads feature flags if the group value changed.
+    ///
+    /// - Parameters:
+    ///   - type: Group type, such as `"company"` or `"organization"`.
+    ///   - key: Group key from your application.
+    ///   - groupProperties: Optional properties to set on the group profile.
     @objc(groupWithType:key:groupProperties:)
     public func group(type: String, key: String, groupProperties: [String: Any]? = nil) {
         if !isEnabled() {
@@ -1641,6 +1786,8 @@ let maxRetryDelay = 30.0
     /// // Clear all group properties
     /// PostHogSDK.shared.resetGroupPropertiesForFlags(reloadFeatureFlags: true)
     /// ```
+    ///
+    /// - Parameter reloadFeatureFlags: Whether to automatically reload feature flags after clearing all group properties.
     @objc(resetGroupPropertiesForFlagsWithReloadFeatureFlags:)
     public func resetGroupPropertiesForFlags(reloadFeatureFlags: Bool = true) {
         internalResetGroupPropertiesForFlags(groupType: nil, reloadFeatureFlags: reloadFeatureFlags)
@@ -1670,7 +1817,7 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameters:
     ///   - groupType: The group type to clear properties for
-    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties
+    ///   - reloadFeatureFlags: Whether to automatically reload feature flags after clearing properties for this group type.
     @objc(resetGroupPropertiesForFlagsWithGroupType:reloadFeatureFlags:)
     public func resetGroupPropertiesForFlags(_ groupType: String, reloadFeatureFlags: Bool = true) {
         internalResetGroupPropertiesForFlags(groupType: groupType, reloadFeatureFlags: reloadFeatureFlags)
@@ -1689,12 +1836,16 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Reloads feature flags for the current user and group context.
     @objc public func reloadFeatureFlags() {
         reloadFeatureFlags {
             // No use case
         }
     }
 
+    /// Reloads feature flags and invokes a callback when the request finishes.
+    ///
+    /// - Parameter callback: Called after the reload request completes.
     @objc(reloadFeatureFlagsWithCallback:)
     public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
         if !isEnabled() {
@@ -1706,10 +1857,12 @@ let maxRetryDelay = 30.0
         }
     }
 
-    /// Captures a $feature_view event for the specified feature flag.
+    /// Captures a `$feature_view` event for the specified feature flag.
     ///
-    /// - Parameter flag: The key of the feature flag being viewed.
-    /// - Parameter flagVariant: The variant of the feature flag being viewed.
+    /// - Parameters:
+    ///   - flag: The key of the feature flag being viewed.
+    ///   - flagVariant: The variant of the feature flag being viewed. If `nil`, the SDK
+    ///     looks up the current flag value and skips capture when no value is available.
     @objc public func captureFeatureView(flag: String, flagVariant: String?) {
         if !isEnabled() {
             return
@@ -1745,10 +1898,12 @@ let maxRetryDelay = 30.0
         )
     }
 
-    /// Captures a $feature_interaction event for the specified feature flag.
+    /// Captures a `$feature_interaction` event for the specified feature flag.
     ///
-    /// - Parameter flag: The key of the feature flag being interacted with.
-    /// - Parameter flagVariant: The variant of the feature flag being interacted with.
+    /// - Parameters:
+    ///   - flag: The key of the feature flag being interacted with.
+    ///   - flagVariant: The variant of the feature flag being interacted with. If `nil`, the SDK
+    ///     looks up the current flag value and skips capture when no value is available.
     @objc public func captureFeatureInteraction(
         flag: String,
         flagVariant: String?
@@ -1799,6 +1954,12 @@ let maxRetryDelay = 30.0
         getFeatureFlagResult(key, sendEvent: nil)
     }
 
+    /// Returns the feature flag result and optionally captures a usage event.
+    ///
+    /// - Parameters:
+    ///   - key: The feature flag key.
+    ///   - sendFeatureFlagEvent: Whether to capture `$feature_flag_called` for this lookup.
+    /// - Returns: A result containing enabled state, variant, and payload, or `nil` if unavailable.
     @objc(getFeatureFlagResultWithKey:sendFeatureFlagEvent:)
     public func getFeatureFlagResult(_ key: String, sendFeatureFlagEvent: Bool) -> PostHogFeatureFlagResult? {
         getFeatureFlagResult(key, sendEvent: sendFeatureFlagEvent)
@@ -1824,10 +1985,22 @@ let maxRetryDelay = 30.0
         return result
     }
 
+    /// Returns a feature flag value.
+    ///
+    /// Boolean flags return `Bool`. Multivariate flags return their variant `String`.
+    ///
+    /// - Parameter key: The feature flag key.
+    /// - Returns: `Bool`, `String`, or `nil` if the flag is unavailable.
     @objc public func getFeatureFlag(_ key: String) -> Any? {
         getFeatureFlag(key, sendEvent: nil)
     }
 
+    /// Returns a feature flag value and optionally captures a usage event.
+    ///
+    /// - Parameters:
+    ///   - key: The feature flag key.
+    ///   - sendFeatureFlagEvent: Whether to capture `$feature_flag_called` for this lookup.
+    /// - Returns: `Bool`, `String`, or `nil` if the flag is unavailable.
     @objc(getFeatureFlagWithKey:sendFeatureFlagEvent:)
     public func getFeatureFlag(_ key: String, sendFeatureFlagEvent: Bool) -> Any? {
         getFeatureFlag(key, sendEvent: sendFeatureFlagEvent)
@@ -1838,10 +2011,22 @@ let maxRetryDelay = 30.0
         return result?.variant ?? result?.enabled
     }
 
+    /// Returns whether a feature flag is enabled.
+    ///
+    /// Multivariate flags are considered enabled when a variant string is returned.
+    ///
+    /// - Parameter key: The feature flag key.
+    /// - Returns: `true` when the flag is enabled, otherwise `false`.
     @objc public func isFeatureEnabled(_ key: String) -> Bool {
         isFeatureEnabled(key, sendEvent: nil)
     }
 
+    /// Returns whether a feature flag is enabled and optionally captures a usage event.
+    ///
+    /// - Parameters:
+    ///   - key: The feature flag key.
+    ///   - sendFeatureFlagEvent: Whether to capture `$feature_flag_called` for this lookup.
+    /// - Returns: `true` when the flag is enabled, otherwise `false`.
     @objc(isFeatureEnabledWithKey:sendFeatureFlagEvent:)
     public func isFeatureEnabled(_ key: String, sendFeatureFlagEvent: Bool) -> Bool {
         isFeatureEnabled(key, sendEvent: sendFeatureFlagEvent)
@@ -1854,6 +2039,8 @@ let maxRetryDelay = 30.0
 
     /// Returns the payload for a feature flag.
     ///
+    /// - Parameter key: The feature flag key.
+    /// - Returns: The flag payload, or `nil` if the flag or payload is unavailable.
     /// - Warning: This method does not send the `$feature_flag_called` event.
     ///   Use `getFeatureFlagResult(_:)` instead for proper analytics tracking.
     @available(*, deprecated, message: "Use getFeatureFlagResult(_:) instead which properly tracks feature flag usage")
@@ -1936,6 +2123,9 @@ let maxRetryDelay = 30.0
         return enabled
     }
 
+    /// Opts the current user back into data capture.
+    ///
+    /// This persists the opt-in state and installs integrations that were disabled while opted out.
     @objc public func optIn() {
         if !isEnabled() {
             return
@@ -1955,6 +2145,9 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Opts the current user out of data capture.
+    ///
+    /// This persists the opt-out state, stops integrations, and causes future capture calls to be ignored.
     @objc public func optOut() {
         if !isEnabled() {
             return
@@ -1974,6 +2167,9 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// Returns whether this SDK instance is currently opted out.
+    ///
+    /// - Returns: `true` when opted out or when the SDK is not set up.
     @objc public func isOptOut() -> Bool {
         if !isEnabled() {
             return true
@@ -1982,6 +2178,9 @@ let maxRetryDelay = 30.0
         return config.optOut
     }
 
+    /// Shuts down this SDK instance and clears its in-memory state.
+    ///
+    /// Queues are stopped, integrations are uninstalled, and this instance must be set up again before reuse.
     @objc public func close() {
         if !isEnabled() {
             return
@@ -2029,7 +2228,7 @@ let maxRetryDelay = 30.0
 
          This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings.
 
-         Also, any ingestion controls will not overridden when calling this method. The recording will not start if:
+         Ingestion controls are not overridden when calling this method. The recording will not start if:
          - The session is not sampled,
          - Event triggers are configured and have not been activated for the current session.
 
@@ -2046,7 +2245,7 @@ let maxRetryDelay = 30.0
 
          This method will have no effect if PostHog is not enabled, or if session replay is disabled in your project settings.
 
-         Also, any ingestion controls will not overridden when calling this method. The recording will not start if:
+         Ingestion controls are not overridden when calling this method. The recording will not start if:
          - The session is not sampled,
          - Event triggers are configured and have not been activated for the current session.
 
@@ -2111,6 +2310,10 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    /// Creates and sets up an additional SDK instance.
+    ///
+    /// - Parameter config: Configuration for the new instance.
+    /// - Returns: A configured `PostHogSDK` instance.
     @objc public static func with(_ config: PostHogConfig) -> PostHogSDK {
         let postHog = PostHogSDK(config)
         postHog.setup(config)
@@ -2118,6 +2321,9 @@ let maxRetryDelay = 30.0
     }
 
     #if os(iOS)
+        /// Returns whether session replay is currently recording.
+        ///
+        /// - Returns: `true` only when replay is active, a session ID exists, and remote config allows recording.
         @objc public func isSessionReplayActive() -> Bool {
             if !isEnabled() {
                 return false
@@ -2134,10 +2340,18 @@ let maxRetryDelay = 30.0
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
+        /// Returns whether UIKit element autocapture is enabled in local state.
+        ///
+        /// - Returns: `true` when the SDK is set up and `captureElementInteractions` is enabled.
+        ///   This does not verify that the swizzling-backed integration was installed.
         @objc public func isAutocaptureActive() -> Bool {
             isEnabled() && config.captureElementInteractions
         }
 
+        /// Returns whether rage click autocapture is enabled in local state.
+        ///
+        /// - Returns: `true` when the SDK is set up and rage click detection is enabled.
+        ///   This does not verify that the swizzling-backed integration was installed.
         @objc public func isRageClickActive() -> Bool {
             isEnabled() && config.rageClickConfig.enabled
         }
@@ -2155,7 +2369,7 @@ let maxRetryDelay = 30.0
     /// do {
     ///     try FileManager.default.removeItem(at: badFileUrl)
     /// } catch {
-    ///     PostHog.shared.captureException(error)
+    ///     PostHogSDK.shared.captureException(error)
     /// }
     /// ```
     ///
@@ -2205,7 +2419,7 @@ let maxRetryDelay = 30.0
     /// @try {
     ///     [self riskyOperation];
     /// } @catch (NSException *exception) {
-    ///     [[PostHog shared] captureExceptionWithNSException:exception properties:nil];
+    ///     [[PostHogSDK shared] captureExceptionWithNSException:exception properties:nil];
     /// }
     /// ```
     ///

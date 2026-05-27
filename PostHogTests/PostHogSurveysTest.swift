@@ -1815,8 +1815,20 @@ enum PostHogSurveysTest {
             #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
         }
 
-        @Test("rating display defaults missing bound labels to empty string")
-        func ratingDisplayDefaultsMissingBoundLabelsToEmptyString() throws {
+        @Test(
+            "rating display nil-coalesces missing bound labels to empty string",
+            arguments: [
+                (lower: String?.none, upper: String?.none, expectedLower: "", expectedUpper: ""),
+                (lower: String?.none, upper: "Very likely", expectedLower: "", expectedUpper: "Very likely"),
+                (lower: "Not likely", upper: String?.none, expectedLower: "Not likely", expectedUpper: ""),
+            ]
+        )
+        func ratingDisplayDefaultsMissingBoundLabelsToEmptyString(
+            lower: String?,
+            upper: String?,
+            expectedLower: String,
+            expectedUpper: String
+        ) throws {
             let ratingQuestion = PostHogRatingSurveyQuestion(
                 id: "r-1",
                 question: "How likely?",
@@ -1829,8 +1841,8 @@ enum PostHogSurveysTest {
                 translations: nil,
                 display: .number,
                 scale: .tenPoint,
-                lowerBoundLabel: nil,
-                upperBoundLabel: nil
+                lowerBoundLabel: lower,
+                upperBoundLabel: upper
             )
             let survey = PostHogSurvey.testInstance(
                 name: "rating-no-bounds",
@@ -1840,8 +1852,8 @@ enum PostHogSurveysTest {
             let displaySurvey = survey.toDisplaySurvey()
             let displayQuestion = try #require(displaySurvey.questions.first as? PostHogDisplayRatingQuestion)
 
-            #expect(displayQuestion.lowerBoundLabel == "")
-            #expect(displayQuestion.upperBoundLabel == "")
+            #expect(displayQuestion.lowerBoundLabel == expectedLower)
+            #expect(displayQuestion.upperBoundLabel == expectedUpper)
         }
     }
 }

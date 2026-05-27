@@ -15,6 +15,19 @@ class AdapterState {
 
 let state = AdapterState()
 
+// Wipe PostHog's on-disk storage so queued events, cached flags, and groups don't
+// leak across tests. close() tears down the SDK but leaves its file-backed queue and
+// storage on disk; the harness resets before every test and expects a clean slate.
+// Mirrors the SDK's own path logic (PostHogStorage): Application Support / <bundleId>,
+// where bundleId falls back to "com.posthog.test" under the -DTESTING build.
+func clearPostHogStorage() {
+    let bundleId = Bundle.main.bundleIdentifier ?? "com.posthog.test"
+    guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        return
+    }
+    try? FileManager.default.removeItem(at: appSupport.appendingPathComponent(bundleId))
+}
+
 // Configure and create the Vapor application
 var env = try Environment.detect()
 try LoggingSystem.bootstrap(from: &env)
@@ -25,10 +38,15 @@ app.middleware.use(RouteLoggingMiddleware())
 
 // Health endpoint
 app.get("health") { req async throws -> Response in
-    let health = [
+    let health: [String: Any] = [
         "sdk_name": postHogiOSSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
+        // Declares which test suites apply. The iOS SDK posts events to /batch
+        // (capture_v0) with gzip; it does not implement the /i/v1/e capture_v1
+        // protocol. Without this, the harness skips the capability-gated capture
+        // suites entirely.
+        "capabilities": ["capture_v0", "encoding_gzip"],
     ]
 
     print("[ADAPTER] GET /health")
@@ -58,6 +76,12 @@ app.post("init") { req async throws -> Response in
     let host = initReq.host.replacingOccurrences(of: "host.docker.internal", with: "localhost")
 
     print("[ADAPTER] POST /init - api_key: \(initReq.apiKey), host: \(host) (original: \(initReq.host))")
+
+    // Tear down any previous SDK instance. setup() is a no-op while the singleton
+    // is already enabled, so without this the first test's config (token, host)
+    // would freeze for every subsequent test. close() is a no-op if not enabled.
+    PostHogSDK.shared.close()
+    clearPostHogStorage()
 
     // Reset state
     state.reset()
@@ -142,6 +166,78 @@ app.post("capture") { req async throws -> Response in
     return try await result.encodeResponse(for: req)
 }
 
+// Feature flag evaluation endpoint
+app.post("get_feature_flag") { req async throws -> Response in
+    struct FlagRequest: Content {
+        let key: String
+        let distinctId: String
+        let personProperties: [String: AnyCodable]?
+        let groups: [String: AnyCodable]?
+        let groupProperties: [String: AnyCodable]?
+        let disableGeoip: Bool?
+        let forceRemote: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case key
+            case distinctId = "distinct_id"
+            case personProperties = "person_properties"
+            case groups
+            case groupProperties = "group_properties"
+            case disableGeoip = "disable_geoip"
+            case forceRemote = "force_remote"
+        }
+    }
+
+    let flagReq = try req.content.decode(FlagRequest.self)
+    print("[ADAPTER] POST /get_feature_flag - key: \(flagReq.key), distinct_id: \(flagReq.distinctId)")
+
+    guard let sdk = state.posthogSDK else {
+        throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
+    }
+
+    // Apply person/group properties for flag evaluation without reloading yet, so
+    // exactly one /flags request is made below (the harness asserts request counts).
+    if let personProperties = flagReq.personProperties, !personProperties.isEmpty {
+        var props: [String: Any] = [:]
+        for (k, v) in personProperties { props[k] = v.value }
+        sdk.setPersonPropertiesForFlags(props, reloadFeatureFlags: false)
+    }
+
+    if let groupProperties = flagReq.groupProperties {
+        for (groupType, value) in groupProperties {
+            if let props = value.value as? [String: Any], !props.isEmpty {
+                sdk.setGroupPropertiesForFlags(groupType, properties: props, reloadFeatureFlags: false)
+            }
+        }
+    }
+
+    // Register groups (group type -> key) so they're included in the /flags body.
+    if let groups = flagReq.groups {
+        for (groupType, value) in groups {
+            if let key = value.value as? String {
+                sdk.group(type: groupType, key: key)
+            }
+        }
+    }
+
+    // The iOS SDK always loads flags remotely (no local evaluation), so force_remote
+    // is implicitly honored. Reload and wait for the /flags request to complete.
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        sdk.reloadFeatureFlags {
+            continuation.resume()
+        }
+    }
+
+    // Read the resolved value, capturing the documented $feature_flag_called side effect.
+    let value = sdk.getFeatureFlag(flagReq.key, sendFeatureFlagEvent: true)
+    print("[ADAPTER] Flag \(flagReq.key) resolved to: \(String(describing: value))")
+
+    var result: [String: Any] = ["success": true]
+    result["value"] = value ?? NSNull()
+
+    return try await result.encodeResponse(for: req)
+}
+
 // Flush endpoint - critical for tests!
 app.post("flush") { req async throws -> Response in
     print("[ADAPTER] POST /flush - forcing SDK flush")
@@ -190,8 +286,13 @@ app.get("state") { req async throws -> Response in
 app.post("reset") { req async throws -> Response in
     print("[ADAPTER] POST /reset")
 
-    // Reset the SDK
-    state.posthogSDK?.reset()
+    // Fully tear down the SDK (close, not reset). PostHogSDK.reset() reloads
+    // feature flags as the anonymous user, which races the harness's mock-server
+    // reset and surfaces as a spurious /flags request (the "Expected 0, got 1"
+    // lifecycle failures). close() does no network I/O.
+    state.posthogSDK?.close()
+    state.posthogSDK = nil
+    clearPostHogStorage()
 
     // Reset adapter state
     state.reset()

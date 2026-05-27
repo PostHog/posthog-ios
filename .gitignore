@@ -126,3 +126,7 @@ xcuserdata
 
 # Node.js (used by @changesets/cli for versioning)
 node_modules/
+
+# SDK compliance adapter local test report output
+sdk_compliance_adapter/report/
+sdk_compliance_adapter/adapter*.log

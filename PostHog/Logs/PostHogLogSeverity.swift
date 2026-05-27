@@ -9,7 +9,8 @@ import Foundation
 ///
 /// Cases are declared in severity order so `>=` comparisons on the raw value
 /// give the expected result from both Swift and ObjC. ObjC consumers can
-/// safely write `if (record.level >= PostHogLogSeverityWarn) { ... }`.
+/// safely write `if (severity >= PostHogLogSeverityWarn) { ... }` when `severity`
+/// is a `PostHogLogSeverity` value.
 ///
 /// Maps to OpenTelemetry severity numbers (`TRACE=1`, `DEBUG=5`, `INFO=9`,
 /// `WARN=13`, `ERROR=17`, `FATAL=21`) for the OTLP wire format.

@@ -208,30 +208,26 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func getDistinctId() -> String {
-        if !isEnabled() {
-            return ""
-        }
-
-        return config.storageManager?.getDistinctId() ?? ""
+        getStorageManagerValue { $0.getDistinctId() }
     }
 
     @objc public func getAnonymousId() -> String {
-        if !isEnabled() {
-            return ""
-        }
-
-        return config.storageManager?.getAnonymousId() ?? ""
+        getStorageManagerValue { $0.getAnonymousId() }
     }
 
     /// Returns the stable device identifier used for device-level feature flag bucketing.
     /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh
     /// app install, manual cache clearing, or OS-initiated storage cleanup.
     @objc public func getDeviceId() -> String {
-        if !isEnabled() {
+        getStorageManagerValue { $0.getDeviceId() }
+    }
+
+    private func getStorageManagerValue(_ value: (PostHogStorageManager) -> String) -> String {
+        guard isEnabled(), let storageManager = config.storageManager else {
             return ""
         }
 
-        return config.storageManager?.getDeviceId() ?? ""
+        return value(storageManager)
     }
 
     @objc public func getSessionId() -> String? {
@@ -243,19 +239,23 @@ let maxRetryDelay = 30.0
     }
 
     @objc public func startSession() {
-        if !isEnabled() {
-            return
+        performWhenEnabled {
+            sessionManager.startSession()
         }
-
-        sessionManager.startSession()
     }
 
     @objc public func endSession() {
-        if !isEnabled() {
+        performWhenEnabled {
+            sessionManager.endSession()
+        }
+    }
+
+    private func performWhenEnabled(_ action: () -> Void) {
+        guard isEnabled() else {
             return
         }
 
-        sessionManager.endSession()
+        action()
     }
 
     // DEEP LINKS
@@ -1233,35 +1233,29 @@ let maxRetryDelay = 30.0
         elementsChain: String,
         properties: [String: Any]
     ) {
-        if !isEnabled() {
-            return
-        }
-
-        if isOptOutState() {
-            return
-        }
-
-        guard let queue else {
-            return
-        }
-
-        let props = [
-            "$event_type": eventType,
-            "$elements_chain": elementsChain,
-        ].merging(sanitizeDictionary(properties) ?? [:]) { prop, _ in prop }
-
-        let distinctId = getDistinctId()
-
-        let properties = buildProperties(distinctId: distinctId, properties: props)
-
-        guard let event = buildEvent(event: "$autocapture", distinctId: distinctId, properties: properties) else {
-            return
-        }
-
-        queueEvent(event, queue: queue)
+        captureAutocaptureEvent(
+            "$autocapture",
+            eventType: eventType,
+            elementsChain: elementsChain,
+            properties: properties
+        )
     }
 
     func rageclick(
+        eventType: String,
+        elementsChain: String,
+        properties: [String: Any]
+    ) {
+        captureAutocaptureEvent(
+            "$rageclick",
+            eventType: eventType,
+            elementsChain: elementsChain,
+            properties: properties
+        )
+    }
+
+    private func captureAutocaptureEvent(
+        _ eventName: String,
         eventType: String,
         elementsChain: String,
         properties: [String: Any]
@@ -1287,7 +1281,7 @@ let maxRetryDelay = 30.0
 
         let properties = buildProperties(distinctId: distinctId, properties: props)
 
-        guard let event = buildEvent(event: "$rageclick", distinctId: distinctId, properties: properties) else {
+        guard let event = buildEvent(event: eventName, distinctId: distinctId, properties: properties) else {
             return
         }
 
@@ -1711,37 +1705,11 @@ let maxRetryDelay = 30.0
     /// - Parameter flag: The key of the feature flag being viewed.
     /// - Parameter flagVariant: The variant of the feature flag being viewed.
     @objc public func captureFeatureView(flag: String, flagVariant: String?) {
-        if !isEnabled() {
-            return
-        }
-
-        if isOptOutState() {
-            return
-        }
-
-        // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
-        // If neither is available, there is no meaningful variant to record, so we skip the event.
-        guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
-            hedgeLog("captureFeatureView called for flag '\(flag)' but no variant value is available. Event will not be captured.")
-            return
-        }
-
-        var props: [String: Any] = [
-            "feature_flag": flag,
-        ]
-
-        if let variantStr = variant as? String {
-            props["feature_flag_variant"] = variantStr
-        }
-
-        let userProps: [String: Any] = [
-            "$feature_view/\(flag)": variant,
-        ]
-
-        capture(
+        captureFeatureEvent(
             "$feature_view",
-            properties: props,
-            userProperties: userProps
+            flag: flag,
+            flagVariant: flagVariant,
+            logName: "captureFeatureView"
         )
     }
 
@@ -1752,6 +1720,20 @@ let maxRetryDelay = 30.0
     @objc public func captureFeatureInteraction(
         flag: String,
         flagVariant: String?
+    ) {
+        captureFeatureEvent(
+            "$feature_interaction",
+            flag: flag,
+            flagVariant: flagVariant,
+            logName: "captureFeatureInteraction"
+        )
+    }
+
+    private func captureFeatureEvent(
+        _ event: String,
+        flag: String,
+        flagVariant: String?,
+        logName: String
     ) {
         if !isEnabled() {
             return
@@ -1764,7 +1746,7 @@ let maxRetryDelay = 30.0
         // Get the variant value — prefer the explicitly passed variant, then fall back to a flag lookup.
         // If neither is available, there is no meaningful variant to record, so we skip the event.
         guard let variant: Any = flagVariant ?? getFeatureFlag(flag, sendEvent: false) else {
-            hedgeLog("captureFeatureInteraction called for flag '\(flag)' but no variant value is available. Event will not be captured.")
+            hedgeLog("\(logName) called for flag '\(flag)' but no variant value is available. Event will not be captured.")
             return
         }
 
@@ -1777,11 +1759,11 @@ let maxRetryDelay = 30.0
         }
 
         let userProps: [String: Any] = [
-            "$feature_interaction/\(flag)": variant,
+            "\(event)/\(flag)": variant,
         ]
 
         capture(
-            "$feature_interaction",
+            event,
             properties: props,
             userProperties: userProps
         )
@@ -2176,10 +2158,7 @@ let maxRetryDelay = 30.0
             config: config.errorTrackingConfig
         )
 
-        var mergedProperties = errorProperties
-        properties?.forEach { mergedProperties[$0.key] = $0.value }
-
-        capture("$exception", properties: mergedProperties)
+        captureExceptionEvent(errorProperties, additionalProperties: properties)
     }
 
     /// Capture a Swift Error or NSError without additional properties
@@ -2226,10 +2205,7 @@ let maxRetryDelay = 30.0
             config: config.errorTrackingConfig
         )
 
-        var mergedProperties = exceptionProperties
-        properties?.forEach { mergedProperties[$0.key] = $0.value }
-
-        capture("$exception", properties: mergedProperties)
+        captureExceptionEvent(exceptionProperties, additionalProperties: properties)
     }
 
     /// Capture an NSException without additional properties
@@ -2243,6 +2219,16 @@ let maxRetryDelay = 30.0
         _ exception: NSException
     ) {
         captureException(exception, properties: nil)
+    }
+
+    private func captureExceptionEvent(
+        _ exceptionProperties: [String: Any],
+        additionalProperties: [String: Any]?
+    ) {
+        var mergedProperties = exceptionProperties
+        additionalProperties?.forEach { mergedProperties[$0.key] = $0.value }
+
+        capture("$exception", properties: mergedProperties)
     }
 
     private func installIntegrations() {
@@ -2353,23 +2339,17 @@ let maxRetryDelay = 30.0
     extension PostHogSDK {
         #if os(iOS) || targetEnvironment(macCatalyst)
             func getAutocaptureIntegration() -> PostHogAutocaptureIntegration? {
-                installedIntegrations.compactMap {
-                    $0 as? PostHogAutocaptureIntegration
-                }.first
+                getIntegration()
             }
 
             func getRageClickIntegration() -> PostHogRageClickIntegration? {
-                installedIntegrations.compactMap {
-                    $0 as? PostHogRageClickIntegration
-                }.first
+                getIntegration()
             }
         #endif
 
         #if os(iOS)
             func getReplayIntegration() -> PostHogReplayIntegration? {
-                installedIntegrations.compactMap {
-                    $0 as? PostHogReplayIntegration
-                }.first
+                getIntegration()
             }
         #endif
 
@@ -2378,15 +2358,15 @@ let maxRetryDelay = 30.0
         }
 
         func getAppLifeCycleIntegration() -> PostHogAppLifeCycleIntegration? {
-            installedIntegrations.compactMap {
-                $0 as? PostHogAppLifeCycleIntegration
-            }.first
+            getIntegration()
         }
 
         func getScreenViewIntegration() -> PostHogScreenViewIntegration? {
-            installedIntegrations.compactMap {
-                $0 as? PostHogScreenViewIntegration
-            }.first
+            getIntegration()
+        }
+
+        private func getIntegration<T: PostHogIntegration>() -> T? {
+            installedIntegrations.compactMap { $0 as? T }.first
         }
     }
 #endif

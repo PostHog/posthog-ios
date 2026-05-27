@@ -16,8 +16,7 @@
     class PostHogReplayIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
-        private static var integrationInstalledLock = NSLock()
-        private static var integrationInstalled = false
+        private static let integrationInstallState = PostHogIntegrationInstallState()
 
         private var config: PostHogConfig? {
             postHog?.config
@@ -145,54 +144,40 @@
         }
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            let didInstall = PostHogReplayIntegration.integrationInstalledLock.withLock {
-                if PostHogReplayIntegration.integrationInstalled {
-                    return false
+            installIfNeeded(using: Self.integrationInstallState) {
+                self.postHog = postHog
+                replayQueue = postHog.replayQueue
+
+                // Wire up as buffer delegate for the replay queue
+                replayQueue?.bufferDelegate = self
+
+                // Resolve event triggers and minimum duration from cached remote config (if available)
+                if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
+                    updateEventTriggers(from: cachedRemoteConfig)
                 }
-                PostHogReplayIntegration.integrationInstalled = true
-                return true
+                updateCachedMinimumDuration()
+
+                // Subscribe to remote config changes (needed before start to update triggers)
+                remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
+                    self?.applyRemoteConfig(remoteConfig: config)
+                }
+
+                // Subscribe to event captures for trigger matching (needed before start to detect triggers)
+                eventCapturedToken = postHog.onEventCaptured.subscribe { [weak self] event in
+                    self?.handleEventCaptured(event: event.event)
+                }
+
+                start()
             }
-
-            guard didInstall else {
-                return .skipped(.alreadyInstalled)
-            }
-
-            self.postHog = postHog
-            replayQueue = postHog.replayQueue
-
-            // Wire up as buffer delegate for the replay queue
-            replayQueue?.bufferDelegate = self
-
-            // Resolve event triggers and minimum duration from cached remote config (if available)
-            if let cachedRemoteConfig = postHog.remoteConfig?.getRemoteConfig() {
-                updateEventTriggers(from: cachedRemoteConfig)
-            }
-            updateCachedMinimumDuration()
-
-            // Subscribe to remote config changes (needed before start to update triggers)
-            remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
-                self?.applyRemoteConfig(remoteConfig: config)
-            }
-
-            // Subscribe to event captures for trigger matching (needed before start to detect triggers)
-            eventCapturedToken = postHog.onEventCaptured.subscribe { [weak self] event in
-                self?.handleEventCaptured(event: event.event)
-            }
-
-            start()
-            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            if self.postHog === postHog || self.postHog == nil {
+            uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
                 // Clear the pre-start listeners
                 remoteConfigLoadedToken = nil
                 eventCapturedToken = nil
                 self.postHog = nil
-                PostHogReplayIntegration.integrationInstalledLock.withLock {
-                    PostHogReplayIntegration.integrationInstalled = false
-                }
 
                 // Clear buffer delegate
                 replayQueue?.bufferDelegate = nil
@@ -432,16 +417,17 @@
         }
 
         private func pauseAllPlugins() {
-            let pluginsToPause = installedPluginsLock.withLock { installedPlugins }
-            for plugin in pluginsToPause {
-                plugin.pause()
-            }
+            updateAllPlugins { $0.pause() }
         }
 
         private func resumeAllPlugins() {
-            let pluginsToResume = installedPluginsLock.withLock { installedPlugins }
-            for plugin in pluginsToResume {
-                plugin.resume()
+            updateAllPlugins { $0.resume() }
+        }
+
+        private func updateAllPlugins(_ update: (PostHogSessionReplayPlugin) -> Void) {
+            let plugins = installedPluginsLock.withLock { installedPlugins }
+            for plugin in plugins {
+                update(plugin)
             }
         }
 
@@ -1377,9 +1363,7 @@
     #if TESTING
         extension PostHogReplayIntegration {
             static func clearInstalls() {
-                integrationInstalledLock.withLock {
-                    integrationInstalled = false
-                }
+                integrationInstallState.clear()
             }
         }
     #endif

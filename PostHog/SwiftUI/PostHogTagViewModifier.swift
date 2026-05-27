@@ -307,8 +307,7 @@
         }
 
         func updateUIView(_ uiView: PostHogTagUIView, context _: Context) {
-            uiView.postHogView = true
-            uiView.superview?.postHogView = true
+            markPostHogView(uiView)
         }
 
         static func dismantleUIView(_ uiView: PostHogTagUIView, coordinator: Coordinator) {
@@ -452,9 +451,13 @@
         }
 
         func updateUIView(_ uiView: UIViewType, context _: Context) {
-            uiView.postHogView = true
-            uiView.superview?.postHogView = true
+            markPostHogView(uiView)
         }
+    }
+
+    private func markPostHogView(_ view: UIView) {
+        view.postHogView = true
+        view.superview?.postHogView = true
     }
 
     private class PostHogTagAnchorUIView: UIView {

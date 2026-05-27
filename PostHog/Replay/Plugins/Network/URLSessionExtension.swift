@@ -17,16 +17,16 @@
             return nanoTime / 1_000_000
         }
 
-        private func executeRequest(request: URLRequest? = nil,
-                                    action: () async throws -> (Data, URLResponse),
-                                    postHog: PostHogSDK?) async throws -> (Data, URLResponse)
+        private func executeRequest<Result>(request: URLRequest? = nil,
+                                            action: () async throws -> (Result, URLResponse),
+                                            postHog: PostHogSDK?) async throws -> (Result, URLResponse)
         {
             let timestamp = Date()
             let startMillis = getMonotonicTimeInMilliseconds()
             var endMillis: UInt64?
             let sessionId = postHog?.sessionManager.getSessionId(at: timestamp)
             do {
-                let (data, response) = try await action()
+                let (result, response) = try await action()
                 endMillis = getMonotonicTimeInMilliseconds()
                 captureData(request: request,
                             response: response,
@@ -35,38 +35,7 @@
                             start: startMillis,
                             end: endMillis,
                             postHog: postHog)
-                return (data, response)
-            } catch {
-                captureData(request: request,
-                            response: nil,
-                            sessionId: sessionId,
-                            timestamp: timestamp,
-                            start: startMillis,
-                            end: endMillis,
-                            postHog: postHog)
-                throw error
-            }
-        }
-
-        private func executeRequest(request: URLRequest? = nil,
-                                    action: () async throws -> (URL, URLResponse),
-                                    postHog: PostHogSDK?) async throws -> (URL, URLResponse)
-        {
-            let timestamp = Date()
-            let startMillis = getMonotonicTimeInMilliseconds()
-            var endMillis: UInt64?
-            let sessionId = postHog?.sessionManager.getSessionId(at: timestamp)
-            do {
-                let (url, response) = try await action()
-                endMillis = getMonotonicTimeInMilliseconds()
-                captureData(request: request,
-                            response: response,
-                            sessionId: sessionId,
-                            timestamp: timestamp,
-                            start: startMillis,
-                            end: endMillis,
-                            postHog: postHog)
-                return (url, response)
+                return (result, response)
             } catch {
                 captureData(request: request,
                             response: nil,

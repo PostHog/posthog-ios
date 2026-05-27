@@ -7,6 +7,16 @@
 
 import Foundation
 
+private func decodeSurveyStringValue<T>(
+    from decoder: any Decoder,
+    values: [String: T],
+    unknown: (String) -> T
+) throws -> T {
+    let container = try decoder.singleValueContainer()
+    let value = try container.decode(String.self)
+    return values[value] ?? unknown(value)
+}
+
 // MARK: - Supporting Types
 
 enum PostHogSurveyType: Decodable, Equatable {
@@ -16,19 +26,14 @@ enum PostHogSurveyType: Decodable, Equatable {
     case unknown(type: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let typeString = try container.decode(String.self)
-
-        switch typeString {
-        case "popover":
-            self = .popover
-        case "api":
-            self = .api
-        case "widget":
-            self = .widget
-        default:
-            self = .unknown(type: typeString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "popover": .popover,
+                "api": .api,
+                "widget": .widget,
+            ]
+        ) { .unknown(type: $0) }
     }
 }
 
@@ -41,23 +46,16 @@ enum PostHogSurveyQuestionType: Decodable, Equatable {
     case unknown(type: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let typeString = try container.decode(String.self)
-
-        switch typeString {
-        case "open":
-            self = .open
-        case "link":
-            self = .link
-        case "rating":
-            self = .rating
-        case "multiple_choice":
-            self = .multipleChoice
-        case "single_choice":
-            self = .singleChoice
-        default:
-            self = .unknown(type: typeString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "open": .open,
+                "link": .link,
+                "rating": .rating,
+                "multiple_choice": .multipleChoice,
+                "single_choice": .singleChoice,
+            ]
+        ) { .unknown(type: $0) }
     }
 }
 
@@ -67,17 +65,13 @@ enum PostHogSurveyTextContentType: Decodable, Equatable {
     case unknown(type: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let typeString = try container.decode(String.self)
-
-        switch typeString {
-        case "html":
-            self = .html
-        case "text":
-            self = .text
-        default:
-            self = .unknown(type: typeString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "html": .html,
+                "text": .text,
+            ]
+        ) { .unknown(type: $0) }
     }
 }
 
@@ -93,29 +87,19 @@ enum PostHogSurveyMatchType: Decodable, Equatable {
     case unknown(value: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let valueString = try container.decode(String.self)
-
-        switch valueString {
-        case "regex":
-            self = .regex
-        case "not_regex":
-            self = .notRegex
-        case "exact":
-            self = .exact
-        case "is_not":
-            self = .isNot
-        case "icontains":
-            self = .iContains
-        case "not_icontains":
-            self = .notIContains
-        case "gt":
-            self = .gt
-        case "lt":
-            self = .lt
-        default:
-            self = .unknown(value: valueString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "regex": .regex,
+                "not_regex": .notRegex,
+                "exact": .exact,
+                "is_not": .isNot,
+                "icontains": .iContains,
+                "not_icontains": .notIContains,
+                "gt": .gt,
+                "lt": .lt,
+            ]
+        ) { .unknown(value: $0) }
     }
 }
 
@@ -132,31 +116,20 @@ enum PostHogSurveyAppearancePosition: Decodable, Equatable {
     case unknown(position: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let positionString = try container.decode(String.self)
-
-        switch positionString {
-        case "top_left":
-            self = .topLeft
-        case "top_center":
-            self = .topCenter
-        case "top_right":
-            self = .topRight
-        case "middle_left":
-            self = .middleLeft
-        case "middle_center":
-            self = .middleCenter
-        case "middle_right":
-            self = .middleRight
-        case "left":
-            self = .left
-        case "right":
-            self = .right
-        case "center":
-            self = .center
-        default:
-            self = .unknown(position: positionString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "top_left": .topLeft,
+                "top_center": .topCenter,
+                "top_right": .topRight,
+                "middle_left": .middleLeft,
+                "middle_center": .middleCenter,
+                "middle_right": .middleRight,
+                "left": .left,
+                "right": .right,
+                "center": .center,
+            ]
+        ) { .unknown(position: $0) }
     }
 }
 
@@ -167,19 +140,14 @@ enum PostHogSurveyAppearanceWidgetType: Decodable, Equatable {
     case unknown(type: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let typeString = try container.decode(String.self)
-
-        switch typeString {
-        case "button":
-            self = .button
-        case "tab":
-            self = .tab
-        case "selector":
-            self = .selector
-        default:
-            self = .unknown(type: typeString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "button": .button,
+                "tab": .tab,
+                "selector": .selector,
+            ]
+        ) { .unknown(type: $0) }
     }
 }
 
@@ -189,17 +157,13 @@ enum PostHogSurveyRatingDisplayType: Decodable, Equatable {
     case unknown(type: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let typeString = try container.decode(String.self)
-
-        switch typeString {
-        case "number":
-            self = .number
-        case "emoji":
-            self = .emoji
-        default:
-            self = .unknown(type: typeString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "number": .number,
+                "emoji": .emoji,
+            ]
+        ) { .unknown(type: $0) }
     }
 }
 
@@ -272,19 +236,14 @@ enum PostHogSurveySchedule: Decodable, Equatable {
     case unknown(schedule: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let scheduleString = try container.decode(String.self)
-
-        switch scheduleString {
-        case "once":
-            self = .once
-        case "recurring":
-            self = .recurring
-        case "always":
-            self = .always
-        default:
-            self = .unknown(schedule: scheduleString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "once": .once,
+                "recurring": .recurring,
+                "always": .always,
+            ]
+        ) { .unknown(schedule: $0) }
     }
 }
 
@@ -296,20 +255,14 @@ enum PostHogSurveyQuestionBranchingType: Decodable, Equatable {
     case unknown(type: String)
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let typeString = try container.decode(String.self)
-
-        switch typeString {
-        case "next_question":
-            self = .nextQuestion
-        case "end":
-            self = .end
-        case "response_based":
-            self = .responseBased
-        case "specific_question":
-            self = .specificQuestion
-        default:
-            self = .unknown(type: typeString)
-        }
+        self = try decodeSurveyStringValue(
+            from: decoder,
+            values: [
+                "next_question": .nextQuestion,
+                "end": .end,
+                "response_based": .responseBased,
+                "specific_question": .specificQuestion,
+            ]
+        ) { .unknown(type: $0) }
     }
 }

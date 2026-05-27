@@ -10,38 +10,23 @@ import Foundation
 final class PostHogScreenViewIntegration: PostHogIntegration {
     var requiresSwizzling: Bool { true }
 
-    private static var integrationInstalledLock = NSLock()
-    private static var integrationInstalled = false
+    private static let integrationInstallState = PostHogIntegrationInstallState()
 
     private weak var postHog: PostHogSDK?
 
     func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-        let didInstall = PostHogScreenViewIntegration.integrationInstalledLock.withLock {
-            if PostHogScreenViewIntegration.integrationInstalled {
-                return false
-            }
-            PostHogScreenViewIntegration.integrationInstalled = true
-            return true
+        installIfNeeded(using: Self.integrationInstallState) {
+            self.postHog = postHog
+
+            start()
         }
-
-        guard didInstall else {
-            return .skipped(.alreadyInstalled)
-        }
-
-        self.postHog = postHog
-
-        start()
-        return .installed
     }
 
     func uninstall(_ postHog: PostHogSDK) {
-        // uninstall only for integration instance
-        if self.postHog === postHog || self.postHog == nil {
+        uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
+            // uninstall only for integration instance
             stop()
             self.postHog = nil
-            PostHogScreenViewIntegration.integrationInstalledLock.withLock {
-                PostHogScreenViewIntegration.integrationInstalled = false
-            }
         }
     }
 
@@ -63,9 +48,7 @@ final class PostHogScreenViewIntegration: PostHogIntegration {
 #if TESTING
     extension PostHogScreenViewIntegration {
         static func clearInstalls() {
-            integrationInstalledLock.withLock {
-                integrationInstalled = false
-            }
+            integrationInstallState.clear()
         }
     }
 #endif

@@ -203,13 +203,11 @@
         }
 
         private var hasOpenChoiceSelected: Bool {
-            guard let openChoice else { return false }
-            return selectedChoices.contains(openChoice)
+            isOpenChoiceSelected(openChoice, in: selectedChoices)
         }
 
         private var openChoice: String? {
-            guard question.hasOpenChoice == true else { return nil }
-            return question.choices.last
+            openChoice(for: question)
         }
     }
 
@@ -253,13 +251,21 @@
         }
 
         private var hasOpenChoiceSelected: Bool {
-            guard let openChoice else { return false }
-            return selectedChoices.contains(openChoice)
+            isOpenChoiceSelected(openChoice, in: selectedChoices)
         }
 
         private var openChoice: String? {
-            guard question.hasOpenChoice == true else { return nil }
-            return question.choices.last
+            openChoice(for: question)
         }
+    }
+
+    private func isOpenChoiceSelected(_ openChoice: String?, in selectedChoices: Set<String>) -> Bool {
+        guard let openChoice else { return false }
+        return selectedChoices.contains(openChoice)
+    }
+
+    private func openChoice(for question: PostHogDisplayChoiceQuestion) -> String? {
+        guard question.hasOpenChoice == true else { return nil }
+        return question.choices.last
     }
 #endif

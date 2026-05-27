@@ -9,8 +9,9 @@ import Foundation
 
 /// Manages the active PostHog session ID and session rotation state.
 ///
-/// Most applications should use `PostHogSDK.getSessionId()`, `startSession()`, and
-/// `endSession()` instead of interacting with this manager directly.
+/// - Warning: This class is public for backwards compatibility, but is intended for
+///   SDK-internal use only. Application code should use `PostHogSDK.getSessionId()`,
+///   `startSession()`, and `endSession()` instead of interacting with this manager directly.
 @objc public class PostHogSessionManager: NSObject {
     enum SessionIDChangeReason: String {
         case sessionIdEmpty = "Session id was empty"

@@ -9,9 +9,9 @@ import Foundation
 
 /// Manages persisted identity metadata for a PostHog SDK instance.
 ///
-/// The SDK creates this automatically from `PostHogConfig`. It is public for advanced
-/// integrations that need to share identity state, but application code should usually use
-/// `PostHogSDK` identity APIs instead.
+/// - Warning: This class is public for backwards compatibility, but is intended for
+///   SDK-internal use only. Application code should use `PostHogSDK` identity APIs
+///   instead of interacting with storage directly.
 public class PostHogStorageManager {
     private let storage: PostHogStorage!
 

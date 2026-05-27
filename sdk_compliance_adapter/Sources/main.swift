@@ -199,7 +199,9 @@ app.post("get_feature_flag") { req async throws -> Response in
     // exactly one /flags request is made below (the harness asserts request counts).
     if let personProperties = flagReq.personProperties, !personProperties.isEmpty {
         var props: [String: Any] = [:]
-        for (k, v) in personProperties { props[k] = v.value }
+        for (key, value) in personProperties {
+            props[key] = value.value
+        }
         sdk.setPersonPropertiesForFlags(props, reloadFeatureFlags: false)
     }
 

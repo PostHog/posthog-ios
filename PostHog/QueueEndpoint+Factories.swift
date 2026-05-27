@@ -8,9 +8,7 @@ import Foundation
 /// Retry policy shared by `/batch` (events) and `/snapshot` (replay): 408, 429,
 /// the listed 5xx, plus 3xx redirects.
 private func isEventsRetriableStatusCode(_ code: Int) -> Bool {
-    code == 408
-        || code == 429
-        || [500, 502, 503, 504].contains(code)
+    [408, 429, 500, 502, 503, 504].contains(code)
         || (300 ... 399).contains(code)
 }
 

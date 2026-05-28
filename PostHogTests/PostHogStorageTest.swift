@@ -170,6 +170,23 @@ class PostHogStorageTest {
         try? FileManager.default.removeItem(at: URL(fileURLWithPath: prefix))
     }
 
+    @Test("storagePrefix takes precedence over appGroupIdentifier when both are set")
+    func storagePrefixTakesPrecedenceOverAppGroupIdentifier() {
+        let prefix = (NSTemporaryDirectory() as NSString).appendingPathComponent("ph-storage-prefix-\(UUID().uuidString)")
+        let config = PostHogConfig(projectToken: "test_project_token")
+        config.storagePrefix = prefix
+        config.appGroupIdentifier = testAppGroupIdentifier
+        let sut = PostHogStorage(config)
+        let url = sut.appFolderUrl
+
+        // With both set, the explicit prefix wins and the app group container is not used.
+        #expect(url.path.hasPrefix(prefix))
+        #expect(url.path.contains(testAppGroupIdentifier) == false)
+
+        sut.reset()
+        try? FileManager.default.removeItem(at: URL(fileURLWithPath: prefix))
+    }
+
     @Test("writes to disk in a project token folder under a group container directory")
     func writesToDiskInAProjectTokenFolderUnderGroupContainerDirectory() {
         let config = PostHogConfig(projectToken: "test_project_token")

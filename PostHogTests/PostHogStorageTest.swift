@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 
 @Suite("PostHogStorage Tests", .serialized)
@@ -146,6 +146,28 @@ class PostHogStorageTest {
         #expect(fileManager.fileExists(atPath: fileUrl.path) == false)
 
         sut.reset()
+    }
+
+    @Test("writes to disk under a custom storagePrefix when set")
+    func writesToDiskUnderCustomStoragePrefix() {
+        let prefix = (NSTemporaryDirectory() as NSString).appendingPathComponent("ph-storage-prefix-\(UUID().uuidString)")
+        let config = PostHogConfig(projectToken: "test_project_token")
+        config.storagePrefix = prefix
+        let sut = PostHogStorage(config)
+        let url = sut.appFolderUrl
+
+        sut.setString(forKey: .distinctId, contents: "distinct_id_value")
+
+        // Storage lives under <prefix>/<projectToken>/, not the default Application Support dir.
+        #expect(url.path.hasPrefix(prefix))
+        #expect(Array(url.pathComponents.suffix(1)) == ["test_project_token"])
+        #expect(url.path.contains("Application Support") == false)
+
+        let fileUrl = url.appendingPathComponent(PostHogStorage.StorageKey.distinctId.rawValue)
+        #expect(FileManager.default.fileExists(atPath: fileUrl.path))
+
+        sut.reset()
+        try? FileManager.default.removeItem(at: URL(fileURLWithPath: prefix))
     }
 
     @Test("writes to disk in a project token folder under a group container directory")

@@ -268,6 +268,16 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: nil
     @objc public var appGroupIdentifier: String?
 
+    /// Overrides the base directory used for on-disk storage (the event queue, cached
+    /// feature flags, and replay data). When `nil` (default), storage lives under the
+    /// Application Support directory (or the app group container) exactly as before.
+    ///
+    /// Exposed as `@_spi(PostHogInternal)` — an advanced/internal knob, not part of the
+    /// stable public API. Used by the SDK compliance adapter to give each test an isolated
+    /// directory.
+    /// Default: nil
+    @_spi(PostHogInternal) public var storagePrefix: String?
+
     /// Session replay snapshot endpoint path.
     ///
     /// - Warning: This value is managed by the SDK from remote configuration and should not

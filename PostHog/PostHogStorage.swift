@@ -340,7 +340,14 @@ class PostHogStorage {
      we want to use a shared container for storing data so that extensions correctly identify a user (and batch process events)
      */
     private static func getBaseAppFolderUrl(from configuration: PostHogConfig) -> URL {
-        appGroupContainerUrl(config: configuration) ?? applicationSupportDirectoryURL()
+        // An explicit storagePrefix takes precedence over the app group / default location.
+        // The two aren't meant to be combined: storagePrefix is an advanced override, while
+        // appGroupIdentifier opts into a shared container. If both are set, the explicit
+        // prefix wins and the app group container is not used.
+        if let storagePrefix = configuration.storagePrefix {
+            return URL(fileURLWithPath: storagePrefix, isDirectory: true)
+        }
+        return appGroupContainerUrl(config: configuration) ?? applicationSupportDirectoryURL()
     }
 
     private static func migrateItem(at sourceUrl: URL, to destinationUrl: URL, fileManager: FileManager) throws {

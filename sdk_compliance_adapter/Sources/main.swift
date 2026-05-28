@@ -207,13 +207,6 @@ app.post("get_feature_flag") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    // NOTE: flagReq.distinctId is intentionally NOT applied. iOS evaluates flags for the
-    // current cached user — getFeatureFlag(key) takes no per-call distinct_id — and the only
-    // way to set one, identify(), fires its own /flags reload, which would break the single
-    // -request assertions below. Tests that assert a caller-supplied distinct_id are
-    // server-only (gated via mobile_flag_eval), so the SDK's own identity is correct here.
-    // The field is decoded to match the harness contract; we just don't act on it.
-
     // Apply person/group properties for flag evaluation without reloading yet, so
     // exactly one /flags request is made below (the harness asserts request counts).
     if let personProperties = flagReq.personProperties, !personProperties.isEmpty {

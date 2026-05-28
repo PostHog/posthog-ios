@@ -1,5 +1,11 @@
 ## Next
 
+## 3.59.2
+
+### Patch Changes
+
+- 0cc8d80: Retry event uploads on HTTP 408 (Request Timeout), matching the SDK's existing logs-endpoint behavior.
+
 ## 3.59.1
 
 ### Patch Changes

@@ -2,6 +2,16 @@ import Foundation
 import PostHog
 import Vapor
 
+// Redirect all SDK on-disk storage into a private sandbox this adapter fully owns, so a
+// test can be isolated by wiping the sandbox wholesale — without the adapter having to
+// mirror the SDK's internal path layout (Application Support / <bundleId> / <token> / …).
+// CFFIXED_USER_HOME makes Foundation resolve NSHomeDirectory() (and the Application Support
+// directory under it) here; HOME covers any path that derives from it. Set before any SDK
+// call so the first storage lookup already uses the sandbox.
+let adapterStorageHome = (NSTemporaryDirectory() as NSString).appendingPathComponent("posthog-ios-compliance-home")
+setenv("CFFIXED_USER_HOME", adapterStorageHome, 1)
+setenv("HOME", adapterStorageHome, 1)
+
 // Global state for the adapter
 class AdapterState {
     var posthogSDK: PostHogSDK?
@@ -18,14 +28,11 @@ let state = AdapterState()
 // Wipe PostHog's on-disk storage so queued events, cached flags, and groups don't
 // leak across tests. close() tears down the SDK but leaves its file-backed queue and
 // storage on disk; the harness resets before every test and expects a clean slate.
-// Mirrors the SDK's own path logic (PostHogStorage): Application Support / <bundleId>,
-// where bundleId falls back to "com.posthog.test" under the -DTESTING build.
+// All SDK storage is redirected under adapterStorageHome (see CFFIXED_USER_HOME above),
+// so nuking that one directory clears everything regardless of the SDK's internal path
+// layout. The SDK recreates the directories it needs on the next setup().
 func clearPostHogStorage() {
-    let bundleId = Bundle.main.bundleIdentifier ?? "com.posthog.test"
-    guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-        return
-    }
-    try? FileManager.default.removeItem(at: appSupport.appendingPathComponent(bundleId))
+    try? FileManager.default.removeItem(atPath: adapterStorageHome)
 }
 
 // Configure and create the Vapor application

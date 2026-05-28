@@ -12,6 +12,11 @@ let adapterStorageHome = (NSTemporaryDirectory() as NSString).appendingPathCompo
 setenv("CFFIXED_USER_HOME", adapterStorageHome, 1)
 setenv("HOME", adapterStorageHome, 1)
 
+// How long to wait after sdk.flush() for the SDK's async upload to land before returning.
+// Shared by /flush and get_feature_flag so an event flushed in one test can't spill into the
+// next test's mock window (the side-effect timing failure). Based on browser-SDK experience.
+let flushSettleNanoseconds: UInt64 = 2_000_000_000 // 2 seconds
+
 // Global state for the adapter
 class AdapterState {
     var posthogSDK: PostHogSDK?
@@ -202,6 +207,13 @@ app.post("get_feature_flag") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
+    // NOTE: flagReq.distinctId is intentionally NOT applied. iOS evaluates flags for the
+    // current cached user — getFeatureFlag(key) takes no per-call distinct_id — and the only
+    // way to set one, identify(), fires its own /flags reload, which would break the single
+    // -request assertions below. Tests that assert a caller-supplied distinct_id are
+    // server-only (gated via mobile_flag_eval), so the SDK's own identity is correct here.
+    // The field is decoded to match the harness contract; we just don't act on it.
+
     // Apply person/group properties for flag evaluation without reloading yet, so
     // exactly one /flags request is made below (the harness asserts request counts).
     if let personProperties = flagReq.personProperties, !personProperties.isEmpty {
@@ -244,8 +256,9 @@ app.post("get_feature_flag") { req async throws -> Response in
     // Flush that $feature_flag_called event now and wait for it to land. With flushAt=1
     // it would otherwise auto-flush asynchronously and could arrive in the *next* test's
     // mock window, inflating $feature_flag_called counts (the side_effect test failure).
+    // Uses the same settle window as /flush so the wait can't be the weak link.
     sdk.flush()
-    try await Task.sleep(nanoseconds: 1_000_000_000)
+    try await Task.sleep(nanoseconds: flushSettleNanoseconds)
 
     var result: [String: Any] = ["success": true]
     result["value"] = value ?? NSNull()
@@ -264,12 +277,11 @@ app.post("flush") { req async throws -> Response in
     // Flush the SDK
     sdk.flush()
 
-    // CRITICAL: Wait for the flush to complete
-    // The SDK uses async network requests, so we need to wait for them to finish
-    // Based on browser SDK experience, 2000ms should be enough
-    try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+    // CRITICAL: Wait for the flush to complete. The SDK uses async network requests, so
+    // we need to wait for them to finish before returning.
+    try await Task.sleep(nanoseconds: flushSettleNanoseconds)
 
-    print("[ADAPTER] Flush complete, waited 2s for network requests")
+    print("[ADAPTER] Flush complete, waited for network requests")
 
     let result = ["status": "ok"]
     return try await result.encodeResponse(for: req)

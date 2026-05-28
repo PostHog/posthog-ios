@@ -24,7 +24,7 @@
         /// This is the processed and sanitized log message
         @objc public let message: String
 
-        /// Creates a new console log result.
+        /// Creates a new console log entry.
         /// - Parameters:
         ///   - level: The severity level of the log entry
         ///   - message: The processed log message content

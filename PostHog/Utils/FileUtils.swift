@@ -7,6 +7,9 @@
 
 import Foundation
 
+/// Deletes a file if it exists, logging and ignoring any removal error.
+///
+/// - Parameter file: File URL to delete.
 public func deleteSafely(_ file: URL) {
     if FileManager.default.fileExists(atPath: file.path) {
         do {

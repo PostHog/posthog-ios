@@ -1,0 +1,19 @@
+{
+    "id": "noop-translation-survey",
+    "name": "Hello",
+    "type": "popover",
+    "questions": [
+        {
+            "id": "q1",
+            "type": "open",
+            "question": "What's up?",
+            "translations": {
+                "fr": { "question": "What's up?" }
+            }
+        }
+    ],
+    "translations": {
+        "fr": { "name": "Hello" }
+    },
+    "start_date": "2025-01-16T22:23:38.805000Z"
+}

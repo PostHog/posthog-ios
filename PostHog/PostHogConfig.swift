@@ -6,8 +6,21 @@
 //
 import Foundation
 
+/// Callback invoked before an event is persisted or sent.
+///
+/// Return the event (mutated or unchanged) to continue processing, or `nil` to drop it.
+/// Blocks run synchronously on the capture caller's thread and compose in registration order.
+///
+/// - Parameter event: The event about to be queued.
+/// - Returns: The event to queue, or `nil` to drop it.
 public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
+/// Runtime configuration for a `PostHogSDK` instance.
+///
+/// Create a config with your project token, mutate any options you need, then pass it to
+/// `PostHogSDK.shared.setup(_:)` or `PostHogSDK.with(_:)`. Options that control queues,
+/// integrations, or resource attributes should be set before setup; later mutations may not
+/// affect already-installed SDK components.
 @objc(PostHogConfig) public class PostHogConfig: NSObject {
     enum Defaults {
         #if os(tvOS)
@@ -22,12 +35,21 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         static let maxRetries: Int = 3
     }
 
+    /// Network connectivity mode required before queued data may be flushed.
     @objc(PostHogDataMode) public enum PostHogDataMode: Int {
+        /// Flush only while the device is connected to Wi-Fi.
         case wifi
+        /// Legacy cellular mode.
+        ///
+        /// Currently behaves the same as `.any`; only `.wifi` applies a stricter flush restriction.
         case cellular
+        /// Flush while any network connection is available.
         case any
     }
 
+    /// PostHog ingestion host used for all SDK network requests.
+    ///
+    /// Defaults to `PostHogConfig.defaultHost` when the initializer host is empty or invalid.
     @objc public let host: URL
 
     /// Your PostHog project token.
@@ -35,18 +57,35 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// You can find it at:
     /// https://us.posthog.com/settings/project-details#variables
     ///
-    /// This field was formerly named <c>apiKey</c>.
+    /// This field was formerly named `apiKey`.
     @objc public let projectToken: String
 
-    /// Obsolete alias for <c>projectToken</c>.
+    /// Obsolete alias for `projectToken`.
     @available(*, deprecated, message: "Use projectToken instead. This will be removed in the next major version.")
     @objc public var apiKey: String {
         hedgeLog("apiKey is deprecated and will be removed in the next major version. Use projectToken instead.")
         return projectToken
     }
+    /// Number of queued events that triggers an automatic flush.
+    ///
+    /// Lower values send data sooner but can increase battery and network usage.
+    /// Default: `20` (`5` on tvOS).
     @objc public var flushAt: Int = Defaults.flushAt
+
+    /// Maximum number of events kept in the on-disk queue before older events are dropped.
+    ///
+    /// Default: `1000` (`100` on tvOS).
     @objc public var maxQueueSize: Int = Defaults.maxQueueSize
+
+    /// Maximum number of events included in a single batch request.
+    ///
+    /// Default: `50`.
     @objc public var maxBatchSize: Int = Defaults.maxBatchSize
+
+    /// Interval, in seconds, between periodic queue flush checks.
+    ///
+    /// Lower values deliver events closer to real time but can increase battery usage.
+    /// Default: `30`.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
     /// Maximum number of consecutive flush attempts before the entire queue is
@@ -54,13 +93,28 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Increments on every retriable failure including HTTP 413 cap halving;
     /// resets on a successful 2xx response. Default 3.
     @objc public var maxRetries: Int = Defaults.maxRetries
+    /// Required network connectivity mode for flushing queued data.
+    ///
+    /// Only `.wifi` currently restricts flushing; `.cellular` behaves the same as `.any`.
+    /// Default: `.any`.
     @objc public var dataMode: PostHogDataMode = .any
+
+    /// Whether feature flag lookups automatically capture `$feature_flag_called` events.
+    ///
+    /// Individual lookup calls can override this value with their `sendFeatureFlagEvent` parameter.
+    /// Default: `true`.
     @objc public var sendFeatureFlagEvent: Bool = true
+
+    /// Whether feature flags are loaded automatically during SDK setup.
+    ///
+    /// Default: `true`.
     @objc public var preloadFeatureFlags: Bool = true
 
-    /// Preload PostHog remote config automatically
+    /// Deprecated no-op for remote config loading.
     ///
-    /// @deprecated Remote config is now always loaded. This option is a no-op and will be removed in a future version.
+    /// Remote config is now always loaded; setting this property has no effect.
+    ///
+    /// - Deprecated: Remote config is always loaded. This option will be removed in a future version.
     @available(*, deprecated, message: "Remote config is now always loaded. This option is a no-op and will be removed in a future version.")
     @objc public var remoteConfig: Bool {
         get { true }
@@ -71,7 +125,24 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         }
     }
 
+    /// Whether the SDK automatically captures application lifecycle events.
+    ///
+    /// When enabled, the SDK records events such as `Application Installed`,
+    /// `Application Updated`, `Application Opened`, and background/foreground transitions.
+    /// Default: `true`.
     @objc public var captureApplicationLifecycleEvents: Bool = true
+
+    /// Automatically captures a `$screen` event whenever a `UIViewController` appears
+    /// (via `viewDidAppear` swizzling).
+    ///
+    /// `$screen_name` stamping on subsequent events is a related effect: any
+    /// successful `screen()` call — whether fired by this auto-capture path **or
+    /// invoked manually** via `PostHogSDK.shared.screen(...)` — caches the screen
+    /// name so it lands as `$screen_name` on every later event the SDK captures.
+    /// To opt out of `$screen_name` stamping entirely, set this to `false` **and**
+    /// avoid calling `screen(...)` manually.
+    ///
+    /// Default: `true`
     @objc public var captureScreenViews: Bool = true
 
     /// Enable method swizzling for SDK functionality that depends on it
@@ -85,15 +156,35 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var enableSwizzling: Bool = true
 
     #if os(iOS) || targetEnvironment(macCatalyst)
-        /// Enable autocapture for iOS
-        /// Default: false
+        /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
+        ///
+        /// Requires `enableSwizzling = true`.
+        /// Default: `false`.
         @objc public var captureElementInteractions: Bool = false
 
-        /// Rage click detection configuration
+        /// Rage click detection configuration.
         @objc public let rageClickConfig: PostHogRageClickConfig = .init()
     #endif
+
+    /// Enables verbose SDK diagnostic logging.
+    ///
+    /// Default: `false`.
     @objc public var debug: Bool = false
+
+    /// Starts the SDK in an opted-out state when set before setup.
+    ///
+    /// While opted out, capture calls are ignored and integrations are not installed.
+    /// Use `PostHogSDK.optIn()` and `PostHogSDK.optOut()` to change the persisted state at runtime.
+    /// Default: `false`.
     @objc public var optOut: Bool = false
+
+    /// Hook used to customize newly generated anonymous IDs.
+    ///
+    /// The SDK passes its generated UUID v7 and stores the UUID returned by this closure.
+    /// Existing stored anonymous IDs are not regenerated.
+    ///
+    /// - Parameter uuid: The SDK-generated anonymous UUID.
+    /// - Returns: The UUID to persist as the anonymous ID.
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
 
     /// Flag to reuse the anonymous Id between `reset()` and next `identify()` calls
@@ -128,10 +219,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// When enabled, the SDK will automatically set the following person properties:
     /// - $app_version: App version from bundle
     /// - $app_build: App build number from bundle
+    /// - $app_namespace: App bundle identifier
     /// - $os_name: Operating system name (iOS, macOS, etc.)
     /// - $os_version: Operating system version
     /// - $device_type: Device type (Mobile, Tablet, Desktop, etc.)
-    /// - $locale: User's current locale
+    /// - $lib: SDK name
+    /// - $lib_version: SDK version
     ///
     /// This helps ensure feature flags that rely on these properties work correctly
     /// without waiting for server-side processing of identify() calls.
@@ -156,8 +249,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: nil (all flags are evaluated)
     @objc public var evaluationContexts: [String]?
 
-    /// Evaluation environments for feature flags.
-    /// @deprecated Use evaluationContexts instead. This property will be removed in a future version.
+    /// Deprecated alias for `evaluationContexts`.
+    ///
+    /// - Deprecated: Use `evaluationContexts` instead. This property will be removed in a future version.
     @available(*, deprecated, message: "Use evaluationContexts instead. This property will continue to work but will be removed in a future version.")
     @objc public var evaluationEnvironments: [String]? {
         get { evaluationContexts }
@@ -174,11 +268,15 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: nil
     @objc public var appGroupIdentifier: String?
 
-    /// Internal
-    /// Do not modify it, this flag is read and updated by the SDK via feature flags
+    /// Session replay snapshot endpoint path.
+    ///
+    /// - Warning: This value is managed by the SDK from remote configuration and should not
+    ///   be changed by application code.
     @objc public var snapshotEndpoint: String = "/s/"
 
-    /// or EU Host: 'https://eu.i.posthog.com'
+    /// Default PostHog ingestion host for US Cloud projects.
+    ///
+    /// Use `"https://eu.i.posthog.com"` for EU Cloud projects.
     public static let defaultHost: String = "https://us.i.posthog.com"
 
     #if os(iOS)
@@ -232,6 +330,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         set { setSurveys(newValue) }
     }
 
+    /// Configuration for mobile survey presentation and localization.
+    ///
+    /// Mutate fields on `config.surveysConfig` or replace this object before calling setup.
+    /// Available on iOS 15 and later.
     @available(iOS 15.0, *)
     @available(watchOS, unavailable, message: "Surveys are only available on iOS 15+")
     @available(macOS, unavailable, message: "Surveys are only available on iOS 15+")
@@ -252,13 +354,19 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     var disableQueueTimerForTesting: Bool = false
     var disableFlushOnBackgroundForTesting: Bool = false
     var disableRemoteConfigForTesting: Bool = false
-    // internal
+    /// Storage manager used by this configuration.
+    ///
+    /// - Warning: This is an SDK extension point used internally to share identity storage
+    ///   with SDK integrations and tests. Application code should not normally replace it.
     public var storageManager: PostHogStorageManager?
 
     private static func normalizeProjectToken(_ projectToken: String) -> String {
         projectToken.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Creates a configuration using the default PostHog host.
+    ///
+    /// - Parameter projectToken: Your PostHog project token. Leading and trailing whitespace is trimmed.
     @objc(projectToken:)
     public init(
         projectToken: String
@@ -267,6 +375,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         host = URL(string: PostHogConfig.defaultHost)!
     }
 
+    /// Creates a configuration with an explicit PostHog ingestion host.
+    ///
+    /// - Parameters:
+    ///   - projectToken: Your PostHog project token. Leading and trailing whitespace is trimmed.
+    ///   - host: PostHog ingestion host, for example `"https://us.i.posthog.com"` or
+    ///     `"https://eu.i.posthog.com"`. Empty or invalid values fall back to `defaultHost`.
     @objc(projectToken:host:)
     public init(
         projectToken: String,
@@ -278,6 +392,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         self.host = URL(string: normalizedHost.isEmpty ? PostHogConfig.defaultHost : normalizedHost) ?? URL(string: PostHogConfig.defaultHost)!
     }
 
+    /// Creates a configuration using the deprecated `apiKey` name.
+    ///
+    /// - Parameter apiKey: Your PostHog project token.
+    /// - Deprecated: Use `init(projectToken:)` instead.
     @available(*, deprecated, message: "Use init(projectToken:) instead. This will be removed in the next major version.")
     @objc(apiKey:)
     public convenience init(
@@ -287,6 +405,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         self.init(projectToken: apiKey)
     }
 
+    /// Creates a configuration using the deprecated `apiKey` name and an explicit host.
+    ///
+    /// - Parameters:
+    ///   - apiKey: Your PostHog project token.
+    ///   - host: PostHog ingestion host. Empty or invalid values fall back to `defaultHost`.
+    /// - Deprecated: Use `init(projectToken:host:)` instead.
     @available(*, deprecated, message: "Use init(projectToken:host:) instead. This will be removed in the next major version.")
     @objc(apiKey:host:)
     public convenience init(
@@ -365,14 +489,26 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// The hook is called before the event is cached or sent over the wire
     private var beforeSend = BeforeSendChain<PostHogEvent>()
 
+    /// Replaces the event `beforeSend` chain with the provided blocks.
+    ///
+    /// Blocks run synchronously in array order before an event is cached or sent. Returning
+    /// `nil` from any block drops the event and skips the remaining blocks.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
     public func setBeforeSend(_ blocks: [BeforeSendBlock]) {
         beforeSend.set(blocks)
     }
 
+    /// Replaces the event `beforeSend` chain with the provided blocks.
+    ///
+    /// - Parameter blocks: Ordered callbacks that can mutate or drop events.
     public func setBeforeSend(_ blocks: BeforeSendBlock...) {
         setBeforeSend(blocks)
     }
 
+    /// Replaces the event `beforeSend` chain from Objective-C boxed callbacks.
+    ///
+    /// - Parameter blocks: Ordered Objective-C callback boxes.
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) {
         setBeforeSend(blocks.map(\.block))

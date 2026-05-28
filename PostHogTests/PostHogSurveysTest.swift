@@ -191,6 +191,21 @@ enum PostHogSurveysTest {
                     throw TestError("Expected a rating question")
                 }
             }
+
+            @Test("rating question decodes without bound labels")
+            func ratingQuestionDecodesWithoutBoundLabels() throws {
+                let data = try loadFixture("fixture_survey_question_rating_no_bounds")
+                let sut = try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: data)
+
+                if case let .rating(question) = sut.questions[0] {
+                    #expect(question.scale == .tenPoint)
+                    #expect(question.display == .number)
+                    #expect(question.lowerBoundLabel == nil)
+                    #expect(question.upperBoundLabel == nil)
+                } else {
+                    throw TestError("Expected a rating question")
+                }
+            }
         }
 
         @Suite("Question branching decodes correctly")
@@ -665,7 +680,8 @@ enum PostHogSurveysTest {
                 currentIterationStartDate: nil,
                 startDate: nil,
                 endDate: nil,
-                schedule: schedule
+                schedule: schedule,
+                translations: nil
             )
         }
 
@@ -1722,6 +1738,40 @@ enum PostHogSurveysTest {
         }
     }
 
+    @Suite("Test resilient survey list decoding")
+    struct TestResilientSurveyListDecoding {
+        @Test("atomic array decode fails when one survey is malformed")
+        func atomicArrayDecodeFailsOnMalformedEntry() throws {
+            let data = try loadFixture("fixture_surveys_array_with_malformed")
+
+            // Documents Swift's atomic [Decodable] behavior: a single malformed
+            // element throws and drops the entire array. This is the root cause
+            // of issue #611 and the reason decodeSurveys decodes per-element.
+            #expect(throws: DecodingError.self) {
+                _ = try PostHogApi.jsonDecoder.decode([PostHogSurvey].self, from: data)
+            }
+        }
+
+        @Test("per-element decoding skips malformed entries and keeps valid ones")
+        func perElementDecodingSkipsMalformedEntries() throws {
+            let data = try loadFixture("fixture_surveys_array_with_malformed")
+            let rawArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+            let arrayItems = try #require(rawArray)
+
+            // Mirrors PostHogSurveyIntegration.decodeSurveys: decode each entry
+            // individually so a malformed survey can't take down the whole list.
+            let decoded: [PostHogSurvey] = arrayItems.compactMap { item in
+                guard let itemData = try? JSONSerialization.data(withJSONObject: item) else {
+                    return nil
+                }
+                return try? PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: itemData)
+            }
+
+            #expect(decoded.count == 1)
+            #expect(decoded.first?.id == "valid-survey-id")
+        }
+    }
+
     @Suite("Test survey to display model mapping")
     struct TestSurveyToDisplayMapping {
         private func makeAppearance(delay: TimeInterval?) -> PostHogSurveyAppearance {
@@ -1764,6 +1814,47 @@ enum PostHogSurveysTest {
 
             #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
         }
+
+        @Test(
+            "rating display nil-coalesces missing bound labels to empty string",
+            arguments: [
+                (lower: String?.none, upper: String?.none, expectedLower: "", expectedUpper: ""),
+                (lower: String?.none, upper: "Very likely", expectedLower: "", expectedUpper: "Very likely"),
+                (lower: "Not likely", upper: String?.none, expectedLower: "Not likely", expectedUpper: ""),
+            ]
+        )
+        func ratingDisplayDefaultsMissingBoundLabelsToEmptyString(
+            lower: String?,
+            upper: String?,
+            expectedLower: String,
+            expectedUpper: String
+        ) throws {
+            let ratingQuestion = PostHogRatingSurveyQuestion(
+                id: "r-1",
+                question: "How likely?",
+                description: nil,
+                descriptionContentType: nil,
+                optional: nil,
+                buttonText: nil,
+                originalQuestionIndex: 0,
+                branching: nil,
+                translations: nil,
+                display: .number,
+                scale: .tenPoint,
+                lowerBoundLabel: lower,
+                upperBoundLabel: upper
+            )
+            let survey = PostHogSurvey.testInstance(
+                name: "rating-no-bounds",
+                questions: [.rating(ratingQuestion)]
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+            let displayQuestion = try #require(displaySurvey.questions.first as? PostHogDisplayRatingQuestion)
+
+            #expect(displayQuestion.lowerBoundLabel == expectedLower)
+            #expect(displayQuestion.upperBoundLabel == expectedUpper)
+        }
     }
 }
 
@@ -1787,7 +1878,8 @@ private extension PostHogSurvey {
                     optional: nil,
                     buttonText: nil,
                     originalQuestionIndex: nil,
-                    branching: nil
+                    branching: nil,
+                    translations: nil
                 )
             ),
         ],
@@ -1818,7 +1910,8 @@ private extension PostHogSurvey {
             currentIterationStartDate: currentIterationStartDate,
             startDate: startDate,
             endDate: endDate,
-            schedule: schedule
+            schedule: schedule,
+            translations: nil
         )
     }
 }
@@ -1836,7 +1929,8 @@ private extension PostHogOpenSurveyQuestion {
             optional: nil,
             buttonText: nil,
             originalQuestionIndex: nil,
-            branching: branching
+            branching: branching,
+            translations: nil
         )
     }
 }
@@ -1856,6 +1950,7 @@ private extension PostHogMultipleSurveyQuestion {
             buttonText: nil,
             originalQuestionIndex: nil,
             branching: branching,
+            translations: nil,
             choices: choices,
             hasOpenChoice: false,
             shuffleOptions: nil
@@ -1879,6 +1974,7 @@ private extension PostHogRatingSurveyQuestion {
             buttonText: nil,
             originalQuestionIndex: nil,
             branching: branching,
+            translations: nil,
             display: display,
             scale: scale,
             lowerBoundLabel: "",

@@ -32,10 +32,18 @@ final class PostHogAPIDateFormatter {
 
 let apiDateFormatter = PostHogAPIDateFormatter()
 
+/// Formats a date using the SDK's API timestamp format in UTC.
+///
+/// - Parameter date: Date to format.
+/// - Returns: An ISO-8601-like timestamp string with milliseconds.
 public func toISO8601String(_ date: Date) -> String {
     apiDateFormatter.string(from: date)
 }
 
+/// Parses a date string in the SDK's API timestamp format.
+///
+/// - Parameter date: Timestamp string with optional milliseconds.
+/// - Returns: A parsed `Date`, or `nil` when the string is invalid.
 public func toISO8601Date(_ date: String) -> Date? {
     apiDateFormatter.date(from: date)
 }

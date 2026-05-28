@@ -16,6 +16,9 @@ struct PostHogExampleApp: App {
             ContentView()
                 .postHogScreenView() // will infer the class name (ContentView)
                 .postHogDeepLinkListener()
+                .overlay(alignment: .topTrailing) {
+                    FPSCounterView()
+                }
         }
     }
 }

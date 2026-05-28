@@ -230,7 +230,8 @@ class PostHogStorage {
         case queue = "posthog.queueFolder.uuid" // queue from > 3.48.1
         case oldQueueFolder = "posthog.queueFolder" // queue from 3.0.0 - 3.48.1
         case oldQueuePlist = "posthog.queue.plist" // queue from pre-3.0.0
-        case replayQeueue = "posthog.replayFolder"
+        case replayQeueue = "posthog.replayFolder.uuid" // replay queue with UUID filenames
+        case oldReplayQueue = "posthog.replayFolder" // replay queue with legacy timestamp filenames
         case replayBufferQueue = "posthog.replayBufferFolder"
         case logsQueue = "posthog.logsFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
@@ -399,6 +400,7 @@ class PostHogStorage {
         // (see PostHogLogRecord) lets in-flight telemetry survive an identity change.
         deleteSafely(url(forKey: .oldQueueFolder))
         deleteSafely(url(forKey: .oldQueuePlist))
+        deleteSafely(url(forKey: .oldReplayQueue))
         deleteSafely(url(forKey: .flags))
         deleteSafely(url(forKey: .enabledFeatureFlags))
         deleteSafely(url(forKey: .enabledFeatureFlagPayloads))

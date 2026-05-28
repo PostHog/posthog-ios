@@ -1,0 +1,21 @@
+name: Lint PR
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-pr:
+    name: Validate PR title against Conventional Commits
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: PostHog/.github/.github/workflows/semantic-pr-title.yml@926dd076f0c796f7531177ae5cfcf1cf7cf0aeb3

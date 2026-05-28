@@ -42,7 +42,7 @@
                     }
                 }
 
-                if scale != .twoPoint {
+                if scale != .twoPoint, !lowerBoundLabel.isEmpty || !upperBoundLabel.isEmpty {
                     HStack(spacing: 0) {
                         Text(lowerBoundLabel)
                             .foregroundStyle(appearance.descriptionTextColor)

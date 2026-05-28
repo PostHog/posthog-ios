@@ -46,16 +46,18 @@
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(appearance.borderColor, lineWidth: 2)
                 )
-                HStack {
-                    Text(lowerBoundLabel)
-                        .font(.callout)
-                        .foregroundColor(appearance.descriptionTextColor)
-                        .frame(alignment: .leading)
-                    Spacer()
-                    Text(upperBoundLabel)
-                        .font(.callout)
-                        .foregroundColor(appearance.descriptionTextColor)
-                        .frame(alignment: .trailing)
+                if !lowerBoundLabel.isEmpty || !upperBoundLabel.isEmpty {
+                    HStack {
+                        Text(lowerBoundLabel)
+                            .font(.callout)
+                            .foregroundColor(appearance.descriptionTextColor)
+                            .frame(alignment: .leading)
+                        Spacer()
+                        Text(upperBoundLabel)
+                            .font(.callout)
+                            .foregroundColor(appearance.descriptionTextColor)
+                            .frame(alignment: .trailing)
+                    }
                 }
             }
 

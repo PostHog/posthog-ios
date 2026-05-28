@@ -62,6 +62,29 @@ class PostHogReplayQueueTests {
         }
     }
 
+    @Test("migrates legacy replay queue folder to UUID replay queue")
+    func migratesLegacyReplayQueueFolder() throws {
+        let uniqueKey = UUID().uuidString
+        let config = PostHogConfig(projectToken: uniqueKey, host: "http://localhost:9001")
+        let storage = PostHogStorage(config)
+        let legacyReplayQueue = storage.url(forKey: .oldReplayQueue)
+        let uuidReplayQueue = storage.url(forKey: .replayQeueue)
+
+        try FileManager.default.createDirectory(at: legacyReplayQueue, withIntermediateDirectories: true)
+        try "snapshot-1".data(using: .utf8)!
+            .write(to: legacyReplayQueue.appendingPathComponent("1698236044.407"))
+        try "snapshot-2".data(using: .utf8)!
+            .write(to: legacyReplayQueue.appendingPathComponent("1698236045.123"))
+
+        let queue = PostHogReplayQueue(config, storage, PostHogApi(config), nil)
+
+        #expect(!FileManager.default.fileExists(atPath: legacyReplayQueue.path))
+        #expect(FileManager.default.fileExists(atPath: uuidReplayQueue.path))
+        #expect(queue.depth == 2)
+
+        queue.clear()
+    }
+
     // MARK: - Buffering Mode Tests
 
     @Test("add routes to buffer when delegate.isBuffering is true")

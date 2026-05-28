@@ -7,8 +7,11 @@
 
 import Foundation
 
-// only for internal use
-// Do we need to expose this as public API? Could be internal static instead?
+/// Manages the active PostHog session ID and session rotation state.
+///
+/// - Warning: This class is public for backwards compatibility, but is intended for
+///   SDK-internal use only. Application code should use `PostHogSDK.getSessionId()`,
+///   `startSession()`, and `endSession()` instead of interacting with this manager directly.
 @objc public class PostHogSessionManager: NSObject {
     enum SessionIDChangeReason: String {
         case sessionIdEmpty = "Session id was empty"
@@ -20,6 +23,7 @@ import Foundation
         case customSessionId = "Custom session set"
     }
 
+    /// Session manager used by `PostHogSDK.shared`.
     @objc public static var shared: PostHogSessionManager {
         PostHogSDK.shared.sessionManager
     }
@@ -65,6 +69,11 @@ import Foundation
     /// callback for session ID changes
     var onSessionIdChanged = PostHogMulticastCallback<Void>()
 
+    /// Overrides the current session ID.
+    ///
+    /// Use with care: changing the session ID affects analytics session attribution and session replay.
+    ///
+    /// - Parameter sessionId: Session ID to use for subsequent events.
     @objc public func setSessionId(_ sessionId: String) {
         setSessionIdInternal(sessionId, at: now(), reason: .customSessionId)
     }

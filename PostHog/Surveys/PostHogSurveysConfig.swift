@@ -7,6 +7,10 @@
 
 import Foundation
 
+/// Configuration for mobile survey rendering.
+///
+/// Mutate fields on `PostHogConfig.surveysConfig` before SDK setup to customize survey UI,
+/// lifecycle handling, or localization.
 @objc public class PostHogSurveysConfig: NSObject {
     /// Delegate responsible for managing survey presentation in your app.
     /// Handles survey rendering, response collection, and lifecycle events.
@@ -14,6 +18,20 @@ import Foundation
     ///
     /// Defaults to `PostHogSurveysDefaultDelegate` which provides a standard survey UI.
     public var surveysDelegate: PostHogSurveysDelegate = PostHogSurveysDefaultDelegate()
+
+    /// Optional explicit override for the language used when rendering surveys.
+    ///
+    /// When set, surveys with matching entries in `translations` will be rendered in
+    /// this language regardless of the device locale or any `language` person property.
+    ///
+    /// Format: a language tag such as `"fr"`, `"pt-BR"`, `"zh-CN"`. Matching is
+    /// case-insensitive and falls back to the base language (e.g. `"pt"` if `"pt-BR"`
+    /// is requested but only `"pt"` is provided).
+    ///
+    /// Blank or `nil` values are treated as unset.
+    ///
+    /// Default: `nil`.
+    @objc public var overrideDisplayLanguage: String?
 }
 
 /// To be called when a survey is successfully shown to the user
@@ -25,20 +43,21 @@ public typealias OnPostHogSurveyShown = (_ survey: PostHogDisplaySurvey) -> Void
 ///   - survey: The current survey being displayed
 ///   - index: The index of the question being answered
 ///   - response: The user's response to the question
-/// - Returns: The next question state (next question index and completion flag)
+/// - Returns: The next survey state, or `nil` to leave the displayed survey state unchanged.
 public typealias OnPostHogSurveyResponse = (_ survey: PostHogDisplaySurvey, _ index: Int, _ response: PostHogSurveyResponse) -> PostHogNextSurveyQuestion?
 
 /// To be called when a survey is dismissed
 /// - Parameter survey: The survey that was closed
 public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Void
 
+/// Delegate used by the SDK to present surveys and receive survey lifecycle callbacks.
 @objc public protocol PostHogSurveysDelegate {
     /// Called when an activated PostHog survey needs to be rendered on the app's UI
     ///
     /// - Parameters:
     ///   - survey: The survey to be displayed to the user
     ///   - onSurveyShown: To be called when the survey is successfully displayed to the user.
-    ///   - onSurveyResponse: To be called the user submits a response to a question.
+    ///   - onSurveyResponse: Call when the user submits a response to a question; use the returned state to advance or complete the survey.
     ///   - onSurveyClosed: To be called when the survey is dismissed
     @objc func renderSurvey(
         _ survey: PostHogDisplaySurvey,

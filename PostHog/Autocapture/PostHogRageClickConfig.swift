@@ -1,5 +1,8 @@
 import Foundation
 
+/// Configuration for iOS/macCatalyst rage click autocapture.
+///
+/// Rage click detection captures `$rageclick` when a user rapidly taps the same area.
 @objc(PostHogRageClickConfig) public class PostHogRageClickConfig: NSObject {
     /// Enable rage click detection for iOS/macCatalyst.
     ///

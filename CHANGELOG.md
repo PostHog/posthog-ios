@@ -203,6 +203,8 @@
 - 061cb44: Replace ReadWriteLock with NSLock for consistent thread-safety across the codebase. The ReadWriteLock property wrapper provided false thread-safety for collection types since the lock was released between separate operations. Using explicit NSLock with `.withLock` closures ensures atomic operations and clearer intent.
 - ac76d70: fix: clear in-memory feature flags cache on reset()
 
+> ⚠️ WARNING: This release contains a crash bug ([#537](https://github.com/PostHog/posthog-ios/issues/537)) fixed in **3.48.3**. Avoid pinning to this version especially in workflows where you may be downgrading between SDK versions (e.g. TestFlight distributions) and use **3.48.3** or later instead.
+
 ## 3.48.0
 
 ### Minor Changes

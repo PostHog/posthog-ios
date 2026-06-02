@@ -407,7 +407,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .groups))
         deleteSafely(url(forKey: .registerProperties))
         deleteSafely(url(forKey: .optOut))
-        deleteSafely(url(forKey: .sessionReplay))
+        // .sessionReplay is project-level config (not user data), kept across reset() so replay can re-arm without an app restart.
         deleteSafely(url(forKey: .isIdentified))
         deleteSafely(url(forKey: .personProcessingEnabled))
         deleteSafely(url(forKey: .remoteConfig))

@@ -24,8 +24,6 @@ class PostHogRemoteConfig {
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
     private var recordingMinimumDuration: TimeInterval?
-    // Last sessionRecording config from /config, kept so /flags reloads can re-evaluate without re-fetching it.
-    private var lastSessionRecordingConfig: [String: Any]?
 
     private let errorTrackingLock = NSLock()
     private var autoCaptureExceptions = false
@@ -235,7 +233,6 @@ class PostHogRemoteConfig {
 
             sessionReplayLock.withLock {
                 sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
-                lastSessionRecordingConfig = sessionReplay
                 #if os(iOS)
                     recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
                     recordingMinimumDuration = parseMinimumDuration(sessionReplay["minimumDurationMilliseconds"])
@@ -423,7 +420,6 @@ class PostHogRemoteConfig {
             if let sessionRecording = data?["sessionRecording"] as? Bool {
                 sessionReplayLock.withLock {
                     sessionReplayFlagActive = sessionRecording
-                    lastSessionRecordingConfig = nil
                 }
 
                 // its always false here anyway
@@ -440,15 +436,13 @@ class PostHogRemoteConfig {
                 }
                 sessionReplayLock.withLock {
                     applySessionRecordingConfig(sessionRecording, featureFlags: featureFlags)
-                    // Cache so /flags reloads and reset()/identify() can re-evaluate without re-fetching /config.
-                    lastSessionRecordingConfig = sessionRecording
                 }
                 storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
             } else {
-                // /flags doesn't carry sessionRecording; re-evaluate from the cached config instead of clobbering it.
-                sessionReplayLock.withLock {
-                    if let lastConfig = lastSessionRecordingConfig {
-                        applySessionRecordingConfig(lastConfig, featureFlags: featureFlags)
+                // /flags doesn't carry sessionRecording; re-evaluate from the persisted config (survives reset) instead of clobbering.
+                if let cached = storage.getDictionary(forKey: .sessionReplay) as? [String: Any] {
+                    sessionReplayLock.withLock {
+                        applySessionRecordingConfig(cached, featureFlags: featureFlags)
                     }
                 }
             }
@@ -862,8 +856,6 @@ class PostHogRemoteConfig {
         sessionReplayLock.withLock {
             sessionReplayFlagActive = false
             recordingSampleRate = nil
-            // Keep lastSessionRecordingConfig so the post-reset /flags reload can re-arm replay
-            // without re-fetching /config. See processSessionRecordingConfig's `else` branch.
         }
 
         errorTrackingLock.withLock {
@@ -880,7 +872,7 @@ class PostHogRemoteConfig {
             remoteConfigDidFetch = false
         }
 
-        storage.remove(key: .sessionReplay)
+        // .sessionReplay config is intentionally kept across reset() (project-level, not user data) so the next /flags reload can re-arm replay.
     }
 
     #if os(iOS)

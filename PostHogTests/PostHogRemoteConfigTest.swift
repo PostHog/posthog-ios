@@ -475,6 +475,20 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
 
+            @Test("session replay config survives reset (project-level config)")
+            func sessionReplayConfigSurvivesReset() {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                storage.setDictionary(forKey: .sessionReplay, contents: ["endpoint": "/s/"])
+
+                // reset() clears user-scoped state but must keep the project-level recording config,
+                // so replay can re-arm after an in-session identity change without an app restart.
+                storage.reset()
+
+                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
+            }
+
             @Test("returns isSessionReplayFlagActive false if feature flag disabled")
             func returnIsSessionReplayFlagActiveFalseIfFeatureFlagDisabled() async {
                 let storage = PostHogStorage(config)

@@ -261,10 +261,11 @@ app.post("flush") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    // Flush the SDK and deterministically await its pending HTTP uploads — see
-    // RequestInterceptor.waitForFlushSettle for the in-flight tracking it uses
-    // instead of a fixed sleep.
+    // Flush the SDK
     sdk.flush()
+
+    // CRITICAL: Wait for the flush to complete. The SDK uses async network requests, so
+    // we need to wait for them to finish before returning.
     try await RequestInterceptor.waitForFlushSettle()
 
     print("[ADAPTER] Flush complete, waited for network requests")

@@ -29,8 +29,7 @@ class RequestInterceptor: URLProtocol {
     static var trackedRequests: [TrackedRequest] = []
     static var totalEventsSent: Int = 0
 
-    // In-flight request counter used by waitForFlushSettle() so callers can deterministically
-    // await the SDK's async uploads instead of sleeping a fixed duration.
+    // In-flight request counter used by waitForFlushSettle().
     private static let inFlightLock = NSLock()
     private static var _inFlightCount = 0
 
@@ -55,7 +54,6 @@ class RequestInterceptor: URLProtocol {
     /// Awaits the SDK's pending HTTP uploads. Returns once at least one request has been
     /// observed in flight and then all in-flight reach zero — or when `timeout` fires.
     /// If no request enters flight within `gracePeriod`, returns early (nothing to wait for).
-    /// Replaces the previous fixed `Task.sleep(2s)` flush-settle with deterministic tracking.
     static func waitForFlushSettle(timeout: TimeInterval = 5.0, gracePeriod: TimeInterval = 0.1) async throws {
         let start = Date()
         var sawRequest = false
@@ -66,6 +64,7 @@ class RequestInterceptor: URLProtocol {
             if !sawRequest, Date().timeIntervalSince(start) >= gracePeriod { return }
             try await Task.sleep(nanoseconds: 10_000_000) // 10ms poll
         }
+        print("[INTERCEPTOR] waitForFlushSettle timed out after \(timeout)s with \(inFlightCount) in flight")
     }
 
     override class func canInit(with request: URLRequest) -> Bool {

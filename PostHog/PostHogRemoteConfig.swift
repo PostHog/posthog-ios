@@ -451,6 +451,8 @@ class PostHogRemoteConfig {
                 sessionReplayLock.withLock {
                     if let lastConfig = lastSessionRecordingConfig {
                         sessionReplayFlagActive = isRecordingActive(featureFlags, lastConfig)
+                        recordingSampleRate = parseSampleRate(lastConfig["sampleRate"])
+                        recordingMinimumDuration = parseMinimumDuration(lastConfig["minimumDurationMilliseconds"])
                     }
                 }
             }

@@ -752,6 +752,45 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(callbackInvoked == false)
             }
+
+            @Test("session replay re-arms from cached config after reset")
+            func sessionReplayReArmsFromCachedConfigAfterReset() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                server.returnReplay = true
+                server.sessionRecordingSampleRate = "0.42"
+
+                let sut = getSut(storage: storage)
+
+                // /config (the only source of recording config) populates the in-memory
+                // recording state and caches it in lastSessionRecordingConfig.
+                await withCheckedContinuation { continuation in
+                    sut.reloadRemoteConfig { _ in continuation.resume() }
+                }
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(sut.getRecordingSampleRate() == 0.42)
+
+                // Mimic reset(): storage.reset() wipes the persisted remote config + session replay,
+                // clear() drops the in-memory remote config. lastSessionRecordingConfig is intentionally
+                // retained so the following /flags reload can re-evaluate replay.
+                storage.reset()
+                sut.clear()
+                #expect(sut.isSessionReplayFlagActive() == false)
+                #expect(sut.getRecordingSampleRate() == nil)
+
+                // The post-reset /flags reload carries no sessionRecording and the cached remote config
+                // is gone, so replay must re-arm from lastSessionRecordingConfig (the else branch),
+                // without waiting for an app restart.
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(sut.getRecordingSampleRate() == 0.42)
+            }
         }
     #endif
 

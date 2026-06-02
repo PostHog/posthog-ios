@@ -439,9 +439,7 @@ class PostHogRemoteConfig {
                     config.snapshotEndpoint = endpoint
                 }
                 sessionReplayLock.withLock {
-                    recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
-                    recordingMinimumDuration = parseMinimumDuration(sessionRecording["minimumDurationMilliseconds"])
-                    sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                    applySessionRecordingConfig(sessionRecording, featureFlags: featureFlags)
                     // Cache so /flags reloads and reset()/identify() can re-evaluate without re-fetching /config.
                     lastSessionRecordingConfig = sessionRecording
                 }
@@ -450,12 +448,18 @@ class PostHogRemoteConfig {
                 // /flags doesn't carry sessionRecording; re-evaluate from the cached config instead of clobbering it.
                 sessionReplayLock.withLock {
                     if let lastConfig = lastSessionRecordingConfig {
-                        sessionReplayFlagActive = isRecordingActive(featureFlags, lastConfig)
-                        recordingSampleRate = parseSampleRate(lastConfig["sampleRate"])
-                        recordingMinimumDuration = parseMinimumDuration(lastConfig["minimumDurationMilliseconds"])
+                        applySessionRecordingConfig(lastConfig, featureFlags: featureFlags)
                     }
                 }
             }
+        }
+
+        /// Applies a `sessionRecording` config dict to the in-memory replay state (active flag,
+        /// sample rate, minimum duration). The caller must already hold `sessionReplayLock`.
+        private func applySessionRecordingConfig(_ config: [String: Any], featureFlags: [String: Any]) {
+            sessionReplayFlagActive = isRecordingActive(featureFlags, config)
+            recordingSampleRate = parseSampleRate(config["sampleRate"])
+            recordingMinimumDuration = parseMinimumDuration(config["minimumDurationMilliseconds"])
         }
 
         /// Parses and validates a sample rate value which may come as a String (from the API JSON)
@@ -858,6 +862,8 @@ class PostHogRemoteConfig {
         sessionReplayLock.withLock {
             sessionReplayFlagActive = false
             recordingSampleRate = nil
+            // Keep lastSessionRecordingConfig so the post-reset /flags reload can re-arm replay
+            // without re-fetching /config. See processSessionRecordingConfig's `else` branch.
         }
 
         errorTrackingLock.withLock {

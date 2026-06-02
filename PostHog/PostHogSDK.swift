@@ -1849,10 +1849,17 @@ let maxRetryDelay = 30.0
     @objc(reloadFeatureFlagsWithCallback:)
     public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
         if !isEnabled() {
+            // Still invoke the callback so awaiting callers aren't left hanging.
+            callback()
             return
         }
 
-        remoteConfig?.reloadFeatureFlags { _ in
+        guard let remoteConfig else {
+            callback()
+            return
+        }
+
+        remoteConfig.reloadFeatureFlags { _ in
             callback()
         }
     }

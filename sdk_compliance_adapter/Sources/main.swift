@@ -306,10 +306,12 @@ app.get("state") { req async throws -> Response in
 app.post("reset") { req async throws -> Response in
     print("[ADAPTER] POST /reset")
 
-    // Fully tear down the SDK (close, not reset). PostHogSDK.reset() reloads
-    // feature flags as the anonymous user, which races the harness's mock-server
-    // reset and surfaces as a spurious /flags request (the "Expected 0, got 1"
-    // lifecycle failures). close() does no network I/O.
+    // Fully tear down the SDK (close, not reset). PostHogSDK.reset() correctly
+    // reloads feature flags as the anonymous user — that's intended SDK behavior
+    // for a real-app logout, since the flag cache would otherwise be stale. The
+    // harness's per-test mock window just doesn't accommodate it: the reload
+    // lands as an extra /flags in the next test ("Expected 0, got 1" lifecycle
+    // failures). close() does no network I/O, which fits test teardown.
     state.posthogSDK?.close()
     state.posthogSDK = nil
     clearPostHogStorage()

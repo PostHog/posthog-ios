@@ -29,44 +29,6 @@ class RequestInterceptor: URLProtocol {
     static var trackedRequests: [TrackedRequest] = []
     static var totalEventsSent: Int = 0
 
-    // In-flight request counter used by waitForFlushSettle().
-    private static let inFlightLock = NSLock()
-    private static var _inFlightCount = 0
-
-    static var inFlightCount: Int {
-        inFlightLock.lock()
-        defer { inFlightLock.unlock() }
-        return _inFlightCount
-    }
-
-    private static func incrementInFlight() {
-        inFlightLock.lock()
-        defer { inFlightLock.unlock() }
-        _inFlightCount += 1
-    }
-
-    private static func decrementInFlight() {
-        inFlightLock.lock()
-        defer { inFlightLock.unlock() }
-        _inFlightCount = max(0, _inFlightCount - 1)
-    }
-
-    /// Awaits the SDK's pending HTTP uploads. Returns once at least one request has been
-    /// observed in flight and then all in-flight reach zero — or when `timeout` fires.
-    /// If no request enters flight within `gracePeriod`, returns early (nothing to wait for).
-    static func waitForFlushSettle(timeout: TimeInterval = 5.0, gracePeriod: TimeInterval = 0.1) async throws {
-        let start = Date()
-        var sawRequest = false
-        while Date().timeIntervalSince(start) < timeout {
-            let count = inFlightCount
-            if count > 0 { sawRequest = true }
-            if sawRequest, count == 0 { return }
-            if !sawRequest, Date().timeIntervalSince(start) >= gracePeriod { return }
-            try await Task.sleep(nanoseconds: 10_000_000) // 10ms poll
-        }
-        print("[INTERCEPTOR] waitForFlushSettle timed out after \(timeout)s with \(inFlightCount) in flight")
-    }
-
     override class func canInit(with request: URLRequest) -> Bool {
         // Only intercept requests to the mock server (not to real PostHog endpoints)
         guard let url = request.url else { return false }
@@ -99,7 +61,6 @@ class RequestInterceptor: URLProtocol {
         // IMPORTANT: Use .default to avoid recursion (our custom config is only for PostHog SDK)
         let session = URLSession(configuration: .default)
         let task = session.dataTask(with: request) { [weak self] data, response, error in
-            Self.decrementInFlight()
             print("[INTERCEPTOR] Task completed for: \(request.url?.absoluteString ?? "nil"), error: \(error?.localizedDescription ?? "none")")
             guard let self = self else { return }
 
@@ -123,7 +84,6 @@ class RequestInterceptor: URLProtocol {
             self.client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
             self.client?.urlProtocolDidFinishLoading(self)
         }
-        Self.incrementInFlight()
         task.resume()
     }
 
@@ -210,9 +170,6 @@ class RequestInterceptor: URLProtocol {
     static func reset() {
         trackedRequests = []
         totalEventsSent = 0
-        inFlightLock.lock()
-        _inFlightCount = 0
-        inFlightLock.unlock()
         print("[INTERCEPTOR] Reset state")
     }
 }

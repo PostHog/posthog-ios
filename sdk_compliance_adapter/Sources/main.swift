@@ -84,6 +84,12 @@ app.post("init") { req async throws -> Response in
 
     let initReq = try req.content.decode(InitRequest.self)
 
+    // Empty token: setup() stays disabled but the singleton is non-nil, hanging a later
+    // reloadFeatureFlags() (callback never fires when disabled). Fail fast.
+    guard !initReq.apiKey.isEmpty else {
+        throw Abort(.badRequest, reason: "Empty project token; SDK would not enable.")
+    }
+
     // Rewrite host.docker.internal to localhost since adapter runs on macOS host
     let host = initReq.host.replacingOccurrences(of: "host.docker.internal", with: "localhost")
 
@@ -207,8 +213,9 @@ app.post("get_feature_flag") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    // Apply person/group properties for flag evaluation without reloading yet, so
-    // exactly one /flags request is made below (the harness asserts request counts).
+    // Apply person/group properties without reloading, so the explicit reload below is
+    // the only /flags request (the harness asserts request counts) — except when groups
+    // are registered, which adds its own reload (see group() note).
     if let personProperties = flagReq.personProperties, !personProperties.isEmpty {
         var props: [String: Any] = [:]
         for (key, value) in personProperties {
@@ -225,7 +232,9 @@ app.post("get_feature_flag") { req async throws -> Response in
         }
     }
 
-    // Register groups (group type -> key) so they're included in the /flags body.
+    // Register groups (group type -> key) for the /flags body. group() also emits a
+    // $groupidentify event and reloads flags on its own, so a request with groups makes
+    // more than one /flags call — a known cause of the group_properties failures.
     if let groups = flagReq.groups {
         for (groupType, value) in groups {
             if let key = value.value as? String {
@@ -234,8 +243,9 @@ app.post("get_feature_flag") { req async throws -> Response in
         }
     }
 
-    // The iOS SDK always loads flags remotely (no local evaluation), so force_remote
-    // is implicitly honored. Reload and wait for the /flags request to complete.
+    // The iOS SDK always loads flags remotely, so force_remote is implicitly honored.
+    // disable_geoip is decoded but not applied — the SDK has no per-request toggle (known gap).
+    // Reload and wait for the /flags request to complete.
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
         sdk.reloadFeatureFlags {
             continuation.resume()

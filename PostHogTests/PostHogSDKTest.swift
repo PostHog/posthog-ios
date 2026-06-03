@@ -174,8 +174,6 @@ class PostHogSDKTest: QuickSpec {
                 called = true
             }
 
-            // isEnabled() is false after close(), so reloadFeatureFlags early-returns;
-            // the callback must still fire instead of leaving awaiting callers hanging.
             expect(called).to(beTrue())
         }
 

@@ -1,3 +1,6 @@
+// Portions of this file are derived from getsentry/sentry-cocoa by Sentry
+// Licensed under the MIT License
+
 #if os(iOS)
 
     import UIKit

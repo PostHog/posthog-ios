@@ -130,7 +130,10 @@ class RequestInterceptor: URLProtocol {
         // IMPORTANT: Use .default to avoid recursion (our custom config is only for PostHog SDK)
         let session = URLSession(configuration: .default)
         let task = session.dataTask(with: request) { [weak self] data, response, error in
-            Self.decrementInFlight()
+            // Decrement only after every URLProtocol client callback has fired, so the SDK
+            // has fully processed the response (including any sync retry/queue hand-off)
+            // before waitForFlushSettle can see in-flight = 0.
+            defer { Self.decrementInFlight() }
             print("[INTERCEPTOR] Task completed for: \(request.url?.absoluteString ?? "nil"), error: \(error?.localizedDescription ?? "none")")
             guard let self = self else { return }
 

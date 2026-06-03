@@ -416,7 +416,8 @@ class PostHogStorage {
         deleteSafely(url(forKey: .requestId))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
-        deleteSafely(url(forKey: .errorTracking))
+        // .errorTracking is project-level config (not user data), kept across reset() — like .sessionReplay —
+        // so autocapture can re-arm on the next /flags reload without an app restart.
     }
 
     func remove(key: StorageKey) {

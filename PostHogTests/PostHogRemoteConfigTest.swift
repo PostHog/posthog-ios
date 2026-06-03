@@ -59,6 +59,21 @@ enum PostHogRemoteConfigTest {
             #expect(sut.getRemoteConfig() as? [String: String] == ["foo": "bar"])
         }
 
+        @Test("error tracking config survives reset (project-level config)")
+        func errorTrackingConfigSurvivesReset() {
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .errorTracking, contents: ["autocaptureExceptions": true])
+
+            // reset() clears user-scoped state but must keep the project-level error-tracking config
+            // (like .sessionReplay), so autocapture can re-arm after an in-session identity change
+            // without an app restart.
+            storage.reset()
+
+            #expect(storage.getDictionary(forKey: .errorTracking) != nil)
+        }
+
         @Test("remote config fetches feature flags if missing")
         func remoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")

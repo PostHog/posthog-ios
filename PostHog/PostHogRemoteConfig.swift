@@ -363,11 +363,14 @@ class PostHogRemoteConfig {
                     return callback(nil)
                 }
 
+                // /flags no longer returns config data, so re-arm project-level config from the
+                // cached remote config (which survives as long as the app is alive; after reset()
+                // each processor falls back to its own persisted slice).
+                let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
                 #if os(iOS)
-                    // Use cached remote config for session recording settings since /flags no longer returns config data
-                    let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
                     self.processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags)
                 #endif
+                self.processErrorTrackingConfig(remoteConfig)
 
                 // Grab the request ID and evaluated timestamp from the response
                 let requestId = data["requestId"] as? String
@@ -515,24 +518,25 @@ class PostHogRemoteConfig {
     #endif
 
     private func processErrorTrackingConfig(_ data: [String: Any]?) {
-        if let errorTracking = data?["errorTracking"] as? Bool {
+        // When the source config omits errorTracking (e.g. after a reset() wipes the cached remote
+        // config, or on a /flags reload), fall back to the persisted .errorTracking — which survives
+        // reset() — so autocapture can re-arm for the new session instead of being force-disabled.
+        // Only an explicit Bool `false` disables and evicts. Mirrors processSessionRecordingConfig.
+        let errorTracking: Any? = data?["errorTracking"] ?? storage.getDictionary(forKey: .errorTracking)
+
+        if let errorTracking = errorTracking as? Bool {
             errorTrackingLock.withLock {
                 autoCaptureExceptions = errorTracking
             }
             if !errorTracking {
                 storage.remove(key: .errorTracking)
             }
-        } else if let errorTracking = data?["errorTracking"] as? [String: Any] {
+        } else if let errorTracking = errorTracking as? [String: Any] {
             let enabled = errorTracking["autocaptureExceptions"] as? Bool ?? false
             errorTrackingLock.withLock {
                 autoCaptureExceptions = enabled
             }
             storage.setDictionary(forKey: .errorTracking, contents: errorTracking)
-        } else {
-            // No errorTracking key or unexpected type — disable
-            errorTrackingLock.withLock {
-                autoCaptureExceptions = false
-            }
         }
     }
 

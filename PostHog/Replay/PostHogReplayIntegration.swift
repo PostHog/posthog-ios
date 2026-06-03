@@ -264,9 +264,10 @@
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
-            // Install plugins
+            // Install plugins. Read enablement from the slices that survive reset(), not the full
+            // .remoteConfig (wiped on reset), so plugins re-arm when the integration restarts.
             let pluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
-            let remoteConfig = postHog.remoteConfig?.getRemoteConfig()
+            let remoteConfig = postHog.remoteConfig?.getReplayPluginRemoteConfig()
             let pluginsToStart = installedPluginsLock.withLock {
                 installedPlugins = []
                 for pluginType in pluginTypes {

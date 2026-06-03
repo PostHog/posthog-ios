@@ -251,6 +251,7 @@ class PostHogStorage {
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
+        case capturePerformance = "posthog.capturePerformance"
         case deviceId = "posthog.deviceId"
     }
 
@@ -416,8 +417,8 @@ class PostHogStorage {
         deleteSafely(url(forKey: .requestId))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
-        // .errorTracking is project-level config (not user data), kept across reset() — like .sessionReplay —
-        // so autocapture can re-arm on the next /flags reload without an app restart.
+        // .errorTracking and .capturePerformance are project-level config (like .sessionReplay), kept
+        // across reset() so they re-arm on the next /flags reload. Intentionally NOT in this delete list.
     }
 
     func remove(key: StorageKey) {

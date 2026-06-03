@@ -176,6 +176,9 @@ class PostHogRemoteConfig {
                 // process error tracking config
                 self.processErrorTrackingConfig(config)
 
+                // process capture performance (network timing) config
+                self.processCapturePerformanceConfig(config)
+
                 // notify
                 DispatchQueue.main.async {
                     self.onRemoteConfigLoaded.invoke(config)
@@ -341,15 +344,14 @@ class PostHogRemoteConfig {
                         self.getCachedFeatureFlags() ?? [:]
                     }
 
-                    // Flags are quota-limited and couldn't be updated, but session replay / error
-                    // tracking config come from /config (not flags). Still re-arm them from the cached
-                    // config against the flags we already have, so they don't stay disabled after a
-                    // reset()-then-quota-limited reload. Matches posthog-android (#547 / 407c355).
+                    // /flags is quota-limited; re-arm project-level config (replay / error tracking /
+                    // capture performance) from the cached config so it survives a reset()-then-quota reload.
                     let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
                     #if os(iOS)
                         self.processSessionRecordingConfig(remoteConfig, featureFlags: cachedFeatureFlags)
                     #endif
                     self.processErrorTrackingConfig(remoteConfig)
+                    self.processCapturePerformanceConfig(remoteConfig)
 
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
                     return callback(cachedFeatureFlags)
@@ -374,14 +376,14 @@ class PostHogRemoteConfig {
                     return callback(nil)
                 }
 
-                // /flags no longer returns config data, so re-arm project-level config from the
-                // cached remote config (which survives as long as the app is alive; after reset()
-                // each processor falls back to its own persisted slice).
+                // /flags carries no config; re-arm project-level config from the cached remote config
+                // (each processor falls back to its own persisted slice after reset()).
                 let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
                 #if os(iOS)
                     self.processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags)
                 #endif
                 self.processErrorTrackingConfig(remoteConfig)
+                self.processCapturePerformanceConfig(remoteConfig)
 
                 // Grab the request ID and evaluated timestamp from the response
                 let requestId = data["requestId"] as? String
@@ -431,12 +433,8 @@ class PostHogRemoteConfig {
 
     #if os(iOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
-            // When the source config omits sessionRecording (e.g. after a reset() wipes the cached
-            // remote config), fall back to the persisted .sessionReplay, which survives reset() so
-            // replay can re-arm for the new user. NB: falling back to the in-memory remoteConfig
-            // wouldn't help — clear()/reset() nils it, and at the /flags call site `data` is already
-            // getCachedRemoteConfig(). Routing the fallback through the same if-chain also handles a
-            // Bool (disabled) cached value, not just the Map case.
+            // Fall back to the persisted .sessionReplay (survives reset()) when the source omits
+            // sessionRecording, so replay re-arms for the new user. Only an explicit Bool false disables.
             let sessionRecording: Any? = data?["sessionRecording"] ?? storage.getDictionary(forKey: .sessionReplay)
 
             if let sessionRecording = sessionRecording as? Bool {
@@ -529,10 +527,8 @@ class PostHogRemoteConfig {
     #endif
 
     private func processErrorTrackingConfig(_ data: [String: Any]?) {
-        // When the source config omits errorTracking (e.g. after a reset() wipes the cached remote
-        // config, or on a /flags reload), fall back to the persisted .errorTracking — which survives
-        // reset() — so autocapture can re-arm for the new session instead of being force-disabled.
-        // Only an explicit Bool `false` disables and evicts. Mirrors processSessionRecordingConfig.
+        // Fall back to the persisted .errorTracking (survives reset()) when the source omits it, so
+        // autocapture re-arms instead of being force-disabled. Only an explicit Bool false disables.
         let errorTracking: Any? = data?["errorTracking"] ?? storage.getDictionary(forKey: .errorTracking)
 
         if let errorTracking = errorTracking as? Bool {
@@ -548,6 +544,20 @@ class PostHogRemoteConfig {
                 autoCaptureExceptions = enabled
             }
             storage.setDictionary(forKey: .errorTracking, contents: errorTracking)
+        }
+    }
+
+    /// Persists `capturePerformance` (network timing) to the `.capturePerformance` slice, which
+    /// survives `reset()`, so the replay network plugin re-arms it after an identity change. Only an
+    /// explicit Bool `false` disables and evicts.
+    private func processCapturePerformanceConfig(_ data: [String: Any]?) {
+        let capturePerformance: Any? = data?["capturePerformance"] ?? storage.getDictionary(forKey: .capturePerformance)
+
+        if capturePerformance is Bool {
+            // a Bool here means disabled; evict so the plugin reads "off"
+            storage.remove(key: .capturePerformance)
+        } else if let capturePerformance = capturePerformance as? [String: Any] {
+            storage.setDictionary(forKey: .capturePerformance, contents: capturePerformance)
         }
     }
 
@@ -909,6 +919,22 @@ class PostHogRemoteConfig {
     func getRemoteConfig() -> [String: Any]? {
         remoteConfigLock.withLock { getCachedRemoteConfig() }
     }
+
+    #if os(iOS)
+        /// Builds the remote-config view for replay plugin enablement (console logs, network capture)
+        /// from the slices that survive `reset()` — `.sessionReplay` and `.capturePerformance` — rather
+        /// than the full `.remoteConfig` (wiped on reset), so plugins re-arm after an identity change.
+        func getReplayPluginRemoteConfig() -> [String: Any]? {
+            var pluginConfig: [String: Any] = [:]
+            if let sessionRecording = storage.getDictionary(forKey: .sessionReplay) as? [String: Any] {
+                pluginConfig["sessionRecording"] = sessionRecording
+            }
+            if let capturePerformance = storage.getDictionary(forKey: .capturePerformance) as? [String: Any] {
+                pluginConfig["capturePerformance"] = capturePerformance
+            }
+            return pluginConfig.isEmpty ? nil : pluginConfig
+        }
+    #endif
 
     private func getCachedRemoteConfig() -> [String: Any]? {
         if remoteConfig == nil {

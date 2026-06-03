@@ -340,6 +340,17 @@ class PostHogRemoteConfig {
                     let cachedFeatureFlags = self.featureFlagsLock.withLock {
                         self.getCachedFeatureFlags() ?? [:]
                     }
+
+                    // Flags are quota-limited and couldn't be updated, but session replay / error
+                    // tracking config come from /config (not flags). Still re-arm them from the cached
+                    // config against the flags we already have, so they don't stay disabled after a
+                    // reset()-then-quota-limited reload. Matches posthog-android (#547 / 407c355).
+                    let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
+                    #if os(iOS)
+                        self.processSessionRecordingConfig(remoteConfig, featureFlags: cachedFeatureFlags)
+                    #endif
+                    self.processErrorTrackingConfig(remoteConfig)
+
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
                     return callback(cachedFeatureFlags)
                 }

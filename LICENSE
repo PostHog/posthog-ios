@@ -22,10 +22,10 @@ SOFTWARE.
 
 ---
 
-Some files in this codebase contain code from getsentry/sentry-cocoa by Sentry.
+Some files in this codebase contain code from getsentry/sentry-cocoa.
 In such cases it is explicitly stated in the file header. This license only applies to the relevant code in such cases.
 
-MIT License
+The MIT License (MIT)
 
 Copyright (c) 2015 Sentry
 

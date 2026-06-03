@@ -417,7 +417,15 @@ class PostHogRemoteConfig {
 
     #if os(iOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
-            if let sessionRecording = data?["sessionRecording"] as? Bool {
+            // When the source config omits sessionRecording (e.g. after a reset() wipes the cached
+            // remote config), fall back to the persisted .sessionReplay, which survives reset() so
+            // replay can re-arm for the new user. NB: falling back to the in-memory remoteConfig
+            // wouldn't help — clear()/reset() nils it, and at the /flags call site `data` is already
+            // getCachedRemoteConfig(). Routing the fallback through the same if-chain also handles a
+            // Bool (disabled) cached value, not just the Map case.
+            let sessionRecording: Any? = data?["sessionRecording"] ?? storage.getDictionary(forKey: .sessionReplay)
+
+            if let sessionRecording = sessionRecording as? Bool {
                 sessionReplayLock.withLock {
                     sessionReplayFlagActive = sessionRecording
                 }
@@ -427,7 +435,7 @@ class PostHogRemoteConfig {
                     storage.remove(key: .sessionReplay)
                 }
 
-            } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
+            } else if let sessionRecording = sessionRecording as? [String: Any] {
                 // keeps the value from config.sessionReplay since having sessionRecording
                 // means its enabled on the project settings, but its only enabled
                 // when local replay integration is enabled/active
@@ -435,22 +443,15 @@ class PostHogRemoteConfig {
                     config.snapshotEndpoint = endpoint
                 }
                 sessionReplayLock.withLock {
-                    applySessionRecordingConfig(sessionRecording, featureFlags: featureFlags)
+                    applySessionRecordingConfigLocked(sessionRecording, featureFlags: featureFlags)
                 }
                 storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
-            } else {
-                // /flags doesn't carry sessionRecording; re-evaluate from the persisted config (survives reset) instead of clobbering.
-                if let cached = storage.getDictionary(forKey: .sessionReplay) as? [String: Any] {
-                    sessionReplayLock.withLock {
-                        applySessionRecordingConfig(cached, featureFlags: featureFlags)
-                    }
-                }
             }
         }
 
         /// Applies a `sessionRecording` config dict to the in-memory replay state (active flag,
         /// sample rate, minimum duration). The caller must already hold `sessionReplayLock`.
-        private func applySessionRecordingConfig(_ recordingConfig: [String: Any], featureFlags: [String: Any]) {
+        private func applySessionRecordingConfigLocked(_ recordingConfig: [String: Any], featureFlags: [String: Any]) {
             sessionReplayFlagActive = isRecordingActive(featureFlags, recordingConfig)
             recordingSampleRate = parseSampleRate(recordingConfig["sampleRate"])
             recordingMinimumDuration = parseMinimumDuration(recordingConfig["minimumDurationMilliseconds"])

@@ -29,6 +29,75 @@ class RequestInterceptor: URLProtocol {
     static var trackedRequests: [TrackedRequest] = []
     static var totalEventsSent: Int = 0
 
+    private static let condition = NSCondition()
+    private static var _inFlightCount = 0
+
+    static var inFlightCount: Int {
+        condition.lock()
+        defer { condition.unlock() }
+        return _inFlightCount
+    }
+
+    private static func incrementInFlight() {
+        condition.lock()
+        _inFlightCount += 1
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    private static func decrementInFlight() {
+        condition.lock()
+        _inFlightCount = max(0, _inFlightCount - 1)
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    /// Returns once the in-flight count has been 0 for `stabilityWindow` after seeing at least
+    /// one request, or after `gracePeriod` if nothing flew. Times out after `timeout`.
+    static func waitForFlushSettle(
+        timeout: TimeInterval = 30.0,
+        gracePeriod: TimeInterval = 0.1,
+        stabilityWindow: TimeInterval = 2.5
+    ) async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                let absoluteDeadline = Date().addingTimeInterval(timeout)
+                var sawRequest = false
+                var idleSince: Date?
+
+                condition.lock()
+                defer { condition.unlock() }
+
+                while Date() < absoluteDeadline {
+                    if _inFlightCount > 0 {
+                        sawRequest = true
+                        idleSince = nil
+                    } else if idleSince == nil {
+                        idleSince = Date()
+                    }
+
+                    let wakeBy: Date = {
+                        guard let since = idleSince else { return absoluteDeadline }
+                        let window = sawRequest ? stabilityWindow : gracePeriod
+                        return min(since.addingTimeInterval(window), absoluteDeadline)
+                    }()
+
+                    if Date() >= wakeBy {
+                        if _inFlightCount == 0 {
+                            continuation.resume()
+                            return
+                        }
+                        continue
+                    }
+
+                    condition.wait(until: wakeBy)
+                }
+                print("[INTERCEPTOR] waitForFlushSettle timed out after \(timeout)s with \(_inFlightCount) in flight")
+                continuation.resume()
+            }
+        }
+    }
+
     override class func canInit(with request: URLRequest) -> Bool {
         // Only intercept requests to the mock server (not to real PostHog endpoints)
         guard let url = request.url else { return false }
@@ -61,6 +130,7 @@ class RequestInterceptor: URLProtocol {
         // IMPORTANT: Use .default to avoid recursion (our custom config is only for PostHog SDK)
         let session = URLSession(configuration: .default)
         let task = session.dataTask(with: request) { [weak self] data, response, error in
+            Self.decrementInFlight()
             print("[INTERCEPTOR] Task completed for: \(request.url?.absoluteString ?? "nil"), error: \(error?.localizedDescription ?? "none")")
             guard let self = self else { return }
 
@@ -84,6 +154,7 @@ class RequestInterceptor: URLProtocol {
             self.client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
             self.client?.urlProtocolDidFinishLoading(self)
         }
+        Self.incrementInFlight()
         task.resume()
     }
 
@@ -170,6 +241,10 @@ class RequestInterceptor: URLProtocol {
     static func reset() {
         trackedRequests = []
         totalEventsSent = 0
+        condition.lock()
+        _inFlightCount = 0
+        condition.broadcast()
+        condition.unlock()
         print("[INTERCEPTOR] Reset state")
     }
 }

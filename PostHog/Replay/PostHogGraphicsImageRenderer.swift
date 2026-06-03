@@ -1,5 +1,6 @@
-// Portions of this file are derived from getsentry/sentry-cocoa by Sentry
-// Licensed under the MIT License
+// Portions of this file are derived from getsentry/sentry-cocoa
+// Copyright (c) 2015 Sentry
+// Licensed under the MIT License: https://github.com/getsentry/sentry-cocoa/blob/main/LICENSE.md
 
 #if os(iOS)
 

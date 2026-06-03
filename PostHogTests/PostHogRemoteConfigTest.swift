@@ -938,6 +938,39 @@ enum PostHogRemoteConfigTest {
             _ = token
         }
 
+        @Test("error tracking re-arms from cached config after reset")
+        func errorTrackingReArmsFromCachedConfigAfterReset() async {
+            let config = makeIsolatedConfig()
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            // /config (the only source of error-tracking config) enables autocapture and persists
+            // it under .errorTracking.
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in continuation.resume() }
+            }
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+
+            // Mimic reset(): storage.reset() wipes the cached remote config but KEEPS the persisted
+            // .errorTracking slice (project-level, not user data); clear() zeroes the in-memory flag.
+            storage.reset()
+            sut.clear()
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            // The post-reset /flags reload carries no errorTracking and the cached remote config is
+            // gone, so autocapture must re-arm from the persisted .errorTracking slice.
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+        }
+
         @Test("disables autocapture exceptions from remote config dict")
         func disablesAutocaptureExceptionsFromRemoteConfigDict() async {
             let config = makeIsolatedConfig(disableRemoteConfigForTesting: false)

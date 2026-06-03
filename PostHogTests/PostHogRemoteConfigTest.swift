@@ -778,24 +778,25 @@ enum PostHogRemoteConfigTest {
                 let sut = getSut(storage: storage)
 
                 // /config (the only source of recording config) populates the in-memory
-                // recording state and caches it in lastSessionRecordingConfig.
+                // recording state and persists it to storage under .sessionReplay.
                 await withCheckedContinuation { continuation in
                     sut.reloadRemoteConfig { _ in continuation.resume() }
                 }
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
 
-                // Mimic reset(): storage.reset() wipes the persisted remote config + session replay,
-                // clear() drops the in-memory remote config. lastSessionRecordingConfig is intentionally
-                // retained so the following /flags reload can re-evaluate replay.
+                // Mimic reset(): storage.reset() wipes the persisted remote config but KEEPS the
+                // persisted .sessionReplay config (project-level, not user data); clear() drops the
+                // in-memory remote config and resets the replay flags. The persisted .sessionReplay
+                // is retained so the following /flags reload can re-evaluate replay.
                 storage.reset()
                 sut.clear()
                 #expect(sut.isSessionReplayFlagActive() == false)
                 #expect(sut.getRecordingSampleRate() == nil)
 
                 // The post-reset /flags reload carries no sessionRecording and the cached remote config
-                // is gone, so replay must re-arm from lastSessionRecordingConfig (the else branch),
-                // without waiting for an app restart.
+                // is gone, so replay must re-arm from the persisted .sessionReplay config (the else
+                // branch), without waiting for an app restart.
                 await withCheckedContinuation { continuation in
                     sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
                         continuation.resume()
@@ -804,6 +805,41 @@ enum PostHogRemoteConfigTest {
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
+            }
+
+            @Test("replay stays off after reset when the new user does not match the linked flag")
+            func sessionReplayStaysOffAfterResetWhenLinkedFlagMissing() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                // Recording is gated on a linked flag the post-reset user won't have:
+                // /config advertises linkedFlag, /flags omits it.
+                server.returnReplay = true
+                server.returnReplayWithVariant = true
+                server.replayVariantName = "some-missing-flag"
+                server.flagsSkipReplayVariantName = true
+
+                let sut = getSut(storage: storage)
+
+                // /config caches the recording config (with linkedFlag) under .sessionReplay.
+                await withCheckedContinuation { continuation in
+                    sut.reloadRemoteConfig { _ in continuation.resume() }
+                }
+                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
+
+                storage.reset()
+                sut.clear()
+
+                // The post-reset /flags reload hits the else branch and re-evaluates the cached
+                // config against the new user's flags. The linked flag is missing, so replay must
+                // stay off rather than blindly re-arming.
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == false)
             }
         }
     #endif

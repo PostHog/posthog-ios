@@ -450,10 +450,10 @@ class PostHogRemoteConfig {
 
         /// Applies a `sessionRecording` config dict to the in-memory replay state (active flag,
         /// sample rate, minimum duration). The caller must already hold `sessionReplayLock`.
-        private func applySessionRecordingConfig(_ config: [String: Any], featureFlags: [String: Any]) {
-            sessionReplayFlagActive = isRecordingActive(featureFlags, config)
-            recordingSampleRate = parseSampleRate(config["sampleRate"])
-            recordingMinimumDuration = parseMinimumDuration(config["minimumDurationMilliseconds"])
+        private func applySessionRecordingConfig(_ recordingConfig: [String: Any], featureFlags: [String: Any]) {
+            sessionReplayFlagActive = isRecordingActive(featureFlags, recordingConfig)
+            recordingSampleRate = parseSampleRate(recordingConfig["sampleRate"])
+            recordingMinimumDuration = parseMinimumDuration(recordingConfig["minimumDurationMilliseconds"])
         }
 
         /// Parses and validates a sample rate value which may come as a String (from the API JSON)

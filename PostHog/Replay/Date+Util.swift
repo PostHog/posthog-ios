@@ -13,6 +13,10 @@ extension Date {
     }
 }
 
+/// Converts a date to milliseconds since the Unix epoch.
+///
+/// - Parameter date: Date to convert.
+/// - Returns: Milliseconds since 1970-01-01 00:00:00 UTC.
 public func dateToMillis(_ date: Date) -> Int64 {
     date.toMillis()
 }

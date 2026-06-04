@@ -13,7 +13,7 @@ import Foundation
     /// - Parameter properties: the event properties to sanitize
     /// - Returns: the sanitized properties
     ///
-    /// Obs: `inout` cannot be used in Swift protocols, so you need to clone the properties
+    /// - Note: `inout` cannot be used in Swift protocols, so clone the properties before mutating them.
     ///
     /// ```swift
     /// private class ExampleSanitizer: PostHogPropertiesSanitizer {

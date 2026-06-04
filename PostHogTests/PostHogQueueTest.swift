@@ -320,6 +320,23 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("retains batch on HTTP 408 (request timeout is retriable) and does not change cap") {
+            let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 408, headers: nil)
+            }
+
+            sut.add(PostHogEvent(event: "event1", distinctId: "id1"))
+            sut.add(PostHogEvent(event: "event2", distinctId: "id2"))
+
+            _ = getBatchedEvents(server)
+
+            expect(sut.depth).toEventually(equal(2))
+            expect(sut.currentBatchCapForTesting).toEventually(equal(4))
+
+            sut.clear()
+        }
+
         it("halves cap repeatedly across multiple 413s and drops once cap reaches 1") {
             // flushAt is high so add() doesn't trigger an auto-flush — we drive
             // each flush manually to observe the multi-step halving sequence.
@@ -353,9 +370,9 @@ class PostHogQueueTest: QuickSpec {
         }
 
         it("pops batch on 5xx codes outside the narrow retriable set") {
-            // 501/505/etc. are NOT in {429, 500, 502, 503, 504} — match
-            // posthog-android's RETRYABLE_STATUS_CODES exactly. Treat as
-            // non-retriable so a poison record can't block the queue.
+            // 501/505/etc. are NOT in the narrow 5xx retriable set
+            // {500, 502, 503, 504}. Treat as non-retriable so a poison
+            // record can't block the queue.
             let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
             server.batchResponseHandler = { _, _ in
                 HTTPStubsResponse(jsonObject: [], statusCode: 501, headers: nil)

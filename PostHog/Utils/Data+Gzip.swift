@@ -37,26 +37,37 @@ import Foundation
     import zlib
 #endif
 
+/// Namespace for gzip constants used by the SDK's compression helpers.
 public enum Gzip {
-    /// Maximum value for windowBits (`MAX_WBITS`)
+    /// Maximum value for windowBits (`MAX_WBITS`).
     public static let maxWindowBits = MAX_WBITS
 }
 
-/// Compression level whose rawValue is based on the zlib's constants.
+/// Compression level whose raw value is based on zlib constants.
 public struct CompressionLevel: RawRepresentable, Sendable {
     /// Compression level in the range of `0` (no compression) to `9` (maximum compression).
     public let rawValue: Int32
 
+    /// zlib `Z_NO_COMPRESSION` level.
     public static let noCompression = Self(Z_NO_COMPRESSION)
+    /// zlib `Z_BEST_SPEED` level.
     public static let bestSpeed = Self(Z_BEST_SPEED)
+    /// zlib `Z_BEST_COMPRESSION` level.
     public static let bestCompression = Self(Z_BEST_COMPRESSION)
 
+    /// zlib `Z_DEFAULT_COMPRESSION` level.
     public static let defaultCompression = Self(Z_DEFAULT_COMPRESSION)
 
+    /// Creates a compression level from a zlib raw value.
+    ///
+    /// - Parameter rawValue: zlib compression level constant.
     public init(rawValue: Int32) {
         self.rawValue = rawValue
     }
 
+    /// Creates a compression level from a zlib raw value.
+    ///
+    /// - Parameter rawValue: zlib compression level constant.
     public init(_ rawValue: Int32) {
         self.rawValue = rawValue
     }
@@ -66,36 +77,37 @@ public struct CompressionLevel: RawRepresentable, Sendable {
 public struct GzipError: Swift.Error, Sendable {
     // cf. http://www.zlib.net/manual.html
 
+    /// High-level zlib error category.
     public enum Kind: Equatable, Sendable {
         /// The stream structure was inconsistent.
         ///
-        /// - underlying zlib error: `Z_STREAM_ERROR` (-2)
+        /// - Note: Underlying zlib error: `Z_STREAM_ERROR` (-2).
         case stream
 
         /// The input data was corrupted
         /// (input stream not conforming to the zlib format or incorrect check value).
         ///
-        /// - underlying zlib error: `Z_DATA_ERROR` (-3)
+        /// - Note: Underlying zlib error: `Z_DATA_ERROR` (-3).
         case data
 
         /// There was not enough memory.
         ///
-        /// - underlying zlib error: `Z_MEM_ERROR` (-4)
+        /// - Note: Underlying zlib error: `Z_MEM_ERROR` (-4).
         case memory
 
         /// No progress is possible or there was not enough room in the output buffer.
         ///
-        /// - underlying zlib error: `Z_BUF_ERROR` (-5)
+        /// - Note: Underlying zlib error: `Z_BUF_ERROR` (-5).
         case buffer
 
         /// The zlib library version is incompatible with the version assumed by the caller.
         ///
-        /// - underlying zlib error: `Z_VERSION_ERROR` (-6)
+        /// - Note: Underlying zlib error: `Z_VERSION_ERROR` (-6).
         case version
 
         /// An unknown error occurred.
         ///
-        /// - parameter code: return error by zlib
+        /// - Parameter code: The unrecognized zlib error code.
         case unknown(code: Int)
     }
 
@@ -110,6 +122,7 @@ public struct GzipError: Swift.Error, Sendable {
         kind = Kind(code: code)
     }
 
+    /// Human-readable zlib error message.
     public var localizedDescription: String {
         message
     }

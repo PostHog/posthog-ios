@@ -34,6 +34,13 @@ func fromJSONData(_ data: Data, options: JSONSerialization.ReadingOptions = []) 
     try? JSONSerialization.jsonObject(with: data, options: options) as? [String: Any]
 }
 
+/// Removes or converts values that cannot be serialized to JSON.
+///
+/// `URL` values are converted to absolute strings and `Date` values to ISO-8601 strings.
+/// Other non-serializable values are dropped.
+///
+/// - Parameter dict: Dictionary to sanitize.
+/// - Returns: A sanitized dictionary, or `nil` when the input is `nil` or empty.
 public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
     if dict == nil || dict!.isEmpty {
         return nil

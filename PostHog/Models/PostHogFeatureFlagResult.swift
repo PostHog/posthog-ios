@@ -9,8 +9,8 @@ import Foundation
 
 /// Result object containing all information about a feature flag evaluation.
 ///
-/// This struct provides access to the flag value, variant, payload, and other metadata
-/// in a single convenient object.
+/// This class provides access to the flag's enabled state, variant, and payload in a
+/// single convenient object.
 ///
 /// ## Example Usage
 /// ```swift

@@ -856,6 +856,55 @@ enum PostHogRemoteConfigTest {
 
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
+
+            @Test("session replay re-arms from cached config on a quota-limited flags reload")
+            func sessionReplayReArmsOnQuotaLimitedFlagsReload() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                server.returnReplay = true
+                server.sessionRecordingSampleRate = "0.42"
+
+                let sut = getSut(storage: storage)
+
+                await withCheckedContinuation { continuation in
+                    sut.reloadRemoteConfig { _ in continuation.resume() }
+                }
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(sut.getRecordingSampleRate() == 0.42)
+
+                storage.reset()
+                sut.clear()
+                #expect(sut.isSessionReplayFlagActive() == false)
+                #expect(sut.getRecordingSampleRate() == nil)
+
+                server.quotaLimitFeatureFlags = true
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == true)
+                #expect(sut.getRecordingSampleRate() == 0.42)
+            }
+
+            @Test("flags reload with no cached recording config leaves replay inactive")
+            func flagsReloadWithoutCachedRecordingConfigLeavesReplayInactive() async {
+                let storage = PostHogStorage(config)
+                defer { storage.reset() }
+
+                let sut = getSut(storage: storage)
+                #expect(sut.isSessionReplayFlagActive() == false)
+
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+
+                #expect(sut.isSessionReplayFlagActive() == false)
+            }
         }
     #endif
 
@@ -1063,6 +1112,172 @@ enum PostHogRemoteConfigTest {
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             _ = token
+        }
+
+        @Test("error tracking re-arms from cached config on a quota-limited flags reload")
+        func errorTrackingReArmsOnQuotaLimitedFlagsReload() async {
+            let config = makeIsolatedConfig()
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in continuation.resume() }
+            }
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+
+            storage.reset()
+            sut.clear()
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            server.quotaLimitFeatureFlags = true
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == true)
+        }
+
+        @Test("flags reload with no cached error tracking does not re-arm it")
+        func flagsReloadWithoutCachedErrorTrackingDoesNotReArm() async {
+            let config = makeIsolatedConfig()
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            #expect(sut.isAutocaptureExceptionsEnabled() == false)
+        }
+    }
+
+    @Suite("Test Capture Performance Config")
+    class TestCapturePerformanceConfig: BaseTestClass {
+        private func makeIsolatedConfig(disableRemoteConfigForTesting: Bool = true) -> PostHogConfig {
+            let config = PostHogConfig(projectToken: "\(testProjectToken)-\(UUID().uuidString)", host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = disableRemoteConfigForTesting
+            return config
+        }
+
+        @Test("capture performance config survives reset and re-arms on a flags reload")
+        func capturePerformanceReArmsAfterReset() async {
+            let config = makeIsolatedConfig()
+            server.remoteConfigCapturePerformance = ["network_timing": true]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in continuation.resume() }
+            }
+            #expect(storage.getDictionary(forKey: .capturePerformance) != nil)
+
+            storage.reset()
+            sut.clear()
+            #expect(storage.getDictionary(forKey: .capturePerformance) != nil)
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            #expect(storage.getDictionary(forKey: .capturePerformance) != nil)
+            #if os(iOS)
+                #expect(sut.getReplayPluginRemoteConfig()?["capturePerformance"] != nil)
+            #endif
+        }
+
+        @Test("capture performance config re-arms on a quota-limited flags reload")
+        func capturePerformanceReArmsOnQuotaLimitedFlagsReload() async {
+            let config = makeIsolatedConfig()
+            server.remoteConfigCapturePerformance = ["network_timing": true]
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in continuation.resume() }
+            }
+            #expect(storage.getDictionary(forKey: .capturePerformance) != nil)
+
+            storage.reset()
+            sut.clear()
+
+            server.quotaLimitFeatureFlags = true
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            #expect(storage.getDictionary(forKey: .capturePerformance) != nil)
+        }
+
+        @Test("evicts cached capture performance config when capturePerformance is boolean false")
+        func evictsCapturePerformanceWhenBooleanFalse() async {
+            let config = makeIsolatedConfig(disableRemoteConfigForTesting: false)
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+
+            server.remoteConfigCapturePerformance = false
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            storage.setDictionary(forKey: .capturePerformance, contents: ["network_timing": true])
+
+            let sut = getSut(storage: storage, config: config)
+
+            var remoteConfigLoaded = false
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded = true
+            }
+
+            await withCheckedContinuation { continuation in
+                let timeout = Date().addingTimeInterval(2)
+                while !remoteConfigLoaded, Date() < timeout {}
+                continuation.resume()
+            }
+
+            #expect(storage.getDictionary(forKey: .capturePerformance) == nil)
+
+            _ = token
+        }
+
+        @Test("flags reload with no cached capture performance does not re-arm it")
+        func flagsReloadWithoutCachedCapturePerformanceDoesNotReArm() async {
+            let config = makeIsolatedConfig()
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+            #expect(storage.getDictionary(forKey: .capturePerformance) == nil)
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            #expect(storage.getDictionary(forKey: .capturePerformance) == nil)
         }
     }
 }

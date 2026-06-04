@@ -91,6 +91,10 @@ class MockPostHogServer {
     var sessionRecordingSampleRate: String?
     var sessionRecordingEventTriggers: [String]?
     var remoteConfigErrorTracking: Any? = ["autocaptureExceptions": true]
+    // Mirrors `remoteConfigErrorTracking`: a `[String: Any]` is emitted as a `capturePerformance`
+    // object, a `Bool` as a literal, and `nil` omits the key. Defaults to the value /config has
+    // always returned so existing tests are unaffected.
+    var remoteConfigCapturePerformance: Any? = ["network_timing": true, "web_vitals": true, "web_vitals_allowed_metrics": NSNull()]
 
     // version is the version of the response we want to return regardless of the request version
     init(version: Int = 3) {
@@ -379,6 +383,17 @@ class MockPostHogServer {
                 }
             }()
 
+            let capturePerformancePayload: String = {
+                if let dict = self.remoteConfigCapturePerformance as? [String: Any] {
+                    let jsonData = try? JSONSerialization.data(withJSONObject: dict)
+                    return "\"capturePerformance\": \(String(data: jsonData ?? Data(), encoding: .utf8) ?? "false"),"
+                } else if let boolVal = self.remoteConfigCapturePerformance as? Bool {
+                    return "\"capturePerformance\": \(boolVal),"
+                } else {
+                    return ""
+                }
+            }()
+
             // Build sessionRecording payload
             let sessionRecordingPayload: String = {
                 if self.returnReplay {
@@ -409,11 +424,7 @@ class MockPostHogServer {
                     ],
                     \(hasFeatureFlagsPayload)
                     "captureDeadClicks": true,
-                    "capturePerformance": {
-                        "network_timing": true,
-                        "web_vitals": true,
-                        "web_vitals_allowed_metrics": null
-                    },
+                    \(capturePerformancePayload)
                     "autocapture_opt_out": false,
                     \(errorTrackingPayload)
                     "analytics": {

@@ -408,17 +408,18 @@ class PostHogStorage {
         deleteSafely(url(forKey: .groups))
         deleteSafely(url(forKey: .registerProperties))
         deleteSafely(url(forKey: .optOut))
-        // .sessionReplay is project-level config (not user data), kept across reset() so replay can re-arm without an app restart.
         deleteSafely(url(forKey: .isIdentified))
         deleteSafely(url(forKey: .personProcessingEnabled))
-        deleteSafely(url(forKey: .remoteConfig))
+        // .remoteConfig is project-level config (not user data); kept across reset() so features re-arm
         deleteSafely(url(forKey: .surveySeen))
         deleteSafely(url(forKey: .lastSeenSurveyDate))
         deleteSafely(url(forKey: .requestId))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
-        // .errorTracking and .capturePerformance are project-level config (like .sessionReplay), kept
-        // across reset() so they re-arm on the next /flags reload. Intentionally NOT in this delete list.
+        // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
+        deleteSafely(url(forKey: .sessionReplay))
+        deleteSafely(url(forKey: .errorTracking))
+        deleteSafely(url(forKey: .capturePerformance))
     }
 
     func remove(key: StorageKey) {

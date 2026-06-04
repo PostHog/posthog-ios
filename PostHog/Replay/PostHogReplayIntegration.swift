@@ -264,7 +264,8 @@
                 self?.handleApplicationEvent(event: event, date: date)
             }
 
-            // Install plugins
+            // Install plugins. The full remote config survives reset() (project-level), so plugin
+            // enablement re-arms when the integration restarts after an identity change.
             let pluginTypes = postHog.config.sessionReplayConfig.getPluginTypes()
             let remoteConfig = postHog.remoteConfig?.getRemoteConfig()
             let pluginsToStart = installedPluginsLock.withLock {

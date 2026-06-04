@@ -41,6 +41,7 @@
         }
     }
 
+    @available(iOS 15.0, *)
     func surveyRatingForegroundColor(selected: Bool, activeColor: Color, inputTextColor: Color) -> Color {
         if selected {
             return activeColor.getContrastingTextColor()

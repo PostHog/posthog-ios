@@ -207,7 +207,7 @@
         }
 
         private var openChoice: String? {
-            openChoice(for: question)
+            openChoiceOption(for: question)
         }
     }
 
@@ -255,7 +255,7 @@
         }
 
         private var openChoice: String? {
-            openChoice(for: question)
+            openChoiceOption(for: question)
         }
     }
 
@@ -264,7 +264,7 @@
         return selectedChoices.contains(openChoice)
     }
 
-    private func openChoice(for question: PostHogDisplayChoiceQuestion) -> String? {
+    private func openChoiceOption(for question: PostHogDisplayChoiceQuestion) -> String? {
         guard question.hasOpenChoice == true else { return nil }
         return question.choices.last
     }

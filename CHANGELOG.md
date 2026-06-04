@@ -1,5 +1,12 @@
 ## Next
 
+## 3.59.3
+
+### Patch Changes
+
+- 6b6dd54: `reloadFeatureFlags(_:)` now always invokes its completion callback, including when the SDK is disabled/opted-out or when no remote config is available. Previously these early-returns skipped the callback, which could leave callers that await it (e.g. the Flutter SDK's `reloadFeatureFlags`) hanging indefinitely.
+- 306896b: Keep session replay recording, error-tracking autocapture, and network performance capture active after an in-session `identify()`/`reset()` instead of disabling them until the next app restart. The project-level recording, error-tracking, and capture-performance config is now preserved across `reset()` and re-armed on the next `/flags` reload.
+
 ## 3.59.2
 
 ### Patch Changes

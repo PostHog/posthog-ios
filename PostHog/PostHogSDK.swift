@@ -1843,16 +1843,23 @@ let maxRetryDelay = 30.0
         }
     }
 
-    /// Reloads feature flags and invokes a callback when the request finishes.
+    /// Reloads feature flags and invokes a callback when finished.
     ///
-    /// - Parameter callback: Called after the reload request completes.
+    /// - Parameter callback: Invoked when the reload finishes, or immediately if the reload
+    ///   is skipped (SDK disabled/opted-out, or no remote config available).
     @objc(reloadFeatureFlagsWithCallback:)
     public func reloadFeatureFlags(_ callback: @escaping () -> Void) {
         if !isEnabled() {
+            callback()
             return
         }
 
-        remoteConfig?.reloadFeatureFlags { _ in
+        guard let remoteConfig else {
+            callback()
+            return
+        }
+
+        remoteConfig.reloadFeatureFlags { _ in
             callback()
         }
     }

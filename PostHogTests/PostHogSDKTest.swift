@@ -165,6 +165,18 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("invokes reloadFeatureFlags callback when not enabled") {
+            let sut = self.getSut()
+            sut.close()
+
+            var called = false
+            sut.reloadFeatureFlags {
+                called = true
+            }
+
+            expect(called).to(beTrue())
+        }
+
         it("captures a screen event") {
             let sut = self.getSut()
 

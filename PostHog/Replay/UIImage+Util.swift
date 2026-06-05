@@ -17,15 +17,15 @@
         }
 
         private func toWebPBase64(_ compressionQuality: CGFloat) -> String? {
-            webpData(compressionQuality: compressionQuality).map { data in
-                "data:image/webp;base64,\(data.base64EncodedString())"
-            }
+            toImageBase64(mimeType: "webp", data: webpData(compressionQuality: compressionQuality))
         }
 
         private func toJpegBase64(_ compressionQuality: CGFloat) -> String? {
-            jpegData(compressionQuality: compressionQuality).map { data in
-                "data:image/jpeg;base64,\(data.base64EncodedString())"
-            }
+            toImageBase64(mimeType: "jpeg", data: jpegData(compressionQuality: compressionQuality))
+        }
+
+        private func toImageBase64(mimeType: String, data: Data?) -> String? {
+            data.map { "data:image/\(mimeType);base64,\($0.base64EncodedString())" }
         }
     }
 

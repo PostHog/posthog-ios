@@ -57,13 +57,13 @@ class PostHogRemoteConfig {
 
     var lastRequestId: String? {
         featureFlagsLock.withLock {
-            requestId ?? storage.getString(forKey: .requestId)
+            getCachedValue(\.requestId, key: .requestId) { storage.getString(forKey: $0) }
         }
     }
 
     var lastEvaluatedAt: Int? {
         featureFlagsLock.withLock {
-            evaluatedAt ?? storage.getInt(forKey: .evaluatedAt)
+            getCachedValue(\.evaluatedAt, key: .evaluatedAt) { storage.getInt(forKey: $0) }
         }
     }
 
@@ -576,18 +576,17 @@ class PostHogRemoteConfig {
     }
 
     func getFeatureFlag(_ key: String) -> Any? {
-        var flags: [String: Any]?
-        featureFlagsLock.withLock {
-            flags = self.getCachedFeatureFlags()
-        }
-
-        return flags?[key]
+        getFeatureFlagValue(key) { self.getCachedFeatureFlags() }
     }
 
     func getFeatureFlagDetails(_ key: String) -> Any? {
+        getFeatureFlagValue(key) { self.getCachedFlags() }
+    }
+
+    private func getFeatureFlagValue(_ key: String, from getCachedValues: () -> [String: Any]?) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
-            flags = self.getCachedFlags()
+            flags = getCachedValues()
         }
 
         return flags?[key]
@@ -595,44 +594,51 @@ class PostHogRemoteConfig {
 
     // To be called after acquiring `featureFlagsLock`
     private func getCachedFeatureFlagPayload() -> [String: Any]? {
-        if featureFlagPayloads == nil {
-            featureFlagPayloads = storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
-        }
-        return featureFlagPayloads
+        getCachedDictionary(\.featureFlagPayloads, forKey: .enabledFeatureFlagPayloads)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedFeatureFlagPayload(_ featureFlagPayloads: [String: Any]) {
-        self.featureFlagPayloads = featureFlagPayloads
-        storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: featureFlagPayloads)
+        setCachedDictionary(featureFlagPayloads, cache: \.featureFlagPayloads, forKey: .enabledFeatureFlagPayloads)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func getCachedFeatureFlags() -> [String: Any]? {
-        if featureFlags == nil {
-            featureFlags = storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
-        }
-        return featureFlags
+        getCachedDictionary(\.featureFlags, forKey: .enabledFeatureFlags)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedFeatureFlags(_ featureFlags: [String: Any]) {
-        self.featureFlags = featureFlags
-        storage.setDictionary(forKey: .enabledFeatureFlags, contents: featureFlags)
+        setCachedDictionary(featureFlags, cache: \.featureFlags, forKey: .enabledFeatureFlags)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedFlags(_ flags: [String: Any]) {
-        self.flags = flags
-        storage.setDictionary(forKey: .flags, contents: flags)
+        setCachedDictionary(flags, cache: \.flags, forKey: .flags)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func getCachedFlags() -> [String: Any]? {
-        if flags == nil {
-            flags = storage.getDictionary(forKey: .flags) as? [String: Any]
+        getCachedDictionary(\.flags, forKey: .flags)
+    }
+
+    private func getCachedDictionary(
+        _ cache: ReferenceWritableKeyPath<PostHogRemoteConfig, [String: Any]?>,
+        forKey key: PostHogStorage.StorageKey
+    ) -> [String: Any]? {
+        if self[keyPath: cache] == nil {
+            self[keyPath: cache] = storage.getDictionary(forKey: key) as? [String: Any]
         }
-        return flags
+        return self[keyPath: cache]
+    }
+
+    private func setCachedDictionary(
+        _ value: [String: Any],
+        cache: ReferenceWritableKeyPath<PostHogRemoteConfig, [String: Any]?>,
+        forKey key: PostHogStorage.StorageKey
+    ) {
+        self[keyPath: cache] = value
+        storage.setDictionary(forKey: key, contents: value)
     }
 
     func setPersonPropertiesForFlags(_ properties: [String: Any]) {
@@ -779,21 +785,37 @@ class PostHogRemoteConfig {
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedRequestId(_ value: String?) {
-        requestId = value
-        if let value {
-            storage.setString(forKey: .requestId, contents: value)
-        } else {
-            storage.remove(key: .requestId)
+        setCachedValue(value, cache: \.requestId, key: .requestId) { key, value in
+            storage.setString(forKey: key, contents: value)
         }
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedEvaluatedAt(_ value: Int?) {
-        evaluatedAt = value
+        setCachedValue(value, cache: \.evaluatedAt, key: .evaluatedAt) { key, value in
+            storage.setInt(forKey: key, contents: value)
+        }
+    }
+
+    private func getCachedValue<T>(
+        _ cache: KeyPath<PostHogRemoteConfig, T?>,
+        key: PostHogStorage.StorageKey,
+        load: (PostHogStorage.StorageKey) -> T?
+    ) -> T? {
+        self[keyPath: cache] ?? load(key)
+    }
+
+    private func setCachedValue<T>(
+        _ value: T?,
+        cache: ReferenceWritableKeyPath<PostHogRemoteConfig, T?>,
+        key: PostHogStorage.StorageKey,
+        persist: (PostHogStorage.StorageKey, T) -> Void
+    ) {
+        self[keyPath: cache] = value
         if let value {
-            storage.setInt(forKey: .evaluatedAt, contents: value)
+            persist(key, value)
         } else {
-            storage.remove(key: .evaluatedAt)
+            storage.remove(key: key)
         }
     }
 
@@ -886,10 +908,7 @@ class PostHogRemoteConfig {
     }
 
     private func getCachedRemoteConfig() -> [String: Any]? {
-        if remoteConfig == nil {
-            remoteConfig = storage.getDictionary(forKey: .remoteConfig) as? [String: Any]
-        }
-        return remoteConfig
+        getCachedDictionary(\.remoteConfig, forKey: .remoteConfig)
     }
 }
 

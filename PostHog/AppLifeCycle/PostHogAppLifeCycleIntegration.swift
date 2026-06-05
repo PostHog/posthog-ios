@@ -19,8 +19,7 @@ import Foundation
 final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     var requiresSwizzling: Bool { false }
 
-    private static var integrationInstalledLock = NSLock()
-    private static var integrationInstalled = false
+    private static let integrationInstallState = PostHogIntegrationInstallState()
     private static var didCaptureAppInstallOrUpdate = false
 
     private weak var postHog: PostHogSDK?
@@ -35,33 +34,19 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     private var didFinishLaunchingToken: RegistrationToken?
 
     func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-        let didInstall = PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
-            if PostHogAppLifeCycleIntegration.integrationInstalled {
-                return false
-            }
-            PostHogAppLifeCycleIntegration.integrationInstalled = true
-            return true
+        installIfNeeded(using: Self.integrationInstallState) {
+            self.postHog = postHog
+
+            start()
+            captureAppInstallOrUpdated()
         }
-
-        guard didInstall else {
-            return .skipped(.alreadyInstalled)
-        }
-
-        self.postHog = postHog
-
-        start()
-        captureAppInstallOrUpdated()
-        return .installed
     }
 
     func uninstall(_ postHog: PostHogSDK) {
-        // uninstall only for integration instance
-        if self.postHog === postHog || self.postHog == nil {
+        uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
+            // uninstall only for integration instance
             stop()
             self.postHog = nil
-            PostHogAppLifeCycleIntegration.integrationInstalledLock.withLock {
-                PostHogAppLifeCycleIntegration.integrationInstalled = false
-            }
         }
     }
 
@@ -214,9 +199,7 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
     extension PostHogAppLifeCycleIntegration {
         static func clearInstalls() {
             PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate = false
-            integrationInstalledLock.withLock {
-                integrationInstalled = false
-            }
+            integrationInstallState.clear()
         }
     }
 #endif

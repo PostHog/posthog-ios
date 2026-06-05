@@ -11,41 +11,26 @@
     final class PostHogRageClickIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
-        private static var integrationInstalledLock = NSLock()
-        private static var integrationInstalled = false
+        private static let integrationInstallState = PostHogIntegrationInstallState()
 
         private weak var postHog: PostHogSDK?
         private var rageClickDetector: RageClickDetector?
         private var applicationEventToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            let didInstall = PostHogRageClickIntegration.integrationInstalledLock.withLock {
-                if PostHogRageClickIntegration.integrationInstalled {
-                    return false
-                }
-                PostHogRageClickIntegration.integrationInstalled = true
-                return true
+            installIfNeeded(using: Self.integrationInstallState) {
+                self.postHog = postHog
+                rageClickDetector = RageClickDetector(config: postHog.config.rageClickConfig)
+
+                start()
             }
-
-            guard didInstall else {
-                return .skipped(.alreadyInstalled)
-            }
-
-            self.postHog = postHog
-            rageClickDetector = RageClickDetector(config: postHog.config.rageClickConfig)
-
-            start()
-            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            // uninstall only for integration instance
-            if self.postHog === postHog || self.postHog == nil {
+            uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
+                // uninstall only for integration instance
                 stop()
                 self.postHog = nil
-                PostHogRageClickIntegration.integrationInstalledLock.withLock {
-                    PostHogRageClickIntegration.integrationInstalled = false
-                }
             }
         }
 
@@ -150,9 +135,7 @@
     #if TESTING
         extension PostHogRageClickIntegration {
             static func clearInstalls() {
-                integrationInstalledLock.withLock {
-                    integrationInstalled = false
-                }
+                integrationInstallState.clear()
             }
 
             func processTapForTesting(

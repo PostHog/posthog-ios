@@ -429,13 +429,7 @@ class PostHogStorage {
     }
 
     func getString(forKey key: StorageKey) -> String? {
-        let value = getJson(forKey: key)
-        if let stringValue = value as? String {
-            return stringValue
-        } else if let dictValue = value as? [String: String] {
-            return dictValue[key.rawValue]
-        }
-        return nil
+        getTypedValue(forKey: key)
     }
 
     func setString(forKey key: StorageKey, contents: String) {
@@ -451,10 +445,14 @@ class PostHogStorage {
     }
 
     func getBool(forKey key: StorageKey) -> Bool? {
+        getTypedValue(forKey: key)
+    }
+
+    private func getTypedValue<T>(forKey key: StorageKey) -> T? {
         let value = getJson(forKey: key)
-        if let boolValue = value as? Bool {
-            return boolValue
-        } else if let dictValue = value as? [String: Bool] {
+        if let typedValue = value as? T {
+            return typedValue
+        } else if let dictValue = value as? [String: T] {
             return dictValue[key.rawValue]
         }
         return nil

@@ -100,7 +100,9 @@ enum PostHogExceptionProcessor {
     // MARK: - Internal Exception Building
 
     private static func buildProperties(exceptions: [[String: Any]]) -> [String: Any] {
-        var properties: [String: Any] = ["$exception_level": "error"]
+        var properties: [String: Any] = [
+            "$exception_level": "error", // TODO: figure this out from error wrapped type
+        ]
         attachExceptionsAndDebugImages(exceptions, to: &properties)
         return properties
     }

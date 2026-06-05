@@ -48,7 +48,9 @@ class PostHogQueueTest: QuickSpec {
             let events = getBatchedEvents(server)
             expect(events.count) == 1
 
-            expect(sut.depth) == 0
+            // getBatchedEvents only waits for the request to arrive; the queue pops the batch after
+            // the response is processed, so poll rather than assert synchronously.
+            expect(sut.depth).toEventually(equal(0))
 
             sut.clear()
         }
@@ -60,18 +62,18 @@ class PostHogQueueTest: QuickSpec {
             let event2 = PostHogEvent(event: "event2", distinctId: "distinctId2")
             let event3 = PostHogEvent(event: "event3", distinctId: "distinctId3")
 
-            // First event should not trigger flush (below flushAt threshold)
             sut.add(event)
             expect(sut.depth) == 1
 
-            // Adding two more events: second event reaches flushAt=2 and triggers flush,
-            // third event stays in queue
+            // flush() takes the batch asynchronously, so let it drain before adding more —
+            // otherwise a later add races into the in-flight peek() and joins the batch.
             sut.add(event2)
-            sut.add(event3)
 
             let events = getBatchedEvents(server)
             expect(events.count) == 2
+            expect(sut.depth).toEventually(equal(0))
 
+            sut.add(event3)
             expect(sut.depth) == 1
 
             sut.clear()
@@ -212,7 +214,7 @@ class PostHogQueueTest: QuickSpec {
             sut.flush()
             expect(sut.currentBatchCapForTesting).toEventually(equal(5))
             sut.flush()
-            expect(sut.depth).toEventually(equal(0), timeout: .seconds(5))
+            expect(sut.depth).toEventually(equal(0))
 
             sut.clear()
         }

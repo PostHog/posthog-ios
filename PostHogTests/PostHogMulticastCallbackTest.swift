@@ -184,6 +184,7 @@ class PostHogThrottledMulticastCallbackTests {
     func throttlePreventsRapidInvocations() async {
         let mockNow = MockDate()
         now = { mockNow.date }
+        defer { now = { Date() } }
 
         let callback = PostHogThrottledMulticastCallback<Int>()
         var receivedValues: [Int] = []
@@ -217,6 +218,7 @@ class PostHogThrottledMulticastCallbackTests {
     func differentThrottleIntervals() async {
         let mockNow = MockDate()
         now = { mockNow.date }
+        defer { now = { Date() } }
 
         let callback = PostHogThrottledMulticastCallback<Int>()
         var fastValues: [Int] = []

@@ -54,6 +54,8 @@
 		4B3E620C85BFCE7C9F3800D2 /* PLCrashReportMachExceptionInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 9DBE5F51C6078BEF346BFDBB /* PLCrashReportMachExceptionInfo.m */; };
 		4C2DC69C9F10ED07CFC374C1 /* PLCrashAsyncThread_x86.c in Sources */ = {isa = PBXBuildFile; fileRef = 351BB1903238AF5443032040 /* PLCrashAsyncThread_x86.c */; };
 		5BAE9162D28D34E0FECB29B4 /* PLCrashSysctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 1A8704E270B2737239AB8A64 /* PLCrashSysctl.c */; };
+		5CA51F0E2B5C9A0100000001 /* PostHogScreenNameTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA51F0E2B5C9A0100000002 /* PostHogScreenNameTest.swift */; };
+		5CA51F0E2B5C9A0100000003 /* PostHogScreenNameSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA51F0E2B5C9A0100000004 /* PostHogScreenNameSanitizer.swift */; };
 		5DEA35A160AF4E7969C4FF52 /* PLCrashProcessInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 97A462C12E6F54A281DE5023 /* PLCrashProcessInfo.m */; };
 		653AD77A6406C108F6C3F659 /* PLCrashAsyncMachOString.c in Sources */ = {isa = PBXBuildFile; fileRef = 69F7521A6F2A46D4AC6356F5 /* PLCrashAsyncMachOString.c */; };
 		690B2DF32C205B5600AE3B45 /* TimeBasedEpochGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690B2DF22C205B5600AE3B45 /* TimeBasedEpochGenerator.swift */; };
@@ -72,7 +74,6 @@
 		690FF0EF2AEFF23D00A0B06B /* OHHTTPStubsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0EE2AEFF23D00A0B06B /* OHHTTPStubsSwift */; };
 		690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0F02AEFF24200A0B06B /* OHHTTPStubs */; };
 		690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */; };
-		5CA51F0E2B5C9A0100000001 /* PostHogScreenNameTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA51F0E2B5C9A0100000002 /* PostHogScreenNameTest.swift */; };
 		69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */; };
 		69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */; };
 		69261D1B2AD9678C00232EC7 /* PostHogEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D1A2AD9678C00232EC7 /* PostHogEvent.swift */; };
@@ -135,8 +136,10 @@
 		7212EDEEF9E1DC37D57219B9 /* PLCrashReporterConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = D647E3BDAF428D331D684092 /* PLCrashReporterConfig.m */; };
 		7470607DEDB656D74BC1B487 /* PLCrashMachExceptionPortSet.m in Sources */ = {isa = PBXBuildFile; fileRef = 47D619C6488AA0E8B84944FF /* PLCrashMachExceptionPortSet.m */; };
 		77187C93372EC6973C4386D1 /* PLCrashAsyncDwarfCIE.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4794C39420D22C8B91124E48 /* PLCrashAsyncDwarfCIE.cpp */; };
+		7EA17C34A2E653068088F212 /* fixture_survey_conditions_event_property_filters.json in Resources */ = {isa = PBXBuildFile; fileRef = 8D1477A6BA86EB4E28DF64ED /* fixture_survey_conditions_event_property_filters.json */; };
 		7FC8AD34A109E7F53B252F65 /* PLCrashAsyncSignalInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 45DA778D797BB8B389FD4AEB /* PLCrashAsyncSignalInfo.c */; };
 		82A213327F32C797CB815DDD /* PLCrashHostInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = A38F6D8BE8A49299433A915A /* PLCrashHostInfo.m */; };
+		867168FF2DB362371B6ACBA2 /* fixture_surveys_array_with_malformed.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */; };
 		86E43EA3744BB24D27051588 /* PLCrashUncaughtExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 39511B75AEBE275A433E3298 /* PLCrashUncaughtExceptionHandler.m */; };
 		88D516A0861C2F4F6D57CA7A /* PostHogLogsOTLP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */; };
 		8A85D64A2CA4FB9728087065 /* PLCrashReportSymbolInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 61B25EED847481E0988A65E3 /* PLCrashReportSymbolInfo.m */; };
@@ -262,7 +265,6 @@
 		DA5063C92EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063C82EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift */; };
 		DA5063D22EF5918200C51DA0 /* PostHogCrashReportProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */; };
 		DA5064412EF5E40300C51DA0 /* ApplicationScreenViewPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */; };
-		5CA51F0E2B5C9A0100000003 /* PostHogScreenNameSanitizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA51F0E2B5C9A0100000004 /* PostHogScreenNameSanitizer.swift */; };
 		DA5064432EF5E58D00C51DA0 /* PostHogErrorTrackingAutoCaptureIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5064422EF5E58D00C51DA0 /* PostHogErrorTrackingAutoCaptureIntegration.swift */; };
 		DA5064572EF6171900C51DA0 /* SwiftCrashTriggers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5064562EF6171900C51DA0 /* SwiftCrashTriggers.swift */; };
 		DA5175B32F6C4CEA00F0E00A /* PostHogReplayBufferDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5175B12F6C4CEA00F0E00A /* PostHogReplayBufferDelegate.swift */; };
@@ -526,8 +528,6 @@
 		DAA5EE362D4368A900D437E0 /* fixture_survey_question_multiple_choice.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE312D4368A900D437E0 /* fixture_survey_question_multiple_choice.json */; };
 		DAA5EE372D4368A900D437E0 /* fixture_survey_question_rating.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE322D4368A900D437E0 /* fixture_survey_question_rating.json */; };
 		DAA5EE382D4368A900D437E0 /* fixture_survey_question_single_choice.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE332D4368A900D437E0 /* fixture_survey_question_single_choice.json */; };
-		F22413BB1C82340F203271A4 /* fixture_survey_question_rating_no_bounds.json in Resources */ = {isa = PBXBuildFile; fileRef = 45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */; };
-		867168FF2DB362371B6ACBA2 /* fixture_surveys_array_with_malformed.json in Resources */ = {isa = PBXBuildFile; fileRef = 0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */; };
 		DAAD96982F7EF3DC002A8379 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DAAD96992F7EF3DC002A8379 /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DAB565CA2D142F8F0088F720 /* PostHogNoMaskViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */; };
@@ -573,6 +573,7 @@
 		EE47DB8C906D409AB6C2A23F /* RageClickDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E974D4AD3C438FAE6FE0C5 /* RageClickDetector.swift */; };
 		F01DFEA6844945E7A794FCC9 /* QueueEndpoint+Factories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C0C245B05D4C29890560B8 /* QueueEndpoint+Factories.swift */; };
 		F0FBEDFF37952921D60EF57C /* PostHogSurveyTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E41CC6ED20D266FB2357B81 /* PostHogSurveyTranslation.swift */; };
+		F22413BB1C82340F203271A4 /* fixture_survey_question_rating_no_bounds.json in Resources */ = {isa = PBXBuildFile; fileRef = 45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */; };
 		F6DADC57034D5B70B502F251 /* PostHogLogsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */; };
 		FAAA4C305C550B22060A9905 /* PLCrashReportMachineInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 42CE9EE391A5AE700A1D688F /* PLCrashReportMachineInfo.m */; };
 /* End PBXBuildFile section */
@@ -747,6 +748,7 @@
 		05FCF0F4BD9EEC66BF95699E /* PLCrashFrameDWARFUnwind.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashFrameDWARFUnwind.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashFrameDWARFUnwind.cpp; sourceTree = "<group>"; };
 		09F0CB0EF4DFD9469CE01CDD /* PLCrashAsyncThread_arm.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncThread_arm.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncThread_arm.c; sourceTree = "<group>"; };
 		0B24F86E2D8348C00685A2F9 /* PLCrashReportApplicationInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportApplicationInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportApplicationInfo.m; sourceTree = "<group>"; };
+		0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_surveys_array_with_malformed.json; sourceTree = "<group>"; };
 		0D784BEF45D7E472FBE56B84 /* PLCrashMachExceptionPort.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashMachExceptionPort.m; path = vendor/PHPLCrashReporter/Source/PLCrashMachExceptionPort.m; sourceTree = "<group>"; };
 		0DD06A7329293F85392FD46C /* fixture_survey_translations.json */ = {isa = PBXFileReference; includeInIndex = 1; path = fixture_survey_translations.json; sourceTree = "<group>"; };
 		12DC9426FD779BD7FE34A29F /* PLCrashReportSystemInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportSystemInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportSystemInfo.m; sourceTree = "<group>"; };
@@ -792,6 +794,7 @@
 		42AF538C180FBEEACEBAB53F /* PLCrashMachExceptionServer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashMachExceptionServer.m; path = vendor/PHPLCrashReporter/Source/PLCrashMachExceptionServer.m; sourceTree = "<group>"; };
 		42CE9EE391A5AE700A1D688F /* PLCrashReportMachineInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportMachineInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportMachineInfo.m; sourceTree = "<group>"; };
 		4360B9439C3B5722C115465A /* PLCrashReportProcessorInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportProcessorInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportProcessorInfo.m; sourceTree = "<group>"; };
+		45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_rating_no_bounds.json; sourceTree = "<group>"; };
 		45DA778D797BB8B389FD4AEB /* PLCrashAsyncSignalInfo.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncSignalInfo.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncSignalInfo.c; sourceTree = "<group>"; };
 		4794C39420D22C8B91124E48 /* PLCrashAsyncDwarfCIE.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfCIE.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfCIE.cpp; sourceTree = "<group>"; };
 		47D619C6488AA0E8B84944FF /* PLCrashMachExceptionPortSet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashMachExceptionPortSet.m; path = vendor/PHPLCrashReporter/Source/PLCrashMachExceptionPortSet.m; sourceTree = "<group>"; };
@@ -800,6 +803,8 @@
 		57E2779AF27A014DB1B40BCB /* PLCrashAsyncThread_current.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncThread_current.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncThread_current.c; sourceTree = "<group>"; };
 		5A1B2C3D4E5F60718293A4B6 /* PostHogLogSeverity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogSeverity.swift; sourceTree = "<group>"; };
 		5B4E325C19D4C707C5FA9255 /* PLCrashAsyncDwarfFDE.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfFDE.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfFDE.cpp; sourceTree = "<group>"; };
+		5CA51F0E2B5C9A0100000002 /* PostHogScreenNameTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenNameTest.swift; sourceTree = "<group>"; };
+		5CA51F0E2B5C9A0100000004 /* PostHogScreenNameSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenNameSanitizer.swift; sourceTree = "<group>"; };
 		60CCBF99708406E47F683455 /* dwarf_opstream.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = dwarf_opstream.cpp; path = vendor/PHPLCrashReporter/Source/dwarf_opstream.cpp; sourceTree = "<group>"; };
 		61B25EED847481E0988A65E3 /* PLCrashReportSymbolInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportSymbolInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportSymbolInfo.m; sourceTree = "<group>"; };
 		61CBAB800ACCB63AB4491646 /* PLCrashFrameCompactUnwind.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashFrameCompactUnwind.c; path = vendor/PHPLCrashReporter/Source/PLCrashFrameCompactUnwind.c; sourceTree = "<group>"; };
@@ -822,7 +827,6 @@
 		690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfigTest.swift; sourceTree = "<group>"; };
 		690FF0E82AEFD3BD00A0B06B /* PostHogQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueueTest.swift; sourceTree = "<group>"; };
 		690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDKTest.swift; sourceTree = "<group>"; };
-		5CA51F0E2B5C9A0100000002 /* PostHogScreenNameTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenNameTest.swift; sourceTree = "<group>"; };
 		690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWatchOS.xcodeproj; path = PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj; sourceTree = "<group>"; };
 		69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRemoteConfig.swift; sourceTree = "<group>"; };
 		69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogUploadInfo.swift; sourceTree = "<group>"; };
@@ -901,6 +905,7 @@
 		826D9ED566BF6FEFBA430555 /* BundleUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleUtils.swift; sourceTree = "<group>"; };
 		8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsOTLP.swift; sourceTree = "<group>"; };
 		8AC7B7E5D1441557C48E5951 /* CrashReporterFramework.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CrashReporterFramework.m; path = vendor/PHPLCrashReporter/Source/CrashReporterFramework.m; sourceTree = "<group>"; };
+		8D1477A6BA86EB4E28DF64ED /* fixture_survey_conditions_event_property_filters.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = fixture_survey_conditions_event_property_filters.json; sourceTree = "<group>"; };
 		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c/protobuf-c.c"; sourceTree = "<group>"; };
 		9473A633747872EA43FDCA3A /* SurveyTranslationResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurveyTranslationResolver.swift; sourceTree = "<group>"; };
 		97A462C12E6F54A281DE5023 /* PLCrashProcessInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashProcessInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashProcessInfo.m; sourceTree = "<group>"; };
@@ -1019,7 +1024,6 @@
 		DA53DE7D2D3E66A300C38DCA /* PostHogRemoteConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRemoteConfigTest.swift; sourceTree = "<group>"; };
 		DA578E972D6768B400B3A56C /* PostHogScreenViewIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenViewIntegration.swift; sourceTree = "<group>"; };
 		DA578E992D676AE700B3A56C /* ApplicationScreenViewPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationScreenViewPublisher.swift; sourceTree = "<group>"; };
-		5CA51F0E2B5C9A0100000004 /* PostHogScreenNameSanitizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenNameSanitizer.swift; sourceTree = "<group>"; };
 		DA578E9B2D68578500B3A56C /* MockApplicationLifecyclePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockApplicationLifecyclePublisher.swift; sourceTree = "<group>"; };
 		DA578E9D2D6858B200B3A56C /* PostHogScreenViewIntegrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogScreenViewIntegrationTest.swift; sourceTree = "<group>"; };
 		DA578E9F2D6858C900B3A56C /* MockScreenViewPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockScreenViewPublisher.swift; sourceTree = "<group>"; };
@@ -1329,8 +1333,6 @@
 		DAA5EE312D4368A900D437E0 /* fixture_survey_question_multiple_choice.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_multiple_choice.json; sourceTree = "<group>"; };
 		DAA5EE322D4368A900D437E0 /* fixture_survey_question_rating.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_rating.json; sourceTree = "<group>"; };
 		DAA5EE332D4368A900D437E0 /* fixture_survey_question_single_choice.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_single_choice.json; sourceTree = "<group>"; };
-		45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_question_rating_no_bounds.json; sourceTree = "<group>"; };
-		0C73719F6590EB6B34D3EF2C /* fixture_surveys_array_with_malformed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_surveys_array_with_malformed.json; sourceTree = "<group>"; };
 		DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = PostHog.modulemap; sourceTree = "<group>"; };
 		DAB565C92D142F8F0088F720 /* PostHogNoMaskViewModifier.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogNoMaskViewModifier.swift; sourceTree = "<group>"; };
 		DAB565DE2D14C55C0088F720 /* PostHogTagViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogTagViewModifier.swift; sourceTree = "<group>"; };
@@ -2472,6 +2474,7 @@
 				DA7185472D07E11200396388 /* output_3.webp */,
 				0DD06A7329293F85392FD46C /* fixture_survey_translations.json */,
 				F4F3132F8AB899CDD425012C /* fixture_survey_translation_noop.json */,
+				8D1477A6BA86EB4E28DF64ED /* fixture_survey_conditions_event_property_filters.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -2960,6 +2963,7 @@
 				DA71854D2D07E11200396388 /* input_1.png in Resources */,
 				E89B5DEB2E380EF6D86E66A8 /* fixture_survey_translations.json in Resources */,
 				BB04FDE3FEF9ED62590825AC /* fixture_survey_translation_noop.json in Resources */,
+				7EA17C34A2E653068088F212 /* fixture_survey_conditions_event_property_filters.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3889,6 +3893,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -3922,6 +3927,7 @@
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -4380,6 +4386,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "TESTING DEBUG";
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

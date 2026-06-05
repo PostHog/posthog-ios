@@ -73,10 +73,15 @@ swiftLint:
 swiftFormat:
 	swiftformat . --swiftversion 5.3
 
-# use -test-iterations 10 if you want to run the tests multiple times
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
+# -retry-tests-on-failure -test-iterations 3: a few tests assert real-time behaviour (autocapture
+# debounce/flush windows) that can't be made deterministic; on slow, load-variable CI runners those
+# windows occasionally slip. Rerun a *failed* test up to 3 times so a transient miss doesn't fail the
+# job — a genuinely broken test fails all 3 and stays red.
 testOniOSSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' | xcpretty
+	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
+	echo "Testing on simulator: $$device"; \
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | xcpretty
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty

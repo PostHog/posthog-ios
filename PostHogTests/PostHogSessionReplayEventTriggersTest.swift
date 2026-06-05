@@ -25,10 +25,27 @@
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.preloadFeatureFlags = false
+            // Drive recording config from the seeded .remoteConfig below, not the async /config fetch,
+            // so the tests stay deterministic and independent of global stub state from other suites.
+            config.disableRemoteConfigForTesting = true
 
             // Configure mock server for remote config
             server.returnReplay = true
             server.sessionRecordingEventTriggers = eventTriggers
+
+            // Seed the recording config so install() reads the event triggers up front (.remoteConfig
+            // survives reset(), so clear any value leaked from a previous serialized test first).
+            let storage = PostHogStorage(config)
+            storage.remove(key: .remoteConfig)
+            var sessionRecording: [String: Any] = ["endpoint": "/s/"]
+            if let eventTriggers {
+                sessionRecording["eventTriggers"] = eventTriggers
+            }
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": sessionRecording])
+
+            // Reset the static install flag a prior replay suite may have left set, so this SUT installs
+            // a fresh integration rather than no-opping onto a stale one.
+            PostHogReplayIntegration.clearInstalls()
 
             return PostHogSDK.with(config)
         }

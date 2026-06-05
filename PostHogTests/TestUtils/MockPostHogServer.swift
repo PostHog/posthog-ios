@@ -383,6 +383,15 @@ class MockPostHogServer {
             let sessionRecordingPayload: String = {
                 if self.returnReplay {
                     var sessionRecording: [String: Any] = ["endpoint": "/s/"]
+                    // /config is the source of recording config (incl. the linked flag); mirror what
+                    // /flags emits so linked-flag gating can be evaluated from the cached remote config.
+                    if self.returnReplayWithVariant {
+                        if self.returnReplayWithMultiVariant {
+                            sessionRecording["linkedFlag"] = self.replayVariantValue
+                        } else {
+                            sessionRecording["linkedFlag"] = self.replayVariantName
+                        }
+                    }
                     if let sampleRate = self.sessionRecordingSampleRate {
                         sessionRecording["sampleRate"] = sampleRate
                     }

@@ -251,7 +251,13 @@
 
         @Test("keeps distinct id header but omits session tracing headers when the session has ended")
         func omitsSessionHeadersWhenSessionHasEnded() async throws {
-            try await withTracingSut(tracingHeaders: [Self.primaryHost]) { sut in
+            // A foregrounded app rotates a fresh session on endSession(); background it first so the
+            // session genuinely ends (the "no active session -> omit session header" case this covers).
+            let backgroundedLifecycle = MockApplicationLifecyclePublisher()
+            try await withTracingSut(tracingHeaders: [Self.primaryHost], appLifecycle: backgroundedLifecycle) { sut in
+                backgroundedLifecycle.isInBackground = true
+                backgroundedLifecycle.simulateAppDidEnterBackground()
+
                 sut.endSession()
 
                 let capture = CapturedRequest()
@@ -266,16 +272,22 @@
 
         private func withTracingSut<T>(
             tracingHeaders: [String],
+            appLifecycle: AppLifecyclePublishing = ApplicationLifecyclePublisher.shared,
             _ body: (PostHogSDK) async throws -> T
         ) async throws -> T {
             PostHogTracingHeadersIntegration.clearInstalls()
             HTTPStubs.removeAllStubs()
+            // Restored in defer so the lifecycle mock can't leak into other serialized suites.
+            DI.main.appLifecyclePublisher = appLifecycle
 
             let sut = makeSut(tracingHeaders: tracingHeaders)
             defer {
                 sut.close()
                 HTTPStubs.removeAllStubs()
                 PostHogTracingHeadersIntegration.clearInstalls()
+                // Restore the real lifecycle publisher so the injected mock does
+                // not leak into other (serialized) suites.
+                DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
             }
 
             return try await body(sut)
@@ -376,7 +388,7 @@
         }
 
         private func makeSut(tracingHeaders: [String]) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.tracingHeaders = tracingHeaders
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false

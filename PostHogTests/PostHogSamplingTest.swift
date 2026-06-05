@@ -114,6 +114,9 @@ class PostHogSamplingTests {
             server.start()
             let storage = PostHogStorage(config)
             storage.reset()
+            // reset() keeps .remoteConfig (project-level config); clear it so shared on-disk storage
+            // doesn't leak recording config between these serialized tests.
+            storage.remove(key: .remoteConfig)
         }
 
         deinit {
@@ -142,7 +145,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": "0.75"])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": "0.75"]])
 
             let sut = getSut(storage: storage)
 
@@ -154,7 +157,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": 0.5])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": 0.5]])
 
             let sut = getSut(storage: storage)
 
@@ -166,7 +169,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": "1"])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": "1"]])
 
             let sut = getSut(storage: storage)
 
@@ -178,7 +181,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": "0"])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": "0"]])
 
             let sut = getSut(storage: storage)
 
@@ -190,7 +193,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": "1.5"])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": "1.5"]])
 
             let sut = getSut(storage: storage)
 
@@ -202,7 +205,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": "-0.5"])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": "-0.5"]])
 
             let sut = getSut(storage: storage)
 
@@ -214,7 +217,7 @@ class PostHogSamplingTests {
             let storage = PostHogStorage(config)
             defer { storage.reset() }
 
-            storage.setDictionary(forKey: .sessionReplay, contents: ["sampleRate": "invalid"])
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["sampleRate": "invalid"]])
 
             let sut = getSut(storage: storage)
 

@@ -30,6 +30,19 @@ jobs:
       - name: Test SDK
         run: make test
 
+  # `make test` runs `swift test` on macOS, which compiles out every `#if os(iOS)` block, so the
+  # iOS-only suites (session replay, autocapture, tracing headers, crash reporting, etc.) never run
+  # there. Run the iOS test target on a simulator so those suites are actually exercised in CI.
+  test-ios-simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Test SDK on iOS Simulator
+        run: make testOniOSSimulator
+
   downgrade-compatibility:
     runs-on: macos-15
     strategy:

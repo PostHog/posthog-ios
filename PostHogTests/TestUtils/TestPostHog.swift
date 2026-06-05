@@ -6,8 +6,28 @@
 //
 
 import Foundation
-import PostHog
+import Nimble
+@testable import PostHog
+import Quick
 import XCTest
+
+final class TestPollingConfiguration: QuickConfiguration {
+    override class func configure(_ configuration: QCKConfiguration) {
+        // Shared CI runners run several times slower than local (one job was ~6x), so Nimble's
+        // default 1s poll timeout makes async assertions flake when background work is starved.
+        // Raise the ceiling generously — toEventually still returns as soon as it passes.
+        PollingDefaults.timeout = .seconds(30)
+        configuration.beforeEach {
+            // Some suites mock the global `now` clock and don't restore it; a leaked fixed clock
+            // makes the timestamp-keyed queue collide events (lost batches). Reset before each test.
+            now = { Date() }
+            // storage.reset() deliberately keeps the on-disk event queue, so a prior test's unsent
+            // event can leak into the next test's batch and inflate counts. Wipe persisted state so
+            // every Quick test starts from a clean slate.
+            deleteSafely(applicationSupportDirectoryURL())
+        }
+    }
+}
 
 func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
     let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
@@ -31,6 +51,14 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     if result != XCTWaiter.Result.completed {
         XCTFail("The expected requests never arrived")
     }
+}
+
+// waitFlagsRequest only proves the /flags request arrived; the SDK processes it async. lastRequestId
+// is set atomically with the flags + v4 metadata under one lock, so wait on it to know the fresh
+// response was fully stored (a flag getter can return a stale cached value before that).
+func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
+    waitFlagsRequest(server)
+    expect(sut.remoteConfig?.lastRequestId).toEventuallyNot(beNil(), timeout: .seconds(10))
 }
 
 func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {

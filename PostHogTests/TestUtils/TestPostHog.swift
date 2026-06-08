@@ -29,7 +29,13 @@ final class TestPollingConfiguration: QuickConfiguration {
     }
 }
 
-func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
+// Shared CI runners run several times slower than local, so the request-arrival waits below need the
+// same generous ceiling we give Nimble's PollingDefaults above — otherwise a starved background flush
+// makes "the expected requests never arrived" flake. The fast path still returns as soon as the
+// request lands; the ceiling only matters when the runner is contended.
+let testRequestTimeout: TimeInterval = 30.0
+
+func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = testRequestTimeout, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
     let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
 
     if result != XCTWaiter.Result.completed, failIfNotCompleted {
@@ -46,7 +52,7 @@ func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0,
 }
 
 func waitFlagsRequest(_ server: MockPostHogServer) {
-    let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: 15)
+    let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: testRequestTimeout)
 
     if result != XCTWaiter.Result.completed {
         XCTFail("The expected requests never arrived")
@@ -59,7 +65,7 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
 func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _: PostHogSDK) {
     let flagsLoaded = XCTNSNotificationExpectation(name: PostHogSDK.didReceiveFeatureFlags)
     waitFlagsRequest(server)
-    if XCTWaiter.wait(for: [flagsLoaded], timeout: 10) != .completed {
+    if XCTWaiter.wait(for: [flagsLoaded], timeout: testRequestTimeout) != .completed {
         XCTFail("Feature flags were not loaded in time")
     }
 }
@@ -70,7 +76,7 @@ func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {
     }
 
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-        let result = XCTWaiter.wait(for: [expectation], timeout: 15)
+        let result = XCTWaiter.wait(for: [expectation], timeout: testRequestTimeout)
 
         switch result {
         case .completed:
@@ -101,7 +107,7 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
     }
 
     return try await withCheckedThrowingContinuation { continuation in
-        let result = XCTWaiter.wait(for: [expectation], timeout: 15)
+        let result = XCTWaiter.wait(for: [expectation], timeout: testRequestTimeout)
 
         switch result {
         case .completed:

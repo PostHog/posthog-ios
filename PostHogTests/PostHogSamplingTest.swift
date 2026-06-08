@@ -236,16 +236,12 @@ class PostHogSamplingTests {
 
             let sut = getSut(config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.getRecordingSampleRate() == 0.5)
             _ = token
@@ -263,16 +259,12 @@ class PostHogSamplingTests {
 
             let sut = getSut(config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.getRecordingSampleRate() == nil)
             _ = token

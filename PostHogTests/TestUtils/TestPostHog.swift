@@ -124,6 +124,78 @@ final class MockDate {
     var date = Date()
 }
 
+/// Event-driven replacement for the `while !flag, Date() < timeout {}` busy-waits that used to peg a
+/// thread for up to N seconds — and, on the cooperative pool, could starve the very callback they were
+/// waiting on. Create it with the number of callbacks to await, call `signal()` from each, then
+/// `await wait()`. It resumes the instant the last signal lands; the timeout is only a safety net so a
+/// regression fails fast instead of hanging the whole run.
+final class AsyncLatch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var remaining: Int
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var opened = false
+
+    init(count: Int = 1) {
+        remaining = count
+    }
+
+    /// Records one awaited callback; opens the latch once all of them have arrived. Thread-safe and
+    /// idempotent — extra calls after the latch opens are ignored.
+    func signal() {
+        lock.lock()
+        if opened {
+            lock.unlock()
+            return
+        }
+        remaining -= 1
+        let shouldOpen = remaining <= 0
+        let waiter = shouldOpen ? takeWaiterLocked() : nil
+        lock.unlock()
+        waiter?.resume()
+    }
+
+    /// Suspends until every `signal()` has landed or `timeout` seconds elapse. `settle` lets trailing
+    /// async work finish before returning, preserving the small post-callback delays a few of the old
+    /// waits relied on.
+    func wait(timeout: TimeInterval = 10, settle: TimeInterval = 0) async {
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            self.forceOpen()
+        }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            let alreadyOpen = opened
+            if !alreadyOpen {
+                self.continuation = continuation
+            }
+            lock.unlock()
+            if alreadyOpen {
+                continuation.resume()
+            }
+        }
+        timeoutTask.cancel()
+        if settle > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(settle * 1_000_000_000))
+        }
+    }
+
+    private func forceOpen() {
+        lock.lock()
+        let waiter = opened ? nil : takeWaiterLocked()
+        lock.unlock()
+        waiter?.resume()
+    }
+
+    /// Marks the latch open and hands back the pending waiter (if any) to resume outside the lock.
+    /// Must be called with `lock` held.
+    private func takeWaiterLocked() -> CheckedContinuation<Void, Never>? {
+        opened = true
+        let waiter = continuation
+        continuation = nil
+        return waiter
+    }
+}
+
 extension Bundle {
     static var test: Bundle {
         #if SWIFT_PACKAGE

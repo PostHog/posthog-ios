@@ -101,20 +101,15 @@ enum PostHogRemoteConfigTest {
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
 
-            var featureFlagsLoaded = false
-            var remoteConfigLoaded = false
+            let bothLoaded = AsyncLatch(count: 2)
             let token1 = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded = true
+                bothLoaded.signal()
             }
             let token2 = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                bothLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !remoteConfigLoaded || !featureFlagsLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await bothLoaded.wait()
 
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() != nil)
@@ -130,20 +125,16 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(config: config)
 
             var featureFlagsLoaded = false
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
 
             let token1 = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
             let token2 = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(featureFlagsLoaded == false)
             #expect(sut.getRemoteConfig() != nil)
@@ -169,18 +160,16 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
 
             var featureFlagsLoaded = false
+            let flagsLoaded = AsyncLatch()
             let token = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
+                flagsLoaded.signal()
             }
 
             #expect(sut.getFeatureFlag("some-flag") as? Bool == true)
 
             // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !featureFlagsLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await flagsLoaded.wait()
 
             // test for new value
             #expect(featureFlagsLoaded == true)
@@ -208,20 +197,13 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !remoteConfigLoaded, Date() < timeout {}
-                // need a small delay because of the timing of the check above
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    continuation.resume()
-                }
-            }
+            // wait for the config to load, then let the post-callback writes settle
+            await remoteConfigLoaded.wait(settle: 0.1)
 
             // test for empty cache
             #expect(storage.getDictionary(forKey: .flags).isNilOrEmpty == true)
@@ -246,20 +228,13 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var featureFlagsLoaded = false
+            let featureFlagsLoaded = AsyncLatch()
             let token = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded = true
+                featureFlagsLoaded.signal()
             }
 
-            // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !featureFlagsLoaded, Date() < timeout {}
-                // need a small delay because of the timing of the check above
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    continuation.resume()
-                }
-            }
+            // wait for flags to load, then let the post-callback writes settle
+            await featureFlagsLoaded.wait(settle: 0.1)
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
@@ -282,20 +257,13 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var featureFlagsLoaded = false
+            let featureFlagsLoaded = AsyncLatch()
             let token = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded = true
+                featureFlagsLoaded.signal()
             }
 
-            // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !featureFlagsLoaded, Date() < timeout {}
-                // need a small delay because of the timing of the check above
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    continuation.resume()
-                }
-            }
+            // wait for flags to load, then let the post-callback writes settle
+            await featureFlagsLoaded.wait(settle: 0.1)
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
@@ -318,21 +286,18 @@ enum PostHogRemoteConfigTest {
 
             var firstDone = false
             var secondDone = false
+            let bothDone = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "first", anonymousId: nil, groups: [:]) { _ in
                 firstDone = true
+                bothDone.signal()
             }
             sut.loadFeatureFlags(distinctId: "second", anonymousId: nil, groups: [:]) { _ in
                 secondDone = true
+                bothDone.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while !firstDone || !secondDone, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await bothDone.wait(timeout: 10, settle: 0.2)
 
             #expect(firstDone)
             #expect(secondDone)
@@ -349,23 +314,16 @@ enum PostHogRemoteConfigTest {
 
             server.flagsResponseDelay = 1.0
 
-            var firstDone = false
-            var secondDone = false
+            let bothDone = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "anon_uuid", anonymousId: nil, groups: [:]) { _ in
-                firstDone = true
+                bothDone.signal()
             }
             sut.loadFeatureFlags(distinctId: "real_user_id", anonymousId: "anon_uuid", groups: [:]) { _ in
-                secondDone = true
+                bothDone.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while !firstDone || !secondDone, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await bothDone.wait(timeout: 10, settle: 0.2)
 
             #expect(server.flagsRequests.count == 2)
 
@@ -385,29 +343,20 @@ enum PostHogRemoteConfigTest {
 
             server.flagsResponseDelay = 1.0
 
-            var firstDone = false
             var secondCallbackFired = false
-            var secondCallbackValue: [String: Any]?
-            var thirdDone = false
+            let firstAndThirdDone = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "first_id", anonymousId: nil, groups: [:]) { _ in
-                firstDone = true
+                firstAndThirdDone.signal()
             }
-            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { flags in
+            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { _ in
                 secondCallbackFired = true
-                secondCallbackValue = flags
             }
             sut.loadFeatureFlags(distinctId: "third_id", anonymousId: nil, groups: [:]) { _ in
-                thirdDone = true
+                firstAndThirdDone.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while !firstDone || !thirdDone, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await firstAndThirdDone.wait(timeout: 10, settle: 0.2)
 
             #expect(server.flagsRequests.count == 2)
             #expect(secondCallbackFired)
@@ -429,21 +378,18 @@ enum PostHogRemoteConfigTest {
 
             var firstResult: [String: Any]?
             var secondResult: [String: Any]?
+            let bothResults = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "user1", anonymousId: nil, groups: [:]) { flags in
                 firstResult = flags
+                bothResults.signal()
             }
             sut.loadFeatureFlags(distinctId: "user2", anonymousId: nil, groups: [:]) { flags in
                 secondResult = flags
+                bothResults.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while firstResult == nil || secondResult == nil, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await bothResults.wait(timeout: 10, settle: 0.2)
 
             #expect(firstResult != nil)
             #expect(secondResult != nil)
@@ -916,16 +862,12 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
             #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
@@ -973,16 +915,12 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
@@ -1008,16 +946,12 @@ enum PostHogRemoteConfigTest {
             // Should initially be true from cache
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
@@ -1037,16 +971,12 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 

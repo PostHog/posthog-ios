@@ -399,6 +399,8 @@ enum PostHogSessionManagerTest {
         }
 
         deinit {
+            // Close the suite-held SDK so its integrations/queues don't linger into other suites.
+            posthog.close()
             // Restore globals this suite mutates so it doesn't leak RN mode / a mocked clock into the
             // other serialized suites (a struct can't deinit, hence the class).
             postHogSdkName = postHogiOSSdkName

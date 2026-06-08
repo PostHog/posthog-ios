@@ -80,6 +80,7 @@ swiftFormat:
 # job — a genuinely broken test fails all 3 and stays red.
 testOniOSSimulator:
 	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
+	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
 	echo "Testing on simulator: $$device"; \
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | xcpretty
 

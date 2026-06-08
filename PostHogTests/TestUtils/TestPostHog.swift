@@ -53,12 +53,15 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     }
 }
 
-// waitFlagsRequest only proves the /flags request arrived; the SDK processes it async. lastRequestId
-// is set atomically with the flags + v4 metadata under one lock, so wait on it to know the fresh
-// response was fully stored (a flag getter can return a stale cached value before that).
-func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
+// lastRequestId can already be non-nil (restored from disk or an earlier load), so waiting on it
+// would pass before the fresh response lands. didReceiveFeatureFlags fires only after a /flags
+// response is stored; observe it from before the request so the notification can't be missed.
+func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _: PostHogSDK) {
+    let flagsLoaded = XCTNSNotificationExpectation(name: PostHogSDK.didReceiveFeatureFlags)
     waitFlagsRequest(server)
-    expect(sut.remoteConfig?.lastRequestId).toEventuallyNot(beNil(), timeout: .seconds(10))
+    if XCTWaiter.wait(for: [flagsLoaded], timeout: 10) != .completed {
+        XCTFail("Feature flags were not loaded in time")
+    }
 }
 
 func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {

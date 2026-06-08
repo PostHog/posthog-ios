@@ -46,6 +46,26 @@ enum PostHogRemoteConfigTest {
             let api = PostHogApi(theConfig)
             return PostHogRemoteConfig(theConfig, theStorage, api, { [:] }, featureFlagCalledCallback)
         }
+
+        // async bridges over the SDK's callback-based reload APIs.
+        func reloadRemoteConfig(_ sut: PostHogRemoteConfig) async {
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in continuation.resume() }
+            }
+        }
+
+        func loadFeatureFlags(_ sut: PostHogRemoteConfig) async {
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"]) { _ in
+                    continuation.resume()
+                }
+            }
+        }
+
+        func reloadConfigThenFlags(_ sut: PostHogRemoteConfig) async {
+            await reloadRemoteConfig(sut)
+            await loadFeatureFlags(sut)
+        }
     }
 
     @Suite("Test remote config loading")
@@ -517,9 +537,7 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive())
 
                 // /config (returnReplay == false) now reports recording disabled, which must turn the flag off.
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
+                await reloadRemoteConfig(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
@@ -534,14 +552,7 @@ enum PostHogRemoteConfigTest {
 
                 server.returnReplay = true
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == true)
@@ -559,14 +570,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == true)
@@ -585,14 +589,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplayWithVariant = true
                 server.replayVariantValue = false
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == false)
@@ -613,14 +610,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == true)
@@ -641,14 +631,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "mobile"]
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == false)
@@ -667,14 +650,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "some-missing-flag"
                 server.flagsSkipReplayVariantName = true
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == false)
@@ -700,14 +676,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(calledFlagKey != nil)
@@ -735,14 +704,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(calledFlagKey == "recording-platform-check")
@@ -765,14 +727,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(callbackInvoked == false)
@@ -791,14 +746,7 @@ enum PostHogRemoteConfigTest {
 
                 server.returnReplay = true
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(callbackInvoked == false)
@@ -816,9 +764,7 @@ enum PostHogRemoteConfigTest {
 
                 // /config (the only source of recording config) populates the in-memory recording
                 // state and persists the whole config to storage under .remoteConfig.
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
+                await reloadRemoteConfig(sut)
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
 
@@ -832,11 +778,7 @@ enum PostHogRemoteConfigTest {
 
                 // The post-reset /flags reload carries no sessionRecording, so replay must re-arm from
                 // the retained .remoteConfig (the else branch), without waiting for an app restart.
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
@@ -857,9 +799,7 @@ enum PostHogRemoteConfigTest {
                 let sut = getSut(storage: storage)
 
                 // /config caches the recording config (with linkedFlag) under .remoteConfig.
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
+                await reloadRemoteConfig(sut)
                 #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
 
                 storage.reset()
@@ -868,11 +808,7 @@ enum PostHogRemoteConfigTest {
                 // The post-reset /flags reload hits the else branch and re-evaluates the cached
                 // config against the new user's flags. The linked flag is missing, so replay must
                 // stay off rather than blindly re-arming.
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
@@ -887,9 +823,7 @@ enum PostHogRemoteConfigTest {
 
                 let sut = getSut(storage: storage)
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
+                await reloadRemoteConfig(sut)
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
 
@@ -899,11 +833,7 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.getRecordingSampleRate() == nil)
 
                 server.quotaLimitFeatureFlags = true
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
@@ -917,11 +847,7 @@ enum PostHogRemoteConfigTest {
                 let sut = getSut(storage: storage)
                 #expect(sut.isSessionReplayFlagActive() == false)
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
@@ -1019,9 +945,7 @@ enum PostHogRemoteConfigTest {
 
             // /config (the only source of error-tracking config) enables autocapture and persists
             // it under .errorTracking.
-            await withCheckedContinuation { continuation in
-                sut.reloadRemoteConfig { _ in continuation.resume() }
-            }
+            await reloadRemoteConfig(sut)
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
 
             // Mimic reset(): storage.reset() wipes the cached remote config but KEEPS the persisted
@@ -1032,11 +956,7 @@ enum PostHogRemoteConfigTest {
 
             // The post-reset /flags reload carries no errorTracking and the cached remote config is
             // gone, so autocapture must re-arm from the persisted .errorTracking slice.
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
+            await loadFeatureFlags(sut)
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
 
@@ -1143,9 +1063,7 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            await withCheckedContinuation { continuation in
-                sut.reloadRemoteConfig { _ in continuation.resume() }
-            }
+            await reloadRemoteConfig(sut)
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
 
             storage.reset()
@@ -1153,11 +1071,7 @@ enum PostHogRemoteConfigTest {
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             server.quotaLimitFeatureFlags = true
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
+            await loadFeatureFlags(sut)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
@@ -1172,11 +1086,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
+            await loadFeatureFlags(sut)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }
@@ -1198,9 +1108,7 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            await withCheckedContinuation { continuation in
-                sut.reloadRemoteConfig { _ in continuation.resume() }
-            }
+            await reloadRemoteConfig(sut)
             #expect(sut.getRemoteConfig()?["capturePerformance"] != nil)
 
             storage.reset()

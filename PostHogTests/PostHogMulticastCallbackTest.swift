@@ -2,7 +2,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite("PostHogMulticastCallback Tests")
+@Suite("PostHogMulticastCallback Tests", .resetsGlobalState)
 class PostHogMulticastCallbackTests {
     @Test("Single subscriber receives value")
     func singleSubscriber() {
@@ -97,7 +97,7 @@ class PostHogMulticastCallbackTests {
     }
 }
 
-@Suite("PostHogThrottledMulticastCallback Tests")
+@Suite("PostHogThrottledMulticastCallback Tests", .resetsGlobalState)
 class PostHogThrottledMulticastCallbackTests {
     @Test("Single subscriber receives value with throttle")
     func singleSubscriber() async {
@@ -184,6 +184,7 @@ class PostHogThrottledMulticastCallbackTests {
     func throttlePreventsRapidInvocations() async {
         let mockNow = MockDate()
         now = { mockNow.date }
+        defer { now = { Date() } }
 
         let callback = PostHogThrottledMulticastCallback<Int>()
         var receivedValues: [Int] = []
@@ -217,6 +218,7 @@ class PostHogThrottledMulticastCallbackTests {
     func differentThrottleIntervals() async {
         let mockNow = MockDate()
         now = { mockNow.date }
+        defer { now = { Date() } }
 
         let callback = PostHogThrottledMulticastCallback<Int>()
         var fastValues: [Int] = []

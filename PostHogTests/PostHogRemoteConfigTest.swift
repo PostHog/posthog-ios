@@ -26,6 +26,9 @@ enum PostHogRemoteConfigTest {
             // important!
             let storage = PostHogStorage(config)
             storage.reset()
+            // reset() intentionally KEEPS .remoteConfig (project-level config survives an identity
+            // change). These suites share on-disk storage, so clear it explicitly to isolate tests.
+            storage.remove(key: .remoteConfig)
         }
 
         deinit {
@@ -42,6 +45,26 @@ enum PostHogRemoteConfigTest {
             let theStorage = storage ?? PostHogStorage(theConfig)
             let api = PostHogApi(theConfig)
             return PostHogRemoteConfig(theConfig, theStorage, api, { [:] }, featureFlagCalledCallback)
+        }
+
+        // async bridges over the SDK's callback-based reload APIs.
+        func reloadRemoteConfig(_ sut: PostHogRemoteConfig) async {
+            await withCheckedContinuation { continuation in
+                sut.reloadRemoteConfig { _ in continuation.resume() }
+            }
+        }
+
+        func loadFeatureFlags(_ sut: PostHogRemoteConfig) async {
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"]) { _ in
+                    continuation.resume()
+                }
+            }
+        }
+
+        func reloadConfigThenFlags(_ sut: PostHogRemoteConfig) async {
+            await reloadRemoteConfig(sut)
+            await loadFeatureFlags(sut)
         }
     }
 
@@ -78,20 +101,15 @@ enum PostHogRemoteConfigTest {
             config.storageManager = PostHogStorageManager(config)
             let sut = getSut(config: config)
 
-            var featureFlagsLoaded = false
-            var remoteConfigLoaded = false
+            let bothLoaded = AsyncLatch(count: 2)
             let token1 = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded = true
+                bothLoaded.signal()
             }
             let token2 = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                bothLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !remoteConfigLoaded || !featureFlagsLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await bothLoaded.wait()
 
             #expect(sut.getRemoteConfig() != nil)
             #expect(sut.getFeatureFlags() != nil)
@@ -107,20 +125,16 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(config: config)
 
             var featureFlagsLoaded = false
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
 
             let token1 = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
             }
             let token2 = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(featureFlagsLoaded == false)
             #expect(sut.getRemoteConfig() != nil)
@@ -146,18 +160,16 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
 
             var featureFlagsLoaded = false
+            let flagsLoaded = AsyncLatch()
             let token = sut.onFeatureFlagsLoaded.subscribe { _ in
                 featureFlagsLoaded = true
+                flagsLoaded.signal()
             }
 
             #expect(sut.getFeatureFlag("some-flag") as? Bool == true)
 
             // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !featureFlagsLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await flagsLoaded.wait()
 
             // test for new value
             #expect(featureFlagsLoaded == true)
@@ -185,20 +197,17 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !remoteConfigLoaded, Date() < timeout {}
-                // need a small delay because of the timing of the check above
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    continuation.resume()
-                }
-            }
+            await remoteConfigLoaded.wait()
+
+            // The cache clearing runs asynchronously after onRemoteConfigLoaded fires and isn't tied to
+            // any callback we can await, so poll the end state — returns the instant it clears rather
+            // than blocking on a fixed delay.
+            await waitUntil { storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty }
 
             // test for empty cache
             #expect(storage.getDictionary(forKey: .flags).isNilOrEmpty == true)
@@ -223,20 +232,13 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var featureFlagsLoaded = false
+            let featureFlagsLoaded = AsyncLatch()
             let token = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded = true
+                featureFlagsLoaded.signal()
             }
 
-            // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !featureFlagsLoaded, Date() < timeout {}
-                // need a small delay because of the timing of the check above
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    continuation.resume()
-                }
-            }
+            // wait for flags to load
+            await featureFlagsLoaded.wait()
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
@@ -259,20 +261,18 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var featureFlagsLoaded = false
+            let featureFlagsLoaded = AsyncLatch()
             let token = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded = true
+                featureFlagsLoaded.signal()
             }
 
-            // wait for flags to be loaded
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2) // 2 second timeout
-                while !featureFlagsLoaded, Date() < timeout {}
-                // need a small delay because of the timing of the check above
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    continuation.resume()
-                }
-            }
+            // No completion signal fires for this path: with the key absent the SDK takes the
+            // "leave flags alone" branch, and reloadFeatureFlags early-returns (canReloadFlagsForTesting
+            // is false), so onFeatureFlagsLoaded never fires. This is therefore a bounded settle — wait
+            // out the timeout so the async clear-or-keep decision has definitely run, *then* assert the
+            // cache wasn't wiped. (A regression that wrongly cleared on a missing key would have done so
+            // by now.) Don't wait on onRemoteConfigLoaded: it's posted to main before that decision runs.
+            await featureFlagsLoaded.wait(timeout: 2)
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
@@ -295,21 +295,18 @@ enum PostHogRemoteConfigTest {
 
             var firstDone = false
             var secondDone = false
+            let bothDone = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "first", anonymousId: nil, groups: [:]) { _ in
                 firstDone = true
+                bothDone.signal()
             }
             sut.loadFeatureFlags(distinctId: "second", anonymousId: nil, groups: [:]) { _ in
                 secondDone = true
+                bothDone.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while !firstDone || !secondDone, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await bothDone.wait(timeout: 10)
 
             #expect(firstDone)
             #expect(secondDone)
@@ -326,23 +323,16 @@ enum PostHogRemoteConfigTest {
 
             server.flagsResponseDelay = 1.0
 
-            var firstDone = false
-            var secondDone = false
+            let bothDone = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "anon_uuid", anonymousId: nil, groups: [:]) { _ in
-                firstDone = true
+                bothDone.signal()
             }
             sut.loadFeatureFlags(distinctId: "real_user_id", anonymousId: "anon_uuid", groups: [:]) { _ in
-                secondDone = true
+                bothDone.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while !firstDone || !secondDone, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await bothDone.wait(timeout: 10)
 
             #expect(server.flagsRequests.count == 2)
 
@@ -362,29 +352,20 @@ enum PostHogRemoteConfigTest {
 
             server.flagsResponseDelay = 1.0
 
-            var firstDone = false
             var secondCallbackFired = false
-            var secondCallbackValue: [String: Any]?
-            var thirdDone = false
+            let firstAndThirdDone = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "first_id", anonymousId: nil, groups: [:]) { _ in
-                firstDone = true
+                firstAndThirdDone.signal()
             }
-            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { flags in
+            sut.loadFeatureFlags(distinctId: "second_id", anonymousId: nil, groups: [:]) { _ in
                 secondCallbackFired = true
-                secondCallbackValue = flags
             }
             sut.loadFeatureFlags(distinctId: "third_id", anonymousId: nil, groups: [:]) { _ in
-                thirdDone = true
+                firstAndThirdDone.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while !firstDone || !thirdDone, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await firstAndThirdDone.wait(timeout: 10)
 
             #expect(server.flagsRequests.count == 2)
             #expect(secondCallbackFired)
@@ -406,21 +387,18 @@ enum PostHogRemoteConfigTest {
 
             var firstResult: [String: Any]?
             var secondResult: [String: Any]?
+            let bothResults = AsyncLatch(count: 2)
 
             sut.loadFeatureFlags(distinctId: "user1", anonymousId: nil, groups: [:]) { flags in
                 firstResult = flags
+                bothResults.signal()
             }
             sut.loadFeatureFlags(distinctId: "user2", anonymousId: nil, groups: [:]) { flags in
                 secondResult = flags
+                bothResults.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(10)
-                while firstResult == nil || secondResult == nil, Date() < timeout {}
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    continuation.resume()
-                }
-            }
+            await bothResults.wait(timeout: 10)
 
             #expect(firstResult != nil)
             #expect(secondResult != nil)
@@ -473,7 +451,7 @@ enum PostHogRemoteConfigTest {
                 defer { storage.reset() }
 
                 let recording: [String: Any] = ["test": 1]
-                storage.setDictionary(forKey: .sessionReplay, contents: recording)
+                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": recording])
 
                 let sut = getSut(storage: storage)
 
@@ -487,39 +465,35 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
 
-            @Test("session replay config survives reset (project-level config)")
+            @Test("remote config survives reset (project-level config)")
             func sessionReplayConfigSurvivesReset() {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
 
-                storage.setDictionary(forKey: .sessionReplay, contents: ["endpoint": "/s/"])
+                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
 
-                // reset() clears user-scoped state but must keep the project-level recording config,
-                // so replay can re-arm after an in-session identity change without an app restart.
+                // reset() clears user-scoped state but must keep the project-level remote config, so
+                // replay can re-arm after an in-session identity change without an app restart.
                 storage.reset()
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
+                #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
             }
 
-            @Test("returns isSessionReplayFlagActive false if feature flag disabled")
+            @Test("returns isSessionReplayFlagActive false if recording is disabled remotely")
             func returnIsSessionReplayFlagActiveFalseIfFeatureFlagDisabled() async {
                 let storage = PostHogStorage(config)
                 defer { storage.reset() }
 
                 let recording: [String: Any] = ["test": 1]
-                storage.setDictionary(forKey: .sessionReplay, contents: recording)
+                storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": recording])
 
                 let sut = getSut(storage: storage)
 
                 #expect(sut.isSessionReplayFlagActive())
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                // /config (returnReplay == false) now reports recording disabled, which must turn the flag off.
+                await reloadRemoteConfig(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) == nil)
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
 
@@ -533,14 +507,9 @@ enum PostHogRemoteConfigTest {
 
                 server.returnReplay = true
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
 
@@ -556,14 +525,9 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
 
@@ -580,14 +544,9 @@ enum PostHogRemoteConfigTest {
                 server.returnReplayWithVariant = true
                 server.replayVariantValue = false
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
 
@@ -606,14 +565,9 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == true)
             }
 
@@ -632,14 +586,9 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "mobile"]
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
 
@@ -656,14 +605,9 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "some-missing-flag"
                 server.flagsSkipReplayVariantName = true
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
-                #expect(config.snapshotEndpoint == "/newS/")
+                #expect(config.snapshotEndpoint == "/s/")
                 #expect(sut.isSessionReplayFlagActive() == false)
 
                 storage.reset()
@@ -687,11 +631,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(calledFlagKey != nil)
@@ -719,11 +659,7 @@ enum PostHogRemoteConfigTest {
                 server.replayVariantName = "recording-platform"
                 server.replayVariantValue = ["flag": "recording-platform-check", "variant": "web"]
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(calledFlagKey == "recording-platform-check")
@@ -746,11 +682,7 @@ enum PostHogRemoteConfigTest {
                 server.returnReplay = true
                 server.returnReplayWithVariant = true
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(callbackInvoked == false)
@@ -769,11 +701,7 @@ enum PostHogRemoteConfigTest {
 
                 server.returnReplay = true
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await reloadConfigThenFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(callbackInvoked == false)
@@ -789,31 +717,23 @@ enum PostHogRemoteConfigTest {
 
                 let sut = getSut(storage: storage)
 
-                // /config (the only source of recording config) populates the in-memory
-                // recording state and persists it to storage under .sessionReplay.
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
+                // /config (the only source of recording config) populates the in-memory recording
+                // state and persists the whole config to storage under .remoteConfig.
+                await reloadRemoteConfig(sut)
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
 
-                // Mimic reset(): storage.reset() wipes the persisted remote config but KEEPS the
-                // persisted .sessionReplay config (project-level, not user data); clear() drops the
-                // in-memory remote config and resets the replay flags. The persisted .sessionReplay
-                // is retained so the following /flags reload can re-evaluate replay.
+                // Mimic reset(): storage.reset() KEEPS the persisted .remoteConfig (project-level, not
+                // user data) while clearing user state; clear() resets the in-memory replay flags but
+                // keeps the cached remote config, so the following /flags reload can re-evaluate replay.
                 storage.reset()
                 sut.clear()
                 #expect(sut.isSessionReplayFlagActive() == false)
                 #expect(sut.getRecordingSampleRate() == nil)
 
-                // The post-reset /flags reload carries no sessionRecording and the cached remote config
-                // is gone, so replay must re-arm from the persisted .sessionReplay config (the else
-                // branch), without waiting for an app restart.
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                // The post-reset /flags reload carries no sessionRecording, so replay must re-arm from
+                // the retained .remoteConfig (the else branch), without waiting for an app restart.
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
@@ -833,11 +753,9 @@ enum PostHogRemoteConfigTest {
 
                 let sut = getSut(storage: storage)
 
-                // /config caches the recording config (with linkedFlag) under .sessionReplay.
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
-                #expect(storage.getDictionary(forKey: .sessionReplay) != nil)
+                // /config caches the recording config (with linkedFlag) under .remoteConfig.
+                await reloadRemoteConfig(sut)
+                #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
 
                 storage.reset()
                 sut.clear()
@@ -845,11 +763,7 @@ enum PostHogRemoteConfigTest {
                 // The post-reset /flags reload hits the else branch and re-evaluates the cached
                 // config against the new user's flags. The linked flag is missing, so replay must
                 // stay off rather than blindly re-arming.
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
@@ -864,9 +778,7 @@ enum PostHogRemoteConfigTest {
 
                 let sut = getSut(storage: storage)
 
-                await withCheckedContinuation { continuation in
-                    sut.reloadRemoteConfig { _ in continuation.resume() }
-                }
+                await reloadRemoteConfig(sut)
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
 
@@ -876,11 +788,7 @@ enum PostHogRemoteConfigTest {
                 #expect(sut.getRecordingSampleRate() == nil)
 
                 server.quotaLimitFeatureFlags = true
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == true)
                 #expect(sut.getRecordingSampleRate() == 0.42)
@@ -894,11 +802,7 @@ enum PostHogRemoteConfigTest {
                 let sut = getSut(storage: storage)
                 #expect(sut.isSessionReplayFlagActive() == false)
 
-                await withCheckedContinuation { continuation in
-                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                        continuation.resume()
-                    })
-                }
+                await loadFeatureFlags(sut)
 
                 #expect(sut.isSessionReplayFlagActive() == false)
             }
@@ -967,16 +871,12 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
             #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
@@ -996,9 +896,7 @@ enum PostHogRemoteConfigTest {
 
             // /config (the only source of error-tracking config) enables autocapture and persists
             // it under .errorTracking.
-            await withCheckedContinuation { continuation in
-                sut.reloadRemoteConfig { _ in continuation.resume() }
-            }
+            await reloadRemoteConfig(sut)
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
 
             // Mimic reset(): storage.reset() wipes the cached remote config but KEEPS the persisted
@@ -1009,11 +907,7 @@ enum PostHogRemoteConfigTest {
 
             // The post-reset /flags reload carries no errorTracking and the cached remote config is
             // gone, so autocapture must re-arm from the persisted .errorTracking slice.
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
+            await loadFeatureFlags(sut)
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
 
@@ -1030,16 +924,12 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
@@ -1065,16 +955,12 @@ enum PostHogRemoteConfigTest {
             // Should initially be true from cache
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
@@ -1094,16 +980,12 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            var remoteConfigLoaded = false
+            let remoteConfigLoaded = AsyncLatch()
             let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
+                remoteConfigLoaded.signal()
             }
 
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
+            await remoteConfigLoaded.wait()
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
@@ -1120,9 +1002,7 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            await withCheckedContinuation { continuation in
-                sut.reloadRemoteConfig { _ in continuation.resume() }
-            }
+            await reloadRemoteConfig(sut)
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
 
             storage.reset()
@@ -1130,11 +1010,7 @@ enum PostHogRemoteConfigTest {
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
             server.quotaLimitFeatureFlags = true
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
+            await loadFeatureFlags(sut)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == true)
         }
@@ -1149,11 +1025,7 @@ enum PostHogRemoteConfigTest {
             let sut = getSut(storage: storage, config: config)
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
 
-            await withCheckedContinuation { continuation in
-                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: ["group": "value"], callback: { _ in
-                    continuation.resume()
-                })
-            }
+            await loadFeatureFlags(sut)
 
             #expect(sut.isAutocaptureExceptionsEnabled() == false)
         }
@@ -1175,9 +1047,7 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            await withCheckedContinuation { continuation in
-                sut.reloadRemoteConfig { _ in continuation.resume() }
-            }
+            await reloadRemoteConfig(sut)
             #expect(sut.getRemoteConfig()?["capturePerformance"] != nil)
 
             storage.reset()

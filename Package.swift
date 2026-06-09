@@ -87,6 +87,9 @@ let package = Package(
                 "Nimble",
                 "OHHTTPStubs",
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
+                // SDK imports this @_implementationOnly, so @testable doesn't re-export it;
+                // the crash-report processor tests need it directly to build a PHPLCrashReport.
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .tvOS])),
             ],
             path: "PostHogTests",
             resources: [

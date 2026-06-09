@@ -9,6 +9,7 @@ import Foundation
 import Nimble
 @testable import PostHog
 import Quick
+import Testing
 import XCTest
 
 final class TestPollingConfiguration: QuickConfiguration {
@@ -122,6 +123,56 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
 
 final class MockDate {
     var date = Date()
+}
+
+// MARK: - Global state isolation
+
+/// Resets the process-global state that tests mutate, so a value one test leaves behind can't bleed
+/// into the next. Swift Testing has no global `beforeEach` (unlike the Quick `TestPollingConfiguration`
+/// above), so suites that touch these globals carry `.resetsGlobalState`; new code should prefer the
+/// scoped `withMockedNow`/`withMockedClock` helpers, which can't forget to restore.
+func resetPostHogTestGlobals() {
+    now = { Date() }
+    postHogSdkName = postHogiOSSdkName
+}
+
+/// Pins the global `now` clock to `date` for the duration of `body`, then restores whatever was set
+/// before — so the override can't leak even if `body` throws. Prefer this over a raw
+/// `now = ...; defer { now = { Date() } }`.
+func withMockedNow<T>(_ date: @escaping () -> Date, perform body: () async throws -> T) async rethrows -> T {
+    let previous = now
+    now = date
+    defer { now = previous }
+    return try await body()
+}
+
+/// Like `withMockedNow`, but hands `body` a mutable `MockDate` so it can advance time mid-test.
+func withMockedClock<T>(perform body: (MockDate) async throws -> T) async rethrows -> T {
+    let clock = MockDate()
+    return try await withMockedNow({ clock.date }) { try await body(clock) }
+}
+
+/// Swift Testing trait that runs `resetPostHogTestGlobals()` before and after every test in the suite —
+/// the equivalent of the Quick `beforeEach` reset the XCTest side already has. Attach to any suite that
+/// mutates a shared global: `@Suite(..., .resetsGlobalState)`.
+struct ResetGlobalStateTrait: TestTrait, SuiteTrait, TestScoping {
+    var isRecursive: Bool { true }
+
+    func provideScope(for _: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void) async throws {
+        // testCase is nil for the suite-level scope; only wrap actual test cases.
+        guard testCase != nil else {
+            try await function()
+            return
+        }
+        resetPostHogTestGlobals()
+        defer { resetPostHogTestGlobals() }
+        try await function()
+    }
+}
+
+extension Trait where Self == ResetGlobalStateTrait {
+    /// Resets `now`/`postHogSdkName` around each test in the suite. See ``ResetGlobalStateTrait``.
+    static var resetsGlobalState: ResetGlobalStateTrait { ResetGlobalStateTrait() }
 }
 
 /// Adaptive poll that returns the instant `condition` holds (or after `timeout`). Yields the thread

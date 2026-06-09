@@ -41,7 +41,30 @@ jobs:
         with:
           xcode-version: latest-stable
       - name: Test SDK on iOS Simulator
+        # Retries (3 iterations) protect merges from transient simulator flakiness; the macOS `test`
+        # job runs without retries, so a genuine flake still surfaces as a hard failure there.
         run: make testOniOSSimulator
+      - name: Report flaky (retried) tests
+        # Retries can hide flakiness by turning a transient red into green. Surface any test that only
+        # passed after a retry so flakes get tracked and fixed instead of silently masked. Best-effort:
+        # never fails the job.
+        if: always()
+        run: |
+          log=xcodebuild-ios.log
+          [ -f "$log" ] || { echo "No build log found; skipping flake report."; exit 0; }
+          # A test that has both a 'failed' and a 'passed' line was retried (flaky). Handle both the
+          # Swift Testing format (✔ Test "name" passed) and the XCTest format (Test Case '-[…]' passed).
+          passed=$( { grep -oE 'Test "[^"]+" passed' "$log" | sed -E 's/^Test "//; s/" passed$//'; \
+                      grep -oE "Test Case '[^']+' passed" "$log" | sed -E "s/^Test Case '//; s/' passed$//"; } | sort -u)
+          failed=$( { grep -oE 'Test "[^"]+" failed' "$log" | sed -E 's/^Test "//; s/" failed$//'; \
+                      grep -oE "Test Case '[^']+' failed" "$log" | sed -E "s/^Test Case '//; s/' failed$//"; } | sort -u)
+          flaky=$(comm -12 <(printf '%s\n' "$failed") <(printf '%s\n' "$passed") | grep -v '^$' || true)
+          if [ -n "$flaky" ]; then
+            { echo "### ⚠️ Flaky tests (passed only after a retry)"; echo; echo '```'; echo "$flaky"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Flaky tests detected (passed on retry); see the job summary."
+          else
+            echo "No flaky (retried) tests detected." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   downgrade-compatibility:
     runs-on: macos-15

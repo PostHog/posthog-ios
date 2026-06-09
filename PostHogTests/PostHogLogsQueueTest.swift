@@ -10,7 +10,7 @@ import OHHTTPStubsSwift
 import Testing
 import XCTest
 
-@Suite("PostHog logs queue", .serialized)
+@Suite("PostHog logs queue", .serialized, .resetsGlobalState)
 final class PostHogLogsQueueTests {
     private var server: MockPostHogServer
 
@@ -480,35 +480,32 @@ final class PostHogLogsQueueTests {
 
     @Test("rate cap window resets after the configured interval")
     func rateCapWindowResets() async throws {
-        // Drive the rate-cap clock via the `now` seam in DateUtils so the test
-        // is deterministic. Restore on exit so we don't leak state to other
-        // serialized tests.
-        var current = Date()
-        now = { current }
-        defer { now = { Date() } }
+        // Drive the rate-cap clock via the `now` seam so the test is deterministic; withMockedClock
+        // restores the global clock on exit so we don't leak state to other serialized tests.
+        try await withMockedClock { clock in
+            let (queue, _) = makeQueue(
+                maxBufferSize: 100,
+                maxBatchSize: 100,
+                rateCapMaxLogs: 2,
+                rateCapWindowSeconds: 10
+            )
+            defer { queue.clear()
+                queue.stop()
+            }
 
-        let (queue, _) = makeQueue(
-            maxBufferSize: 100,
-            maxBatchSize: 100,
-            rateCapMaxLogs: 2,
-            rateCapWindowSeconds: 10
-        )
-        defer { queue.clear()
-            queue.stop()
+            queue.add(makeRecord(body: "1"))
+            queue.add(makeRecord(body: "2"))
+            queue.add(makeRecord(body: "dropped")) // exceeds cap
+            await waitUntil { queue.depth == 2 }
+            #expect(queue.depth == 2)
+
+            // Advance past the window edge without sleeping.
+            clock.date = clock.date.addingTimeInterval(11)
+
+            queue.add(makeRecord(body: "after-window"))
+            await waitUntil { queue.depth == 3 }
+            #expect(queue.depth == 3)
         }
-
-        queue.add(makeRecord(body: "1"))
-        queue.add(makeRecord(body: "2"))
-        queue.add(makeRecord(body: "dropped")) // exceeds cap
-        await waitUntil { queue.depth == 2 }
-        #expect(queue.depth == 2)
-
-        // Advance past the window edge without sleeping.
-        current = current.addingTimeInterval(11)
-
-        queue.add(makeRecord(body: "after-window"))
-        await waitUntil { queue.depth == 3 }
-        #expect(queue.depth == 3)
     }
 
     @Test("rate cap disabled when rateCapMaxLogs == 0")

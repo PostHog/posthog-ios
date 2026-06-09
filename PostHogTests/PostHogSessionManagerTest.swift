@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite(.serialized, .resetsGlobalState)
 enum PostHogSessionManagerTest {
     @Suite("Test session id rotation logic")
     struct SessionRotation {

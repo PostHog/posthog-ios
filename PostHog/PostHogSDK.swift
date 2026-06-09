@@ -48,6 +48,11 @@ let maxRetryDelay = 30.0
     }
 
     private var queue: PostHogQueue<PostHogEvent>?
+    private var exceptionStepsBuffer: PostHogExceptionStepsBuffer?
+    /// Serial queue for exception-step recording so `addExceptionStep` never blocks the caller and
+    /// buffer mutation/serialization/persistence stay ordered. The capture path drains it before
+    /// reading the buffer so a step recorded just before a capture is still attached.
+    private let exceptionStepsQueue = DispatchQueue(label: "com.posthog.ExceptionSteps")
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
@@ -133,6 +138,9 @@ let maxRetryDelay = 30.0
 
             enabled = true
             self.config = config
+            exceptionStepsBuffer = PostHogExceptionStepsBuffer(
+                maxBytes: config.errorTrackingConfig.exceptionSteps.maxBytes
+            )
             let theStorage = PostHogStorage(config)
             storage = theStorage
             let api = PostHogApi(config)
@@ -1225,7 +1233,7 @@ let maxRetryDelay = 30.0
             requirePersonProcessing()
         }
 
-        let finalProperties: [String: Any]
+        var finalProperties: [String: Any]
         if skipBuildProperties {
             // Use properties as-is (already built at crash time)
             finalProperties = properties ?? [:]
@@ -1241,6 +1249,16 @@ let maxRetryDelay = 30.0
             )
         }
 
+        // Attach buffered exception steps to a `$exception` event when the caller didn't already
+        // provide them. Draining the serial queue first guarantees a step recorded just before this
+        // capture is visible. The crash path (`skipBuildProperties`) already carries restored steps.
+        let isExceptionEvent = event == "$exception" && !skipBuildProperties
+        if isExceptionEvent, finalProperties[PostHogExceptionStepFields.stepsKey] == nil,
+           let steps = exceptionStepsQueue.sync(execute: { attachableExceptionSteps })
+        {
+            finalProperties[PostHogExceptionStepFields.stepsKey] = steps
+        }
+
         // Sanitize is now called in buildEvent
         let posthogEvent = buildEvent(
             event: event,
@@ -1250,7 +1268,14 @@ let maxRetryDelay = 30.0
         )
 
         guard let posthogEvent else {
+            // Event was dropped (e.g. by beforeSend). Preserve the buffer so steps roll forward to
+            // the next exception rather than being lost.
             return
+        }
+
+        // The exception survived beforeSend → clear the now-flushed steps so they aren't re-attached.
+        if isExceptionEvent {
+            clearExceptionStepsAfterCapture()
         }
 
         // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook
@@ -2459,6 +2484,107 @@ let maxRetryDelay = 30.0
         captureException(exception, properties: nil)
     }
 
+    /// Record an exception step (breadcrumb-style context record).
+    ///
+    /// Steps accumulate in a buffer and are attached to the **next** captured `$exception` as
+    /// `$exception_steps`, giving the error tracking UI a timeline of what happened right before the
+    /// exception. The buffer is cleared once an exception is captured. On a fatal crash the buffered
+    /// steps are persisted with the crash context and attached to the crash `$exception` reported on
+    /// the next app launch.
+    ///
+    /// Reserved keys `$message` and `$timestamp` are stripped from `properties` — the SDK sets the
+    /// canonical values. The `$timestamp` is captured at call time so the timeline stays accurate.
+    /// This method never throws and never blocks; a failed step is silently skipped.
+    ///
+    /// Example:
+    /// ```swift
+    /// PostHogSDK.shared.addExceptionStep("User tapped Checkout", properties: ["screen": "cart"])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - message: A short, non-empty description of what happened. Empty messages are ignored.
+    ///   - properties: Optional additional context to attach to the step.
+    ///
+    @objc(addExceptionStep:properties:)
+    public func addExceptionStep(_ message: String, properties: [String: Any]? = nil) {
+        guard isEnabled() else { return }
+
+        let stepsConfig = config.errorTrackingConfig.exceptionSteps
+        guard stepsConfig.enabled else {
+            hedgeLog("addExceptionStep called but exception steps are disabled, ignoring")
+            return
+        }
+        guard let buffer = exceptionStepsBuffer else { return }
+
+        guard !message.isEmpty else {
+            hedgeLog("addExceptionStep called with an empty message, ignoring")
+            return
+        }
+
+        // Capture the timestamp at call time on the caller's thread (before any dispatch) so the
+        // breadcrumb timeline stays accurate.
+        let timestamp = toISO8601String(now())
+
+        // Everything else — building the step, mutating/serializing the buffer, and persisting the
+        // crash context — runs on the serial queue so the caller is never blocked.
+        exceptionStepsQueue.async { [weak self] in
+            guard let self else { return }
+
+            // Strip reserved keys from caller-supplied properties — the SDK owns $message/$timestamp.
+            var step: [String: Any] = [:]
+            if let properties {
+                for (key, value) in properties {
+                    if key == PostHogExceptionStepFields.message || key == PostHogExceptionStepFields.timestamp {
+                        hedgeLog("addExceptionStep: reserved key \(key) in properties is ignored")
+                        continue
+                    }
+                    step[key] = value
+                }
+            }
+            step[PostHogExceptionStepFields.message] = message
+            step[PostHogExceptionStepFields.timestamp] = timestamp
+
+            buffer.add(step)
+
+            // Persist the updated steps into the crash context so they survive a fatal crash and are
+            // attached to the crash $exception reported on the next launch.
+            self.notifyContextDidChange()
+        }
+    }
+
+    /// Record an exception step without additional properties.
+    ///
+    /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
+    ///
+    /// - Parameter message: A short, non-empty description of what happened.
+    ///
+    @objc(addExceptionStep:)
+    public func addExceptionStep(_ message: String) {
+        addExceptionStep(message, properties: nil)
+    }
+
+    /// The buffered exception steps to attach, or `nil` when there are none to attach.
+    ///
+    /// Returns `nil` when the feature is disabled or the buffer is empty, so the attach, clear, and
+    /// crash-context paths share a single definition of "do we have steps?".
+    private var attachableExceptionSteps: [[String: Any]]? {
+        guard config.errorTrackingConfig.exceptionSteps.enabled,
+              let buffer = exceptionStepsBuffer, !buffer.isEmpty
+        else { return nil }
+        return buffer.getAttachable()
+    }
+
+    /// Clear the exception-steps buffer after an exception was successfully captured (survived
+    /// `beforeSend`), and refresh the persisted crash context so it no longer holds the flushed steps.
+    /// Runs on the serial queue, ordered after any in-flight `addExceptionStep`.
+    private func clearExceptionStepsAfterCapture() {
+        exceptionStepsQueue.async { [weak self] in
+            guard let self, let buffer = self.exceptionStepsBuffer, !buffer.isEmpty else { return }
+            buffer.clear()
+            self.notifyContextDidChange()
+        }
+    }
+
     private func installIntegrations() {
         guard installedIntegrations.isEmpty else {
             hedgeLog("Integrations already installed. Call uninstallIntegrations() first.")
@@ -2540,7 +2666,7 @@ let maxRetryDelay = 30.0
         let distinctId = getDistinctId()
 
         // Build complete event properties snapshot
-        let eventProperties = buildProperties(
+        var eventProperties = buildProperties(
             distinctId: distinctId,
             properties: nil,
             userProperties: nil,
@@ -2549,6 +2675,13 @@ let maxRetryDelay = 30.0
             appendSharedProps: true,
             timestamp: nil
         )
+
+        // Persist the current exception steps with the crash context. On a fatal crash this snapshot
+        // is written to disk by the crash reporter and, on the next launch, merged into the crash
+        // $exception — so the steps that preceded the crash are not lost when the process dies.
+        if let steps = attachableExceptionSteps {
+            eventProperties[PostHogExceptionStepFields.stepsKey] = steps
+        }
 
         // Build crash context with identity info + event properties
         // This structure allows crash reporting to reconstruct events with crash-time data

@@ -94,6 +94,15 @@ import Foundation
     /// Default: true
     @objc public var inAppByDefault: Bool = true
 
+    // MARK: - Exception Steps
+
+    /// Configuration for exception steps (breadcrumb-style context records).
+    ///
+    /// Steps recorded via `PostHogSDK.addExceptionStep(_:properties:)` accumulate over time and
+    /// are attached to the next captured `$exception` as `$exception_steps`, giving the error
+    /// tracking UI a timeline of what happened right before the exception.
+    @objc public var exceptionSteps = PostHogExceptionStepsConfig()
+
     // MARK: - Initialization
 
     /// Creates an error tracking configuration with default in-app frame detection.
@@ -109,4 +118,27 @@ import Foundation
             inAppIncludes.append(executableName)
         }
     }
+}
+
+/// Configuration for exception steps (breadcrumb-style context records).
+///
+/// Exception steps are accumulated in a FIFO buffer bounded by a UTF-8 byte budget and attached
+/// to the next captured `$exception`. On a fatal crash the buffered steps are persisted with the
+/// crash context and attached to the crash `$exception` reported on the next app launch.
+@objc public class PostHogExceptionStepsConfig: NSObject {
+    /// Whether exception steps are recorded and attached to exceptions.
+    ///
+    /// When `false`, `addExceptionStep(_:properties:)` is a no-op and no steps are attached.
+    ///
+    /// Default: `true`.
+    @objc public var enabled: Bool = true
+
+    /// Maximum total UTF-8 byte size of the buffered steps.
+    ///
+    /// When adding a step would exceed this budget, the oldest steps are evicted first (the steps
+    /// closest in time to the exception are the most valuable). A single step larger than this
+    /// budget is rejected outright.
+    ///
+    /// Default: `32768` (32 KB), matching the browser SDK.
+    @objc public var maxBytes: Int = 32768
 }

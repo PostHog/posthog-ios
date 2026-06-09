@@ -60,15 +60,20 @@ func waitFlagsRequest(_ server: MockPostHogServer) {
     }
 }
 
-// lastRequestId can already be non-nil (restored from disk or an earlier load), so waiting on it
-// would pass before the fresh response lands. didReceiveFeatureFlags fires only after a /flags
-// response is stored; observe it from before the request so the notification can't be missed.
-func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _: PostHogSDK) {
-    let flagsLoaded = XCTNSNotificationExpectation(name: PostHogSDK.didReceiveFeatureFlags)
+// Waits for *this* SDK's feature flags to finish loading. `lastRequestId` can already be non-nil
+// (restored from disk or an earlier load), so waiting on it would pass before the fresh response lands.
+// The global `didReceiveFeatureFlags` notification (posted object: nil for every load) could likewise
+// be satisfied by a prior, still-draining SUT. So observe this instance's `onFeatureFlagsLoaded` —
+// which fires only after the response is stored — subscribed before the request so it can't be missed.
+func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
+    let flagsLoaded = XCTestExpectation(description: "feature flags loaded")
+    flagsLoaded.assertForOverFulfill = false // the callback fires once per load; don't fail on extra loads
+    let token = sut.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in flagsLoaded.fulfill() }
     waitFlagsRequest(server)
     if XCTWaiter.wait(for: [flagsLoaded], timeout: testRequestTimeout) != .completed {
         XCTFail("Feature flags were not loaded in time")
     }
+    _ = token // hold the subscription for the duration of the wait
 }
 
 func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {
@@ -191,6 +196,8 @@ func waitUntil(timeout: TimeInterval = 5, poll: TimeInterval = 0.005, _ conditio
 /// waiting on. Create it with the number of callbacks to await, call `signal()` from each, then
 /// `await wait()`. It resumes the instant the last signal lands; the timeout is only a safety net so a
 /// regression fails fast instead of hanging the whole run.
+/// Single-waiter: call `wait()` exactly once per latch. A second concurrent `wait()` would overwrite
+/// the stored continuation and orphan the first (it would never resume). No current caller does this.
 final class AsyncLatch: @unchecked Sendable {
     private let lock = NSLock()
     private var remaining: Int
@@ -217,9 +224,11 @@ final class AsyncLatch: @unchecked Sendable {
     }
 
     /// Suspends until every `signal()` has landed, then returns immediately — no polling, no delay.
-    /// `timeout` is only a safety net: if a callback never fires (a regression), it resumes after the
-    /// deadline so the test fails fast instead of hanging. In a passing run the timeout Task is
-    /// cancelled the instant the latch opens, so its sleep never completes.
+    /// `timeout` is only a safety net: if a callback never fires, the watchdog resumes the waiter after
+    /// the deadline so the test fails fast (on its own assertions) instead of hanging the whole run. In
+    /// a passing run the watchdog is cancelled the instant the latch opens (its `forceOpen` then runs
+    /// but is a no-op — already open). NOTE: the watchdog deliberately does NOT fail the test on its own
+    /// — some callers wait on a signal that may legitimately never arrive and then assert regardless.
     func wait(timeout: TimeInterval = 10) async {
         let timeoutTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))

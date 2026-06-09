@@ -124,6 +124,17 @@ final class MockDate {
     var date = Date()
 }
 
+/// Adaptive poll that returns the instant `condition` holds (or after `timeout`). Yields the thread
+/// between checks instead of spinning. Use this only when the state you're asserting isn't tied to an
+/// awaitable signal (e.g. an async storage write with no completion callback) — when a callback exists,
+/// prefer the event-driven `AsyncLatch`, which needs no polling at all.
+func waitUntil(timeout: TimeInterval = 5, poll: TimeInterval = 0.005, _ condition: () -> Bool) async {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition(), Date() < deadline {
+        try? await Task.sleep(nanoseconds: UInt64(poll * 1_000_000_000))
+    }
+}
+
 /// Event-driven replacement for the `while !flag, Date() < timeout {}` busy-waits that used to peg a
 /// thread for up to N seconds — and, on the cooperative pool, could starve the very callback they were
 /// waiting on. Create it with the number of callbacks to await, call `signal()` from each, then
@@ -154,10 +165,11 @@ final class AsyncLatch: @unchecked Sendable {
         waiter?.resume()
     }
 
-    /// Suspends until every `signal()` has landed or `timeout` seconds elapse. `settle` lets trailing
-    /// async work finish before returning, preserving the small post-callback delays a few of the old
-    /// waits relied on.
-    func wait(timeout: TimeInterval = 10, settle: TimeInterval = 0) async {
+    /// Suspends until every `signal()` has landed, then returns immediately — no polling, no delay.
+    /// `timeout` is only a safety net: if a callback never fires (a regression), it resumes after the
+    /// deadline so the test fails fast instead of hanging. In a passing run the timeout Task is
+    /// cancelled the instant the latch opens, so its sleep never completes.
+    func wait(timeout: TimeInterval = 10) async {
         let timeoutTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
             self.forceOpen()
@@ -174,9 +186,6 @@ final class AsyncLatch: @unchecked Sendable {
             }
         }
         timeoutTask.cancel()
-        if settle > 0 {
-            try? await Task.sleep(nanoseconds: UInt64(settle * 1_000_000_000))
-        }
     }
 
     private func forceOpen() {

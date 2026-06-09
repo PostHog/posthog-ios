@@ -202,8 +202,12 @@ enum PostHogRemoteConfigTest {
                 remoteConfigLoaded.signal()
             }
 
-            // wait for the config to load, then let the post-callback writes settle
-            await remoteConfigLoaded.wait(settle: 0.1)
+            await remoteConfigLoaded.wait()
+
+            // The cache clearing runs asynchronously after onRemoteConfigLoaded fires and isn't tied to
+            // any callback we can await, so poll the end state — returns the instant it clears rather
+            // than blocking on a fixed delay.
+            await waitUntil { storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty }
 
             // test for empty cache
             #expect(storage.getDictionary(forKey: .flags).isNilOrEmpty == true)
@@ -233,8 +237,8 @@ enum PostHogRemoteConfigTest {
                 featureFlagsLoaded.signal()
             }
 
-            // wait for flags to load, then let the post-callback writes settle
-            await featureFlagsLoaded.wait(settle: 0.1)
+            // wait for flags to load
+            await featureFlagsLoaded.wait()
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
@@ -262,8 +266,8 @@ enum PostHogRemoteConfigTest {
                 featureFlagsLoaded.signal()
             }
 
-            // wait for flags to load, then let the post-callback writes settle
-            await featureFlagsLoaded.wait(settle: 0.1)
+            // wait for flags to load
+            await featureFlagsLoaded.wait()
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)
@@ -297,7 +301,7 @@ enum PostHogRemoteConfigTest {
                 bothDone.signal()
             }
 
-            await bothDone.wait(timeout: 10, settle: 0.2)
+            await bothDone.wait(timeout: 10)
 
             #expect(firstDone)
             #expect(secondDone)
@@ -323,7 +327,7 @@ enum PostHogRemoteConfigTest {
                 bothDone.signal()
             }
 
-            await bothDone.wait(timeout: 10, settle: 0.2)
+            await bothDone.wait(timeout: 10)
 
             #expect(server.flagsRequests.count == 2)
 
@@ -356,7 +360,7 @@ enum PostHogRemoteConfigTest {
                 firstAndThirdDone.signal()
             }
 
-            await firstAndThirdDone.wait(timeout: 10, settle: 0.2)
+            await firstAndThirdDone.wait(timeout: 10)
 
             #expect(server.flagsRequests.count == 2)
             #expect(secondCallbackFired)
@@ -389,7 +393,7 @@ enum PostHogRemoteConfigTest {
                 bothResults.signal()
             }
 
-            await bothResults.wait(timeout: 10, settle: 0.2)
+            await bothResults.wait(timeout: 10)
 
             #expect(firstResult != nil)
             #expect(secondResult != nil)

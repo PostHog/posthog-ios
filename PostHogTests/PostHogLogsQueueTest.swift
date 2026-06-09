@@ -725,7 +725,12 @@ final class PostHogLogsQueueTests {
 
     @Test("flush is suppressed while reachability reports unreachable, resumes on reconnect")
     func reachabilityPauseAndResume() async throws {
-        let reachability = try Reachability()
+        // `notificationQueue: nil` makes reachability notify synchronously instead of dispatching to
+        // main. Otherwise the initial check inside `startNotifier()` queues an async `onReachable` on
+        // main that lands *after* our manual `onUnreachable` below, wiping the paused flag and flaking
+        // the test. With nil, that initial notification fires during `start()`, before we stop the
+        // notifier — so only the manual `invoke(...)` calls drive state from here on.
+        let reachability = try Reachability(notificationQueue: nil)
         let (queue, _) = makeQueue(
             reachability: reachability,
             disableReachabilityForTesting: false
@@ -734,12 +739,7 @@ final class PostHogLogsQueueTests {
             queue.stop()
         }
 
-        // The queue's `start()` calls `reachability.startNotifier()`, which
-        // arms the system SCNetworkReachability callback. On a live CI runner
-        // that's online, the system fires an async `onReachable` after start
-        // — racing with our manual events and wiping the paused flag. Stop
-        // the notifier here so only the manual `invoke(...)` calls below
-        // drive state.
+        // Stop the live notifier so no further system callbacks can race the manual events below.
         reachability.stopNotifier()
 
         // Simulate network going down. Subsequent flushes are paused.

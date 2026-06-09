@@ -12,11 +12,6 @@ let adapterStorageHome = (NSTemporaryDirectory() as NSString).appendingPathCompo
 setenv("CFFIXED_USER_HOME", adapterStorageHome, 1)
 setenv("HOME", adapterStorageHome, 1)
 
-// How long to wait after sdk.flush() for the SDK's async upload to land before returning.
-// Shared by /flush and get_feature_flag so an event flushed in one test can't spill into the
-// next test's mock window (the side-effect timing failure). Based on browser-SDK experience.
-let flushSettleNanoseconds: UInt64 = 2_000_000_000 // 2 seconds
-
 // Global state for the adapter
 class AdapterState {
     var posthogSDK: PostHogSDK?
@@ -259,9 +254,8 @@ app.post("get_feature_flag") { req async throws -> Response in
     // Flush that $feature_flag_called event now and wait for it to land. With flushAt=1
     // it would otherwise auto-flush asynchronously and could arrive in the *next* test's
     // mock window, inflating $feature_flag_called counts (the side_effect test failure).
-    // Uses the same settle window as /flush so the wait can't be the weak link.
     sdk.flush()
-    try await Task.sleep(nanoseconds: flushSettleNanoseconds)
+    await RequestInterceptor.waitForFlushSettle()
 
     var result: [String: Any] = ["success": true]
     result["value"] = value ?? NSNull()
@@ -277,12 +271,8 @@ app.post("flush") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    // Flush the SDK
     sdk.flush()
-
-    // CRITICAL: Wait for the flush to complete. The SDK uses async network requests, so
-    // we need to wait for them to finish before returning.
-    try await Task.sleep(nanoseconds: flushSettleNanoseconds)
+    await RequestInterceptor.waitForFlushSettle()
 
     print("[ADAPTER] Flush complete, waited for network requests")
 

@@ -48,40 +48,25 @@
     final class PostHogTracingHeadersIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
-        private static let integrationInstalledLock = NSLock()
-        private static var integrationInstalled = false
+        private static let integrationInstallState = PostHogIntegrationInstallState()
 
         private weak var postHog: PostHogSDK?
         private var registrationId: UUID?
         private var normalizedHostnames = Set<String>()
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            let didInstall = Self.integrationInstalledLock.withLock {
-                if Self.integrationInstalled {
-                    return false
-                }
-                Self.integrationInstalled = true
-                return true
+            installIfNeeded(using: Self.integrationInstallState) {
+                self.postHog = postHog
+                normalizedHostnames = PostHogTracingHeaders.normalizeHostnames(postHog.config.tracingHeaders ?? [])
+                start()
             }
-
-            guard didInstall else {
-                return .skipped(.alreadyInstalled)
-            }
-
-            self.postHog = postHog
-            normalizedHostnames = PostHogTracingHeaders.normalizeHostnames(postHog.config.tracingHeaders ?? [])
-            start()
-            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            if self.postHog === postHog || self.postHog == nil {
+            uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
                 self.postHog = nil
                 normalizedHostnames = []
-                Self.integrationInstalledLock.withLock {
-                    Self.integrationInstalled = false
-                }
             }
         }
 
@@ -129,9 +114,7 @@
     #if TESTING
         extension PostHogTracingHeadersIntegration {
             static func clearInstalls() {
-                integrationInstalledLock.withLock {
-                    integrationInstalled = false
-                }
+                integrationInstallState.clear()
             }
         }
     #endif

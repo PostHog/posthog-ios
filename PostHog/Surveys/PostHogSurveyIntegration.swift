@@ -15,8 +15,7 @@
     final class PostHogSurveyIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
-        private static var integrationInstalledLock = NSLock()
-        private static var integrationInstalled = false
+        private static let integrationInstallState = PostHogIntegrationInstallState()
 
         typealias SurveyCallback = (_ surveys: [PostHogSurvey]) -> Void
 
@@ -53,30 +52,16 @@
         private var activeSurveyQuestionIndex: Int = 0
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            let didInstall = PostHogSurveyIntegration.integrationInstalledLock.withLock {
-                if PostHogSurveyIntegration.integrationInstalled {
-                    return false
-                }
-                PostHogSurveyIntegration.integrationInstalled = true
-                return true
+            installIfNeeded(using: Self.integrationInstallState) {
+                self.postHog = postHog
+                start()
             }
-
-            guard didInstall else {
-                return .skipped(.alreadyInstalled)
-            }
-
-            self.postHog = postHog
-            start()
-            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            if self.postHog === postHog || self.postHog == nil {
+            uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
                 self.postHog = nil
-                PostHogSurveyIntegration.integrationInstalledLock.withLock {
-                    PostHogSurveyIntegration.integrationInstalled = false
-                }
             }
         }
 
@@ -208,12 +193,12 @@
             forceReload: Bool = false,
             callback: (([String: Any]?) -> Void)? = nil
         ) {
-            let cached = remoteConfig.getRemoteConfig()
-            if cached == nil || forceReload {
-                remoteConfig.reloadRemoteConfig(callback: callback)
-            } else {
-                callback?(cached)
-            }
+            getCachedOrReload(
+                getCached: remoteConfig.getRemoteConfig,
+                reload: { remoteConfig.reloadRemoteConfig(callback: $0) },
+                forceReload: forceReload,
+                callback: callback
+            )
         }
 
         private func getFeatureFlags(
@@ -221,9 +206,23 @@
             forceReload: Bool = false,
             callback: (([String: Any]?) -> Void)? = nil
         ) {
-            let cached = remoteConfig.getFeatureFlags()
+            getCachedOrReload(
+                getCached: remoteConfig.getFeatureFlags,
+                reload: { remoteConfig.reloadFeatureFlags(callback: $0) },
+                forceReload: forceReload,
+                callback: callback
+            )
+        }
+
+        private func getCachedOrReload(
+            getCached: () -> [String: Any]?,
+            reload: ((([String: Any]?) -> Void)?) -> Void,
+            forceReload: Bool,
+            callback: (([String: Any]?) -> Void)?
+        ) {
+            let cached = getCached()
             if cached == nil || forceReload {
-                remoteConfig.reloadFeatureFlags(callback: callback)
+                reload(callback)
             } else {
                 callback?(cached)
             }
@@ -1149,9 +1148,7 @@
             }
 
             static func clearInstalls() {
-                integrationInstalledLock.withLock {
-                    integrationInstalled = false
-                }
+                integrationInstallState.clear()
             }
         }
     #endif

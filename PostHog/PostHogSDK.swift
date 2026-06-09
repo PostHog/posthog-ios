@@ -241,6 +241,20 @@ let maxRetryDelay = 30.0
         getStorageManagerValue { $0.getAnonymousId() }
     }
 
+    /// Overrides the persisted anonymous ID at runtime.
+    ///
+    /// Useful after `reset()` to seed the next anonymous session with a caller-controlled ID
+    /// (mirroring `posthog-js`'s `posthog.reset({ bootstrap: { distinctID } })`). No-op when
+    /// the SDK is not set up or when `anonymousId` is empty.
+    ///
+    /// - Parameter anonymousId: The anonymous ID to persist.
+    @objc public func setAnonymousId(_ anonymousId: String) {
+        guard isEnabled(), !anonymousId.isEmpty, let storageManager = config.storageManager else {
+            return
+        }
+        storageManager.setAnonymousId(anonymousId)
+    }
+
     /// Returns the stable device identifier used for device-level feature flag bucketing.
     ///
     /// This ID persists across `identify()` and `reset()` calls, only changing on a fresh

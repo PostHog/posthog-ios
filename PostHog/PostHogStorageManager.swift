@@ -21,6 +21,7 @@ public class PostHogStorageManager {
     private let identifiedLock = NSLock()
     private let personProcessingLock = NSLock()
     private let idGen: (UUID) -> UUID
+    private let bootstrapAnonymousId: String?
 
     private var distinctId: String?
     private var cachedDistinctId = false
@@ -32,6 +33,7 @@ public class PostHogStorageManager {
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
         idGen = config.getAnonymousId
+        bootstrapAnonymousId = config.anonymousId
     }
 
     /// Returns the persisted anonymous ID, creating one if needed.
@@ -43,8 +45,12 @@ public class PostHogStorageManager {
                 var anonymousId = storage.getString(forKey: .anonymousId)
 
                 if anonymousId == nil {
-                    let uuid = UUID.v7()
-                    anonymousId = idGen(uuid).uuidString
+                    if let bootstrap = bootstrapAnonymousId, !bootstrap.isEmpty {
+                        anonymousId = bootstrap
+                    } else {
+                        let uuid = UUID.v7()
+                        anonymousId = idGen(uuid).uuidString
+                    }
                     setAnonId(anonymousId ?? "")
                 } else {
                     // update the memory value

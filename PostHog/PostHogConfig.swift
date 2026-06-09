@@ -187,6 +187,16 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// - Returns: The UUID to persist as the anonymous ID.
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
 
+    /// Pre-seeded anonymous ID used on the first call to `getAnonymousId()` when no
+    /// persisted value exists.
+    ///
+    /// Set this before `setup()` to ensure events captured synchronously during initialization
+    /// (such as `Application Installed` / `Application Updated`) use your own ID rather than
+    /// the SDK's auto-generated UUID. Ignored when an anonymous ID is already persisted.
+    ///
+    /// Defaults to `nil` (use the SDK-generated UUID).
+    @objc public var anonymousId: String?
+
     /// Flag to reuse the anonymous Id between `reset()` and next `identify()` calls
     ///
     /// If enabled, the anonymous Id will be reused for all anonymous users on this device,

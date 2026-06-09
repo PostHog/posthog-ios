@@ -261,13 +261,16 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            let featureFlagsLoaded = AsyncLatch()
-            let token = sut.onFeatureFlagsLoaded.subscribe { _ in
-                featureFlagsLoaded.signal()
+            // With `hasFeatureFlags` absent from the response, the SDK takes the "leave flags alone"
+            // branch and never fires onFeatureFlagsLoaded (it would only fire from a subsequent
+            // preload). The clear-or-keep decision is made before onRemoteConfigLoaded, so wait on that
+            // — otherwise the latch just sleeps to its timeout.
+            let remoteConfigLoaded = AsyncLatch()
+            let token = sut.onRemoteConfigLoaded.subscribe { _ in
+                remoteConfigLoaded.signal()
             }
 
-            // wait for flags to load
-            await featureFlagsLoaded.wait()
+            await remoteConfigLoaded.wait()
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)

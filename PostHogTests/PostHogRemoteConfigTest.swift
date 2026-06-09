@@ -261,16 +261,18 @@ enum PostHogRemoteConfigTest {
 
             let sut = getSut(storage: storage, config: config)
 
-            // With `hasFeatureFlags` absent from the response, the SDK takes the "leave flags alone"
-            // branch and never fires onFeatureFlagsLoaded (it would only fire from a subsequent
-            // preload). The clear-or-keep decision is made before onRemoteConfigLoaded, so wait on that
-            // — otherwise the latch just sleeps to its timeout.
-            let remoteConfigLoaded = AsyncLatch()
-            let token = sut.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded.signal()
+            let featureFlagsLoaded = AsyncLatch()
+            let token = sut.onFeatureFlagsLoaded.subscribe { _ in
+                featureFlagsLoaded.signal()
             }
 
-            await remoteConfigLoaded.wait()
+            // No completion signal fires for this path: with the key absent the SDK takes the
+            // "leave flags alone" branch, and reloadFeatureFlags early-returns (canReloadFlagsForTesting
+            // is false), so onFeatureFlagsLoaded never fires. This is therefore a bounded settle — wait
+            // out the timeout so the async clear-or-keep decision has definitely run, *then* assert the
+            // cache wasn't wiped. (A regression that wrongly cleared on a missing key would have done so
+            // by now.) Don't wait on onRemoteConfigLoaded: it's posted to main before that decision runs.
+            await featureFlagsLoaded.wait(timeout: 2)
 
             // check that cached flag was not removed
             #expect(sut.getFeatureFlag("foo") as? Bool == true)

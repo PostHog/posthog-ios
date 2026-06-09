@@ -291,6 +291,30 @@ struct ContentView: View {
                     }
                 }
 
+                // Manual testing of exception steps.
+                Section("Exception steps (temporary)") {
+                    Button("Add 3 exception steps") {
+                        PostHogSDK.shared.addExceptionStep("App launched test flow")
+                        PostHogSDK.shared.addExceptionStep("User tapped Checkout", properties: [
+                            "screen": "cart",
+                            "item_count": 3,
+                            "at": Date(),
+                        ])
+                        PostHogSDK.shared.addExceptionStep("Network request started", properties: [
+                            "url": "https://example.com/pay",
+                            "method": "POST",
+                        ])
+                    }
+
+                    Button("Add single exception step") {
+                        PostHogSDK.shared.addExceptionStep("Manual breadcrumb at \(Date())")
+                    }
+
+                    Button("Add exception steps via ObjC") {
+                        PHGExceptionHandler.recordExceptionStepsFromObjC()
+                    }
+                }
+
                 Section("Crash Triggers") {
                     // NSException - richest info with name + reason
                     Button("Uncaught NSException") {

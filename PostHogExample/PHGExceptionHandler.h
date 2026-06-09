@@ -40,6 +40,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 // MARK: - Crash Triggers for Testing
 
+/// Record exception steps through the Objective-C interface.
+/// Exists to verify `addExceptionStep:` / `addExceptionStep:properties:` are callable from ObjC and compile.
++ (void)recordExceptionStepsFromObjC;
+
 /// Trigger an uncaught NSException
 + (void)triggerUncaughtNSException;
 

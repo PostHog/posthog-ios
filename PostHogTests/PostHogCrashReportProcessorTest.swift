@@ -9,10 +9,11 @@ import Foundation
 @testable import PostHog
 import Testing
 
-#if os(iOS) || os(macOS) || os(tvOS)
-    #if canImport(PHPLCrashReporter)
-        @_implementationOnly import PHPLCrashReporter
-    #endif
+// Crash report processing relies on the vendored PHPLCrashReporter module, which is only importable
+// where it's built as a module (e.g. SwiftPM). Where it isn't (the Xcode framework target embeds it
+// as source), `canImport` is false and this file compiles to nothing rather than failing to build.
+#if (os(iOS) || os(macOS) || os(tvOS)) && canImport(PHPLCrashReporter)
+    @_implementationOnly import PHPLCrashReporter
 
     @Suite("PostHogCrashReportProcessor Tests")
     struct PostHogCrashReportProcessorTest {

@@ -376,7 +376,7 @@
         }
 
         private func makeSut(tracingHeaders: [String]) -> PostHogSDK {
-            let config = PostHogConfig(apiKey: testAPIKey, host: "http://localhost:9001")
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.tracingHeaders = tracingHeaders
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false

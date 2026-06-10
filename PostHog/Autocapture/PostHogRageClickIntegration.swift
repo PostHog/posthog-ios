@@ -207,15 +207,10 @@
             func processTapForTesting(
                 touchX: CGFloat,
                 touchY: CGFloat,
-                view: UIView? = nil,
-                isKeyboardWindow: Bool = false,
                 screenName: String? = "TestScreen",
                 elementsChain: String = "UIButton:attr__class=\"UIButton\"",
                 elementLabel: String? = nil
             ) {
-                guard !isRageClickIneligible(view: view, isKeyboardWindow: isKeyboardWindow) else {
-                    return
-                }
                 // When a label is supplied, build a minimal EventData so the capture path sees a
                 // concrete element id (mirrors a real tap landing on a labeled view).
                 let eventData = elementLabel.map { label in

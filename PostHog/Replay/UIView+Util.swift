@@ -32,12 +32,12 @@
         }
 
         private func containsAccessibilityToken(_ token: String) -> Bool {
-            if let identifier = accessibilityIdentifier, identifier.lowercased().contains(token) {
+            if let identifier = accessibilityIdentifier, identifier.range(of: token, options: .caseInsensitive) != nil {
                 return true
             }
             // read accessibilityLabel from the parent's view to skip the RCTRecursiveAccessibilityLabel on RN which is slow and may cause an endless loop
             // see https://github.com/facebook/react-native/issues/33084
-            if let label = super.accessibilityLabel, label.lowercased().contains(token) {
+            if let label = super.accessibilityLabel, label.range(of: token, options: .caseInsensitive) != nil {
                 return true
             }
             return false

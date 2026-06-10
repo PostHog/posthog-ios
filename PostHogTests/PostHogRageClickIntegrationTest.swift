@@ -17,6 +17,11 @@
             captureElementInteractions: Bool = true,
             captureRageClicks: Bool = true
         ) -> (MockPostHogServer, PostHogSDK, PostHogRageClickIntegration?) {
+            // The integration tracks installation with a process-wide flag; reset it so a prior
+            // test (e.g. another SDK setup elsewhere in the suite) can't leave it "already installed"
+            // and cause `getRageClickIntegration()` to return nil for this instance.
+            PostHogRageClickIntegration.clearInstalls()
+
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.captureElementInteractions = captureElementInteractions
             config.rageClickConfig.enabled = captureRageClicks

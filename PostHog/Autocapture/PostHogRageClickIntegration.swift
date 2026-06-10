@@ -82,6 +82,13 @@
                 return
             }
 
+            // Skip taps where rapid repeats are intentional (on-screen keyboard, text fields,
+            // steppers, pickers, …) before they reach the detector, so they never accumulate a
+            // rage sequence and can't produce a false `$rageclick`.
+            guard !isRageClickIneligible(view: touch.view, isKeyboardWindow: window.isKeyboardWindow) else {
+                return
+            }
+
             let touchCoordinates = touch.location(in: window)
             let eventData = touch.view?.eventData(touchCoordinates: touchCoordinates)
             let elementsChain = eventData?.getElementChain() ?? ""
@@ -145,6 +152,48 @@
             }
             return UIViewController.getViewControllerName(controller)
         }
+
+        /// Whether a tap should be excluded from rage click detection.
+        ///
+        /// Mirrors the element-aware suppression in posthog-js: rapid repeated taps are deliberate
+        /// (not frustration) on the on-screen keyboard, text entry/selection, value steppers and
+        /// paged navigation. As the native SDK is also embedded by the React Native and Flutter SDKs,
+        /// this suppression applies to those hosts too — see `isRageClickIneligibleControl` and
+        /// `UIView.isNoRageClick()` for the cross-host caveats.
+        private func isRageClickIneligible(view: UIView?, isKeyboardWindow: Bool) -> Bool {
+            // The on-screen keyboard, predictive bar, text-selection magnifier and copy/paste menus
+            // all live in dedicated keyboard/text-effect windows. This is the one check that holds
+            // across native, React Native and Flutter (all use the real iOS keyboard).
+            if isKeyboardWindow {
+                return true
+            }
+
+            // The hit-test view is often an internal subview (a text field's content view, a
+            // stepper's inner buttons), so walk up the hierarchy like `shouldTrack(_:)` does.
+            var node = view
+            while let current = node {
+                if current.isRageClickIneligibleControl || current.isNoRageClick() {
+                    return true
+                }
+                node = current.superview
+            }
+            return false
+        }
+    }
+
+    private extension UIView {
+        /// Controls where rapid repeated taps are deliberate interaction rather than frustration:
+        /// text entry/selection, value steppers, wheel pickers and paged navigation.
+        ///
+        /// Matches native UIKit and React Native text inputs (`RCTUITextField`/`RCTUITextView`
+        /// subclass these). Flutter draws its own widgets into a single `FlutterView`, so its
+        /// controls aren't matched here and rely on the `ph-no-rageclick` marker instead.
+        var isRageClickIneligibleControl: Bool {
+            self is UITextField || self is UITextView || self is UISearchBar // text entry / selection
+                || self is UIStepper || self is UISlider // value steppers
+                || self is UIDatePicker || self is UIPickerView // wheel pickers
+                || self is UISegmentedControl || self is UIPageControl // paged navigation
+        }
     }
 
     #if TESTING
@@ -158,15 +207,38 @@
             func processTapForTesting(
                 touchX: CGFloat,
                 touchY: CGFloat,
+                view: UIView? = nil,
+                isKeyboardWindow: Bool = false,
                 screenName: String? = "TestScreen",
-                elementsChain: String = "UIButton:attr__class=\"UIButton\""
+                elementsChain: String = "UIButton:attr__class=\"UIButton\"",
+                elementLabel: String? = nil
             ) {
+                guard !isRageClickIneligible(view: view, isKeyboardWindow: isKeyboardWindow) else {
+                    return
+                }
+                // When a label is supplied, build a minimal EventData so the capture path sees a
+                // concrete element id (mirrors a real tap landing on a labeled view).
+                let eventData = elementLabel.map { label in
+                    PostHogAutocaptureEventTracker.EventData(
+                        touchCoordinates: CGPoint(x: touchX, y: touchY),
+                        value: nil,
+                        screenName: screenName,
+                        viewHierarchy: [
+                            PostHogAutocaptureEventTracker.Element(text: "", targetClass: "UIButton", baseClass: nil, label: label),
+                        ],
+                        debounceInterval: 0
+                    )
+                }
                 captureRageClickIfNeeded(
                     touchCoordinates: CGPoint(x: touchX, y: touchY),
                     screenName: screenName,
                     elementsChain: elementsChain,
-                    eventData: nil
+                    eventData: eventData
                 )
+            }
+
+            func isRageClickIneligibleForTesting(view: UIView?, isKeyboardWindow: Bool = false) -> Bool {
+                isRageClickIneligible(view: view, isKeyboardWindow: isKeyboardWindow)
             }
         }
     #endif

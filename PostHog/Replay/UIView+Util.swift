@@ -18,21 +18,35 @@
         }
 
         func isNoCapture() -> Bool {
-            var isNoCapture = false
-            if let identifier = accessibilityIdentifier {
-                isNoCapture = checkLabel(identifier)
+            containsAccessibilityToken("ph-no-capture")
+        }
+
+        /// Whether this view is explicitly marked to be excluded from rage click detection.
+        ///
+        /// Set the `ph-no-rageclick` token on the view's `accessibilityIdentifier` (or
+        /// `accessibilityLabel`) to opt a control out. Because it reads accessibility metadata, this
+        /// also works for React Native (`accessibilityLabel`/`nativeID`) and Flutter (`Semantics`)
+        /// hosts, which render through this same native SDK.
+        func isNoRageClick() -> Bool {
+            postHogNoRageClick || containsAccessibilityToken("ph-no-rageclick")
+        }
+
+        private func containsAccessibilityToken(_ token: String) -> Bool {
+            if let identifier = accessibilityIdentifier, identifier.lowercased().contains(token) {
+                return true
             }
             // read accessibilityLabel from the parent's view to skip the RCTRecursiveAccessibilityLabel on RN which is slow and may cause an endless loop
             // see https://github.com/facebook/react-native/issues/33084
-            if let label = super.accessibilityLabel, !isNoCapture {
-                isNoCapture = checkLabel(label)
+            if let label = super.accessibilityLabel, label.lowercased().contains(token) {
+                return true
             }
-
-            return isNoCapture
+            return false
         }
 
-        private func checkLabel(_ label: String) -> Bool {
-            label.lowercased().contains("ph-no-capture")
+        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier.
+        var postHogNoRageClick: Bool {
+            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoRageClick) as? Bool ?? false }
+            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoRageClick, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         }
 
         func toImage() -> UIImage? {

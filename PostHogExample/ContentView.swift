@@ -175,6 +175,11 @@ struct ContentView: View {
                         } label: {
                             Text("Logs")
                         }
+                        NavigationLink {
+                            RageClickControlsView()
+                        } label: {
+                            Text("Rage Click Controls")
+                        }
                     #endif
                     NavigationLink {
                         ContentView()

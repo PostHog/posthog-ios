@@ -202,25 +202,33 @@
             #expect(integration.isRageClickIneligibleForTesting(view: UIView(), isKeyboardWindow: true))
         }
 
-        @MainActor
-        @Test("Controls where rapid taps are intentional are ineligible for rage clicks")
-        func intentionalControlsAreIneligible() {
-            let integration = PostHogRageClickIntegration()
-            let controls: [UIView] = [
-                UITextField(),
-                UITextView(),
-                UISearchBar(),
-                UIStepper(),
-                UISlider(),
-                UIDatePicker(),
-                UIPickerView(),
-                UISegmentedControl(items: ["a", "b"]),
-                UIPageControl(),
-            ]
+        /// Native controls where rapid repeated taps are intentional. Modelled as a `Sendable` enum
+        /// (rather than the non-`Sendable` `UIView`s) so the test below can be parameterised — each
+        /// control gets its own run, and a failure in one doesn't hide the others.
+        enum IntentionalControl: String, CaseIterable {
+            case textField, textView, searchBar, stepper, slider, datePicker, pickerView, segmentedControl, pageControl
 
-            for control in controls {
-                #expect(integration.isRageClickIneligibleForTesting(view: control), "\(type(of: control)) should be ineligible")
+            @MainActor
+            func makeView() -> UIView {
+                switch self {
+                case .textField: return UITextField()
+                case .textView: return UITextView()
+                case .searchBar: return UISearchBar()
+                case .stepper: return UIStepper()
+                case .slider: return UISlider()
+                case .datePicker: return UIDatePicker()
+                case .pickerView: return UIPickerView()
+                case .segmentedControl: return UISegmentedControl(items: ["a", "b"])
+                case .pageControl: return UIPageControl()
+                }
             }
+        }
+
+        @MainActor
+        @Test("Controls where rapid taps are intentional are ineligible for rage clicks", arguments: IntentionalControl.allCases)
+        func intentionalControlIsIneligible(_ control: IntentionalControl) {
+            let integration = PostHogRageClickIntegration()
+            #expect(integration.isRageClickIneligibleForTesting(view: control.makeView()), "\(control.rawValue) should be ineligible")
         }
 
         @MainActor

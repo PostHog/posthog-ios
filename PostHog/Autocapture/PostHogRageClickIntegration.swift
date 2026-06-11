@@ -82,15 +82,27 @@
                 return
             }
 
+            let touchCoordinates = touch.location(in: window)
+
+            // `touch.view` is nil for taps consumed by a gesture recognizer — text fields, pickers,
+            // date pickers and scroll views clear the touch→view association when their recognizer
+            // fires — so fall back to a hit-test at the touch location to recover the tapped view.
+            let hitView = touch.view ?? window.hitTest(touchCoordinates, with: event)
+
             // Skip taps where rapid repeats are intentional (on-screen keyboard, text fields,
-            // steppers, pickers, …) before they reach the detector, so they never accumulate a
-            // rage sequence and can't produce a false `$rageclick`.
-            guard !isRageClickIneligible(view: touch.view, isKeyboardWindow: window.isKeyboardWindow) else {
+            // steppers, pickers, custom controls marked `ph-no-rageclick`, …) before they reach the
+            // detector, so they never accumulate a rage sequence and can't produce a false `$rageclick`.
+            //
+            // The ancestor walk handles UIKit/RN, where the touch lands on the control. SwiftUI hosts
+            // controls and markers as descendants of (or siblings to) the hit view, so when the walk
+            // finds nothing we fall back to a point search of the tapped window's subtree.
+            let ineligible = isRageClickIneligible(view: hitView, isKeyboardWindow: window.isKeyboardWindow)
+                || ineligibleViewExists(in: window, at: touchCoordinates)
+            guard !ineligible else {
                 return
             }
 
-            let touchCoordinates = touch.location(in: window)
-            let eventData = touch.view?.eventData(touchCoordinates: touchCoordinates)
+            let eventData = hitView?.eventData(touchCoordinates: touchCoordinates)
             let elementsChain = eventData?.getElementChain() ?? ""
 
             captureRageClickIfNeeded(
@@ -176,6 +188,45 @@
                     return true
                 }
                 node = current.superview
+            }
+            return false
+        }
+
+        /// Depth-first search for an ineligible control (or `ph-no-rageclick` marker) whose frame
+        /// contains `point`, used as a fallback when the ancestor walk finds nothing.
+        ///
+        /// SwiftUI hosts controls and markers as descendants of (or siblings to) the hit-test view,
+        /// so the ancestor walk can't reach them. Searching down from the window by point does.
+        /// `point` is expressed in `view`'s coordinate system.
+        private func ineligibleViewExists(in view: UIView, at point: CGPoint) -> Bool {
+            guard !view.isHidden, view.alpha > 0.01, view.bounds.contains(point) else {
+                return false
+            }
+            if view.isRageClickIneligibleControl || view.isNoRageClick() {
+                return true
+            }
+            // On iOS 26, SwiftUI primitives can be backed by CALayers with no UIView, so a
+            // `.postHogNoRageClick()` marker may land on a layer rather than a view.
+            if markedLayerExists(in: view.layer, at: point) {
+                return true
+            }
+            return view.subviews.contains { subview in
+                ineligibleViewExists(in: subview, at: view.convert(point, to: subview))
+            }
+        }
+
+        /// Searches `layer`'s sublayers (skipping those that back a `UIView`, which the view DFS
+        /// already covers) for a `ph-no-rageclick`-tagged layer whose frame contains `point`.
+        /// `point` is expressed in `layer`'s coordinate system.
+        private func markedLayerExists(in layer: CALayer, at point: CGPoint) -> Bool {
+            for sublayer in layer.sublayers ?? [] where !(sublayer.delegate is UIView) {
+                let sublayerPoint = layer.convert(point, to: sublayer)
+                guard !sublayer.isHidden, sublayer.opacity > 0.01, sublayer.bounds.contains(sublayerPoint) else {
+                    continue
+                }
+                if sublayer.postHogNoRageClick || markedLayerExists(in: sublayer, at: sublayerPoint) {
+                    return true
+                }
             }
             return false
         }

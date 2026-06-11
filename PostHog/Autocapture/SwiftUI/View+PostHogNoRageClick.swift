@@ -35,11 +35,15 @@
         func postHogNoRageClick(_ isEnabled: Bool = true) -> some View {
             modifier(
                 PostHogTagViewModifier(
-                    onChange: { views, _ in
+                    onChange: { views, layers in
+                        // On iOS 26, SwiftUI primitives may be backed by CALayers rather than
+                        // UIViews, so tag both (mirrors `.postHogMask()`).
                         views.forEach { $0.postHogNoRageClick = isEnabled }
+                        layers.forEach { $0.postHogNoRageClick = isEnabled }
                     },
-                    onRemove: { views, _ in
+                    onRemove: { views, layers in
                         views.forEach { $0.postHogNoRageClick = false }
+                        layers.forEach { $0.postHogNoRageClick = false }
                     }
                 )
             )

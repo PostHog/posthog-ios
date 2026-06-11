@@ -81,5 +81,12 @@
         func toAbsoluteRect(_ window: UIWindow?) -> CGRect {
             convert(bounds, to: window?.layer)
         }
+
+        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on iOS 26, where SwiftUI
+        /// primitives may be rendered as CALayers instead of UIViews.
+        var postHogNoRageClick: Bool {
+            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoRageClick) as? Bool ?? false }
+            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoRageClick, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+        }
     }
 #endif

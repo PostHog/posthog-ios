@@ -22,7 +22,7 @@
         var body: some View {
             RepresentedRageClickControls()
                 .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Rage Click Controls")
+                .navigationTitle("Rage Click Control (UIKit)")
                 .navigationBarTitleDisplayMode(.inline)
         }
     }

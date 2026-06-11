@@ -10,7 +10,7 @@ import OHHTTPStubsSwift
 import Testing
 import XCTest
 
-@Suite("PostHog logs capture", .serialized)
+@Suite("PostHog logs capture", .serialized, .resetsGlobalState)
 final class PostHogLogsCaptureTests {
     private var server: MockPostHogServer
     let mockAppLifecycle: MockApplicationLifecyclePublisher

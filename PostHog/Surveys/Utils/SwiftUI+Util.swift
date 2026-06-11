@@ -41,6 +41,15 @@
         }
     }
 
+    @available(iOS 15.0, *)
+    func surveyRatingForegroundColor(selected: Bool, activeColor: Color, inputTextColor: Color) -> Color {
+        if selected {
+            return activeColor.getContrastingTextColor()
+        } else {
+            return inputTextColor.opacity(0.5)
+        }
+    }
+
     @available(iOS 14.0, *)
     private struct ReadFrameModifier: ViewModifier {
         /// Helper for notifying parents for child view frame changes

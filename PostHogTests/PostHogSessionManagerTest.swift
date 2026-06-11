@@ -9,7 +9,7 @@ import Foundation
 @testable import PostHog
 import Testing
 
-@Suite(.serialized)
+@Suite(.serialized, .resetsGlobalState)
 enum PostHogSessionManagerTest {
     @Suite("Test session id rotation logic")
     struct SessionRotation {
@@ -386,7 +386,7 @@ enum PostHogSessionManagerTest {
     }
 
     @Suite("Test React Native session management")
-    struct ReactNativeTests {
+    final class ReactNativeTests {
         let mockAppLifecycle: MockApplicationLifecyclePublisher
         let posthog: PostHogSDK
 
@@ -396,6 +396,16 @@ enum PostHogSessionManagerTest {
             DI.main.appLifecyclePublisher = mockAppLifecycle
             let config = PostHogConfig(projectToken: "test_project_token")
             posthog = PostHogSDK.with(config)
+        }
+
+        deinit {
+            // Close the suite-held SDK so its integrations/queues don't linger into other suites.
+            posthog.close()
+            // Restore globals this suite mutates so it doesn't leak RN mode / a mocked clock into the
+            // other serialized suites (a struct can't deinit, hence the class).
+            postHogSdkName = postHogiOSSdkName
+            now = { Date() }
+            DI.main.appLifecyclePublisher = ApplicationLifecyclePublisher.shared
         }
 
         @Test("Session id is NOT cleared after 30 min of background time")

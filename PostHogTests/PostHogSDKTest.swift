@@ -11,6 +11,11 @@ import Nimble
 import Quick
 
 class PostHogSDKTest: QuickSpec {
+    // Every SDK getSut creates is tracked and closed in afterEach. An unclosed SDK leaks its
+    // queues, timers, URLSession and observers; across ~40 instances per run those pile up and
+    // starve the background thread pool, stalling async work (flag loads, flushes) on CI.
+    private var trackedSuts: [PostHogSDK] = []
+
     func getSut(preloadFeatureFlags: Bool = false,
                 sendFeatureFlagEvent: Bool = false,
                 captureApplicationLifecycleEvents: Bool = false,
@@ -41,7 +46,9 @@ class PostHogSDKTest: QuickSpec {
         let storage = PostHogStorage(config)
         storage.reset()
 
-        return PostHogSDK.with(config)
+        let sut = PostHogSDK.with(config)
+        trackedSuts.append(sut)
+        return sut
     }
 
     func getBeforeSendEventsConfig() -> [BeforeSendTestEventContext] {
@@ -108,6 +115,10 @@ class PostHogSDKTest: QuickSpec {
         }
         afterEach {
             now = { Date() }
+            // Close every SDK created this test so its queues/timers/observers don't leak into the
+            // next one (close() is idempotent, so tests that already closed their sut are fine).
+            self.trackedSuts.forEach { $0.close() }
+            self.trackedSuts.removeAll()
             server.stop()
             server = nil
         }
@@ -163,6 +174,18 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reset()
             sut.close()
+        }
+
+        it("invokes reloadFeatureFlags callback when not enabled") {
+            let sut = self.getSut()
+            sut.close()
+
+            var called = false
+            sut.reloadFeatureFlags {
+                called = true
+            }
+
+            expect(called).to(beTrue())
         }
 
         it("captures a screen event") {
@@ -283,7 +306,7 @@ class PostHogSDKTest: QuickSpec {
         it("loads feature flags automatically") {
             let sut = self.getSut(preloadFeatureFlags: true)
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             sut.reset()
@@ -293,7 +316,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event for isFeatureEnabled when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             let events = getBatchedEvents(server)
@@ -316,7 +339,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event with variant response for isFeatureEnabled when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.isFeatureEnabled("string-value")) == true
 
             let events = getBatchedEvents(server)
@@ -339,7 +362,7 @@ class PostHogSDKTest: QuickSpec {
         it("send feature flag event for getFeatureFlag when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.getFeatureFlag("bool-value") as? Bool) == true
 
             let events = getBatchedEvents(server)
@@ -358,7 +381,7 @@ class PostHogSDKTest: QuickSpec {
         it("force send feature flag event for getFeatureFlag when config disabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: false)
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: true) as? Bool) == true
 
             let events = getBatchedEvents(server)
@@ -377,7 +400,7 @@ class PostHogSDKTest: QuickSpec {
         it("don't send feature flag event for getFeatureFlag when config enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.getFeatureFlag("bool-value", sendFeatureFlagEvent: false) as? Bool) == true
 
             let events = getBatchedEvents(server, failIfNotCompleted: false)
@@ -465,7 +488,7 @@ class PostHogSDKTest: QuickSpec {
             let sut = self.getSut()
 
             sut.reloadFeatureFlags()
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
 
             sut.capture("event")
 
@@ -654,7 +677,7 @@ class PostHogSDKTest: QuickSpec {
 
             sut.reset()
 
-            waitFlagsRequest(server)
+            waitForFeatureFlagsLoaded(server, sut)
             expect(sut.isFeatureEnabled("bool-value")) == true
 
             sut.close()

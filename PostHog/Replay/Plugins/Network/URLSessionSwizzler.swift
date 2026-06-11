@@ -118,22 +118,27 @@
         }
 
         private func notifyTaskCreated(task: URLSessionTask, session: URLSession?) {
-            let handlers = lock.withLock {
-                registrations.values.compactMap(\.taskCreated)
-            }
-
-            for handler in handlers {
+            notifyHandlers(\.taskCreated) { handler in
                 handler(task, session)
             }
         }
 
         private func notifyTaskCompleted(task: URLSessionTask, error: Error?) {
+            notifyHandlers(\.taskCompleted) { handler in
+                handler(task, error)
+            }
+        }
+
+        private func notifyHandlers<Handler>(
+            _ keyPath: KeyPath<Registration, Handler?>,
+            invoke: (Handler) -> Void
+        ) {
             let handlers = lock.withLock {
-                registrations.values.compactMap(\.taskCompleted)
+                registrations.values.compactMap { $0[keyPath: keyPath] }
             }
 
             for handler in handlers {
-                handler(task, error)
+                invoke(handler)
             }
         }
     }

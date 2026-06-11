@@ -30,10 +30,6 @@ enum PostHogExceptionProcessor {
         mechanismType: String = "generic",
         config: PostHogErrorTrackingConfig
     ) -> [String: Any] {
-        var properties: [String: Any] = [:]
-
-        properties["$exception_level"] = "error"
-
         let exceptions = buildExceptionList(
             from: error,
             handled: handled,
@@ -41,9 +37,7 @@ enum PostHogExceptionProcessor {
             config: config
         )
 
-        attachExceptionsAndDebugImages(exceptions, to: &properties)
-
-        return properties
+        return buildProperties(exceptions: exceptions)
     }
 
     /// Convert NSException to properties
@@ -63,9 +57,6 @@ enum PostHogExceptionProcessor {
         mechanismType: String = "generic",
         config: PostHogErrorTrackingConfig
     ) -> [String: Any] {
-        var properties: [String: Any] = [:]
-        properties["$exception_level"] = "error" // TODO: figure this out from error wrapped type
-
         let exceptions = buildExceptionList(
             from: exception,
             handled: handled,
@@ -73,9 +64,7 @@ enum PostHogExceptionProcessor {
             config: config
         )
 
-        attachExceptionsAndDebugImages(exceptions, to: &properties)
-
-        return properties
+        return buildProperties(exceptions: exceptions)
     }
 
     /// Convert a message string to properties
@@ -90,10 +79,6 @@ enum PostHogExceptionProcessor {
         mechanismType: String = "generic",
         config: PostHogErrorTrackingConfig
     ) -> [String: Any] {
-        var properties: [String: Any] = [:]
-
-        properties["$exception_level"] = "error"
-
         var exception: [String: Any] = [:]
         exception["type"] = "Message"
         exception["value"] = message
@@ -109,13 +94,18 @@ enum PostHogExceptionProcessor {
             exception["stacktrace"] = stacktrace
         }
 
-        let exceptions = [exception]
-        attachExceptionsAndDebugImages(exceptions, to: &properties)
-
-        return properties
+        return buildProperties(exceptions: [exception])
     }
 
     // MARK: - Internal Exception Building
+
+    private static func buildProperties(exceptions: [[String: Any]]) -> [String: Any] {
+        var properties: [String: Any] = [
+            "$exception_level": "error", // TODO: figure this out from error wrapped type
+        ]
+        attachExceptionsAndDebugImages(exceptions, to: &properties)
+        return properties
+    }
 
     /// Build list of exceptions from NSException chain
     ///

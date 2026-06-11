@@ -6,10 +6,37 @@
 //
 
 import Foundation
-import PostHog
+import Nimble
+@testable import PostHog
+import Quick
+import Testing
 import XCTest
 
-func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
+final class TestPollingConfiguration: QuickConfiguration {
+    override class func configure(_ configuration: QCKConfiguration) {
+        // Shared CI runners run several times slower than local (one job was ~6x), so Nimble's
+        // default 1s poll timeout makes async assertions flake when background work is starved.
+        // Raise the ceiling generously — toEventually still returns as soon as it passes.
+        PollingDefaults.timeout = .seconds(30)
+        configuration.beforeEach {
+            // Some suites mock the global `now` clock and don't restore it; a leaked fixed clock
+            // makes the timestamp-keyed queue collide events (lost batches). Reset before each test.
+            now = { Date() }
+            // storage.reset() deliberately keeps the on-disk event queue, so a prior test's unsent
+            // event can leak into the next test's batch and inflate counts. Wipe persisted state so
+            // every Quick test starts from a clean slate.
+            deleteSafely(applicationSupportDirectoryURL())
+        }
+    }
+}
+
+// Shared CI runners run several times slower than local, so the request-arrival waits below need the
+// same generous ceiling we give Nimble's PollingDefaults above — otherwise a starved background flush
+// makes "the expected requests never arrived" flake. The fast path still returns as soon as the
+// request lands; the ceiling only matters when the runner is contended.
+let testRequestTimeout: TimeInterval = 30.0
+
+func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = testRequestTimeout, failIfNotCompleted: Bool = true) -> [PostHogEvent] {
     let result = XCTWaiter.wait(for: [server.batchExpectation!], timeout: timeout)
 
     if result != XCTWaiter.Result.completed, failIfNotCompleted {
@@ -26,11 +53,27 @@ func getBatchedEvents(_ server: MockPostHogServer, timeout: TimeInterval = 15.0,
 }
 
 func waitFlagsRequest(_ server: MockPostHogServer) {
-    let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: 15)
+    let result = XCTWaiter.wait(for: [server.flagsExpectation!], timeout: testRequestTimeout)
 
     if result != XCTWaiter.Result.completed {
         XCTFail("The expected requests never arrived")
     }
+}
+
+// Waits for *this* SDK's feature flags to finish loading. `lastRequestId` can already be non-nil
+// (restored from disk or an earlier load), so waiting on it would pass before the fresh response lands.
+// The global `didReceiveFeatureFlags` notification (posted object: nil for every load) could likewise
+// be satisfied by a prior, still-draining SUT. So observe this instance's `onFeatureFlagsLoaded` —
+// which fires only after the response is stored — subscribed before the request so it can't be missed.
+func waitForFeatureFlagsLoaded(_ server: MockPostHogServer, _ sut: PostHogSDK) {
+    let flagsLoaded = XCTestExpectation(description: "feature flags loaded")
+    flagsLoaded.assertForOverFulfill = false // the callback fires once per load; don't fail on extra loads
+    let token = sut.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in flagsLoaded.fulfill() }
+    waitFlagsRequest(server)
+    if XCTWaiter.wait(for: [flagsLoaded], timeout: testRequestTimeout) != .completed {
+        XCTFail("Feature flags were not loaded in time")
+    }
+    _ = token // hold the subscription for the duration of the wait
 }
 
 func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {
@@ -39,7 +82,7 @@ func waitForSnapshotRequest(_ server: MockPostHogServer) async throws {
     }
 
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-        let result = XCTWaiter.wait(for: [expectation], timeout: 15)
+        let result = XCTWaiter.wait(for: [expectation], timeout: testRequestTimeout)
 
         switch result {
         case .completed:
@@ -70,7 +113,7 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
     }
 
     return try await withCheckedThrowingContinuation { continuation in
-        let result = XCTWaiter.wait(for: [expectation], timeout: 15)
+        let result = XCTWaiter.wait(for: [expectation], timeout: testRequestTimeout)
 
         switch result {
         case .completed:
@@ -85,6 +128,141 @@ func getServerEvents(_ server: MockPostHogServer) async throws -> [PostHogEvent]
 
 final class MockDate {
     var date = Date()
+}
+
+// MARK: - Global state isolation
+
+/// Resets the process-global state that tests mutate, so a value one test leaves behind can't bleed
+/// into the next. Swift Testing has no global `beforeEach` (unlike the Quick `TestPollingConfiguration`
+/// above), so suites that touch these globals carry `.resetsGlobalState`; new code should prefer the
+/// scoped `withMockedNow`/`withMockedClock` helpers, which can't forget to restore.
+func resetPostHogTestGlobals() {
+    now = { Date() }
+    postHogSdkName = postHogiOSSdkName
+}
+
+/// Pins the global `now` clock to `date` for the duration of `body`, then restores whatever was set
+/// before — so the override can't leak even if `body` throws. Prefer this over a raw
+/// `now = ...; defer { now = { Date() } }`.
+func withMockedNow<T>(_ date: @escaping () -> Date, perform body: () async throws -> T) async rethrows -> T {
+    let previous = now
+    now = date
+    defer { now = previous }
+    return try await body()
+}
+
+/// Like `withMockedNow`, but hands `body` a mutable `MockDate` so it can advance time mid-test.
+func withMockedClock<T>(perform body: (MockDate) async throws -> T) async rethrows -> T {
+    let clock = MockDate()
+    return try await withMockedNow({ clock.date }) { try await body(clock) }
+}
+
+/// Swift Testing trait that runs `resetPostHogTestGlobals()` before and after every test in the suite —
+/// the equivalent of the Quick `beforeEach` reset the XCTest side already has. Attach to any suite that
+/// mutates a shared global: `@Suite(..., .resetsGlobalState)`.
+struct ResetGlobalStateTrait: TestTrait, SuiteTrait, TestScoping {
+    var isRecursive: Bool { true }
+
+    func provideScope(for _: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void) async throws {
+        // testCase is nil for the suite-level scope; only wrap actual test cases.
+        guard testCase != nil else {
+            try await function()
+            return
+        }
+        resetPostHogTestGlobals()
+        defer { resetPostHogTestGlobals() }
+        try await function()
+    }
+}
+
+extension Trait where Self == ResetGlobalStateTrait {
+    /// Resets `now`/`postHogSdkName` around each test in the suite. See ``ResetGlobalStateTrait``.
+    static var resetsGlobalState: ResetGlobalStateTrait { ResetGlobalStateTrait() }
+}
+
+/// Adaptive poll that returns the instant `condition` holds (or after `timeout`). Yields the thread
+/// between checks instead of spinning. Use this only when the state you're asserting isn't tied to an
+/// awaitable signal (e.g. an async storage write with no completion callback) — when a callback exists,
+/// prefer the event-driven `AsyncLatch`, which needs no polling at all.
+func waitUntil(timeout: TimeInterval = 5, poll: TimeInterval = 0.005, _ condition: () -> Bool) async {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition(), Date() < deadline {
+        try? await Task.sleep(nanoseconds: UInt64(poll * 1_000_000_000))
+    }
+}
+
+/// Event-driven replacement for the `while !flag, Date() < timeout {}` busy-waits that used to peg a
+/// thread for up to N seconds — and, on the cooperative pool, could starve the very callback they were
+/// waiting on. Create it with the number of callbacks to await, call `signal()` from each, then
+/// `await wait()`. It resumes the instant the last signal lands; the timeout is only a safety net so a
+/// regression fails fast instead of hanging the whole run.
+/// Single-waiter: call `wait()` exactly once per latch. A second concurrent `wait()` would overwrite
+/// the stored continuation and orphan the first (it would never resume). No current caller does this.
+final class AsyncLatch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var remaining: Int
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var opened = false
+
+    init(count: Int = 1) {
+        remaining = count
+    }
+
+    /// Records one awaited callback; opens the latch once all of them have arrived. Thread-safe and
+    /// idempotent — extra calls after the latch opens are ignored.
+    func signal() {
+        lock.lock()
+        if opened {
+            lock.unlock()
+            return
+        }
+        remaining -= 1
+        let shouldOpen = remaining <= 0
+        let waiter = shouldOpen ? takeWaiterLocked() : nil
+        lock.unlock()
+        waiter?.resume()
+    }
+
+    /// Suspends until every `signal()` has landed, then returns immediately — no polling, no delay.
+    /// `timeout` is only a safety net: if a callback never fires, the watchdog resumes the waiter after
+    /// the deadline so the test fails fast (on its own assertions) instead of hanging the whole run. In
+    /// a passing run the watchdog is cancelled the instant the latch opens (its `forceOpen` then runs
+    /// but is a no-op — already open). NOTE: the watchdog deliberately does NOT fail the test on its own
+    /// — some callers wait on a signal that may legitimately never arrive and then assert regardless.
+    func wait(timeout: TimeInterval = 10) async {
+        let timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            self.forceOpen()
+        }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            let alreadyOpen = opened
+            if !alreadyOpen {
+                self.continuation = continuation
+            }
+            lock.unlock()
+            if alreadyOpen {
+                continuation.resume()
+            }
+        }
+        timeoutTask.cancel()
+    }
+
+    private func forceOpen() {
+        lock.lock()
+        let waiter = opened ? nil : takeWaiterLocked()
+        lock.unlock()
+        waiter?.resume()
+    }
+
+    /// Marks the latch open and hands back the pending waiter (if any) to resume outside the lock.
+    /// Must be called with `lock` held.
+    private func takeWaiterLocked() -> CheckedContinuation<Void, Never>? {
+        opened = true
+        let waiter = continuation
+        continuation = nil
+        return waiter
+    }
 }
 
 extension Bundle {

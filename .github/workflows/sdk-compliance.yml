@@ -3,7 +3,7 @@ name: SDK Compliance Tests
 # NOTE: This workflow is adapted from PostHog/posthog-sdk-test-harness/.github/workflows/test-sdk-action.yml
 # Key difference: Uses HYBRID RUNNER architecture because iOS SDK requires macOS (Darwin frameworks)
 # - Standard action: Runs everything in Docker on ubuntu-latest
-# - This workflow: Runs adapter natively on macos-latest, test harness in Docker
+# - This workflow: Runs adapter natively on a macOS runner, test harness in Docker
 #
 # Why: iOS SDK depends on SystemConfiguration, Foundation, UIKit which don't exist on Linux
 
@@ -18,7 +18,7 @@ on:
 
 jobs:
   compliance-tests:
-    # NOTE: Using macos-15-intel (Intel) instead of macos-latest (Apple Silicon)
+    # NOTE: Using macos-15-intel (Intel) instead of macos-26 (Apple Silicon)
     # Reason: Apple Silicon runners don't support nested virtualization needed for Docker
     # See: https://github.com/actions/runner-images/issues/9460
     runs-on: macos-15-intel
@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0

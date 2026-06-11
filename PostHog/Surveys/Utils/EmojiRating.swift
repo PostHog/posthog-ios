@@ -86,11 +86,11 @@
         }
 
         private func foregroundColor(selected: Bool) -> Color {
-            if selected {
-                return ratingButtonActiveColor.getContrastingTextColor()
-            } else {
-                return inputTextColor.opacity(0.5)
-            }
+            surveyRatingForegroundColor(
+                selected: selected,
+                activeColor: ratingButtonActiveColor,
+                inputTextColor: inputTextColor
+            )
         }
 
         private var ratingButtonActiveColor: Color {

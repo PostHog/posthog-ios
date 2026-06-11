@@ -12,8 +12,7 @@ import Foundation
     @_implementationOnly import PHPLCrashReporter
 
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
-        private static let integrationInstalledLock = NSLock()
-        private static var integrationInstalled = false
+        private static let integrationInstallState = PostHogIntegrationInstallState()
 
         var requiresSwizzling: Bool { false }
 
@@ -25,37 +24,22 @@ import Foundation
                 return .skipped(.disabledByRemoteConfig)
             }
 
-            let installed = PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
-                if PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled {
-                    return false
+            return installIfNeeded(using: Self.integrationInstallState) {
+                if let crashReporter = setupCrashReporter() {
+                    self.crashReporter = crashReporter
+                    self.postHog = postHog
+                    // Note: Order here matters, we need to process any pending crash report before enabling the crash reporter
+                    processPendingCrashReportIfNeeded(reporter: crashReporter)
+                    enableCrashReporter(reporter: crashReporter)
                 }
-                PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = true
-                return true
             }
-
-            guard installed else {
-                return .skipped(.alreadyInstalled)
-            }
-
-            if let crashReporter = setupCrashReporter() {
-                self.crashReporter = crashReporter
-                self.postHog = postHog
-                // Note: Order here matters, we need to process any pending crash report before enabling the crash reporter
-                processPendingCrashReportIfNeeded(reporter: crashReporter)
-                enableCrashReporter(reporter: crashReporter)
-            }
-
-            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            if self.postHog === postHog || self.postHog == nil {
+            uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
                 crashReporter = nil
                 self.postHog = nil
-                PostHogErrorTrackingAutoCaptureIntegration.integrationInstalledLock.withLock {
-                    PostHogErrorTrackingAutoCaptureIntegration.integrationInstalled = false
-                }
             }
         }
 

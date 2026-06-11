@@ -10,15 +10,25 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint:
+  swiftformat:
+    name: SwiftFormat
     runs-on: macos-26
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - name: Install linting tools
-        run: |
-          brew install swiftlint swiftformat
+      - name: Check formatting
+        run: make swiftFormatCheck
 
-      - name: Run lints
-        run: make lint
+  swiftlint:
+    name: SwiftLint
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Run SwiftLint
+        run: make swiftLintCheck

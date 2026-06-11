@@ -16,6 +16,10 @@ on:
       - 'sdk_compliance_adapter/**'
       - '.github/workflows/sdk-compliance.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   compliance-tests:
     # NOTE: Using macos-15-intel (Intel) instead of macos-26 (Apple Silicon)

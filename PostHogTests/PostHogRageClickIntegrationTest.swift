@@ -17,9 +17,7 @@
             captureElementInteractions: Bool = true,
             captureRageClicks: Bool = true
         ) -> (MockPostHogServer, PostHogSDK, PostHogRageClickIntegration?) {
-            // The integration tracks installation with a process-wide flag; reset it so a prior
-            // test (e.g. another SDK setup elsewhere in the suite) can't leave it "already installed"
-            // and cause `getRageClickIntegration()` to return nil for this instance.
+            // Reset the process-wide install flag so a prior test can't leave it "already installed".
             PostHogRageClickIntegration.clearInstalls()
 
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
@@ -190,10 +188,7 @@
 
         // MARK: - Suppression on ineligible elements
 
-        //
-        // These assert the suppression decision directly: it short-circuits a tap before it ever
-        // reaches the detector, so testing the boolean is deterministic and doesn't depend on the
-        // async capture/flush pipeline.
+        // These assert the suppression decision directly, avoiding the async capture/flush pipeline.
 
         @MainActor
         @Test("Taps on the on-screen keyboard window are ineligible for rage clicks")
@@ -202,9 +197,8 @@
             #expect(integration.isRageClickIneligibleForTesting(view: UIView(), isKeyboardWindow: true))
         }
 
-        /// Native controls where rapid repeated taps are intentional. Modelled as a `Sendable` enum
-        /// (rather than the non-`Sendable` `UIView`s) so the test below can be parameterised — each
-        /// control gets its own run, and a failure in one doesn't hide the others.
+        /// Controls where rapid repeated taps are intentional, as a `Sendable` enum so the test
+        /// below can be parameterised (UIViews aren't `Sendable`).
         enum IntentionalControl: String, CaseIterable {
             case textField, textView, searchBar, stepper, slider, datePicker, pickerView, segmentedControl, pageControl
 

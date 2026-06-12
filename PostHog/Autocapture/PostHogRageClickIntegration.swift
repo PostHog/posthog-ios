@@ -69,18 +69,13 @@
 
             let touchCoordinates = touch.location(in: window)
 
-            // `touch.view` is nil for taps consumed by a gesture recognizer — text fields, pickers,
-            // date pickers and scroll views clear the touch→view association when their recognizer
-            // fires — so fall back to a hit-test at the touch location to recover the tapped view.
+            // `touch.view` is nil for taps consumed by a gesture recognizer (text fields, pickers,
+            // scroll views), so fall back to a hit-test to recover the tapped view.
             let hitView = touch.view ?? window.hitTest(touchCoordinates, with: event)
 
-            // Skip taps where rapid repeats are intentional (on-screen keyboard, text fields,
-            // steppers, pickers, custom controls marked `ph-no-rageclick`, …) before they reach the
-            // detector, so they never accumulate a rage sequence and can't produce a false `$rageclick`.
-            //
-            // The ancestor walk handles UIKit/RN, where the touch lands on the control. SwiftUI hosts
-            // controls and markers as descendants of (or siblings to) the hit view, so when the walk
-            // finds nothing we fall back to a point search of the tapped window's subtree.
+            // Skip taps where rapid repeats are intentional before they reach the detector.
+            // The ancestor walk covers UIKit; SwiftUI hosts controls below the hit view, so we
+            // also point-search the window's subtree.
             let ineligible = isRageClickIneligible(view: hitView, isKeyboardWindow: window.isKeyboardWindow)
                 || ineligibleViewExists(in: window, at: touchCoordinates)
             guard !ineligible else {
@@ -150,23 +145,15 @@
             return UIViewController.getViewControllerName(controller)
         }
 
-        /// Whether a tap should be excluded from rage click detection.
-        ///
-        /// Mirrors the element-aware suppression in posthog-js: rapid repeated taps are deliberate
-        /// (not frustration) on the on-screen keyboard, text entry/selection, value steppers and
-        /// paged navigation. As the native SDK is also embedded by the React Native and Flutter SDKs,
-        /// this suppression applies to those hosts too — see `isRageClickIneligibleControl` and
-        /// `UIView.isNoRageClick()` for the cross-host caveats.
+        /// Whether a tap should be excluded from rage click detection, i.e. it landed on a control
+        /// where rapid repeated taps are deliberate rather than frustration.
         private func isRageClickIneligible(view: UIView?, isKeyboardWindow: Bool) -> Bool {
-            // The on-screen keyboard, predictive bar, text-selection magnifier and copy/paste menus
-            // all live in dedicated keyboard/text-effect windows. This is the one check that holds
-            // across native, React Native and Flutter (all use the real iOS keyboard).
+            // The keyboard, text-selection magnifier and copy/paste menus live in dedicated windows.
             if isKeyboardWindow {
                 return true
             }
 
-            // The hit-test view is often an internal subview (a text field's content view, a
-            // stepper's inner buttons), so walk up the hierarchy like `shouldTrack(_:)` does.
+            // The hit-test view is often an internal subview of the control, so walk up.
             var node = view
             while let current = node {
                 if current.isRageClickIneligibleControl || current.isNoRageClick() {
@@ -177,12 +164,9 @@
             return false
         }
 
-        /// Depth-first search for an ineligible control (or `ph-no-rageclick` marker) whose frame
-        /// contains `point`, used as a fallback when the ancestor walk finds nothing.
-        ///
-        /// SwiftUI hosts controls and markers as descendants of (or siblings to) the hit-test view,
-        /// so the ancestor walk can't reach them. Searching down from the window by point does.
-        /// `point` is expressed in `view`'s coordinate system.
+        /// Depth-first search for an ineligible control or marker containing `point` (in `view`'s
+        /// coordinate system). Needed because SwiftUI hosts controls and markers below the hit-test
+        /// view, where the ancestor walk can't reach them.
         private func ineligibleViewExists(in view: UIView, at point: CGPoint) -> Bool {
             guard !view.isHidden, view.alpha > 0.01, view.bounds.contains(point) else {
                 return false
@@ -190,8 +174,8 @@
             if view.isRageClickIneligibleControl || view.isNoRageClick() {
                 return true
             }
-            // On iOS 26, SwiftUI primitives can be backed by CALayers with no UIView, so a
-            // `.postHogNoRageClick()` marker may land on a layer rather than a view.
+            // On iOS 26, SwiftUI primitives can be layer-backed, so a marker may land on a
+            // CALayer rather than a view.
             if markedLayerExists(in: view.layer, at: point) {
                 return true
             }
@@ -200,9 +184,8 @@
             }
         }
 
-        /// Searches `layer`'s sublayers (skipping those that back a `UIView`, which the view DFS
-        /// already covers) for a `ph-no-rageclick`-tagged layer whose frame contains `point`.
-        /// `point` is expressed in `layer`'s coordinate system.
+        /// Searches `layer`'s sublayers (skipping view-backing layers, already covered by the view
+        /// search) for a marked layer containing `point` (in `layer`'s coordinate system).
         private func markedLayerExists(in layer: CALayer, at point: CGPoint) -> Bool {
             for sublayer in layer.sublayers ?? [] where !(sublayer.delegate is UIView) {
                 let sublayerPoint = layer.convert(point, to: sublayer)
@@ -218,12 +201,7 @@
     }
 
     private extension UIView {
-        /// Controls where rapid repeated taps are deliberate interaction rather than frustration:
-        /// text entry/selection, value steppers, wheel pickers and paged navigation.
-        ///
-        /// Matches native UIKit and React Native text inputs (`RCTUITextField`/`RCTUITextView`
-        /// subclass these). Flutter draws its own widgets into a single `FlutterView`, so its
-        /// controls aren't matched here and rely on the `ph-no-rageclick` marker instead.
+        /// Controls where rapid repeated taps are deliberate interaction rather than frustration.
         var isRageClickIneligibleControl: Bool {
             self is UITextField || self is UITextView || self is UISearchBar // text entry / selection
                 || self is UIStepper || self is UISlider // value steppers
@@ -245,8 +223,7 @@
                 elementsChain: String = "UIButton:attr__class=\"UIButton\"",
                 elementLabel: String? = nil
             ) {
-                // When a label is supplied, build a minimal EventData so the capture path sees a
-                // concrete element id (mirrors a real tap landing on a labeled view).
+                // A label produces a minimal EventData, mirroring a tap on a labeled view.
                 let eventData = elementLabel.map { label in
                     PostHogAutocaptureEventTracker.EventData(
                         touchCoordinates: CGPoint(x: touchX, y: touchY),

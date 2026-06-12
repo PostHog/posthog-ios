@@ -2,15 +2,9 @@
 //  RageClickControlsView.swift
 //  PostHogExample
 //
-//  A manual test screen for rage click suppression.
-//
-//  Every control here is one where rapid repeated taps are intentional, so the SDK should NOT emit
-//  a `$rageclick`. With `config.debug = true`, watch the console: rapidly tapping any control below
-//  three times in the same spot should produce no `$rageclick` — except the red button at the
-//  bottom (an eligible control), which should.
-//
-//  The controls are built in UIKit on purpose: suppression keys off the real UIKit class of the
-//  tapped view, which SwiftUI controls don't reliably bridge to.
+//  Manual test screen for rage click suppression, built in UIKit since suppression keys off the
+//  UIKit class of the tapped view. With `config.debug = true`, rapid taps on these controls should
+//  produce no `$rageclick` — except the red button at the bottom.
 //
 
 #if os(iOS)

@@ -21,12 +21,8 @@
             containsAccessibilityToken("ph-no-capture")
         }
 
-        /// Whether this view is explicitly marked to be excluded from rage click detection.
-        ///
-        /// Set the `ph-no-rageclick` token on the view's `accessibilityIdentifier` (or
-        /// `accessibilityLabel`) to opt a control out. Because it reads accessibility metadata, this
-        /// also works for React Native (`accessibilityLabel`/`nativeID`) and Flutter (`Semantics`)
-        /// hosts, which render through this same native SDK.
+        /// Whether this view is explicitly marked to be excluded from rage click detection,
+        /// via the `ph-no-rageclick` token on its `accessibilityIdentifier` or `accessibilityLabel`.
         func isNoRageClick() -> Bool {
             postHogNoRageClick || containsAccessibilityToken("ph-no-rageclick")
         }
@@ -82,8 +78,7 @@
             convert(bounds, to: window?.layer)
         }
 
-        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on iOS 26, where SwiftUI
-        /// primitives may be rendered as CALayers instead of UIViews.
+        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on layer-backed views.
         var postHogNoRageClick: Bool {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phNoRageClick) as? Bool ?? false }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phNoRageClick, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }

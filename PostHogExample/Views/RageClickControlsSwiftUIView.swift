@@ -2,13 +2,9 @@
 //  RageClickControlsSwiftUIView.swift
 //  PostHogExample
 //
-//  The SwiftUI counterpart to RageClickControlsView (which builds the same controls in UIKit).
-//
-//  Rage click suppression keys off the real UIKit class of the tapped view, and SwiftUI controls
-//  don't always bridge to the class you'd expect. Use this screen to *discover* which SwiftUI
-//  controls are actually skipped: with `config.debug = true`, rapidly tap each control three times
-//  and watch the console. A control is "skipped" when no `$rageclick` is logged. Each label notes
-//  the UIKit class we'd expect it to bridge to.
+//  SwiftUI counterpart to RageClickControlsView. SwiftUI controls don't always bridge to the
+//  UIKit class you'd expect, so use this screen (with `config.debug = true`) to discover which
+//  controls are actually skipped. Each label notes the expected UIKit class.
 //
 
 #if os(iOS)
@@ -87,9 +83,8 @@
                 }
 
                 Section("Marker opt-out") {
-                    // In SwiftUI use the `.postHogNoRageClick()` modifier. The `ph-no-rageclick`
-                    // accessibility-identifier marker is for UIKit/RN — SwiftUI virtualizes
-                    // accessibility ids, so they don't reach a view/layer the touch path can read.
+                    // In SwiftUI use `.postHogNoRageClick()`; accessibility-id markers don't reach
+                    // a view/layer the touch path can read.
                     row("Button + .postHogNoRageClick()") {
                         Button(action: {}) {
                             tappableBox("Tap rapidly (marked)")

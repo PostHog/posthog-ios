@@ -11,41 +11,26 @@
     final class PostHogRageClickIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
-        private static var integrationInstalledLock = NSLock()
-        private static var integrationInstalled = false
+        private static let integrationInstallState = PostHogIntegrationInstallState()
 
         private weak var postHog: PostHogSDK?
         private var rageClickDetector: RageClickDetector?
         private var applicationEventToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            let didInstall = PostHogRageClickIntegration.integrationInstalledLock.withLock {
-                if PostHogRageClickIntegration.integrationInstalled {
-                    return false
-                }
-                PostHogRageClickIntegration.integrationInstalled = true
-                return true
+            installIfNeeded(using: Self.integrationInstallState) {
+                self.postHog = postHog
+                rageClickDetector = RageClickDetector(config: postHog.config.rageClickConfig)
+
+                start()
             }
-
-            guard didInstall else {
-                return .skipped(.alreadyInstalled)
-            }
-
-            self.postHog = postHog
-            rageClickDetector = RageClickDetector(config: postHog.config.rageClickConfig)
-
-            start()
-            return .installed
         }
 
         func uninstall(_ postHog: PostHogSDK) {
-            // uninstall only for integration instance
-            if self.postHog === postHog || self.postHog == nil {
+            uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
+                // uninstall only for integration instance
                 stop()
                 self.postHog = nil
-                PostHogRageClickIntegration.integrationInstalledLock.withLock {
-                    PostHogRageClickIntegration.integrationInstalled = false
-                }
             }
         }
 
@@ -83,7 +68,21 @@
             }
 
             let touchCoordinates = touch.location(in: window)
-            let eventData = touch.view?.eventData(touchCoordinates: touchCoordinates)
+
+            // `touch.view` is nil for taps consumed by a gesture recognizer (text fields, pickers,
+            // scroll views), so fall back to a hit-test to recover the tapped view.
+            let hitView = touch.view ?? window.hitTest(touchCoordinates, with: event)
+
+            // Skip taps where rapid repeats are intentional before they reach the detector.
+            // The ancestor walk covers UIKit; SwiftUI hosts controls below the hit view, so we
+            // also point-search the window's subtree.
+            let ineligible = isRageClickIneligible(view: hitView, isKeyboardWindow: window.isKeyboardWindow)
+                || ineligibleViewExists(in: window, at: touchCoordinates)
+            guard !ineligible else {
+                return
+            }
+
+            let eventData = hitView?.eventData(touchCoordinates: touchCoordinates)
             let elementsChain = eventData?.getElementChain() ?? ""
 
             captureRageClickIfNeeded(
@@ -145,28 +144,107 @@
             }
             return UIViewController.getViewControllerName(controller)
         }
+
+        /// Whether a tap should be excluded from rage click detection, i.e. it landed on a control
+        /// where rapid repeated taps are deliberate rather than frustration.
+        private func isRageClickIneligible(view: UIView?, isKeyboardWindow: Bool) -> Bool {
+            // The keyboard, text-selection magnifier and copy/paste menus live in dedicated windows.
+            if isKeyboardWindow {
+                return true
+            }
+
+            // The hit-test view is often an internal subview of the control, so walk up.
+            var node = view
+            while let current = node {
+                if current.isRageClickIneligibleControl || current.isNoRageClick() {
+                    return true
+                }
+                node = current.superview
+            }
+            return false
+        }
+
+        /// Depth-first search for an ineligible control or marker containing `point` (in `view`'s
+        /// coordinate system). Needed because SwiftUI hosts controls and markers below the hit-test
+        /// view, where the ancestor walk can't reach them.
+        private func ineligibleViewExists(in view: UIView, at point: CGPoint) -> Bool {
+            guard !view.isHidden, view.alpha > 0.01, view.bounds.contains(point) else {
+                return false
+            }
+            if view.isRageClickIneligibleControl || view.isNoRageClick() {
+                return true
+            }
+            // On iOS 26, SwiftUI primitives can be layer-backed, so a marker may land on a
+            // CALayer rather than a view.
+            if markedLayerExists(in: view.layer, at: point) {
+                return true
+            }
+            return view.subviews.contains { subview in
+                ineligibleViewExists(in: subview, at: view.convert(point, to: subview))
+            }
+        }
+
+        /// Searches `layer`'s sublayers (skipping view-backing layers, already covered by the view
+        /// search) for a marked layer containing `point` (in `layer`'s coordinate system).
+        private func markedLayerExists(in layer: CALayer, at point: CGPoint) -> Bool {
+            for sublayer in layer.sublayers ?? [] where !(sublayer.delegate is UIView) {
+                let sublayerPoint = layer.convert(point, to: sublayer)
+                guard !sublayer.isHidden, sublayer.opacity > 0.01, sublayer.bounds.contains(sublayerPoint) else {
+                    continue
+                }
+                if sublayer.postHogNoRageClick || markedLayerExists(in: sublayer, at: sublayerPoint) {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    private extension UIView {
+        /// Controls where rapid repeated taps are deliberate interaction rather than frustration.
+        var isRageClickIneligibleControl: Bool {
+            self is UITextField || self is UITextView || self is UISearchBar // text entry / selection
+                || self is UIStepper || self is UISlider // value steppers
+                || self is UIDatePicker || self is UIPickerView // wheel pickers
+                || self is UISegmentedControl || self is UIPageControl // paged navigation
+        }
     }
 
     #if TESTING
         extension PostHogRageClickIntegration {
             static func clearInstalls() {
-                integrationInstalledLock.withLock {
-                    integrationInstalled = false
-                }
+                integrationInstallState.clear()
             }
 
             func processTapForTesting(
                 touchX: CGFloat,
                 touchY: CGFloat,
                 screenName: String? = "TestScreen",
-                elementsChain: String = "UIButton:attr__class=\"UIButton\""
+                elementsChain: String = "UIButton:attr__class=\"UIButton\"",
+                elementLabel: String? = nil
             ) {
+                // A label produces a minimal EventData, mirroring a tap on a labeled view.
+                let eventData = elementLabel.map { label in
+                    PostHogAutocaptureEventTracker.EventData(
+                        touchCoordinates: CGPoint(x: touchX, y: touchY),
+                        value: nil,
+                        screenName: screenName,
+                        viewHierarchy: [
+                            PostHogAutocaptureEventTracker.Element(text: "", targetClass: "UIButton", baseClass: nil, label: label),
+                        ],
+                        debounceInterval: 0
+                    )
+                }
                 captureRageClickIfNeeded(
                     touchCoordinates: CGPoint(x: touchX, y: touchY),
                     screenName: screenName,
                     elementsChain: elementsChain,
-                    eventData: nil
+                    eventData: eventData
                 )
+            }
+
+            func isRageClickIneligibleForTesting(view: UIView?, isKeyboardWindow: Bool = false) -> Bool {
+                isRageClickIneligible(view: view, isKeyboardWindow: isKeyboardWindow)
             }
         }
     #endif

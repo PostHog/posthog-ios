@@ -1,5 +1,24 @@
 ## Next
 
+## 3.60.0
+
+### Minor Changes
+
+- b9861d8: Rage click detection no longer emits `$rageclick` on controls where rapid repeated taps are intentional rather than frustration — the on-screen keyboard, text fields and text selection, steppers, sliders, pickers, date pickers, segmented controls and page controls. This applies to UIKit and SwiftUI. You can exclude a custom control with the `ph-no-rageclick` accessibility identifier/label (UIKit) or the `.postHogNoRageClick()` view modifier (SwiftUI).
+
+## 3.59.3
+
+### Patch Changes
+
+- 6b6dd54: `reloadFeatureFlags(_:)` now always invokes its completion callback, including when the SDK is disabled/opted-out or when no remote config is available. Previously these early-returns skipped the callback, which could leave callers that await it (e.g. the Flutter SDK's `reloadFeatureFlags`) hanging indefinitely.
+- 306896b: Keep session replay recording, error-tracking autocapture, and network performance capture active after an in-session `identify()`/`reset()` instead of disabling them until the next app restart. The project-level recording, error-tracking, and capture-performance config is now preserved across `reset()` and re-armed on the next `/flags` reload.
+
+## 3.59.2
+
+### Patch Changes
+
+- 0cc8d80: Retry event uploads on HTTP 408 (Request Timeout), matching the SDK's existing logs-endpoint behavior.
+
 ## 3.59.1
 
 ### Patch Changes
@@ -196,6 +215,8 @@
 - 3545320: fix: guard swizzled layoutSublayers to handle background thread calls
 - 061cb44: Replace ReadWriteLock with NSLock for consistent thread-safety across the codebase. The ReadWriteLock property wrapper provided false thread-safety for collection types since the lock was released between separate operations. Using explicit NSLock with `.withLock` closures ensures atomic operations and clearer intent.
 - ac76d70: fix: clear in-memory feature flags cache on reset()
+
+> ⚠️ WARNING: This release contains a crash bug ([#537](https://github.com/PostHog/posthog-ios/issues/537)) fixed in **3.48.3**. Avoid pinning to this version especially in workflows where you may be downgrading between SDK versions (e.g. TestFlight distributions) and use **3.48.3** or later instead.
 
 ## 3.48.0
 

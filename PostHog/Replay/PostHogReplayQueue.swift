@@ -90,14 +90,9 @@ class PostHogReplayQueue {
     /// If called from the main thread, migration is offloaded to a utility queue
     /// to avoid blocking rendering. On background threads migration executes inline.
     func migrateBufferToQueue() {
-        if Thread.isMainThread {
-            bufferIOQueue.async { [weak self] in
-                self?.migrateBufferToQueueNow()
-            }
-            return
+        performBufferOperation { [weak self] in
+            self?.migrateBufferToQueueNow()
         }
-
-        migrateBufferToQueueNow()
     }
 
     /// Discards all buffered replay events.
@@ -105,14 +100,18 @@ class PostHogReplayQueue {
     /// If called from the main thread, clear is offloaded to a utility queue to
     /// avoid blocking rendering. On background threads clear executes inline.
     func clearBuffer() {
+        performBufferOperation { [weak self] in
+            self?.clearBufferNow()
+        }
+    }
+
+    private func performBufferOperation(_ operation: @escaping () -> Void) {
         if Thread.isMainThread {
-            bufferIOQueue.async { [weak self] in
-                self?.clearBufferNow()
-            }
+            bufferIOQueue.async(execute: operation)
             return
         }
 
-        clearBufferNow()
+        operation()
     }
 
     private func migrateBufferToQueueNow() {

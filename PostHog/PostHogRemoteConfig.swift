@@ -57,13 +57,13 @@ class PostHogRemoteConfig {
 
     var lastRequestId: String? {
         featureFlagsLock.withLock {
-            requestId ?? storage.getString(forKey: .requestId)
+            getCachedValue(\.requestId, key: .requestId) { storage.getString(forKey: $0) }
         }
     }
 
     var lastEvaluatedAt: Int? {
         featureFlagsLock.withLock {
-            evaluatedAt ?? storage.getInt(forKey: .evaluatedAt)
+            getCachedValue(\.evaluatedAt, key: .evaluatedAt) { storage.getInt(forKey: $0) }
         }
     }
 
@@ -219,11 +219,11 @@ class PostHogRemoteConfig {
     }
 
     private func preloadSessionReplay() {
-        var sessionReplay: [String: Any]?
-        var featureFlags: [String: Any]?
-        featureFlagsLock.withLock {
-            sessionReplay = self.storage.getDictionary(forKey: .sessionReplay) as? [String: Any]
-            featureFlags = self.getCachedFeatureFlags()
+        let sessionReplay = remoteConfigLock.withLock {
+            getCachedRemoteConfig()?["sessionRecording"] as? [String: Any]
+        }
+        let featureFlags = featureFlagsLock.withLock {
+            self.getCachedFeatureFlags()
         }
 
         if let sessionReplay = sessionReplay {
@@ -340,6 +340,13 @@ class PostHogRemoteConfig {
                     let cachedFeatureFlags = self.featureFlagsLock.withLock {
                         self.getCachedFeatureFlags() ?? [:]
                     }
+
+                    // quota-limited /flags carries no config; re-arm from the cached remote config
+                    #if os(iOS)
+                        self.processSessionRecordingConfig(nil, featureFlags: cachedFeatureFlags)
+                    #endif
+                    self.processErrorTrackingConfig(nil)
+
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
                     return callback(cachedFeatureFlags)
                 }
@@ -363,11 +370,11 @@ class PostHogRemoteConfig {
                     return callback(nil)
                 }
 
+                // /flags carries no config; re-arm from the cached remote config
                 #if os(iOS)
-                    // Use cached remote config for session recording settings since /flags no longer returns config data
-                    let remoteConfig = self.remoteConfigLock.withLock { self.getCachedRemoteConfig() }
-                    self.processSessionRecordingConfig(remoteConfig, featureFlags: featureFlags)
+                    self.processSessionRecordingConfig(nil, featureFlags: featureFlags)
                 #endif
+                self.processErrorTrackingConfig(nil)
 
                 // Grab the request ID and evaluated timestamp from the response
                 let requestId = data["requestId"] as? String
@@ -417,30 +424,31 @@ class PostHogRemoteConfig {
 
     #if os(iOS)
         private func processSessionRecordingConfig(_ data: [String: Any]?, featureFlags: [String: Any]) {
-            if let sessionRecording = data?["sessionRecording"] as? Bool {
+            // fall back to the cached remote config (survives reset()) so replay re-arms; only Bool false disables
+            let sessionRecording: Any? = data?["sessionRecording"]
+                ?? remoteConfigLock.withLock { getCachedRemoteConfig()?["sessionRecording"] }
+
+            if let sessionRecording = sessionRecording as? Bool {
                 sessionReplayLock.withLock {
                     sessionReplayFlagActive = sessionRecording
                 }
-
-                // its always false here anyway
-                if !sessionRecording {
-                    storage.remove(key: .sessionReplay)
-                }
-
-            } else if let sessionRecording = data?["sessionRecording"] as? [String: Any] {
-                // keeps the value from config.sessionReplay since having sessionRecording
-                // means its enabled on the project settings, but its only enabled
-                // when local replay integration is enabled/active
+            } else if let sessionRecording = sessionRecording as? [String: Any] {
+                // enabled in project settings, but only active locally when the replay integration is
                 if let endpoint = sessionRecording["endpoint"] as? String {
                     config.snapshotEndpoint = endpoint
                 }
                 sessionReplayLock.withLock {
-                    recordingSampleRate = parseSampleRate(sessionRecording["sampleRate"])
-                    recordingMinimumDuration = parseMinimumDuration(sessionRecording["minimumDurationMilliseconds"])
-                    sessionReplayFlagActive = isRecordingActive(featureFlags, sessionRecording)
+                    applySessionRecordingConfigLocked(sessionRecording, featureFlags: featureFlags)
                 }
-                storage.setDictionary(forKey: .sessionReplay, contents: sessionRecording)
             }
+        }
+
+        /// Applies a `sessionRecording` config dict to the in-memory replay state (active flag,
+        /// sample rate, minimum duration). The caller must already hold `sessionReplayLock`.
+        private func applySessionRecordingConfigLocked(_ recordingConfig: [String: Any], featureFlags: [String: Any]) {
+            sessionReplayFlagActive = isRecordingActive(featureFlags, recordingConfig)
+            recordingSampleRate = parseSampleRate(recordingConfig["sampleRate"])
+            recordingMinimumDuration = parseMinimumDuration(recordingConfig["minimumDurationMilliseconds"])
         }
 
         /// Parses and validates a sample rate value which may come as a String (from the API JSON)
@@ -501,29 +509,27 @@ class PostHogRemoteConfig {
     #endif
 
     private func processErrorTrackingConfig(_ data: [String: Any]?) {
-        if let errorTracking = data?["errorTracking"] as? Bool {
+        // fall back to the cached remote config (survives reset()) so autocapture re-arms; only Bool false disables
+        let errorTracking: Any? = data?["errorTracking"]
+            ?? remoteConfigLock.withLock { getCachedRemoteConfig()?["errorTracking"] }
+
+        if let errorTracking = errorTracking as? Bool {
             errorTrackingLock.withLock {
                 autoCaptureExceptions = errorTracking
             }
-            if !errorTracking {
-                storage.remove(key: .errorTracking)
-            }
-        } else if let errorTracking = data?["errorTracking"] as? [String: Any] {
+        } else if let errorTracking = errorTracking as? [String: Any] {
             let enabled = errorTracking["autocaptureExceptions"] as? Bool ?? false
             errorTrackingLock.withLock {
                 autoCaptureExceptions = enabled
-            }
-            storage.setDictionary(forKey: .errorTracking, contents: errorTracking)
-        } else {
-            // No errorTracking key or unexpected type — disable
-            errorTrackingLock.withLock {
-                autoCaptureExceptions = false
             }
         }
     }
 
     private func preloadErrorTrackingConfig() {
-        if let errorTracking = storage.getDictionary(forKey: .errorTracking) as? [String: Any] {
+        let errorTracking = remoteConfigLock.withLock {
+            getCachedRemoteConfig()?["errorTracking"] as? [String: Any]
+        }
+        if let errorTracking {
             let enabled = errorTracking["autocaptureExceptions"] as? Bool ?? false
             errorTrackingLock.withLock {
                 autoCaptureExceptions = enabled
@@ -570,18 +576,17 @@ class PostHogRemoteConfig {
     }
 
     func getFeatureFlag(_ key: String) -> Any? {
-        var flags: [String: Any]?
-        featureFlagsLock.withLock {
-            flags = self.getCachedFeatureFlags()
-        }
-
-        return flags?[key]
+        getFeatureFlagValue(key) { self.getCachedFeatureFlags() }
     }
 
     func getFeatureFlagDetails(_ key: String) -> Any? {
+        getFeatureFlagValue(key) { self.getCachedFlags() }
+    }
+
+    private func getFeatureFlagValue(_ key: String, from getCachedValues: () -> [String: Any]?) -> Any? {
         var flags: [String: Any]?
         featureFlagsLock.withLock {
-            flags = self.getCachedFlags()
+            flags = getCachedValues()
         }
 
         return flags?[key]
@@ -589,44 +594,51 @@ class PostHogRemoteConfig {
 
     // To be called after acquiring `featureFlagsLock`
     private func getCachedFeatureFlagPayload() -> [String: Any]? {
-        if featureFlagPayloads == nil {
-            featureFlagPayloads = storage.getDictionary(forKey: .enabledFeatureFlagPayloads) as? [String: Any]
-        }
-        return featureFlagPayloads
+        getCachedDictionary(\.featureFlagPayloads, forKey: .enabledFeatureFlagPayloads)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedFeatureFlagPayload(_ featureFlagPayloads: [String: Any]) {
-        self.featureFlagPayloads = featureFlagPayloads
-        storage.setDictionary(forKey: .enabledFeatureFlagPayloads, contents: featureFlagPayloads)
+        setCachedDictionary(featureFlagPayloads, cache: \.featureFlagPayloads, forKey: .enabledFeatureFlagPayloads)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func getCachedFeatureFlags() -> [String: Any]? {
-        if featureFlags == nil {
-            featureFlags = storage.getDictionary(forKey: .enabledFeatureFlags) as? [String: Any]
-        }
-        return featureFlags
+        getCachedDictionary(\.featureFlags, forKey: .enabledFeatureFlags)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedFeatureFlags(_ featureFlags: [String: Any]) {
-        self.featureFlags = featureFlags
-        storage.setDictionary(forKey: .enabledFeatureFlags, contents: featureFlags)
+        setCachedDictionary(featureFlags, cache: \.featureFlags, forKey: .enabledFeatureFlags)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedFlags(_ flags: [String: Any]) {
-        self.flags = flags
-        storage.setDictionary(forKey: .flags, contents: flags)
+        setCachedDictionary(flags, cache: \.flags, forKey: .flags)
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func getCachedFlags() -> [String: Any]? {
-        if flags == nil {
-            flags = storage.getDictionary(forKey: .flags) as? [String: Any]
+        getCachedDictionary(\.flags, forKey: .flags)
+    }
+
+    private func getCachedDictionary(
+        _ cache: ReferenceWritableKeyPath<PostHogRemoteConfig, [String: Any]?>,
+        forKey key: PostHogStorage.StorageKey
+    ) -> [String: Any]? {
+        if self[keyPath: cache] == nil {
+            self[keyPath: cache] = storage.getDictionary(forKey: key) as? [String: Any]
         }
-        return flags
+        return self[keyPath: cache]
+    }
+
+    private func setCachedDictionary(
+        _ value: [String: Any],
+        cache: ReferenceWritableKeyPath<PostHogRemoteConfig, [String: Any]?>,
+        forKey key: PostHogStorage.StorageKey
+    ) {
+        self[keyPath: cache] = value
+        storage.setDictionary(forKey: key, contents: value)
     }
 
     func setPersonPropertiesForFlags(_ properties: [String: Any]) {
@@ -773,21 +785,37 @@ class PostHogRemoteConfig {
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedRequestId(_ value: String?) {
-        requestId = value
-        if let value {
-            storage.setString(forKey: .requestId, contents: value)
-        } else {
-            storage.remove(key: .requestId)
+        setCachedValue(value, cache: \.requestId, key: .requestId) { key, value in
+            storage.setString(forKey: key, contents: value)
         }
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setCachedEvaluatedAt(_ value: Int?) {
-        evaluatedAt = value
+        setCachedValue(value, cache: \.evaluatedAt, key: .evaluatedAt) { key, value in
+            storage.setInt(forKey: key, contents: value)
+        }
+    }
+
+    private func getCachedValue<T>(
+        _ cache: KeyPath<PostHogRemoteConfig, T?>,
+        key: PostHogStorage.StorageKey,
+        load: (PostHogStorage.StorageKey) -> T?
+    ) -> T? {
+        self[keyPath: cache] ?? load(key)
+    }
+
+    private func setCachedValue<T>(
+        _ value: T?,
+        cache: ReferenceWritableKeyPath<PostHogRemoteConfig, T?>,
+        key: PostHogStorage.StorageKey,
+        persist: (PostHogStorage.StorageKey, T) -> Void
+    ) {
+        self[keyPath: cache] = value
         if let value {
-            storage.setInt(forKey: .evaluatedAt, contents: value)
+            persist(key, value)
         } else {
-            storage.remove(key: .evaluatedAt)
+            storage.remove(key: key)
         }
     }
 
@@ -853,13 +881,11 @@ class PostHogRemoteConfig {
         resetPersonPropertiesForFlags()
         resetGroupPropertiesForFlags()
 
-        // Clear remote config cache
+        // keep the cached remote config across reset() (project-level, not user data) so features re-arm;
+        // just mark it un-fetched so a fresh copy is pulled
         remoteConfigLock.withLock {
-            remoteConfig = nil
             remoteConfigDidFetch = false
         }
-
-        storage.remove(key: .sessionReplay)
     }
 
     #if os(iOS)
@@ -882,10 +908,7 @@ class PostHogRemoteConfig {
     }
 
     private func getCachedRemoteConfig() -> [String: Any]? {
-        if remoteConfig == nil {
-            remoteConfig = storage.getDictionary(forKey: .remoteConfig) as? [String: Any]
-        }
-        return remoteConfig
+        getCachedDictionary(\.remoteConfig, forKey: .remoteConfig)
     }
 }
 

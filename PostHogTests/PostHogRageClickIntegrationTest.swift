@@ -9,6 +9,7 @@
     import Foundation
     @testable import PostHog
     import Testing
+    import UIKit
 
     @Suite("Rage click integration tests", .serialized)
     struct PostHogRageClickIntegrationTests {
@@ -16,6 +17,9 @@
             captureElementInteractions: Bool = true,
             captureRageClicks: Bool = true
         ) -> (MockPostHogServer, PostHogSDK, PostHogRageClickIntegration?) {
+            // Reset the process-wide install flag so a prior test can't leave it "already installed".
+            PostHogRageClickIntegration.clearInstalls()
+
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.captureElementInteractions = captureElementInteractions
             config.rageClickConfig.enabled = captureRageClicks
@@ -55,9 +59,9 @@
 
             server.start(batchCount: 1)
 
-            try #require(integration).processTapForTesting(x: 100, y: 200)
-            try #require(integration).processTapForTesting(x: 105, y: 205)
-            try #require(integration).processTapForTesting(x: 102, y: 202)
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 200)
+            try #require(integration).processTapForTesting(touchX: 105, touchY: 205)
+            try #require(integration).processTapForTesting(touchX: 102, touchY: 202)
 
             let events = getBatchedEvents(server)
             let autocaptureEvents = events.filter { $0.event == "$autocapture" }
@@ -74,9 +78,9 @@
 
             server.start(batchCount: 0)
 
-            try #require(integration).processTapForTesting(x: 0, y: 0)
-            try #require(integration).processTapForTesting(x: 100, y: 100)
-            try #require(integration).processTapForTesting(x: 200, y: 200)
+            try #require(integration).processTapForTesting(touchX: 0, touchY: 0)
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 100)
+            try #require(integration).processTapForTesting(touchX: 200, touchY: 200)
 
             let events = getBatchedEvents(server)
             let rageclickEvents = events.filter { $0.event == "$rageclick" }
@@ -91,9 +95,9 @@
 
             server.start(batchCount: 1)
 
-            try #require(integration).processTapForTesting(x: 100, y: 200)
-            try #require(integration).processTapForTesting(x: 105, y: 205)
-            try #require(integration).processTapForTesting(x: 102, y: 202)
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 200)
+            try #require(integration).processTapForTesting(touchX: 105, touchY: 205)
+            try #require(integration).processTapForTesting(touchX: 102, touchY: 202)
 
             let events = getBatchedEvents(server)
             let autocaptureEvents = events.filter { $0.event == "$autocapture" }
@@ -118,9 +122,9 @@
 
             server.start(batchCount: 0)
 
-            try #require(integration).processTapForTesting(x: 100, y: 200, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
-            try #require(integration).processTapForTesting(x: 105, y: 205, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
-            try #require(integration).processTapForTesting(x: 102, y: 202, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 200, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
+            try #require(integration).processTapForTesting(touchX: 105, touchY: 205, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
+            try #require(integration).processTapForTesting(touchX: 102, touchY: 202, screenName: nil, elementsChain: "UIButton:attr__class=\"UIButton\"")
 
             let events = getBatchedEvents(server)
             let rageclickEvents = events.filter { $0.event == "$rageclick" }
@@ -135,9 +139,9 @@
 
             server.start(batchCount: 1)
 
-            try #require(integration).processTapForTesting(x: 100, y: 200, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"")
-            try #require(integration).processTapForTesting(x: 105, y: 205, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"")
-            try #require(integration).processTapForTesting(x: 102, y: 202, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"")
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 200, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"", elementLabel: "retry-button")
+            try #require(integration).processTapForTesting(touchX: 105, touchY: 205, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"", elementLabel: "retry-button")
+            try #require(integration).processTapForTesting(touchX: 102, touchY: 202, screenName: nil, elementsChain: "UIButton:attr_id=\"retry-button\"", elementLabel: "retry-button")
 
             let events = getBatchedEvents(server)
             let rageclickEvents = events.filter { $0.event == "$rageclick" }
@@ -152,9 +156,9 @@
 
             server.start(batchCount: 1)
 
-            try #require(integration).processTapForTesting(x: 100, y: 200, screenName: "TestScreen", elementsChain: "")
-            try #require(integration).processTapForTesting(x: 105, y: 205, screenName: "TestScreen", elementsChain: "")
-            try #require(integration).processTapForTesting(x: 102, y: 202, screenName: "TestScreen", elementsChain: "")
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 200, screenName: "TestScreen", elementsChain: "")
+            try #require(integration).processTapForTesting(touchX: 105, touchY: 205, screenName: "TestScreen", elementsChain: "")
+            try #require(integration).processTapForTesting(touchX: 102, touchY: 202, screenName: "TestScreen", elementsChain: "")
 
             let events = getBatchedEvents(server)
             let rageclickEvents = events.filter { $0.event == "$rageclick" }
@@ -169,9 +173,9 @@
 
             server.start(batchCount: 1)
 
-            try #require(integration).processTapForTesting(x: 100, y: 200)
-            try #require(integration).processTapForTesting(x: 105, y: 205)
-            try #require(integration).processTapForTesting(x: 102, y: 202)
+            try #require(integration).processTapForTesting(touchX: 100, touchY: 200)
+            try #require(integration).processTapForTesting(touchX: 105, touchY: 205)
+            try #require(integration).processTapForTesting(touchX: 102, touchY: 202)
 
             let events = getBatchedEvents(server)
             let rageclickEvent = try #require(events.first(where: { $0.event == "$rageclick" }))
@@ -180,6 +184,95 @@
             #expect(rageclickEvent.properties["$touch_x"] != nil)
             #expect(rageclickEvent.properties["$touch_y"] != nil)
             #expect(rageclickEvent.properties["$screen_name"] as? String == "TestScreen")
+        }
+
+        // MARK: - Suppression on ineligible elements
+
+        // These assert the suppression decision directly, avoiding the async capture/flush pipeline.
+
+        @MainActor
+        @Test("Taps on the on-screen keyboard window are ineligible for rage clicks")
+        func keyboardWindowIsIneligible() {
+            let integration = PostHogRageClickIntegration()
+            #expect(integration.isRageClickIneligibleForTesting(view: UIView(), isKeyboardWindow: true))
+        }
+
+        /// Controls where rapid repeated taps are intentional, as a `Sendable` enum so the test
+        /// below can be parameterised (UIViews aren't `Sendable`).
+        enum IntentionalControl: String, CaseIterable {
+            case textField, textView, searchBar, stepper, slider, datePicker, pickerView, segmentedControl, pageControl
+
+            @MainActor
+            func makeView() -> UIView {
+                switch self {
+                case .textField: return UITextField()
+                case .textView: return UITextView()
+                case .searchBar: return UISearchBar()
+                case .stepper: return UIStepper()
+                case .slider: return UISlider()
+                case .datePicker: return UIDatePicker()
+                case .pickerView: return UIPickerView()
+                case .segmentedControl: return UISegmentedControl(items: ["a", "b"])
+                case .pageControl: return UIPageControl()
+                }
+            }
+        }
+
+        @MainActor
+        @Test("Controls where rapid taps are intentional are ineligible for rage clicks", arguments: IntentionalControl.allCases)
+        func intentionalControlIsIneligible(_ control: IntentionalControl) {
+            let integration = PostHogRageClickIntegration()
+            #expect(integration.isRageClickIneligibleForTesting(view: control.makeView()), "\(control.rawValue) should be ineligible")
+        }
+
+        @MainActor
+        @Test("A view nested inside an ineligible control is also ineligible")
+        func subviewOfIneligibleControlIsIneligible() {
+            let integration = PostHogRageClickIntegration()
+            let textField = UITextField()
+            let innerView = UIView()
+            textField.addSubview(innerView)
+
+            #expect(integration.isRageClickIneligibleForTesting(view: innerView))
+        }
+
+        @MainActor
+        @Test("A view marked with the ph-no-rageclick accessibility identifier is ineligible")
+        func viewMarkedByAccessibilityIdentifierIsIneligible() {
+            let integration = PostHogRageClickIntegration()
+            let view = UIView()
+            view.accessibilityIdentifier = "checkout-quantity ph-no-rageclick"
+
+            #expect(integration.isRageClickIneligibleForTesting(view: view))
+        }
+
+        @MainActor
+        @Test("A view marked with the ph-no-rageclick accessibility label is ineligible")
+        func viewMarkedByAccessibilityLabelIsIneligible() {
+            let integration = PostHogRageClickIntegration()
+            let view = UIView()
+            view.accessibilityLabel = "ph-no-rageclick"
+
+            #expect(integration.isRageClickIneligibleForTesting(view: view))
+        }
+
+        @MainActor
+        @Test("A view marked via the postHogNoRageClick flag is ineligible")
+        func viewMarkedByFlagIsIneligible() {
+            let integration = PostHogRageClickIntegration()
+            let view = UIView()
+            view.postHogNoRageClick = true
+
+            #expect(integration.isRageClickIneligibleForTesting(view: view))
+        }
+
+        @MainActor
+        @Test("A plain eligible view (e.g. a button) is not suppressed")
+        func plainViewIsEligible() {
+            let integration = PostHogRageClickIntegration()
+            #expect(integration.isRageClickIneligibleForTesting(view: UIButton()) == false)
+            #expect(integration.isRageClickIneligibleForTesting(view: UIView()) == false)
+            #expect(integration.isRageClickIneligibleForTesting(view: nil) == false)
         }
     }
 #endif

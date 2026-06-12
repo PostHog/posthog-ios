@@ -19,6 +19,27 @@ enum PostHogIntegrationInstallResult: Equatable {
     case skipped(PostHogIntegrationInstallSkipReason)
 }
 
+final class PostHogIntegrationInstallState {
+    private let lock = NSLock()
+    private var installed = false
+
+    func markInstalled() -> Bool {
+        lock.withLock {
+            if installed {
+                return false
+            }
+            installed = true
+            return true
+        }
+    }
+
+    func clear() {
+        lock.withLock {
+            installed = false
+        }
+    }
+}
+
 protocol PostHogIntegration {
     /**
      * Indicates whether this integration requires method swizzling to function.
@@ -83,6 +104,32 @@ protocol PostHogIntegration {
 }
 
 extension PostHogIntegration {
+    func installIfNeeded(
+        using state: PostHogIntegrationInstallState,
+        _ install: () -> Void
+    ) -> PostHogIntegrationInstallResult {
+        guard state.markInstalled() else {
+            return .skipped(.alreadyInstalled)
+        }
+
+        install()
+        return .installed
+    }
+
+    func uninstallIfNeeded(
+        from postHog: PostHogSDK,
+        installedPostHog: PostHogSDK?,
+        state: PostHogIntegrationInstallState,
+        _ uninstall: () -> Void
+    ) {
+        guard installedPostHog === postHog || installedPostHog == nil else {
+            return
+        }
+
+        uninstall()
+        state.clear()
+    }
+
     func contextDidChange(_: [String: Any]) {
         // Default empty implementation since most integrations won't need this
     }

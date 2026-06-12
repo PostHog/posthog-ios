@@ -25,31 +25,29 @@
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
             config.preloadFeatureFlags = false
+            // Drive recording config from the seeded .remoteConfig below, not the async /config fetch,
+            // so the tests stay deterministic and independent of global stub state from other suites.
+            config.disableRemoteConfigForTesting = true
 
             // Configure mock server for remote config
             server.returnReplay = true
             server.sessionRecordingEventTriggers = eventTriggers
 
+            // Seed the recording config so install() reads the event triggers up front (.remoteConfig
+            // survives reset(), so clear any value leaked from a previous serialized test first).
+            let storage = PostHogStorage(config)
+            storage.remove(key: .remoteConfig)
+            var sessionRecording: [String: Any] = ["endpoint": "/s/"]
+            if let eventTriggers {
+                sessionRecording["eventTriggers"] = eventTriggers
+            }
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": sessionRecording])
+
+            // Reset the static install flag a prior replay suite may have left set, so this SUT installs
+            // a fresh integration rather than no-opping onto a stale one.
+            PostHogReplayIntegration.clearInstalls()
+
             return PostHogSDK.with(config)
-        }
-
-        private func waitForRemoteConfig(_ sut: PostHogSDK) async {
-            guard let remoteConfig = sut.remoteConfig else {
-                return
-            }
-
-            var remoteConfigLoaded = false
-            let token = remoteConfig.onRemoteConfigLoaded.subscribe { _ in
-                remoteConfigLoaded = true
-            }
-
-            await withCheckedContinuation { continuation in
-                let timeout = Date().addingTimeInterval(2)
-                while !remoteConfigLoaded, Date() < timeout {}
-                continuation.resume()
-            }
-
-            _ = token
         }
 
         // MARK: - isActive() Tests
@@ -57,8 +55,6 @@
         @Test("isActive returns true when no event triggers configured")
         func isActiveWithoutTriggers() async throws {
             let sut = getSut(eventTriggers: nil)
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == true)
@@ -69,8 +65,6 @@
         @Test("isActive returns false when waiting for event trigger")
         func isActiveWhileWaitingForTrigger() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == false)
@@ -81,8 +75,6 @@
         @Test("isActive returns true after trigger event is captured")
         func isActiveAfterTriggerFired() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == false)
@@ -99,8 +91,6 @@
         @Test("Non-matching event does not activate replay")
         func nonMatchingEventDoesNotActivate() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration?.isActive() == false)
 
@@ -115,8 +105,6 @@
         @Test("Any matching trigger activates replay")
         func anyMatchingTriggerActivates() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed", "signup_finished", "checkout_started"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration?.isActive() == false)
 
@@ -132,8 +120,6 @@
         @Test("New session requires new trigger activation")
         func newSessionRequiresNewTrigger() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration?.isActive() == false)
 
@@ -150,8 +136,6 @@
         @Test("Trigger activation persists within same session")
         func triggerPersistsInSameSession() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
 
             sut.capture("purchase_completed")
@@ -170,8 +154,6 @@
         @Test("Manual start respects event triggers")
         func manualStartRespectsTriggers() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == false)
@@ -193,8 +175,6 @@
         @Test("Trigger event does not restart replay when manually stopped")
         func triggerDoesNotRestartWhenManuallyStopped() async throws {
             let sut = getSut(eventTriggers: ["purchase_completed"])
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == false)
@@ -219,8 +199,6 @@
         @Test("Empty triggers array means no waiting")
         func emptyTriggersNoWaiting() async throws {
             let sut = getSut(eventTriggers: nil)
-            await waitForRemoteConfig(sut)
-
             let integration = sut.getReplayIntegration()
             #expect(integration != nil)
             #expect(integration?.isActive() == true)

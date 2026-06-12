@@ -251,6 +251,7 @@ class PostHogStorage {
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
+        case capturePerformance = "posthog.capturePerformance"
         case deviceId = "posthog.deviceId"
     }
 
@@ -407,16 +408,18 @@ class PostHogStorage {
         deleteSafely(url(forKey: .groups))
         deleteSafely(url(forKey: .registerProperties))
         deleteSafely(url(forKey: .optOut))
-        deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .isIdentified))
         deleteSafely(url(forKey: .personProcessingEnabled))
-        deleteSafely(url(forKey: .remoteConfig))
+        // .remoteConfig is project-level config (not user data); kept across reset() so features re-arm
         deleteSafely(url(forKey: .surveySeen))
         deleteSafely(url(forKey: .lastSeenSurveyDate))
         deleteSafely(url(forKey: .requestId))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
+        // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
+        deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .errorTracking))
+        deleteSafely(url(forKey: .capturePerformance))
     }
 
     func remove(key: StorageKey) {
@@ -426,13 +429,7 @@ class PostHogStorage {
     }
 
     func getString(forKey key: StorageKey) -> String? {
-        let value = getJson(forKey: key)
-        if let stringValue = value as? String {
-            return stringValue
-        } else if let dictValue = value as? [String: String] {
-            return dictValue[key.rawValue]
-        }
-        return nil
+        getTypedValue(forKey: key)
     }
 
     func setString(forKey key: StorageKey, contents: String) {
@@ -448,10 +445,14 @@ class PostHogStorage {
     }
 
     func getBool(forKey key: StorageKey) -> Bool? {
+        getTypedValue(forKey: key)
+    }
+
+    private func getTypedValue<T>(forKey key: StorageKey) -> T? {
         let value = getJson(forKey: key)
-        if let boolValue = value as? Bool {
-            return boolValue
-        } else if let dictValue = value as? [String: Bool] {
+        if let typedValue = value as? T {
+            return typedValue
+        } else if let dictValue = value as? [String: T] {
             return dictValue[key.rawValue]
         }
         return nil

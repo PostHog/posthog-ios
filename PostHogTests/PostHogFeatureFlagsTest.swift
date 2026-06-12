@@ -29,6 +29,14 @@ enum PostHogFeatureFlagsTest {
 
         var server: MockPostHogServer!
 
+        // SDKs created per test, closed in deinit so their queues/timers/observers don't leak
+        // across the run and starve the background thread pool. close() is idempotent.
+        var trackedSuts: [PostHogSDK] = []
+        func track(_ sut: PostHogSDK) -> PostHogSDK {
+            trackedSuts.append(sut)
+            return sut
+        }
+
         init() {
             server = MockPostHogServer(version: 4)
             server.start()
@@ -38,6 +46,7 @@ enum PostHogFeatureFlagsTest {
         }
 
         deinit {
+            trackedSuts.forEach { $0.close() }
             server.stop()
             server = nil
         }
@@ -280,7 +289,7 @@ enum PostHogFeatureFlagsTest {
     class TestPersonAndGroupPropertiesForFlags: BaseTestClass {
         @Test("Person properties are stored and retrieved correctly")
         func storeAndRetrievePersonProperties() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing by identifying
             sut.identify("test_user")
@@ -327,7 +336,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Person properties are additive")
         func personPropertiesAreAdditive() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Set first batch of properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "shared": "original"])
@@ -365,7 +374,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Reset person properties clears all properties")
         func resetPersonPropertiesClearsAll() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Set some properties
             sut.setPersonPropertiesForFlags(["property1": "value1", "property2": "value2"])
@@ -401,7 +410,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Group properties are stored and retrieved correctly")
         func storeAndRetrieveGroupProperties() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             let properties = [
                 "plan": "enterprise",
@@ -447,7 +456,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Multiple group types are handled correctly")
         func multipleGroupTypesHandled() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Set properties for different group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -482,7 +491,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Reset group properties for specific type")
         func resetGroupPropertiesSpecificType() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -520,7 +529,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Reset all group properties")
         func resetAllGroupProperties() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Set properties for multiple group types
             sut.setGroupPropertiesForFlags("organization", properties: ["plan": "enterprise"])
@@ -552,7 +561,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Both person and group properties sent together")
         func bothPersonAndGroupPropertiesSent() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Set both types of properties
             sut.setPersonPropertiesForFlags(["user_plan": "premium"])
@@ -595,7 +604,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Capture with userProperties automatically sets person properties for flags")
         func captureWithUserPropertiesAutomaticallySetsPersonPropertiesForFlags() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing
             sut.identify("test_user")
@@ -632,7 +641,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Group with groupProperties automatically sets group properties for flags")
         func groupWithGroupPropertiesAutomaticallySetsGroupPropertiesForFlags() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing
             sut.identify("test_user")
@@ -672,7 +681,7 @@ enum PostHogFeatureFlagsTest {
     class TestGetFeatureFlagResult: BaseTestClass {
         @Test("returns result for enabled boolean flag")
         func returnsResultForEnabledBoolFlag() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -690,7 +699,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("returns result for string variant flag")
         func returnsResultForVariantFlag() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -708,7 +717,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("returns result for disabled flag")
         func returnsResultForDisabledFlag() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -726,7 +735,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("returns nil for non-existent flag")
         func returnsNilForNonExistentFlag() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -741,7 +750,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("includes payload in result")
         func includesPayloadInResult() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -764,7 +773,7 @@ enum PostHogFeatureFlagsTest {
         func sendsEventByDefault() async throws {
             config.sendFeatureFlagEvent = true
             config.flushAt = 1
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -791,7 +800,7 @@ enum PostHogFeatureFlagsTest {
         func respectsSendEventParameterFalse() async {
             config.sendFeatureFlagEvent = true
             config.flushAt = 1
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -818,7 +827,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("getFeatureFlag returns consistent values with getFeatureFlagResult")
         func getFeatureFlagReturnsSameValue() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags {
@@ -918,7 +927,7 @@ enum PostHogFeatureFlagsTest {
         func evaluationContextsIncludedInRequest() async {
             // Configure evaluation contexts
             config.evaluationContexts = ["production", "web", "checkout"]
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing
             sut.identify("test_user")
@@ -958,7 +967,7 @@ enum PostHogFeatureFlagsTest {
         func emptyEvaluationContextsNotIncluded() async {
             // Configure with empty evaluation contexts
             config.evaluationContexts = []
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing
             sut.identify("test_user")
@@ -989,7 +998,7 @@ enum PostHogFeatureFlagsTest {
         @Test("Nil evaluation contexts not included in request")
         func nilEvaluationContextsNotIncluded() async {
             // Don't set evaluation contexts (leave as nil)
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing
             sut.identify("test_user")
@@ -1019,7 +1028,7 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Can update evaluation contexts after initialization")
         func canUpdateEvaluationContexts() async {
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Enable person processing
             sut.identify("test_user")
@@ -1071,7 +1080,7 @@ enum PostHogFeatureFlagsTest {
         func deprecatedEvaluationEnvironmentsStillWorks() async {
             // Use the deprecated property
             config.evaluationEnvironments = ["production", "api"]
-            let sut = PostHogSDK.with(config)
+            let sut = track(PostHogSDK.with(config))
 
             // Verify the deprecated property maps to evaluationContexts
             #expect(config.evaluationContexts?.count == 2, "Expected evaluationContexts to be set via deprecated property")

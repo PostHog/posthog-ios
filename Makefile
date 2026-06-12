@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
 
 build: buildSdk buildExamples
 
@@ -67,16 +67,40 @@ buildExampleXCFramework:
 
 format: swiftLint swiftFormat
 
-swiftLint:
+installSwiftLint:
+	@if ! command -v swiftlint >/dev/null 2>&1; then \
+		brew install swiftlint; \
+	fi
+
+installSwiftFormat:
+	@if ! command -v swiftformat >/dev/null 2>&1; then \
+		brew install swiftformat; \
+	fi
+
+swiftLint: installSwiftLint
 	swiftlint --fix
 
-swiftFormat:
+swiftFormat: installSwiftFormat
 	swiftformat . --swiftversion 5.3
 
-# use -test-iterations 10 if you want to run the tests multiple times
+swiftLintCheck: installSwiftLint
+	swiftlint
+
+swiftFormatCheck: installSwiftFormat
+	swiftformat . --lint --swiftversion 5.3
+
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
+# -retry-tests-on-failure -test-iterations 3: a few tests assert real-time behaviour (autocapture
+# debounce/flush windows) that can't be made deterministic; on slow, load-variable CI runners those
+# windows occasionally slip. Rerun a *failed* test up to 3 times so a transient miss doesn't fail the
+# job — a genuinely broken test fails all 3 and stays red. Retries can *mask* flakiness, so we tee the
+# raw log to xcodebuild-ios.log; CI reads it back to surface tests that only passed after a retry (the
+# macOS `test` job runs without retries, so a genuine flake still hard-fails there).
 testOniOSSimulator:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' | xcpretty
+	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
+	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
+	echo "Testing on simulator: $$device"; \
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
@@ -92,8 +116,7 @@ testDowngradeCompatibility:
 	DOWNGRADE_REF="$${DOWNGRADE_REF:-3.48.0}" ./scripts/test-downgrade-compatibility.sh
 
 
-lint:
-	swiftformat . --lint --swiftversion 5.3 && swiftlint
+lint: swiftFormatCheck swiftLintCheck
 
 # periphery scan --setup
 # TODO: add periphery to the CI/commit prehooks

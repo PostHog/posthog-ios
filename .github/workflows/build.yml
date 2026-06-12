@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: macos-15-xlarge
@@ -32,7 +36,7 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=xros | xcpretty
     name: Build SDK (${{ matrix.platform }})
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
@@ -43,7 +47,7 @@ jobs:
     runs-on: macos-14-xlarge
     name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: '15.4'
@@ -66,3 +70,16 @@ jobs:
             -scheme PostHogExampleWithPods \
             -destination generic/platform=ios \
             SWIFT_VERSION=5 | xcpretty
+
+  podspec-lint:
+    runs-on: macos-15
+    name: CocoaPods package lint
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Install CocoaPods
+        run: gem install cocoapods
+      - name: Lint podspec
+        run: pod lib lint PostHog.podspec --allow-warnings --skip-tests

@@ -1,39 +1,10 @@
-# Example with CocoaPods
+# PostHog iOS CocoaPods example
 
-This is an example of how to use the PostHog iOS SDK with CocoaPods.
+Please see the main [PostHog docs](https://posthog.com/docs).
 
-## Installation
+SDK usage examples and code snippets live in the official documentation so they stay up to date.
 
-1. Install CocoaPods if you haven't already:
+## Documentation
 
-<!-- https://cocoapods.org/#install -->
-
-```bash
-sudo gem install cocoapods
-```
-
-## Add a Podfile to the project
-
-<!-- https://guides.cocoapods.org/using/using-cocoapods.html#installation -->
-
-```text
-platform :ios, '16.0'
-
-use_frameworks!
-
-target '$your_project' do
-  pod 'PostHog', '~> 3.0'
-end
-```
-
-Replace `$your_project` to your project name.
-
-## Run `pod install`
-
-```bash
-pod install
-```
-
-## Open the project
-
-Always open the `*.xcworkspace` file, not the `*.xcodeproj` file.
+- [iOS library docs](https://posthog.com/docs/libraries/ios)
+- [iOS usage docs](https://posthog.com/docs/libraries/ios/usage)

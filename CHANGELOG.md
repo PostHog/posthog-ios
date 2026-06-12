@@ -844,7 +844,7 @@ Check out the [docs](https://posthog.com/docs/libraries/ios/usage) guide.
 ### Changes
 
 - Rewritten in Swift.
-- [Breaking changes](https://posthog.com/docs/libraries/ios/usage) in the API.
+- [Breaking changes](https://github.com/PostHog/posthog-ios/blob/3.0.0/USAGE.md#breaking-changes) in the API.
 
 ## 3.0.0-RC.1 - 2024-01-16
 

@@ -1,10 +1,28 @@
-# PostHog iOS Swift Package Manager example
+# Example with SPM
 
-Please see the main [PostHog docs](https://posthog.com/docs).
+This is an example of how to use the PostHog iOS SDK with SPM.
 
-SDK usage examples and code snippets live in the official documentation so they stay up to date.
+## Installation
 
-## Documentation
+1. Install Xcode if you haven't already:
 
-- [iOS library docs](https://posthog.com/docs/libraries/ios)
-- [iOS usage docs](https://posthog.com/docs/libraries/ios/usage)
+Follow steps from the [Xcode docs](https://developer.apple.com/xcode/resources/).
+
+## Add a SP dependency to the project via Xcode
+
+1. Click on the project in the Project Navigator.
+2. Select the project in the Project and Targets list.
+3. Select the General tab.
+4. Scroll down to the Frameworks and Libraries section.
+5. Click the + button.
+6. Click Add Other...
+7. Click Add Package Dependency
+8. Enter the URL of the PostHog SDK repo or the local path to the repo.
+
+## Import the PostHog package
+
+```swift
+import PostHog
+```
+
+And run the project.

@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -122,6 +122,12 @@ lint: swiftFormatCheck swiftLintCheck
 # TODO: add periphery to the CI/commit prehooks
 api:
 	periphery scan
+
+apiCheck:
+	scripts/check-public-api.sh
+
+apiUpdate:
+	scripts/check-public-api.sh --update
 
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'

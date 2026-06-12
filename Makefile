@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
 
 build: buildSdk buildExamples
 
@@ -67,11 +67,27 @@ buildExampleXCFramework:
 
 format: swiftLint swiftFormat
 
-swiftLint:
+installSwiftLint:
+	@if ! command -v swiftlint >/dev/null 2>&1; then \
+		brew install swiftlint; \
+	fi
+
+installSwiftFormat:
+	@if ! command -v swiftformat >/dev/null 2>&1; then \
+		brew install swiftformat; \
+	fi
+
+swiftLint: installSwiftLint
 	swiftlint --fix
 
-swiftFormat:
+swiftFormat: installSwiftFormat
 	swiftformat . --swiftversion 5.3
+
+swiftLintCheck: installSwiftLint
+	swiftlint
+
+swiftFormatCheck: installSwiftFormat
+	swiftformat . --lint --swiftversion 5.3
 
 # use -only-testing:PostHogTests/PostHogQueueTest to run only a specific test
 # -retry-tests-on-failure -test-iterations 3: a few tests assert real-time behaviour (autocapture
@@ -100,8 +116,7 @@ testDowngradeCompatibility:
 	DOWNGRADE_REF="$${DOWNGRADE_REF:-3.48.0}" ./scripts/test-downgrade-compatibility.sh
 
 
-lint:
-	swiftformat . --lint --swiftversion 5.3 && swiftlint
+lint: swiftFormatCheck swiftLintCheck
 
 # periphery scan --setup
 # TODO: add periphery to the CI/commit prehooks

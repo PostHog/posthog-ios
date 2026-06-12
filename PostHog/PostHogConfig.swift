@@ -187,15 +187,21 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// - Returns: The UUID to persist as the anonymous ID.
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
 
-    /// Pre-seeded anonymous ID used on the first call to `getAnonymousId()` when no
-    /// persisted value exists.
+    /// Pre-seeded identity applied on the very first SDK launch when no per-device state
+    /// has been persisted yet.
     ///
-    /// Set this before `setup()` to ensure events captured synchronously during initialization
-    /// (such as `Application Installed` / `Application Updated`) use your own ID rather than
-    /// the SDK's auto-generated UUID. Ignored when an anonymous ID is already persisted.
+    /// Set this before calling `setup(_:)` to ensure events captured synchronously during
+    /// initialization (`Application Installed` / `Application Updated`, pre-identify
+    /// lifecycle events) carry a caller-controlled `$distinct_id` rather than the
+    /// SDK-generated UUID. Mirrors the [`bootstrap` option in `posthog-js`](https://posthog.com/docs/feature-flags/bootstrapping).
+    ///
+    /// Bootstrap only seeds the very first session. Once an anonymous ID is persisted
+    /// on disk, or `identify(...)` has been called, the bootstrap values are ignored —
+    /// they never override an already-identified user or re-link traffic across a
+    /// previous anon→identified merge.
     ///
     /// Defaults to `nil` (use the SDK-generated UUID).
-    @objc public var anonymousId: String?
+    @objc public var bootstrap: PostHogBootstrap?
 
     /// Flag to reuse the anonymous Id between `reset()` and next `identify()` calls
     ///

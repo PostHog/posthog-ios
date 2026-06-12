@@ -21,7 +21,7 @@ public class PostHogStorageManager {
     private let identifiedLock = NSLock()
     private let personProcessingLock = NSLock()
     private let idGen: (UUID) -> UUID
-    private let bootstrapAnonymousId: String?
+    private let bootstrap: PostHogBootstrap?
 
     private var distinctId: String?
     private var cachedDistinctId = false
@@ -33,7 +33,33 @@ public class PostHogStorageManager {
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
         idGen = config.getAnonymousId
-        bootstrapAnonymousId = config.anonymousId
+        bootstrap = config.bootstrap
+        applyBootstrapIfNeeded()
+    }
+
+    /// Persists the bootstrap distinct ID exactly once, on the very first launch with no
+    /// per-device state. Skipped when the device already has an anonymous ID on disk,
+    /// when the user is already identified, or when the caller did not supply one.
+    ///
+    /// When `bootstrap.isIdentifiedID` is `true`, the value is treated as the
+    /// already-identified distinct ID — both `.anonymousId` and `.distinctId` are seeded
+    /// to the same value and `isIdentified` is set, so subsequent events are emitted on
+    /// the identified person without an `$identify` merge.
+    private func applyBootstrapIfNeeded() {
+        guard let bootstrap, let bootstrapId = bootstrap.distinctID, !bootstrapId.isEmpty else {
+            return
+        }
+        // Persisted state wins — never override an existing anonymous ID, and never
+        // re-link traffic across a previous anon→identified merge.
+        if storage.getString(forKey: .anonymousId) != nil { return }
+        if storage.getBool(forKey: .isIdentified) == true { return }
+
+        setAnonymousId(bootstrapId)
+
+        if bootstrap.isIdentifiedID {
+            setDistinctId(bootstrapId)
+            setIdentified(true)
+        }
     }
 
     /// Returns the persisted anonymous ID, creating one if needed.
@@ -45,12 +71,8 @@ public class PostHogStorageManager {
                 var anonymousId = storage.getString(forKey: .anonymousId)
 
                 if anonymousId == nil {
-                    if let bootstrap = bootstrapAnonymousId, !bootstrap.isEmpty {
-                        anonymousId = bootstrap
-                    } else {
-                        let uuid = UUID.v7()
-                        anonymousId = idGen(uuid).uuidString
-                    }
+                    let uuid = UUID.v7()
+                    anonymousId = idGen(uuid).uuidString
                     setAnonId(anonymousId ?? "")
                 } else {
                     // update the memory value

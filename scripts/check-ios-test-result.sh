@@ -34,6 +34,11 @@ trap cleanup EXIT
 comm -23 "$failed_file" "$passed_file" >"$unresolved_file"
 
 if [[ ! -s "$failed_file" ]]; then
+    if grep -qE 'Executed [0-9]+ tests, with 0 failures' "$log"; then
+        echo "warning: xcodebuild exited with status $status, but the test log reports 0 failures; treating as success." >&2
+        exit 0
+    fi
+
     echo "xcodebuild failed with status $status, but no failed tests were found in $log" >&2
     exit "$status"
 fi

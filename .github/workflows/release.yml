@@ -26,6 +26,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Check for changesets
         id: check
@@ -85,6 +86,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: main
+          fetch-depth: 0
           token: ${{ steps.releaser.outputs.token }}
 
       - name: Configure Git
@@ -193,6 +195,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Configure Git
         run: |
@@ -275,6 +278,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ needs.create-github-release.outputs.version }}
+          fetch-depth: 0
 
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:

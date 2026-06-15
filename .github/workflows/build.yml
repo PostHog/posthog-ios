@@ -43,6 +43,18 @@ jobs:
       - name: Build SDK (${{ matrix.platform }})
         run: ${{ matrix.command }}
 
+  public-api:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-15
+    name: Public API snapshot
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Check public API snapshot
+        run: make apiCheck
+
   build-sdk-swift53-compat:
     runs-on: macos-14-xlarge
     name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)

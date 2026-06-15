@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -100,7 +100,10 @@ testOniOSSimulator:
 	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
 	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
 	echo "Testing on simulator: $$device"; \
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty
+	set -o pipefail; \
+	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty; \
+	status=$$?; \
+	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
@@ -122,6 +125,12 @@ lint: swiftFormatCheck swiftLintCheck
 # TODO: add periphery to the CI/commit prehooks
 api:
 	periphery scan
+
+apiCheck:
+	scripts/check-public-api.sh
+
+apiUpdate:
+	scripts/check-public-api.sh --update
 
 # requires gem and brew
 # xcpretty needs 'export LANG=en_US.UTF-8'

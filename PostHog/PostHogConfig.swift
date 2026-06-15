@@ -171,6 +171,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `false`.
     @objc public var debug: Bool = false
 
+    /// Temporary public API canary used to verify the API snapshot CI check fails.
+    @objc public var apiSnapshotCheckCanary: Bool = false
+
     /// Starts the SDK in an opted-out state when set before setup.
     ///
     /// While opted out, capture calls are ignored and integrations are not installed.

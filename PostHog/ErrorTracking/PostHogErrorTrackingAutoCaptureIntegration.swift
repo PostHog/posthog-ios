@@ -148,7 +148,16 @@ import Foundation
                 let exceptionProperties = PostHogCrashReportProcessor.processReport(crashReport, config: postHog.config.errorTrackingConfig)
 
                 // Merge: crash-time event properties as base, exception properties on top
-                let finalProperties = crashEventProperties.merging(exceptionProperties) { _, new in new }
+                var finalProperties = crashEventProperties.merging(exceptionProperties) { _, new in new }
+
+                // Attach the steps recorded before the crash (persisted to disk by last session's
+                // buffer) unless the crash context already carried them.
+                if finalProperties[PostHogExceptionStepFields.stepsKey] == nil {
+                    let steps = postHog.persistedExceptionStepsForCrash()
+                    if !steps.isEmpty {
+                        finalProperties[PostHogExceptionStepFields.stepsKey] = steps
+                    }
+                }
 
                 // Collect crash timestamp
                 let crashTimestamp = PostHogCrashReportProcessor.getCrashTimestamp(crashReport)

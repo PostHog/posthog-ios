@@ -22,6 +22,12 @@ struct PostHogExceptionStepsBufferTest {
         steps.compactMap { $0[PostHogExceptionStepFields.message] as? String }
     }
 
+    private func makeTempDir() -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("steps-test-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     @Test("keeps steps in order, oldest first")
     func keepsOrder() {
         let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768)
@@ -141,6 +147,108 @@ struct PostHogExceptionStepsBufferTest {
         let stored = buffer.getAttachable().first
         // The Date is normalized to an ISO-8601 string (same as event-property handling), not stored as a Date.
         #expect(stored?["when"] as? String == ISO8601DateFormatter().string(from: date))
+    }
+
+    @Test("snapshot returns the buffered steps, or nil when empty")
+    func snapshotReturnsSteps() {
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768)
+        #expect(buffer.snapshot() == nil)
+
+        buffer.add(makeStep("one"))
+        buffer.add(makeStep("two"))
+
+        let snap = buffer.snapshot()
+        #expect(messages(snap?.steps ?? []) == ["one", "two"])
+    }
+
+    @Test("removeUpTo drops only the snapshotted steps, preserving steps added afterwards")
+    func removeUpToPreservesLaterSteps() {
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768)
+        buffer.add(makeStep("attached-1"))
+        buffer.add(makeStep("attached-2"))
+        let snap = buffer.snapshot()!
+
+        // A step recorded after the snapshot (e.g. concurrently with a capture) must survive removal.
+        buffer.add(makeStep("after-snapshot"))
+        buffer.removeUpTo(snap.upTo)
+
+        #expect(messages(buffer.getAttachable()) == ["after-snapshot"])
+    }
+
+    @Test("removeUpTo of a full snapshot empties the buffer and resets the byte budget")
+    func removeUpToEmpties() {
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768)
+        buffer.add(makeStep("one"))
+        buffer.add(makeStep("two"))
+        let snap = buffer.snapshot()!
+
+        buffer.removeUpTo(snap.upTo)
+
+        #expect(buffer.isEmpty)
+        // Budget was released along with the removed bytes — the buffer is usable again.
+        #expect(buffer.add(makeStep("three")) == true)
+        #expect(messages(buffer.getAttachable()) == ["three"])
+    }
+
+    @Test("persists each step to disk and reads it back oldest-first")
+    func persistsToDisk() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
+        buffer.add(makeStep("one"))
+        buffer.add(makeStep("two"))
+
+        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["one", "two"])
+    }
+
+    @Test("removeUpTo deletes the persisted files of removed steps")
+    func removeUpToDeletesFiles() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
+        buffer.add(makeStep("attached"))
+        let snap = buffer.snapshot()!
+        buffer.add(makeStep("after"))
+        buffer.removeUpTo(snap.upTo)
+
+        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["after"])
+    }
+
+    @Test("byte-budget eviction deletes the persisted files of evicted steps")
+    func evictionDeletesFiles() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let size = toJSONData(makeStep("s1"))!.count
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: size * 2, directory: dir)
+        buffer.add(makeStep("s1"))
+        buffer.add(makeStep("s2"))
+        buffer.add(makeStep("s3")) // evicts s1
+
+        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["s2", "s3"])
+    }
+
+    @Test("constructing a buffer clears a previous session's persisted steps")
+    func freshSessionClearsDirectory() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let first = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
+        first.add(makeStep("old-session"))
+        // Previous session's steps are readable until a new buffer is constructed (crash restore
+        // reads them in this window).
+        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["old-session"])
+
+        _ = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
+        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
+    }
+
+    @Test("readPersistedSteps returns empty for a missing directory")
+    func readPersistedMissingDirectory() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
     }
 
     @Test("concurrent adds and reads are thread-safe")

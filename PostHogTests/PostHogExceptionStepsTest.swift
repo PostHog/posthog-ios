@@ -91,6 +91,48 @@ class PostHogExceptionStepsTest {
         sut.close()
     }
 
+    @Test("preserves buffered steps when the caller supplies their own $exception_steps")
+    func preservesBufferOnManualOverride() {
+        let sut = getSut()
+        server.reset(batchCount: 2)
+
+        sut.addExceptionStep("buffered")
+
+        // Caller supplies their own steps: the SDK must neither attach nor discard its buffer.
+        let manual: [[String: Any]] = [["$message": "manual", "$timestamp": "2026-06-09T10:00:00.000Z"]]
+        sut.captureException(TestError.boom, properties: ["$exception_steps": manual]) // batch 1
+        sut.captureException(TestError.boom) // batch 2 — the preserved buffered step attaches here
+
+        let events = getBatchedEvents(server).filter { $0.event == "$exception" }
+        #expect(events.count == 2)
+        #expect(events.contains { messages(exceptionSteps($0)) == ["manual"] })
+        // The buffered step was preserved across the manual-override capture, not silently cleared.
+        #expect(events.contains { messages(exceptionSteps($0)) == ["buffered"] })
+
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("recording steps concurrently with integration churn does not crash")
+    func concurrentStepsDuringIntegrationChurn() {
+        let sut = getSut()
+
+        // addExceptionStep persists via notifyContextDidChange, which iterates installedIntegrations
+        // off the caller's thread. optOut/optIn reassign installedIntegrations under setupLock. Without
+        // synchronizing the iteration this races; this guards that it doesn't.
+        DispatchQueue.concurrentPerform(iterations: 150) { i in
+            switch i % 3 {
+            case 0: sut.addExceptionStep("s\(i)")
+            case 1: sut.optOut()
+            default: sut.optIn()
+            }
+        }
+
+        sut.optIn()
+        sut.reset()
+        sut.close()
+    }
+
     @Test("strips reserved keys from step properties and sets canonical values")
     func stripsReservedKeys() {
         let sut = getSut()

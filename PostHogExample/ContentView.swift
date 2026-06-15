@@ -323,6 +323,25 @@ struct ContentView: View {
                     Button("Add exception steps via ObjC") {
                         PHGExceptionHandler.recordExceptionStepsFromObjC()
                     }
+
+                    // High-frequency stress test; trigger a crash while it runs to check the most
+                    // recent steps survive.
+                    Button("Flood steps in background (high-frequency)") {
+                        DispatchQueue.global(qos: .background).async {
+                            let total = 5000
+                            for i in 0 ..< total {
+                                PostHogSDK.shared.addExceptionStep("Background step \(i)", properties: [
+                                    "iteration": i,
+                                    "thread": "background",
+                                    "payload": String(repeating: "x", count: 64),
+                                ])
+                                // Spread the work out so it behaves like a long-running task.
+                                Thread.sleep(forTimeInterval: 0.002)
+                            }
+                            PostHogSDK.shared.addExceptionStep("Background flood finished (\(total) steps)")
+                            print("Exception-step flood complete: \(total) steps")
+                        }
+                    }
                 }
 
                 Section("Crash Triggers") {

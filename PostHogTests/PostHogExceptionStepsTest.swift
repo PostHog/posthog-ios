@@ -198,6 +198,55 @@ class PostHogExceptionStepsTest {
         sut.close()
     }
 
+    /// Seeds one persisted step directly on disk (the form `readPersistedSteps` reads).
+    private func seedPersistedStep(_ message: String, in directory: URL) {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let data = try! JSONSerialization.data(withJSONObject: [
+            PostHogExceptionStepFields.message: message,
+            PostHogExceptionStepFields.timestamp: "2026-06-09T10:00:00.000Z",
+        ])
+        try! data.write(to: directory.appendingPathComponent(UUID().uuidString))
+    }
+
+    @Test("opt-out launch keeps a previous run's persisted steps; opt-in clears them")
+    func optOutLaunchPreservesPersistedSteps() {
+        let config = PostHogConfig(projectToken: "steps_optout_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.disableReachabilityForTesting = true
+        config.disableQueueTimerForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.optOut = true
+        let storage = PostHogStorage(config)
+        storage.reset()
+        let dir = storage.url(forKey: .exceptionStepsFolder)
+        seedPersistedStep("from-previous-run", in: dir)
+
+        // Opted-out launch must NOT construct the buffer (which would clear the directory).
+        let sut = PostHogSDK.with(config)
+        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).count == 1)
+
+        // Opting in constructs the buffer for this run, which clears the directory.
+        sut.optIn()
+        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
+
+        sut.close()
+    }
+
+    @Test("persisted crash steps are read even when exception steps are disabled this run")
+    func persistedStepsReadWhenDisabledThisRun() {
+        let token = "steps_disabled_\(UUID().uuidString)"
+        let sut = getSut(stepsEnabled: false, token: token)
+        // The steps directory is derived from the project token (PostHogStorage.getAppFolderUrl).
+        let dir = PostHogStorage(PostHogConfig(projectToken: token, host: "http://localhost:9001"))
+            .url(forKey: .exceptionStepsFolder)
+        // Seed after setup (the buffer already cleared the dir on construction).
+        seedPersistedStep("from-enabled-run", in: dir)
+
+        // The current run has the feature disabled, but a prior run's steps still belong to its crash.
+        #expect(sut.persistedExceptionStepsForCrash().count == 1)
+
+        sut.close()
+    }
+
     @Test("preserves buffered steps when an exception is dropped, attaching them to the next accepted one")
     func preservesStepsOnDrop() {
         let toggle = DropToggle(true)

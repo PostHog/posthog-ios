@@ -137,11 +137,10 @@ final class PostHogExceptionStepsBuffer {
 
         let urls: [URL]
         do {
+            // Filenames are UUID-v7 (monotonic, time-ordered), so a lexical sort restores FIFO order.
             urls = try FileManager.default
-                .contentsOfDirectory(at: directory, includingPropertiesForKeys: [.creationDateKey])
-                .map { (url: $0, date: (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) }
-                .sorted { $0.date < $1.date }
-                .map(\.url)
+                .contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
         } catch {
             hedgeLog("Failed to read persisted exception steps: \(error)")
             return []

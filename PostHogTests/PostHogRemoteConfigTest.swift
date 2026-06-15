@@ -207,11 +207,7 @@ enum PostHogRemoteConfigTest {
             // The cache clearing runs asynchronously after onRemoteConfigLoaded fires and isn't tied to
             // any callback we can await, so poll the end state — returns the instant it clears rather
             // than blocking on a fixed delay.
-            await waitUntil {
-                storage.getDictionary(forKey: .flags).isNilOrEmpty &&
-                    storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty &&
-                    storage.getDictionary(forKey: .enabledFeatureFlagPayloads).isNilOrEmpty
-            }
+            await waitUntil { storage.getDictionary(forKey: .enabledFeatureFlags).isNilOrEmpty }
 
             // test for empty cache
             #expect(storage.getDictionary(forKey: .flags).isNilOrEmpty == true)

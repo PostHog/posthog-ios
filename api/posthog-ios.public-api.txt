@@ -148,6 +148,7 @@ PostHog | PostHogDisplaySurveyTextContentType.init(rawValue:) | init | init?(raw
 PostHog | PostHogDisplaySurveyTextContentType.text | enum.case | case text | c:@M@PostHog@E@PostHogDisplaySurveyTextContentType@PostHogDisplaySurveyTextContentTypeText
 PostHog | PostHogErrorTrackingConfig | class | @objc class PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig
 PostHog | PostHogErrorTrackingConfig.autoCapture | property | @objc var autoCapture: Bool { get set } | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)autoCapture
+PostHog | PostHogErrorTrackingConfig.exceptionSteps | property | @objc var exceptionSteps: PostHogExceptionStepsConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)exceptionSteps
 PostHog | PostHogErrorTrackingConfig.inAppByDefault | property | @objc var inAppByDefault: Bool | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppByDefault
 PostHog | PostHogErrorTrackingConfig.inAppExcludes | property | @objc var inAppExcludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppExcludes
 PostHog | PostHogErrorTrackingConfig.inAppIncludes | property | @objc var inAppIncludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppIncludes
@@ -158,6 +159,9 @@ PostHog | PostHogEvent.event | property | @objc var event: String | c:@M@PostHog
 PostHog | PostHogEvent.properties | property | @objc var properties: [String : Any] | c:@M@PostHog@objc(cs)PostHogEvent(py)properties
 PostHog | PostHogEvent.timestamp | property | @objc var timestamp: Date | c:@M@PostHog@objc(cs)PostHogEvent(py)timestamp
 PostHog | PostHogEvent.uuid | property | @objc var uuid: UUID { get } | c:@M@PostHog@objc(cs)PostHogEvent(py)uuid
+PostHog | PostHogExceptionStepsConfig | class | @objc class PostHogExceptionStepsConfig | c:@M@PostHog@objc(cs)PostHogExceptionStepsConfig
+PostHog | PostHogExceptionStepsConfig.enabled | property | @objc var enabled: Bool | c:@M@PostHog@objc(cs)PostHogExceptionStepsConfig(py)enabled
+PostHog | PostHogExceptionStepsConfig.maxBytes | property | @objc var maxBytes: Int | c:@M@PostHog@objc(cs)PostHogExceptionStepsConfig(py)maxBytes
 PostHog | PostHogFeatureFlagResult | class | @objc(PostHogFeatureFlagResult) class PostHogFeatureFlagResult | c:@M@PostHog@objc(cs)PostHogFeatureFlagResult
 PostHog | PostHogFeatureFlagResult.enabled | property | @objc let enabled: Bool | c:@M@PostHog@objc(cs)PostHogFeatureFlagResult(py)enabled
 PostHog | PostHogFeatureFlagResult.key | property | @objc let key: String | c:@M@PostHog@objc(cs)PostHogFeatureFlagResult(py)key
@@ -236,6 +240,8 @@ PostHog | PostHogRageClickConfig.minimumTapCount | property | @objc var minimumT
 PostHog | PostHogRageClickConfig.thresholdPoints | property | @objc var thresholdPoints: CGFloat | c:@M@PostHog@objc(cs)PostHogRageClickConfig(py)thresholdPoints
 PostHog | PostHogRageClickConfig.timeoutInterval | property | @objc var timeoutInterval: TimeInterval | c:@M@PostHog@objc(cs)PostHogRageClickConfig(py)timeoutInterval
 PostHog | PostHogSDK | class | @objc class PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK
+PostHog | PostHogSDK.addExceptionStep(_:) | method | @objc(addExceptionStep:) func addExceptionStep(_ message: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)addExceptionStep:
+PostHog | PostHogSDK.addExceptionStep(_:properties:) | method | @objc(addExceptionStep:properties:) func addExceptionStep(_ message: String, properties: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)addExceptionStep:properties:
 PostHog | PostHogSDK.alias(_:) | method | @objc func alias(_ alias: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)alias:
 PostHog | PostHogSDK.capture(_:) | method | @objc func capture(_ event: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)capture:
 PostHog | PostHogSDK.capture(_:distinctId:properties:userProperties:userPropertiesSetOnce:groups:) | method | @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:) func capture(_ event: String, distinctId: String? = nil, properties: [String : Any]? = nil, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil, groups: [String : String]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:

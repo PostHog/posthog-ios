@@ -302,7 +302,7 @@ struct ContentView: View {
                 }
 
                 // Manual testing of exception steps.
-                Section("Exception steps (temporary)") {
+                Section("Exception steps") {
                     Button("Add 3 exception steps") {
                         PostHogSDK.shared.addExceptionStep("App launched test flow")
                         PostHogSDK.shared.addExceptionStep("User tapped Checkout", properties: [
@@ -327,7 +327,7 @@ struct ContentView: View {
                     // High-frequency stress test; crash mid-run to check recent steps survive.
                     Button("Flood steps in background (high-frequency)") {
                         DispatchQueue.global(qos: .background).async {
-                            let total = 5000
+                            let total = 200
                             for i in 0 ..< total {
                                 PostHogSDK.shared.addExceptionStep("Background step \(i)", properties: [
                                     "iteration": i,

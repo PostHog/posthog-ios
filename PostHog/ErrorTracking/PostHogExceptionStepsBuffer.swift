@@ -73,7 +73,7 @@ final class PostHogExceptionStepsBuffer {
         let evicted: [String] = lock.withLock {
             entries.append(Entry(step: normalized, bytes: bytes, filename: filename))
             totalBytes += bytes
-            return trimToMaxBytes()
+            return trimToMaxBytesLocked()
         }
         deleteFiles(evicted)
         return true
@@ -101,7 +101,7 @@ final class PostHogExceptionStepsBuffer {
 
     /// Evict oldest steps until within budget, returning their filenames to delete after unlocking.
     /// Callers must hold `lock`.
-    private func trimToMaxBytes() -> [String] {
+    private func trimToMaxBytesLocked() -> [String] {
         var evicted: [String] = []
         while totalBytes > maxBytes, !entries.isEmpty {
             let removed = entries.removeFirst()

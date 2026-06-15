@@ -28,10 +28,11 @@ EOF
 done
 
 TMP_FILE="$(mktemp)"
+DERIVED_DATA_DIR="$(mktemp -d)"
 SYMBOLGRAPH_DIR="$(mktemp -d)"
 cleanup() {
     rm -f "$TMP_FILE"
-    rm -rf "$SYMBOLGRAPH_DIR"
+    rm -rf "$DERIVED_DATA_DIR" "$SYMBOLGRAPH_DIR"
 }
 trap cleanup EXIT
 
@@ -40,8 +41,24 @@ set -o pipefail
 xcrun xcodebuild build \
     -scheme PostHog \
     -destination generic/platform=ios \
-    OTHER_SWIFT_FLAGS="-emit-symbol-graph -emit-symbol-graph-dir $SYMBOLGRAPH_DIR -symbol-graph-minimum-access-level public -symbol-graph-skip-synthesized-members" \
+    -derivedDataPath "$DERIVED_DATA_DIR" \
     | xcpretty >/dev/null
+
+PRODUCTS_DIR="$(find "$DERIVED_DATA_DIR/Build/Products" -maxdepth 1 -type d -name '*iphoneos' | head -n 1)"
+if [[ -z "$PRODUCTS_DIR" ]]; then
+    echo "No iOS build products found under $DERIVED_DATA_DIR/Build/Products" >&2
+    exit 1
+fi
+
+xcrun swift-symbolgraph-extract \
+    -module-name PostHog \
+    -target arm64-apple-ios13.0 \
+    -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
+    -I "$PRODUCTS_DIR" \
+    -F "$PRODUCTS_DIR" \
+    -minimum-access-level public \
+    -skip-synthesized-members \
+    -output-dir "$SYMBOLGRAPH_DIR"
 
 python3 - "$SYMBOLGRAPH_DIR" "$TMP_FILE" <<'PY'
 import json
@@ -64,6 +81,8 @@ for path in sorted(symbolgraph_dir.glob('PostHog*.symbols.json')):
         kind = symbol.get('kind', {}).get('identifier', 'unknown').replace('swift.', '')
         precise = symbol.get('identifier', {}).get('precise', '')
         path_components = '.'.join(symbol.get('pathComponents', []))
+        if path_components == 'char8_t' and precise.startswith('c:PostHog-Swift.h@T@'):
+            continue
         declaration = ''.join(fragment.get('spelling', '') for fragment in symbol.get('declarationFragments', []))
         records.append((module, path_components, kind, declaration, precise))
 

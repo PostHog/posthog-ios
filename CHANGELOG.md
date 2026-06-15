@@ -839,12 +839,12 @@ No immediate action required - existing code using `evaluationEnvironments` will
 
 Check out the updated [docs](https://posthog.com/docs/libraries/ios).
 
-Check out the [USAGE](https://github.com/PostHog/posthog-ios/blob/main/USAGE.md) guide.
+Check out the [docs](https://posthog.com/docs/libraries/ios/usage) guide.
 
 ### Changes
 
 - Rewritten in Swift.
-- [Breaking changes](https://github.com/PostHog/posthog-ios/blob/main/USAGE.md#breaking-changes) in the API.
+- [Breaking changes](https://github.com/PostHog/posthog-ios/blob/3.0.0/USAGE.md#breaking-changes) in the API.
 
 ## 3.0.0-RC.1 - 2024-01-16
 
@@ -958,7 +958,7 @@ Completely remove reference to the AdSupport framework
 
 Shift responsibility of IDFA collection to clients ([#5](https://github.com/PostHog/posthog-ios/pull/5))
 by removing any references to Apple's AdSupport framework from the library. In case you need to
-use the $device_advertisingId field, [see here](https://posthog.com/docs/integrations/ios-integration) for how to enable it.
+use the $device_advertisingId field, [see here](https://posthog.com/docs/libraries/ios) for how to enable it.
 
 ## 1.0.5 - 2020-08-25
 

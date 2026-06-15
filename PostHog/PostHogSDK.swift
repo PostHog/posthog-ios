@@ -2469,11 +2469,11 @@ let maxRetryDelay = 30.0
 
     /// Record an exception step (breadcrumb-style context record).
     ///
-    /// Steps accumulate in a buffer and are attached to the **next** captured `$exception` as
-    /// `$exception_steps`, giving the error tracking UI a timeline of what happened right before the
-    /// exception. The buffer is cleared once an exception is captured. On a fatal crash the buffered
-    /// steps are persisted with the crash context and attached to the crash `$exception` reported on
-    /// the next app launch.
+    /// Steps accumulate in a session-scoped buffer and are attached to **every** captured `$exception`
+    /// as `$exception_steps`, giving the error tracking UI a timeline of recent activity before each
+    /// error. The buffer is not cleared by a capture — it rotates only by byte-budget eviction and is
+    /// cleared on a clean launch or `close()`. On a fatal crash the buffered steps are persisted with
+    /// the crash context and attached to the crash `$exception` reported on the next launch.
     ///
     /// Reserved keys `$message` and `$timestamp` are stripped from `properties` — the SDK sets the
     /// canonical values. The `$timestamp` is captured at call time so the timeline stays accurate.

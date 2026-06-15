@@ -1,9 +1,6 @@
 import Foundation
 
-/// Reserved keys that the SDK controls on every exception step.
-///
-/// Values supplied by the caller under these keys are stripped — the SDK sets the canonical
-/// `$message` and `$timestamp`.
+/// Reserved keys the SDK owns on every step; caller-supplied values for these are stripped.
 enum PostHogExceptionStepFields {
     static let message = "$message"
     static let timestamp = "$timestamp"
@@ -11,37 +8,25 @@ enum PostHogExceptionStepFields {
     static let stepsKey = "$exception_steps"
 }
 
-/// Thread-safe FIFO buffer of exception steps bounded by a UTF-8 byte budget, mirrored to disk so
-/// steps survive a fatal crash.
+/// Thread-safe FIFO buffer of exception steps bounded by a UTF-8 byte budget. When over budget the
+/// oldest steps are evicted (keeping those closest to the exception); a step larger than `maxBytes`
+/// is rejected.
 ///
-/// Steps are kept oldest-first; when the cumulative serialized size exceeds `maxBytes` the oldest
-/// steps are evicted first (the steps closest in time to the exception are the most diagnostically
-/// valuable). A single step larger than `maxBytes` is rejected outright.
+/// With a `directory`, each step is mirrored to its own file so it survives a fatal crash; a pending
+/// crash on next launch reads them via `readPersistedSteps(from:)`. Constructing the buffer clears
+/// the directory, so `readPersistedSteps` must run before construction.
 ///
-/// When a `directory` is provided, each step is also written to its own small file (one append per
-/// step, so recording stays cheap). On the next launch a pending crash report reads those files via
-/// `readPersistedSteps(from:)` and attaches them to the crash `$exception`. The live buffer starts
-/// each session empty: constructing it clears the directory, so `readPersistedSteps` must run before
-/// the buffer is created.
-///
-/// All in-memory access is guarded by a lock so the recording path (`addExceptionStep`) and the
-/// capture path can run on different threads safely. File writes/deletes happen outside the lock.
+/// File I/O happens outside the lock that guards in-memory access.
 final class PostHogExceptionStepsBuffer {
     private struct Entry {
         let step: [String: Any]
         let bytes: Int
-        /// Monotonic sequence number identifying this step. Used by `snapshot()`/`removeUpTo(_:)` to
-        /// drop exactly the steps that were attached to an exception while preserving any steps added
-        /// afterwards.
-        let seq: UInt64
-        /// Filename of this step's on-disk mirror, or `nil` when the buffer is memory-only.
         let filename: String?
     }
 
     private let lock = NSLock()
     private var entries: [Entry] = []
     private var totalBytes: Int = 0
-    private var nextSeq: UInt64 = 0
     private let maxBytes: Int
     /// Directory mirroring the buffer to disk for fatal-crash durability. `nil` = memory-only.
     private let directory: URL?
@@ -56,13 +41,8 @@ final class PostHogExceptionStepsBuffer {
         }
     }
 
-    /// Add a step to the buffer.
-    ///
-    /// Validates the reserved fields, serializes the step to measure its UTF-8 byte size, rejects a
-    /// single step larger than the budget, mirrors it to disk, then evicts the oldest steps until
-    /// within budget.
-    ///
-    /// - Returns: `true` if the step was buffered, `false` if it was rejected (invalid or oversized).
+    /// Add a step. Returns `false` if it is invalid (empty message / bad timestamp) or larger than
+    /// the whole budget.
     @discardableResult
     func add(_ step: [String: Any]) -> Bool {
         // Normalize to the JSON-safe wire form so the stored, measured, and sent step all match.
@@ -91,8 +71,7 @@ final class PostHogExceptionStepsBuffer {
         let filename = persist(data)
 
         let evicted: [String] = lock.withLock {
-            entries.append(Entry(step: normalized, bytes: bytes, seq: nextSeq, filename: filename))
-            nextSeq += 1
+            entries.append(Entry(step: normalized, bytes: bytes, filename: filename))
             totalBytes += bytes
             return trimToMaxBytes()
         }
@@ -105,53 +84,23 @@ final class PostHogExceptionStepsBuffer {
         lock.withLock { entries.map(\.step) }
     }
 
-    /// A snapshot of the buffered steps plus the sequence high-water mark covering them, or `nil`
-    /// when the buffer is empty.
-    ///
-    /// Pair with `removeUpTo(_:)` to drop exactly the snapshotted steps after they have been attached
-    /// to an exception, while preserving any steps recorded after the snapshot was taken.
-    func snapshot() -> (steps: [[String: Any]], upTo: UInt64)? {
-        lock.withLock {
-            guard let last = entries.last else { return nil }
-            return (entries.map(\.step), last.seq)
-        }
-    }
-
-    /// Remove every entry whose sequence number is `<= upTo` (the steps captured by a prior
-    /// `snapshot()`), leaving steps added afterwards intact and releasing their byte budget.
-    func removeUpTo(_ upTo: UInt64) {
-        let removed = lock.withLock { removeEntriesLocked { $0.seq <= upTo } }
-        deleteFiles(removed)
-    }
-
     var isEmpty: Bool {
         lock.withLock { entries.isEmpty }
     }
 
     /// Empty the buffer, deleting the on-disk mirror.
     func clear() {
-        let removed = lock.withLock { removeEntriesLocked { _ in true } }
+        let removed: [String] = lock.withLock {
+            let files = entries.compactMap(\.filename)
+            entries.removeAll()
+            totalBytes = 0
+            return files
+        }
         deleteFiles(removed)
     }
 
-    /// Remove entries matching `predicate`, decrementing the byte total and collecting their
-    /// filenames for deletion after the lock is released.
-    /// - Important: callers must hold `lock`.
-    private func removeEntriesLocked(where predicate: (Entry) -> Bool) -> [String] {
-        var files: [String] = []
-        entries.removeAll { entry in
-            guard predicate(entry) else { return false }
-            totalBytes -= entry.bytes
-            if let filename = entry.filename { files.append(filename) }
-            return true
-        }
-        return files
-    }
-
-    /// Evict the oldest steps until the running total is within budget.
-    ///
-    /// - Returns: the filenames of evicted steps, to be deleted after the lock is released.
-    /// - Important: callers must hold `lock`.
+    /// Evict oldest steps until within budget, returning their filenames to delete after unlocking.
+    /// Callers must hold `lock`.
     private func trimToMaxBytes() -> [String] {
         var evicted: [String] = []
         while totalBytes > maxBytes, !entries.isEmpty {
@@ -188,7 +137,6 @@ final class PostHogExceptionStepsBuffer {
 
         let urls: [URL]
         do {
-            // Read each file's creation date once, then sort.
             urls = try FileManager.default
                 .contentsOfDirectory(at: directory, includingPropertiesForKeys: [.creationDateKey])
                 .map { (url: $0, date: (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) }

@@ -324,8 +324,7 @@ struct ContentView: View {
                         PHGExceptionHandler.recordExceptionStepsFromObjC()
                     }
 
-                    // High-frequency stress test; trigger a crash while it runs to check the most
-                    // recent steps survive.
+                    // High-frequency stress test; crash mid-run to check recent steps survive.
                     Button("Flood steps in background (high-frequency)") {
                         DispatchQueue.global(qos: .background).async {
                             let total = 5000

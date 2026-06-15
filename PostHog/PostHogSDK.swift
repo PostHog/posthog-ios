@@ -216,8 +216,8 @@ let maxRetryDelay = 30.0
                 notifyContextDidChange()
             }
 
-            // Created after integrations so the crash-restore path can read a previous session's
-            // persisted steps before the buffer clears its directory for this fresh session.
+            // Created after integrations so crash restore reads last run's steps before the buffer
+            // clears the directory.
             exceptionStepsBuffer = PostHogExceptionStepsBuffer(
                 maxBytes: config.errorTrackingConfig.exceptionSteps.maxBytes,
                 directory: theStorage.url(forKey: .exceptionStepsFolder)
@@ -1253,15 +1253,13 @@ let maxRetryDelay = 30.0
             )
         }
 
-        // Attach buffered steps to a `$exception` unless the caller provided their own. The sync drain
-        // makes a step recorded just before this capture visible; the crash path carries its own steps.
+        // Attach the session-scoped step buffer to a `$exception` unless the caller provided their own.
+        // The buffer is left intact; the sync drain includes a step recorded just before this capture.
         let isExceptionEvent = event == "$exception" && !skipBuildProperties
-        var attachedStepsUpTo: UInt64?
         if isExceptionEvent, finalProperties[PostHogExceptionStepFields.stepsKey] == nil,
-           let snapshot = exceptionStepsQueue.sync(execute: { attachableExceptionStepsSnapshot })
+           let steps = exceptionStepsQueue.sync(execute: { attachableExceptionSteps })
         {
-            finalProperties[PostHogExceptionStepFields.stepsKey] = snapshot.steps
-            attachedStepsUpTo = snapshot.upTo
+            finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
         // Sanitize is now called in buildEvent
@@ -1273,16 +1271,7 @@ let maxRetryDelay = 30.0
         )
 
         guard let posthogEvent else {
-            // Event was dropped (e.g. by beforeSend). Preserve the buffer so steps roll forward to
-            // the next exception rather than being lost.
             return
-        }
-
-        // The exception survived beforeSend → clear only the steps we actually attached, so they
-        // aren't re-attached. Steps recorded after the snapshot, and the buffer when the caller
-        // supplied their own `$exception_steps`, are left intact.
-        if let attachedStepsUpTo {
-            clearExceptionSteps(upTo: attachedStepsUpTo)
         }
 
         // Reevaluate if this is a snapshot event because the event might have been updated by the beforeSend hook
@@ -2218,6 +2207,10 @@ let maxRetryDelay = 30.0
             queue = nil
             replayQueue = nil
             logsQueue = nil
+            // Closing ends the run: clear the buffer and its persisted store. (reset()/identify
+            // deliberately keep the buffer.)
+            exceptionStepsBuffer?.clear()
+            exceptionStepsBuffer = nil
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             config = PostHogConfig(projectToken: "")
@@ -2511,12 +2504,10 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Capture the timestamp at call time on the caller's thread (before any dispatch) so the
-        // breadcrumb timeline stays accurate.
+        // Timestamp at call time (before dispatch) so the breadcrumb timeline is accurate.
         let timestamp = toISO8601String(now())
 
-        // Everything else — building the step, mutating/serializing the buffer, and persisting the
-        // crash context — runs on the serial queue so the caller is never blocked.
+        // Build and buffer the step on the serial queue so the caller is never blocked.
         exceptionStepsQueue.async { [weak self] in
             guard let self else { return }
 
@@ -2550,28 +2541,17 @@ let maxRetryDelay = 30.0
         addExceptionStep(message, properties: nil)
     }
 
-    /// A snapshot of the buffered steps plus the sequence high-water mark covering them, used by the
-    /// capture path to attach steps and then clear exactly those (and no more) once captured.
-    private var attachableExceptionStepsSnapshot: (steps: [[String: Any]], upTo: UInt64)? {
+    /// The session-scoped buffered steps to attach to an exception, or `nil` when disabled or empty.
+    private var attachableExceptionSteps: [[String: Any]]? {
         guard config.errorTrackingConfig.exceptionSteps.enabled,
               let buffer = exceptionStepsBuffer
         else { return nil }
-        return buffer.snapshot()
+        let steps = buffer.getAttachable()
+        return steps.isEmpty ? nil : steps
     }
 
-    /// Clear the steps that were attached to a successfully captured exception (those with a sequence
-    /// `<= upTo`), deleting their on-disk mirror too. Steps recorded after the snapshot survive. Runs
-    /// on the serial queue, ordered after any in-flight `addExceptionStep`.
-    private func clearExceptionSteps(upTo seq: UInt64) {
-        exceptionStepsQueue.async { [weak self] in
-            guard let self, let buffer = self.exceptionStepsBuffer else { return }
-            buffer.removeUpTo(seq)
-        }
-    }
-
-    /// Steps persisted to disk by a previous session, for attaching to a crash `$exception` reported
-    /// on the next launch. Read by the crash-restore path during integration install — before the
-    /// live buffer is created (which clears the directory for the new session).
+    /// Steps persisted by a previous run, attached to a crash `$exception` on next launch. Read during
+    /// integration install, before the buffer clears the directory.
     func persistedExceptionStepsForCrash() -> [[String: Any]] {
         guard config.errorTrackingConfig.exceptionSteps.enabled, let storage else { return [] }
         return PostHogExceptionStepsBuffer.readPersistedSteps(from: storage.url(forKey: .exceptionStepsFolder))

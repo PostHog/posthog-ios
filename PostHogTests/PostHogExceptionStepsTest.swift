@@ -31,11 +31,12 @@ class PostHogExceptionStepsTest {
     private func getSut(
         stepsEnabled: Bool = true,
         maxBytes: Int = 32768,
+        flushAt: Int = 1,
         token: String = testProjectToken,
         beforeSend: BeforeSendBlock? = nil
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
-        config.flushAt = 1
+        config.flushAt = flushAt
         config.captureApplicationLifecycleEvents = false
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
@@ -117,9 +118,8 @@ class PostHogExceptionStepsTest {
     func concurrentStepsDuringIntegrationChurn() {
         let sut = getSut()
 
-        // addExceptionStep persists via notifyContextDidChange, which iterates installedIntegrations
-        // off the caller's thread. optOut/optIn reassign installedIntegrations under setupLock. Without
-        // synchronizing the iteration this races; this guards that it doesn't.
+        // Concurrent recording while opt-out/opt-in churn installs and uninstalls integrations must
+        // not crash.
         DispatchQueue.concurrentPerform(iterations: 150) { i in
             switch i % 3 {
             case 0: sut.addExceptionStep("s\(i)")
@@ -155,22 +155,46 @@ class PostHogExceptionStepsTest {
         sut.close()
     }
 
-    @Test("clears the buffer after a successful capture")
-    func clearsAfterCapture() {
-        let sut = getSut()
-        server.reset(batchCount: 2)
+    @Test("steps persist across captures (session-scoped buffer)")
+    func persistsAcrossCaptures() {
+        // flushAt 2 so both exceptions land in a single deterministic batch.
+        let sut = getSut(flushAt: 2)
+        server.reset(batchCount: 1)
 
-        sut.addExceptionStep("only-once")
-        sut.captureException(TestError.boom) // batch 1 — carries the step
-        sut.captureException(TestError.boom) // batch 2 — buffer cleared, no steps
+        sut.addExceptionStep("a")
+        sut.addExceptionStep("b")
+        sut.captureException(TestError.boom) // → [a, b]
+        sut.addExceptionStep("c")
+        sut.captureException(TestError.boom) // → [a, b, c] (buffer not cleared by capture)
 
         let events = getBatchedEvents(server).filter { $0.event == "$exception" }
         #expect(events.count == 2)
-        let withSteps = events.filter { exceptionSteps($0) != nil }
-        #expect(withSteps.count == 1)
-        #expect(messages(exceptionSteps(withSteps.first!)) == ["only-once"])
+        guard events.count == 2 else {
+            sut.reset()
+            sut.close()
+            return
+        }
+        // Batch order isn't guaranteed; the later capture carries the extra step.
+        let stepLists = events.map { messages(exceptionSteps($0)) }.sorted { $0.count < $1.count }
+        #expect(stepLists[0] == ["a", "b"])
+        #expect(stepLists[1] == ["a", "b", "c"])
 
         sut.reset()
+        sut.close()
+    }
+
+    @Test("steps persist across an identity change (reset / identify)")
+    func persistsAcrossIdentityChange() {
+        let sut = getSut()
+
+        sut.addExceptionStep("recorded-before-identity-change")
+        sut.reset() // identity change must NOT clear the step buffer
+        sut.captureException(TestError.boom)
+
+        let events = getBatchedEvents(server).filter { $0.event == "$exception" }
+        #expect(events.count == 1)
+        #expect(messages(exceptionSteps(events.first!)) == ["recorded-before-identity-change"])
+
         sut.close()
     }
 

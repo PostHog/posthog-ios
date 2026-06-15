@@ -98,9 +98,9 @@ import Foundation
 
     /// Configuration for exception steps (breadcrumb-style context records).
     ///
-    /// Steps recorded via `PostHogSDK.addExceptionStep(_:properties:)` accumulate over time and
-    /// are attached to the next captured `$exception` as `$exception_steps`, giving the error
-    /// tracking UI a timeline of what happened right before the exception.
+    /// Steps recorded via `PostHogSDK.addExceptionStep(_:properties:)` accumulate over the run and
+    /// are attached to every captured `$exception` as `$exception_steps`, giving the error tracking
+    /// UI a timeline of recent activity before each error.
     @objc public var exceptionSteps = PostHogExceptionStepsConfig()
 
     // MARK: - Initialization
@@ -122,9 +122,9 @@ import Foundation
 
 /// Configuration for exception steps (breadcrumb-style context records).
 ///
-/// Exception steps are accumulated in a FIFO buffer bounded by a UTF-8 byte budget and attached
-/// to the next captured `$exception`. On a fatal crash the buffered steps are persisted with the
-/// crash context and attached to the crash `$exception` reported on the next app launch.
+/// Steps accumulate in a FIFO buffer bounded by a UTF-8 byte budget and are attached to every
+/// captured `$exception`. On a fatal crash they are persisted with the crash context and attached
+/// to the crash `$exception` on the next launch.
 @objc public class PostHogExceptionStepsConfig: NSObject {
     /// Whether exception steps are recorded and attached to exceptions.
     ///
@@ -135,10 +135,9 @@ import Foundation
 
     /// Maximum total UTF-8 byte size of the buffered steps.
     ///
-    /// When adding a step would exceed this budget, the oldest steps are evicted first (the steps
-    /// closest in time to the exception are the most valuable). A single step larger than this
-    /// budget is rejected outright.
+    /// When adding a step would exceed this budget, the oldest steps are evicted first. A single
+    /// step larger than the budget is rejected outright.
     ///
-    /// Default: `32768` (32 KB), matching the browser SDK.
+    /// Default: `32768` (32 KB).
     @objc public var maxBytes: Int = 32768
 }

@@ -54,21 +54,15 @@ jobs:
 
   public-api:
     needs: detect-markdown-only
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.detect-markdown-only.outputs.markdown_only != 'true'
     runs-on: macos-15
     name: Public API snapshot
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Check public API snapshot
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make apiCheck
 
   build-sdk-swift53-compat:
@@ -111,21 +105,15 @@ jobs:
 
   podspec-lint:
     needs: detect-markdown-only
+    if: needs.detect-markdown-only.outputs.markdown_only != 'true'
     runs-on: macos-15
     name: CocoaPods package lint
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Install CocoaPods
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: gem install cocoapods
       - name: Lint podspec
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: pod lib lint PostHog.podspec --allow-warnings --skip-tests

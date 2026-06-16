@@ -4,21 +4,18 @@ on:
     branches:
       - main
   pull_request:
+    paths-ignore:
+      - "**/*.md"
 
 permissions:
   contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  detect-markdown-only:
-    uses: PostHog/.github/.github/workflows/detect-markdown-only.yml@ec25337d9fae0100622cbfea1bd5bd88284ac10b
-    permissions:
-      pull-requests: read
-
   build-platforms:
-    needs: detect-markdown-only
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -40,39 +37,25 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty
     name: Example (${{ matrix.name }})
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build Example (${{ matrix.name }})
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: ${{ matrix.command }}
 
   build-xcframework:
-    needs: detect-markdown-only
     runs-on: macos-15
     name: Example (XCFramework)
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build XCFramework Example
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make buildExampleXCFramework
 
   build-pods:
-    needs: detect-markdown-only
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -86,15 +69,9 @@ jobs:
             target: buildExamplePodsDynamicFramework
     name: Example Pods (${{ matrix.name }})
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build Pods Example (${{ matrix.name }})
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make ${{ matrix.target }}

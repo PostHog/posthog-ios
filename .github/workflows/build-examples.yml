@@ -7,13 +7,46 @@ on:
 
 permissions:
   contents: read
-
+  pull-requests: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  detect-markdown-only:
+    name: Detect markdown-only changes
+    runs-on: ubuntu-latest
+    outputs:
+      markdown_only: ${{ steps.detect.outputs.markdown_only }}
+    steps:
+      - name: Detect markdown-only PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "markdown_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > "$RUNNER_TEMP/changed-files.txt"
+
+          if [ ! -s "$RUNNER_TEMP/changed-files.txt" ]; then
+            markdown_only=false
+          elif grep -qvE '\.md$' "$RUNNER_TEMP/changed-files.txt"; then
+            markdown_only=false
+          else
+            markdown_only=true
+          fi
+
+          echo "markdown_only=$markdown_only" >> "$GITHUB_OUTPUT"
+          echo "markdown_only=$markdown_only"
+
   build-platforms:
+    needs: detect-markdown-only
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -35,25 +68,39 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty
     name: Example (${{ matrix.name }})
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build Example (${{ matrix.name }})
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: ${{ matrix.command }}
 
   build-xcframework:
+    needs: detect-markdown-only
     runs-on: macos-15
     name: Example (XCFramework)
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build XCFramework Example
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make buildExampleXCFramework
 
   build-pods:
+    needs: detect-markdown-only
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -67,9 +114,15 @@ jobs:
             target: buildExamplePodsDynamicFramework
     name: Example Pods (${{ matrix.name }})
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build Pods Example (${{ matrix.name }})
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make ${{ matrix.target }}

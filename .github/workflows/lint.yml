@@ -7,26 +7,70 @@ on:
 
 permissions:
   contents: read
-
+  pull-requests: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  detect-markdown-only:
+    name: Detect markdown-only changes
+    runs-on: ubuntu-latest
+    outputs:
+      markdown_only: ${{ steps.detect.outputs.markdown_only }}
+    steps:
+      - name: Detect markdown-only PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "markdown_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > "$RUNNER_TEMP/changed-files.txt"
+
+          if [ ! -s "$RUNNER_TEMP/changed-files.txt" ]; then
+            markdown_only=false
+          elif grep -qvE '\.md$' "$RUNNER_TEMP/changed-files.txt"; then
+            markdown_only=false
+          else
+            markdown_only=true
+          fi
+
+          echo "markdown_only=$markdown_only" >> "$GITHUB_OUTPUT"
+          echo "markdown_only=$markdown_only"
+
   swiftformat:
+    needs: detect-markdown-only
     name: SwiftFormat
     runs-on: macos-26
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
 
       - name: Check formatting
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make swiftFormatCheck
 
   swiftlint:
+    needs: detect-markdown-only
     name: SwiftLint
     runs-on: macos-26
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
 
       - name: Run SwiftLint
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make swiftLintCheck

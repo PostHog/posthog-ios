@@ -8,13 +8,46 @@ on:
 
 permissions:
   contents: read
-
+  pull-requests: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  detect-markdown-only:
+    name: Detect markdown-only changes
+    runs-on: ubuntu-latest
+    outputs:
+      markdown_only: ${{ steps.detect.outputs.markdown_only }}
+    steps:
+      - name: Detect markdown-only PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "markdown_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > "$RUNNER_TEMP/changed-files.txt"
+
+          if [ ! -s "$RUNNER_TEMP/changed-files.txt" ]; then
+            markdown_only=false
+          elif grep -qvE '\.md$' "$RUNNER_TEMP/changed-files.txt"; then
+            markdown_only=false
+          else
+            markdown_only=true
+          fi
+
+          echo "markdown_only=$markdown_only" >> "$GITHUB_OUTPUT"
+          echo "markdown_only=$markdown_only"
+
   build:
+    needs: detect-markdown-only
     runs-on: macos-15-xlarge
     strategy:
       fail-fast: false
@@ -34,44 +67,67 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHog -destination generic/platform=xros | xcpretty
     name: Build SDK (${{ matrix.platform }})
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Build SDK (${{ matrix.platform }})
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: ${{ matrix.command }}
 
   public-api:
+    needs: detect-markdown-only
     if: github.event_name == 'pull_request'
     runs-on: macos-15
     name: Public API snapshot
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Check public API snapshot
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make apiCheck
 
   build-sdk-swift53-compat:
+    needs: detect-markdown-only
     runs-on: macos-14-xlarge
     name: Build SDK (Swift 5 compatibility on Xcode 15.4 with CocoaPods)
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: '15.4'
       - name: Print toolchain versions
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: |
           xcodebuild -version
           xcrun swift --version
       - name: Install CocoaPods
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: gem install cocoapods
       - name: Install Pods
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: |
           cd PostHogExampleWithPods
           USE_FRAMEWORKS=static pod install
       - name: Build SDK with Swift 5 language mode via CocoaPods
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: |
           set -o pipefail
           cd PostHogExampleWithPods
@@ -82,14 +138,22 @@ jobs:
             SWIFT_VERSION=5 | xcpretty
 
   podspec-lint:
+    needs: detect-markdown-only
     runs-on: macos-15
     name: CocoaPods package lint
     steps:
+      - name: Skip expensive CI for markdown-only PR
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           xcode-version: latest-stable
       - name: Install CocoaPods
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: gem install cocoapods
       - name: Lint podspec
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: pod lib lint PostHog.podspec --allow-warnings --skip-tests

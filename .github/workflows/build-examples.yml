@@ -40,9 +40,9 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty
     name: Example (${{ matrix.name }})
     steps:
-      - name: Skip expensive CI for markdown-only PR
+      - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
+        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -58,9 +58,9 @@ jobs:
     runs-on: macos-15
     name: Example (XCFramework)
     steps:
-      - name: Skip expensive CI for markdown-only PR
+      - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
+        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -86,9 +86,9 @@ jobs:
             target: buildExamplePodsDynamicFramework
     name: Example Pods (${{ matrix.name }})
     steps:
-      - name: Skip expensive CI for markdown-only PR
+      - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; marking this check successful without running expensive CI."
+        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0

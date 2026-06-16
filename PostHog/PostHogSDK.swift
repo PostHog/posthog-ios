@@ -48,7 +48,14 @@ let maxRetryDelay = 30.0
     }
 
     private var queue: PostHogQueue<PostHogEvent>?
-    private var exceptionStepsBuffer: PostHogExceptionStepsBuffer?
+    private let exceptionStepsBufferLock = NSLock()
+    private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
+    /// The reference is written under `setupLock` (setup/close/optIn) and read on `exceptionStepsQueue`
+    /// (addExceptionStep/capture), so guard the reference itself with its own lock to avoid a data race.
+    private var exceptionStepsBuffer: PostHogExceptionStepsBuffer? {
+        get { exceptionStepsBufferLock.withLock { _exceptionStepsBuffer } }
+        set { exceptionStepsBufferLock.withLock { _exceptionStepsBuffer = newValue } }
+    }
     /// Serial queue for exception-step recording so `addExceptionStep` never blocks the caller and
     /// buffer mutation/serialization/persistence stay ordered. The capture path drains it before
     /// reading the buffer so a step recorded just before a capture is still attached.

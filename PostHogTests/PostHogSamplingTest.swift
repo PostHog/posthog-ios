@@ -271,6 +271,57 @@ class PostHogSamplingTests {
         }
     }
 
+    // MARK: - Replay integration remote sample rate Tests
+
+    @Suite("Replay integration remote sample rate Tests", .serialized)
+    class ReplayIntegrationRemoteSampleRateTests {
+        let server: MockPostHogServer
+
+        init() {
+            server = MockPostHogServer()
+            server.start()
+            PostHogReplayIntegration.clearInstalls()
+        }
+
+        deinit {
+            server.stop()
+            PostHogReplayIntegration.clearInstalls()
+        }
+
+        @Test("remote sample rate is applied after config loads")
+        func remoteSampleRateIsAppliedAfterConfigLoads() async {
+            let config = PostHogConfig(projectToken: "remote_sample_rate_test", host: "http://localhost:9001")
+            config.sessionReplay = true
+            config.preloadFeatureFlags = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.storageManager = PostHogStorageManager(config)
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+            storage.remove(key: .remoteConfig)
+
+            server.returnReplay = true
+            server.sessionRecordingSampleRate = "0"
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            await waitUntil {
+                sut.remoteConfig?.getRecordingSampleRate() == 0.0
+            }
+
+            await waitUntil {
+                sut.getReplayIntegration()?.isActive() == false
+            }
+
+            #expect(sut.remoteConfig?.getRecordingSampleRate() == 0.0)
+            #expect(sut.getReplayIntegration()?.isActive() == false)
+            #expect(sut.isSessionReplayActive() == false)
+        }
+    }
+
     // MARK: - PostHogSessionReplayConfig sampleRate Tests
 
     @Suite("PostHogSessionReplayConfig sampleRate Tests")

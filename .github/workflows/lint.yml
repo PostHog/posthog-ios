@@ -4,31 +4,45 @@ on:
     branches:
       - main
   pull_request:
-    paths-ignore:
-      - "**/*.md"
 
 permissions:
   contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  detect-markdown-only:
+    uses: PostHog/.github/.github/workflows/detect-markdown-only.yml@ec25337d9fae0100622cbfea1bd5bd88284ac10b
+    permissions:
+      pull-requests: read
+
   swiftformat:
+    needs: detect-markdown-only
     name: SwiftFormat
     runs-on: macos-26
     steps:
+      - name: Complete markdown-only PR check
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
 
       - name: Check formatting
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make swiftFormatCheck
 
   swiftlint:
+    needs: detect-markdown-only
     name: SwiftLint
     runs-on: macos-26
     steps:
+      - name: Complete markdown-only PR check
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; no additional work is required for this check."
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
 
       - name: Run SwiftLint
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make swiftLintCheck

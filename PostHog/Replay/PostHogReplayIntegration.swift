@@ -433,13 +433,10 @@
         }
 
         func applyRemoteConfig(remoteConfig: [String: Any]?) {
-            let wasEnabled = isEnabled
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
-            if wasEnabled {
-                reevaluateSampling()
-            }
+            reevaluateSampling()
         }
 
         private func updateCachedMinimumDuration() {

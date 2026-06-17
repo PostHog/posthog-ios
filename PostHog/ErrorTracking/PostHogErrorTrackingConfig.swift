@@ -103,6 +103,35 @@ import Foundation
     /// UI a timeline of recent activity before each error.
     @objc public var exceptionSteps = PostHogExceptionStepsConfig()
 
+    // MARK: - Exception Filtering
+
+    /// List of exception class names (the `NSException.name.rawValue` /
+    /// `$exception_list[*].type` field) that should be skipped during
+    /// autocapture instead of being sent as `$exception` events.
+    ///
+    /// Exists primarily to dedup fatal exceptions when the React Native
+    /// plugin's native-crash autocapture is enabled. React Native rethrows
+    /// fatal JS errors via `RCTFatal(...)` as an `NSException` named
+    /// `RCTFatalException`, which the iOS crash reporter then captures
+    /// as a separate native crash — duplicating the event the JS layer
+    /// already captured with its own stack trace. Add `RCTFatalException`
+    /// here to make the JS-side `$exception` event the single source of
+    /// truth. Mirrors `addIgnoredExceptionForType(...)` on
+    /// sentry-react-native's native side, and pairs with
+    /// `errorTrackingConfig.ignoredExceptionTypes` on posthog-android.
+    ///
+    /// Example:
+    /// ```swift
+    /// config.errorTrackingConfig.ignoredExceptionTypes = [
+    ///     "RCTFatalException",
+    /// ]
+    /// ```
+    ///
+    /// See https://github.com/PostHog/posthog-ios/issues/653.
+    ///
+    /// Default: empty (no filtering).
+    @objc public var ignoredExceptionTypes: [String] = []
+
     // MARK: - Initialization
 
     /// Creates an error tracking configuration with default in-app frame detection.

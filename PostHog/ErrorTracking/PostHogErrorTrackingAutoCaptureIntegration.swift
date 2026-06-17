@@ -164,6 +164,17 @@ import Foundation
                     finalProperties[PostHogExceptionStepFields.stepsKey] = crashSteps
                 }
 
+                // Honor `errorTrackingConfig.ignoredExceptionTypes`. The
+                // primary use case is React Native's `RCTFatalException`,
+                // which is rethrown for every fatal JS error and would
+                // otherwise duplicate the JS-side `$exception` event with
+                // a redundant native stack trace (see #653).
+                let ignored = postHog.config.errorTrackingConfig.ignoredExceptionTypes
+                if !ignored.isEmpty, PostHogErrorTrackingAutoCaptureIntegration.exceptionListMatchesIgnoredTypes(finalProperties, ignoredTypes: ignored) {
+                    hedgeLog("Crash report skipped: exception type is in errorTrackingConfig.ignoredExceptionTypes")
+                    return
+                }
+
                 // Collect crash timestamp
                 let crashTimestamp = PostHogCrashReportProcessor.getCrashTimestamp(crashReport)
 
@@ -179,6 +190,24 @@ import Foundation
                 hedgeLog("Crash report processed and captured")
             } catch {
                 hedgeLog("Failed to process crash report: \(error)")
+            }
+        }
+
+        /// Returns `true` if any entry in `properties["$exception_list"]` has a
+        /// `type` matching one of `ignoredTypes`. Walks the exception list rather
+        /// than only the outermost entry so a wrapped exception whose underlying
+        /// cause is, e.g., `RCTFatalException` is still suppressed. Match is
+        /// case-sensitive and exact (the field is a class name, not free text).
+        static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
+            guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
+                return false
+            }
+            let ignored = Set(ignoredTypes)
+            return exceptionList.contains { entry in
+                if let type = entry["type"] as? String, ignored.contains(type) {
+                    return true
+                }
+                return false
             }
         }
     }

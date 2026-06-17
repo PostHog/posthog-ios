@@ -1,5 +1,11 @@
 ## Next
 
+## 3.60.1
+
+### Patch Changes
+
+- 805c834: Respect remote session replay sample rates after config loads.
+
 ## 3.60.0
 
 ### Minor Changes

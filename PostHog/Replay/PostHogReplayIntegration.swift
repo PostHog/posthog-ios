@@ -436,6 +436,7 @@
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
+            reevaluateSampling()
         }
 
         private func updateCachedMinimumDuration() {

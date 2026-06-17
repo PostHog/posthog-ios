@@ -204,10 +204,8 @@ import Foundation
             }
             let ignored = Set(ignoredTypes)
             return exceptionList.contains { entry in
-                if let type = entry["type"] as? String, ignored.contains(type) {
-                    return true
-                }
-                return false
+                guard let exType = entry["type"] as? String else { return false }
+                return ignored.contains(exType)
             }
         }
     }

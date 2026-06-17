@@ -22,12 +22,6 @@ struct PostHogExceptionStepsBufferTest {
         steps.compactMap { $0[PostHogExceptionStepFields.message] as? String }
     }
 
-    private func makeTempDir() -> URL {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("steps-test-\(UUID().uuidString)")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
     @Test("keeps steps in order, oldest first")
     func keepsOrder() {
         let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768)
@@ -94,7 +88,7 @@ struct PostHogExceptionStepsBufferTest {
         ]) == true)
     }
 
-    @Test("clear empties the buffer and resets the byte total")
+    @Test("clear empties the buffer and closes it to further recording")
     func clearEmpties() {
         let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768)
         buffer.add(makeStep("one"))
@@ -105,9 +99,9 @@ struct PostHogExceptionStepsBufferTest {
         #expect(buffer.isEmpty)
         #expect(buffer.getAttachable().isEmpty)
 
-        // Buffer is usable again after clear.
-        buffer.add(makeStep("three"))
-        #expect(messages(buffer.getAttachable()) == ["three"])
+        // clear() is terminal (close-only in production): later adds are rejected.
+        #expect(buffer.add(makeStep("three")) == false)
+        #expect(buffer.getAttachable().isEmpty)
     }
 
     @Test("byte counting uses serialized UTF-8 byte length, not character count")
@@ -149,64 +143,19 @@ struct PostHogExceptionStepsBufferTest {
         #expect(stored?["when"] as? String == ISO8601DateFormatter().string(from: date))
     }
 
-    @Test("persists each step to disk and reads it back oldest-first")
-    func persistsToDisk() {
-        let dir = makeTempDir()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
+    @Test("publishes the current steps on add and clear")
+    func publishesStepsOnChange() {
+        var published: [[[String: Any]]] = []
+        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768, onStepsChanged: { published.append($0) })
         buffer.add(makeStep("one"))
         buffer.add(makeStep("two"))
-
-        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["one", "two"])
-    }
-
-    @Test("byte-budget eviction deletes the persisted files of evicted steps")
-    func evictionDeletesFiles() {
-        let dir = makeTempDir()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let size = toJSONData(makeStep("s1"))!.count
-        let buffer = PostHogExceptionStepsBuffer(maxBytes: size * 2, directory: dir)
-        buffer.add(makeStep("s1"))
-        buffer.add(makeStep("s2"))
-        buffer.add(makeStep("s3")) // evicts s1
-
-        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["s2", "s3"])
-    }
-
-    @Test("clear deletes the persisted files")
-    func clearDeletesPersistedFiles() {
-        let dir = makeTempDir()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let buffer = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
-        buffer.add(makeStep("a"))
-        buffer.add(makeStep("b"))
-        #expect(!PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
-
         buffer.clear()
-        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
-    }
 
-    @Test("constructing a buffer clears a previous session's persisted steps")
-    func freshSessionClearsDirectory() {
-        let dir = makeTempDir()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let first = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
-        first.add(makeStep("old-session"))
-        // Readable until a new buffer is constructed (the window crash restore reads in).
-        #expect(messages(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir)) == ["old-session"])
-
-        _ = PostHogExceptionStepsBuffer(maxBytes: 32768, directory: dir)
-        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
-    }
-
-    @Test("readPersistedSteps returns empty for a missing directory")
-    func readPersistedMissingDirectory() {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        #expect(PostHogExceptionStepsBuffer.readPersistedSteps(from: dir).isEmpty)
+        // Synchronous: one publish per change, each carrying the current steps oldest → newest.
+        #expect(published.count == 3)
+        #expect(messages(published[0]) == ["one"])
+        #expect(messages(published[1]) == ["one", "two"])
+        #expect(published[2].isEmpty) // clear publishes empty
     }
 
     @Test("concurrent adds and reads are thread-safe")
@@ -221,5 +170,65 @@ struct PostHogExceptionStepsBufferTest {
         }
 
         #expect(buffer.getAttachable().count == iterations)
+    }
+}
+
+@Suite("PostHogCrashCustomDataWriter Tests")
+struct PostHogCrashCustomDataWriterTest {
+    private static let fixedTimestamp = "2026-06-09T10:00:00.000Z"
+
+    private func makeStep(_ message: String) -> [String: Any] {
+        [
+            PostHogExceptionStepFields.message: message,
+            PostHogExceptionStepFields.timestamp: Self.fixedTimestamp,
+        ]
+    }
+
+    private func messages(_ steps: [[String: Any]]) -> [String] {
+        steps.compactMap { $0[PostHogExceptionStepFields.message] as? String }
+    }
+
+    /// Decode the written `customData` JSON into (context, steps).
+    private func decode(_ data: Data) -> (context: [String: Any], steps: [[String: Any]]) {
+        let dict = fromJSONData(data) ?? [:]
+        let steps = dict[PostHogExceptionStepFields.stepsKey] as? [[String: Any]] ?? []
+        return (dict, steps)
+    }
+
+    @Test("writes context + steps into customData")
+    func writesContextAndSteps() {
+        var written = Data()
+        let writer = PostHogCrashCustomDataWriter(write: { written = $0 })
+        writer.setContext(["distinct_id": "user-42"])
+        writer.setSteps([makeStep("one"), makeStep("two")])
+
+        let decoded = decode(written)
+        #expect(decoded.context["distinct_id"] as? String == "user-42")
+        #expect(messages(decoded.steps) == ["one", "two"])
+    }
+
+    @Test("a context change preserves the steps")
+    func contextChangeKeepsSteps() {
+        var written = Data()
+        let writer = PostHogCrashCustomDataWriter(write: { written = $0 })
+        writer.setSteps([makeStep("one")])
+        writer.setContext(["distinct_id": "later"])
+
+        let decoded = decode(written)
+        #expect(decoded.context["distinct_id"] as? String == "later")
+        #expect(messages(decoded.steps) == ["one"])
+    }
+
+    @Test("empty steps drop the steps but keep the context")
+    func emptyStepsKeepContext() {
+        var written = Data()
+        let writer = PostHogCrashCustomDataWriter(write: { written = $0 })
+        writer.setContext(["distinct_id": "kept"])
+        writer.setSteps([makeStep("gone")])
+        writer.setSteps([])
+
+        let decoded = decode(written)
+        #expect(decoded.context["distinct_id"] as? String == "kept")
+        #expect(decoded.steps.isEmpty)
     }
 }

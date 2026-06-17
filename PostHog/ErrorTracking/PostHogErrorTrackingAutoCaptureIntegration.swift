@@ -18,6 +18,10 @@ import Foundation
 
         private weak var postHog: PostHogSDK?
         private var crashReporter: PHPLCrashReporter?
+        /// Composes the crash context + exception steps into `customData`.
+        private var crashCustomData: PostHogCrashCustomDataWriter?
+        private var contextChangedToken: RegistrationToken?
+        private var exceptionStepsChangedToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
@@ -31,6 +35,17 @@ import Foundation
                     // Note: Order here matters, we need to process any pending crash report before enabling the crash reporter
                     processPendingCrashReportIfNeeded(reporter: crashReporter)
                     enableCrashReporter(reporter: crashReporter)
+
+                    // Own the crash `customData`: compose context + steps and write them to the reporter.
+                    // `crashReporter` is effectively immortal once enabled, so a strong capture is safe.
+                    let crashCustomData = PostHogCrashCustomDataWriter(write: { crashReporter.customData = $0 })
+                    self.crashCustomData = crashCustomData
+                    contextChangedToken = postHog.onEventContextChanged.subscribe { [weak crashCustomData] context in
+                        crashCustomData?.setContext(context)
+                    }
+                    exceptionStepsChangedToken = postHog.onExceptionStepsChanged.subscribe { [weak crashCustomData] steps in
+                        crashCustomData?.setSteps(steps)
+                    }
                 }
             }
         }
@@ -38,6 +53,9 @@ import Foundation
         func uninstall(_ postHog: PostHogSDK) {
             uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
+                contextChangedToken = nil
+                exceptionStepsChangedToken = nil
+                crashCustomData = nil
                 crashReporter = nil
                 self.postHog = nil
             }
@@ -49,18 +67,6 @@ import Foundation
 
         func stop() {
             // No-op for crash reporting. Always active once installed
-        }
-
-        func contextDidChange(_ context: [String: Any]) {
-            guard let crashReporter else { return }
-
-            // Serialize context to JSON and set as customData
-            do {
-                let jsonData = try JSONSerialization.data(withJSONObject: context, options: [])
-                crashReporter.customData = jsonData
-            } catch {
-                hedgeLog("Failed to serialize crash context: \(error)")
-            }
         }
 
         // MARK: - Private Methods
@@ -134,10 +140,13 @@ import Foundation
             do {
                 let crashReport = try PHPLCrashReport(data: crashData)
 
-                // Extract saved context from crash report's customData
+                // customData is the saved context with the exception steps recorded before the crash
+                // nested under `$exception_steps`.
                 var savedContext: [String: Any] = [:]
-                if let customData = crashReport.customData {
-                    savedContext = fromJSONData(customData) ?? [:]
+                var crashSteps: [[String: Any]] = []
+                if let customData = crashReport.customData, let decoded = fromJSONData(customData) {
+                    savedContext = decoded
+                    crashSteps = decoded[PostHogExceptionStepFields.stepsKey] as? [[String: Any]] ?? []
                 }
 
                 // Extract identity and event properties from saved context
@@ -150,12 +159,9 @@ import Foundation
                 // Merge: crash-time event properties as base, exception properties on top
                 var finalProperties = crashEventProperties.merging(exceptionProperties) { _, new in new }
 
-                // Attach steps persisted before the crash, unless the crash context already had them.
-                if finalProperties[PostHogExceptionStepFields.stepsKey] == nil {
-                    let steps = postHog.persistedExceptionStepsForCrash()
-                    if !steps.isEmpty {
-                        finalProperties[PostHogExceptionStepFields.stepsKey] = steps
-                    }
+                // Attach steps recorded before the crash, unless the crash context already had them.
+                if finalProperties[PostHogExceptionStepFields.stepsKey] == nil, !crashSteps.isEmpty {
+                    finalProperties[PostHogExceptionStepFields.stepsKey] = crashSteps
                 }
 
                 // Collect crash timestamp

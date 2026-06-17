@@ -234,7 +234,6 @@ class PostHogStorage {
         case oldReplayQueue = "posthog.replayFolder" // replay queue with legacy timestamp filenames
         case replayBufferQueue = "posthog.replayBufferFolder"
         case logsQueue = "posthog.logsFolder"
-        case exceptionStepsFolder = "posthog.exceptionStepsFolder"
         case enabledFeatureFlags = "posthog.enabledFeatureFlags"
         case enabledFeatureFlagPayloads = "posthog.enabledFeatureFlagPayloads"
         case flags = "posthog.flags"

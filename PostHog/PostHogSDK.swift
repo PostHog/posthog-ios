@@ -50,16 +50,15 @@ let maxRetryDelay = 30.0
     private var queue: PostHogQueue<PostHogEvent>?
     private let exceptionStepsBufferLock = NSLock()
     private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
-    /// The reference is written under `setupLock` (setup/close/optIn) and read on `exceptionStepsQueue`
-    /// (addExceptionStep/capture), so guard the reference itself with its own lock to avoid a data race.
+    /// The reference is written under `setupLock` (setup/close/optIn) and read from arbitrary caller
+    /// threads (addExceptionStep/capture), so guard the reference itself with its own lock.
     private var exceptionStepsBuffer: PostHogExceptionStepsBuffer? {
         get { exceptionStepsBufferLock.withLock { _exceptionStepsBuffer } }
         set { exceptionStepsBufferLock.withLock { _exceptionStepsBuffer = newValue } }
     }
-    /// Serial queue for exception-step recording so `addExceptionStep` never blocks the caller and
-    /// buffer mutation/serialization/persistence stay ordered. The capture path drains it before
-    /// reading the buffer so a step recorded just before a capture is still attached.
-    private let exceptionStepsQueue = DispatchQueue(label: "com.posthog.ExceptionSteps")
+    /// Fired with the buffer's current steps whenever they change. The error-tracking autocapture
+    /// integration subscribes to mirror them into the crash reporter's `customData`.
+    let onExceptionStepsChanged = PostHogMulticastCallback<[[String: Any]]>()
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
@@ -73,6 +72,9 @@ let maxRetryDelay = 30.0
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
+    /// Fired after the event context changes (identify, reset, group, register). Integrations such as
+    /// crash reporting subscribe to snapshot the context for crash-time capture.
+    let onEventContextChanged = PostHogMulticastCallback<[String: Any]>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
 
@@ -219,13 +221,10 @@ let maxRetryDelay = 30.0
                 // don't install integrations if in opt-out state
                 installIntegrations()
 
-                // Notify integrations of initial context (e.g., for crash reporting)
-                notifyContextDidChange()
-
-                // Created after integrations so crash restore reads last run's steps before the
-                // buffer clears the directory. Skipped while opted out so those steps survive on disk
-                // until the user opts back in.
                 createExceptionStepsBufferIfNeeded()
+
+                // Notify the integrations of the initial event context for crash reporting.
+                notifyContextDidChange()
             }
 
             // Flush the queue when the app enters background to ensure
@@ -321,7 +320,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let url = url else { return }
+        guard let url else { return }
 
         let properties = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
 
@@ -1259,10 +1258,11 @@ let maxRetryDelay = 30.0
         }
 
         // Attach the session-scoped step buffer to a `$exception` unless the caller provided their own.
-        // The buffer is left intact; the sync drain includes a step recorded just before this capture.
+        // The buffer is left intact; recording is synchronous, so a step added just before this capture
+        // on the same thread is already present.
         let isExceptionEvent = event == "$exception" && !skipBuildProperties
         if isExceptionEvent, finalProperties[PostHogExceptionStepFields.stepsKey] == nil,
-           let steps = exceptionStepsQueue.sync(execute: { attachableExceptionSteps })
+           let steps = attachableExceptionSteps
         {
             finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
@@ -2157,8 +2157,9 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             installIntegrations()
-            // After crash restore has read any persisted steps, start the buffer for this run.
+            // Start the buffer for this run, then notify it of the current context for crash reporting.
             createExceptionStepsBufferIfNeeded()
+            notifyContextDidChange()
         }
     }
 
@@ -2214,12 +2215,11 @@ let maxRetryDelay = 30.0
             queue = nil
             replayQueue = nil
             logsQueue = nil
-            // Closing ends the run: clear the buffer + persisted store. Nil the reference so later
-            // adds (which re-read it) no-op, and route the clear through the steps queue so it runs
-            // after any in-flight addExceptionStep. (reset()/identify deliberately keep the buffer.)
+            // Closing ends the run: clear the buffer, which publishes empty steps so the integration
+            // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)
             let bufferToClear = exceptionStepsBuffer
             exceptionStepsBuffer = nil
-            exceptionStepsQueue.async { bufferToClear?.clear() }
+            bufferToClear?.clear()
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             config = PostHogConfig(projectToken: "")
@@ -2511,32 +2511,23 @@ let maxRetryDelay = 30.0
             return
         }
 
-        // Timestamp at call time (before dispatch) so the breadcrumb timeline is accurate.
-        let timestamp = toISO8601String(now())
+        guard let buffer = exceptionStepsBuffer else { return }
 
-        // Build and buffer the step on the serial queue so the caller is never blocked. Re-read the
-        // buffer inside the closure so a step enqueued just before close() becomes a no-op instead of
-        // writing into the cleared directory.
-        exceptionStepsQueue.async { [weak self] in
-            guard let self, let buffer = self.exceptionStepsBuffer else { return }
-
-            // Strip reserved keys from caller-supplied properties — the SDK owns $message/$timestamp.
-            var step: [String: Any] = [:]
-            if let properties {
-                for (key, value) in properties {
-                    if key == PostHogExceptionStepFields.message || key == PostHogExceptionStepFields.timestamp {
-                        hedgeLog("addExceptionStep: reserved key \(key) in properties is ignored")
-                        continue
-                    }
-                    step[key] = value
+        // Strip reserved keys from caller-supplied properties — the SDK owns $message/$timestamp.
+        var step: [String: Any] = [:]
+        if let properties {
+            for (key, value) in properties {
+                if key == PostHogExceptionStepFields.message || key == PostHogExceptionStepFields.timestamp {
+                    hedgeLog("addExceptionStep: reserved key \(key) in properties is ignored")
+                    continue
                 }
+                step[key] = value
             }
-            step[PostHogExceptionStepFields.message] = message
-            step[PostHogExceptionStepFields.timestamp] = timestamp
-
-            // `add` also mirrors the step to disk so it survives a fatal crash.
-            buffer.add(step)
         }
+        step[PostHogExceptionStepFields.message] = message
+        step[PostHogExceptionStepFields.timestamp] = toISO8601String(now())
+
+        buffer.add(step)
     }
 
     /// Record an exception step without additional properties.
@@ -2550,14 +2541,17 @@ let maxRetryDelay = 30.0
         addExceptionStep(message, properties: nil)
     }
 
-    /// Create the steps buffer (whose constructor clears the directory for this run) — only after
-    /// crash restore has read any prior-run steps, and only once. Not called while opted out, so a
-    /// prior run's persisted steps survive on disk until the user opts back in.
+    /// Create the steps buffer once. Steps recorded this run are kept in memory for non-fatal
+    /// exceptions; on every change the buffer publishes them via `onExceptionStepsChanged`, which the
+    /// error-tracking integration mirrors into the crash reporter's `customData`.
+    ///
+    /// Must be called under `setupLock`: the create/nil transitions of `exceptionStepsBuffer` (here and
+    /// in `close()`) are confined to it, which keeps this check-then-act atomic against them.
     private func createExceptionStepsBufferIfNeeded() {
-        guard exceptionStepsBuffer == nil, let storage else { return }
+        guard exceptionStepsBuffer == nil else { return }
         exceptionStepsBuffer = PostHogExceptionStepsBuffer(
             maxBytes: config.errorTrackingConfig.exceptionSteps.maxBytes,
-            directory: storage.url(forKey: .exceptionStepsFolder)
+            onStepsChanged: { [weak self] steps in self?.onExceptionStepsChanged.invoke(steps) }
         )
     }
 
@@ -2568,14 +2562,6 @@ let maxRetryDelay = 30.0
         else { return nil }
         let steps = buffer.getAttachable()
         return steps.isEmpty ? nil : steps
-    }
-
-    /// Steps persisted by a previous run, attached to a crash `$exception` on next launch. Read during
-    /// integration install, before the buffer clears the directory. Not gated on the current run's
-    /// `exceptionSteps.enabled`: steps validly recorded in a prior run still belong to that run's crash.
-    func persistedExceptionStepsForCrash() -> [[String: Any]] {
-        guard let storage else { return [] }
-        return PostHogExceptionStepsBuffer.readPersistedSteps(from: storage.url(forKey: .exceptionStepsFolder))
     }
 
     private func captureExceptionEvent(
@@ -2686,14 +2672,7 @@ let maxRetryDelay = 30.0
             "event_properties": eventProperties,
         ]
 
-        // Snapshot under `setupLock` (recursive — safe even when already held during setup) because
-        // this runs off the caller's thread via the exception-steps queue, while install/uninstall
-        // reassign `installedIntegrations` under the same lock. Iterate the copy so the integration
-        // callbacks (which do I/O) don't hold the lock.
-        let integrations = setupLock.withLock { installedIntegrations }
-        for integration in integrations {
-            integration.contextDidChange(context)
-        }
+        onEventContextChanged.invoke(context)
     }
 }
 

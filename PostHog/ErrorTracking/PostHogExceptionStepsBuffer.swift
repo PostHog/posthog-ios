@@ -8,37 +8,37 @@ enum PostHogExceptionStepFields {
     static let stepsKey = "$exception_steps"
 }
 
-/// Thread-safe FIFO buffer of exception steps bounded by a UTF-8 byte budget. When over budget the
-/// oldest steps are evicted (keeping those closest to the exception); a step larger than `maxBytes`
-/// is rejected.
+/// Thread-safe FIFO of exception steps bounded by a UTF-8 byte budget. When over budget the oldest
+/// steps are evicted (keeping those closest to the exception); a step larger than `maxBytes` is
+/// rejected.
 ///
-/// With a `directory`, each step is mirrored to its own file so it survives a fatal crash; a pending
-/// crash on next launch reads them via `readPersistedSteps(from:)`. Constructing the buffer clears
-/// the directory, so `readPersistedSteps` must run before construction.
-///
-/// File I/O happens outside the lock that guards in-memory access.
+/// Purely in-memory and crash-agnostic: it is the source for steps attached to non-fatal `$exception`
+/// events, and on every change it publishes the current steps via `onStepsChanged`. Fatal-crash
+/// durability is handled by a subscriber (the error-tracking integration), not here.
 final class PostHogExceptionStepsBuffer {
     private struct Entry {
         let step: [String: Any]
         let bytes: Int
-        let filename: String?
     }
 
     private let lock = NSLock()
     private var entries: [Entry] = []
-    private var totalBytes: Int = 0
+    private var totalBytes = 0
     private let maxBytes: Int
-    /// Directory mirroring the buffer to disk for fatal-crash durability. `nil` = memory-only.
-    private let directory: URL?
+    /// Called with the current steps (oldest → newest) on every change. Serialized by `notifyLock`
+    /// (not `lock`) so the callback's work doesn't block readers and snapshots publish in change order;
+    /// the callback must not call back into `add`/`clear`.
+    private let onStepsChanged: (([[String: Any]]) -> Void)?
+    /// Serializes snapshot-capture + callback so published steps stay ordered (incl. the `clear()` at
+    /// close), while keeping the callback off `lock` so `getAttachable` isn't blocked behind it.
+    private let notifyLock = NSLock()
+    /// Set by `clear()` at end of run; further adds become no-ops so a record racing `close()` can't
+    /// re-publish steps after teardown.
+    private var closed = false
 
-    init(maxBytes: Int, directory: URL? = nil) {
+    init(maxBytes: Int, onStepsChanged: (([[String: Any]]) -> Void)? = nil) {
         self.maxBytes = max(0, maxBytes)
-        self.directory = directory
-        if let directory {
-            // Start fresh; a previous session's steps are read via `readPersistedSteps` before this init.
-            deleteSafely(directory)
-            createDirectoryAtURLIfNeeded(url: directory)
-        }
+        self.onStepsChanged = onStepsChanged
     }
 
     /// Add a step. Returns `false` if it is invalid (empty message / bad timestamp) or larger than
@@ -58,7 +58,7 @@ final class PostHogExceptionStepsBuffer {
             return false
         }
 
-        // Serialize once; `data` is both the byte measure and the persisted bytes.
+        // Serialize once to measure the byte cost for the budget.
         guard let data = try? JSONSerialization.data(withJSONObject: normalized) else {
             return false
         }
@@ -68,18 +68,21 @@ final class PostHogExceptionStepsBuffer {
             return false
         }
 
-        let filename = persist(data)
-
-        let evicted: [String] = lock.withLock {
-            entries.append(Entry(step: normalized, bytes: bytes, filename: filename))
-            totalBytes += bytes
-            return trimToMaxBytesLocked()
+        return notifyLock.withLock {
+            let snapshot: [[String: Any]]? = lock.withLock {
+                guard !closed else { return nil }
+                entries.append(Entry(step: normalized, bytes: bytes))
+                totalBytes += bytes
+                trimToMaxBytesLocked()
+                return entries.map(\.step)
+            }
+            guard let snapshot else { return false }
+            onStepsChanged?(snapshot)
+            return true
         }
-        deleteFiles(evicted)
-        return true
     }
 
-    /// The buffered steps, ordered oldest → newest.
+    /// The buffered steps, ordered oldest → newest (for non-fatal `$exception` attach).
     func getAttachable() -> [[String: Any]] {
         lock.withLock { entries.map(\.step) }
     }
@@ -88,67 +91,69 @@ final class PostHogExceptionStepsBuffer {
         lock.withLock { entries.isEmpty }
     }
 
-    /// Empty the buffer, deleting the on-disk mirror.
+    /// Empty the buffer and close it to further recording (called at end of run; not reused after).
     func clear() {
-        let removed: [String] = lock.withLock {
-            let files = entries.compactMap(\.filename)
-            entries.removeAll()
-            totalBytes = 0
-            return files
+        notifyLock.withLock {
+            lock.withLock {
+                closed = true
+                entries.removeAll()
+                totalBytes = 0
+            }
+            onStepsChanged?([])
         }
-        deleteFiles(removed)
     }
 
-    /// Evict oldest steps until within budget, returning their filenames to delete after unlocking.
-    /// Callers must hold `lock`.
-    private func trimToMaxBytesLocked() -> [String] {
-        var evicted: [String] = []
+    /// Evict oldest steps until within budget. Callers must hold `lock`.
+    private func trimToMaxBytesLocked() {
         while totalBytes > maxBytes, !entries.isEmpty {
-            let removed = entries.removeFirst()
-            totalBytes -= removed.bytes
-            if let filename = removed.filename { evicted.append(filename) }
-        }
-        return evicted
-    }
-
-    private func persist(_ data: Data) -> String? {
-        guard let directory else { return nil }
-        let filename = UUID.v7().uuidString
-        do {
-            try data.write(to: directory.appendingPathComponent(filename))
-            return filename
-        } catch {
-            hedgeLog("Failed to persist exception step: \(error)")
-            return nil
+            totalBytes -= entries.removeFirst().bytes
         }
     }
+}
 
-    private func deleteFiles(_ filenames: [String]) {
-        guard let directory, !filenames.isEmpty else { return }
-        for filename in filenames {
-            deleteSafely(directory.appendingPathComponent(filename))
+/// Composes the crash reporter's `customData` as the cached context plus the current exception steps
+/// (`{ …context, $exception_steps: [...] }`) and writes it synchronously, so a step recorded right
+/// before a fatal crash is durable before the recording call returns.
+///
+/// Owned by the error-tracking integration, which feeds it context and step updates. The vendored
+/// `customData` setter is not safe for concurrent writers, so writes are serialized by a process-
+/// global lock (covers the brief window where an old and new instance coexist during opt-out/opt-in).
+final class PostHogCrashCustomDataWriter {
+    private static let writeLock = NSLock()
+
+    private let lock = NSLock()
+    private let write: (Data) -> Void
+    private var context: [String: Any] = [:]
+    private var steps: [[String: Any]] = []
+
+    init(write: @escaping (Data) -> Void) {
+        self.write = write
+    }
+
+    /// Update the cached crash context and rewrite `customData` (steps unchanged).
+    func setContext(_ context: [String: Any]) {
+        lock.withLock {
+            self.context = context
+            writeLocked()
         }
     }
 
-    /// Read steps persisted by a previous session (oldest → newest), for attaching to a crash
-    /// `$exception` reported on the next launch. Does not mutate the directory.
-    static func readPersistedSteps(from directory: URL) -> [[String: Any]] {
-        guard directoryExists(directory) else { return [] }
-
-        let urls: [URL]
-        do {
-            // Filenames are UUID-v7 (monotonic, time-ordered), so a lexical sort restores FIFO order.
-            urls = try FileManager.default
-                .contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-                .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        } catch {
-            hedgeLog("Failed to read persisted exception steps: \(error)")
-            return []
+    /// Update the cached steps and rewrite `customData` (context unchanged).
+    func setSteps(_ steps: [[String: Any]]) {
+        lock.withLock {
+            self.steps = steps
+            writeLocked()
         }
+    }
 
-        return urls.compactMap { url in
-            guard let data = try? Data(contentsOf: url) else { return nil }
-            return fromJSONData(data)
+    /// Rewrite `customData` = context + steps. Callers must hold `lock`.
+    private func writeLocked() {
+        var payload = context
+        payload[PostHogExceptionStepFields.stepsKey] = steps
+        guard let blob = try? JSONSerialization.data(withJSONObject: payload) else {
+            hedgeLog("Failed to serialize exception steps customData")
+            return
         }
+        Self.writeLock.withLock { write(blob) }
     }
 }

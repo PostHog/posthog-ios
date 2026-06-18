@@ -149,6 +149,7 @@ PostHog | PostHogDisplaySurveyTextContentType.text | enum.case | case text | c:@
 PostHog | PostHogErrorTrackingConfig | class | @objc class PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig
 PostHog | PostHogErrorTrackingConfig.autoCapture | property | @objc var autoCapture: Bool { get set } | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)autoCapture
 PostHog | PostHogErrorTrackingConfig.exceptionSteps | property | @objc var exceptionSteps: PostHogExceptionStepsConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)exceptionSteps
+PostHog | PostHogErrorTrackingConfig.ignoredExceptionTypes | property | @objc var ignoredExceptionTypes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)ignoredExceptionTypes
 PostHog | PostHogErrorTrackingConfig.inAppByDefault | property | @objc var inAppByDefault: Bool | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppByDefault
 PostHog | PostHogErrorTrackingConfig.inAppExcludes | property | @objc var inAppExcludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppExcludes
 PostHog | PostHogErrorTrackingConfig.inAppIncludes | property | @objc var inAppIncludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppIncludes

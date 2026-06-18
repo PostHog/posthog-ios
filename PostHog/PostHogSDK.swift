@@ -223,8 +223,9 @@ let maxRetryDelay = 30.0
 
                 createExceptionStepsBufferIfNeeded()
 
-                // Notify the integrations of the initial event context for crash reporting.
+                // Notify the integrations of the initial event context and buffered steps for crash reporting.
                 notifyContextDidChange()
+                notifyExceptionStepsDidChange()
             }
 
             // Flush the queue when the app enters background to ensure
@@ -2157,9 +2158,11 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             installIntegrations()
-            // Start the buffer for this run, then notify it of the current context for crash reporting.
+            // Start the buffer for this run, then notify the freshly installed crash writer of the
+            // current context and any buffered steps (the buffer survives opt-out, so steps may exist).
             createExceptionStepsBufferIfNeeded()
             notifyContextDidChange()
+            notifyExceptionStepsDidChange()
         }
     }
 
@@ -2673,6 +2676,19 @@ let maxRetryDelay = 30.0
         ]
 
         onEventContextChanged.invoke(context)
+    }
+
+    /// Replays the current buffered steps to subscribers (e.g. a crash writer just installed on opt-in).
+    ///
+    /// The steps buffer survives opt-out, so a freshly subscribed crash writer would otherwise hold the
+    /// context but empty steps until the next `addExceptionStep`; a crash in that window would drop the
+    /// buffered steps from the on-disk report. Guarded like `addExceptionStep`: steps follow opt-out.
+    private func notifyExceptionStepsDidChange() {
+        guard isEnabled(), !isOptOutState() else { return }
+
+        if let steps = exceptionStepsBuffer?.getAttachable(), !steps.isEmpty {
+            onExceptionStepsChanged.invoke(steps)
+        }
     }
 }
 

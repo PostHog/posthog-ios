@@ -289,4 +289,43 @@ class PostHogExceptionStepsTest {
         sut.reset()
         sut.close()
     }
+
+    @Test("replays buffered steps to subscribers on opt-in (buffer survives opt-out)")
+    func replaysStepsOnOptIn() {
+        let sut = getSut()
+
+        var received: [[[String: Any]]] = []
+        let token = sut.onExceptionStepsChanged.subscribe { received.append($0) }
+
+        sut.addExceptionStep("a")
+        sut.addExceptionStep("b")
+
+        sut.optOut()
+        let countBeforeOptIn = received.count
+        sut.optIn() // a freshly installed crash writer must be replayed the surviving buffer
+
+        #expect(received.count == countBeforeOptIn + 1)
+        #expect(messages(received.last) == ["a", "b"])
+
+        withExtendedLifetime(token) {}
+        sut.reset()
+        sut.close()
+    }
+
+    @Test("does not replay on opt-in when the buffer is empty")
+    func noReplayWhenBufferEmptyOnOptIn() {
+        let sut = getSut()
+
+        var received: [[[String: Any]]] = []
+        let token = sut.onExceptionStepsChanged.subscribe { received.append($0) }
+
+        sut.optOut()
+        sut.optIn() // empty buffer → nothing to replay
+
+        #expect(received.isEmpty)
+
+        withExtendedLifetime(token) {}
+        sut.reset()
+        sut.close()
+    }
 }

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.61.0
+
+### Minor Changes
+
+- 1f5d88d: Add `addExceptionStep(_:properties:)` to record breadcrumb-style steps that attach to every captured `$exception` as `$exception_steps`.
+
 ## 3.60.1
 
 ### Patch Changes

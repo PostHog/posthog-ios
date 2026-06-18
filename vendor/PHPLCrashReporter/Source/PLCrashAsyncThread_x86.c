@@ -701,4 +701,6 @@ static const char *plcrash_async_thread_state_get_regname_64 (plcrash_regnum_t r
     abort();
 }
 
+#else
+__attribute__((used, visibility("hidden"))) const int PLCrashAsyncThreadX86TranslationUnitAnchor = 0;
 #endif /* defined(__i386__) || defined(__x86_64__) */

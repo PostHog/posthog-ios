@@ -35,3 +35,5 @@
   } while (0)
 
 #undef SWITCH_ID_LIST
+
+__attribute__((used, visibility("hidden"))) const int phlibwebp_muxread_translation_unit_anchor = 0;

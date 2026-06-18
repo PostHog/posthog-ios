@@ -48,6 +48,17 @@ let maxRetryDelay = 30.0
     }
 
     private var queue: PostHogQueue<PostHogEvent>?
+    private let exceptionStepsBufferLock = NSLock()
+    private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
+    /// The reference is written under `setupLock` (setup/close/optIn) and read from arbitrary caller
+    /// threads (addExceptionStep/capture), so guard the reference itself with its own lock.
+    private var exceptionStepsBuffer: PostHogExceptionStepsBuffer? {
+        get { exceptionStepsBufferLock.withLock { _exceptionStepsBuffer } }
+        set { exceptionStepsBufferLock.withLock { _exceptionStepsBuffer = newValue } }
+    }
+    /// Fired with the buffer's current steps whenever they change. The error-tracking autocapture
+    /// integration subscribes to mirror them into the crash reporter's `customData`.
+    let onExceptionStepsChanged = PostHogMulticastCallback<[[String: Any]]>()
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
@@ -61,6 +72,9 @@ let maxRetryDelay = 30.0
     private var installedIntegrations: [PostHogIntegration] = []
     let sessionManager = PostHogSessionManager()
     let onEventCaptured = PostHogMulticastCallback<PostHogEvent>()
+    /// Fired after the event context changes (identify, reset, group, register). Integrations such as
+    /// crash reporting subscribe to snapshot the context for crash-time capture.
+    let onEventContextChanged = PostHogMulticastCallback<[String: Any]>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
 
@@ -207,8 +221,11 @@ let maxRetryDelay = 30.0
                 // don't install integrations if in opt-out state
                 installIntegrations()
 
-                // Notify integrations of initial context (e.g., for crash reporting)
+                createExceptionStepsBufferIfNeeded()
+
+                // Notify the integrations of the initial event context and buffered steps for crash reporting.
                 notifyContextDidChange()
+                notifyExceptionStepsDidChange()
             }
 
             // Flush the queue when the app enters background to ensure
@@ -304,7 +321,7 @@ let maxRetryDelay = 30.0
             return
         }
 
-        guard let url = url else { return }
+        guard let url else { return }
 
         let properties = PostHogDeepLinkHelper.buildDeepLinkProperties(url: url, referrer: referrer)
 
@@ -1225,7 +1242,7 @@ let maxRetryDelay = 30.0
             requirePersonProcessing()
         }
 
-        let finalProperties: [String: Any]
+        var finalProperties: [String: Any]
         if skipBuildProperties {
             // Use properties as-is (already built at crash time)
             finalProperties = properties ?? [:]
@@ -1239,6 +1256,16 @@ let maxRetryDelay = 30.0
                 appendSharedProps: !isSnapshotEvent,
                 timestamp: timestamp
             )
+        }
+
+        // Attach the session-scoped step buffer to a `$exception` unless the caller provided their own.
+        // The buffer is left intact; recording is synchronous, so a step added just before this capture
+        // on the same thread is already present.
+        let isExceptionEvent = event == "$exception" && !skipBuildProperties
+        if isExceptionEvent, finalProperties[PostHogExceptionStepFields.stepsKey] == nil,
+           let steps = attachableExceptionSteps
+        {
+            finalProperties[PostHogExceptionStepFields.stepsKey] = steps
         }
 
         // Sanitize is now called in buildEvent
@@ -2131,6 +2158,11 @@ let maxRetryDelay = 30.0
 
         setupLock.withLock {
             installIntegrations()
+            // Start the buffer for this run, then notify the freshly installed crash writer of the
+            // current context and any buffered steps (the buffer survives opt-out, so steps may exist).
+            createExceptionStepsBufferIfNeeded()
+            notifyContextDidChange()
+            notifyExceptionStepsDidChange()
         }
     }
 
@@ -2186,6 +2218,11 @@ let maxRetryDelay = 30.0
             queue = nil
             replayQueue = nil
             logsQueue = nil
+            // Closing ends the run: clear the buffer, which publishes empty steps so the integration
+            // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)
+            let bufferToClear = exceptionStepsBuffer
+            exceptionStepsBuffer = nil
+            bufferToClear?.clear()
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
             config = PostHogConfig(projectToken: "")
@@ -2442,6 +2479,94 @@ let maxRetryDelay = 30.0
         captureException(exception, properties: nil)
     }
 
+    /// Record an exception step (breadcrumb-style context record).
+    ///
+    /// Steps accumulate in a session-scoped buffer and are attached to **every** captured `$exception`
+    /// as `$exception_steps`, giving the error tracking UI a timeline of recent activity before each
+    /// error. The buffer is not cleared by a capture — it rotates only by byte-budget eviction and is
+    /// cleared on a clean launch or `close()`. On a fatal crash the buffered steps are persisted with
+    /// the crash context and attached to the crash `$exception` reported on the next launch.
+    ///
+    /// Reserved keys `$message` and `$timestamp` are stripped from `properties` — the SDK sets the
+    /// canonical values. The `$timestamp` is captured at call time so the timeline stays accurate.
+    /// This method never throws and never blocks; a failed step is silently skipped.
+    ///
+    /// Example:
+    /// ```swift
+    /// PostHogSDK.shared.addExceptionStep("User tapped Checkout", properties: ["screen": "cart"])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - message: A short, non-empty description of what happened. Empty messages are ignored.
+    ///   - properties: Optional additional context to attach to the step.
+    ///
+    @objc(addExceptionStep:properties:)
+    public func addExceptionStep(_ message: String, properties: [String: Any]? = nil) {
+        guard isEnabled(), !isOptOutState() else { return }
+
+        guard config.errorTrackingConfig.exceptionSteps.enabled else {
+            hedgeLog("addExceptionStep called but exception steps are disabled, ignoring")
+            return
+        }
+
+        guard !message.isEmpty else {
+            hedgeLog("addExceptionStep called with an empty message, ignoring")
+            return
+        }
+
+        guard let buffer = exceptionStepsBuffer else { return }
+
+        // Strip reserved keys from caller-supplied properties — the SDK owns $message/$timestamp.
+        var step: [String: Any] = [:]
+        if let properties {
+            for (key, value) in properties {
+                if key == PostHogExceptionStepFields.message || key == PostHogExceptionStepFields.timestamp {
+                    hedgeLog("addExceptionStep: reserved key \(key) in properties is ignored")
+                    continue
+                }
+                step[key] = value
+            }
+        }
+        step[PostHogExceptionStepFields.message] = message
+        step[PostHogExceptionStepFields.timestamp] = toISO8601String(now())
+
+        buffer.add(step)
+    }
+
+    /// Record an exception step without additional properties.
+    ///
+    /// Convenience overload for Objective-C callers so `properties:` doesn't need to be passed as `nil`.
+    ///
+    /// - Parameter message: A short, non-empty description of what happened.
+    ///
+    @objc(addExceptionStep:)
+    public func addExceptionStep(_ message: String) {
+        addExceptionStep(message, properties: nil)
+    }
+
+    /// Create the steps buffer once. Steps recorded this run are kept in memory for non-fatal
+    /// exceptions; on every change the buffer publishes them via `onExceptionStepsChanged`, which the
+    /// error-tracking integration mirrors into the crash reporter's `customData`.
+    ///
+    /// Must be called under `setupLock`: the create/nil transitions of `exceptionStepsBuffer` (here and
+    /// in `close()`) are confined to it, which keeps this check-then-act atomic against them.
+    private func createExceptionStepsBufferIfNeeded() {
+        guard exceptionStepsBuffer == nil else { return }
+        exceptionStepsBuffer = PostHogExceptionStepsBuffer(
+            maxBytes: config.errorTrackingConfig.exceptionSteps.maxBytes,
+            onStepsChanged: { [weak self] steps in self?.onExceptionStepsChanged.invoke(steps) }
+        )
+    }
+
+    /// The session-scoped buffered steps to attach to an exception, or `nil` when disabled or empty.
+    private var attachableExceptionSteps: [[String: Any]]? {
+        guard config.errorTrackingConfig.exceptionSteps.enabled,
+              let buffer = exceptionStepsBuffer
+        else { return nil }
+        let steps = buffer.getAttachable()
+        return steps.isEmpty ? nil : steps
+    }
+
     private func captureExceptionEvent(
         _ exceptionProperties: [String: Any],
         additionalProperties: [String: Any]?
@@ -2550,8 +2675,19 @@ let maxRetryDelay = 30.0
             "event_properties": eventProperties,
         ]
 
-        for integration in installedIntegrations {
-            integration.contextDidChange(context)
+        onEventContextChanged.invoke(context)
+    }
+
+    /// Replays the current buffered steps to subscribers (e.g. a crash writer just installed on opt-in).
+    ///
+    /// The steps buffer survives opt-out, so a freshly subscribed crash writer would otherwise hold the
+    /// context but empty steps until the next `addExceptionStep`; a crash in that window would drop the
+    /// buffered steps from the on-disk report. Guarded like `addExceptionStep`: steps follow opt-out.
+    private func notifyExceptionStepsDidChange() {
+        guard isEnabled(), !isOptOutState() else { return }
+
+        if let steps = exceptionStepsBuffer?.getAttachable(), !steps.isEmpty {
+            onExceptionStepsChanged.invoke(steps)
         }
     }
 }

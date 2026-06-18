@@ -6,8 +6,16 @@
 //
 
 #import "PHGExceptionHandler.h"
+@import PostHog;
 
 @implementation PHGExceptionHandler
+
++ (void)recordExceptionStepsFromObjC {
+    // Compile/callability check for the Objective-C interface of exception steps.
+    [[PostHogSDK shared] addExceptionStep:@"ObjC: app launched test flow"];
+    [[PostHogSDK shared] addExceptionStep:@"ObjC: user tapped Checkout"
+                              properties:@{ @"screen": @"cart", @"item_count": @3 }];
+}
 
 + (void)tryBlock:(void(^)(void))tryBlock 
            catch:(void(^)(NSException *exception))catchBlock {

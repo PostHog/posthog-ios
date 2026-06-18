@@ -301,6 +301,48 @@ struct ContentView: View {
                     }
                 }
 
+                // Manual testing of exception steps.
+                Section("Exception steps") {
+                    Button("Add 3 exception steps") {
+                        PostHogSDK.shared.addExceptionStep("App launched test flow")
+                        PostHogSDK.shared.addExceptionStep("User tapped Checkout", properties: [
+                            "screen": "cart",
+                            "item_count": 3,
+                            "at": Date(),
+                        ])
+                        PostHogSDK.shared.addExceptionStep("Network request started", properties: [
+                            "url": "https://example.com/pay",
+                            "method": "POST",
+                        ])
+                    }
+
+                    Button("Add single exception step") {
+                        PostHogSDK.shared.addExceptionStep("Manual breadcrumb at \(Date())")
+                    }
+
+                    Button("Add exception steps via ObjC") {
+                        PHGExceptionHandler.recordExceptionStepsFromObjC()
+                    }
+
+                    // High-frequency stress test; crash mid-run to check recent steps survive.
+                    Button("Flood steps in background (high-frequency)") {
+                        DispatchQueue.global(qos: .background).async {
+                            let total = 200
+                            for i in 0 ..< total {
+                                PostHogSDK.shared.addExceptionStep("Background step \(i)", properties: [
+                                    "iteration": i,
+                                    "thread": "background",
+                                    "payload": String(repeating: "x", count: 64),
+                                ])
+                                // Spread the work out so it behaves like a long-running task.
+                                Thread.sleep(forTimeInterval: 0.002)
+                            }
+                            PostHogSDK.shared.addExceptionStep("Background flood finished (\(total) steps)")
+                            print("Exception-step flood complete: \(total) steps")
+                        }
+                    }
+                }
+
                 Section("Crash Triggers") {
                     // NSException - richest info with name + reason
                     Button("Uncaught NSException") {

@@ -91,7 +91,7 @@
     NSLog(@"isOptOut: %d", [[PostHogSDK shared] isOptOut]);
     NSLog(@"isFeatureEnabled: %d", [[PostHogSDK shared] isFeatureEnabled:@"myFlag"]);
     NSLog(@"getFeatureFlag: %@", [[PostHogSDK shared] getFeatureFlag:@"myFlag"]);
-    NSLog(@"getFeatureFlagPayload: %@", [[PostHogSDK shared] getFeatureFlagPayload:@"myFlag"]);
+    NSLog(@"getFeatureFlagResult payload: %@", [[PostHogSDK shared] getFeatureFlagResult:@"myFlag"].payload);
     
     [[PostHogSDK shared] reloadFeatureFlags];
     [[PostHogSDK shared] reloadFeatureFlagsWithCallback:^(){

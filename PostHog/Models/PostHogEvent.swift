@@ -68,6 +68,7 @@ import Foundation
 
         guard let distinctId = (json["distinct_id"] as? String) ?? (properties["distinct_id"] as? String) else { return nil }
 
+        // `message_id` is deprecated and only accepted for backwards compatibility with legacy persisted events.
         let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7().uuidString
         let uuidObj = UUID(uuidString: uuid) ?? UUID.v7()
 

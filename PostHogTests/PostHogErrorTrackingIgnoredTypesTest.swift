@@ -18,114 +18,88 @@ import Testing
 
     @Suite("ErrorTracking ignoredExceptionTypes")
     struct ErrorTrackingIgnoredTypesTest {
-        @Test("returns false when ignoredExceptionTypes is empty")
-        func emptyIgnoredListPassesAllExceptions() {
-            let properties: [String: Any] = [
-                "$exception_list": [["type": "RCTFatalException", "value": "boom"]],
-            ]
-            #expect(
-                PostHogErrorTrackingAutoCaptureIntegration
-                    .exceptionListMatchesIgnoredTypes(properties, ignoredTypes: []) == false
-            )
+        /// `(properties, ignoredTypes, expected)` — drives every case the
+        /// matcher needs to handle. Adding a row covers a new shape without
+        /// duplicating the assertion boilerplate.
+        struct MatchCase {
+            let label: String
+            let properties: [String: AnyHashable]
+            let ignoredTypes: [String]
+            let expected: Bool
         }
 
-        @Test("matches when outer exception type is in ignored list")
-        func outerTypeMatchSuppresses() {
-            let properties: [String: Any] = [
-                "$exception_list": [["type": "RCTFatalException", "value": "boom"]],
-            ]
-            #expect(
-                PostHogErrorTrackingAutoCaptureIntegration
-                    .exceptionListMatchesIgnoredTypes(
-                        properties,
-                        ignoredTypes: ["RCTFatalException"]
-                    ) == true
-            )
-        }
-
-        @Test("matches when an underlying exception in the chain is in the ignored list")
-        func underlyingTypeMatchSuppresses() {
-            // PHPLCrashReportExceptionInfo doesn't currently expose
-            // `userInfo`, but for non-crash report paths the SDK builds a
-            // multi-entry `$exception_list` walking `NSUnderlyingErrorKey`
-            // (see `PostHogExceptionProcessor.buildExceptionList`). Make
-            // sure a wrapped RCTFatalException is still suppressed when
-            // it's not the outermost entry.
-            let properties: [String: Any] = [
-                "$exception_list": [
-                    ["type": "NSException", "value": "wrapper"],
-                    ["type": "RCTFatalException", "value": "boom"],
+        static let matchCases: [MatchCase] = [
+            MatchCase(
+                label: "empty ignored list never matches",
+                properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]],
+                ignoredTypes: [],
+                expected: false
+            ),
+            MatchCase(
+                label: "outer type in ignored list matches",
+                properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]],
+                ignoredTypes: ["RCTFatalException"],
+                expected: true
+            ),
+            MatchCase(
+                label: "underlying type anywhere in chain matches",
+                // PHPLCrashReportExceptionInfo doesn't currently expose
+                // `userInfo`, but for non-crash report paths the SDK builds
+                // a multi-entry `$exception_list` walking `NSUnderlyingErrorKey`
+                // (see `PostHogExceptionProcessor.buildExceptionList`). Make
+                // sure a wrapped RCTFatalException is still suppressed when
+                // it's not the outermost entry.
+                properties: [
+                    "$exception_list": [
+                        ["type": "NSException", "value": "wrapper"],
+                        ["type": "RCTFatalException", "value": "boom"],
+                    ],
                 ],
-            ]
+                ignoredTypes: ["RCTFatalException"],
+                expected: true
+            ),
+            MatchCase(
+                label: "type not in list passes through",
+                properties: ["$exception_list": [["type": "NSGenericException", "value": "boom"]]],
+                ignoredTypes: ["RCTFatalException"],
+                expected: false
+            ),
+            MatchCase(
+                label: "missing $exception_list key returns false",
+                properties: ["$exception_level": "fatal"],
+                ignoredTypes: ["RCTFatalException"],
+                expected: false
+            ),
+            MatchCase(
+                label: "empty $exception_list returns false",
+                properties: ["$exception_list": [[String: AnyHashable]]()],
+                ignoredTypes: ["RCTFatalException"],
+                expected: false
+            ),
+            MatchCase(
+                label: "match is case-sensitive (NSException class names are stable identifiers)",
+                properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]],
+                ignoredTypes: ["rctfatalexception"],
+                expected: false
+            ),
+        ]
+
+        @Test("exceptionListMatchesIgnoredTypes", arguments: matchCases)
+        func exceptionListMatcher(_ matchCase: MatchCase) {
             #expect(
                 PostHogErrorTrackingAutoCaptureIntegration
                     .exceptionListMatchesIgnoredTypes(
-                        properties,
-                        ignoredTypes: ["RCTFatalException"]
-                    ) == true
+                        matchCase.properties as [String: Any],
+                        ignoredTypes: matchCase.ignoredTypes
+                    ) == matchCase.expected,
+                "case '\(matchCase.label)' expected \(matchCase.expected)"
             )
         }
 
-        @Test("does not match exceptions whose type isn't in the ignored list")
-        func nonMatchPassesThrough() {
-            let properties: [String: Any] = [
-                "$exception_list": [["type": "NSGenericException", "value": "boom"]],
-            ]
-            #expect(
-                PostHogErrorTrackingAutoCaptureIntegration
-                    .exceptionListMatchesIgnoredTypes(
-                        properties,
-                        ignoredTypes: ["RCTFatalException"]
-                    ) == false
-            )
-        }
-
-        @Test("returns false when properties has no $exception_list key")
-        func missingExceptionListReturnsFalse() {
-            let properties: [String: Any] = [
-                "$exception_level": "fatal",
-            ]
-            #expect(
-                PostHogErrorTrackingAutoCaptureIntegration
-                    .exceptionListMatchesIgnoredTypes(
-                        properties,
-                        ignoredTypes: ["RCTFatalException"]
-                    ) == false
-            )
-        }
-
-        @Test("returns false when $exception_list is empty")
-        func emptyExceptionListReturnsFalse() {
-            let properties: [String: Any] = [
-                "$exception_list": [[String: Any]](),
-            ]
-            #expect(
-                PostHogErrorTrackingAutoCaptureIntegration
-                    .exceptionListMatchesIgnoredTypes(
-                        properties,
-                        ignoredTypes: ["RCTFatalException"]
-                    ) == false
-            )
-        }
-
-        @Test("match is exact and case-sensitive (NSException class names are stable identifiers)")
-        func caseSensitiveMatch() {
-            let properties: [String: Any] = [
-                "$exception_list": [["type": "RCTFatalException", "value": "boom"]],
-            ]
-            #expect(
-                PostHogErrorTrackingAutoCaptureIntegration
-                    .exceptionListMatchesIgnoredTypes(
-                        properties,
-                        ignoredTypes: ["rctfatalexception"]
-                    ) == false
-            )
-        }
-
-        @Test("config field default is empty so callers see no behavior change")
-        func defaultIsEmpty() {
+        @Test("config field defaults to RCTFatalException so React Native apps get dedup out of the box")
+        func defaultIsRCTFatalException() {
             let config = PostHogErrorTrackingConfig()
-            #expect(config.ignoredExceptionTypes.isEmpty)
+            #expect(config.ignoredExceptionTypes == ["RCTFatalException"])
         }
     }
 

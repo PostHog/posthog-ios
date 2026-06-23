@@ -2026,6 +2026,25 @@ let maxRetryDelay = 30.0
         return result is String ? true : (result as? Bool) ?? false
     }
 
+    /// Returns all currently loaded feature flags keyed by flag name.
+    ///
+    /// Each value is the flag's resolved value: `Bool` for boolean flags or `String`
+    /// for multivariate flags. Flags become available after they finish loading from
+    /// the server; before the first load (or when the SDK is disabled) this returns `nil`.
+    /// Reading does not capture `$feature_flag_called` events.
+    ///
+    /// - Returns: A dictionary of flag keys to values, or `nil` if no flags are loaded.
+    ///
+    /// ```swift
+    /// let flags = PostHogSDK.shared.getFeatureFlags()
+    /// ```
+    @objc public func getFeatureFlags() -> [String: Any]? {
+        if !isEnabled() {
+            return nil
+        }
+        return remoteConfig?.getFeatureFlags()
+    }
+
     /// Returns the payload for a feature flag.
     ///
     /// - Parameter key: The feature flag key.

@@ -2,4 +2,4 @@
 'posthog-ios': minor
 ---
 
-Add `PostHogSDK.getFeatureFlags()` to read all currently loaded feature flags. Exposed to Objective-C via `@objc`.
+Add `PostHogSDK.getAllFeatureFlags()` returning all loaded flags as `[PostHogFeatureFlagResult]` (key, enabled, variant, payload). Exposed to Objective-C via `@objc`.

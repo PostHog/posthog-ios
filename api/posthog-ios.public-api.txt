@@ -266,6 +266,7 @@ PostHog | PostHogSDK.didReceiveFeatureFlags | type.property | @objc static let d
 PostHog | PostHogSDK.didStartNotification | type.property | @objc static let didStartNotification: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didStartNotification
 PostHog | PostHogSDK.endSession() | method | @objc func endSession() | c:@M@PostHog@objc(cs)PostHogSDK(im)endSession
 PostHog | PostHogSDK.flush() | method | @objc func flush() | c:@M@PostHog@objc(cs)PostHogSDK(im)flush
+PostHog | PostHogSDK.getAllFeatureFlags() | method | @objc func getAllFeatureFlags() -> [PostHogFeatureFlagResult]? | c:@M@PostHog@objc(cs)PostHogSDK(im)getAllFeatureFlags
 PostHog | PostHogSDK.getAnonymousId() | method | @objc func getAnonymousId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getAnonymousId
 PostHog | PostHogSDK.getDeviceId() | method | @objc func getDeviceId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDeviceId
 PostHog | PostHogSDK.getDistinctId() | method | @objc func getDistinctId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDistinctId
@@ -274,7 +275,6 @@ PostHog | PostHogSDK.getFeatureFlag(_:sendFeatureFlagEvent:) | method | @objc(ge
 PostHog | PostHogSDK.getFeatureFlagPayload(_:) | method | @objc func getFeatureFlagPayload(_ key: String) -> Any? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagPayload:
 PostHog | PostHogSDK.getFeatureFlagResult(_:) | method | @objc func getFeatureFlagResult(_ key: String) -> PostHogFeatureFlagResult? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagResult:
 PostHog | PostHogSDK.getFeatureFlagResult(_:sendFeatureFlagEvent:) | method | @objc(getFeatureFlagResultWithKey:sendFeatureFlagEvent:) func getFeatureFlagResult(_ key: String, sendFeatureFlagEvent: Bool) -> PostHogFeatureFlagResult? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlagResultWithKey:sendFeatureFlagEvent:
-PostHog | PostHogSDK.getFeatureFlags() | method | @objc func getFeatureFlags() -> [String : Any]? | c:@M@PostHog@objc(cs)PostHogSDK(im)getFeatureFlags
 PostHog | PostHogSDK.getSessionId() | method | @objc func getSessionId() -> String? | c:@M@PostHog@objc(cs)PostHogSDK(im)getSessionId
 PostHog | PostHogSDK.group(type:key:) | method | @objc(groupWithType:key:) func group(type: String, key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)groupWithType:key:
 PostHog | PostHogSDK.group(type:key:groupProperties:) | method | @objc(groupWithType:key:groupProperties:) func group(type: String, key: String, groupProperties: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)groupWithType:key:groupProperties:

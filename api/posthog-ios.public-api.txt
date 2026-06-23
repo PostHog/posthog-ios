@@ -272,6 +272,7 @@ PostHog | PostHogSDK.didReceiveFeatureFlags | type.property | @objc static let d
 PostHog | PostHogSDK.didStartNotification | type.property | @objc static let didStartNotification: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didStartNotification
 PostHog | PostHogSDK.endSession() | method | @objc func endSession() | c:@M@PostHog@objc(cs)PostHogSDK(im)endSession
 PostHog | PostHogSDK.flush() | method | @objc func flush() | c:@M@PostHog@objc(cs)PostHogSDK(im)flush
+PostHog | PostHogSDK.getAllFeatureFlags() | method | @objc func getAllFeatureFlags() -> [PostHogFeatureFlagResult]? | c:@M@PostHog@objc(cs)PostHogSDK(im)getAllFeatureFlags
 PostHog | PostHogSDK.getAnonymousId() | method | @objc func getAnonymousId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getAnonymousId
 PostHog | PostHogSDK.getDeviceId() | method | @objc func getDeviceId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDeviceId
 PostHog | PostHogSDK.getDistinctId() | method | @objc func getDistinctId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDistinctId

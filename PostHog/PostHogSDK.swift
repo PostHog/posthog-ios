@@ -2053,6 +2053,27 @@ let maxRetryDelay = 30.0
         return result is String ? true : (result as? Bool) ?? false
     }
 
+    /// Returns all currently loaded feature flags as structured results.
+    ///
+    /// Each `PostHogFeatureFlagResult` carries the flag's `key`, `enabled` state,
+    /// `variant` (for multivariate flags), and decoded `payload`. Flags become available
+    /// after they finish loading from the server; before the first load (or when the SDK
+    /// is disabled) this returns `nil`. Reading does not capture `$feature_flag_called` events.
+    ///
+    /// - Returns: An array of `PostHogFeatureFlagResult`, or `nil` if no flags are loaded.
+    ///
+    /// ```swift
+    /// for flag in PostHogSDK.shared.getAllFeatureFlags() ?? [] {
+    ///     print(flag.key, flag.enabled, flag.payload as Any)
+    /// }
+    /// ```
+    @objc public func getAllFeatureFlags() -> [PostHogFeatureFlagResult]? {
+        if !isEnabled() {
+            return nil
+        }
+        return remoteConfig?.getAllFeatureFlagResults()
+    }
+
     /// Returns the payload for a feature flag.
     ///
     /// - Parameter key: The feature flag key.

@@ -749,6 +749,26 @@ class PostHogRemoteConfig {
 
         guard flagValue != nil else { return nil }
 
+        return makeFeatureFlagResult(key: key, flagValue: flagValue, payloadValue: payloadValue)
+    }
+
+    func getAllFeatureFlagResults() -> [PostHogFeatureFlagResult]? {
+        var flags: [String: Any]?
+        var payloads: [String: Any]?
+
+        featureFlagsLock.withLock {
+            flags = getCachedFeatureFlags()
+            payloads = getCachedFeatureFlagPayload()
+        }
+
+        guard let flags else { return nil }
+
+        return flags.map { key, value in
+            makeFeatureFlagResult(key: key, flagValue: value, payloadValue: payloads?[key])
+        }
+    }
+
+    private func makeFeatureFlagResult(key: String, flagValue: Any?, payloadValue: Any?) -> PostHogFeatureFlagResult {
         let payload: Any?
         if let stringValue = payloadValue as? String {
             do {

@@ -143,6 +143,11 @@
             postHogSdkName != "posthog-flutter"
         }
 
+        private func isNotReactNative() -> Bool {
+            // for the React Native SDK, event-trigger evaluation is owned by the JS layer
+            postHogSdkName != "posthog-react-native"
+        }
+
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
                 self.postHog = postHog
@@ -1252,6 +1257,10 @@
             // Parse event triggers from remote config
             // Path: sessionRecording.eventTriggers ([String])
             let remoteEventTriggers: [String]? = {
+                // React Native evaluates event triggers in its JS layer; RN-captured events never reach
+                // the native capture() pipeline, so the native gate can't be satisfied. Don't store
+                // triggers for RN — the JS layer owns them (linkedFlag and sampling gates still apply).
+                guard isNotReactNative() else { return nil }
                 guard let sessionRecording = remoteConfig?["sessionRecording"] as? [String: Any],
                       let triggers = sessionRecording["eventTriggers"] as? [String]
                 else {

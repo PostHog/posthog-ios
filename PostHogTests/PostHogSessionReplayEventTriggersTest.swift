@@ -205,5 +205,24 @@
 
             sut.close()
         }
+
+        // MARK: - React Native Opt-Out Tests
+
+        @Test("React Native opts out of native event-trigger gating")
+        func reactNativeOptsOutOfTriggerGating() async throws {
+            let original = postHogSdkName
+            postHogSdkName = "posthog-react-native"
+            defer { postHogSdkName = original }
+
+            // Triggers are configured, but React Native evaluates them in its JS layer, so the native
+            // integration must not gate — recording is active immediately without a trigger firing.
+            // (The non-RN path that waits for a trigger is covered by isActiveWhileWaitingForTrigger.)
+            let sut = getSut(eventTriggers: ["purchase_completed"])
+            let integration = sut.getReplayIntegration()
+            #expect(integration != nil)
+            #expect(integration?.isActive() == true)
+
+            sut.close()
+        }
     }
 #endif

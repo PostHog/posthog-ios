@@ -1,5 +1,11 @@
 ## Next
 
+## 3.62.0
+
+### Minor Changes
+
+- fcc876e: Add `PostHogSDK.getAllFeatureFlags()` returning all loaded flags as `[PostHogFeatureFlagResult]` (key, enabled, variant, payload). Exposed to Objective-C via `@objc`.
+
 ## 3.61.1
 
 ### Patch Changes

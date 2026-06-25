@@ -286,8 +286,7 @@ class PostHogApi {
     ) {
         session.uploadTask(with: request, from: payload) { data, response, error in
             if let error {
-                let nsError = error as NSError
-                if nsError.domain == NSURLErrorDomain, retryCount < self.config.maxRetries {
+                if Self.isRetryableFlagsError(error), retryCount < self.config.maxRetries {
                     let nextRetryCount = retryCount + 1
                     let delay = min(TimeInterval(nextRetryCount) * self.flagsRetryDelay, maxRetryDelay)
                     hedgeLog(
@@ -329,6 +328,14 @@ class PostHogApi {
                 completion(nil, error)
             }
         }.resume()
+    }
+
+    private static func isRetryableFlagsError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else {
+            return false
+        }
+        return nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorNetworkConnectionLost
     }
 
     func remoteConfig(

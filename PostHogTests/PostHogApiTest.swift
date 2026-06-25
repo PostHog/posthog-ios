@@ -220,13 +220,13 @@ enum PostHogApiTests {
 
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
-        @Test("retries URLSession errors before returning flags")
+        @Test("retries transient URLSession errors before returning flags")
         func retriesURLSessionErrors() async throws {
             server.reset(flagsCount: 2)
 
             var requestCount = 0
             let requestCountLock = NSLock()
-            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
             server.flagsResponseHandler = { _ in
                 requestCountLock.lock()
                 requestCount += 1
@@ -253,6 +253,31 @@ enum PostHogApiTests {
             #expect(try #require(resp.0)["errorsWhileComputingFlags"] as! Bool == false)
             #expect(resp.1 == nil)
             #expect(server.flagsRequests.count == 2)
+        }
+
+        @Test("does not retry connection refused errors")
+        func doesNotRetryConnectionRefused() async throws {
+            server.reset(flagsCount: 1)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(error: networkError)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.maxRetries = 1
+            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 1)
         }
 
         @Test("does not retry HTTP 408 responses")

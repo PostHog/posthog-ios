@@ -46,9 +46,11 @@ class PostHogApi {
     /// Shared so connection pool, TLS state, and HTTP/2 streams survive
     /// between calls instead of being torn down per request.
     private let session: URLSession
+    private let flagsRetryDelay: TimeInterval
 
-    init(_ config: PostHogConfig) {
+    init(_ config: PostHogConfig, flagsRetryDelay: TimeInterval = retryDelay) {
         self.config = config
+        self.flagsRetryDelay = flagsRetryDelay
 
         // Copy first so SDK mutations don't leak back to the caller's object.
         let sessionConfig = (config.urlSessionConfiguration?.copy() as? URLSessionConfiguration)
@@ -273,9 +275,31 @@ class PostHogApi {
             return completion(nil, nil)
         }
 
-        session.uploadTask(with: request, from: data) { data, response, error in
-            if error != nil {
-                hedgeLog("Error calling the flags API: \(String(describing: error))")
+        uploadFlagsRequest(request, payload: data, retryCount: 0, completion: completion)
+    }
+
+    private func uploadFlagsRequest(
+        _ request: URLRequest,
+        payload: Data,
+        retryCount: Int,
+        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+    ) {
+        session.uploadTask(with: request, from: payload) { data, response, error in
+            if let error {
+                let nsError = error as NSError
+                if nsError.domain == NSURLErrorDomain, retryCount < self.config.maxRetries {
+                    let nextRetryCount = retryCount + 1
+                    let delay = min(TimeInterval(nextRetryCount) * self.flagsRetryDelay, maxRetryDelay)
+                    hedgeLog(
+                        "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.maxRetries))."
+                    )
+                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+                        self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)
+                    }
+                    return
+                }
+
+                hedgeLog("Error calling the flags API: \(error)")
                 return completion(nil, error)
             }
 

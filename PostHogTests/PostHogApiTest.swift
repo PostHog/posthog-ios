@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OHHTTPStubs
 @testable import PostHog
 import Testing
 
@@ -53,6 +54,29 @@ enum PostHogApiTests {
             }
 
             #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+        }
+
+        func testFlagsDoesNotRetryHTTPStatus(_ statusCode: Int) async throws {
+            server.reset(flagsCount: 1)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: ["error": "server error"], statusCode: Int32(statusCode), headers: nil)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.maxRetries = 1
+            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 1)
         }
 
         func testBatchEndpoint(forHost host: String) async throws {
@@ -196,6 +220,56 @@ enum PostHogApiTests {
 
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
+        @Test("retries URLSession errors before returning flags")
+        func retriesURLSessionErrors() async throws {
+            server.reset(flagsCount: 2)
+
+            var requestCount = 0
+            let requestCountLock = NSLock()
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                requestCountLock.lock()
+                requestCount += 1
+                let currentRequestCount = requestCount
+                requestCountLock.unlock()
+
+                if currentRequestCount == 1 {
+                    return HTTPStubsResponse(error: networkError)
+                }
+
+                return HTTPStubsResponse(jsonObject: ["errorsWhileComputingFlags": false], statusCode: 200, headers: nil)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.maxRetries = 1
+            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            #expect(try #require(resp.0)["errorsWhileComputingFlags"] as! Bool == false)
+            #expect(resp.1 == nil)
+            #expect(server.flagsRequests.count == 2)
+        }
+
+        @Test("does not retry HTTP 408 responses")
+        func doesNotRetryHTTP408() async throws {
+            try await testFlagsDoesNotRetryHTTPStatus(408)
+        }
+
+        @Test("does not retry HTTP 429 responses")
+        func doesNotRetryHTTP429() async throws {
+            try await testFlagsDoesNotRetryHTTPStatus(429)
+        }
+
+        @Test("does not retry HTTP 500 responses")
+        func doesNotRetryHTTP500() async throws {
+            try await testFlagsDoesNotRetryHTTPStatus(500)
+        }
+
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
             try await testFlagsEndpoint(forHost: "http://localhost")

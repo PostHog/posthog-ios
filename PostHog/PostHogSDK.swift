@@ -2053,6 +2053,22 @@ let maxRetryDelay = 30.0
         return result is String ? true : (result as? Bool) ?? false
     }
 
+    /// Returns whether a feature flag is enabled, falling back to a caller-supplied default.
+    ///
+    /// - Parameters:
+    ///   - key: The feature flag key.
+    ///   - defaultValue: The value returned when the flag is absent or has not loaded yet.
+    ///   - sendFeatureFlagEvent: Whether to capture `$feature_flag_called` for this lookup. Defaults to `true`.
+    /// - Returns: `true` when the flag is enabled, otherwise `false`. An absent flag returns `defaultValue`.
+    @objc(isFeatureEnabledWithKey:defaultValue:sendFeatureFlagEvent:)
+    public func isFeatureEnabled(_ key: String, defaultValue: Bool, sendFeatureFlagEvent: Bool = true) -> Bool {
+        let result = getFeatureFlag(key, sendEvent: sendFeatureFlagEvent)
+        guard let result else {
+            return defaultValue
+        }
+        return result is String ? true : (result as? Bool) ?? false
+    }
+
     /// Returns all currently loaded feature flags as structured results.
     ///
     /// Each `PostHogFeatureFlagResult` carries the flag's `key`, `enabled` state,

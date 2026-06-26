@@ -286,11 +286,11 @@ class PostHogApi {
     ) {
         session.uploadTask(with: request, from: payload) { data, response, error in
             if let error {
-                if Self.isRetryableFlagsError(error), retryCount < self.config.maxRetries {
+                if Self.isRetryableFlagsError(error), retryCount < self.config.featureFlagRequestMaxRetries {
                     let nextRetryCount = retryCount + 1
                     let delay = min(TimeInterval(nextRetryCount) * self.flagsRetryDelay, maxRetryDelay)
                     hedgeLog(
-                        "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.maxRetries))."
+                        "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.featureFlagRequestMaxRetries))."
                     )
                     DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
                         self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)

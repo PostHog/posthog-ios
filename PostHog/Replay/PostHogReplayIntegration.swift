@@ -35,6 +35,7 @@
         private var applicationForegroundedToken: RegistrationToken?
         private var viewLayoutToken: RegistrationToken?
         private var remoteConfigLoadedToken: RegistrationToken?
+        private var featureFlagsLoadedToken: RegistrationToken?
         private var sessionIdChangedToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var installedPlugins: [PostHogSessionReplayPlugin] = []
@@ -51,6 +52,15 @@
         private var hasPassedMinimumDuration: Bool = false
         private var minimumDurationSessionId: String?
         private var cachedMinimumDuration: TimeInterval?
+
+        // First-remote-config buffering state. While the first live `/config` is still pending,
+        // snapshots are buffered (not persisted) so a stale cached flag can't record a window the
+        // fresh config disallows. All reads/writes are guarded by `bufferingLock`.
+        private var awaitingFirstRemoteConfig: Bool = false
+        // Set once the authoritative `/config` has resolved this install. Gates the feature-flags
+        // resolve path (used after reset(), which reloads flags but not `/config`) so it never
+        // resolves the buffer from a stale cached config before the first `/config` lands.
+        private var didResolveRemoteConfig: Bool = false
 
         /**
          ### Mapping of SwiftUI Views to UIKit (up until iOS 18)
@@ -162,9 +172,20 @@
                 }
                 updateCachedMinimumDuration()
 
+                // Buffer snapshots until the first live remote config resolves (unless it already has),
+                // so a stale cached flag can't leak a recording the fresh config disallows.
+                let awaiting = shouldAwaitFirstRemoteConfig()
+                bufferingLock.withLock { awaitingFirstRemoteConfig = awaiting }
+
                 // Subscribe to remote config changes (needed before start to update triggers)
                 remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] config in
                     self?.applyRemoteConfig(remoteConfig: config)
+                }
+
+                // Subscribe to feature flag reloads so the buffer also resolves after reset()/identity
+                // changes, which reload flags but not `/config` (the only path that fires applyRemoteConfig).
+                featureFlagsLoadedToken = postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] _ in
+                    self?.resolveBufferFromFeatureFlags()
                 }
 
                 // Subscribe to event captures for trigger matching (needed before start to detect triggers)
@@ -181,6 +202,7 @@
                 stop()
                 // Clear the pre-start listeners
                 remoteConfigLoadedToken = nil
+                featureFlagsLoadedToken = nil
                 eventCapturedToken = nil
                 self.postHog = nil
 
@@ -412,14 +434,25 @@
             reevaluateSampling()
         }
 
-        /// Resets buffering state for a new session — clears the buffer and marks as not yet passed minimum duration.
+        /// Resets buffering state for a new session — clears the buffer, marks as not yet passed
+        /// minimum duration, and re-arms the first-remote-config gate when a fresh config is pending
+        /// (e.g. after reset(), which clears `remoteConfigDidFetch`). On a plain session rotation the
+        /// config has already been fetched, so the gate stays disarmed and recording is not buffered.
         private func resetBufferingState(for _: PostHogSDK) {
+            let awaiting = shouldAwaitFirstRemoteConfig()
             bufferingLock.withLock {
                 hasPassedMinimumDuration = false
+                awaitingFirstRemoteConfig = awaiting
             }
 
             // Clear any buffered events from previous session
             replayQueue?.clearBuffer()
+        }
+
+        /// Whether the first live remote config is still pending, i.e. we should buffer snapshots.
+        private func shouldAwaitFirstRemoteConfig() -> Bool {
+            guard let remoteConfig = postHog?.remoteConfig else { return false }
+            return !remoteConfig.hasFetchedRemoteConfig
         }
 
         private func pauseAllPlugins() {
@@ -441,7 +474,94 @@
             updatePlugins(from: remoteConfig)
             updateEventTriggers(from: remoteConfig)
             updateCachedMinimumDuration()
-            reevaluateSampling()
+
+            // `processSessionRecordingConfig` flipped `sessionReplayFlagActive` before this callback,
+            // so this reads the fresh decision.
+            let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
+
+            // Mark the authoritative `/config` as resolved (lets the feature-flags path resolve the
+            // buffer after reset()), remembering whether this was the first one.
+            let wasFirstRemoteConfig = bufferingLock.withLock { () -> Bool in
+                let first = !didResolveRemoteConfig
+                didResolveRemoteConfig = true
+                return first
+            }
+
+            resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+
+            if !flagActive, !wasFirstRemoteConfig {
+                // A later `/config` turning the flag off is a genuine mid-session disable (flags are
+                // loaded by now), so stop immediately instead of waiting for session rotation. The
+                // first `/config` is intentionally skipped: for a linkedFlag config it can evaluate
+                // false before `/flags` lands, and the capturer self-gates on the flag meanwhile, so
+                // recording resumes if `/flags` turns it on — a stop() here would never restart.
+                stop()
+            } else {
+                reevaluateSampling()
+            }
+        }
+
+        /// Resolves the first-remote-config buffer once the live config (or, post-reset, the reloaded
+        /// flags) confirm the decision: keep the buffered opening window if recording is permitted,
+        /// otherwise drop it. The clear/drop and the `awaitingFirstRemoteConfig` flip run in one
+        /// `bufferingLock` critical section, and `isBuffering` reads that same lock, so a concurrent
+        /// `add()` never observes a half-applied transition. On the flag-on path the buffer is handed
+        /// to the minimum-duration gate (below) rather than force-flushed, so a short session's opening
+        /// frames aren't persisted just because the flag resolved.
+        private func resolveFirstRemoteConfigBuffer(flagActive: Bool) {
+            let wasAwaiting = bufferingLock.withLock { () -> Bool in
+                guard awaitingFirstRemoteConfig else { return false }
+                if !flagActive {
+                    replayQueue?.clearBuffer()
+                }
+                awaitingFirstRemoteConfig = false
+                return true
+            }
+
+            if wasAwaiting, flagActive, let replayQueue {
+                migrateBufferIfMinimumDurationMet(replayQueue)
+            }
+        }
+
+        /// Migrates the buffer to the persisted queue when it should be flushed now — no minimum
+        /// duration is configured, or the buffered window already spans it — and otherwise leaves it
+        /// buffering for the minimum-duration window. The caller must have confirmed replay is active.
+        private func migrateBufferIfMinimumDurationMet(_ replayQueue: PostHogReplayQueue) {
+            let minimumDuration = bufferingLock.withLock { cachedMinimumDuration }
+
+            guard let minimumDuration, minimumDuration > 0 else {
+                // No minimum duration configured: migrate immediately.
+                bufferingLock.withLock { hasPassedMinimumDuration = true }
+                replayQueue.migrateBufferToQueue()
+                return
+            }
+
+            // Check buffer content duration (oldest to newest snapshot).
+            guard (replayQueue.bufferDuration ?? 0) >= minimumDuration else { return }
+
+            hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
+            // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
+            bufferingLock.withLock { hasPassedMinimumDuration = true }
+            replayQueue.migrateBufferToQueue()
+        }
+
+        /// Resolves the buffer from a feature-flags reload — the path that resolves the re-armed buffer
+        /// after reset() (which reloads `/flags` but not `/config`) and after a failed first `/config`
+        /// (offline launch). Only acts once a `/config` attempt has completed, so it never resolves
+        /// from a pre-`/config` cache; the capturer self-gates on a flag-off, so no stop() is needed here.
+        private func resolveBufferFromFeatureFlags() {
+            // A completed `/config` attempt (success or failure) makes the cached recording config as
+            // fresh as it will get; latch that locally so later reloads can still resolve even though
+            // reset() clears `hasFetchedRemoteConfig`.
+            let configAttempted = postHog?.remoteConfig?.hasFetchedRemoteConfig == true
+            let canResolve = bufferingLock.withLock { () -> Bool in
+                if configAttempted { didResolveRemoteConfig = true }
+                return didResolveRemoteConfig && awaitingFirstRemoteConfig
+            }
+            guard canResolve else { return }
+
+            let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
+            resolveFirstRemoteConfigBuffer(flagActive: flagActive)
         }
 
         private func updateCachedMinimumDuration() {
@@ -1335,6 +1455,9 @@
     extension PostHogReplayIntegration: PostHogReplayBufferDelegate {
         var isBuffering: Bool {
             bufferingLock.withLock {
+                if awaitingFirstRemoteConfig {
+                    return true
+                }
                 guard let minimumDuration = cachedMinimumDuration,
                       minimumDuration > 0
                 else {
@@ -1345,25 +1468,22 @@
         }
 
         func replayQueueDidBufferSnapshot(_ replayQueue: PostHogReplayQueue) {
-            guard postHog != nil else { return }
+            guard let postHog else { return }
 
-            let minimumDuration: TimeInterval? = bufferingLock.withLock { cachedMinimumDuration }
-            guard let minimumDuration, minimumDuration > 0 else {
-                // No minimum duration configured: should not be buffering, migrate immediately
-                bufferingLock.withLock { hasPassedMinimumDuration = true }
-                replayQueue.migrateBufferToQueue()
-                return
-            }
+            let awaiting = bufferingLock.withLock { awaitingFirstRemoteConfig }
 
-            // Check buffer content duration (oldest to newest snapshot)
-            let bufferDuration = replayQueue.bufferDuration ?? 0
+            // Never drain the buffer to the persisted queue while the first remote config is pending.
+            // The min-duration migrate trigger is duration-based and fires independently of the
+            // add-routing gate, so without this a cached minimumDuration could migrate stale-cache
+            // snapshots before the flag decision and leak them to the network.
+            guard !awaiting else { return }
 
-            if bufferDuration >= minimumDuration {
-                hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
-                // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
-                bufferingLock.withLock { hasPassedMinimumDuration = true }
-                replayQueue.migrateBufferToQueue()
-            }
+            // Only persist the buffered window while replay is actually active. On a flag-off resolve
+            // the buffer is cleared asynchronously; this stops an in-flight add() that began buffering
+            // before the flag flipped from migrating the stale window into the persisted queue.
+            guard postHog.isSessionReplayActive() else { return }
+
+            migrateBufferIfMinimumDurationMet(replayQueue)
         }
     }
 

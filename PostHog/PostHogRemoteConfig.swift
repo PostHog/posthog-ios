@@ -182,8 +182,8 @@ class PostHogRemoteConfig {
                 }
             }
 
-            // Guard `remoteConfigDidFetch` with the same lock that reads it (and that clear() resets it
-            // under) so the session-replay buffering decision has a sound happens-before with this write.
+            // Write `remoteConfigDidFetch` under the same lock that reads it (and that clear() resets it
+            // under) so any reader acquiring the lock after this point sees the updated value.
             self.remoteConfigLock.withLock {
                 self.remoteConfigDidFetch = true
             }
@@ -917,9 +917,7 @@ class PostHogRemoteConfig {
             sessionReplayLock.withLock { sessionReplayFlagActive }
         }
 
-        /// Whether the live remote config (`/config`) has been fetched at least once.
-        /// Session replay uses this to know whether the first remote-config decision is still
-        /// pending so it can buffer snapshots until the cached flag is confirmed or overridden.
+        /// Whether a `/config` request has completed at least once (set on both success and failure).
         var hasFetchedRemoteConfig: Bool {
             remoteConfigLock.withLock { remoteConfigDidFetch }
         }

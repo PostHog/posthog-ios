@@ -57,9 +57,8 @@
         // snapshots are buffered (not persisted) so a stale cached flag can't record a window the
         // fresh config disallows. All reads/writes are guarded by `bufferingLock`.
         private var awaitingFirstRemoteConfig: Bool = false
-        // Set once the authoritative `/config` has resolved this install. Gates the feature-flags
-        // resolve path (used after reset(), which reloads flags but not `/config`) so it never
-        // resolves the buffer from a stale cached config before the first `/config` lands.
+        // Latched once any `/config` attempt completes; never reset, so a buffer re-armed after reset()
+        // (which reloads flags but not `/config`) can still resolve from a later flags reload.
         private var didResolveRemoteConfig: Bool = false
 
         /**
@@ -449,7 +448,6 @@
             replayQueue?.clearBuffer()
         }
 
-        /// Whether the first live remote config is still pending, i.e. we should buffer snapshots.
         private func shouldAwaitFirstRemoteConfig() -> Bool {
             guard let remoteConfig = postHog?.remoteConfig else { return false }
             return !remoteConfig.hasFetchedRemoteConfig
@@ -501,24 +499,21 @@
             }
         }
 
-        /// Resolves the first-remote-config buffer once the live config (or, post-reset, the reloaded
-        /// flags) confirm the decision: keep the buffered opening window if recording is permitted,
-        /// otherwise drop it. The clear/drop and the `awaitingFirstRemoteConfig` flip run in one
-        /// `bufferingLock` critical section, and `isBuffering` reads that same lock, so a concurrent
-        /// `add()` never observes a half-applied transition. On the flag-on path the buffer is handed
-        /// to the minimum-duration gate (below) rather than force-flushed, so a short session's opening
-        /// frames aren't persisted just because the flag resolved.
+        /// Drops the buffer if recording isn't permitted, else hands it to the minimum-duration gate
+        /// (not a force-flush). The `awaitingFirstRemoteConfig` flip is atomic under `bufferingLock`;
+        /// the clear/migrate runs after the lock to keep buffer I/O out of the critical section.
         private func resolveFirstRemoteConfigBuffer(flagActive: Bool) {
             let wasAwaiting = bufferingLock.withLock { () -> Bool in
                 guard awaitingFirstRemoteConfig else { return false }
-                if !flagActive {
-                    replayQueue?.clearBuffer()
-                }
                 awaitingFirstRemoteConfig = false
                 return true
             }
 
-            if wasAwaiting, flagActive, let replayQueue {
+            guard wasAwaiting else { return }
+
+            if !flagActive {
+                replayQueue?.clearBuffer()
+            } else if let replayQueue {
                 migrateBufferIfMinimumDurationMet(replayQueue)
             }
         }
@@ -530,13 +525,11 @@
             let minimumDuration = bufferingLock.withLock { cachedMinimumDuration }
 
             guard let minimumDuration, minimumDuration > 0 else {
-                // No minimum duration configured: migrate immediately.
                 bufferingLock.withLock { hasPassedMinimumDuration = true }
                 replayQueue.migrateBufferToQueue()
                 return
             }
 
-            // Check buffer content duration (oldest to newest snapshot).
             guard (replayQueue.bufferDuration ?? 0) >= minimumDuration else { return }
 
             hedgeLog("[Session Replay] Minimum duration met. Migrating \(replayQueue.bufferDepth) buffered events to replay queue.")
@@ -1473,9 +1466,9 @@
             let awaiting = bufferingLock.withLock { awaitingFirstRemoteConfig }
 
             // Never drain the buffer to the persisted queue while the first remote config is pending.
-            // The min-duration migrate trigger is duration-based and fires independently of the
-            // add-routing gate, so without this a cached minimumDuration could migrate stale-cache
-            // snapshots before the flag decision and leak them to the network.
+            // This callback fires on every buffered add; its migrate decision is duration-gated and
+            // independent of the add-routing gate, so without this a cached minimumDuration could
+            // migrate stale-cache snapshots before the flag decision and leak them to the network.
             guard !awaiting else { return }
 
             // Only persist the buffered window while replay is actually active. On a flag-off resolve

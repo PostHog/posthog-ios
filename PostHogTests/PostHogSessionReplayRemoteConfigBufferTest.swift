@@ -160,5 +160,73 @@
             #expect(replayQueue.bufferDepth == 2)
             #expect(integration.isBuffering == true)
         }
+
+        // MARK: - resolveBufferFromFeatureFlags (post-reset and offline paths)
+
+        @Test("a feature-flags reload before the first remote config does not resolve the buffer")
+        func featureFlagsBeforeFirstConfigDoNotResolve() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            #expect(integration.isBuffering == true)
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            // No `/config` attempt has completed yet, so a flags reload must not resolve from the
+            // pre-`/config` cache — the buffered window stays put.
+            sut.remoteConfig?.onFeatureFlagsLoaded.invoke(nil)
+
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+            #expect(integration.isBuffering == true)
+        }
+
+        @Test("after reset re-arms the buffer, a feature-flags reload resolves it")
+        func resetRearmedBufferResolvesViaFeatureFlags() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            // Cold-start resolve marks the first `/config` as resolved.
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == false)
+
+            // A new session (as after reset()/identity change, where no fresh `/config` is fetched)
+            // re-arms the buffer.
+            sut.sessionManager.setSessionId(UUID().uuidString)
+            #expect(integration.isBuffering == true)
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+            #expect(replayQueue.depth == 0)
+
+            // The post-reset flags reload (not a fresh `/config`) resolves the re-armed buffer.
+            sut.remoteConfig?.onFeatureFlagsLoaded.invoke(nil)
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 2 }
+            #expect(replayQueue.depth == 2)
+        }
+
+        @Test("a failed first remote config still resolves the buffer via the next feature-flags reload")
+        func offlineConfigFailureResolvesViaFeatureFlags() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            replayQueue.add(snapshotEvent("2"))
+            #expect(replayQueue.bufferDepth == 2)
+
+            // Offline launch: the first `/config` attempt fails, so `onRemoteConfigLoaded` never fires
+            // (applyRemoteConfig is skipped) but the attempt is recorded as completed.
+            server.return500 = true
+            sut.remoteConfig?.reloadRemoteConfig()
+            await waitUntil { sut.remoteConfig?.hasFetchedRemoteConfig == true }
+            #expect(integration.isBuffering == true) // still awaiting — applyRemoteConfig didn't run
+
+            // The next flags reload now resolves the buffer from the cached flag (on → migrate).
+            sut.remoteConfig?.onFeatureFlagsLoaded.invoke(nil)
+            await waitUntil { replayQueue.bufferDepth == 0 && replayQueue.depth == 2 }
+            #expect(replayQueue.depth == 2)
+        }
     }
 #endif

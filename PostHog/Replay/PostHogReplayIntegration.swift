@@ -50,7 +50,6 @@
         // Minimum duration buffering state
         private let bufferingLock = NSLock()
         private var hasPassedMinimumDuration: Bool = false
-        private var minimumDurationSessionId: String?
         private var cachedMinimumDuration: TimeInterval?
 
         // First-remote-config buffering state. While the first live `/config` is still pending,

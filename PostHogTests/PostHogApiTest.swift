@@ -64,7 +64,7 @@ enum PostHogApiTests {
 
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
             config.featureFlagRequestMaxRetries = 1
-            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+            let sut = PostHogApi(config)
 
             let resp = await getApiResponse { completion in
                 sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
@@ -220,6 +220,13 @@ enum PostHogApiTests {
 
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
+        @Test("feature flag retry delay starts at 300ms and doubles")
+        func featureFlagRetryDelayStartsAt300msAndDoubles() {
+            #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 1) - 0.3) < 0.0001)
+            #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 2) - 0.6) < 0.0001)
+            #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 3) - 1.2) < 0.0001)
+        }
+
         @Test("retries transient URLSession errors before returning flags")
         func retriesURLSessionErrors() async throws {
             server.reset(flagsCount: 2)
@@ -242,7 +249,7 @@ enum PostHogApiTests {
 
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
             config.featureFlagRequestMaxRetries = 1
-            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+            let sut = PostHogApi(config)
 
             let resp = await getApiResponse { completion in
                 sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
@@ -265,7 +272,7 @@ enum PostHogApiTests {
 
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
             config.featureFlagRequestMaxRetries = 0
-            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+            let sut = PostHogApi(config)
 
             let resp = await getApiResponse { completion in
                 sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
@@ -290,7 +297,7 @@ enum PostHogApiTests {
 
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
             config.featureFlagRequestMaxRetries = 2
-            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+            let sut = PostHogApi(config)
 
             let resp = await getApiResponse { completion in
                 sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
@@ -313,7 +320,7 @@ enum PostHogApiTests {
 
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
             config.featureFlagRequestMaxRetries = 1
-            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+            let sut = PostHogApi(config)
 
             let resp = await getApiResponse { completion in
                 sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in

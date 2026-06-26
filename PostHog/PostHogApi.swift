@@ -46,11 +46,11 @@ class PostHogApi {
     /// Shared so connection pool, TLS state, and HTTP/2 streams survive
     /// between calls instead of being torn down per request.
     private let session: URLSession
-    private let flagsRetryDelay: TimeInterval
 
-    init(_ config: PostHogConfig, flagsRetryDelay: TimeInterval = retryDelay) {
+    static let flagsRetryDelay: TimeInterval = 0.3
+
+    init(_ config: PostHogConfig) {
         self.config = config
-        self.flagsRetryDelay = flagsRetryDelay
 
         // Copy first so SDK mutations don't leak back to the caller's object.
         let sessionConfig = (config.urlSessionConfiguration?.copy() as? URLSessionConfiguration)
@@ -288,7 +288,7 @@ class PostHogApi {
             if let error {
                 if Self.isRetryableFlagsError(error), retryCount < self.config.featureFlagRequestMaxRetries {
                     let nextRetryCount = retryCount + 1
-                    let delay = min(TimeInterval(nextRetryCount) * self.flagsRetryDelay, maxRetryDelay)
+                    let delay = Self.featureFlagsRetryDelay(forFailedAttempt: nextRetryCount)
                     hedgeLog(
                         "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.featureFlagRequestMaxRetries))."
                     )
@@ -328,6 +328,10 @@ class PostHogApi {
                 completion(nil, error)
             }
         }.resume()
+    }
+
+    static func featureFlagsRetryDelay(forFailedAttempt failedAttempt: Int) -> TimeInterval {
+        min(flagsRetryDelay * pow(2.0, TimeInterval(failedAttempt - 1)), maxRetryDelay)
     }
 
     private static func isRetryableFlagsError(_ error: Error) -> Bool {

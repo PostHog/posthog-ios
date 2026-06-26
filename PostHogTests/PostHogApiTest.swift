@@ -280,10 +280,33 @@ enum PostHogApiTests {
             #expect(server.flagsRequests.count == 1)
         }
 
-        @Test("does not retry connection refused errors")
-        func doesNotRetryConnectionRefused() async throws {
+        @Test("stops retrying transient URLSession errors after feature flag request max retries")
+        func stopsRetryingTransientURLSessionErrorsAfterFeatureFlagRequestMaxRetries() async throws {
+            server.reset(flagsCount: 3)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(error: networkError)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 2
+            let sut = PostHogApi(config, flagsRetryDelay: 0.01)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 3)
+        }
+
+        @Test("does not retry non-transient URLSession errors", arguments: [NSURLErrorCannotConnectToHost, NSURLErrorCancelled])
+        func doesNotRetryNonTransientURLSessionErrors(errorCode: Int) async throws {
             server.reset(flagsCount: 1)
-            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
+            let networkError = NSError(domain: NSURLErrorDomain, code: errorCode, userInfo: nil)
             server.flagsResponseHandler = { _ in
                 HTTPStubsResponse(error: networkError)
             }
@@ -305,19 +328,9 @@ enum PostHogApiTests {
             #expect(server.flagsRequests.count == 1)
         }
 
-        @Test("does not retry HTTP 408 responses")
-        func doesNotRetryHTTP408() async throws {
-            try await testFlagsDoesNotRetryHTTPStatus(408)
-        }
-
-        @Test("does not retry HTTP 429 responses")
-        func doesNotRetryHTTP429() async throws {
-            try await testFlagsDoesNotRetryHTTPStatus(429)
-        }
-
-        @Test("does not retry HTTP 500 responses")
-        func doesNotRetryHTTP500() async throws {
-            try await testFlagsDoesNotRetryHTTPStatus(500)
+        @Test("does not retry HTTP error responses", arguments: [408, 429, 500])
+        func doesNotRetryHTTPErrorResponses(statusCode: Int) async throws {
+            try await testFlagsDoesNotRetryHTTPStatus(statusCode)
         }
 
         @Test("with host containing no path")

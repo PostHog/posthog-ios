@@ -252,7 +252,10 @@ app.post("get_feature_flag") { req async throws -> Response in
         "flag_keys_to_evaluate": [flagReq.key],
     ]
 
-    var flagsRequest = URLRequest(url: URL(string: host.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/flags/?v=2")!)
+    guard let flagsURL = URL(string: host.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/flags/?v=2") else {
+        throw Abort(.internalServerError, reason: "Invalid host URL: \(host)")
+    }
+    var flagsRequest = URLRequest(url: flagsURL)
     flagsRequest.httpMethod = "POST"
     flagsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
     flagsRequest.httpBody = try JSONSerialization.data(withJSONObject: flagsPayload)

@@ -17,6 +17,7 @@ import Foundation
     import WatchKit
 #endif
 
+// SDK compliance harness 0.8.0 validates retry timing against this base cadence.
 let retryDelay = 1.0
 let maxRetryDelay = 30.0
 

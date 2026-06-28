@@ -38,6 +38,8 @@ private func processUploadResponse(
 }
 
 class PostHogApi {
+    static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
+
     private let config: PostHogConfig
 
     // default is 60s but we do 10s
@@ -80,7 +82,7 @@ class PostHogApi {
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
         do {
-            return (getURLRequest(url, gzipped: true), try data.gzipped())
+            return (getURLRequest(url, gzipped: true), try Self.gzipData(data))
         } catch {
             hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
             return (getURLRequest(url), data)

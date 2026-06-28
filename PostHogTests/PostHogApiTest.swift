@@ -181,6 +181,21 @@ enum PostHogApiTests {
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
         }
 
+        @Test("/batch falls back to uncompressed when gzip fails")
+        func batchFallsBackToUncompressedWhenGzipFails() async throws {
+            let originalGzipData = PostHogApi.gzipData
+            PostHogApi.gzipData = { _ in throw NSError(domain: "PostHogApiTests", code: 1) }
+            defer { PostHogApi.gzipData = originalGzipData }
+
+            let sut = getSut(host: "http://localhost")
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == nil)
+            #expect(server.parseRequest(request, gzip: false)?["batch"] != nil)
+        }
+
         @Test("/flags does not declare Content-Encoding")
         func flagsDoesNotDeclareGzip() async throws {
             let sut = getSut(host: "http://localhost")

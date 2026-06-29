@@ -38,6 +38,8 @@ private func processUploadResponse(
 }
 
 class PostHogApi {
+    static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
+
     private let config: PostHogConfig
 
     // default is 60s but we do 10s
@@ -78,6 +80,15 @@ class PostHogApi {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
         }
         return request
+    }
+
+    private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
+        do {
+            return (getURLRequest(url, gzipped: true), try Self.gzipData(data))
+        } catch {
+            hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
+            return (getURLRequest(url), data)
+        }
     }
 
     private func getEndpointURL(
@@ -124,8 +135,6 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         let toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
             "api_key": config.projectToken,
@@ -138,15 +147,9 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the batch body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "batch")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: payload) { data, response, error in
             processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -161,8 +164,6 @@ class PostHogApi {
             event.apiKey = config.projectToken
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         let toSend = events.map { $0.toJSON() }
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
@@ -170,15 +171,9 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the snapshot body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "snapshot")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: payload) { data, response, error in
             processUploadResponse(endpointName: "snapshot", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -200,22 +195,14 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
             hedgeLog("Error parsing the logs body")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the logs body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, uploadPayload) = requestAndPayload(url: url, data: data, endpointName: "logs")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: uploadPayload) { data, response, error in
             processUploadResponse(endpointName: "logs", data: data, response: response, error: error, completion: completion)
         }.resume()
     }

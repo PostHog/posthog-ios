@@ -1,5 +1,11 @@
 ## Next
 
+## 3.62.3
+
+### Patch Changes
+
+- c5f5b60: Generate lowercase UUID strings for SDK-created event, anonymous, session, and queue identifiers.
+
 ## 3.62.2
 
 ### Patch Changes

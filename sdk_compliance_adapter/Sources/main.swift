@@ -243,7 +243,7 @@ app.post("get_feature_flag") { req async throws -> Response in
     }
 
     let flagsPayload: [String: Any] = [
-        "token": apiKey,
+        "api_key": apiKey,
         "distinct_id": flagReq.distinctId,
         "person_properties": personProperties,
         "groups": groups,

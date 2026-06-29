@@ -38,28 +38,6 @@ private func processUploadResponse(
     completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil, retryAfter: retryAfter))
 }
 
-private func parseRetryAfter(_ value: String) -> TimeInterval? {
-    if let seconds = TimeInterval(value), seconds >= 0 {
-        return seconds
-    }
-
-    if let date = HTTPDateFormatter.shared.date(from: value) {
-        return max(0, date.timeIntervalSinceNow)
-    }
-
-    return nil
-}
-
-private enum HTTPDateFormatter {
-    static let shared: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
-        return formatter
-    }()
-}
-
 class PostHogApi {
     static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
 

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OHHTTPStubs
 @testable import PostHog
 import Testing
 
@@ -53,6 +54,29 @@ enum PostHogApiTests {
             }
 
             #expect(try #require(resp)["errorsWhileComputingFlags"] as! Bool == false)
+        }
+
+        func testFlagsDoesNotRetryHTTPStatus(_ statusCode: Int) async throws {
+            server.reset(flagsCount: 1)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: ["error": "server error"], statusCode: Int32(statusCode), headers: nil)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 1
+            let sut = PostHogApi(config)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 1)
         }
 
         func testBatchEndpoint(forHost host: String) async throws {
@@ -196,6 +220,126 @@ enum PostHogApiTests {
 
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
+        @Test("feature flag retry delay starts at 300ms and doubles")
+        func featureFlagRetryDelayStartsAt300msAndDoubles() {
+            #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 1) - 0.3) < 0.0001)
+            #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 2) - 0.6) < 0.0001)
+            #expect(abs(PostHogApi.featureFlagsRetryDelay(forFailedAttempt: 3) - 1.2) < 0.0001)
+        }
+
+        @Test("retries transient URLSession errors before returning flags")
+        func retriesURLSessionErrors() async throws {
+            server.reset(flagsCount: 2)
+
+            var requestCount = 0
+            let requestCountLock = NSLock()
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                requestCountLock.lock()
+                requestCount += 1
+                let currentRequestCount = requestCount
+                requestCountLock.unlock()
+
+                if currentRequestCount == 1 {
+                    return HTTPStubsResponse(error: networkError)
+                }
+
+                return HTTPStubsResponse(jsonObject: ["errorsWhileComputingFlags": false], statusCode: 200, headers: nil)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 1
+            let sut = PostHogApi(config)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            #expect(try #require(resp.0)["errorsWhileComputingFlags"] as! Bool == false)
+            #expect(resp.1 == nil)
+            #expect(server.flagsRequests.count == 2)
+        }
+
+        @Test("does not retry when feature flag request max retries is zero")
+        func doesNotRetryWhenFeatureFlagRequestMaxRetriesIsZero() async throws {
+            server.reset(flagsCount: 1)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(error: networkError)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 0
+            let sut = PostHogApi(config)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 1)
+        }
+
+        @Test("stops retrying transient URLSession errors after feature flag request max retries")
+        func stopsRetryingTransientURLSessionErrorsAfterFeatureFlagRequestMaxRetries() async throws {
+            server.reset(flagsCount: 3)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(error: networkError)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 2
+            let sut = PostHogApi(config)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 3)
+        }
+
+        @Test("does not retry non-transient URLSession errors", arguments: [NSURLErrorCannotConnectToHost, NSURLErrorCancelled])
+        func doesNotRetryNonTransientURLSessionErrors(errorCode: Int) async throws {
+            server.reset(flagsCount: 1)
+            let networkError = NSError(domain: NSURLErrorDomain, code: errorCode, userInfo: nil)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(error: networkError)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 1
+            let sut = PostHogApi(config)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            try await Task.sleep(nanoseconds: 50_000_000)
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 1)
+        }
+
+        @Test("does not retry HTTP error responses", arguments: [408, 429, 500])
+        func doesNotRetryHTTPErrorResponses(statusCode: Int) async throws {
+            try await testFlagsDoesNotRetryHTTPStatus(statusCode)
+        }
+
         @Test("with host containing no path")
         func testHostWithNoPath() async throws {
             try await testFlagsEndpoint(forHost: "http://localhost")

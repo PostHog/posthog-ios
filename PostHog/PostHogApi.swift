@@ -47,6 +47,8 @@ class PostHogApi {
     /// between calls instead of being torn down per request.
     private let session: URLSession
 
+    static let flagsRetryDelay: TimeInterval = 0.3
+
     init(_ config: PostHogConfig) {
         self.config = config
 
@@ -273,9 +275,30 @@ class PostHogApi {
             return completion(nil, nil)
         }
 
-        session.uploadTask(with: request, from: data) { data, response, error in
-            if error != nil {
-                hedgeLog("Error calling the flags API: \(String(describing: error))")
+        uploadFlagsRequest(request, payload: data, retryCount: 0, completion: completion)
+    }
+
+    private func uploadFlagsRequest(
+        _ request: URLRequest,
+        payload: Data,
+        retryCount: Int,
+        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+    ) {
+        session.uploadTask(with: request, from: payload) { data, response, error in
+            if let error {
+                if Self.isRetryableFlagsError(error), retryCount < self.config.featureFlagRequestMaxRetries {
+                    let nextRetryCount = retryCount + 1
+                    let delay = Self.featureFlagsRetryDelay(forFailedAttempt: nextRetryCount)
+                    hedgeLog(
+                        "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.featureFlagRequestMaxRetries))."
+                    )
+                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+                        self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)
+                    }
+                    return
+                }
+
+                hedgeLog("Error calling the flags API: \(error)")
                 return completion(nil, error)
             }
 
@@ -305,6 +328,18 @@ class PostHogApi {
                 completion(nil, error)
             }
         }.resume()
+    }
+
+    static func featureFlagsRetryDelay(forFailedAttempt failedAttempt: Int) -> TimeInterval {
+        min(flagsRetryDelay * pow(2.0, TimeInterval(failedAttempt - 1)), maxRetryDelay)
+    }
+
+    private static func isRetryableFlagsError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else {
+            return false
+        }
+        return nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorNetworkConnectionLost
     }
 
     func remoteConfig(

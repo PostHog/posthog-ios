@@ -76,10 +76,20 @@ class PostHogApi {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = defaultTimeout
+        applyCustomHeaders(&request)
         if gzipped {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
         }
         return request
+    }
+
+    /// Applies the caller-supplied `config.requestHeaders` (e.g. an `Authorization` header for a
+    /// reverse proxy) to every request the SDK sends.
+    private func applyCustomHeaders(_ request: inout URLRequest) {
+        guard let requestHeaders = config.requestHeaders else { return }
+        for (key, value) in requestHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
     }
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
@@ -126,6 +136,7 @@ class PostHogApi {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = defaultTimeout
+        applyCustomHeaders(&request)
         return request
     }
 

@@ -233,6 +233,49 @@ enum PostHogApiTests {
         }
     }
 
+    /// Custom `config.requestHeaders` (e.g. an Authorization header for a reverse
+    /// proxy) must be attached to every request the SDK sends.
+    @Suite("Custom request headers")
+    class TestCustomRequestHeaders: BaseTestSuite {
+        func getSut(host: String, requestHeaders: [String: String]?) -> PostHogApi {
+            let config = PostHogConfig(projectToken: "test_project_token", host: host)
+            config.requestHeaders = requestHeaders
+            return PostHogApi(config)
+        }
+
+        @Test("attaches custom headers to /batch requests")
+        func attachesToBatch() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["Authorization": "Bearer test-jwt"])
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-jwt")
+        }
+
+        @Test("attaches custom headers to /flags requests")
+        func attachesToFlags() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["Authorization": "Bearer test-jwt"])
+            _ = await getApiResponse { completion in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { data, _ in
+                    completion(data)
+                }
+            }
+            let request = try #require(server.flagsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-jwt")
+        }
+
+        @Test("does not attach an Authorization header when none is configured")
+        func noHeaderWhenUnset() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: nil)
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        }
+    }
+
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
         @Test("feature flag retry delay starts at 300ms and doubles")

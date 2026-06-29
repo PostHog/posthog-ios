@@ -44,7 +44,7 @@ public class PostHogStorageManager {
 
                 if anonymousId == nil {
                     let uuid = UUID.v7()
-                    anonymousId = idGen(uuid).uuidString
+                    anonymousId = idGen(uuid).postHogUuidString
                     setAnonId(anonymousId ?? "")
                 } else {
                     // update the memory value

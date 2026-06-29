@@ -41,6 +41,35 @@ class UUIDTest: QuickSpec {
             expect(uuid.leastSignificantBits) == -7_503_087_083_654_801_332
         }
 
+        it("generates lowercase UUID strings") {
+            let uuidString = UUID.v7String()
+
+            expect(uuidString).to(match("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$"))
+        }
+
+        it("formats UUID strings as lowercase") {
+            let cases = [
+                (
+                    input: "82CADE9D-1A41-744E-8462-1CDCFDB5B747",
+                    expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
+                ),
+                (
+                    input: "82cade9d-1a41-744e-8462-1cdcfdb5b747",
+                    expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
+                ),
+                (
+                    input: "82CaDe9D-1a41-744e-8462-1cDcFdB5B747",
+                    expected: "82cade9d-1a41-744e-8462-1cdcfdb5b747"
+                ),
+            ]
+
+            for testCase in cases {
+                let uuid = UUID(uuidString: testCase.input)!
+
+                expect(uuid.postHogUuidString).to(equal(testCase.expected))
+            }
+        }
+
         it("test sorted and duplicated") {
             let count = 10000
 

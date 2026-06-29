@@ -49,7 +49,7 @@ class PostHogReplayBufferQueue {
 
     func add(_ contents: Data) {
         do {
-            let filename = UUID.v7().uuidString
+            let filename = UUID.v7String()
             try contents.write(to: queue.appendingPathComponent(filename))
             itemsLock.withLock { items.append(filename) }
         } catch {

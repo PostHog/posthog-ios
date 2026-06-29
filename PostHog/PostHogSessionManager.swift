@@ -216,7 +216,7 @@ import Foundation
             }
         }
 
-        let newSessionId = UUID.v7().uuidString
+        let newSessionId = UUID.v7String()
         setSessionIdInternal(newSessionId, at: timestamp, reason: reason)
         return newSessionId
     }

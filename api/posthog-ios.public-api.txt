@@ -52,6 +52,7 @@ PostHog | PostHogConfig.enableSwizzling | property | @objc var enableSwizzling: 
 PostHog | PostHogConfig.errorTrackingConfig | property | @objc let errorTrackingConfig: PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)errorTrackingConfig
 PostHog | PostHogConfig.evaluationContexts | property | @objc var evaluationContexts: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationContexts
 PostHog | PostHogConfig.evaluationEnvironments | property | @objc var evaluationEnvironments: [String]? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationEnvironments
+PostHog | PostHogConfig.featureFlagRequestMaxRetries | property | @objc var featureFlagRequestMaxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)featureFlagRequestMaxRetries
 PostHog | PostHogConfig.flushAt | property | @objc var flushAt: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)flushAt
 PostHog | PostHogConfig.flushIntervalSeconds | property | @objc var flushIntervalSeconds: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)flushIntervalSeconds
 PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId

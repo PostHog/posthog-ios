@@ -69,7 +69,7 @@ import Foundation
         guard let distinctId = (json["distinct_id"] as? String) ?? (properties["distinct_id"] as? String) else { return nil }
 
         // `message_id` is deprecated and only accepted for backwards compatibility with legacy persisted events.
-        let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7().uuidString
+        let uuid = ((json["uuid"] as? String) ?? (json["message_id"] as? String)) ?? UUID.v7String()
         let uuidObj = UUID(uuidString: uuid) ?? UUID.v7()
 
         // Wire field name remains api_key, but it carries the PostHog project token.
@@ -91,7 +91,7 @@ import Foundation
             "distinct_id": distinctId,
             "properties": properties,
             "timestamp": toISO8601String(timestamp),
-            "uuid": uuid.uuidString,
+            "uuid": uuid.postHogUuidString,
         ]
 
         if let projectToken = apiKey {

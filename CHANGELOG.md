@@ -1,5 +1,11 @@
 ## Next
 
+## 3.62.2
+
+### Patch Changes
+
+- fb59e77: Fall back to uncompressed uploads when local gzip compression fails.
+
 ## 3.62.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.62.4
+
+### Patch Changes
+
+- b9bf252: Retry capture delivery on transient HTTP errors and respect Retry-After responses while preserving queued events across retries.
+
 ## 3.62.3
 
 ### Patch Changes

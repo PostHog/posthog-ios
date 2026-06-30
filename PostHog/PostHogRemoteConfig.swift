@@ -648,6 +648,10 @@ class PostHogRemoteConfig {
             // Persist to disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
         }
+        // Notify observers (e.g. surveys) so a survey already on screen can re-resolve its
+        // language if the user's `language` property changed. Posted outside the lock so
+        // observers don't run while we hold it.
+        NotificationCenter.default.post(name: PostHogSDK.personPropertiesForFlagsDidChange, object: nil)
     }
 
     func resetPersonPropertiesForFlags() {

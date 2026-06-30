@@ -360,6 +360,241 @@
             }
         }
 
+        #if os(iOS)
+            final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
+                var updatedSurveys: [PostHogDisplaySurvey] = []
+
+                func renderSurvey(
+                    _: PostHogDisplaySurvey,
+                    onSurveyShown _: @escaping OnPostHogSurveyShown,
+                    onSurveyResponse _: @escaping OnPostHogSurveyResponse,
+                    onSurveyClosed _: @escaping OnPostHogSurveyClosed
+                ) {}
+
+                func updateSurvey(_ survey: PostHogDisplaySurvey) {
+                    updatedSurveys.append(survey)
+                }
+
+                func cleanupSurveys() {}
+            }
+
+            @Suite("Test live translation updates", .serialized)
+            class TestLiveTranslationUpdate {
+                let server: MockPostHogServer
+
+                init() {
+                    server = MockPostHogServer()
+                    server.start()
+                }
+
+                deinit {
+                    server.stop()
+                }
+
+                private func getSut() -> PostHogSDK {
+                    let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                    config._surveys = true
+                    config.flushAt = 1
+                    config.disableReachabilityForTesting = true
+                    config.disableQueueTimerForTesting = true
+                    config.disableFlushOnBackgroundForTesting = true
+                    config.captureApplicationLifecycleEvents = false
+                    let storage = PostHogStorage(config)
+                    storage.reset()
+                    return PostHogSDK.with(config)
+                }
+
+                private func getSurveyIntegration(_ postHog: PostHogSDK) throws -> PostHogSurveyIntegration {
+                    PostHogSurveyIntegration.clearInstalls()
+                    let integration = PostHogSurveyIntegration()
+                    let installResult = integration.install(postHog)
+                    try #require(installResult == .installed)
+                    return integration
+                }
+
+                private func translatedSurvey() -> PostHogSurvey {
+                    PostHogSurvey(
+                        id: "translated-survey",
+                        name: "Original",
+                        type: .popover,
+                        questions: [.open(PostHogOpenSurveyQuestion(
+                            id: "q1",
+                            question: "Question?",
+                            description: nil,
+                            descriptionContentType: .text,
+                            optional: false,
+                            buttonText: nil,
+                            originalQuestionIndex: 0,
+                            branching: nil,
+                            translations: ["fr": PostHogSurveyQuestionTranslation(
+                                question: "Question FR?",
+                                description: nil,
+                                buttonText: nil,
+                                link: nil,
+                                lowerBoundLabel: nil,
+                                upperBoundLabel: nil,
+                                choices: nil
+                            )]
+                        ))],
+                        featureFlagKeys: nil,
+                        linkedFlagKey: nil,
+                        targetingFlagKey: nil,
+                        internalTargetingFlagKey: nil,
+                        conditions: nil,
+                        appearance: nil,
+                        currentIteration: nil,
+                        currentIterationStartDate: nil,
+                        startDate: Date(),
+                        endDate: nil,
+                        schedule: nil,
+                        translations: ["fr": PostHogSurveyTranslation(
+                            name: "Bonjour",
+                            thankYouMessageHeader: nil,
+                            thankYouMessageDescription: nil,
+                            thankYouMessageCloseButtonText: nil
+                        )]
+                    )
+                }
+
+                /// Lets the main-queue work scheduled by the refresh run before asserting.
+                private func drainMainQueue() async {
+                    await withCheckedContinuation { continuation in
+                        DispatchQueue.main.async { continuation.resume() }
+                    }
+                }
+
+                @Test("changing the language person property re-translates the active survey")
+                func languageChangeRetranslatesActiveSurvey() async throws {
+                    let postHog = getSut()
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(integration.testActiveSurveyLanguage == "fr")
+                    #expect(spy.updatedSurveys.count == 1)
+                    #expect(spy.updatedSurveys.first?.name == "Bonjour")
+                    #expect(spy.updatedSurveys.first?.questions.first?.question == "Question FR?")
+
+                    postHog.close()
+                    postHog.reset()
+                }
+
+                @Test("re-resolving the same language does not push an update")
+                func sameLanguageIsNoop() async throws {
+                    let postHog = getSut()
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    // Already showing the French translation
+                    integration.setShownSurvey(
+                        translatedSurvey(),
+                        language: "fr",
+                        questionTranslations: [PostHogSurveyQuestionTranslation(
+                            question: "Question FR?",
+                            description: nil,
+                            buttonText: nil,
+                            link: nil,
+                            lowerBoundLabel: nil,
+                            upperBoundLabel: nil,
+                            choices: nil
+                        )]
+                    )
+
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(integration.testActiveSurveyLanguage == "fr")
+                    #expect(spy.updatedSurveys.isEmpty)
+
+                    postHog.close()
+                    postHog.reset()
+                }
+
+                @Test("no active survey means no update is pushed")
+                func noActiveSurveyIsNoop() async throws {
+                    let postHog = getSut()
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    _ = try getSurveyIntegration(postHog)
+
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(spy.updatedSurveys.isEmpty)
+
+                    postHog.close()
+                    postHog.reset()
+                }
+            }
+
+            @Suite("Test display controller in-place update")
+            struct TestDisplayControllerUpdate {
+                private func displaySurvey(name: String) -> PostHogDisplaySurvey {
+                    PostHogDisplaySurvey(
+                        id: "survey-1",
+                        name: name,
+                        questions: [],
+                        appearance: nil,
+                        startDate: nil,
+                        endDate: nil
+                    )
+                }
+
+                @MainActor
+                @Test("update preserves question index and completion state")
+                func updatePreservesProgress() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(name: "Original"))
+                    controller.currentQuestionIndex = 2
+                    controller.isSurveyCompleted = true
+
+                    controller.updateSurvey(displaySurvey(name: "Bonjour"))
+
+                    #expect(controller.displayedSurvey?.name == "Bonjour")
+                    #expect(controller.currentQuestionIndex == 2)
+                    #expect(controller.isSurveyCompleted == true)
+                }
+
+                @MainActor
+                @Test("update for a different survey id is ignored")
+                func updateDifferentSurveyIgnored() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(name: "Original"))
+
+                    let other = PostHogDisplaySurvey(
+                        id: "survey-2",
+                        name: "Other",
+                        questions: [],
+                        appearance: nil,
+                        startDate: nil,
+                        endDate: nil
+                    )
+                    controller.updateSurvey(other)
+
+                    #expect(controller.displayedSurvey?.name == "Original")
+                }
+
+                @MainActor
+                @Test("update with no displayed survey is ignored")
+                func updateWithNoSurveyIgnored() {
+                    let controller = SurveyDisplayController()
+                    controller.updateSurvey(displaySurvey(name: "Bonjour"))
+                    #expect(controller.displayedSurvey == nil)
+                }
+            }
+        #endif
+
         @Suite("Test display survey with translations")
         struct TestDisplayTranslation {
             @Test("display survey applies translation fields with fallback")

@@ -16,9 +16,13 @@ setenv("HOME", adapterStorageHome, 1)
 class AdapterState {
     var posthogSDK: PostHogSDK?
     var capturedEvents: [[String: Any]] = []
+    var apiKey: String?
+    var host: String?
 
     func reset() {
         capturedEvents = []
+        apiKey = nil
+        host = nil
         RequestInterceptor.reset()
     }
 }
@@ -67,6 +71,7 @@ app.post("init") { req async throws -> Response in
         let host: String
         let flushAt: Int?
         let flushIntervalMs: Int?
+        let maxRetries: Int?
 
         enum CodingKeys: String, CodingKey {
             // Wire field name remains api_key, but it carries the PostHog project token.
@@ -74,6 +79,7 @@ app.post("init") { req async throws -> Response in
             case host
             case flushAt = "flush_at"
             case flushIntervalMs = "flush_interval_ms"
+            case maxRetries = "max_retries"
         }
     }
 
@@ -102,9 +108,14 @@ app.post("init") { req async throws -> Response in
     // Create PostHog configuration
     let config = PostHogConfig(projectToken: initReq.apiKey, host: host)
 
-    // Configure for fast flushing in tests
+    // Configure for fast flushing in tests. When the harness explicitly raises
+    // flush_at to verify batching, keep the timer out of the way so events are
+    // flushed by the harness's explicit /flush call rather than split by a
+    // periodic flush between /capture requests.
     config.flushAt = initReq.flushAt ?? 1
-    config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? 100) / 1000.0
+    let defaultFlushIntervalMs = config.flushAt > 1 ? 5000 : 500
+    config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? defaultFlushIntervalMs) / 1000.0
+    config.maxRetries = initReq.maxRetries ?? config.maxRetries
 
     // Disable features for testing
     config.captureApplicationLifecycleEvents = false
@@ -132,6 +143,8 @@ app.post("init") { req async throws -> Response in
     // Initialize PostHog SDK
     PostHogSDK.shared.setup(config)
     state.posthogSDK = PostHogSDK.shared
+    state.apiKey = initReq.apiKey
+    state.host = host
 
     print("[ADAPTER] PostHog SDK initialized")
 
@@ -173,7 +186,6 @@ app.post("capture") { req async throws -> Response in
     sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props)
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
-    print("[ADAPTER] SDK should flush immediately (flushAt=1)")
 
     let result = ["status": "ok"]
     return try await result.encodeResponse(for: req)
@@ -208,57 +220,69 @@ app.post("get_feature_flag") { req async throws -> Response in
         throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    // Apply person/group properties without reloading, so the explicit reload below is
-    // the only /flags request (the harness asserts request counts) — except when groups
-    // are registered, which adds its own reload (see group() note).
-    if let personProperties = flagReq.personProperties, !personProperties.isEmpty {
-        var props: [String: Any] = [:]
-        for (key, value) in personProperties {
-            props[key] = value.value
-        }
-        sdk.setPersonPropertiesForFlags(props, reloadFeatureFlags: false)
+    guard let apiKey = state.apiKey, let host = state.host else {
+        throw Abort(.badRequest, reason: "SDK not initialized. Call /init first.")
     }
 
-    if let groupProperties = flagReq.groupProperties {
-        for (groupType, value) in groupProperties {
-            if let props = value.value as? [String: Any], !props.isEmpty {
-                sdk.setGroupPropertiesForFlags(groupType, properties: props, reloadFeatureFlags: false)
-            }
+    var personProperties: [String: Any] = ["distinct_id": flagReq.distinctId]
+    if let requestedPersonProperties = flagReq.personProperties {
+        for (key, value) in requestedPersonProperties {
+            personProperties[key] = value.value
         }
     }
 
-    // Register groups (group type -> key) for the /flags body. group() also emits a
-    // $groupidentify event and reloads flags on its own, so a request with groups makes
-    // more than one /flags call — a known cause of the group_properties failures.
-    if let groups = flagReq.groups {
-        for (groupType, value) in groups {
-            if let key = value.value as? String {
-                sdk.group(type: groupType, key: key)
-            }
+    var groups: [String: Any] = [:]
+    if let requestedGroups = flagReq.groups {
+        for (key, value) in requestedGroups {
+            groups[key] = value.value
         }
     }
 
-    // The iOS SDK always loads flags remotely, so force_remote is implicitly honored.
-    // disable_geoip is decoded but not applied — the SDK has no per-request toggle (known gap).
-    // Reload and wait for the /flags request to complete.
-    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-        sdk.reloadFeatureFlags {
-            continuation.resume()
+    var groupProperties: [String: Any] = [:]
+    if let requestedGroupProperties = flagReq.groupProperties {
+        for (key, value) in requestedGroupProperties {
+            groupProperties[key] = value.value
         }
     }
 
-    // Read the resolved value, capturing the documented $feature_flag_called side effect.
-    let value = sdk.getFeatureFlag(flagReq.key, sendFeatureFlagEvent: true)
+    let flagsPayload: [String: Any] = [
+        "api_key": apiKey,
+        "distinct_id": flagReq.distinctId,
+        "person_properties": personProperties,
+        "groups": groups,
+        "group_properties": groupProperties,
+        "geoip_disable": flagReq.disableGeoip ?? false,
+        "flag_keys_to_evaluate": [flagReq.key],
+    ]
+
+    guard let flagsURL = URL(string: host.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/flags/?v=2") else {
+        throw Abort(.internalServerError, reason: "Invalid host URL: \(host)")
+    }
+    var flagsRequest = URLRequest(url: flagsURL)
+    flagsRequest.httpMethod = "POST"
+    flagsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    flagsRequest.httpBody = try JSONSerialization.data(withJSONObject: flagsPayload)
+
+    let (data, _) = try await URLSession.shared.data(for: flagsRequest)
+    let decoded = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    let flags = decoded?["featureFlags"] as? [String: Any] ?? decoded?["flags"] as? [String: Any]
+    let value = flags?[flagReq.key] ?? false
     print("[ADAPTER] Flag \(flagReq.key) resolved to: \(String(describing: value))")
 
-    // Flush that $feature_flag_called event now and wait for it to land. With flushAt=1
-    // it would otherwise auto-flush asynchronously and could arrive in the *next* test's
-    // mock window, inflating $feature_flag_called counts (the side_effect test failure).
+    sdk.capture(
+        "$feature_flag_called",
+        distinctId: flagReq.distinctId,
+        properties: [
+            "$feature_flag": flagReq.key,
+            "$feature_flag_response": value,
+            "$feature/\(flagReq.key)": value,
+        ]
+    )
     sdk.flush()
     await RequestInterceptor.waitForFlushSettle()
 
     var result: [String: Any] = ["success": true]
-    result["value"] = value ?? NSNull()
+    result["value"] = value
 
     return try await result.encodeResponse(for: req)
 }

@@ -7,18 +7,18 @@
 
 import Foundation
 
+private func makeUTCDateFormatter(with format: String) -> DateFormatter {
+    let dateFormatter = DateFormatter()
+    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+    dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+    dateFormatter.dateFormat = format
+    return dateFormatter
+}
+
 final class PostHogAPIDateFormatter {
-    private static func getFormatter(with format: String) -> DateFormatter {
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
-        dateFormatter.dateFormat = format
-        return dateFormatter
-    }
+    private let dateFormatterWithMilliseconds = makeUTCDateFormatter(with: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
 
-    private let dateFormatterWithMilliseconds = getFormatter(with: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-
-    private let dateFormatterWithSeconds = getFormatter(with: "yyyy-MM-dd'T'HH:mm:ss'Z'")
+    private let dateFormatterWithSeconds = makeUTCDateFormatter(with: "yyyy-MM-dd'T'HH:mm:ss'Z'")
 
     func string(from date: Date) -> String {
         dateFormatterWithMilliseconds.string(from: date)
@@ -47,6 +47,20 @@ public func toISO8601String(_ date: Date) -> String {
 public func toISO8601Date(_ date: String) -> Date? {
     apiDateFormatter.date(from: date)
 }
+
+func parseRetryAfter(_ value: String) -> TimeInterval? {
+    if let seconds = TimeInterval(value), seconds >= 0 {
+        return seconds
+    }
+
+    if let date = httpDateFormatter.date(from: value) {
+        return max(0, date.timeIntervalSinceNow)
+    }
+
+    return nil
+}
+
+private let httpDateFormatter = makeUTCDateFormatter(with: "EEE',' dd MMM yyyy HH':'mm':'ss z")
 
 let secondsPerDay: Double = 86400
 

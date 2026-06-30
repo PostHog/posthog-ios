@@ -31,6 +31,7 @@ class RequestInterceptor: URLProtocol {
 
     private static let condition = NSCondition()
     private static var _inFlightCount = 0
+    private static let proxySession = URLSession(configuration: .default)
 
     static var inFlightCount: Int {
         condition.lock()
@@ -123,18 +124,23 @@ class RequestInterceptor: URLProtocol {
         let request = self.request
         print("[INTERCEPTOR] startLoading called for: \(request.url?.absoluteString ?? "nil")")
 
-        // Capture the request body BEFORE sending (for upload tasks, httpBody contains the gzipped data)
-        let requestBody = request.httpBody
+        // Capture the request body BEFORE sending. Upload tasks may provide the body
+        // as a stream rather than httpBody, so normalize it onto the proxied request.
+        let requestBody = Self.extractBody(from: request)
+        var proxiedRequest = request
+        if proxiedRequest.httpBody == nil, let requestBody {
+            proxiedRequest.httpBody = requestBody
+        }
 
-        // Create a URLSession to actually perform the request
-        // IMPORTANT: Use .default to avoid recursion (our custom config is only for PostHog SDK)
-        let session = URLSession(configuration: .default)
-        let task = session.dataTask(with: request) { [weak self] data, response, error in
+        // Actually perform the request. Keep the proxy session alive for the process;
+        // a local URLSession can be deallocated while the task is still running, which
+        // leaves /flush waiting forever for in-flight interception to settle.
+        let task = Self.proxySession.dataTask(with: proxiedRequest) { [weak self] data, response, error in
             // Decrement only after every URLProtocol client callback has fired, so the SDK
             // has fully processed the response (including any sync retry/queue hand-off)
             // before waitForFlushSettle can see in-flight = 0.
             defer { Self.decrementInFlight() }
-            print("[INTERCEPTOR] Task completed for: \(request.url?.absoluteString ?? "nil"), error: \(error?.localizedDescription ?? "none")")
+            print("[INTERCEPTOR] Task completed for: \(proxiedRequest.url?.absoluteString ?? "nil"), error: \(error?.localizedDescription ?? "none")")
             guard let self = self else { return }
 
             if let error = error {
@@ -148,13 +154,13 @@ class RequestInterceptor: URLProtocol {
             }
 
             // Track the request (pass the captured body)
-            self.trackRequest(request: request, response: httpResponse, requestBody: requestBody)
+            self.trackRequest(request: proxiedRequest, response: httpResponse, requestBody: requestBody)
 
-            // Forward the response to the client
+            // Forward the response to the client in URLProtocol's expected order.
+            self.client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
             if let data = data {
                 self.client?.urlProtocol(self, didLoad: data)
             }
-            self.client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
             self.client?.urlProtocolDidFinishLoading(self)
         }
         Self.incrementInFlight()
@@ -163,6 +169,35 @@ class RequestInterceptor: URLProtocol {
 
     override func stopLoading() {
         // Nothing to do
+    }
+
+    private static func extractBody(from request: URLRequest) -> Data? {
+        if let body = request.httpBody {
+            return body
+        }
+
+        guard let stream = request.httpBodyStream else {
+            return nil
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        let bufferSize = 16 * 1024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while stream.hasBytesAvailable {
+            let read = stream.read(buffer, maxLength: bufferSize)
+            if read > 0 {
+                data.append(buffer, count: read)
+            } else {
+                break
+            }
+        }
+
+        return data.isEmpty ? nil : data
     }
 
     private func trackRequest(request: URLRequest, response: HTTPURLResponse, requestBody: Data?) {

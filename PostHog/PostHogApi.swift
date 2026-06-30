@@ -34,7 +34,8 @@ private func processUploadResponse(
         hedgeLog("\(endpointName) sent successfully.")
     }
 
-    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil))
+    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(parseRetryAfter)
+    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil, retryAfter: retryAfter))
 }
 
 class PostHogApi {

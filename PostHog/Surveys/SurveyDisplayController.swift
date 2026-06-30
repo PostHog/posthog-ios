@@ -34,8 +34,12 @@
         ///
         /// No-op if no survey is displayed or the update targets a different survey.
         func updateSurvey(_ survey: PostHogDisplaySurvey) {
-            guard let displayedSurvey, displayedSurvey.id == survey.id else {
-                hedgeLog("[Surveys] Received an update for a non-displayed survey. Skipping")
+            guard let displayedSurvey else {
+                hedgeLog("[Surveys] Received an update but no survey is displayed. Skipping")
+                return
+            }
+            guard displayedSurvey.id == survey.id else {
+                hedgeLog("[Surveys] Received an update for a different survey than the one displayed. Skipping")
                 return
             }
 

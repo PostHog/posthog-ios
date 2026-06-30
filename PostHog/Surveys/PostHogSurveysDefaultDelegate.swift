@@ -112,7 +112,10 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
 
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self else { return }
-                guard self.pendingSurvey?.id == survey.id else {
+                // Read the latest pending copy: `updateSurvey` may have replaced it with a
+                // re-translated version (same id) while the delay was counting down. Showing
+                // the captured `survey` here would drop that update.
+                guard let pending = self.pendingSurvey, pending.id == survey.id else {
                     // current survey?
                     return
                 }
@@ -120,7 +123,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
                 self.pendingDisplayWorkItem = nil
                 self.pendingSurvey = nil
                 self.pendingSurveyClosedHandler = nil
-                displayController.showSurvey(survey)
+                displayController.showSurvey(pending)
             }
 
             pendingDisplayWorkItem = workItem

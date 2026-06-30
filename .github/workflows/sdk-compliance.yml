@@ -98,7 +98,7 @@ jobs:
           # Run tests via docker-compose
           # Test harness connects to adapter via host.docker.internal:8080
           # Mock server runs in Docker, accessible via localhost:8081
-          REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit
+          REPORT_DIR=${{ github.workspace }}/report docker-compose up --abort-on-container-exit --exit-code-from test-harness
 
           # Capture exit code
           TEST_EXIT_CODE=$?

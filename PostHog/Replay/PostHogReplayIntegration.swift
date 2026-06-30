@@ -56,8 +56,10 @@
         // snapshots are buffered (not persisted) so a stale cached flag can't record a window the
         // fresh config disallows. All reads/writes are guarded by `bufferingLock`.
         private var awaitingFirstRemoteConfig: Bool = false
-        // Latched once any `/config` attempt completes; never reset, so a buffer re-armed after reset()
-        // (which reloads flags but not `/config`) can still resolve from a later flags reload.
+        // Latched true once a `/config` attempt has been observed as complete: immediately when one
+        // succeeds (via `applyRemoteConfig`), or on the next flags reload that sees `hasFetchedRemoteConfig`
+        // after a failed attempt. Lets a buffer still awaiting after a failed first `/config` resolve from
+        // a later flags reload.
         private var didResolveRemoteConfig: Bool = false
 
         /**
@@ -433,9 +435,10 @@
         }
 
         /// Resets buffering state for a new session — clears the buffer, marks as not yet passed
-        /// minimum duration, and re-arms the first-remote-config gate when a fresh config is pending
-        /// (e.g. after reset(), which clears `remoteConfigDidFetch`). On a plain session rotation the
-        /// config has already been fetched, so the gate stays disarmed and recording is not buffered.
+        /// minimum duration, and re-arms the first-remote-config gate only while the first `/config`
+        /// is still pending (e.g. a session rotation during an offline cold start). Once any `/config`
+        /// attempt has completed the gate stays disarmed — including across reset(), which keeps the
+        /// fetched config — so recording is not re-buffered.
         private func resetBufferingState(for _: PostHogSDK) {
             let awaiting = shouldAwaitFirstRemoteConfig()
             bufferingLock.withLock {
@@ -477,14 +480,26 @@
             let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
 
             // Mark the authoritative `/config` as resolved (lets the feature-flags path resolve the
-            // buffer after reset()), remembering whether this was the first one.
+            // buffer after a failed first attempt), remembering whether this was the first one.
             let wasFirstRemoteConfig = bufferingLock.withLock { () -> Bool in
                 let first = !didResolveRemoteConfig
                 didResolveRemoteConfig = true
                 return first
             }
 
-            resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+            // For linkedFlag-gated recording the flag value isn't fresh at `/config` — `/flags` lands
+            // just after and re-evaluates it. Defer the first-config buffer resolve to that imminent
+            // `/flags` reload so the opening window isn't migrated on a stale flag. Only defer when a
+            // `/flags` reload will actually follow (preloadFeatureFlags); otherwise resolve here against
+            // the cached flag, since nothing else would ever resolve the buffer (it would buffer then
+            // drop the whole session).
+            let deferToFeatureFlags = wasFirstRemoteConfig
+                && (postHog?.config.preloadFeatureFlags ?? false)
+                && (postHog?.remoteConfig?.isRecordingGatedOnLinkedFlag() ?? false)
+
+            if !deferToFeatureFlags {
+                resolveFirstRemoteConfigBuffer(flagActive: flagActive)
+            }
 
             if !flagActive, !wasFirstRemoteConfig {
                 // A later `/config` turning the flag off is a genuine mid-session disable (flags are
@@ -510,11 +525,25 @@
 
             guard wasAwaiting else { return }
 
-            if !flagActive {
-                replayQueue?.clearBuffer()
-            } else if let replayQueue {
+            // Keep the buffered opening window only if this session is recordable under the fresh
+            // config — flag on, still sampled in, and not gated behind a not-yet-fired event trigger.
+            // A stale cache that recorded the window for a session the fresh config now excludes (sampled
+            // out, or newly trigger-gated) must drop it, not migrate it, or it leaks against the fresh
+            // policy — `start()` enforces the same gates. These mirror the flag-off discard path.
+            if flagActive, isCurrentSessionSampledIn(), !shouldWaitForEventTriggers(), let replayQueue {
                 migrateBufferIfMinimumDurationMet(replayQueue)
+            } else {
+                replayQueue?.clearBuffer()
             }
+        }
+
+        private func isCurrentSessionSampledIn() -> Bool {
+            guard let postHog,
+                  let sessionId = postHog.sessionManager.getSessionId(readOnly: true)
+            else {
+                return false
+            }
+            return shouldRecordSession(postHog: postHog, sessionId: sessionId)
         }
 
         /// Migrates the buffer to the persisted queue when it should be flushed now — no minimum
@@ -537,20 +566,30 @@
             replayQueue.migrateBufferToQueue()
         }
 
-        /// Resolves the buffer from a feature-flags reload — the path that resolves the re-armed buffer
-        /// after reset() (which reloads `/flags` but not `/config`) and after a failed first `/config`
-        /// (offline launch). Only acts once a `/config` attempt has completed, so it never resolves
-        /// from a pre-`/config` cache; the capturer self-gates on a flag-off, so no stop() is needed here.
+        /// Resolves the buffer from a feature-flags reload — covers two paths:
+        /// (a) the **fallback** path after a failed first `/config` (offline launch), where
+        /// `applyRemoteConfig` never runs but a `/flags` reload still fires, and
+        /// (b) the **linkedFlag-deferred** path where the first `/config` succeeded but routed the
+        /// buffer resolve to the imminent `/flags` reload (the linkedFlag value isn't fresh until then).
+        /// Only acts once a `/config` attempt has completed, so it never resolves from a
+        /// pre-`/config` cache. The capturer self-gates on flag-off, so no stop() is needed here.
         private func resolveBufferFromFeatureFlags() {
             // A completed `/config` attempt (success or failure) makes the cached recording config as
-            // fresh as it will get; latch that locally so later reloads can still resolve even though
-            // reset() clears `hasFetchedRemoteConfig`.
+            // fresh as it will get; latch that locally so later reloads can still resolve.
             let configAttempted = postHog?.remoteConfig?.hasFetchedRemoteConfig == true
-            let canResolve = bufferingLock.withLock { () -> Bool in
+            // `wasResolved == false && canResolve == true` means applyRemoteConfig never ran for this
+            // process — i.e. the first /config attempt terminally failed and this is the fallback path.
+            let (canResolve, isFallback) = bufferingLock.withLock { () -> (Bool, Bool) in
+                let wasResolved = didResolveRemoteConfig
                 if configAttempted { didResolveRemoteConfig = true }
-                return didResolveRemoteConfig && awaitingFirstRemoteConfig
+                let canResolve = didResolveRemoteConfig && awaitingFirstRemoteConfig
+                return (canResolve, canResolve && !wasResolved)
             }
             guard canResolve else { return }
+
+            if isFallback {
+                hedgeLog("[Session Replay] First /config attempt did not complete. Falling back to the disk-cached recording config.")
+            }
 
             let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
             resolveFirstRemoteConfigBuffer(flagActive: flagActive)

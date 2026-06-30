@@ -67,7 +67,13 @@ class PostHogApi {
         headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
         headers["Accept-Encoding"] = "gzip"
         sessionConfig.httpAdditionalHeaders = headers
-        session = URLSession(configuration: sessionConfig)
+        // Strip custom headers on cross-host redirects so they don't leak to another origin.
+        if let requestHeaders = config.requestHeaders, !requestHeaders.isEmpty {
+            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(requestHeaders.keys))
+            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
+        } else {
+            session = URLSession(configuration: sessionConfig)
+        }
     }
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
@@ -83,11 +89,12 @@ class PostHogApi {
         return request
     }
 
-    /// Applies the caller-supplied `config.requestHeaders` (e.g. an `Authorization` header for a
-    /// reverse proxy) to every request the SDK sends.
+    /// Applies `config.requestHeaders` to requests for the configured host. SDK-set headers take
+    /// precedence, and requests to rewritten hosts (e.g. the static-config CDN) are skipped.
     private func applyCustomHeaders(_ request: inout URLRequest) {
         guard let requestHeaders = config.requestHeaders else { return }
-        for (key, value) in requestHeaders {
+        guard request.url?.host == config.host.host else { return }
+        for (key, value) in requestHeaders where request.value(forHTTPHeaderField: key) == nil {
             request.setValue(value, forHTTPHeaderField: key)
         }
     }
@@ -402,4 +409,33 @@ extension PostHogApi {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return decoder
     }()
+}
+
+/// Strips custom headers on redirects that leave the configured host.
+private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDelegate {
+    private let allowedHost: String?
+    private let headerKeys: [String]
+
+    init(allowedHost: String?, headerKeys: [String]) {
+        self.allowedHost = allowedHost
+        self.headerKeys = headerKeys
+    }
+
+    func urlSession(
+        _: URLSession,
+        task _: URLSessionTask,
+        willPerformHTTPRedirection _: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard request.url?.host != allowedHost else {
+            completionHandler(request)
+            return
+        }
+        var redirected = request
+        for key in headerKeys {
+            redirected.setValue(nil, forHTTPHeaderField: key)
+        }
+        completionHandler(redirected)
+    }
 }

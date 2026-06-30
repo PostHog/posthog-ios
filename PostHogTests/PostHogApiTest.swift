@@ -7,6 +7,7 @@
 
 import Foundation
 import OHHTTPStubs
+import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
 
@@ -233,8 +234,6 @@ enum PostHogApiTests {
         }
     }
 
-    /// Custom `config.requestHeaders` (e.g. an Authorization header for a reverse
-    /// proxy) must be attached to every request the SDK sends.
     @Suite("Custom request headers")
     class TestCustomRequestHeaders: BaseTestSuite {
         func getSut(host: String, requestHeaders: [String: String]?) -> PostHogApi {
@@ -273,6 +272,53 @@ enum PostHogApiTests {
             }
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        }
+    }
+
+    @Suite("Custom request headers host scoping", .serialized)
+    final class TestCustomRequestHeadersHostScoping {
+        init() {
+            HTTPStubs.removeAllStubs()
+        }
+        deinit { HTTPStubs.removeAllStubs() }
+
+        @Test("does not send custom headers to the rewritten static-config host")
+        func skipsRewrittenConfigHost() async throws {
+            let captured = CapturedRequestBox()
+            stub(condition: isHost("us-assets.i.posthog.com")) { request in
+                captured.set(request)
+                return HTTPStubsResponse(jsonObject: [:], statusCode: 200, headers: nil)
+            }
+            let config = PostHogConfig(projectToken: "test_project_token", host: "https://us.i.posthog.com")
+            config.requestHeaders = ["Authorization": "Bearer test-jwt"]
+            let sut = PostHogApi(config)
+
+            await withCheckedContinuation { continuation in
+                sut.remoteConfig { _, _ in continuation.resume() }
+            }
+
+            #expect(captured.request?.value(forHTTPHeaderField: "Authorization") == nil)
+        }
+
+        @Test("strips custom headers on a redirect to a different host")
+        func stripsHeadersOnCrossHostRedirect() async throws {
+            let captured = CapturedRequestBox()
+            stub(condition: isHost("proxy.example.com")) { _ in
+                HTTPStubsResponse(data: Data(), statusCode: 307, headers: ["Location": "https://other.example.com/flags"])
+            }
+            stub(condition: isHost("other.example.com")) { request in
+                captured.set(request)
+                return HTTPStubsResponse(jsonObject: ["featureFlags": [:]], statusCode: 200, headers: nil)
+            }
+            let config = PostHogConfig(projectToken: "test_project_token", host: "https://proxy.example.com")
+            config.requestHeaders = ["Authorization": "Bearer test-jwt"]
+            let sut = PostHogApi(config)
+
+            await withCheckedContinuation { continuation in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { _, _ in continuation.resume() }
+            }
+
+            #expect(captured.request?.value(forHTTPHeaderField: "Authorization") == nil)
         }
     }
 
@@ -432,5 +478,18 @@ enum PostHogApiTests {
         func testHostWithPortNumberAndTrailingSlash() async throws {
             try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
+    }
+}
+
+private final class CapturedRequestBox {
+    private let lock = NSLock()
+    private var stored: URLRequest?
+
+    var request: URLRequest? {
+        lock.withLock { stored }
+    }
+
+    func set(_ request: URLRequest) {
+        lock.withLock { stored = request }
     }
 }

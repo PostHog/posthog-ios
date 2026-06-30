@@ -42,6 +42,10 @@ class PostHogApi {
 
     private let config: PostHogConfig
 
+    /// Snapshot taken at init so the per-request and redirect paths stay consistent even if the
+    /// caller mutates `config.requestHeaders` afterwards.
+    private let customRequestHeaders: [String: String]
+
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
 
@@ -53,6 +57,7 @@ class PostHogApi {
 
     init(_ config: PostHogConfig) {
         self.config = config
+        customRequestHeaders = config.requestHeaders ?? [:]
 
         // Copy first so SDK mutations don't leak back to the caller's object.
         let sessionConfig = (config.urlSessionConfiguration?.copy() as? URLSessionConfiguration)
@@ -68,11 +73,11 @@ class PostHogApi {
         headers["Accept-Encoding"] = "gzip"
         sessionConfig.httpAdditionalHeaders = headers
         // Strip custom headers on cross-host redirects so they don't leak to another origin.
-        if let requestHeaders = config.requestHeaders, !requestHeaders.isEmpty {
-            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(requestHeaders.keys))
-            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
-        } else {
+        if customRequestHeaders.isEmpty {
             session = URLSession(configuration: sessionConfig)
+        } else {
+            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(customRequestHeaders.keys))
+            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
         }
     }
 
@@ -89,12 +94,11 @@ class PostHogApi {
         return request
     }
 
-    /// Applies `config.requestHeaders` to requests for the configured host. SDK-set headers take
+    /// Applies the custom headers to requests for the configured host. SDK-set headers take
     /// precedence, and requests to rewritten hosts (e.g. the static-config CDN) are skipped.
     private func applyCustomHeaders(_ request: inout URLRequest) {
-        guard let requestHeaders = config.requestHeaders else { return }
-        guard request.url?.host == config.host.host else { return }
-        for (key, value) in requestHeaders where request.value(forHTTPHeaderField: key) == nil {
+        guard !customRequestHeaders.isEmpty, request.url?.host == config.host.host else { return }
+        for (key, value) in customRequestHeaders where request.value(forHTTPHeaderField: key) == nil {
             request.setValue(value, forHTTPHeaderField: key)
         }
     }

@@ -356,6 +356,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Custom headers to send with every request to the PostHog API.
     /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Read once when the SDK is set up; changes after setup are ignored.
     @objc public var requestHeaders: [String: String]?
 
     // only internal

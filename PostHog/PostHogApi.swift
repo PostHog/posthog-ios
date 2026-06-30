@@ -98,10 +98,20 @@ class PostHogApi {
     /// precedence, and requests to rewritten hosts (e.g. the static-config CDN) are skipped.
     private func applyCustomHeaders(_ request: inout URLRequest) {
         guard !customRequestHeaders.isEmpty, request.url?.host == config.host.host else { return }
-        for (key, value) in customRequestHeaders where request.value(forHTTPHeaderField: key) == nil {
+        for (key, value) in customRequestHeaders
+            where request.value(forHTTPHeaderField: key) == nil
+            && !Self.reservedHeaderKeys.contains(key.lowercased())
+        {
             request.setValue(value, forHTTPHeaderField: key)
         }
     }
+
+    /// Headers the SDK manages itself; custom values for these are ignored. Compared
+    /// case-insensitively since HTTP header names are case-insensitive. `Content-Type`,
+    /// `User-Agent`, and `Accept-Encoding` are set on the session; `Content-Encoding` per request.
+    private static let reservedHeaderKeys: Set<String> = [
+        "content-type", "user-agent", "accept-encoding", "content-encoding",
+    ]
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
         do {

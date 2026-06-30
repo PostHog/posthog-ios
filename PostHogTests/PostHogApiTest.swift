@@ -273,6 +273,17 @@ enum PostHogApiTests {
             let request = try #require(server.batchRequests.first)
             #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         }
+
+        @Test("does not let custom headers override SDK-managed headers")
+        func doesNotOverrideSDKManagedHeaders() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["content-type": "text/plain", "User-Agent": "evil"])
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Type") != "text/plain")
+            #expect(request.value(forHTTPHeaderField: "User-Agent") != "evil")
+        }
     }
 
     @Suite("Custom request headers host scoping", .serialized)

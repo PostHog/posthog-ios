@@ -42,8 +42,7 @@ class PostHogApi {
 
     private let config: PostHogConfig
 
-    /// Snapshot taken at init so the per-request and redirect paths stay consistent even if the
-    /// caller mutates `config.requestHeaders` afterwards.
+    /// Snapshot at init; treated as immutable after setup.
     private let customRequestHeaders: [String: String]
 
     // default is 60s but we do 10s
@@ -94,8 +93,7 @@ class PostHogApi {
         return request
     }
 
-    /// Applies the custom headers to requests for the configured host. SDK-set headers take
-    /// precedence, and requests to rewritten hosts (e.g. the static-config CDN) are skipped.
+    /// Adds custom headers to requests for the configured host, skipping SDK-managed keys.
     private func applyCustomHeaders(_ request: inout URLRequest) {
         guard !customRequestHeaders.isEmpty, request.url?.host == config.host.host else { return }
         for (key, value) in customRequestHeaders
@@ -106,9 +104,7 @@ class PostHogApi {
         }
     }
 
-    /// Headers the SDK manages itself; custom values for these are ignored. Compared
-    /// case-insensitively since HTTP header names are case-insensitive. `Content-Type`,
-    /// `User-Agent`, and `Accept-Encoding` are set on the session; `Content-Encoding` per request.
+    /// SDK-managed headers that custom values can't override (compared lowercase).
     private static let reservedHeaderKeys: Set<String> = [
         "content-type", "user-agent", "accept-encoding", "content-encoding",
     ]

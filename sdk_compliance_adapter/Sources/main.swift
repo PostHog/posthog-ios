@@ -108,9 +108,13 @@ app.post("init") { req async throws -> Response in
     // Create PostHog configuration
     let config = PostHogConfig(projectToken: initReq.apiKey, host: host)
 
-    // Configure for fast flushing in tests
+    // Configure for fast flushing in tests. When the harness explicitly raises
+    // flush_at to verify batching, keep the timer out of the way so events are
+    // flushed by the harness's explicit /flush call rather than split by a
+    // periodic flush between /capture requests.
     config.flushAt = initReq.flushAt ?? 1
-    config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? 100) / 1000.0
+    let defaultFlushIntervalMs = config.flushAt > 1 ? 5000 : 500
+    config.flushIntervalSeconds = TimeInterval(initReq.flushIntervalMs ?? defaultFlushIntervalMs) / 1000.0
     config.maxRetries = initReq.maxRetries ?? config.maxRetries
 
     // Disable features for testing
@@ -182,7 +186,6 @@ app.post("capture") { req async throws -> Response in
     sdk.capture(captureReq.event, distinctId: captureReq.distinctId, properties: props)
 
     print("[ADAPTER] Event captured: \(captureReq.event)")
-    print("[ADAPTER] SDK should flush immediately (flushAt=1)")
 
     let result = ["status": "ok"]
     return try await result.encodeResponse(for: req)

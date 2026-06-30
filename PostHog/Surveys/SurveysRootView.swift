@@ -15,15 +15,12 @@
         var body: some View {
             Color.clear
                 .allowsHitTesting(false)
-                .sheet(item: displayBinding) { survey in
-                    SurveySheet(
-                        survey: survey,
-                        isSurveyCompleted: displayManager.isSurveyCompleted,
-                        currentQuestionIndex: displayManager.currentQuestionIndex,
-                        onClose: displayManager.dismissSurvey,
-                        onNextQuestionClicked: displayManager.onNextQuestion
-                    )
-                    .environment(\.colorScheme, .light) // enforce light theme for now
+                .sheet(item: displayBinding) { _ in
+                    // Drive the sheet content from the display controller (not the snapshot
+                    // passed by `.sheet(item:)`) so in-place updates — like a survey being
+                    // re-translated after a language change — are reflected live.
+                    SurveySheet(displayManager: displayManager)
+                        .environment(\.colorScheme, .light) // enforce light theme for now
                 }
         }
 

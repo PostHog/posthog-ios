@@ -29,6 +29,19 @@
             onSurveyShown?(survey)
         }
 
+        /// Replaces the content of the survey currently on screen (e.g. with a new translation)
+        /// without resetting the current question, completion state, or any in-progress answers.
+        ///
+        /// No-op if no survey is displayed or the update targets a different survey.
+        func updateSurvey(_ survey: PostHogDisplaySurvey) {
+            guard let displayedSurvey, displayedSurvey.id == survey.id else {
+                hedgeLog("[Surveys] Received an update for a non-displayed survey. Skipping")
+                return
+            }
+
+            self.displayedSurvey = survey
+        }
+
         func onNextQuestion(index: Int, response: PostHogSurveyResponse) {
             guard let displayedSurvey else { return }
             guard let next = onSurveyResponse?(displayedSurvey, index, response) else { return }

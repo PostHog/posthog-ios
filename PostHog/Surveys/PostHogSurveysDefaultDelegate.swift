@@ -49,6 +49,20 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         #endif
     }
 
+    func updateSurvey(_ survey: PostHogDisplaySurvey) {
+        #if os(iOS)
+            guard #available(iOS 15.0, *) else { return }
+
+            // If the survey is still waiting out its display delay, refresh the queued copy so
+            // it gets shown with the latest content.
+            if pendingSurvey?.id == survey.id {
+                pendingSurvey = survey
+            }
+
+            displayController?.updateSurvey(survey)
+        #endif
+    }
+
     func cleanupSurveys() {
         #if os(iOS)
             dismissPendingSurveyIfNeeded()

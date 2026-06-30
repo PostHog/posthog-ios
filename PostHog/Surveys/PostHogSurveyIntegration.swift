@@ -42,6 +42,7 @@
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
+        private var personPropertiesChangedObserver: NSObjectProtocol?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -66,6 +67,18 @@
         }
 
         func start() {
+            // Re-resolve the language of a survey already on screen whenever the person
+            // properties used for flags change (e.g. the user's `language` is updated). Not
+            // gated on `os(iOS)` so the resolution logic stays exercised under TESTING; the
+            // actual UI update is a no-op off iOS.
+            personPropertiesChangedObserver = NotificationCenter.default.addObserver(
+                forName: PostHogSDK.personPropertiesForFlagsDidChange,
+                object: nil,
+                queue: nil
+            ) { [weak self] _ in
+                self?.refreshActiveSurveyTranslations()
+            }
+
             #if os(iOS)
                 // Subscribe to event captures
                 eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
@@ -87,6 +100,10 @@
             eventCapturedToken = nil
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
+            if let personPropertiesChangedObserver {
+                NotificationCenter.default.removeObserver(personPropertiesChangedObserver)
+                self.personPropertiesChangedObserver = nil
+            }
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     config?.surveysConfig.surveysDelegate.cleanupSurveys()
@@ -316,6 +333,45 @@
                     }
                 }
             #endif
+        }
+
+        /// Re-resolves the language of the survey currently on screen and, if it changed,
+        /// pushes the freshly translated content to the delegate for an in-place update.
+        ///
+        /// Triggered when the person properties used for flags change (e.g. the user's
+        /// `language` property is updated while a survey is displayed). No-op when no survey
+        /// is active or the resolved language is unchanged, so it never re-stamps
+        /// `$survey_language` or re-renders when nothing visible would change.
+        private func refreshActiveSurveyTranslations() {
+            let activeSurvey = activeSurveyLock.withLock { self.activeSurvey }
+            guard let activeSurvey else { return }
+
+            let language = resolveDisplayLanguage()
+            let translations = resolveSurveyTranslations(survey: activeSurvey, targetLanguage: language)
+
+            // Commit the new translation only if it targets a different language than what's
+            // currently shown (and the active survey hasn't changed underneath us).
+            let didChange: Bool = activeSurveyLock.withLock {
+                guard self.activeSurvey?.id == activeSurvey.id else { return false }
+                guard self.activeSurveyLanguage != translations.matchedKey else { return false }
+                self.activeSurveyLanguage = translations.matchedKey
+                self.activeSurveyQuestionTranslations = translations.questions
+                return true
+            }
+
+            guard didChange else { return }
+
+            let displaySurvey = activeSurvey.toDisplaySurvey(
+                surveyTranslation: translations.survey,
+                questionTranslations: translations.questions
+            )
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if #available(iOS 15.0, *) {
+                    self.postHog?.config._surveysConfig.surveysDelegate.updateSurvey?(displaySurvey)
+                }
+            }
         }
 
         /// Returns the computed storage key for a given survey
@@ -1066,9 +1122,17 @@
                 allSurveys = surveys
             }
 
-            func setShownSurvey(_ survey: PostHogSurvey) {
+            func setShownSurvey(_ survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil) {
                 clearActiveSurvey()
-                setActiveSurvey(survey: survey)
+                setActiveSurvey(survey: survey, language: language, questionTranslations: questionTranslations)
+            }
+
+            var testActiveSurveyLanguage: String? {
+                activeSurveyLock.withLock { self.activeSurveyLanguage }
+            }
+
+            func testRefreshActiveSurveyTranslations() {
+                refreshActiveSurveyTranslations()
             }
 
             func getNextQuestion(index: Int, response: PostHogSurveyResponse) -> (Int, Bool)? {

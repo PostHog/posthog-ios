@@ -14,4 +14,12 @@ extension UUID {
     static func v7() -> Self {
         TimeBasedEpochGenerator.shared.v7()
     }
+
+    static func v7String() -> String {
+        v7().postHogUuidString
+    }
+
+    var postHogUuidString: String {
+        uuidString.lowercased()
+    }
 }

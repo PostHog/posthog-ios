@@ -34,10 +34,13 @@ private func processUploadResponse(
         hedgeLog("\(endpointName) sent successfully.")
     }
 
-    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil))
+    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(parseRetryAfter)
+    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil, retryAfter: retryAfter))
 }
 
 class PostHogApi {
+    static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
+
     private let config: PostHogConfig
 
     // default is 60s but we do 10s
@@ -46,6 +49,8 @@ class PostHogApi {
     /// Shared so connection pool, TLS state, and HTTP/2 streams survive
     /// between calls instead of being torn down per request.
     private let session: URLSession
+
+    static let flagsRetryDelay: TimeInterval = 0.3
 
     init(_ config: PostHogConfig) {
         self.config = config
@@ -76,6 +81,15 @@ class PostHogApi {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
         }
         return request
+    }
+
+    private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
+        do {
+            return (getURLRequest(url, gzipped: true), try Self.gzipData(data))
+        } catch {
+            hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
+            return (getURLRequest(url), data)
+        }
     }
 
     private func getEndpointURL(
@@ -122,8 +136,6 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         let toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
             "api_key": config.projectToken,
@@ -136,15 +148,9 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the batch body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "batch")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: payload) { data, response, error in
             processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -159,8 +165,6 @@ class PostHogApi {
             event.apiKey = config.projectToken
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         let toSend = events.map { $0.toJSON() }
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
@@ -168,15 +172,9 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the snapshot body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "snapshot")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: payload) { data, response, error in
             processUploadResponse(endpointName: "snapshot", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -198,22 +196,14 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
             hedgeLog("Error parsing the logs body")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the logs body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, uploadPayload) = requestAndPayload(url: url, data: data, endpointName: "logs")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: uploadPayload) { data, response, error in
             processUploadResponse(endpointName: "logs", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -273,9 +263,30 @@ class PostHogApi {
             return completion(nil, nil)
         }
 
-        session.uploadTask(with: request, from: data) { data, response, error in
-            if error != nil {
-                hedgeLog("Error calling the flags API: \(String(describing: error))")
+        uploadFlagsRequest(request, payload: data, retryCount: 0, completion: completion)
+    }
+
+    private func uploadFlagsRequest(
+        _ request: URLRequest,
+        payload: Data,
+        retryCount: Int,
+        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+    ) {
+        session.uploadTask(with: request, from: payload) { data, response, error in
+            if let error {
+                if Self.isRetryableFlagsError(error), retryCount < self.config.featureFlagRequestMaxRetries {
+                    let nextRetryCount = retryCount + 1
+                    let delay = Self.featureFlagsRetryDelay(forFailedAttempt: nextRetryCount)
+                    hedgeLog(
+                        "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.featureFlagRequestMaxRetries))."
+                    )
+                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+                        self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)
+                    }
+                    return
+                }
+
+                hedgeLog("Error calling the flags API: \(error)")
                 return completion(nil, error)
             }
 
@@ -305,6 +316,18 @@ class PostHogApi {
                 completion(nil, error)
             }
         }.resume()
+    }
+
+    static func featureFlagsRetryDelay(forFailedAttempt failedAttempt: Int) -> TimeInterval {
+        min(flagsRetryDelay * pow(2.0, TimeInterval(failedAttempt - 1)), maxRetryDelay)
+    }
+
+    private static func isRetryableFlagsError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else {
+            return false
+        }
+        return nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorNetworkConnectionLost
     }
 
     func remoteConfig(

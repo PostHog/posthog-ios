@@ -33,6 +33,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
         static let maxRetries: Int = 3
+        static let featureFlagRequestMaxRetries: Int = 1
     }
 
     /// Network connectivity mode required before queued data may be flushed.
@@ -93,6 +94,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Increments on every retriable failure including HTTP 413 cap halving;
     /// resets on a successful 2xx response. Default 3.
     @objc public var maxRetries: Int = Defaults.maxRetries
+
+    /// Maximum number of retries for feature flag requests after transient network errors.
+    /// Defaults to 1. Set to 0 to disable feature flag request retries.
+    @objc public var featureFlagRequestMaxRetries: Int = Defaults.featureFlagRequestMaxRetries
     /// Required network connectivity mode for flushing queued data.
     ///
     /// Only `.wifi` currently restricts flushing; `.cellular` behaves the same as `.any`.

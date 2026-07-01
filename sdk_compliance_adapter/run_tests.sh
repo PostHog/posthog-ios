@@ -53,7 +53,7 @@ cleanup() {
     echo ""
     echo "🧹 Cleaning up..."
     kill $ADAPTER_PID 2>/dev/null || true
-    docker-compose down 2>/dev/null || true
+    docker compose -p posthog_ios_compliance down --remove-orphans 2>/dev/null || true
     echo "✅ Cleanup complete"
 }
 trap cleanup EXIT
@@ -61,7 +61,7 @@ trap cleanup EXIT
 # Run the tests
 echo "🧪 Running compliance tests..."
 echo ""
-docker-compose up --abort-on-container-exit
+docker compose -p posthog_ios_compliance up --abort-on-container-exit --exit-code-from test-harness
 
 echo ""
 echo "🎉 Tests complete!"

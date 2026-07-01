@@ -1,5 +1,29 @@
 ## Next
 
+## 3.62.4
+
+### Patch Changes
+
+- b9bf252: Retry capture delivery on transient HTTP errors and respect Retry-After responses while preserving queued events across retries.
+
+## 3.62.3
+
+### Patch Changes
+
+- c5f5b60: Generate lowercase UUID strings for SDK-created event, anonymous, session, and queue identifiers.
+
+## 3.62.2
+
+### Patch Changes
+
+- fb59e77: Fall back to uncompressed uploads when local gzip compression fails.
+
+## 3.62.1
+
+### Patch Changes
+
+- c1a7f11: Retry feature flag requests after transient network errors only. The feature flag request retry count defaults to 1 and can be set to 0 to disable retries.
+
 ## 3.62.0
 
 ### Minor Changes

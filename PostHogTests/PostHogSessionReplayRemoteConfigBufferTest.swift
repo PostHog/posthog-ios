@@ -390,5 +390,61 @@
             #expect(integration.isBuffering == false)
             #expect(replayQueue.depth == 2)
         }
+
+        // MARK: - Mid-session re-evaluation (spec Req 4)
+
+        @Test("subsequent remote config that turns the flag off stops the capturer mid-session")
+        func subsequentConfigFlagOffStopsCapturer() async throws {
+            // First delivery leaves the flag on and the capturer active. A later remote config that
+            // evaluates the flag as off must stop immediately rather than wait for session rotation.
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            #expect(integration.isActive() == true)
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isActive() == true)
+
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == false)
+        }
+
+        @Test("subsequent remote config that turns the flag back on resumes the capturer")
+        func subsequentConfigFlagOnResumesCapturer() async throws {
+            // After a prior remote config stopped the capturer for a flag-off, a later remote config
+            // that satisfies the flag must resume the capturer for the current session.
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isActive() == false)
+
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(true)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == true)
+        }
+
+        @Test("first remote config with flag off does not stop the capturer (linkedFlag race exemption)")
+        func firstConfigFlagOffDoesNotStopCapturer() async throws {
+            // Cached flag on → capturer recording. The very first /config evaluates the flag as off
+            // (e.g. linkedFlag race — /flags hasn't merged it yet). Per spec Req 4, the first
+            // delivery is exempt from stop(): the capturer keeps running and self-gates on the flag
+            // so a subsequent /flags reload that satisfies the flag can resume without needing
+            // start() to be called from elsewhere.
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            #expect(integration.isActive() == true)
+
+            sut.remoteConfig?.setSessionReplayFlagActiveForTesting(false)
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            #expect(integration.isActive() == true)
+        }
     }
 #endif

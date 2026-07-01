@@ -959,3 +959,16 @@ private struct PendingFeatureFlagsRequest {
     let groups: [String: String]
     let callback: ([String: Any]?) -> Void
 }
+
+#if TESTING
+    extension PostHogRemoteConfig {
+        /// Force-set the in-memory `sessionReplayFlagActive` value without going through
+        /// `processSessionRecordingConfig`, so tests can sequence multiple `applyRemoteConfig`
+        /// deliveries with different fresh flag values without spinning up /config + /flags.
+        func setSessionReplayFlagActiveForTesting(_ active: Bool) {
+            sessionReplayLock.withLock {
+                sessionReplayFlagActive = active
+            }
+        }
+    }
+#endif

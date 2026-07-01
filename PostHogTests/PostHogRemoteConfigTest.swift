@@ -94,6 +94,23 @@ enum PostHogRemoteConfigTest {
             #expect(storage.getDictionary(forKey: .remoteConfig) != nil)
         }
 
+        #if os(iOS)
+            @Test("clear() keeps the remote config marked as fetched")
+            func clearKeepsRemoteConfigFetched() async {
+                let sut = getSut()
+                #expect(sut.hasFetchedRemoteConfig == false)
+
+                await reloadRemoteConfig(sut)
+                #expect(sut.hasFetchedRemoteConfig == true)
+
+                // The cached /config survives reset() (project-level), so clear() must keep it marked
+                // fetched — otherwise replay would re-await a first /config it already has and buffer
+                // (then drop) the opening window of post-reset sessions that never re-fetch /config.
+                sut.clear()
+                #expect(sut.hasFetchedRemoteConfig == true)
+            }
+        #endif
+
         @Test("remote config fetches feature flags if missing")
         func remoteConfigLoadsFeatureFlagsIfNotPreviouslyLoaded() async {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")

@@ -182,8 +182,14 @@ class PostHogRemoteConfig {
                 }
             }
 
-            self.loadingRemoteConfigLock.withLock {
+            // Write `remoteConfigDidFetch` under the same lock that reads it so any reader acquiring
+            // the lock after this point sees the updated value. Once true it stays true for the
+            // process: the cached `/config` survives reset() (see clear()), so a session never has to
+            // re-await a first `/config` it has already fetched.
+            self.remoteConfigLock.withLock {
                 self.remoteConfigDidFetch = true
+            }
+            self.loadingRemoteConfigLock.withLock {
                 self.loadingRemoteConfig = false
             }
 
@@ -901,16 +907,30 @@ class PostHogRemoteConfig {
         resetPersonPropertiesForFlags()
         resetGroupPropertiesForFlags()
 
-        // keep the cached remote config across reset() (project-level, not user data) so features re-arm;
-        // just mark it un-fetched so a fresh copy is pulled
-        remoteConfigLock.withLock {
-            remoteConfigDidFetch = false
-        }
+        // Keep the cached remote config (and its fetched state) across reset() — it is project-level,
+        // not user data (see #630). Replay re-evaluates the recording flag from it on the next /flags
+        // reload, so reset() must not mark it un-fetched: doing so would make replay re-buffer (and then
+        // drop) the opening window of post-reset sessions that never re-fetch /config.
     }
 
     #if os(iOS)
         func isSessionReplayFlagActive() -> Bool {
             sessionReplayLock.withLock { sessionReplayFlagActive }
+        }
+
+        /// Whether a `/config` request has completed at least once (set on both success and failure).
+        var hasFetchedRemoteConfig: Bool {
+            remoteConfigLock.withLock { remoteConfigDidFetch }
+        }
+
+        /// Whether recording is gated on a linked feature flag (vs a plain boolean). The flag's value
+        /// is only fresh after `/flags`, which lands just after `/config`, so callers may want to defer
+        /// flag-dependent decisions to the flags reload rather than evaluate against the cached flag.
+        func isRecordingGatedOnLinkedFlag() -> Bool {
+            let sessionRecording = remoteConfigLock.withLock {
+                getCachedRemoteConfig()?["sessionRecording"] as? [String: Any]
+            }
+            return sessionRecording?["linkedFlag"] != nil
         }
     #endif
 
@@ -939,3 +959,16 @@ private struct PendingFeatureFlagsRequest {
     let groups: [String: String]
     let callback: ([String: Any]?) -> Void
 }
+
+#if TESTING
+    extension PostHogRemoteConfig {
+        /// Force-set the in-memory `sessionReplayFlagActive` value without going through
+        /// `processSessionRecordingConfig`, so tests can sequence multiple `applyRemoteConfig`
+        /// deliveries with different fresh flag values without spinning up /config + /flags.
+        func setSessionReplayFlagActiveForTesting(_ active: Bool) {
+            sessionReplayLock.withLock {
+                sessionReplayFlagActive = active
+            }
+        }
+    }
+#endif

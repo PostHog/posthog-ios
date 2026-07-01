@@ -1,0 +1,5 @@
+---
+"posthog-ios": patch
+---
+
+Feature-flag properties (`$feature/*` and `$active_feature_flags`) passed explicitly to `capture()` now take precedence over the SDK's cached flag values, matching posthog-js (web) and posthog-android.

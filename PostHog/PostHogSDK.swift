@@ -538,7 +538,11 @@ let maxRetryDelay = 30.0
             props["distinct_id"] = distinctId
         }
 
-        props = props.merging(properties ?? [:]) { current, _ in current }
+        let callerProps = properties ?? [:]
+        props = props.merging(callerProps) { current, _ in current }
+        // Caller-supplied feature-flag properties take precedence over the cached values
+        let callerFlagProps = callerProps.filter { $0.key.hasPrefix("$feature/") || $0.key == "$active_feature_flags" }
+        props = props.merging(callerFlagProps) { _, new in new }
 
         return props
     }

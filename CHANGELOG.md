@@ -1,5 +1,11 @@
 ## Next
 
+## 3.63.1
+
+### Patch Changes
+
+- b9126c7: Feature-flag properties (`$feature/*` and `$active_feature_flags`) passed explicitly to `capture()` now take precedence over the SDK's cached flag values, matching posthog-js (web) and posthog-android.
+
 ## 3.63.0
 
 ### Minor Changes

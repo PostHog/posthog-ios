@@ -211,7 +211,7 @@ import Foundation
     }
 
 #else
-    // watchOS stub - crash reporting is not available
+    // watchOS/visionOS stub - crash reporting is not available on these platforms
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { false }
 
@@ -222,5 +222,10 @@ import Foundation
         func uninstall(_: PostHogSDK) { /* no-op */ }
         func start() { /* no-op */ }
         func stop() { /* no-op */ }
+
+        /// Crash reporting is unavailable on this platform; always returns `false`.
+        static func exceptionListMatchesIgnoredTypes(_: [String: Any], ignoredTypes _: [String]) -> Bool {
+            false
+        }
     }
 #endif

@@ -7,6 +7,7 @@
 
 import Foundation
 import OHHTTPStubs
+import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
 
@@ -233,6 +234,105 @@ enum PostHogApiTests {
         }
     }
 
+    @Suite("Custom request headers")
+    class TestCustomRequestHeaders: BaseTestSuite {
+        func getSut(host: String, requestHeaders: [String: String]?) -> PostHogApi {
+            let config = PostHogConfig(projectToken: "test_project_token", host: host)
+            config.requestHeaders = requestHeaders
+            return PostHogApi(config)
+        }
+
+        @Test("attaches custom headers to /batch requests")
+        func attachesToBatch() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["Authorization": "Bearer test-jwt"])
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-jwt")
+        }
+
+        @Test("attaches custom headers to /flags requests")
+        func attachesToFlags() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["Authorization": "Bearer test-jwt"])
+            _ = await getApiResponse { completion in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { data, _ in
+                    completion(data)
+                }
+            }
+            let request = try #require(server.flagsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-jwt")
+        }
+
+        @Test("does not attach an Authorization header when none is configured")
+        func noHeaderWhenUnset() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: nil)
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        }
+
+        @Test("does not let custom headers override SDK-managed headers")
+        func doesNotOverrideSDKManagedHeaders() async throws {
+            let sut = getSut(host: "http://localhost", requestHeaders: ["content-type": "text/plain", "User-Agent": "evil"])
+            _ = await getApiResponse { completion in
+                sut.batch(events: [], completion: completion)
+            }
+            let request = try #require(server.batchRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Type") != "text/plain")
+            #expect(request.value(forHTTPHeaderField: "User-Agent") != "evil")
+        }
+    }
+
+    @Suite("Custom request headers host scoping", .serialized)
+    final class TestCustomRequestHeadersHostScoping {
+        init() {
+            HTTPStubs.removeAllStubs()
+        }
+        deinit { HTTPStubs.removeAllStubs() }
+
+        @Test("does not send custom headers to the rewritten static-config host")
+        func skipsRewrittenConfigHost() async throws {
+            let captured = CapturedRequestBox()
+            stub(condition: isHost("us-assets.i.posthog.com")) { request in
+                captured.set(request)
+                return HTTPStubsResponse(jsonObject: [:], statusCode: 200, headers: nil)
+            }
+            let config = PostHogConfig(projectToken: "test_project_token", host: "https://us.i.posthog.com")
+            config.requestHeaders = ["Authorization": "Bearer test-jwt"]
+            let sut = PostHogApi(config)
+
+            await withCheckedContinuation { continuation in
+                sut.remoteConfig { _, _ in continuation.resume() }
+            }
+
+            #expect(captured.request?.value(forHTTPHeaderField: "Authorization") == nil)
+        }
+
+        @Test("strips custom headers on a redirect to a different host")
+        func stripsHeadersOnCrossHostRedirect() async throws {
+            let captured = CapturedRequestBox()
+            stub(condition: isHost("proxy.example.com")) { _ in
+                HTTPStubsResponse(data: Data(), statusCode: 307, headers: ["Location": "https://other.example.com/flags"])
+            }
+            stub(condition: isHost("other.example.com")) { request in
+                captured.set(request)
+                return HTTPStubsResponse(jsonObject: ["featureFlags": [:]], statusCode: 200, headers: nil)
+            }
+            let config = PostHogConfig(projectToken: "test_project_token", host: "https://proxy.example.com")
+            config.requestHeaders = ["Authorization": "Bearer test-jwt"]
+            let sut = PostHogApi(config)
+
+            await withCheckedContinuation { continuation in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { _, _ in continuation.resume() }
+            }
+
+            #expect(captured.request?.value(forHTTPHeaderField: "Authorization") == nil)
+        }
+    }
+
     @Suite("Test flags endpoint with different host paths")
     class TestFlagsEndpoint: BaseTestSuite {
         @Test("feature flag retry delay starts at 300ms and doubles")
@@ -389,5 +489,18 @@ enum PostHogApiTests {
         func testHostWithPortNumberAndTrailingSlash() async throws {
             try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
+    }
+}
+
+private final class CapturedRequestBox {
+    private let lock = NSLock()
+    private var stored: URLRequest?
+
+    var request: URLRequest? {
+        lock.withLock { stored }
+    }
+
+    func set(_ request: URLRequest) {
+        lock.withLock { stored = request }
     }
 }

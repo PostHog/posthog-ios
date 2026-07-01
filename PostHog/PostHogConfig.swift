@@ -354,6 +354,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Useful for testing, proxying, or custom network configurations
     @objc public var urlSessionConfiguration: URLSessionConfiguration?
 
+    /// Custom headers to send with every request to the PostHog API.
+    /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Read once when the SDK is set up; changes after setup are ignored.
+    @objc public var requestHeaders: [String: String]?
+
     // only internal
     var disableReachabilityForTesting: Bool = false
     var disableQueueTimerForTesting: Bool = false

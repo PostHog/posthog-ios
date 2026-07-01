@@ -72,6 +72,7 @@ PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String
 PostHog | PostHogConfig.propertiesSanitizer | property | @objc var propertiesSanitizer: (any PostHogPropertiesSanitizer)? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)propertiesSanitizer
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.remoteConfig | property | @objc var remoteConfig: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)remoteConfig
+PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId
 PostHog | PostHogConfig.sendFeatureFlagEvent | property | @objc var sendFeatureFlagEvent: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sendFeatureFlagEvent
 PostHog | PostHogConfig.sessionReplay | property | @objc var sessionReplay: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplay

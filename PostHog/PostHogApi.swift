@@ -43,6 +43,9 @@ class PostHogApi {
 
     private let config: PostHogConfig
 
+    /// Snapshot at init; treated as immutable after setup.
+    private let customRequestHeaders: [String: String]
+
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
 
@@ -54,6 +57,7 @@ class PostHogApi {
 
     init(_ config: PostHogConfig) {
         self.config = config
+        customRequestHeaders = config.requestHeaders ?? [:]
 
         // Copy first so SDK mutations don't leak back to the caller's object.
         let sessionConfig = (config.urlSessionConfiguration?.copy() as? URLSessionConfiguration)
@@ -68,7 +72,13 @@ class PostHogApi {
         headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
         headers["Accept-Encoding"] = "gzip"
         sessionConfig.httpAdditionalHeaders = headers
-        session = URLSession(configuration: sessionConfig)
+        // Strip custom headers on cross-host redirects so they don't leak to another origin.
+        if customRequestHeaders.isEmpty {
+            session = URLSession(configuration: sessionConfig)
+        } else {
+            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(customRequestHeaders.keys))
+            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
+        }
     }
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
@@ -77,11 +87,28 @@ class PostHogApi {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = defaultTimeout
+        applyCustomHeaders(&request)
         if gzipped {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
         }
         return request
     }
+
+    /// Adds custom headers to requests for the configured host, skipping SDK-managed keys.
+    private func applyCustomHeaders(_ request: inout URLRequest) {
+        guard !customRequestHeaders.isEmpty, request.url?.host == config.host.host else { return }
+        for (key, value) in customRequestHeaders
+            where request.value(forHTTPHeaderField: key) == nil
+            && !Self.reservedHeaderKeys.contains(key.lowercased())
+        {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+    }
+
+    /// SDK-managed headers that custom values can't override (compared lowercase).
+    private static let reservedHeaderKeys: Set<String> = [
+        "content-type", "user-agent", "accept-encoding", "content-encoding",
+    ]
 
     private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
         do {
@@ -127,6 +154,7 @@ class PostHogApi {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = defaultTimeout
+        applyCustomHeaders(&request)
         return request
     }
 
@@ -392,4 +420,33 @@ extension PostHogApi {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return decoder
     }()
+}
+
+/// Strips custom headers on redirects that leave the configured host.
+private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDelegate {
+    private let allowedHost: String?
+    private let headerKeys: [String]
+
+    init(allowedHost: String?, headerKeys: [String]) {
+        self.allowedHost = allowedHost
+        self.headerKeys = headerKeys
+    }
+
+    func urlSession(
+        _: URLSession,
+        task _: URLSessionTask,
+        willPerformHTTPRedirection _: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard request.url?.host != allowedHost else {
+            completionHandler(request)
+            return
+        }
+        var redirected = request
+        for key in headerKeys {
+            redirected.setValue(nil, forHTTPHeaderField: key)
+        }
+        completionHandler(redirected)
+    }
 }

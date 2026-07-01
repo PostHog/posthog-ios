@@ -1,0 +1,109 @@
+name: Detect non-impacting changes
+
+on:
+  workflow_call:
+    outputs:
+      skip_heavy:
+        description: "Whether required heavy CI work can be skipped for this PR"
+        value: ${{ jobs.classify.outputs.skip_heavy }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      skip_heavy: ${{ steps.classify.outputs.skip_heavy }}
+    steps:
+      - name: Classify changed files
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Default to running full CI for pushes, manual runs, API failures, empty file lists,
+          # or any path the generic global safe set does not explicitly mark as non-impacting.
+          finish() {
+            echo "skip_heavy=$1" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "Full CI required for $EVENT_NAME events."
+            finish false
+          fi
+
+          is_non_impacting_file() {
+            case "$1" in
+              *.md) return 0 ;;
+              docs/*) return 0 ;;
+              .github/ISSUE_TEMPLATE/*) return 0 ;;
+              .github/PULL_REQUEST_TEMPLATE/*) return 0 ;;
+              .github/pull_request_template.md) return 0 ;;
+              .github/CODEOWNERS) return 0 ;;
+              CODEOWNERS) return 0 ;;
+              .github/dependabot.yml) return 0 ;;
+              .github/workflows/release.yml) return 0 ;;
+              .github/workflows/release.yaml) return 0 ;;
+              .github/workflows/publish.yml) return 0 ;;
+              .github/workflows/publish.yaml) return 0 ;;
+              .github/workflows/stale.yml) return 0 ;;
+              .github/workflows/stale.yaml) return 0 ;;
+              .github/workflows/lint-pr.yml) return 0 ;;
+              .github/workflows/lint-pr.yaml) return 0 ;;
+              .github/workflows/call-flags-project-board.yml) return 0 ;;
+              .github/workflows/call-flags-project-board.yaml) return 0 ;;
+              .github/workflows/changeset-hygiene.yml) return 0 ;;
+              .github/workflows/changeset-hygiene.yaml) return 0 ;;
+              .github/workflows/dependabot-changeset.yml) return 0 ;;
+              .github/workflows/dependabot-changeset.yaml) return 0 ;;
+              .github/workflows/validate-versioning.yml) return 0 ;;
+              .github/workflows/validate-versioning.yaml) return 0 ;;
+              .github/workflows/new-pr.yml) return 0 ;;
+              .github/workflows/new-pr.yaml) return 0 ;;
+              .github/workflows/generated-files-notice.yml) return 0 ;;
+              .github/workflows/generated-files-notice.yaml) return 0 ;;
+              .github/workflows/posthog-upgrade.yml) return 0 ;;
+              .github/workflows/posthog-upgrade.yaml) return 0 ;;
+              .github/workflows/posthog-watcher-*.yml) return 0 ;;
+              .github/workflows/posthog-watcher-*.yaml) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          changed_files="$(mktemp)"
+          if ! gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq '.[] | [.filename, (.previous_filename // "")] | @tsv' > "$changed_files"; then
+            echo "Unable to fetch pull request files; running full CI."
+            finish false
+          fi
+
+          if [ ! -s "$changed_files" ]; then
+            echo "No changed files found; running full CI."
+            finish false
+          fi
+
+          while IFS=$'\t' read -r filename previous_filename || [ -n "$filename" ]; do
+            if [ -z "$filename" ]; then
+              continue
+            fi
+
+            if ! is_non_impacting_file "$filename"; then
+              echo "Full CI required because '$filename' may affect build, test, or lint."
+              finish false
+            fi
+
+            if [ -n "$previous_filename" ] && ! is_non_impacting_file "$previous_filename"; then
+              echo "Full CI required because previous path '$previous_filename' may affect build, test, or lint."
+              finish false
+            fi
+          done < "$changed_files"
+
+          echo "All changed files are non-impacting for required heavy CI."
+          finish true

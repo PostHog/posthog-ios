@@ -12,37 +12,38 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  detect-markdown-only:
-    uses: PostHog/.github/.github/workflows/detect-markdown-only.yml@ec25337d9fae0100622cbfea1bd5bd88284ac10b
+  detect-non-impacting-changes:
+    uses: ./.github/workflows/detect-non-impacting-changes.yml
     permissions:
+      contents: read
       pull-requests: read
 
   swiftformat:
-    needs: detect-markdown-only
+    needs: detect-non-impacting-changes
     name: SwiftFormat
     runs-on: macos-26
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - name: Complete non-impacting PR check
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy == 'true'
+        run: echo "Only non-impacting files changed; no additional work is required for this check."
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
 
       - name: Check formatting
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         run: make swiftFormatCheck
 
   swiftlint:
-    needs: detect-markdown-only
+    needs: detect-non-impacting-changes
     name: SwiftLint
     runs-on: macos-26
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - name: Complete non-impacting PR check
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy == 'true'
+        run: echo "Only non-impacting files changed; no additional work is required for this check."
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
 
       - name: Run SwiftLint
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         run: make swiftLintCheck

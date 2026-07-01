@@ -12,26 +12,27 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  detect-markdown-only:
-    uses: PostHog/.github/.github/workflows/detect-markdown-only.yml@ec25337d9fae0100622cbfea1bd5bd88284ac10b
+  detect-non-impacting-changes:
+    uses: ./.github/workflows/detect-non-impacting-changes.yml
     permissions:
+      contents: read
       pull-requests: read
 
   test:
-    needs: detect-markdown-only
+    needs: detect-non-impacting-changes
     runs-on: macos-15
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - name: Complete non-impacting PR check
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy == 'true'
+        run: echo "Only non-impacting files changed; no additional work is required for this check."
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         with:
           xcode-version: latest-stable
       - name: Cache SPM dependencies
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
@@ -41,27 +42,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
       - name: Test SDK
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         run: make test
 
   # `make test` runs `swift test` on macOS, which compiles out every `#if os(iOS)` block, so the
   # iOS-only suites (session replay, autocapture, tracing headers, crash reporting, etc.) never run
   # there. Run the iOS test target on a simulator so those suites are actually exercised in CI.
   test-ios-simulator:
-    needs: detect-markdown-only
+    needs: detect-non-impacting-changes
     runs-on: macos-15
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - name: Complete non-impacting PR check
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy == 'true'
+        run: echo "Only non-impacting files changed; no additional work is required for this check."
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         with:
           xcode-version: latest-stable
       - name: Test SDK on iOS Simulator
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         # Retries (3 iterations) protect merges from transient simulator flakiness; the macOS `test`
         # job runs without retries, so a genuine flake still surfaces as a hard failure there.
         run: make testOniOSSimulator
@@ -69,7 +70,7 @@ jobs:
         # Retries can hide flakiness by turning a transient red into green. Surface any test that only
         # passed after a retry so flakes get tracked and fixed instead of silently masked. Best-effort:
         # never fails the job.
-        if: ${{ needs.detect-markdown-only.outputs.markdown_only != 'true' && (always()) }}
+        if: ${{ needs.detect-non-impacting-changes.outputs.skip_heavy != 'true' && (always()) }}
         run: |
           log=xcodebuild-ios.log
           [ -f "$log" ] || { echo "No build log found; skipping flake report."; exit 0; }
@@ -88,7 +89,7 @@ jobs:
           fi
 
   downgrade-compatibility:
-    needs: detect-markdown-only
+    needs: detect-non-impacting-changes
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -103,17 +104,17 @@ jobs:
           - 3.58.0
     name: Downgrade compatibility (${{ matrix.downgrade_ref }})
     steps:
-      - name: Complete markdown-only PR check
-        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
-        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - name: Complete non-impacting PR check
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy == 'true'
+        run: echo "Only non-impacting files changed; no additional work is required for this check."
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         with:
           xcode-version: latest-stable
       - name: Test downgrade compatibility
-        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        if: needs.detect-non-impacting-changes.outputs.skip_heavy != 'true'
         env:
           DOWNGRADE_REF: ${{ matrix.downgrade_ref }}
         run: make testDowngradeCompatibility

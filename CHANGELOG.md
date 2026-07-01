@@ -1,5 +1,17 @@
 ## Next
 
+## 3.62.5
+
+### Patch Changes
+
+- e57e428: Session replay now respects the resolved recording config once the first remote config response arrives. Recording still starts optimistically from the disk-cached config at cold start, but snapshots are now buffered (not persisted) until the first live remote config resolves. On resolve, the buffered opening window is flushed to the replay queue only when the session is recordable under the fresh config — recording flag on, sampled in, and not waiting on an event trigger — and is dropped otherwise, so a returning user no longer uploads a stale-cache window the fresh config disallows via the recording flag, sample rate, or event trigger. When recording is gated on a linked feature flag — whose value is only fresh once the flags response (which follows the config response) arrives — resolution is deferred to that flags reload so the window isn't flushed on a stale flag value; if feature-flag preloading is disabled, so no flags reload follows, it resolves against the cached flag instead. A subsequent remote config that turns recording off also stops it promptly instead of waiting for the next session rotation.
+
+## 3.62.4
+
+### Patch Changes
+
+- b9bf252: Retry capture delivery on transient HTTP errors and respect Retry-After responses while preserving queued events across retries.
+
 ## 3.62.3
 
 ### Patch Changes

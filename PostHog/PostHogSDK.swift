@@ -17,7 +17,8 @@ import Foundation
     import WatchKit
 #endif
 
-let retryDelay = 5.0
+// SDK compliance harness 0.9.0 validates retry timing against this base cadence.
+let retryDelay = 1.0
 let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573

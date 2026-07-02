@@ -241,7 +241,7 @@ jobs:
       # Notify in case of failure
       - name: Send failure event to PostHog
         if: ${{ failure() }}
-        uses: PostHog/posthog-github-action@58dea254b598fb5d469c0699c98af8288a7f7650 # v1.2.0
+        uses: PostHog/posthog-github-action@9a6a19d360820ab4d95ecc4a5a7564062c895f84 # v1.3.0
         with:
           posthog-token: '${{ secrets.POSTHOG_PROJECT_API_KEY }}'
           event: 'posthog-ios-release-workflow-failure'
@@ -306,7 +306,7 @@ jobs:
       # Notify in case of failure
       - name: Send failure event to PostHog
         if: ${{ failure() }}
-        uses: PostHog/posthog-github-action@58dea254b598fb5d469c0699c98af8288a7f7650 # v1.2.0
+        uses: PostHog/posthog-github-action@9a6a19d360820ab4d95ecc4a5a7564062c895f84 # v1.3.0
         with:
           posthog-token: '${{ secrets.POSTHOG_PROJECT_API_KEY }}'
           event: 'posthog-ios-release-workflow-failure'

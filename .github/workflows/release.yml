@@ -309,8 +309,10 @@ jobs:
               echo "PostHog $RELEASE_VERSION is on trunk (attempt $attempt/10). Treating as success."
               exit 0
             fi
-            echo "Not visible yet (attempt $attempt/10); retrying in 30s..."
-            sleep 30
+            if [ "$attempt" -lt 10 ]; then
+              echo "Not visible yet (attempt $attempt/10); retrying in 30s..."
+              sleep 30
+            fi
           done
 
           echo "::error::PostHog $RELEASE_VERSION is not on trunk after polling for ~5 minutes."

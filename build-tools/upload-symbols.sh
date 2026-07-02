@@ -94,27 +94,27 @@ if [ "$LOWEST" != "$MIN_POSTHOG_CLI_VERSION" ]; then
     exit 1
 fi
 
-# Build CLI arguments
-CLI_ARGS="--directory $DWARF_DSYM_FOLDER_PATH"
+# Build CLI arguments as an array so paths with spaces are preserved.
+CLI_ARGS=(--directory "${DWARF_DSYM_FOLDER_PATH}")
 
 # Pass main target dSYM name for accurate version extraction
 if [ -n "${DWARF_DSYM_FILE_NAME}" ]; then
-    CLI_ARGS="$CLI_ARGS --main-dsym $DWARF_DSYM_FILE_NAME"
+    CLI_ARGS+=(--main-dsym "${DWARF_DSYM_FILE_NAME}")
 fi
 
 # Pass version info from Xcode build settings (overrides plist extraction)
 if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
-    CLI_ARGS="$CLI_ARGS --release-name $PRODUCT_BUNDLE_IDENTIFIER"
+    CLI_ARGS+=(--release-name "${PRODUCT_BUNDLE_IDENTIFIER}")
 fi
 if [ -n "${MARKETING_VERSION}" ]; then
-    CLI_ARGS="$CLI_ARGS --release-version $MARKETING_VERSION"
+    CLI_ARGS+=(--release-version "${MARKETING_VERSION}")
 fi
 if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
-    CLI_ARGS="$CLI_ARGS --build $CURRENT_PROJECT_VERSION"
+    CLI_ARGS+=(--build "${CURRENT_PROJECT_VERSION}")
 fi
 # Include source if requested via env var
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
-    CLI_ARGS="$CLI_ARGS --include-source"
+    CLI_ARGS+=(--include-source)
 fi
 
-$PH_CLI_PATH dsym upload $CLI_ARGS || exit 1
+"${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1

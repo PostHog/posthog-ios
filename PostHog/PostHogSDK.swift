@@ -78,6 +78,7 @@ let maxRetryDelay = 30.0
     let onEventContextChanged = PostHogMulticastCallback<[String: Any]>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
+    private var errorTrackingRemoteConfigToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
     /// `nil` before `setup(_:)` is called.
@@ -221,6 +222,21 @@ let maxRetryDelay = 30.0
             if !config.optOut {
                 // don't install integrations if in opt-out state
                 installIntegrations()
+
+                // Error tracking may have been skipped because remote config was not yet loaded
+                // (first launch, no disk cache). Subscribe to re-attempt installation once the
+                // live remote config arrives — mirroring the late-install path session replay uses.
+                #if os(iOS) || os(macOS) || os(tvOS)
+                    if !isErrorTrackingInstalled() {
+                        errorTrackingRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
+                            guard let self else { return }
+                            setupLock.withLock {
+                                installErrorTrackingIntegration()
+                            }
+                            errorTrackingRemoteConfigToken = nil
+                        }
+                    }
+                #endif
 
                 createExceptionStepsBufferIfNeeded()
 
@@ -2674,7 +2690,28 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    #if os(iOS) || os(macOS) || os(tvOS)
+        private func isErrorTrackingInstalled() -> Bool {
+            installedIntegrations.contains { $0 is PostHogErrorTrackingAutoCaptureIntegration }
+        }
+
+        private func installErrorTrackingIntegration() {
+            guard !isErrorTrackingInstalled() else { return }
+
+            let integration = PostHogErrorTrackingAutoCaptureIntegration()
+            let installOutcome = integration.install(self)
+            if case let .skipped(reason) = installOutcome {
+                hedgeLog("Integration \(type(of: integration)) skipped: \(reason)")
+                return
+            }
+
+            installedIntegrations.append(integration)
+            hedgeLog("Integration \(type(of: integration)) installed")
+        }
+    #endif
+
     private func uninstallIntegrations() {
+        errorTrackingRemoteConfigToken = nil
         for integration in installedIntegrations {
             integration.uninstall(self)
             hedgeLog("Integration \(type(of: integration)) uninstalled")
@@ -2745,6 +2782,12 @@ let maxRetryDelay = 30.0
 
         #if os(iOS)
             func getReplayIntegration() -> PostHogReplayIntegration? {
+                getIntegration()
+            }
+        #endif
+
+        #if os(iOS) || os(macOS) || os(tvOS)
+            func getErrorTrackingIntegration() -> PostHogErrorTrackingAutoCaptureIntegration? {
                 getIntegration()
             }
         #endif

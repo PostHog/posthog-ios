@@ -14,6 +14,10 @@ import Foundation
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstallState = PostHogIntegrationInstallState()
 
+        static func clearInstalls() {
+            integrationInstallState.clear()
+        }
+
         var requiresSwizzling: Bool { false }
 
         private weak var postHog: PostHogSDK?

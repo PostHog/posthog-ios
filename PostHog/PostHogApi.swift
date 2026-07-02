@@ -303,14 +303,13 @@ class PostHogApi {
         session.uploadTask(with: request, from: payload) { data, response, error in
             if let error {
                 if Self.isRetryableFlagsError(error), retryCount < self.config.featureFlagRequestMaxRetries {
-                    let nextRetryCount = retryCount + 1
-                    let delay = Self.featureFlagsRetryDelay(forFailedAttempt: nextRetryCount)
-                    hedgeLog(
-                        "Error calling the flags API: \(error). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(self.config.featureFlagRequestMaxRetries))."
+                    self.retryFlagsRequest(
+                        request,
+                        payload: payload,
+                        retryCount: retryCount,
+                        reason: String(describing: error),
+                        completion: completion
                     )
-                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
-                        self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)
-                    }
                     return
                 }
 
@@ -327,9 +326,21 @@ class PostHogApi {
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
                 let jsonBody = fromJSONData(data, options: .allowFragments)
-                let errorMessage = "Error calling flags API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
-                hedgeLog(errorMessage)
+                let retryReason = "status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))"
+                let errorMessage = "Error calling flags API: \(retryReason)."
 
+                if Self.isRetryableFlagsStatusCode(httpResponse.statusCode), retryCount < self.config.featureFlagRequestMaxRetries {
+                    self.retryFlagsRequest(
+                        request,
+                        payload: payload,
+                        retryCount: retryCount,
+                        reason: retryReason,
+                        completion: completion
+                    )
+                    return
+                }
+
+                hedgeLog(errorMessage)
                 return completion(nil,
                                   InternalPostHogError(description: errorMessage))
             } else {
@@ -346,6 +357,23 @@ class PostHogApi {
         }.resume()
     }
 
+    private func retryFlagsRequest(
+        _ request: URLRequest,
+        payload: Data,
+        retryCount: Int,
+        reason: String,
+        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+    ) {
+        let nextRetryCount = retryCount + 1
+        let delay = Self.featureFlagsRetryDelay(forFailedAttempt: nextRetryCount)
+        hedgeLog(
+            "Error calling the flags API: \(reason). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(config.featureFlagRequestMaxRetries))."
+        )
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+            self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)
+        }
+    }
+
     static func featureFlagsRetryDelay(forFailedAttempt failedAttempt: Int) -> TimeInterval {
         min(flagsRetryDelay * pow(2.0, TimeInterval(failedAttempt - 1)), maxRetryDelay)
     }
@@ -356,6 +384,10 @@ class PostHogApi {
             return false
         }
         return nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorNetworkConnectionLost
+    }
+
+    private static func isRetryableFlagsStatusCode(_ statusCode: Int) -> Bool {
+        statusCode == 502 || statusCode == 504
     }
 
     func remoteConfig(

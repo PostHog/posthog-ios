@@ -95,7 +95,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// resets on a successful 2xx response. Default 3.
     @objc public var maxRetries: Int = Defaults.maxRetries
 
-    /// Maximum number of retries for feature flag requests after transient network errors.
+    /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.
     @objc public var featureFlagRequestMaxRetries: Int = Defaults.featureFlagRequestMaxRetries
     /// Required network connectivity mode for flushing queued data.

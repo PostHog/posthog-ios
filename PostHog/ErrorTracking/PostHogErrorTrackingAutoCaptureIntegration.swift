@@ -164,6 +164,17 @@ import Foundation
                     finalProperties[PostHogExceptionStepFields.stepsKey] = crashSteps
                 }
 
+                // Honor `errorTrackingConfig.ignoredExceptionTypes`. The
+                // primary use case is React Native's `RCTFatalException`,
+                // which is rethrown for every fatal JS error and would
+                // otherwise duplicate the JS-side `$exception` event with
+                // a redundant native stack trace (see #653).
+                let ignored = postHog.config.errorTrackingConfig.ignoredExceptionTypes
+                if !ignored.isEmpty, PostHogErrorTrackingAutoCaptureIntegration.exceptionListMatchesIgnoredTypes(finalProperties, ignoredTypes: ignored) {
+                    hedgeLog("Crash report skipped: exception type is in errorTrackingConfig.ignoredExceptionTypes")
+                    return
+                }
+
                 // Collect crash timestamp
                 let crashTimestamp = PostHogCrashReportProcessor.getCrashTimestamp(crashReport)
 
@@ -181,10 +192,26 @@ import Foundation
                 hedgeLog("Failed to process crash report: \(error)")
             }
         }
+
+        /// Returns `true` if any entry in `properties["$exception_list"]` has a
+        /// `type` matching one of `ignoredTypes`. Walks the exception list rather
+        /// than only the outermost entry so a wrapped exception whose underlying
+        /// cause is, e.g., `RCTFatalException` is still suppressed. Match is
+        /// case-sensitive and exact (the field is a class name, not free text).
+        static func exceptionListMatchesIgnoredTypes(_ properties: [String: Any], ignoredTypes: [String]) -> Bool {
+            guard let exceptionList = properties["$exception_list"] as? [[String: Any]] else {
+                return false
+            }
+            let ignored = Set(ignoredTypes)
+            return exceptionList.contains { entry in
+                guard let exType = entry["type"] as? String else { return false }
+                return ignored.contains(exType)
+            }
+        }
     }
 
 #else
-    // watchOS stub - crash reporting is not available
+    // watchOS/visionOS stub - crash reporting is not available on these platforms
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { false }
 
@@ -195,5 +222,10 @@ import Foundation
         func uninstall(_: PostHogSDK) { /* no-op */ }
         func start() { /* no-op */ }
         func stop() { /* no-op */ }
+
+        /// Crash reporting is unavailable on this platform; always returns `false`.
+        static func exceptionListMatchesIgnoredTypes(_: [String: Any], ignoredTypes _: [String]) -> Bool {
+            false
+        }
     }
 #endif

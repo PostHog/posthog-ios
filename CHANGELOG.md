@@ -1,5 +1,15 @@
 ## Next
 
+## 3.64.0
+
+### Minor Changes
+
+- b9afc8f: Add `ignoredExceptionTypes` to `PostHogErrorTrackingConfig` so apps embedding both the JS RN SDK and the native iOS SDK can suppress duplicate native captures by exception class name.
+
+### Patch Changes
+
+- 7dbeb82: Retry remote feature flag requests after transient 502 and 504 responses.
+
 ## 3.63.1
 
 ### Patch Changes

@@ -469,6 +469,28 @@ enum PostHogApiTests {
             #expect(server.flagsRequests.count == 1)
         }
 
+        @Test("stops retrying retryable HTTP status responses after feature flag request max retries", arguments: [502, 504])
+        func stopsRetryingRetryableHTTPStatusResponsesAfterFeatureFlagRequestMaxRetries(statusCode: Int) async throws {
+            server.reset(flagsCount: 3)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: ["error": "server error"], statusCode: Int32(statusCode), headers: nil)
+            }
+
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            config.featureFlagRequestMaxRetries = 2
+            let sut = PostHogApi(config)
+
+            let resp = await getApiResponse { completion in
+                sut.flags(distinctId: "", anonymousId: "", groups: [:], personProperties: [:]) { data, error in
+                    completion((data, error))
+                }
+            }
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 != nil)
+            #expect(server.flagsRequests.count == 3)
+        }
+
         @Test("stops retrying transient URLSession errors after feature flag request max retries")
         func stopsRetryingTransientURLSessionErrorsAfterFeatureFlagRequestMaxRetries() async throws {
             server.reset(flagsCount: 3)

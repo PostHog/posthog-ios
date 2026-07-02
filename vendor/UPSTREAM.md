@@ -11,7 +11,7 @@ This file records the upstream sources and commit hashes used to pull vendored d
 
 ## Notes
 
-- `PHPLCrashReporter` commit is verified against upstream history.
+- `PHPLCrashReporter` commit is verified against upstream history. The vendored copy includes local compiler-warning cleanup for explicit integer conversions in PLCrashReporter/protobuf-c sources.
 - `libwebp` commit is inferred from the vendored code ABI surface and import timing.
 - `libwebp` was slimmed down after vendoring to remove unused components (for example, animated image support paths) and keep the SDK footprint smaller.
 - Both vendored dependencies include local PostHog-prefixed/private integration changes after import.

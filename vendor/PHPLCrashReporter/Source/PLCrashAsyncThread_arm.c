@@ -534,4 +534,6 @@ bool plcrash_async_thread_state_map_dwarf_to_reg (const plcrash_async_thread_sta
     return false;
 }
 
+#else
+__attribute__((used, visibility("hidden"))) const int PLCrashAsyncThreadArmTranslationUnitAnchor = 0;
 #endif /* __arm__ || __arm64__ */

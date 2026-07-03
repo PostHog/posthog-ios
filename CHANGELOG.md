@@ -1,5 +1,11 @@
 ## Next
 
+## 3.64.1
+
+### Patch Changes
+
+- ced6a8b: Fix the upload symbols script for projects with spaces in their paths.
+
 ## 3.64.0
 
 ### Minor Changes

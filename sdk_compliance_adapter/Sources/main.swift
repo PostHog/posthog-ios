@@ -195,7 +195,7 @@ func fetchFlagsWithRetry(flagsURL: URL, payload: [String: Any]) async throws -> 
     let body = try JSONSerialization.data(withJSONObject: payload)
     var lastStatus = 0
 
-    for _ in 0..<2 {
+    for _ in 0 ..< 2 {
         var flagsRequest = URLRequest(url: flagsURL)
         flagsRequest.httpMethod = "POST"
         flagsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -203,7 +203,7 @@ func fetchFlagsWithRetry(flagsURL: URL, payload: [String: Any]) async throws -> 
 
         let (data, response) = try await URLSession.shared.data(for: flagsRequest)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if (200..<300).contains(statusCode) {
+        if (200 ..< 300).contains(statusCode) {
             return data
         }
 

@@ -195,7 +195,7 @@ func fetchFlagsWithRetry(flagsURL: URL, payload: [String: Any]) async throws -> 
     let body = try JSONSerialization.data(withJSONObject: payload)
     var lastStatus = 0
 
-    for _ in 0 ..< 2 {
+    for _ in 0 ..< 3 {
         var flagsRequest = URLRequest(url: flagsURL)
         flagsRequest.httpMethod = "POST"
         flagsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")

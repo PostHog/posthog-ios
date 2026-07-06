@@ -241,7 +241,7 @@ let maxRetryDelay = 30.0
                         errorTrackingRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
                             guard let self else { return }
                             setupLock.withLock {
-                                installErrorTrackingIntegration()
+                                self.installErrorTrackingIntegration()
                             }
                             errorTrackingRemoteConfigToken = nil
                         }

@@ -1025,14 +1025,14 @@ class PostHogRemoteConfig {
         // drop) the opening window of post-reset sessions that never re-fetch /config.
     }
 
+    /// Whether a `/config` request has completed at least once (set on both success and failure).
+    var hasFetchedRemoteConfig: Bool {
+        remoteConfigLock.withLock { remoteConfigDidFetch }
+    }
+
     #if os(iOS)
         func isSessionReplayFlagActive() -> Bool {
             sessionReplayLock.withLock { sessionReplayFlagActive }
-        }
-
-        /// Whether a `/config` request has completed at least once (set on both success and failure).
-        var hasFetchedRemoteConfig: Bool {
-            remoteConfigLock.withLock { remoteConfigDidFetch }
         }
 
         /// Whether recording is gated on a linked feature flag (vs a plain boolean). The flag's value

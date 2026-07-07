@@ -45,7 +45,7 @@
             set { objc_setAssociatedObject(self, &AssociatedKeys.phNoRageClick, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         }
 
-        func toImage() -> UIImage? {
+        func toImage(afterScreenUpdates: Bool = false) -> UIImage? {
             let bounds = self.bounds
             let size = bounds.size
 
@@ -60,9 +60,10 @@
 
             return autoreleasepool {
                 renderer.image { _ in
-                    /// Note: Always `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
+                    /// Note: Default `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
                     /// This can potentially affect capturing a snapshot during a screen transition but we want the lesser of the two evils here
-                    drawHierarchy(in: bounds, afterScreenUpdates: false)
+                    /// The bridge capture passes `true`: a freshly-presented native VC renders black otherwise.
+                    drawHierarchy(in: bounds, afterScreenUpdates: afterScreenUpdates)
                 }
             }
         }

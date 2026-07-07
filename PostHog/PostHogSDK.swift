@@ -2371,6 +2371,24 @@ let maxRetryDelay = 30.0
 
             replayIntegration.stop()
         }
+
+        /// Captures the current native window for a first-party wrapper SDK
+        /// (e.g. posthog-flutter) that drives session-replay capture on its own
+        /// cadence. Not for app use — it shares snapshot state with the normal
+        /// timer-driven capture. Pass [afterScreenUpdates] only for an episode's
+        /// first frame (it flickers secure fields). Returns false if no frame
+        /// was captured, so the caller can retry.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) @discardableResult public func captureSessionReplaySnapshot(
+            afterScreenUpdates: Bool
+        ) -> Bool {
+            if !isEnabled() {
+                return false
+            }
+
+            return replayIntegration?.captureBridgeSnapshot(settlePresentation: afterScreenUpdates) ?? false
+        }
     #endif
 
     /// Creates and sets up an additional SDK instance.

@@ -64,7 +64,7 @@ import Foundation
                             guard let self, let postHog else { return }
                             self.remoteConfigLoadedToken = nil
                             if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
-                                self.uninstall(postHog)
+                                self.stop()
                             }
                         }
                     }

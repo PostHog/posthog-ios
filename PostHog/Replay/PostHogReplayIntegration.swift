@@ -746,6 +746,16 @@
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
 
+                let imageHash = (wireframeDict["base64"] as? String)?.hashValue
+                if PostHogReplayIntegration.shouldSkipUnchangedScreenshot(
+                    imageHash: imageHash,
+                    lastImageHash: snapshotStatus.lastImageHash,
+                    hasPendingSnapshotData: !snapshotsData.isEmpty
+                ) {
+                    return
+                }
+                snapshotStatus.lastImageHash = imageHash
+
                 var wireframes: [Any] = []
                 wireframes.append(wireframeDict)
                 let initialOffset = ["top": 0, "left": 0]
@@ -763,6 +773,11 @@
                     timestamp: timestampDate
                 )
             }
+        }
+
+        static func shouldSkipUnchangedScreenshot(imageHash: Int?, lastImageHash: Int?, hasPendingSnapshotData: Bool) -> Bool {
+            guard let imageHash, !hasPendingSnapshotData else { return false }
+            return imageHash == lastImageHash
         }
 
         private func setAlignment(_ alignment: NSTextAlignment, _ style: RRStyle) {

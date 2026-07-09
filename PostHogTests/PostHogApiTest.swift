@@ -579,6 +579,68 @@ enum PostHogApiTests {
             try await testFlagsEndpoint(forHost: "http://localhost:9000/api/v1/")
         }
     }
+
+    @Suite("Non-HTTPURLResponse handling", .serialized)
+    final class TestNonHTTPResponseHandling {
+        private func getSut() -> PostHogApi {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost")
+            let sessionConfig = URLSessionConfiguration.ephemeral
+            sessionConfig.protocolClasses = [NonHTTPResponseURLProtocol.self]
+            config.urlSessionConfiguration = sessionConfig
+            return PostHogApi(config)
+        }
+
+        @Test("flags completes gracefully when the response is not an HTTPURLResponse")
+        func flagsHandlesNonHTTPResponse() async {
+            let sut = getSut()
+
+            let resp: ([String: Any]?, Error?) = await withCheckedContinuation { continuation in
+                sut.flags(distinctId: "x", anonymousId: nil, groups: [:], personProperties: [:]) { data, error in
+                    continuation.resume(returning: (data, error))
+                }
+            }
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 == nil)
+        }
+
+        @Test("remote config completes gracefully when the response is not an HTTPURLResponse")
+        func remoteConfigHandlesNonHTTPResponse() async {
+            let sut = getSut()
+
+            let resp: ([String: Any]?, Error?) = await withCheckedContinuation { continuation in
+                sut.remoteConfig { data, error in
+                    continuation.resume(returning: (data, error))
+                }
+            }
+
+            #expect(resp.0 == nil)
+            #expect(resp.1 == nil)
+        }
+    }
+}
+
+/// Replies to every request with a plain `URLResponse` (not `HTTPURLResponse`),
+/// the case that used to hit a force-cast crash in the flags/remote config handlers.
+private final class NonHTTPResponseURLProtocol: URLProtocol {
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let url = request.url else { return }
+        let data = Data("{}".utf8)
+        let response = URLResponse(url: url, mimeType: "application/json", expectedContentLength: data.count, textEncodingName: nil)
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 private final class CapturedRequestBox {

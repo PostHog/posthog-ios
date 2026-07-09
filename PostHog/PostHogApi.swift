@@ -322,7 +322,10 @@ class PostHogApi {
                 return completion(nil, nil)
             }
 
-            let httpResponse = response as! HTTPURLResponse
+            guard let httpResponse = response as? HTTPURLResponse else {
+                hedgeLog("Error parsing the flags response: unexpected response type")
+                return completion(nil, nil)
+            }
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
                 let jsonBody = fromJSONData(data, options: .allowFragments)
@@ -409,7 +412,10 @@ class PostHogApi {
                 return completion(nil, nil)
             }
 
-            let httpResponse = response as! HTTPURLResponse
+            guard let httpResponse = response as? HTTPURLResponse else {
+                hedgeLog("Error parsing the remote config response: unexpected response type")
+                return completion(nil, nil)
+            }
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
                 let jsonBody = fromJSONData(data, options: .allowFragments)

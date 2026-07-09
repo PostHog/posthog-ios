@@ -1,5 +1,11 @@
 ## Next
 
+## 3.64.3
+
+### Patch Changes
+
+- 5ed8fd6: Fix event-queue peek/pop misalignment that could re-send already-delivered events when a file was skipped, and stop deleting valid queue files that are only temporarily unreadable (e.g. iOS data protection on a locked device).
+
 ## 3.64.2
 
 ### Patch Changes

@@ -1,8 +1,6 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    cooldown:
-      default-days: 7
     directory: "/"
     schedule:
       interval: weekly
@@ -10,3 +8,7 @@ updates:
       default-days: 7
     reviewers:
       - "PostHog/team-client-libraries"
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"

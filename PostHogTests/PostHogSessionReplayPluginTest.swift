@@ -1,6 +1,9 @@
 #if os(iOS)
     import Foundation
     @testable import PostHog
+    #if !SWIFT_PACKAGE
+        import CwlCatchException
+    #endif
     import Testing
 
     @Suite("Session Replay Plugin Remote Config Tests")
@@ -218,5 +221,201 @@
                 ) == testCase.expected
             )
         }
+
+        #if !SWIFT_PACKAGE
+            @Test("Task resume fallback ignores AVFoundation tasks that throw on currentRequest")
+            func taskResumeFallbackIgnoresAVFoundationTasksThatThrowOnCurrentRequest() throws {
+                let swizzler = try URLSessionSwizzler.TaskResume.build { request in
+                    var modifiedRequest = request
+                    modifiedRequest.setValue("1", forHTTPHeaderField: "X-PostHog-Test")
+                    return modifiedRequest
+                }
+
+                let task = ThrowingAggregateAssetDownloadTask()
+
+                let exception = NSException.catchException {
+                    swizzler.modifyTaskRequests(task)
+                }
+
+                #expect(exception == nil)
+                #expect(task.didAttemptCurrentRequestMutation == false)
+            }
+
+            @Test("Task resume fallback ignores generic getter exceptions when probing currentRequest")
+            func taskResumeFallbackIgnoresGenericGetterExceptionsWhenProbingCurrentRequest() throws {
+                let swizzler = try URLSessionSwizzler.TaskResume.build { request in
+                    var modifiedRequest = request
+                    modifiedRequest.setValue("1", forHTTPHeaderField: "X-PostHog-Test")
+                    return modifiedRequest
+                }
+
+                let task = ThrowingCurrentRequestTask()
+
+                let exception = NSException.catchException {
+                    swizzler.modifyTaskRequests(task)
+                }
+
+                #expect(exception == nil)
+                #expect(task.didAttemptCurrentRequestMutation == false)
+            }
+
+            @Test("Task resume fallback ignores tasks whose currentRequest is nil")
+            func taskResumeFallbackIgnoresTasksWhoseCurrentRequestIsNil() throws {
+                let swizzler = try URLSessionSwizzler.TaskResume.build { request in
+                    var modifiedRequest = request
+                    modifiedRequest.setValue("1", forHTTPHeaderField: "X-PostHog-Test")
+                    return modifiedRequest
+                }
+
+                let task = NilCurrentRequestTask()
+
+                let exception = NSException.catchException {
+                    swizzler.modifyTaskRequests(task)
+                }
+
+                #expect(exception == nil)
+                #expect(task.currentRequest == nil)
+                #expect(task.didAttemptCurrentRequestMutation == false)
+            }
+
+            @Test("Task resume fallback still rewrites standard request-backed tasks")
+            func taskResumeFallbackStillRewritesStandardRequestBackedTasks() throws {
+                let swizzler = try URLSessionSwizzler.TaskResume.build { request in
+                    var modifiedRequest = request
+                    modifiedRequest.setValue("1", forHTTPHeaderField: "X-PostHog-Test")
+                    return modifiedRequest
+                }
+
+                let url = try #require(URL(string: "https://example.com"))
+                let task = MutableCurrentRequestTask(request: URLRequest(url: url))
+
+                swizzler.modifyTaskRequests(task)
+
+                #expect(task.currentRequest?.value(forHTTPHeaderField: "X-PostHog-Test") == "1")
+            }
+
+            @Test("Task resume fallback ignores setter exceptions when mutating currentRequest")
+            func taskResumeFallbackIgnoresSetterExceptionsWhenMutatingCurrentRequest() throws {
+                let swizzler = try URLSessionSwizzler.TaskResume.build { request in
+                    var modifiedRequest = request
+                    modifiedRequest.setValue("1", forHTTPHeaderField: "X-PostHog-Test")
+                    return modifiedRequest
+                }
+
+                let url = try #require(URL(string: "https://example.com"))
+                let task = ThrowingCurrentRequestSetterTask(request: URLRequest(url: url))
+
+                let exception = NSException.catchException {
+                    swizzler.modifyTaskRequests(task)
+                }
+
+                #expect(exception == nil)
+                #expect(task.currentRequest?.value(forHTTPHeaderField: "X-PostHog-Test") == nil)
+            }
+        #endif
     }
+
+    #if !SWIFT_PACKAGE
+        @objc(TestAVAggregateAssetDownloadTaskNoChildTask)
+        private final class ThrowingAggregateAssetDownloadTask: URLSessionTask, @unchecked Sendable {
+            private(set) var didAttemptCurrentRequestMutation = false
+
+            override var currentRequest: URLRequest? {
+                NSException(
+                    name: NSExceptionName("UnsupportedCurrentRequest"),
+                    reason: "AVAggregateAssetDownloadTask does not support currentRequest",
+                    userInfo: nil
+                ).raise()
+                return nil
+            }
+
+            override func setValue(_ value: Any?, forKey key: String) {
+                if key == "currentRequest" {
+                    didAttemptCurrentRequestMutation = true
+                }
+
+                super.setValue(value, forKey: key)
+            }
+        }
+
+        private final class ThrowingCurrentRequestTask: URLSessionTask, @unchecked Sendable {
+            private(set) var didAttemptCurrentRequestMutation = false
+
+            override var currentRequest: URLRequest? {
+                NSException(
+                    name: NSExceptionName("UnsupportedCurrentRequest"),
+                    reason: "Task does not support currentRequest",
+                    userInfo: nil
+                ).raise()
+                return nil
+            }
+
+            override func setValue(_ value: Any?, forKey key: String) {
+                if key == "currentRequest" {
+                    didAttemptCurrentRequestMutation = true
+                }
+
+                super.setValue(value, forKey: key)
+            }
+        }
+
+        private final class NilCurrentRequestTask: URLSessionTask, @unchecked Sendable {
+            private(set) var didAttemptCurrentRequestMutation = false
+
+            override var currentRequest: URLRequest? {
+                nil
+            }
+
+            override func setValue(_ value: Any?, forKey key: String) {
+                if key == "currentRequest" {
+                    didAttemptCurrentRequestMutation = true
+                }
+
+                super.setValue(value, forKey: key)
+            }
+        }
+
+        private final class MutableCurrentRequestTask: URLSessionTask, @unchecked Sendable {
+            private var storedCurrentRequest: NSURLRequest?
+
+            init(request: URLRequest) {
+                storedCurrentRequest = request as NSURLRequest
+                super.init()
+            }
+
+            override var currentRequest: URLRequest? {
+                storedCurrentRequest as URLRequest?
+            }
+
+            @objc(setCurrentRequest:)
+            func setCurrentRequest(_ request: NSURLRequest) {
+                storedCurrentRequest = request
+            }
+        }
+
+        private final class ThrowingCurrentRequestSetterTask: URLSessionTask, @unchecked Sendable {
+            private let storedCurrentRequest: NSURLRequest
+
+            init(request: URLRequest) {
+                storedCurrentRequest = request as NSURLRequest
+                super.init()
+            }
+
+            override var currentRequest: URLRequest? {
+                storedCurrentRequest as URLRequest
+            }
+
+            override func setValue(_ value: Any?, forKey key: String) {
+                if key == "currentRequest" {
+                    NSException(
+                        name: NSExceptionName("UnsupportedCurrentRequestMutation"),
+                        reason: "Task does not support mutating currentRequest",
+                        userInfo: nil
+                    ).raise()
+                }
+
+                super.setValue(value, forKey: key)
+            }
+        }
+    #endif
 #endif

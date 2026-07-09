@@ -37,6 +37,8 @@
 		3AA34D01296D951B003398F4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34D00296D951B003398F4 /* Preview Assets.xcassets */; };
 		3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34D16296D9993003398F4 /* AppDelegate.swift */; };
 		3AC745C6296D6FE60025C109 /* PostHog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AC745B8296D6FE60025C109 /* PostHog.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E1A0B0063A0B000100000001 /* PHURLSessionTaskSafeAccess.h in Headers */ = {isa = PBXBuildFile; fileRef = E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E1A0B0013A0B000100000001 /* PHURLSessionTaskSafeAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */; };
 		3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB2B2991320300AFFC18 /* Api.swift */; };
 		3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB322991388500AFFC18 /* PostHogQueue.swift */; };
 		3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */; };
@@ -75,6 +77,7 @@
 		690FF0ED2AEFF23300A0B06B /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0EC2AEFF23300A0B06B /* Nimble */; };
 		690FF0EF2AEFF23D00A0B06B /* OHHTTPStubsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0EE2AEFF23D00A0B06B /* OHHTTPStubsSwift */; };
 		690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0F02AEFF24200A0B06B /* OHHTTPStubs */; };
+		E1A0B0203A0D000100000001 /* CwlCatchException in Frameworks */ = {isa = PBXBuildFile; productRef = E1A0B0213A0D000100000001 /* CwlCatchException */; };
 		690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */; };
 		69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */; };
 		69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */; };
@@ -787,6 +790,8 @@
 		3AC745B5296D6FE60025C109 /* PostHog.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PostHog.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AC745B8296D6FE60025C109 /* PostHog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PostHog.h; sourceTree = "<group>"; };
 		3AC745BF296D6FE60025C109 /* PostHogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PostHogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHURLSessionTaskSafeAccess.h; sourceTree = "<group>"; };
+		E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHURLSessionTaskSafeAccess.m; sourceTree = "<group>"; };
 		3AE3FB2B2991320300AFFC18 /* Api.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Api.swift; sourceTree = "<group>"; };
 		3AE3FB322991388500AFFC18 /* PostHogQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueue.swift; sourceTree = "<group>"; };
 		3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApi.swift; sourceTree = "<group>"; };
@@ -1414,6 +1419,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E1A0B0203A0D000100000001 /* CwlCatchException in Frameworks */,
 				690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */,
 				DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */,
 				690FF0ED2AEFF23300A0B06B /* Nimble in Frameworks */,
@@ -1577,6 +1583,7 @@
 				DACC08B52D6E3C6800115E46 /* PostHogIntegration.swift */,
 				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
+				E1A0B0053A0B000100000001 /* ObjCExceptionSupport */,
 				DA1D29612D115E13003A31DA /* DI.swift */,
 				DA578E912D6768A100B3A56C /* ScreenViews */,
 				DA703C132D6615300069097B /* AppLifeCycle */,
@@ -1614,6 +1621,15 @@
 				D977A46D673A5FA52C03105F /* Logs */,
 			);
 			path = PostHog;
+			sourceTree = "<group>";
+		};
+		E1A0B0053A0B000100000001 /* ObjCExceptionSupport */ = {
+			isa = PBXGroup;
+			children = (
+				E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */,
+				E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */,
+			);
+			path = ObjCExceptionSupport;
 			sourceTree = "<group>";
 		};
 		3AC745C3296D6FE60025C109 /* PostHogTests */ = {
@@ -2516,6 +2532,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
+				E1A0B0063A0B000100000001 /* PHURLSessionTaskSafeAccess.h in Headers */,
 				DA0B66A52D64EC00006F5FF3 /* ph_sharpyuv_csp.h in Headers */,
 				DA0B66A62D64EC00006F5FF3 /* ph_sharpyuv_dsp.h in Headers */,
 				DA0B66A72D64EC00006F5FF3 /* ph_huffman_utils.h in Headers */,
@@ -2706,6 +2723,7 @@
 			);
 			name = PostHogTests;
 			packageProductDependencies = (
+				E1A0B0213A0D000100000001 /* CwlCatchException */,
 				690FF0EA2AEFF22F00A0B06B /* Quick */,
 				690FF0EC2AEFF23300A0B06B /* Nimble */,
 				690FF0EE2AEFF23D00A0B06B /* OHHTTPStubsSwift */,
@@ -2837,6 +2855,7 @@
 			);
 			mainGroup = 3AC745AB296D6FE60025C109;
 			packageReferences = (
+				E1A0B0223A0D000100000001 /* XCRemoteSwiftPackageReference "CwlCatchException" */,
 				3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */,
 				3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */,
 				3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */,
@@ -3066,6 +3085,7 @@
 				DAB9E23D2DE8901D00E62DB9 /* URLSessionExtension.swift in Sources */,
 				DAB9E23E2DE8901D00E62DB9 /* URLSessionSwizzler.swift in Sources */,
 				DAB9E23F2DE8901D00E62DB9 /* URLSessionInterceptor.swift in Sources */,
+				E1A0B0013A0B000100000001 /* PHURLSessionTaskSafeAccess.m in Sources */,
 				DA5175B32F6C4CEA00F0E00A /* PostHogReplayBufferDelegate.swift in Sources */,
 				DA5175B42F6C4CEA00F0E00A /* PostHogReplayBufferQueue.swift in Sources */,
 				69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */,
@@ -3813,7 +3833,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -3887,7 +3907,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -4379,7 +4399,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG TESTING";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -4696,6 +4716,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		E1A0B0223A0D000100000001 /* XCRemoteSwiftPackageReference "CwlCatchException" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mattgallagher/CwlCatchException.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.2.1;
+			};
+		};
 		3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/AliSoftware/OHHTTPStubs";
@@ -4723,6 +4751,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E1A0B0213A0D000100000001 /* CwlCatchException */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E1A0B0223A0D000100000001 /* XCRemoteSwiftPackageReference "CwlCatchException" */;
+			productName = CwlCatchException;
+		};
 		690FF0EA2AEFF22F00A0B06B /* Quick */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */;

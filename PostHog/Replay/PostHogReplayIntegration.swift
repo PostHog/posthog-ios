@@ -746,6 +746,19 @@
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
 
+                // Screenshot mode emits a full screenshot every capture, so a
+                // static screen on the throttle cadence would re-send an
+                // identical image every tick. Skip when the encoded image is
+                // unchanged and there is no pending meta event. All lastImageHash
+                // access is on this serial capture queue, so no extra lock is
+                // needed. (The player holds the last frame, so a skipped tick
+                // leaves the screen unchanged.)
+                let imageHash = (wireframeDict["base64"] as? String)?.hashValue
+                if let imageHash, imageHash == snapshotStatus.lastImageHash, snapshotsData.isEmpty {
+                    return
+                }
+                snapshotStatus.lastImageHash = imageHash
+
                 var wireframes: [Any] = []
                 wireframes.append(wireframeDict)
                 let initialOffset = ["top": 0, "left": 0]

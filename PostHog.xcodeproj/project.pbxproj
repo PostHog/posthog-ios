@@ -922,7 +922,7 @@
 		8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsOTLP.swift; sourceTree = "<group>"; };
 		8AC7B7E5D1441557C48E5951 /* CrashReporterFramework.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CrashReporterFramework.m; path = vendor/PHPLCrashReporter/Source/CrashReporterFramework.m; sourceTree = "<group>"; };
 		8D1477A6BA86EB4E28DF64ED /* fixture_survey_conditions_event_property_filters.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = fixture_survey_conditions_event_property_filters.json; sourceTree = "<group>"; };
-		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c/protobuf-c.c"; sourceTree = "<group>"; };
+		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Source/protobuf-c.c"; sourceTree = "<group>"; };
 		9473A633747872EA43FDCA3A /* SurveyTranslationResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurveyTranslationResolver.swift; sourceTree = "<group>"; };
 		97A462C12E6F54A281DE5023 /* PLCrashProcessInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashProcessInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashProcessInfo.m; sourceTree = "<group>"; };
 		991CFA923BC02DA7DD6506C6 /* PLCrashAsyncImageList.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncImageList.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncImageList.cpp; sourceTree = "<group>"; };
@@ -1063,8 +1063,8 @@
 		DA697CAF2EF935490019640F /* PostHogStackTraceProcessorTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackTraceProcessorTest.swift; sourceTree = "<group>"; };
 		DA6A2A5D2F39BE9300BD1B4C /* PostHogPropertiesSerializationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPropertiesSerializationTest.swift; sourceTree = "<group>"; };
 		DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApiTest.swift; sourceTree = "<group>"; };
-		DA6F27B52F9AAA7F0064044F /* protobuf-c.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "protobuf-c.h"; sourceTree = "<group>"; };
-		DA6F27B62F9AAA7F0064044F /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "protobuf-c.c"; sourceTree = "<group>"; };
+		DA6F27B52F9AAA7F0064044F /* protobuf-c.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "vendor/PHPLCrashReporter/Source/protobuf-c.h"; sourceTree = SOURCE_ROOT; };
+		DA6F27B62F9AAA7F0064044F /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "vendor/PHPLCrashReporter/Source/protobuf-c.c"; sourceTree = SOURCE_ROOT; };
 		DA6F27B82F9AAA7F0064044F /* generate-pb-c.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "generate-pb-c.sh"; sourceTree = "<group>"; };
 		DA6F27BB2F9AAA7F0064044F /* CrashReporter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CrashReporter.h; sourceTree = "<group>"; };
 		DA6F27BC2F9AAA7F0064044F /* PLCrashFeatureConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PLCrashFeatureConfig.h; sourceTree = "<group>"; };
@@ -3808,8 +3808,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -3882,8 +3880,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -4373,8 +4369,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";

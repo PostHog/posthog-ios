@@ -12,8 +12,6 @@ class ViewTreeSnapshotStatus {
     var sentMetaEvent: Bool = false
     var keyboardVisible: Bool = false
     var lastSnapshot: Bool = false
-    // Hash of the last screenshot enqueued for this window, so an unchanged
-    // screenshot (a static screen captured on the throttle cadence) is not
-    // re-sent. Nil until the first screenshot.
+    // Hash of the last screenshot sent for this window, used to skip unchanged frames.
     var lastImageHash: Int?
 }

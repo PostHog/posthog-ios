@@ -175,6 +175,34 @@ struct PostHogFileBackedQueueAlignmentTest {
         #expect(decode(queue.peek(10)) == ["A", "B"])
     }
 
+    @Test("prunes a corrupt entry that precedes a temporarily-unavailable file in the same load")
+    func prunesCorruptBeforeTemporarilyUnavailable() throws {
+        guard geteuid() != 0 else { return } // chmod read-denial is a no-op for root
+        let (queue, dir) = makeQueue()
+        defer {
+            for file in (try? sortedFiles(in: dir)) ?? [] {
+                try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+            }
+            queue.clear()
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        enqueue(["A", "B", "C"], into: queue)
+        let files = try sortedFiles(in: dir)
+        // present but unreadable: fileExists true, Data(contentsOf:) throws
+        try FileManager.default.removeItem(at: files[0])
+        try FileManager.default.createDirectory(at: files[0], withIntermediateDirectories: false)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: files[1].path)
+
+        #expect(queue.peek(10).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: files[0].path))
+        #expect(FileManager.default.fileExists(atPath: files[1].path))
+        #expect(queue.depth == 2)
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: files[1].path)
+        #expect(decode(queue.peek(10)) == ["B", "C"])
+    }
+
     @Test("randomized add/vanish/flush interleavings never duplicate a delivered record")
     func randomizedNoDuplicateDelivery() throws {
         var rng = SeededGenerator(seed: 0x00C0_FFEE)

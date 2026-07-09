@@ -52,38 +52,24 @@ struct PostHogFileBackedQueueAlignmentTest {
         #expect(queue.depth == 0)
     }
 
-    @Test("does not re-deliver a record when a missing file precedes returned items")
-    func missingFilePrecedingReturnedItems() throws {
-        let (queue, dir) = makeQueue()
-        defer { queue.clear()
-            try? FileManager.default.removeItem(at: dir)
-        }
-
-        enqueue(["A", "B", "C", "D"], into: queue)
-        try FileManager.default.removeItem(at: sortedFiles(in: dir)[0])
-
-        let batch1 = decode(queue.peek(2))
-        #expect(batch1 == ["B", "C"])
-        queue.pop(batch1.count)
-
-        let batch2 = decode(queue.peek(2))
-        #expect(Set(batch1).isDisjoint(with: Set(batch2)))
-        #expect(batch2 == ["D"])
+    enum UnreadableHead {
+        case missing // vanished from disk: !fileExists, pruned via `continue`
+        case corrupt // present but unreadable (Data(contentsOf:) throws): deleted then pruned
     }
 
-    @Test("does not re-deliver a record when a corrupt file precedes returned items")
-    func corruptFilePrecedingReturnedItems() throws {
+    @Test("does not re-deliver a record when an unreadable file precedes returned items", arguments: [UnreadableHead.missing, .corrupt])
+    func unreadableFilePrecedingReturnedItems(_ kind: UnreadableHead) throws {
         let (queue, dir) = makeQueue()
         defer { queue.clear()
             try? FileManager.default.removeItem(at: dir)
         }
 
         enqueue(["A", "B", "C", "D"], into: queue)
-
-        // present but unreadable: fileExists true, Data(contentsOf:) throws
         let head = try sortedFiles(in: dir)[0]
         try FileManager.default.removeItem(at: head)
-        try FileManager.default.createDirectory(at: head, withIntermediateDirectories: false)
+        if kind == .corrupt {
+            try FileManager.default.createDirectory(at: head, withIntermediateDirectories: false)
+        }
 
         let batch1 = decode(queue.peek(2))
         #expect(batch1 == ["B", "C"])

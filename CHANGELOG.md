@@ -1,5 +1,12 @@
 ## Next
 
+## 3.64.4
+
+### Patch Changes
+
+- c5b2d23: Avoid a crash in the flags and remote-config API handlers when the URL response is not an `HTTPURLResponse` (previously force-cast); the SDK now logs and returns gracefully instead.
+- 24cbc60: Session replay (screenshot mode): skip re-sending unchanged screenshots. Static screens no longer upload an identical full screenshot every tick, cutting replay bandwidth and storage. Wireframe mode is unaffected.
+
 ## 3.64.3
 
 ### Patch Changes

@@ -746,8 +746,6 @@
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
 
-                // Safe to drop an unchanged frame: the player holds the last one. No lock:
-                // this runs on the serial capture queue, the only place lastImageHash is touched.
                 let imageHash = (wireframeDict["base64"] as? String)?.hashValue
                 if PostHogReplayIntegration.shouldSkipUnchangedScreenshot(
                     imageHash: imageHash,
@@ -777,7 +775,6 @@
             }
         }
 
-        // A nil hash (wireframe mode, where `base64` is absent) never skips.
         static func shouldSkipUnchangedScreenshot(imageHash: Int?, lastImageHash: Int?, hasPendingSnapshotData: Bool) -> Bool {
             guard let imageHash, !hasPendingSnapshotData else { return false }
             return imageHash == lastImageHash

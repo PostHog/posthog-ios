@@ -1,5 +1,11 @@
 ## Next
 
+## 3.64.2
+
+### Patch Changes
+
+- 6a5b391: fix: prevent Session Replay crashes on AVAggregateAssetDownloadTask
+
 ## 3.64.1
 
 ### Patch Changes

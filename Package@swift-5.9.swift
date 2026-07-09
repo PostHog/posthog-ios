@@ -25,13 +25,22 @@ let package = Package(
         .target(
             name: "PostHog",
             dependencies: [
+                "PostHogObjCExceptionSupport",
                 "phlibwebp",
                 .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
             ],
             path: "PostHog",
+            exclude: [
+                "ObjCExceptionSupport",
+            ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy"),
             ]
+        ),
+        .target(
+            name: "PostHogObjCExceptionSupport",
+            path: "PostHog/ObjCExceptionSupport",
+            publicHeadersPath: "."
         ),
         .target(
             name: "phlibwebp",

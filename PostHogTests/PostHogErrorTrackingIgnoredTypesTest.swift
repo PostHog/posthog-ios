@@ -103,4 +103,82 @@ import Testing
         }
     }
 
+    @Suite("ErrorTracking ignoredExceptionTypes capture paths", .serialized)
+    class ErrorTrackingIgnoredTypesCaptureTest {
+        let server: MockPostHogServer
+
+        init() {
+            server = MockPostHogServer(version: 4)
+            server.start()
+        }
+
+        deinit {
+            server.stop()
+        }
+
+        private enum TestError: Error {
+            case boom
+        }
+
+        private func getSut(ignoredExceptionTypes: [String]? = nil) -> PostHogSDK {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.flushAt = 1
+            config.captureApplicationLifecycleEvents = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            if let ignoredExceptionTypes {
+                config.errorTrackingConfig.ignoredExceptionTypes = ignoredExceptionTypes
+            }
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            return PostHogSDK.with(config)
+        }
+
+        @Test("generic capture drops $exception whose list contains an ignored type")
+        func genericCaptureDropsIgnoredType() {
+            let sut = getSut()
+
+            sut.capture("$exception", properties: ["$exception_list": [["type": "RCTFatalException", "value": "boom"]]])
+            sut.capture("marker")
+
+            let events = getBatchedEvents(server)
+            #expect(events.filter { $0.event == "$exception" }.isEmpty)
+            #expect(events.contains { $0.event == "marker" })
+
+            sut.reset()
+            sut.close()
+        }
+
+        @Test("generic capture keeps $exception whose list has no ignored type")
+        func genericCaptureKeepsOtherTypes() {
+            let sut = getSut()
+
+            sut.capture("$exception", properties: ["$exception_list": [["type": "SomeOtherError", "value": "boom"]]])
+
+            let events = getBatchedEvents(server).filter { $0.event == "$exception" }
+            #expect(events.count == 1)
+
+            sut.reset()
+            sut.close()
+        }
+
+        @Test("captureException still drops ignored types after the gate moved to captureInternal")
+        func captureExceptionStillDropsIgnoredType() {
+            let sut = getSut(ignoredExceptionTypes: ["TestError"])
+
+            sut.captureException(TestError.boom)
+            sut.capture("marker")
+
+            let events = getBatchedEvents(server)
+            #expect(events.filter { $0.event == "$exception" }.isEmpty)
+            #expect(events.contains { $0.event == "marker" })
+
+            sut.reset()
+            sut.close()
+        }
+    }
+
 #endif

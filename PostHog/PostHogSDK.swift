@@ -1233,6 +1233,17 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // $exception_list only ever comes from the caller, so raw properties are sufficient here
+        if event == "$exception" {
+            let ignored = config.errorTrackingConfig.ignoredExceptionTypes
+            if !ignored.isEmpty,
+               PostHogErrorTrackingAutoCaptureIntegration.exceptionListMatchesIgnoredTypes(properties ?? [:], ignoredTypes: ignored)
+            {
+                hedgeLog("$exception skipped: exception type is in errorTrackingConfig.ignoredExceptionTypes")
+                return
+            }
+        }
+
         var isSnapshotEvent = event == "$snapshot"
         let eventTimestamp = timestamp ?? now()
         let eventDistinctId = distinctId ?? getDistinctId()
@@ -2600,19 +2611,7 @@ let maxRetryDelay = 30.0
         var mergedProperties = exceptionProperties
         additionalProperties?.forEach { mergedProperties[$0.key] = $0.value }
 
-        // Honor `errorTrackingConfig.ignoredExceptionTypes` on the manual
-        // capture path too — not just the crash-report autocapture path.
-        // React Native bridges that surface RCTFatalException via
-        // `captureException(_:)` would otherwise still duplicate the JS-side
-        // `$exception` event. Mirrors posthog-android's behavior.
-        let ignored = config.errorTrackingConfig.ignoredExceptionTypes
-        if !ignored.isEmpty,
-           PostHogErrorTrackingAutoCaptureIntegration.exceptionListMatchesIgnoredTypes(mergedProperties, ignoredTypes: ignored)
-        {
-            hedgeLog("captureException skipped: exception type is in errorTrackingConfig.ignoredExceptionTypes")
-            return
-        }
-
+        // ignoredExceptionTypes is enforced in captureInternal, the chokepoint for every $exception path
         capture("$exception", properties: mergedProperties)
     }
 

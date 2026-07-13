@@ -1139,8 +1139,8 @@ enum PostHogFeatureFlagsTest {
             c.disableFlushOnBackgroundForTesting = true
             c.disableRemoteConfigForTesting = true
             c.bootstrap = PostHogBootstrap(
-                distinctID: nil,
-                isIdentifiedID: false,
+                distinctId: nil,
+                isIdentifiedId: false,
                 featureFlags: featureFlags,
                 featureFlagPayloads: featureFlagPayloads
             )
@@ -1226,8 +1226,8 @@ enum PostHogFeatureFlagsTest {
             c.sendFeatureFlagEvent = true
             c.flushAt = 1
             c.bootstrap = PostHogBootstrap(
-                distinctID: nil,
-                isIdentifiedID: false,
+                distinctId: nil,
+                isIdentifiedId: false,
                 featureFlags: featureFlags,
                 featureFlagPayloads: featureFlagPayloads
             )

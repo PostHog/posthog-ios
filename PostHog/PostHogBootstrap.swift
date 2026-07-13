@@ -1,8 +1,3 @@
-//
-//  PostHogBootstrap.swift
-//  PostHog
-//
-
 import Foundation
 
 /// Pre-seeded values applied on the very first SDK launch when no per-device state has
@@ -24,18 +19,18 @@ import Foundation
 @objc(PostHogBootstrap) public class PostHogBootstrap: NSObject {
     /// The distinct ID to seed on first launch.
     ///
-    /// When ``isIdentifiedID`` is `false` (the default), this becomes the anonymous ID —
+    /// When ``isIdentifiedId`` is `false` (the default), this becomes the anonymous ID —
     /// the `$distinct_id` on pre-identify events. When `true`, it is treated as an
     /// already-identified user's distinct ID and the SDK skips the `$identify` merge
     /// for it.
-    @objc public var distinctID: String?
+    @objc public var distinctId: String?
 
-    /// Whether ``distinctID`` represents an already-identified user.
+    /// Whether ``distinctId`` represents an already-identified user.
     ///
     /// Defaults to `false`. Set to `true` when the host application has resolved the
     /// user's identity outside the SDK (for example from a backend session token) and
     /// wants the iOS SDK to treat them as identified from the first event onward.
-    @objc public var isIdentifiedID: Bool = false
+    @objc public var isIdentifiedId: Bool = false
 
     /// Feature flag values served until the first `/flags` response arrives.
     ///
@@ -56,16 +51,29 @@ import Foundation
         super.init()
     }
 
-    @objc public convenience init(
-        distinctID: String? = nil,
-        isIdentifiedID: Bool = false,
-        featureFlags: [String: Any]? = nil,
-        featureFlagPayloads: [String: Any]? = nil
+    /// Seeds an anonymous identity. `distinctId` is used as the anonymous ID for events
+    /// captured before the host calls `identify(...)`.
+    @objc public convenience init(distinctId: String?) {
+        self.init(distinctId: distinctId, isIdentifiedId: false, featureFlags: nil, featureFlagPayloads: nil)
+    }
+
+    /// Seeds identity. Set `isIdentifiedId` to `true` when `distinctId` is an
+    /// already-identified user's ID rather than an anonymous ID.
+    @objc public convenience init(distinctId: String?, isIdentifiedId: Bool) {
+        self.init(distinctId: distinctId, isIdentifiedId: isIdentifiedId, featureFlags: nil, featureFlagPayloads: nil)
+    }
+
+    /// Seeds identity and feature-flag state.
+    @objc public init(
+        distinctId: String?,
+        isIdentifiedId: Bool,
+        featureFlags: [String: Any]?,
+        featureFlagPayloads: [String: Any]?
     ) {
-        self.init()
-        self.distinctID = distinctID
-        self.isIdentifiedID = isIdentifiedID
+        self.distinctId = distinctId
+        self.isIdentifiedId = isIdentifiedId
         self.featureFlags = featureFlags
         self.featureFlagPayloads = featureFlagPayloads
+        super.init()
     }
 }

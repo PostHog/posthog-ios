@@ -32,19 +32,19 @@ public class PostHogStorageManager {
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
         idGen = config.getAnonymousId
-        applyBootstrapIfNeeded(config.bootstrap)
+        applyBootstrapIdentityIfNeeded(config.bootstrap)
     }
 
     /// Persists the bootstrap distinct ID exactly once, on the very first launch with no
     /// per-device state. Skipped when the device already has an anonymous ID on disk,
     /// when the user is already identified, or when the caller did not supply one.
     ///
-    /// When `bootstrap.isIdentifiedID` is `true`, the value is treated as the
+    /// When `bootstrap.isIdentifiedId` is `true`, the value is treated as the
     /// already-identified distinct ID — both `.anonymousId` and `.distinctId` are seeded
     /// to the same value and `isIdentified` is set, so subsequent events are emitted on
     /// the identified person without an `$identify` merge.
-    private func applyBootstrapIfNeeded(_ bootstrap: PostHogBootstrap?) {
-        guard let bootstrap, let bootstrapId = bootstrap.distinctID, !bootstrapId.isEmpty else {
+    private func applyBootstrapIdentityIfNeeded(_ bootstrap: PostHogBootstrap?) {
+        guard let bootstrap, let bootstrapId = bootstrap.distinctId, !bootstrapId.isEmpty else {
             return
         }
         // Persisted state wins — never override an existing anonymous ID, and never
@@ -54,7 +54,7 @@ public class PostHogStorageManager {
 
         setAnonymousId(bootstrapId)
 
-        if bootstrap.isIdentifiedID {
+        if bootstrap.isIdentifiedId {
             setDistinctId(bootstrapId)
             setIdentified(true)
         }

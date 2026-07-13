@@ -35,12 +35,14 @@ PostHog | OnPostHogSurveyResponse | typealias | typealias OnPostHogSurveyRespons
 PostHog | OnPostHogSurveyShown | typealias | typealias OnPostHogSurveyShown = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB11SurveyShowna
 PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
 PostHog | PostHogBootstrap | class | @objc(PostHogBootstrap) class PostHogBootstrap | c:@M@PostHog@objc(cs)PostHogBootstrap
-PostHog | PostHogBootstrap.distinctID | property | @objc var distinctID: String? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)distinctID
+PostHog | PostHogBootstrap.distinctId | property | @objc var distinctId: String? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)distinctId
 PostHog | PostHogBootstrap.featureFlagPayloads | property | @objc var featureFlagPayloads: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)featureFlagPayloads
 PostHog | PostHogBootstrap.featureFlags | property | @objc var featureFlags: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)featureFlags
 PostHog | PostHogBootstrap.init() | init | override init() | c:@M@PostHog@objc(cs)PostHogBootstrap(im)init
-PostHog | PostHogBootstrap.init(distinctID:isIdentifiedID:featureFlags:featureFlagPayloads:) | init | @objc convenience init(distinctID: String? = nil, isIdentifiedID: Bool = false, featureFlags: [String : Any]? = nil, featureFlagPayloads: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctID:isIdentifiedID:featureFlags:featureFlagPayloads:
-PostHog | PostHogBootstrap.isIdentifiedID | property | @objc var isIdentifiedID: Bool | c:@M@PostHog@objc(cs)PostHogBootstrap(py)isIdentifiedID
+PostHog | PostHogBootstrap.init(distinctId:) | init | @objc convenience init(distinctId: String?) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctId:
+PostHog | PostHogBootstrap.init(distinctId:isIdentifiedId:) | init | @objc convenience init(distinctId: String?, isIdentifiedId: Bool) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctId:isIdentifiedId:
+PostHog | PostHogBootstrap.init(distinctId:isIdentifiedId:featureFlags:featureFlagPayloads:) | init | @objc init(distinctId: String?, isIdentifiedId: Bool, featureFlags: [String : Any]?, featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctId:isIdentifiedId:featureFlags:featureFlagPayloads:
+PostHog | PostHogBootstrap.isIdentifiedId | property | @objc var isIdentifiedId: Bool | c:@M@PostHog@objc(cs)PostHogBootstrap(py)isIdentifiedId
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF

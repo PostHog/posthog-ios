@@ -618,9 +618,9 @@ class PostHogRemoteConfig {
     /// layer, so reads return them before the first `/flags` response. Existing cached values
     /// (from a prior load) win over bootstrapped ones; bootstrapped-only keys are added.
     private func seedBootstrapFlagsIfNeeded() {
-        guard !bootstrappedFlags.isEmpty else { return }
-
         featureFlagsLock.withLock {
+            guard !bootstrappedFlags.isEmpty else { return }
+
             let existingFlags = getCachedFeatureFlags() ?? [:]
             let mergedFlags = bootstrappedFlags.merging(existingFlags) { _, existing in existing }
             setCachedFeatureFlags(mergedFlags)

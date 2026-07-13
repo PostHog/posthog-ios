@@ -51,16 +51,21 @@ import Foundation
         super.init()
     }
 
-    /// Seeds an anonymous identity. `distinctId` is used as the anonymous ID for events
+    /// Seeds an anonymous identity: `anonymousId` becomes the `$distinct_id` for events
     /// captured before the host calls `identify(...)`.
-    @objc public convenience init(distinctId: String?) {
-        self.init(distinctId: distinctId, isIdentifiedId: false, featureFlags: nil, featureFlagPayloads: nil)
+    @objc public convenience init(anonymousId: String?) {
+        self.init(distinctId: anonymousId, isIdentifiedId: false, featureFlags: nil, featureFlagPayloads: nil)
     }
 
     /// Seeds identity. Set `isIdentifiedId` to `true` when `distinctId` is an
     /// already-identified user's ID rather than an anonymous ID.
     @objc public convenience init(distinctId: String?, isIdentifiedId: Bool) {
         self.init(distinctId: distinctId, isIdentifiedId: isIdentifiedId, featureFlags: nil, featureFlagPayloads: nil)
+    }
+
+    /// Seeds feature-flag state only, without seeding identity.
+    @objc public convenience init(featureFlags: [String: Any]?, featureFlagPayloads: [String: Any]?) {
+        self.init(distinctId: nil, isIdentifiedId: false, featureFlags: featureFlags, featureFlagPayloads: featureFlagPayloads)
     }
 
     /// Seeds identity and feature-flag state.

@@ -61,7 +61,7 @@ class PostHogStorageManagerTest: QuickSpec {
 
         it("Seeds the anonymous ID from bootstrap.distinctId on fresh install") {
             let config = PostHogConfig(projectToken: "test_project_token")
-            config.bootstrap = PostHogBootstrap(distinctId: "A-bootstrap-id-123")
+            config.bootstrap = PostHogBootstrap(anonymousId: "A-bootstrap-id-123")
             let sut = self.getSut(config)
 
             let anonymousId = sut.getAnonymousId()
@@ -77,7 +77,7 @@ class PostHogStorageManagerTest: QuickSpec {
 
         it("Ignores empty bootstrap.distinctId and falls back to UUID") {
             let config = PostHogConfig(projectToken: "test_project_token")
-            config.bootstrap = PostHogBootstrap(distinctId: "")
+            config.bootstrap = PostHogBootstrap(anonymousId: "")
             let sut = self.getSut(config)
 
             let anonymousId = sut.getAnonymousId()
@@ -102,7 +102,7 @@ class PostHogStorageManagerTest: QuickSpec {
 
         it("Does not re-apply bootstrap once an anonymous ID is persisted") {
             let firstConfig = PostHogConfig(projectToken: "test_project_token")
-            firstConfig.bootstrap = PostHogBootstrap(distinctId: "A-original")
+            firstConfig.bootstrap = PostHogBootstrap(anonymousId: "A-original")
             let firstSut = self.getSut(firstConfig)
             _ = firstSut.getAnonymousId()
 
@@ -110,7 +110,7 @@ class PostHogStorageManagerTest: QuickSpec {
             // the original anonymous ID. The new config supplies a different
             // bootstrap value, which must NOT override the persisted one.
             let secondConfig = PostHogConfig(projectToken: "test_project_token")
-            secondConfig.bootstrap = PostHogBootstrap(distinctId: "A-different")
+            secondConfig.bootstrap = PostHogBootstrap(anonymousId: "A-different")
             let secondSut = PostHogStorageManager(secondConfig)
 
             expect(secondSut.getAnonymousId()) == "A-original"

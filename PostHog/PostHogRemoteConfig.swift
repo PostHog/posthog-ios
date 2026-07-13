@@ -84,8 +84,11 @@ class PostHogRemoteConfig {
         self.api = api
         self.getDefaultPersonProperties = getDefaultPersonProperties
         self.featureFlagCalledCallback = featureFlagCalledCallback
-        bootstrappedFlags = config.bootstrap?.featureFlags ?? [:]
-        bootstrappedPayloads = config.bootstrap?.featureFlagPayloads ?? [:]
+        // Sanitize caller-supplied values the same way every other public [String: Any] input is,
+        // so a non-JSON-serializable value (NaN/Infinity, a custom object) is dropped with a log
+        // rather than crashing setup when it reaches JSONSerialization in the flag cache.
+        bootstrappedFlags = sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:]
+        bootstrappedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()

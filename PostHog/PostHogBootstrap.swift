@@ -47,6 +47,8 @@ import Foundation
     /// `/flags` response.
     @objc public var featureFlagPayloads: [String: Any]?
 
+    /// Creates an empty bootstrap; set the properties you need before assigning it to
+    /// ``PostHogConfig/bootstrap``.
     @objc override public init() {
         super.init()
     }

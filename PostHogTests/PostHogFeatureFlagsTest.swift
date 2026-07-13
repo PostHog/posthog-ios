@@ -1159,6 +1159,21 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("beta-ui") as? Bool == true)
         }
 
+        @Test("Non-serializable bootstrapped values are dropped, not crashed on")
+        func sanitizesInvalidBootstrappedValues() {
+            // A non-JSON-serializable value (NaN) reaching the flag cache would raise an
+            // uncatchable NSException in JSONSerialization; setup must drop it, not crash.
+            let config = bootstrapConfig(
+                featureFlags: ["good": true, "bad": Double.nan],
+                featureFlagPayloads: ["good": ["k": "v"], "bad": ["n": Double.infinity]]
+            )
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlag("good") as? Bool == true)
+            #expect(sut.getFeatureFlag("bad") == nil)
+            #expect(sut.getFeatureFlagPayload("bad") == nil)
+        }
+
         @Test("Bootstrapped payload is served with its flag")
         func servesBootstrappedPayload() {
             let config = bootstrapConfig(

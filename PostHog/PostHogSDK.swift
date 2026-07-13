@@ -2153,7 +2153,6 @@ let maxRetryDelay = 30.0
                 }
             }
 
-            // Enrich with bootstrap context when this flag was bootstrapped
             if let bootstrappedResponse = remoteConfig?.getBootstrappedFeatureFlag(flagKey) {
                 properties["$feature_flag_bootstrapped_response"] = bootstrappedResponse
 

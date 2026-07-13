@@ -40,6 +40,12 @@ class PostHogRemoteConfig {
     private var requestId: String?
     private var evaluatedAt: Int?
 
+    /// Immutable copies of the values supplied via `config.bootstrap`, retained for
+    /// `$feature_flag_called` enrichment even after loaded values overlay the served cache.
+    private let bootstrappedFlags: [String: Any]
+    private let bootstrappedPayloads: [String: Any]
+    private var flagsLoadedFromRemote: Bool?
+
     private let personPropertiesForFlagsLock = NSLock()
     private var personPropertiesForFlags: [String: Any] = [:]
 
@@ -78,9 +84,14 @@ class PostHogRemoteConfig {
         self.api = api
         self.getDefaultPersonProperties = getDefaultPersonProperties
         self.featureFlagCalledCallback = featureFlagCalledCallback
+        bootstrappedFlags = config.bootstrap?.featureFlags ?? [:]
+        bootstrappedPayloads = config.bootstrap?.featureFlagPayloads ?? [:]
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
+
+        // Seed bootstrapped flags before any network load so reads serve them immediately
+        seedBootstrapFlagsIfNeeded()
 
         preloadSessionReplay()
         preloadErrorTrackingConfig()
@@ -119,6 +130,9 @@ class PostHogRemoteConfig {
                         hedgeLog("hasFeatureFlags is false, clearing flags and skipping loading flags")
                         // Server responded with explicit hasFeatureFlags: false, meaning no active flags on the account
                         clearFeatureFlags()
+                        // bootstrapped flags are a caller-provided base layer, not server state;
+                        // re-seed them so they stay available until a real /flags response overlays them
+                        seedBootstrapFlagsIfNeeded()
                         // need to notify cause people may be waiting for flags to load
                         notifyFeatureFlags([:])
                     } else if self.config.preloadFeatureFlags {
@@ -407,13 +421,19 @@ class PostHogRemoteConfig {
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                     } else {
-                        loadedFeatureFlags = featureFlags
+                        // bootstrapped flags form the base layer; loaded values overlay them for
+                        // overlapping keys, while bootstrapped-only keys remain available
+                        let mergedFeatureFlags = self.bootstrappedFlags.merging(featureFlags) { _, loaded in loaded }
+                        let mergedFeatureFlagPayloads = self.bootstrappedPayloads.merging(featureFlagPayloads) { _, loaded in loaded }
+                        loadedFeatureFlags = mergedFeatureFlags
                         if let flagsV4 {
                             self.setCachedFlags(flagsV4)
                         }
-                        self.setCachedFeatureFlags(featureFlags)
-                        self.setCachedFeatureFlagPayload(featureFlagPayloads)
+                        self.setCachedFeatureFlags(mergedFeatureFlags)
+                        self.setCachedFeatureFlagPayload(mergedFeatureFlagPayloads)
                     }
+
+                    self.setFlagsLoadedFromRemoteLocked()
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
@@ -590,6 +610,54 @@ class PostHogRemoteConfig {
         }
 
         return flags?[key]
+    }
+
+    /// Seeds `config.bootstrap` feature flags and payloads into the served cache as a base
+    /// layer, so reads return them before the first `/flags` response. Existing cached values
+    /// (from a prior load) win over bootstrapped ones; bootstrapped-only keys are added.
+    private func seedBootstrapFlagsIfNeeded() {
+        guard !bootstrappedFlags.isEmpty else { return }
+
+        featureFlagsLock.withLock {
+            let existingFlags = getCachedFeatureFlags() ?? [:]
+            let mergedFlags = bootstrappedFlags.merging(existingFlags) { _, existing in existing }
+            setCachedFeatureFlags(mergedFlags)
+
+            let existingPayloads = getCachedFeatureFlagPayload() ?? [:]
+            let mergedPayloads = bootstrappedPayloads.merging(existingPayloads) { _, existing in existing }
+            setCachedFeatureFlagPayload(mergedPayloads)
+        }
+    }
+
+    /// The originally-bootstrapped value for `key`, if one was provided.
+    /// Used to enrich `$feature_flag_called` with `$feature_flag_bootstrapped_response`.
+    func getBootstrappedFeatureFlag(_ key: String) -> Any? {
+        bootstrappedFlags[key]
+    }
+
+    /// The originally-bootstrapped payload for `key`, if one was provided.
+    /// Used to enrich `$feature_flag_called` with `$feature_flag_bootstrapped_payload`.
+    func getBootstrappedFeatureFlagPayload(_ key: String) -> Any? {
+        bootstrappedPayloads[key]
+    }
+
+    /// Whether a `/flags` response has been received (persisted across launches). Drives
+    /// `$used_bootstrap_value`: bootstrapped values are "used" until this becomes `true`.
+    func hasLoadedFeatureFlagsFromRemote() -> Bool {
+        featureFlagsLock.withLock {
+            if flagsLoadedFromRemote == nil {
+                flagsLoadedFromRemote = storage.getBool(forKey: .flagsLoadedFromRemote)
+            }
+            return flagsLoadedFromRemote ?? false
+        }
+    }
+
+    // To be called after acquiring `featureFlagsLock`
+    private func setFlagsLoadedFromRemoteLocked() {
+        if flagsLoadedFromRemote != true {
+            flagsLoadedFromRemote = true
+            storage.setBool(forKey: .flagsLoadedFromRemote, contents: true)
+        }
     }
 
     // To be called after acquiring `featureFlagsLock`

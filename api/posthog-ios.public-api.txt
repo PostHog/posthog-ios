@@ -34,6 +34,14 @@ PostHog | OnPostHogSurveyClosed | typealias | typealias OnPostHogSurveyClosed = 
 PostHog | OnPostHogSurveyResponse | typealias | typealias OnPostHogSurveyResponse = (PostHogDisplaySurvey, Int, PostHogSurveyResponse) -> PostHogNextSurveyQuestion? | s:7PostHog02OnaB14SurveyResponsea
 PostHog | OnPostHogSurveyShown | typealias | typealias OnPostHogSurveyShown = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB11SurveyShowna
 PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
+PostHog | PostHogBootstrap | class | @objc(PostHogBootstrap) class PostHogBootstrap | c:@M@PostHog@objc(cs)PostHogBootstrap
+PostHog | PostHogBootstrap.distinctID | property | @objc var distinctID: String? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)distinctID
+PostHog | PostHogBootstrap.featureFlagPayloads | property | @objc var featureFlagPayloads: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)featureFlagPayloads
+PostHog | PostHogBootstrap.featureFlags | property | @objc var featureFlags: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)featureFlags
+PostHog | PostHogBootstrap.init() | init | override init() | c:@M@PostHog@objc(cs)PostHogBootstrap(im)init
+PostHog | PostHogBootstrap.init(distinctID:isIdentifiedID:) | init | @objc init(distinctID: String?, isIdentifiedID: Bool = false) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctID:isIdentifiedID:
+PostHog | PostHogBootstrap.init(distinctID:isIdentifiedID:featureFlags:featureFlagPayloads:) | init | @objc convenience init(distinctID: String?, isIdentifiedID: Bool, featureFlags: [String : Any]?, featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctID:isIdentifiedID:featureFlags:featureFlagPayloads:
+PostHog | PostHogBootstrap.isIdentifiedID | property | @objc var isIdentifiedID: Bool | c:@M@PostHog@objc(cs)PostHogBootstrap(py)isIdentifiedID
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF
@@ -42,6 +50,7 @@ PostHog | PostHogConfig.PostHogDataMode.init(rawValue:) | init | init?(rawValue:
 PostHog | PostHogConfig.PostHogDataMode.wifi | enum.case | case wifi | s:7PostHog0aB6ConfigC0aB8DataModeO4wifiyA2EmF
 PostHog | PostHogConfig.apiKey | property | @objc var apiKey: String { get } | c:@M@PostHog@objc(cs)PostHogConfig(py)apiKey
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
+PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrap? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
 PostHog | PostHogConfig.captureElementInteractions | property | @objc var captureElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureElementInteractions
 PostHog | PostHogConfig.captureScreenViews | property | @objc var captureScreenViews: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureScreenViews

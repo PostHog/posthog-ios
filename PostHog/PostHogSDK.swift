@@ -2127,6 +2127,17 @@ let maxRetryDelay = 30.0
                 }
             }
 
+            // Enrich with bootstrap context when this flag was bootstrapped
+            if let bootstrappedResponse = remoteConfig?.getBootstrappedFeatureFlag(flagKey) {
+                properties["$feature_flag_bootstrapped_response"] = bootstrappedResponse
+
+                if let bootstrappedPayload = remoteConfig?.getBootstrappedFeatureFlagPayload(flagKey) {
+                    properties["$feature_flag_bootstrapped_payload"] = bootstrappedPayload
+                }
+
+                properties["$used_bootstrap_value"] = !(remoteConfig?.hasLoadedFeatureFlagsFromRemote() ?? false)
+            }
+
             capture("$feature_flag_called", properties: properties)
         }
     }

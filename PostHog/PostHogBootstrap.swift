@@ -56,19 +56,15 @@ import Foundation
         super.init()
     }
 
-    @objc public init(distinctID: String?, isIdentifiedID: Bool = false) {
+    @objc public convenience init(
+        distinctID: String? = nil,
+        isIdentifiedID: Bool = false,
+        featureFlags: [String: Any]? = nil,
+        featureFlagPayloads: [String: Any]? = nil
+    ) {
+        self.init()
         self.distinctID = distinctID
         self.isIdentifiedID = isIdentifiedID
-        super.init()
-    }
-
-    @objc public convenience init(
-        distinctID: String?,
-        isIdentifiedID: Bool,
-        featureFlags: [String: Any]?,
-        featureFlagPayloads: [String: Any]?
-    ) {
-        self.init(distinctID: distinctID, isIdentifiedID: isIdentifiedID)
         self.featureFlags = featureFlags
         self.featureFlagPayloads = featureFlagPayloads
     }

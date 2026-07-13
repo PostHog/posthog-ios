@@ -39,8 +39,7 @@ PostHog | PostHogBootstrap.distinctID | property | @objc var distinctID: String?
 PostHog | PostHogBootstrap.featureFlagPayloads | property | @objc var featureFlagPayloads: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)featureFlagPayloads
 PostHog | PostHogBootstrap.featureFlags | property | @objc var featureFlags: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrap(py)featureFlags
 PostHog | PostHogBootstrap.init() | init | override init() | c:@M@PostHog@objc(cs)PostHogBootstrap(im)init
-PostHog | PostHogBootstrap.init(distinctID:isIdentifiedID:) | init | @objc init(distinctID: String?, isIdentifiedID: Bool = false) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctID:isIdentifiedID:
-PostHog | PostHogBootstrap.init(distinctID:isIdentifiedID:featureFlags:featureFlagPayloads:) | init | @objc convenience init(distinctID: String?, isIdentifiedID: Bool, featureFlags: [String : Any]?, featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctID:isIdentifiedID:featureFlags:featureFlagPayloads:
+PostHog | PostHogBootstrap.init(distinctID:isIdentifiedID:featureFlags:featureFlagPayloads:) | init | @objc convenience init(distinctID: String? = nil, isIdentifiedID: Bool = false, featureFlags: [String : Any]? = nil, featureFlagPayloads: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogBootstrap(im)initWithDistinctID:isIdentifiedID:featureFlags:featureFlagPayloads:
 PostHog | PostHogBootstrap.isIdentifiedID | property | @objc var isIdentifiedID: Bool | c:@M@PostHog@objc(cs)PostHogBootstrap(py)isIdentifiedID
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO

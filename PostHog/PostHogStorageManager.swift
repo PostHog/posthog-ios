@@ -21,7 +21,6 @@ public class PostHogStorageManager {
     private let identifiedLock = NSLock()
     private let personProcessingLock = NSLock()
     private let idGen: (UUID) -> UUID
-    private let bootstrap: PostHogBootstrap?
 
     private var distinctId: String?
     private var cachedDistinctId = false
@@ -33,8 +32,7 @@ public class PostHogStorageManager {
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
         idGen = config.getAnonymousId
-        bootstrap = config.bootstrap
-        applyBootstrapIfNeeded()
+        applyBootstrapIfNeeded(config.bootstrap)
     }
 
     /// Persists the bootstrap distinct ID exactly once, on the very first launch with no
@@ -45,7 +43,7 @@ public class PostHogStorageManager {
     /// already-identified distinct ID — both `.anonymousId` and `.distinctId` are seeded
     /// to the same value and `isIdentified` is set, so subsequent events are emitted on
     /// the identified person without an `$identify` merge.
-    private func applyBootstrapIfNeeded() {
+    private func applyBootstrapIfNeeded(_ bootstrap: PostHogBootstrap?) {
         guard let bootstrap, let bootstrapId = bootstrap.distinctID, !bootstrapId.isEmpty else {
             return
         }

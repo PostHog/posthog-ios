@@ -88,14 +88,17 @@ class PostHogStorageManagerTest: QuickSpec {
             sut.reset(true)
         }
 
-        it("Seeds both anonymous and distinct IDs when bootstrap.isIdentifiedId is true") {
+        it("Seeds the distinct ID but a fresh device ID when bootstrap.isIdentifiedId is true") {
             let config = PostHogConfig(projectToken: "test_project_token")
             config.bootstrap = PostHogBootstrap(distinctId: "user-42", isIdentifiedId: true)
             let sut = self.getSut(config)
 
-            expect(sut.getAnonymousId()) == "user-42"
             expect(sut.getDistinctId()) == "user-42"
             expect(sut.isIdentified()) == true
+            // The identified ID must NOT become the anonymous/device ID (would leak into $device_id).
+            expect(sut.getAnonymousId()) != "user-42"
+            expect(UUID(uuidString: sut.getAnonymousId())) != nil
+            expect(sut.getDeviceId()) != "user-42"
 
             sut.reset(true)
         }

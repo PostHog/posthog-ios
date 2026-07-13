@@ -57,9 +57,11 @@ import Foundation
         self.init(distinctId: anonymousId, isIdentifiedId: false, featureFlags: nil, featureFlagPayloads: nil)
     }
 
-    /// Seeds identity. Set `isIdentifiedId` to `true` when `distinctId` is an
-    /// already-identified user's ID rather than an anonymous ID.
-    @objc public convenience init(distinctId: String?, isIdentifiedId: Bool) {
+    /// Seeds identity from an already-identified user's `distinctId`.
+    ///
+    /// `isIdentifiedId` defaults to `true`. Pass `false` to seed `distinctId` as an
+    /// anonymous ID instead (equivalent to ``init(anonymousId:)``).
+    @objc public convenience init(distinctId: String?, isIdentifiedId: Bool = true) {
         self.init(distinctId: distinctId, isIdentifiedId: isIdentifiedId, featureFlags: nil, featureFlagPayloads: nil)
     }
 

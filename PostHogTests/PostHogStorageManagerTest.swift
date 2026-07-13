@@ -100,6 +100,17 @@ class PostHogStorageManagerTest: QuickSpec {
             sut.reset(true)
         }
 
+        it("Treats a distinctId bootstrap as identified by default") {
+            let config = PostHogConfig(projectToken: "test_project_token")
+            config.bootstrap = PostHogBootstrap(distinctId: "user-99")
+            let sut = self.getSut(config)
+
+            expect(sut.getDistinctId()) == "user-99"
+            expect(sut.isIdentified()) == true
+
+            sut.reset(true)
+        }
+
         it("Does not re-apply bootstrap once an anonymous ID is persisted") {
             let firstConfig = PostHogConfig(projectToken: "test_project_token")
             firstConfig.bootstrap = PostHogBootstrap(anonymousId: "A-original")

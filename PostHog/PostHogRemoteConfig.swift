@@ -40,10 +40,10 @@ class PostHogRemoteConfig {
     private var requestId: String?
     private var evaluatedAt: Int?
 
-    /// Immutable copies of the values supplied via `config.bootstrap`, retained for
-    /// `$feature_flag_called` enrichment even after loaded values overlay the served cache.
-    private let bootstrappedFlags: [String: Any]
-    private let bootstrappedPayloads: [String: Any]
+    /// Copies of `config.bootstrap`, retained for `$feature_flag_called` enrichment and cleared by
+    /// `clear()` (on `reset()`) so bootstrap never re-applies to a different user. Under `featureFlagsLock`.
+    private var bootstrappedFlags: [String: Any]
+    private var bootstrappedPayloads: [String: Any]
     private var flagsLoadedFromRemote: Bool?
 
     private let personPropertiesForFlagsLock = NSLock()
@@ -84,9 +84,8 @@ class PostHogRemoteConfig {
         self.api = api
         self.getDefaultPersonProperties = getDefaultPersonProperties
         self.featureFlagCalledCallback = featureFlagCalledCallback
-        // Sanitize caller-supplied values the same way every other public [String: Any] input is,
-        // so a non-JSON-serializable value (NaN/Infinity, a custom object) is dropped with a log
-        // rather than crashing setup when it reaches JSONSerialization in the flag cache.
+        // Sanitize like every other public [String: Any] input so a non-JSON-serializable value
+        // (NaN/Infinity, a custom object) is dropped with a log instead of crashing setup.
         bootstrappedFlags = sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:]
         bootstrappedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
 
@@ -635,13 +634,13 @@ class PostHogRemoteConfig {
     /// The originally-bootstrapped value for `key`, if one was provided.
     /// Used to enrich `$feature_flag_called` with `$feature_flag_bootstrapped_response`.
     func getBootstrappedFeatureFlag(_ key: String) -> Any? {
-        bootstrappedFlags[key]
+        featureFlagsLock.withLock { bootstrappedFlags[key] }
     }
 
     /// The originally-bootstrapped payload for `key`, if one was provided.
     /// Used to enrich `$feature_flag_called` with `$feature_flag_bootstrapped_payload`.
     func getBootstrappedFeatureFlagPayload(_ key: String) -> Any? {
-        bootstrappedPayloads[key]
+        featureFlagsLock.withLock { bootstrappedPayloads[key] }
     }
 
     /// Whether a `/flags` response has been received (persisted across launches). Drives
@@ -938,6 +937,15 @@ class PostHogRemoteConfig {
     /// doesn't persist in memory after the user switches.
     func clear() {
         clearFeatureFlags()
+
+        // Bootstrap is first-session only: drop the retained base layer and the "loaded from
+        // remote" latch so a post-reset user is never served the previous user's bootstrap.
+        featureFlagsLock.withLock {
+            bootstrappedFlags = [:]
+            bootstrappedPayloads = [:]
+            flagsLoadedFromRemote = nil
+            storage.remove(key: .flagsLoadedFromRemote)
+        }
 
         sessionReplayLock.withLock {
             sessionReplayFlagActive = false

@@ -1220,6 +1220,32 @@ enum PostHogFeatureFlagsTest {
             // the overlapping key reflects the loaded value
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
+
+        @Test("Bootstrap is first-session only: not resurrected after reset")
+        func bootstrapNotReappliedAfterReset() async {
+            let config = bootstrapConfig(featureFlags: ["legacy": true])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            func load() async {
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+            }
+
+            await load()
+            #expect(sut.getFeatureFlag("legacy") as? Bool == true)
+            #expect(sut.hasLoadedFeatureFlagsFromRemote() == true)
+
+            // reset() clears the bootstrap base layer and the loaded-from-remote latch
+            sut.clear()
+            #expect(sut.hasLoadedFeatureFlagsFromRemote() == false)
+
+            // A reload for the new (post-reset) user must NOT re-inject the bootstrapped-only key
+            await load()
+            #expect(sut.getFeatureFlag("legacy") == nil)
+        }
     }
 
     @Suite("Test Bootstrap Feature Flag Reporting")

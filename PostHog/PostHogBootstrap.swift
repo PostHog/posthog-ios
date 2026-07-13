@@ -10,9 +10,9 @@ import Foundation
 /// SDK-generated UUID, and that feature flag reads return caller-provided values before the
 /// first `/flags` response. Mirrors the [`bootstrap` option in `posthog-js`](https://posthog.com/docs/feature-flags/bootstrapping).
 ///
-/// Bootstrap only seeds the very first session. Once an anonymous ID is persisted on
-/// disk, or `identify(...)` has been called, the bootstrap identity is ignored — it
-/// never overrides an already-identified user or re-links traffic across a previous
+/// Bootstrapped identity seeds only the very first session: once an anonymous ID is
+/// persisted on disk, or `identify(...)` has been called, it is ignored — it never
+/// overrides an already-identified user or re-links traffic across a previous
 /// anon→identified merge. Bootstrapped feature flags form a base layer only: values from
 /// `/flags` overlay them for overlapping keys, while bootstrapped-only keys remain
 /// available.

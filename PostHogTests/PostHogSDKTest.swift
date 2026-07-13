@@ -145,6 +145,50 @@ class PostHogSDKTest: QuickSpec {
             expect(sut.getSessionId()).to(beNil())
         }
 
+        func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+            storage.setString(forKey: .anonymousId, contents: existing.anon)
+            if let distinct = existing.distinct {
+                storage.setString(forKey: .distinctId, contents: distinct)
+            }
+            if existing.identified {
+                storage.setBool(forKey: .isIdentified, contents: true)
+            }
+            return config
+        }
+
+        it("merges an anonymous local user into an identified bootstrap") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.bootstrap = PostHogBootstrap(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // the anonymous user is merged into the identified bootstrap ID
+            expect(sut.getDistinctId()) == "user-123"
+            expect(config.storageManager?.isIdentified()) == true
+            // the anonymous ID is preserved so the $identify links the merge ($anon_distinct_id)
+            expect(sut.getAnonymousId()) == "anon-abc"
+        }
+
+        it("preserves a different already-identified local user against an identified bootstrap") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-xyz", distinct: "user-existing", identified: true))
+            config.bootstrap = PostHogBootstrap(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // the existing identity wins; the bootstrap is ignored
+            expect(sut.getDistinctId()) == "user-existing"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

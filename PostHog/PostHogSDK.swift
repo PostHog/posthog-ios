@@ -240,6 +240,32 @@ let maxRetryDelay = 30.0
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
         }
+
+        // Runs after the setup lock is released — reconciliation calls identify(), which
+        // takes the same lock. A fresh install is already seeded in PostHogStorageManager;
+        // this only reconciles an existing local identity against an identified bootstrap.
+        reconcileBootstrapIdentityIfNeeded()
+    }
+
+    /// Browser-style reconciliation for a differing identified bootstrap (`isIdentifiedId == true`):
+    /// merge an existing anonymous user into the bootstrapped identity, or preserve a different
+    /// already-identified user and warn. A matching or fresh identity needs no reconciliation.
+    private func reconcileBootstrapIdentityIfNeeded() {
+        guard let bootstrap = config.bootstrap, bootstrap.isIdentifiedId,
+              let bootstrapId = bootstrap.distinctId, !bootstrapId.isEmpty,
+              let storageManager = config.storageManager,
+              storageManager.getDistinctId() != bootstrapId
+        else {
+            return
+        }
+
+        if storageManager.isIdentified() {
+            hedgeLog("Bootstrap distinctId differs from an already-identified user. The existing " +
+                "identity is preserved. Call reset() before reinitializing to switch users.")
+        } else {
+            // Existing anonymous user — merge it into the identified bootstrap ID.
+            identify(bootstrapId)
+        }
     }
 
     /// Returns the current PostHog distinct ID.

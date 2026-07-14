@@ -9,8 +9,9 @@
 #
 #
 # Usage Examples:
-#   Basic:       "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   With source: POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
@@ -19,6 +20,8 @@
 # Environment Variables (optional):
 #   POSTHOG_CLI_INSTALL_DIR - Custom directory containing posthog-cli binary
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
+#   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
+#                              with different content instead of failing the build
 #
 
 # Skip non-Release builds.
@@ -80,7 +83,10 @@ fi
 
 # Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
 MIN_POSTHOG_CLI_VERSION="0.7.7"
-PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | awk '{print $NF}' | tr -d 'v')
+if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
+    MIN_POSTHOG_CLI_VERSION="0.7.12"
+fi
+PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
 
 if [ -z "$PH_CLI_VERSION" ]; then
     echo "error: could not determine posthog-cli version. Upgrade: npm install -g @posthog/cli@latest"
@@ -115,6 +121,9 @@ fi
 # Include source if requested via env var
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
     CLI_ARGS+=(--include-source)
+fi
+if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
+    CLI_ARGS+=(--skip-on-conflict)
 fi
 
 "${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1

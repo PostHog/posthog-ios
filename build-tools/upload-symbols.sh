@@ -83,7 +83,6 @@ fi
 
 # Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
 MIN_POSTHOG_CLI_VERSION="0.7.7"
-# --skip-on-conflict needs a newer CLI (older versions reject the unknown flag)
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
 fi
@@ -123,7 +122,6 @@ fi
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
     CLI_ARGS+=(--include-source)
 fi
-# Skip on conflict if requested via env var
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     CLI_ARGS+=(--skip-on-conflict)
 fi

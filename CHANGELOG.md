@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Set `POSTHOG_SKIP_ON_CONFLICT=1` on the debug-symbols upload build phase to keep release builds going when a dSYM with the same UUID but different content already exists in PostHog: the upload is skipped and the existing symbols are kept, instead of the build failing. Requires posthog-cli >= 0.7.12.
+- 2f1e1c3: Set `POSTHOG_SKIP_ON_CONFLICT=1` on the debug-symbols upload build phase to keep release builds going when a dSYM with the same UUID but different content already exists in PostHog: the upload is skipped and the existing symbols are kept, instead of the build failing. Requires posthog-cli >= 0.7.12.
 
 ## 3.64.6
 

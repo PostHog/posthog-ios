@@ -924,23 +924,29 @@ class PostHogRemoteConfig {
 
     private func clearFeatureFlags() {
         featureFlagsLock.withLock {
-            setCachedFlags([:])
-            setCachedFeatureFlags([:])
-            setCachedFeatureFlagPayload([:])
-            setCachedRequestId(nil) // requestId no longer valid
-            setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
+            clearFeatureFlagsLocked()
         }
+    }
+
+    // To be called after acquiring `featureFlagsLock`
+    private func clearFeatureFlagsLocked() {
+        setCachedFlags([:])
+        setCachedFeatureFlags([:])
+        setCachedFeatureFlagPayload([:])
+        setCachedRequestId(nil) // requestId no longer valid
+        setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
     }
 
     /// Clears all cached feature flags, remote config state, and user-specific properties.
     /// This should be called during reset() to ensure stale data from a previous user
     /// doesn't persist in memory after the user switches.
     func clear() {
-        clearFeatureFlags()
-
-        // Bootstrap is first-session only: drop the retained base layer and the "loaded from
-        // remote" latch so a post-reset user is never served the previous user's bootstrap.
+        // Clear the feature-flag caches and the bootstrap base layer under one lock acquisition:
+        // a separate section would let a concurrently-completing /flags load re-seed the previous
+        // user's bootstrap (and re-latch flagsLoadedFromRemote) in the gap between the two.
+        // Bootstrap is first-session only, so a post-reset user is never served the prior bootstrap.
         featureFlagsLock.withLock {
+            clearFeatureFlagsLocked()
             bootstrappedFlags = [:]
             bootstrappedPayloads = [:]
             flagsLoadedFromRemote = nil

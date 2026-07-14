@@ -123,7 +123,7 @@ fi
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
     CLI_ARGS+=(--include-source)
 fi
-# Skip symbol sets that already exist with different content if requested via env var
+# Skip on conflict if requested via env var
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     CLI_ARGS+=(--skip-on-conflict)
 fi

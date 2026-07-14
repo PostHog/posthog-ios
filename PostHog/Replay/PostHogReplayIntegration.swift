@@ -1373,9 +1373,11 @@
 
         /// Captures the current native window for the native-screen bridge.
         /// [settlePresentation] renders with `afterScreenUpdates` so a
-        /// freshly-presented screen isn't captured black — pass it only for an
-        /// episode's first frame (it flickers secure fields). Returns false if
-        /// no frame was captured, so the caller can retry.
+        /// freshly-presented screen isn't captured black — pass it until the
+        /// episode's first frame has been captured (it also carries the
+        /// meta/hash re-arm, so a retried opening frame keeps its reset), and
+        /// drop it afterwards (it flickers secure fields). Returns false if no
+        /// frame was captured, so the caller can retry.
         @discardableResult
         func captureBridgeSnapshot(settlePresentation: Bool) -> Bool {
             guard Thread.isMainThread else {

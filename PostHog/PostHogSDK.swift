@@ -2375,9 +2375,18 @@ let maxRetryDelay = 30.0
         /// Captures the current native window for a first-party wrapper SDK
         /// (e.g. posthog-flutter) that drives session-replay capture on its own
         /// cadence. Not for app use — it shares snapshot state with the normal
-        /// timer-driven capture. Pass [afterScreenUpdates] only for an episode's
-        /// first frame (it flickers secure fields). Returns false if no frame
-        /// was captured, so the caller can retry.
+        /// timer-driven capture. Returns false if no frame was captured, so the
+        /// caller can retry.
+        ///
+        /// Pass [afterScreenUpdates] until the episode's first frame has been
+        /// *captured* (returned true) — not just on the first attempt: it also
+        /// re-arms the per-window meta and dedup hash, so a retried opening
+        /// frame keeps its reset. Drop it for steady-state frames (it flickers
+        /// secure fields).
+        ///
+        /// Prefer the main thread. An off-main call blocks on a synchronous
+        /// main-queue hop for the duration of the capture, so it must not come
+        /// from a queue the main thread can be waiting on.
         ///
         /// SPI, not public API: no stability guarantees.
         @_spi(PostHogInternal) @discardableResult public func captureSessionReplaySnapshot(

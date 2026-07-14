@@ -55,7 +55,7 @@ import Foundation
 
     /// Seeds an anonymous identity: `anonymousId` becomes the `$distinct_id` for events
     /// captured before the host calls `identify(...)`.
-    @objc public convenience init(anonymousId: String?) {
+    @objc public convenience init(anonymousId: String) {
         self.init(distinctId: anonymousId, isIdentifiedId: false, featureFlags: nil, featureFlagPayloads: nil)
     }
 
@@ -64,19 +64,27 @@ import Foundation
     /// Pass `isIdentifiedId: true` for a user the host has already identified (seeds
     /// `.distinctId` and marks the install identified), or `false` to seed it as an anonymous
     /// ID instead (equivalent to ``init(anonymousId:)``).
-    @objc public convenience init(distinctId: String?, isIdentifiedId: Bool) {
+    @objc public convenience init(distinctId: String, isIdentifiedId: Bool) {
         self.init(distinctId: distinctId, isIdentifiedId: isIdentifiedId, featureFlags: nil, featureFlagPayloads: nil)
     }
 
     /// Seeds feature-flag state only, without seeding identity.
-    @objc public convenience init(featureFlags: [String: Any]?, featureFlagPayloads: [String: Any]?) {
+    @objc public convenience init(featureFlags: [String: Any], featureFlagPayloads: [String: Any]?) {
         self.init(distinctId: nil, isIdentifiedId: false, featureFlags: featureFlags, featureFlagPayloads: featureFlagPayloads)
     }
 
-    /// Seeds identity and feature-flag state.
+    /// Seeds identity and feature-flag state in one initializer. Pass `nil` for any dimension
+    /// you don't want to seed.
+    ///
+    /// - Parameters:
+    ///   - distinctId: The ID to seed on first launch, or `nil` to seed no identity. Used as the
+    ///     anonymous ID when `isIdentifiedId` is `false`, or an already-identified user's ID when `true`.
+    ///   - isIdentifiedId: Whether `distinctId` is an already-identified user. Defaults to `false`.
+    ///   - featureFlags: Flag values served until the first `/flags` response, or `nil`.
+    ///   - featureFlagPayloads: JSON payloads keyed by flag, paired with `featureFlags`, or `nil`.
     @objc public init(
         distinctId: String?,
-        isIdentifiedId: Bool,
+        isIdentifiedId: Bool = false,
         featureFlags: [String: Any]?,
         featureFlagPayloads: [String: Any]?
     ) {

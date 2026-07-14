@@ -1129,7 +1129,7 @@ enum PostHogFeatureFlagsTest {
     @Suite("Test Bootstrap Feature Flags")
     class TestBootstrapFeatureFlags: BaseTestClass {
         private func bootstrapConfig(
-            featureFlags: [String: Any]?,
+            featureFlags: [String: Any],
             featureFlagPayloads: [String: Any]? = nil
         ) -> PostHogConfig {
             let c = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")

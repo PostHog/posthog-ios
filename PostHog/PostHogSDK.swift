@@ -239,12 +239,16 @@ let maxRetryDelay = 30.0
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
-        }
 
-        // Runs after the setup lock is released — reconciliation calls identify(), which
-        // takes the same lock. A fresh install is already seeded in PostHogStorageManager;
-        // this only reconciles an existing local identity against an identified bootstrap.
-        reconcileBootstrapIdentityIfNeeded()
+            // Reconcile inside the setup lock so the merge is atomic with the rest of setup:
+            // no other thread can observe the pre-merge identity or race identify()'s
+            // check-then-act. setupLock is recursive, so identify()'s own setupLock reads are
+            // safe re-entrancy; its heavier work (queueing, reloadFeatureFlags) is dispatched
+            // async, so the critical section isn't extended by network/queue work. A fresh
+            // install is already seeded in PostHogStorageManager; this only reconciles an
+            // existing local identity against an identified bootstrap.
+            reconcileBootstrapIdentityIfNeeded()
+        }
     }
 
     /// Browser-style reconciliation for a differing identified bootstrap (`isIdentifiedId == true`):

@@ -86,7 +86,7 @@ MIN_POSTHOG_CLI_VERSION="0.7.7"
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
 fi
-PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | awk '{print $NF}' | tr -d 'v')
+PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
 
 if [ -z "$PH_CLI_VERSION" ]; then
     echo "error: could not determine posthog-cli version. Upgrade: npm install -g @posthog/cli@latest"

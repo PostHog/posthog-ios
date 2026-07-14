@@ -2378,11 +2378,12 @@ let maxRetryDelay = 30.0
         /// timer-driven capture. Returns false if no frame was captured, so the
         /// caller can retry.
         ///
-        /// Pass [afterScreenUpdates] until the episode's first frame has been
-        /// *captured* (returned true) — not just on the first attempt: it also
-        /// re-arms the per-window meta and dedup hash, so a retried opening
-        /// frame keeps its reset. Drop it for steady-state frames (it flickers
-        /// secure fields).
+        /// Pass [episodeFirstFrame] until the episode's first frame has been
+        /// *captured* (returned true) — not just on the first attempt: it
+        /// renders with `afterScreenUpdates` so a freshly-presented screen
+        /// isn't captured black, and re-arms the per-window meta and dedup
+        /// hash, so a retried opening frame keeps its reset. Drop it for
+        /// steady-state frames (it flickers secure fields).
         ///
         /// Prefer the main thread. An off-main call blocks on a synchronous
         /// main-queue hop for the duration of the capture, so it must not come
@@ -2390,13 +2391,13 @@ let maxRetryDelay = 30.0
         ///
         /// SPI, not public API: no stability guarantees.
         @_spi(PostHogInternal) @discardableResult public func captureSessionReplaySnapshot(
-            afterScreenUpdates: Bool
+            episodeFirstFrame: Bool
         ) -> Bool {
             if !isEnabled() {
                 return false
             }
 
-            return replayIntegration?.captureBridgeSnapshot(settlePresentation: afterScreenUpdates) ?? false
+            return replayIntegration?.captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame) ?? false
         }
     #endif
 

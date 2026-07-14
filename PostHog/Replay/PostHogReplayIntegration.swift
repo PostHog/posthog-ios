@@ -702,7 +702,7 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
-            isFirstFrame: Bool = false
+            episodeFirstFrame: Bool = false
         ) {
             var hasChanges = false
             let timestamp = timestampDate.toMillis()
@@ -715,7 +715,7 @@
             // episode opens with a meta carrying the covering screen's name,
             // mirroring the Android bridge) — a stale latched meta would keep
             // the previous screen's name for the whole episode.
-            if isFirstFrame {
+            if episodeFirstFrame {
                 snapshotStatus.sentMetaEvent = false
             }
 
@@ -757,7 +757,7 @@
 
                 // Re-arm the hash on an episode's first frame so a recurring
                 // native screen always re-sends its opening frame.
-                if isFirstFrame {
+                if episodeFirstFrame {
                     snapshotStatus.lastImageHash = nil
                 }
                 let imageHash = (wireframeDict["base64"] as? String)?.hashValue
@@ -1076,10 +1076,10 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
-            afterScreenUpdates: Bool = false
+            episodeFirstFrame: Bool = false
         ) -> Bool {
             autoreleasepool {
-                guard let image = window.toImage(afterScreenUpdates: afterScreenUpdates),
+                guard let image = window.toImage(afterScreenUpdates: episodeFirstFrame),
                       image.size.hasSize()
                 else {
                     return false
@@ -1092,7 +1092,7 @@
                     screenName: screenName,
                     postHog: postHog,
                     timestampDate: timestampDate,
-                    isFirstFrame: afterScreenUpdates
+                    episodeFirstFrame: episodeFirstFrame
                 )
                 return true
             }
@@ -1103,7 +1103,7 @@
             window: UIWindow,
             screenName: String?,
             postHog: PostHogSDK,
-            afterScreenUpdates: Bool = false
+            episodeFirstFrame: Bool = false
         ) -> Bool {
             defer { finishScreenshotRender() }
 
@@ -1125,7 +1125,7 @@
                 screenName: screenName,
                 postHog: postHog,
                 timestampDate: screenshotCapture.timestampDate,
-                afterScreenUpdates: afterScreenUpdates
+                episodeFirstFrame: episodeFirstFrame
             )
         }
 
@@ -1372,17 +1372,17 @@
         }
 
         /// Captures the current native window for the native-screen bridge.
-        /// [settlePresentation] renders with `afterScreenUpdates` so a
-        /// freshly-presented screen isn't captured black — pass it until the
-        /// episode's first frame has been captured (it also carries the
-        /// meta/hash re-arm, so a retried opening frame keeps its reset), and
-        /// drop it afterwards (it flickers secure fields). Returns false if no
-        /// frame was captured, so the caller can retry.
+        /// [episodeFirstFrame] renders with `afterScreenUpdates` so a
+        /// freshly-presented screen isn't captured black, and re-arms the
+        /// meta/hash so a retried opening frame keeps its reset — pass it
+        /// until the episode's first frame has been captured, and drop it
+        /// afterwards (it flickers secure fields). Returns false if no frame
+        /// was captured, so the caller can retry.
         @discardableResult
-        func captureBridgeSnapshot(settlePresentation: Bool) -> Bool {
+        func captureBridgeSnapshot(episodeFirstFrame: Bool) -> Bool {
             guard Thread.isMainThread else {
                 return DispatchQueue.main.sync {
-                    captureBridgeSnapshot(settlePresentation: settlePresentation)
+                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame)
                 }
             }
             guard let postHog, postHog.isSessionReplayActive() else {
@@ -1398,20 +1398,17 @@
             guard tryStartScreenshotRender() else {
                 return false
             }
-            // Name the covering screen, not the window's root: bridged frames
-            // show the presented native screen, and the replay meta should say
-            // so. Falls back to the root for SDK-owned windows that install
-            // their screen as rootViewController directly.
-            var coveringController = window.rootViewController
-            while let presented = coveringController?.presentedViewController {
-                coveringController = presented
-            }
-            let screenName = coveringController.flatMap(UIViewController.getViewControllerName)
+            // Name the visible covering screen, not the window's root:
+            // bridged frames show the presented native screen, and the replay
+            // meta should say so. ph_topViewController also descends nav/tab
+            // containers to their visible child.
+            let screenName = UIViewController.ph_topViewController(base: window.rootViewController)
+                .flatMap(UIViewController.getViewControllerName)
             return performScreenshotCapture(
                 window: window,
                 screenName: screenName,
                 postHog: postHog,
-                afterScreenUpdates: settlePresentation
+                episodeFirstFrame: episodeFirstFrame
             )
         }
 

@@ -61,7 +61,7 @@ class PostHogStorageManagerTest: QuickSpec {
 
         it("Seeds the anonymous ID from bootstrap.distinctId on fresh install") {
             let config = PostHogConfig(projectToken: "test_project_token")
-            config.bootstrap = PostHogBootstrap(anonymousId: "A-bootstrap-id-123")
+            config.bootstrap = PostHogBootstrapConfig(anonymousId: "A-bootstrap-id-123")
             let sut = self.getSut(config)
 
             let anonymousId = sut.getAnonymousId()
@@ -77,7 +77,7 @@ class PostHogStorageManagerTest: QuickSpec {
 
         it("Ignores empty bootstrap.distinctId and falls back to UUID") {
             let config = PostHogConfig(projectToken: "test_project_token")
-            config.bootstrap = PostHogBootstrap(anonymousId: "")
+            config.bootstrap = PostHogBootstrapConfig(anonymousId: "")
             let sut = self.getSut(config)
 
             let anonymousId = sut.getAnonymousId()
@@ -90,7 +90,7 @@ class PostHogStorageManagerTest: QuickSpec {
 
         it("Seeds the distinct ID but a fresh device ID when bootstrap.isIdentifiedId is true") {
             let config = PostHogConfig(projectToken: "test_project_token")
-            config.bootstrap = PostHogBootstrap(distinctId: "user-42", isIdentifiedId: true)
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-42", isIdentifiedId: true)
             let sut = self.getSut(config)
 
             expect(sut.getDistinctId()) == "user-42"
@@ -103,20 +103,24 @@ class PostHogStorageManagerTest: QuickSpec {
             sut.reset(true)
         }
 
-        it("Treats a distinctId bootstrap as identified by default") {
+        it("Seeds a property-assigned distinctId as anonymous (isIdentifiedId defaults to false)") {
             let config = PostHogConfig(projectToken: "test_project_token")
-            config.bootstrap = PostHogBootstrap(distinctId: "user-99")
+            let bootstrap = PostHogBootstrapConfig()
+            bootstrap.distinctId = "user-99"
+            config.bootstrap = bootstrap
             let sut = self.getSut(config)
 
-            expect(sut.getDistinctId()) == "user-99"
-            expect(sut.isIdentified()) == true
+            // isIdentifiedId has no init default, so a distinctId set via property assignment
+            // keeps the property's own default (false) and seeds an anonymous ID.
+            expect(sut.getAnonymousId()) == "user-99"
+            expect(sut.isIdentified()) == false
 
             sut.reset(true)
         }
 
         it("Does not re-apply bootstrap once an anonymous ID is persisted") {
             let firstConfig = PostHogConfig(projectToken: "test_project_token")
-            firstConfig.bootstrap = PostHogBootstrap(anonymousId: "A-original")
+            firstConfig.bootstrap = PostHogBootstrapConfig(anonymousId: "A-original")
             let firstSut = self.getSut(firstConfig)
             _ = firstSut.getAnonymousId()
 
@@ -124,7 +128,7 @@ class PostHogStorageManagerTest: QuickSpec {
             // the original anonymous ID. The new config supplies a different
             // bootstrap value, which must NOT override the persisted one.
             let secondConfig = PostHogConfig(projectToken: "test_project_token")
-            secondConfig.bootstrap = PostHogBootstrap(anonymousId: "A-different")
+            secondConfig.bootstrap = PostHogBootstrapConfig(anonymousId: "A-different")
             let secondSut = PostHogStorageManager(secondConfig)
 
             expect(secondSut.getAnonymousId()) == "A-original"
@@ -143,7 +147,7 @@ class PostHogStorageManagerTest: QuickSpec {
             // either the anonymous ID or the distinct ID — that would silently
             // re-link traffic across the prior anon→identified merge.
             let secondConfig = PostHogConfig(projectToken: "test_project_token")
-            secondConfig.bootstrap = PostHogBootstrap(distinctId: "A-new", isIdentifiedId: true)
+            secondConfig.bootstrap = PostHogBootstrapConfig(distinctId: "A-new", isIdentifiedId: true)
             let secondSut = PostHogStorageManager(secondConfig)
 
             expect(secondSut.getAnonymousId()) == originalAnon

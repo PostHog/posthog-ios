@@ -203,7 +203,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// values loaded from `/flags` overlay them for overlapping keys.
     ///
     /// Defaults to `nil` (use the SDK-generated UUID and no bootstrapped flags).
-    @objc public var bootstrap: PostHogBootstrap?
+    @objc public var bootstrap: PostHogBootstrapConfig?
 
     /// Flag to reuse the anonymous Id between `reset()` and next `identify()` calls
     ///

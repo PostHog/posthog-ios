@@ -1138,7 +1138,7 @@ enum PostHogFeatureFlagsTest {
             c.disableQueueTimerForTesting = true
             c.disableFlushOnBackgroundForTesting = true
             c.disableRemoteConfigForTesting = true
-            c.bootstrap = PostHogBootstrap(
+            c.bootstrap = PostHogBootstrapConfig(
                 featureFlags: featureFlags,
                 featureFlagPayloads: featureFlagPayloads
             )
@@ -1264,7 +1264,7 @@ enum PostHogFeatureFlagsTest {
             c.captureScreenViews = false
             c.sendFeatureFlagEvent = true
             c.flushAt = 1
-            c.bootstrap = PostHogBootstrap(
+            c.bootstrap = PostHogBootstrapConfig(
                 featureFlags: featureFlags,
                 featureFlagPayloads: featureFlagPayloads
             )

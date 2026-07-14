@@ -16,7 +16,7 @@ import Foundation
 /// anon→identified merge. Bootstrapped feature flags form a base layer only: values from
 /// `/flags` overlay them for overlapping keys, while bootstrapped-only keys remain
 /// available.
-@objc(PostHogBootstrap) public class PostHogBootstrap: NSObject {
+@objc(PostHogBootstrapConfig) public class PostHogBootstrapConfig: NSObject {
     /// The distinct ID to seed on first launch.
     ///
     /// When ``isIdentifiedId`` is `false` (the default), this becomes the anonymous ID —
@@ -59,11 +59,12 @@ import Foundation
         self.init(distinctId: anonymousId, isIdentifiedId: false, featureFlags: nil, featureFlagPayloads: nil)
     }
 
-    /// Seeds identity from an already-identified user's `distinctId`.
+    /// Seeds identity from a `distinctId`, stating explicitly whether it is already identified.
     ///
-    /// `isIdentifiedId` defaults to `true`. Pass `false` to seed `distinctId` as an
-    /// anonymous ID instead (equivalent to ``init(anonymousId:)``).
-    @objc public convenience init(distinctId: String?, isIdentifiedId: Bool = true) {
+    /// Pass `isIdentifiedId: true` for a user the host has already identified (seeds
+    /// `.distinctId` and marks the install identified), or `false` to seed it as an anonymous
+    /// ID instead (equivalent to ``init(anonymousId:)``).
+    @objc public convenience init(distinctId: String?, isIdentifiedId: Bool) {
         self.init(distinctId: distinctId, isIdentifiedId: isIdentifiedId, featureFlags: nil, featureFlagPayloads: nil)
     }
 

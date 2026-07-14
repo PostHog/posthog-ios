@@ -165,7 +165,7 @@ class PostHogSDKTest: QuickSpec {
 
         it("merges an anonymous local user into an identified bootstrap") {
             let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
-            config.bootstrap = PostHogBootstrap(distinctId: "user-123", isIdentifiedId: true)
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
 
             let sut = PostHogSDK.with(config)
             self.trackedSuts.append(sut)
@@ -179,7 +179,7 @@ class PostHogSDKTest: QuickSpec {
 
         it("preserves a different already-identified local user against an identified bootstrap") {
             let config = bootstrapReconcileConfig(existing: (anon: "anon-xyz", distinct: "user-existing", identified: true))
-            config.bootstrap = PostHogBootstrap(distinctId: "user-123", isIdentifiedId: true)
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
 
             let sut = PostHogSDK.with(config)
             self.trackedSuts.append(sut)

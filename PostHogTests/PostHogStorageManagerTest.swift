@@ -88,6 +88,19 @@ class PostHogStorageManagerTest: QuickSpec {
             sut.reset(true)
         }
 
+        it("Ignores whitespace-only bootstrap.distinctId and falls back to UUID") {
+            let config = PostHogConfig(projectToken: "test_project_token")
+            config.bootstrap = PostHogBootstrapConfig(anonymousId: "   ")
+            let sut = self.getSut(config)
+
+            let anonymousId = sut.getAnonymousId()
+            // A whitespace-only id is treated as absent, not seeded.
+            expect(anonymousId) != "   "
+            expect(UUID(uuidString: anonymousId)) != nil
+
+            sut.reset(true)
+        }
+
         it("Seeds the distinct ID but a fresh device ID when bootstrap.isIdentifiedId is true") {
             let config = PostHogConfig(projectToken: "test_project_token")
             config.bootstrap = PostHogBootstrapConfig(distinctId: "user-42", isIdentifiedId: true)

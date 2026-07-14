@@ -257,7 +257,8 @@ let maxRetryDelay = 30.0
     /// already-identified user and warn. A matching or fresh identity needs no reconciliation.
     private func reconcileBootstrapIdentityIfNeeded() {
         guard let bootstrap = config.bootstrap, bootstrap.isIdentifiedId,
-              let bootstrapId = bootstrap.distinctId, !bootstrapId.isEmpty,
+              let bootstrapId = bootstrap.distinctId,
+              !bootstrapId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               let storageManager = config.storageManager,
               storageManager.getDistinctId() != bootstrapId
         else {

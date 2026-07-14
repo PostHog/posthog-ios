@@ -1,5 +1,11 @@
 ## Next
 
+## 3.64.7
+
+### Patch Changes
+
+- 2f1e1c3: `upload-symbols.sh` supports `POSTHOG_SKIP_ON_CONFLICT=1` to pass `--skip-on-conflict` to `posthog-cli dsym upload`, so dSYM content conflicts skip the upload instead of failing the build (requires posthog-cli >= 0.7.12)
+
 ## 3.64.6
 
 ### Patch Changes

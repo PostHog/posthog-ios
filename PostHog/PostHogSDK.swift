@@ -218,6 +218,16 @@ let maxRetryDelay = 30.0
 
             logger = PostHogLogger(sdk: self)
 
+            // Reconcile an identified bootstrap against an existing local identity BEFORE
+            // installing integrations. The app-lifecycle integration can replay
+            // didFinishLaunching synchronously on install and capture Application
+            // Installed/Updated, so the identify() merge has to run first for those early
+            // events to carry the bootstrapped identity. Runs inside setupLock (recursive, so
+            // identify()'s own setupLock reads are safe re-entrancy), after enabled/queue/
+            // remoteConfig are ready. A fresh install is already seeded in PostHogStorageManager;
+            // this only reconciles an existing local identity.
+            reconcileBootstrapIdentityIfNeeded()
+
             if !config.optOut {
                 // don't install integrations if in opt-out state
                 installIntegrations()
@@ -240,15 +250,6 @@ let maxRetryDelay = 30.0
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
-
-            // Reconcile inside the setup lock so the merge is atomic with the rest of setup:
-            // no other thread can observe the pre-merge identity or race identify()'s
-            // check-then-act. setupLock is recursive, so identify()'s own setupLock reads are
-            // safe re-entrancy; its heavier work (queueing, reloadFeatureFlags) is dispatched
-            // async, so the critical section isn't extended by network/queue work. A fresh
-            // install is already seeded in PostHogStorageManager; this only reconciles an
-            // existing local identity against an identified bootstrap.
-            reconcileBootstrapIdentityIfNeeded()
         }
     }
 

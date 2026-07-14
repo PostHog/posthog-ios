@@ -701,13 +701,22 @@
             windowSize: CGSize,
             screenName: String?,
             postHog: PostHogSDK,
-            timestampDate: Date
+            timestampDate: Date,
+            episodeFirstFrame: Bool = false
         ) {
             var hasChanges = false
             let timestamp = timestampDate.toMillis()
 
             let snapshotStatus = windowViewsLock.withLock {
                 windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
+            }
+
+            // An episode's first frame re-arms the meta (so every bridged
+            // episode opens with a meta carrying the covering screen's name,
+            // mirroring the Android bridge) — a stale latched meta would keep
+            // the previous screen's name for the whole episode.
+            if episodeFirstFrame {
+                snapshotStatus.sentMetaEvent = false
             }
 
             var snapshotsData: [Any] = []
@@ -746,6 +755,11 @@
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
 
+                // Re-arm the hash on an episode's first frame so a recurring
+                // native screen always re-sends its opening frame.
+                if episodeFirstFrame {
+                    snapshotStatus.lastImageHash = nil
+                }
                 let imageHash = (wireframeDict["base64"] as? String)?.hashValue
                 if PostHogReplayIntegration.shouldSkipUnchangedScreenshot(
                     imageHash: imageHash,
@@ -1054,34 +1068,43 @@
             return (wireframe, window.bounds.size, Date())
         }
 
+        @discardableResult
         private func renderAndEnqueueScreenshot(
             _ wireframe: RRWireframe,
             window: UIWindow,
             windowSize: CGSize,
             screenName: String?,
             postHog: PostHogSDK,
-            timestampDate: Date
-        ) {
+            timestampDate: Date,
+            episodeFirstFrame: Bool = false
+        ) -> Bool {
             autoreleasepool {
-                if let image = window.toImage(), image.size.hasSize() {
-                    wireframe.image = image
-                    captureSnapshot(
-                        wireframe,
-                        window: window,
-                        windowSize: windowSize,
-                        screenName: screenName,
-                        postHog: postHog,
-                        timestampDate: timestampDate
-                    )
+                guard let image = window.toImage(afterScreenUpdates: episodeFirstFrame),
+                      image.size.hasSize()
+                else {
+                    return false
                 }
+                wireframe.image = image
+                captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: windowSize,
+                    screenName: screenName,
+                    postHog: postHog,
+                    timestampDate: timestampDate,
+                    episodeFirstFrame: episodeFirstFrame
+                )
+                return true
             }
         }
 
+        @discardableResult
         private func performScreenshotCapture(
             window: UIWindow,
             screenName: String?,
-            postHog: PostHogSDK
-        ) {
+            postHog: PostHogSDK,
+            episodeFirstFrame: Bool = false
+        ) -> Bool {
             defer { finishScreenshotRender() }
 
             let screenshotCapture: (wireframe: RRWireframe, windowSize: CGSize, timestampDate: Date)?
@@ -1092,16 +1115,17 @@
             }
 
             guard let screenshotCapture, postHog.isSessionReplayActive() else {
-                return
+                return false
             }
 
-            renderAndEnqueueScreenshot(
+            return renderAndEnqueueScreenshot(
                 screenshotCapture.wireframe,
                 window: window,
                 windowSize: screenshotCapture.windowSize,
                 screenName: screenName,
                 postHog: postHog,
-                timestampDate: screenshotCapture.timestampDate
+                timestampDate: screenshotCapture.timestampDate,
+                episodeFirstFrame: episodeFirstFrame
             )
         }
 
@@ -1345,6 +1369,47 @@
             }
 
             return wireframe
+        }
+
+        /// Captures the current native window for the native-screen bridge.
+        /// [episodeFirstFrame] renders with `afterScreenUpdates` so a
+        /// freshly-presented screen isn't captured black, and re-arms the
+        /// meta/hash so a retried opening frame keeps its reset — pass it
+        /// until the episode's first frame has been captured, and drop it
+        /// afterwards (it flickers secure fields). Returns false if no frame
+        /// was captured, so the caller can retry.
+        @discardableResult
+        func captureBridgeSnapshot(episodeFirstFrame: Bool) -> Bool {
+            guard Thread.isMainThread else {
+                return DispatchQueue.main.sync {
+                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame)
+                }
+            }
+            guard let postHog, postHog.isSessionReplayActive() else {
+                return false
+            }
+            guard let window = UIApplication.getCurrentWindow() else {
+                return false
+            }
+            // A mid-transition capture renders black; the next tick gets it.
+            if isAnimatingTransition(window) {
+                return false
+            }
+            guard tryStartScreenshotRender() else {
+                return false
+            }
+            // Name the visible covering screen, not the window's root:
+            // bridged frames show the presented native screen, and the replay
+            // meta should say so. ph_topViewController also descends nav/tab
+            // containers to their visible child.
+            let screenName = UIViewController.ph_topViewController(base: window.rootViewController)
+                .flatMap(UIViewController.getViewControllerName)
+            return performScreenshotCapture(
+                window: window,
+                screenName: screenName,
+                postHog: postHog,
+                episodeFirstFrame: episodeFirstFrame
+            )
         }
 
         @objc private func snapshot() {

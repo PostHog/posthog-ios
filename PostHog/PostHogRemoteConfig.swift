@@ -135,8 +135,9 @@ class PostHogRemoteConfig {
                         // bootstrapped flags are a caller-provided base layer, not server state;
                         // re-seed them so they stay available until a real /flags response overlays them
                         seedBootstrapFlagsIfNeeded()
-                        // need to notify cause people may be waiting for flags to load
-                        notifyFeatureFlags([:])
+                        // notify with the served flags (the re-seeded bootstrap base layer), not an
+                        // empty map, so onFeatureFlagsLoaded callbacks match what getFeatureFlag() returns
+                        notifyFeatureFlags(getFeatureFlags())
                     } else if self.config.preloadFeatureFlags {
                         // If we reach here, hasFeatureFlags is either true, nil or not a boolean value
                         // Note: notifyFeatureFlags() will be eventually called inside preloadFeatureFlags()
@@ -439,9 +440,12 @@ class PostHogRemoteConfig {
                         }
                         self.setCachedFeatureFlags(mergedFeatureFlags)
                         self.setCachedFeatureFlagPayload(mergedFeatureFlagPayloads)
-                    }
 
-                    self.setFlagsLoadedFromRemoteLocked()
+                        // Only a complete load flips the latch: a partial (errorsWhileComputingFlags)
+                        // response still serves some keys from the bootstrap layer, so
+                        // $used_bootstrap_value must stay true until a full /flags response overlays them.
+                        self.setFlagsLoadedFromRemoteLocked()
+                    }
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)

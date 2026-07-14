@@ -552,6 +552,31 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("caller-supplied feature flag properties override cached values") {
+            let sut = self.getSut()
+
+            sut.reloadFeatureFlags()
+            waitForFeatureFlagsLoaded(server, sut)
+
+            sut.capture("event", properties: [
+                "$feature/bool-value": "server-value",
+                "$active_feature_flags": ["server-flag"],
+            ])
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+            let event = events.first!
+
+            expect(event.properties["$feature/bool-value"] as? String) == "server-value"
+            let activeFlags = event.properties["$active_feature_flags"] as? [Any] ?? []
+            expect(activeFlags.count) == 1
+            expect(activeFlags.first as? String) == "server-flag"
+
+            sut.reset()
+            sut.close()
+        }
+
         it("sanitize properties") {
             let sut = self.getSut(flushAt: 1)
 

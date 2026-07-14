@@ -72,7 +72,7 @@ class PostHogFileBackedQueue {
 
     func add(_ contents: Data) {
         do {
-            let filename = UUID.v7().uuidString
+            let filename = UUID.v7String()
             try contents.write(to: queue.appendingPathComponent(filename))
             itemsLock.withLock { items.append(filename) }
         } catch {
@@ -99,6 +99,7 @@ class PostHogFileBackedQueue {
 
     private func loadFiles(_ count: Int) -> [Data] {
         var results = [Data]()
+        var skipped = Set<String>()
 
         let itemsCopy = itemsLock.withLock { items }
 
@@ -107,23 +108,50 @@ class PostHogFileBackedQueue {
             do {
                 if !FileManager.default.fileExists(atPath: itemURL.path) {
                     hedgeLog("File \(itemURL) does not exist")
+                    skipped.insert(item)
                     continue
                 }
                 let contents = try Data(contentsOf: itemURL)
 
                 results.append(contents)
             } catch {
+                if isTemporarilyUnavailable(error) {
+                    hedgeLog("File \(itemURL) is temporarily unavailable, will retry \(error)")
+                    break
+                }
+
                 hedgeLog("File \(itemURL) is corrupted \(error)")
 
                 deleteSafely(itemURL)
+                skipped.insert(item)
             }
 
             if results.count == count {
-                return results
+                break
             }
         }
 
+        if !skipped.isEmpty {
+            itemsLock.withLock { items.removeAll { skipped.contains($0) } }
+        }
+
         return results
+    }
+
+    /// True when a read failed because the file is temporarily unreadable (iOS data protection on a
+    /// locked device) rather than corrupt, so it must be kept rather than deleted.
+    private func isTemporarilyUnavailable(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoPermissionError {
+            return true
+        }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError,
+           underlying.domain == NSPOSIXErrorDomain,
+           underlying.code == Int(EACCES) || underlying.code == Int(EPERM)
+        {
+            return true
+        }
+        return false
     }
 
     private func deleteFiles(_ count: Int) {

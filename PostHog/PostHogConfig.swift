@@ -33,6 +33,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
         static let maxRetries: Int = 3
+        static let featureFlagRequestMaxRetries: Int = 1
     }
 
     /// Network connectivity mode required before queued data may be flushed.
@@ -93,6 +94,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Increments on every retriable failure including HTTP 413 cap halving;
     /// resets on a successful 2xx response. Default 3.
     @objc public var maxRetries: Int = Defaults.maxRetries
+
+    /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
+    /// Defaults to 1. Set to 0 to disable feature flag request retries.
+    @objc public var featureFlagRequestMaxRetries: Int = Defaults.featureFlagRequestMaxRetries
     /// Required network connectivity mode for flushing queued data.
     ///
     /// Only `.wifi` currently restricts flushing; `.cellular` behaves the same as `.any`.
@@ -366,6 +371,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// If not set, uses URLSessionConfiguration.default
     /// Useful for testing, proxying, or custom network configurations
     @objc public var urlSessionConfiguration: URLSessionConfiguration?
+
+    /// Custom headers to send with every request to the PostHog API.
+    /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Read once when the SDK is set up; changes after setup are ignored.
+    @objc public var requestHeaders: [String: String]?
 
     // only internal
     var disableReachabilityForTesting: Bool = false

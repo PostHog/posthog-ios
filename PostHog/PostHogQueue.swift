@@ -166,7 +166,8 @@ class PostHogQueue<Record> {
                 payload.completion(true)
                 return
             }
-            let delay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
+            let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
+            let delay = max(backoffDelay, result.retryAfter ?? 0)
             pauseFor(seconds: delay)
             hedgeLog("Pausing queue consumption for \(delay) seconds due to \(newCount) API failure(s).")
             payload.completion(false)
@@ -182,7 +183,7 @@ class PostHogQueue<Record> {
         //    cap policy. Don't count it as a retry — the drop *is* the
         //    resolution, not another attempt.
         if statusCode == 413 {
-            let canHalve = batchLimitsLock.withLock { batchLimits.cap > 1 }
+            let canHalve = batchLimitsLock.withLock { batchLimits.cap > 1 && payload.records.count > 1 }
 
             if canHalve {
                 let newCount = stateLock.withLock { () -> Int in

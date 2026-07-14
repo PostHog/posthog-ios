@@ -123,7 +123,11 @@ typedef int64_t pl_vm_off_t;
 
 // assert() support. We prefer to leave assertions on in release builds, but need
 // to disable them in async-safe code paths.
-#ifdef PLCF_RELEASE_BUILD
+#if defined(__clang_analyzer__)
+
+#define PLCF_ASSERT(expr) do { if (!(expr)) __builtin_unreachable(); } while (0)
+
+#elif defined(PLCF_RELEASE_BUILD)
 
 #define PLCF_ASSERT(expr)
 

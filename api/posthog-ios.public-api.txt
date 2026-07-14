@@ -63,6 +63,7 @@ PostHog | PostHogConfig.enableSwizzling | property | @objc var enableSwizzling: 
 PostHog | PostHogConfig.errorTrackingConfig | property | @objc let errorTrackingConfig: PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)errorTrackingConfig
 PostHog | PostHogConfig.evaluationContexts | property | @objc var evaluationContexts: [String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationContexts
 PostHog | PostHogConfig.evaluationEnvironments | property | @objc var evaluationEnvironments: [String]? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)evaluationEnvironments
+PostHog | PostHogConfig.featureFlagRequestMaxRetries | property | @objc var featureFlagRequestMaxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)featureFlagRequestMaxRetries
 PostHog | PostHogConfig.flushAt | property | @objc var flushAt: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)flushAt
 PostHog | PostHogConfig.flushIntervalSeconds | property | @objc var flushIntervalSeconds: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)flushIntervalSeconds
 PostHog | PostHogConfig.getAnonymousId | property | @objc var getAnonymousId: (UUID) -> UUID | c:@M@PostHog@objc(cs)PostHogConfig(py)getAnonymousId
@@ -82,6 +83,7 @@ PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String
 PostHog | PostHogConfig.propertiesSanitizer | property | @objc var propertiesSanitizer: (any PostHogPropertiesSanitizer)? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)propertiesSanitizer
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.remoteConfig | property | @objc var remoteConfig: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)remoteConfig
+PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId
 PostHog | PostHogConfig.sendFeatureFlagEvent | property | @objc var sendFeatureFlagEvent: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sendFeatureFlagEvent
 PostHog | PostHogConfig.sessionReplay | property | @objc var sessionReplay: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplay
@@ -160,6 +162,7 @@ PostHog | PostHogDisplaySurveyTextContentType.text | enum.case | case text | c:@
 PostHog | PostHogErrorTrackingConfig | class | @objc class PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig
 PostHog | PostHogErrorTrackingConfig.autoCapture | property | @objc var autoCapture: Bool { get set } | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)autoCapture
 PostHog | PostHogErrorTrackingConfig.exceptionSteps | property | @objc var exceptionSteps: PostHogExceptionStepsConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)exceptionSteps
+PostHog | PostHogErrorTrackingConfig.ignoredExceptionTypes | property | @objc var ignoredExceptionTypes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)ignoredExceptionTypes
 PostHog | PostHogErrorTrackingConfig.inAppByDefault | property | @objc var inAppByDefault: Bool | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppByDefault
 PostHog | PostHogErrorTrackingConfig.inAppExcludes | property | @objc var inAppExcludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppExcludes
 PostHog | PostHogErrorTrackingConfig.inAppIncludes | property | @objc var inAppIncludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppIncludes
@@ -283,6 +286,7 @@ PostHog | PostHogSDK.didReceiveFeatureFlags | type.property | @objc static let d
 PostHog | PostHogSDK.didStartNotification | type.property | @objc static let didStartNotification: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didStartNotification
 PostHog | PostHogSDK.endSession() | method | @objc func endSession() | c:@M@PostHog@objc(cs)PostHogSDK(im)endSession
 PostHog | PostHogSDK.flush() | method | @objc func flush() | c:@M@PostHog@objc(cs)PostHogSDK(im)flush
+PostHog | PostHogSDK.getAllFeatureFlags() | method | @objc func getAllFeatureFlags() -> [PostHogFeatureFlagResult]? | c:@M@PostHog@objc(cs)PostHogSDK(im)getAllFeatureFlags
 PostHog | PostHogSDK.getAnonymousId() | method | @objc func getAnonymousId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getAnonymousId
 PostHog | PostHogSDK.getDeviceId() | method | @objc func getDeviceId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDeviceId
 PostHog | PostHogSDK.getDistinctId() | method | @objc func getDistinctId() -> String | c:@M@PostHog@objc(cs)PostHogSDK(im)getDistinctId

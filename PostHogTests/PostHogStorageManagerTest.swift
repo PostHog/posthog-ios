@@ -54,7 +54,7 @@ class PostHogStorageManagerTest: QuickSpec {
             config.getAnonymousId = { _ in fixedUuid }
             let sut = self.getSut(config)
             let anonymousId = sut.getAnonymousId()
-            expect(anonymousId) == fixedUuid.uuidString
+            expect(anonymousId) == fixedUuid.postHogUuidString
 
             sut.reset(true)
         }

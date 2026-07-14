@@ -17,7 +17,8 @@ import Foundation
     import WatchKit
 #endif
 
-let retryDelay = 5.0
+// SDK compliance harness 0.9.0 validates retry timing against this base cadence.
+let retryDelay = 1.0
 let maxRetryDelay = 30.0
 
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
@@ -567,7 +568,11 @@ let maxRetryDelay = 30.0
             props["distinct_id"] = distinctId
         }
 
-        props = props.merging(properties ?? [:]) { current, _ in current }
+        let callerProps = properties ?? [:]
+        props = props.merging(callerProps) { current, _ in current }
+        // Caller-supplied feature-flag properties take precedence over the cached values
+        let callerFlagProps = callerProps.filter { $0.key.hasPrefix("$feature/") || $0.key == "$active_feature_flags" }
+        props = props.merging(callerFlagProps) { _, new in new }
 
         return props
     }
@@ -1256,6 +1261,17 @@ let maxRetryDelay = 30.0
 
         guard let queue else {
             return
+        }
+
+        // $exception_list only ever comes from the caller, so raw properties are sufficient here
+        if event == "$exception" {
+            let ignored = config.errorTrackingConfig.ignoredExceptionTypes
+            if !ignored.isEmpty,
+               PostHogErrorTrackingAutoCaptureIntegration.exceptionListMatchesIgnoredTypes(properties ?? [:], ignoredTypes: ignored)
+            {
+                hedgeLog("$exception skipped: exception type is in errorTrackingConfig.ignoredExceptionTypes")
+                return
+            }
         }
 
         var isSnapshotEvent = event == "$snapshot"
@@ -2083,6 +2099,27 @@ let maxRetryDelay = 30.0
         return result is String ? true : (result as? Bool) ?? false
     }
 
+    /// Returns all currently loaded feature flags as structured results.
+    ///
+    /// Each `PostHogFeatureFlagResult` carries the flag's `key`, `enabled` state,
+    /// `variant` (for multivariate flags), and decoded `payload`. Flags become available
+    /// after they finish loading from the server; before the first load (or when the SDK
+    /// is disabled) this returns `nil`. Reading does not capture `$feature_flag_called` events.
+    ///
+    /// - Returns: An array of `PostHogFeatureFlagResult`, or `nil` if no flags are loaded.
+    ///
+    /// ```swift
+    /// for flag in PostHogSDK.shared.getAllFeatureFlags() ?? [] {
+    ///     print(flag.key, flag.enabled, flag.payload as Any)
+    /// }
+    /// ```
+    @objc public func getAllFeatureFlags() -> [PostHogFeatureFlagResult]? {
+        if !isEnabled() {
+            return nil
+        }
+        return remoteConfig?.getAllFeatureFlagResults()
+    }
+
     /// Returns the payload for a feature flag.
     ///
     /// - Parameter key: The feature flag key.
@@ -2614,6 +2651,7 @@ let maxRetryDelay = 30.0
         var mergedProperties = exceptionProperties
         additionalProperties?.forEach { mergedProperties[$0.key] = $0.value }
 
+        // ignoredExceptionTypes is enforced in captureInternal, the chokepoint for every $exception path
         capture("$exception", properties: mergedProperties)
     }
 

@@ -1,4 +1,10 @@
 /*
+ * VENDORED — protobuf-c (https://github.com/protobuf-c/protobuf-c) v1.4.0.
+ * Relocated into PLCrashReporter's Source/ from upstream Dependencies/protobuf-c/protobuf-c/
+ * so `#include "protobuf-c.h"` resolves via the compiler's same-directory rule (PostHog issue #469).
+ * Provenance and re-vendoring notes: vendor/UPSTREAM.md.
+ */
+/*
  * Copyright (c) 2008-2015, Dave Benson and the protobuf-c authors.
  * All rights reserved.
  *
@@ -450,16 +456,16 @@ required_field_get_packed_size(const ProtobufCFieldDescriptor *field,
 	case PROTOBUF_C_TYPE_STRING: {
 		const char *str = *(char * const *) member;
 		size_t len = str ? strlen(str) : 0;
-		return rv + uint32_size(len) + len;
+		return rv + uint32_size((uint32_t) len) + len;
 	}
 	case PROTOBUF_C_TYPE_BYTES: {
 		size_t len = ((const ProtobufCBinaryData *) member)->len;
-		return rv + uint32_size(len) + len;
+		return rv + uint32_size((uint32_t) len) + len;
 	}
 	case PROTOBUF_C_TYPE_MESSAGE: {
 		const ProtobufCMessage *msg = *(ProtobufCMessage * const *) member;
 		size_t subrv = msg ? protobuf_c_message_get_packed_size(msg) : 0;
-		return rv + uint32_size(subrv) + subrv;
+		return rv + uint32_size((uint32_t) subrv) + subrv;
 	}
 	}
 	PROTOBUF_C__ASSERT_NOT_REACHED();
@@ -667,26 +673,26 @@ repeated_field_get_packed_size(const ProtobufCFieldDescriptor *field,
 	case PROTOBUF_C_TYPE_STRING:
 		for (i = 0; i < count; i++) {
 			size_t len = strlen(((char **) array)[i]);
-			rv += uint32_size(len) + len;
+			rv += uint32_size((uint32_t) len) + len;
 		}
 		break;
 	case PROTOBUF_C_TYPE_BYTES:
 		for (i = 0; i < count; i++) {
 			size_t len = ((ProtobufCBinaryData *) array)[i].len;
-			rv += uint32_size(len) + len;
+			rv += uint32_size((uint32_t) len) + len;
 		}
 		break;
 	case PROTOBUF_C_TYPE_MESSAGE:
 		for (i = 0; i < count; i++) {
 			size_t len = protobuf_c_message_get_packed_size(
 				((ProtobufCMessage **) array)[i]);
-			rv += uint32_size(len) + len;
+			rv += uint32_size((uint32_t) len) + len;
 		}
 		break;
 	}
 
 	if (0 != (field->flags & PROTOBUF_C_FIELD_FLAG_PACKED))
-		header_size += uint32_size(rv);
+		header_size += uint32_size((uint32_t) rv);
 	return header_size + rv;
 }
 
@@ -1004,7 +1010,7 @@ string_pack(const char *str, uint8_t *out)
 		return 1;
 	} else {
 		size_t len = strlen(str);
-		size_t rv = uint32_pack(len, out);
+		size_t rv = uint32_pack((uint32_t) len, out);
 		memcpy(out + rv, str, len);
 		return rv + len;
 	}
@@ -1025,7 +1031,7 @@ static inline size_t
 binary_data_pack(const ProtobufCBinaryData *bd, uint8_t *out)
 {
 	size_t len = bd->len;
-	size_t rv = uint32_pack(len, out);
+	size_t rv = uint32_pack((uint32_t) len, out);
 	memcpy(out + rv, bd->data, len);
 	return rv + len;
 }
@@ -1049,10 +1055,10 @@ prefixed_message_pack(const ProtobufCMessage *message, uint8_t *out)
 		return 1;
 	} else {
 		size_t rv = protobuf_c_message_pack(message, out + 1);
-		uint32_t rv_packed_size = uint32_size(rv);
+		size_t rv_packed_size = uint32_size((uint32_t) rv);
 		if (rv_packed_size != 1)
 			memmove(out + rv_packed_size, out + 1, rv);
-		return uint32_pack(rv, out) + rv;
+		return uint32_pack((uint32_t) rv, out) + rv;
 	}
 }
 
@@ -1439,14 +1445,14 @@ repeated_field_pack(const ProtobufCFieldDescriptor *field,
 		}
 
 		payload_len = payload_at - (out + header_len);
-		actual_length_size = uint32_size(payload_len);
+		actual_length_size = uint32_size((uint32_t) payload_len);
 		if (length_size_min != actual_length_size) {
 			assert(actual_length_size == length_size_min + 1);
 			memmove(out + header_len + 1, out + header_len,
 				payload_len);
 			header_len++;
 		}
-		uint32_pack(payload_len, out + len_start);
+		uint32_pack((uint32_t) payload_len, out + len_start);
 		return header_len + payload_len;
 	} else {
 		/* not "packed" cased */
@@ -1608,7 +1614,7 @@ required_field_pack_to_buffer(const ProtobufCFieldDescriptor *field,
 		size_t sublen = str ? strlen(str) : 0;
 
 		scratch[0] |= PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED;
-		rv += uint32_pack(sublen, scratch + rv);
+		rv += uint32_pack((uint32_t) sublen, scratch + rv);
 		buffer->append(buffer, rv, scratch);
 		buffer->append(buffer, sublen, (const uint8_t *) str);
 		rv += sublen;
@@ -1619,7 +1625,7 @@ required_field_pack_to_buffer(const ProtobufCFieldDescriptor *field,
 		size_t sublen = bd->len;
 
 		scratch[0] |= PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED;
-		rv += uint32_pack(sublen, scratch + rv);
+		rv += uint32_pack((uint32_t) sublen, scratch + rv);
 		buffer->append(buffer, rv, scratch);
 		buffer->append(buffer, sublen, bd->data);
 		rv += sublen;
@@ -1634,7 +1640,7 @@ required_field_pack_to_buffer(const ProtobufCFieldDescriptor *field,
 			buffer->append(buffer, rv, scratch);
 		} else {
 			size_t sublen = protobuf_c_message_get_packed_size(msg);
-			rv += uint32_pack(sublen, scratch + rv);
+			rv += uint32_pack((uint32_t) sublen, scratch + rv);
 			buffer->append(buffer, rv, scratch);
 			protobuf_c_message_pack_to_buffer(msg, buffer);
 			rv += sublen;
@@ -1924,7 +1930,7 @@ repeated_field_pack_to_buffer(const ProtobufCFieldDescriptor *field,
 		size_t tmp;
 
 		scratch[0] |= PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED;
-		rv += uint32_pack(payload_len, scratch + rv);
+		rv += uint32_pack((uint32_t) payload_len, scratch + rv);
 		buffer->append(buffer, rv, scratch);
 		tmp = pack_buffer_packed_payload(field, count, array, buffer);
 		assert(tmp == payload_len);

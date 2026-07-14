@@ -34,11 +34,17 @@ private func processUploadResponse(
         hedgeLog("\(endpointName) sent successfully.")
     }
 
-    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil))
+    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(parseRetryAfter)
+    completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil, retryAfter: retryAfter))
 }
 
 class PostHogApi {
+    static var gzipData: (Data) throws -> Data = { try $0.gzipped() }
+
     private let config: PostHogConfig
+
+    /// Snapshot at init; treated as immutable after setup.
+    private let customRequestHeaders: [String: String]
 
     // default is 60s but we do 10s
     private let defaultTimeout: TimeInterval = 10
@@ -47,8 +53,11 @@ class PostHogApi {
     /// between calls instead of being torn down per request.
     private let session: URLSession
 
+    static let flagsRetryDelay: TimeInterval = 0.3
+
     init(_ config: PostHogConfig) {
         self.config = config
+        customRequestHeaders = config.requestHeaders ?? [:]
 
         // Copy first so SDK mutations don't leak back to the caller's object.
         let sessionConfig = (config.urlSessionConfiguration?.copy() as? URLSessionConfiguration)
@@ -63,7 +72,13 @@ class PostHogApi {
         headers["User-Agent"] = "\(postHogSdkName)/\(postHogVersion)"
         headers["Accept-Encoding"] = "gzip"
         sessionConfig.httpAdditionalHeaders = headers
-        session = URLSession(configuration: sessionConfig)
+        // Strip custom headers on cross-host redirects so they don't leak to another origin.
+        if customRequestHeaders.isEmpty {
+            session = URLSession(configuration: sessionConfig)
+        } else {
+            let stripper = PostHogRedirectHeaderStripper(allowedHost: config.host.host, headerKeys: Array(customRequestHeaders.keys))
+            session = URLSession(configuration: sessionConfig, delegate: stripper, delegateQueue: nil)
+        }
     }
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
@@ -72,10 +87,36 @@ class PostHogApi {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = defaultTimeout
+        applyCustomHeaders(&request)
         if gzipped {
             request.setValue("gzip", forHTTPHeaderField: "Content-Encoding")
         }
         return request
+    }
+
+    /// Adds custom headers to requests for the configured host, skipping SDK-managed keys.
+    private func applyCustomHeaders(_ request: inout URLRequest) {
+        guard !customRequestHeaders.isEmpty, request.url?.host == config.host.host else { return }
+        for (key, value) in customRequestHeaders
+            where request.value(forHTTPHeaderField: key) == nil
+            && !Self.reservedHeaderKeys.contains(key.lowercased())
+        {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+    }
+
+    /// SDK-managed headers that custom values can't override (compared lowercase).
+    private static let reservedHeaderKeys: Set<String> = [
+        "content-type", "user-agent", "accept-encoding", "content-encoding",
+    ]
+
+    private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
+        do {
+            return (getURLRequest(url, gzipped: true), try Self.gzipData(data))
+        } catch {
+            hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
+            return (getURLRequest(url), data)
+        }
     }
 
     private func getEndpointURL(
@@ -113,6 +154,7 @@ class PostHogApi {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = defaultTimeout
+        applyCustomHeaders(&request)
         return request
     }
 
@@ -121,8 +163,6 @@ class PostHogApi {
             hedgeLog("Malformed batch URL error.")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
-
-        let request = getURLRequest(url, gzipped: true)
 
         let toSend: [String: Any] = [
             // Wire field name remains api_key, but it carries the PostHog project token.
@@ -136,15 +176,9 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the batch body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "batch")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: payload) { data, response, error in
             processUploadResponse(endpointName: "batch", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -159,8 +193,6 @@ class PostHogApi {
             event.apiKey = config.projectToken
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         let toSend = events.map { $0.toJSON() }
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
@@ -168,15 +200,9 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the snapshot body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "snapshot")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: payload) { data, response, error in
             processUploadResponse(endpointName: "snapshot", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -198,22 +224,14 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let request = getURLRequest(url, gzipped: true)
-
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
             hedgeLog("Error parsing the logs body")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let gzippedPayload: Data
-        do {
-            gzippedPayload = try data.gzipped()
-        } catch {
-            hedgeLog("Error gzipping the logs body: \(error).")
-            return completion(PostHogUploadInfo(statusCode: nil, error: error))
-        }
+        let (request, uploadPayload) = requestAndPayload(url: url, data: data, endpointName: "logs")
 
-        session.uploadTask(with: request, from: gzippedPayload) { data, response, error in
+        session.uploadTask(with: request, from: uploadPayload) { data, response, error in
             processUploadResponse(endpointName: "logs", data: data, response: response, error: error, completion: completion)
         }.resume()
     }
@@ -273,9 +291,29 @@ class PostHogApi {
             return completion(nil, nil)
         }
 
-        session.uploadTask(with: request, from: data) { data, response, error in
-            if error != nil {
-                hedgeLog("Error calling the flags API: \(String(describing: error))")
+        uploadFlagsRequest(request, payload: data, retryCount: 0, completion: completion)
+    }
+
+    private func uploadFlagsRequest(
+        _ request: URLRequest,
+        payload: Data,
+        retryCount: Int,
+        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+    ) {
+        session.uploadTask(with: request, from: payload) { data, response, error in
+            if let error {
+                if Self.isRetryableFlagsError(error), retryCount < self.config.featureFlagRequestMaxRetries {
+                    self.retryFlagsRequest(
+                        request,
+                        payload: payload,
+                        retryCount: retryCount,
+                        reason: String(describing: error),
+                        completion: completion
+                    )
+                    return
+                }
+
+                hedgeLog("Error calling the flags API: \(error)")
                 return completion(nil, error)
             }
 
@@ -284,13 +322,28 @@ class PostHogApi {
                 return completion(nil, nil)
             }
 
-            let httpResponse = response as! HTTPURLResponse
+            guard let httpResponse = response as? HTTPURLResponse else {
+                hedgeLog("Error parsing the flags response: unexpected response type")
+                return completion(nil, nil)
+            }
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
                 let jsonBody = fromJSONData(data, options: .allowFragments)
-                let errorMessage = "Error calling flags API: status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))."
-                hedgeLog(errorMessage)
+                let retryReason = "status: \(httpResponse.statusCode), body: \(String(describing: jsonBody))"
+                let errorMessage = "Error calling flags API: \(retryReason)."
 
+                if Self.isRetryableFlagsStatusCode(httpResponse.statusCode), retryCount < self.config.featureFlagRequestMaxRetries {
+                    self.retryFlagsRequest(
+                        request,
+                        payload: payload,
+                        retryCount: retryCount,
+                        reason: retryReason,
+                        completion: completion
+                    )
+                    return
+                }
+
+                hedgeLog(errorMessage)
                 return completion(nil,
                                   InternalPostHogError(description: errorMessage))
             } else {
@@ -305,6 +358,39 @@ class PostHogApi {
                 completion(nil, error)
             }
         }.resume()
+    }
+
+    private func retryFlagsRequest(
+        _ request: URLRequest,
+        payload: Data,
+        retryCount: Int,
+        reason: String,
+        completion: @escaping ([String: Any]?, _ error: Error?) -> Void
+    ) {
+        let nextRetryCount = retryCount + 1
+        let delay = Self.featureFlagsRetryDelay(forFailedAttempt: nextRetryCount)
+        hedgeLog(
+            "Error calling the flags API: \(reason). Retrying in \(delay) seconds (attempt \(nextRetryCount)/\(config.featureFlagRequestMaxRetries))."
+        )
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+            self.uploadFlagsRequest(request, payload: payload, retryCount: nextRetryCount, completion: completion)
+        }
+    }
+
+    static func featureFlagsRetryDelay(forFailedAttempt failedAttempt: Int) -> TimeInterval {
+        min(flagsRetryDelay * pow(2.0, TimeInterval(failedAttempt - 1)), maxRetryDelay)
+    }
+
+    private static func isRetryableFlagsError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else {
+            return false
+        }
+        return nsError.code == NSURLErrorTimedOut || nsError.code == NSURLErrorNetworkConnectionLost
+    }
+
+    private static func isRetryableFlagsStatusCode(_ statusCode: Int) -> Bool {
+        statusCode == 502 || statusCode == 504
     }
 
     func remoteConfig(
@@ -326,7 +412,10 @@ class PostHogApi {
                 return completion(nil, nil)
             }
 
-            let httpResponse = response as! HTTPURLResponse
+            guard let httpResponse = response as? HTTPURLResponse else {
+                hedgeLog("Error parsing the remote config response: unexpected response type")
+                return completion(nil, nil)
+            }
 
             if !(200 ... 299 ~= httpResponse.statusCode) {
                 let jsonBody = fromJSONData(data, options: .allowFragments)
@@ -369,4 +458,33 @@ extension PostHogApi {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return decoder
     }()
+}
+
+/// Strips custom headers on redirects that leave the configured host.
+private final class PostHogRedirectHeaderStripper: NSObject, URLSessionTaskDelegate {
+    private let allowedHost: String?
+    private let headerKeys: [String]
+
+    init(allowedHost: String?, headerKeys: [String]) {
+        self.allowedHost = allowedHost
+        self.headerKeys = headerKeys
+    }
+
+    func urlSession(
+        _: URLSession,
+        task _: URLSessionTask,
+        willPerformHTTPRedirection _: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard request.url?.host != allowedHost else {
+            completionHandler(request)
+            return
+        }
+        var redirected = request
+        for key in headerKeys {
+            redirected.setValue(nil, forHTTPHeaderField: key)
+        }
+        completionHandler(redirected)
+    }
 }

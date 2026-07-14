@@ -849,6 +849,99 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
+    @Suite("Test getAllFeatureFlags")
+    class TestGetAllFeatureFlags: BaseTestClass {
+        @Test("returns nil before flags are loaded")
+        func returnsNilBeforeLoad() {
+            let sut = track(PostHogSDK.with(config))
+            #expect(sut.getAllFeatureFlags() == nil)
+            sut.close()
+        }
+
+        @Test("returns all loaded flags, including disabled ones")
+        func returnsAllFlagsIncludingDisabled() async {
+            let sut = track(PostHogSDK.with(config))
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            let all = sut.getAllFeatureFlags()
+            #expect(all != nil)
+
+            // Order is not guaranteed, so key by flag key.
+            let byKey = Dictionary(uniqueKeysWithValues: (all ?? []).map { ($0.key, $0) })
+
+            // Enabled boolean flag
+            #expect(byKey["bool-value"]?.enabled == true)
+            #expect(byKey["bool-value"]?.variant == nil)
+
+            // Multivariate flag carries its variant
+            #expect(byKey["string-value"]?.enabled == true)
+            #expect(byKey["string-value"]?.variant == "test")
+
+            // Disabled flag is INCLUDED as enabled=false (not filtered out) — matches Android.
+            #expect(byKey["disabled-flag"] != nil, "disabled flags should be included in the result")
+            #expect(byKey["disabled-flag"]?.enabled == false)
+            #expect(byKey["disabled-flag"]?.variant == nil)
+
+            sut.close()
+        }
+
+        @Test("decodes payloads (object and scalar)")
+        func decodesPayloads() async {
+            let sut = track(PostHogSDK.with(config))
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            let byKey = Dictionary(uniqueKeysWithValues: (sut.getAllFeatureFlags() ?? []).map { ($0.key, $0) })
+
+            // Scalar payload parsed via .fragmentsAllowed
+            #expect(byKey["number-value"]?.payload as? Int == 2)
+            // Object payload parsed to a dictionary
+            #expect(byKey["payload-json"]?.payload as? [String: String] == ["foo": "bar"])
+
+            sut.close()
+        }
+
+        @Test("each result matches getFeatureFlagResult for that key")
+        func matchesSingleKeyResult() async {
+            let sut = track(PostHogSDK.with(config))
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            for flag in sut.getAllFeatureFlags() ?? [] {
+                let single = sut.getFeatureFlagResult(flag.key, sendFeatureFlagEvent: false)
+                #expect(flag.enabled == single?.enabled, "enabled mismatch for \(flag.key)")
+                #expect(flag.variant == single?.variant, "variant mismatch for \(flag.key)")
+            }
+
+            sut.close()
+        }
+
+        @Test("does not send $feature_flag_called")
+        func doesNotSendEvent() async {
+            config.sendFeatureFlagEvent = true
+            config.flushAt = 1
+            let sut = track(PostHogSDK.with(config))
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            server.reset(batchCount: 1)
+
+            _ = sut.getAllFeatureFlags()
+
+            sut.flush()
+            let events = getBatchedEvents(server, timeout: 0.5, failIfNotCompleted: false)
+            let ffEvent = events.first { $0.event == "$feature_flag_called" }
+            #expect(ffEvent == nil, "getAllFeatureFlags must not emit $feature_flag_called")
+
+            sut.close()
+        }
+    }
+
     @Suite("Test PostHogFeatureFlagResult payload methods")
     final class TestFeatureFlagResultPayloadMethods {
         @Test("payloadAs returns nil for nil payload")

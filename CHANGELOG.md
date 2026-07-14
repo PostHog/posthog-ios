@@ -1,5 +1,108 @@
 ## Next
 
+## 3.64.6
+
+### Patch Changes
+
+- 6ba42c4: Fix `errorTrackingConfig.ignoredExceptionTypes` not being applied to `$exception` events sent through the generic `capture()` API (e.g. hybrid SDK bridges forwarding pre-serialized exceptions); previously only `captureException` and crash-report autocapture honored it.
+
+## 3.64.5
+
+### Patch Changes
+
+- 3921285: fix: make vendored protobuf-c header resolution robust against header-search-path loss
+
+  Relocate the vendored `protobuf-c.{h,c}` next to `PLCrashReport.pb-c.h`, the only
+  source that includes `protobuf-c.h` across directories, so the include resolves via
+  the compiler's same-directory rule instead of a `HEADER_SEARCH_PATHS` entry. This
+  prevents intermittent `'protobuf-c.h' file not found` build failures when a
+  consumer's build drops the pod's header search paths.
+
+## 3.64.4
+
+### Patch Changes
+
+- c5b2d23: Avoid a crash in the flags and remote-config API handlers when the URL response is not an `HTTPURLResponse` (previously force-cast); the SDK now logs and returns gracefully instead.
+- 24cbc60: Session replay (screenshot mode): skip re-sending unchanged screenshots. Static screens no longer upload an identical full screenshot every tick, cutting replay bandwidth and storage. Wireframe mode is unaffected.
+
+## 3.64.3
+
+> **Note:** Version 3.64.3 is available through Swift Package Manager only. CocoaPods users should use **3.64.4** or later.
+
+### Patch Changes
+
+- 5ed8fd6: Fix event-queue peek/pop misalignment that could re-send already-delivered events when a file was skipped, and stop deleting valid queue files that are only temporarily unreadable (e.g. iOS data protection on a locked device).
+
+## 3.64.2
+
+### Patch Changes
+
+- 6a5b391: fix: prevent Session Replay crashes on AVAggregateAssetDownloadTask
+
+## 3.64.1
+
+### Patch Changes
+
+- ced6a8b: Fix the upload symbols script for projects with spaces in their paths.
+
+## 3.64.0
+
+### Minor Changes
+
+- b9afc8f: Add `ignoredExceptionTypes` to `PostHogErrorTrackingConfig` so apps embedding both the JS RN SDK and the native iOS SDK can suppress duplicate native captures by exception class name.
+
+### Patch Changes
+
+- 7dbeb82: Retry remote feature flag requests after transient 502 and 504 responses.
+
+## 3.63.1
+
+### Patch Changes
+
+- b9126c7: Feature-flag properties (`$feature/*` and `$active_feature_flags`) passed explicitly to `capture()` now take precedence over the SDK's cached flag values, matching posthog-js (web) and posthog-android.
+
+## 3.63.0
+
+### Minor Changes
+
+- 5fa4a56: Add `requestHeaders` config option to send custom headers (e.g. `Authorization`) with every request to the PostHog API. Useful for reverse-proxy setups that require authentication.
+
+## 3.62.5
+
+### Patch Changes
+
+- e57e428: Session replay now respects the resolved recording config once the first remote config response arrives. Recording still starts optimistically from the disk-cached config at cold start, but snapshots are now buffered (not persisted) until the first live remote config resolves. On resolve, the buffered opening window is flushed to the replay queue only when the session is recordable under the fresh config — recording flag on, sampled in, and not waiting on an event trigger — and is dropped otherwise, so a returning user no longer uploads a stale-cache window the fresh config disallows via the recording flag, sample rate, or event trigger. When recording is gated on a linked feature flag — whose value is only fresh once the flags response (which follows the config response) arrives — resolution is deferred to that flags reload so the window isn't flushed on a stale flag value; if feature-flag preloading is disabled, so no flags reload follows, it resolves against the cached flag instead. A subsequent remote config that turns recording off also stops it promptly instead of waiting for the next session rotation.
+
+## 3.62.4
+
+### Patch Changes
+
+- b9bf252: Retry capture delivery on transient HTTP errors and respect Retry-After responses while preserving queued events across retries.
+
+## 3.62.3
+
+### Patch Changes
+
+- c5f5b60: Generate lowercase UUID strings for SDK-created event, anonymous, session, and queue identifiers.
+
+## 3.62.2
+
+### Patch Changes
+
+- fb59e77: Fall back to uncompressed uploads when local gzip compression fails.
+
+## 3.62.1
+
+### Patch Changes
+
+- c1a7f11: Retry feature flag requests after transient network errors only. The feature flag request retry count defaults to 1 and can be set to 0 to disable retries.
+
+## 3.62.0
+
+### Minor Changes
+
+- fcc876e: Add `PostHogSDK.getAllFeatureFlags()` returning all loaded flags as `[PostHogFeatureFlagResult]` (key, enabled, variant, payload). Exposed to Objective-C via `@objc`.
+
 ## 3.61.1
 
 ### Patch Changes

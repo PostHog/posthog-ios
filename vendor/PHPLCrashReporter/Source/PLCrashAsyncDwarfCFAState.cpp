@@ -117,7 +117,7 @@ dwarf_cfa_state<machine_ptr, machine_ptr_s>::dwarf_cfa_state (void) {
 template <typename machine_ptr, typename machine_ptr_s>
 bool dwarf_cfa_state<machine_ptr, machine_ptr_s>::set_register (dwarf_cfa_state_regnum_t regnum, plcrash_dwarf_cfa_reg_rule_t rule, machine_ptr value) {
     /* Check for an existing entry, or find the target entry off which we'll chain our entry */
-    unsigned int bucket = regnum % (sizeof(_table_stack[0]) / sizeof(_table_stack[0][0]));
+    size_t bucket = regnum % (sizeof(_table_stack[0]) / sizeof(_table_stack[0][0]));
     
     dwarf_cfa_reg_entry_t *parent = NULL;
     for (uint8_t parent_idx = _table_stack[_table_depth][bucket]; parent_idx != DWARF_CFA_STATE_INVALID_ENTRY_IDX; parent_idx = parent->next) {
@@ -177,7 +177,7 @@ bool dwarf_cfa_state<machine_ptr, machine_ptr_s>::set_register (dwarf_cfa_state_
 template <typename machine_ptr, typename machine_ptr_s>
 bool dwarf_cfa_state<machine_ptr, machine_ptr_s>::get_register_rule (dwarf_cfa_state_regnum_t regnum, plcrash_dwarf_cfa_reg_rule_t *rule, machine_ptr *value) {
     /* Search for the entry */
-    unsigned int bucket = regnum % (sizeof(_table_stack[0]) / sizeof(_table_stack[0][0]));
+    size_t bucket = regnum % (sizeof(_table_stack[0]) / sizeof(_table_stack[0][0]));
     
     dwarf_cfa_reg_entry_t *entry = NULL;
     for (uint8_t entry_idx = _table_stack[_table_depth][bucket]; entry_idx != DWARF_CFA_STATE_INVALID_ENTRY_IDX; entry_idx = entry->next) {
@@ -208,7 +208,7 @@ bool dwarf_cfa_state<machine_ptr, machine_ptr_s>::get_register_rule (dwarf_cfa_s
 template <typename machine_ptr, typename machine_ptr_s>
 void dwarf_cfa_state<machine_ptr, machine_ptr_s>::remove_register (dwarf_cfa_state_regnum_t regnum) {
     /* Search for the entry */
-    unsigned int bucket = regnum % (sizeof(_table_stack[0]) / sizeof(_table_stack[0][0]));
+    size_t bucket = regnum % (sizeof(_table_stack[0]) / sizeof(_table_stack[0][0]));
     
     dwarf_cfa_reg_entry *prev = NULL;
     dwarf_cfa_reg_entry_t *entry = NULL;

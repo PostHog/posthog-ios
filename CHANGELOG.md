@@ -1,5 +1,11 @@
 ## Next
 
+## 3.66.1
+
+### Patch Changes
+
+- a582c6a: Add a `$feature_flag_has_experiment` boolean property to `$feature_flag_called` events, sourced from the flag's `metadata.has_experiment` in the flags response. The property is only sent when the server explicitly reports it and omitted when unknown (e.g. legacy responses without flag details).
+
 ## 3.66.0
 
 ### Minor Changes

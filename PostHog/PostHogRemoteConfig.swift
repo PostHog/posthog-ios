@@ -430,22 +430,21 @@ class PostHogRemoteConfig {
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                     } else {
-                        // bootstrapped flags form the base layer; loaded values overlay them for
-                        // overlapping keys, while bootstrapped-only keys remain available
-                        let mergedFeatureFlags = self.bootstrappedFlags.merging(featureFlags) { _, loaded in loaded }
-                        let mergedFeatureFlagPayloads = self.bootstrappedPayloads.merging(featureFlagPayloads) { _, loaded in loaded }
-                        loadedFeatureFlags = mergedFeatureFlags
+                        // A complete /flags response replaces the served flags and payloads entirely
+                        // (matches posthog-js): bootstrapped-only keys and stale bootstrapped payloads
+                        // do not survive a complete load. Partial/errored responses merge above.
+                        loadedFeatureFlags = featureFlags
                         if let flagsV4 {
                             self.setCachedFlags(flagsV4)
                         }
-                        self.setCachedFeatureFlags(mergedFeatureFlags)
-                        self.setCachedFeatureFlagPayload(mergedFeatureFlagPayloads)
-
-                        // Only a complete load flips the latch: a partial (errorsWhileComputingFlags)
-                        // response still serves some keys from the bootstrap layer, so
-                        // $used_bootstrap_value must stay true until a full /flags response overlays them.
-                        self.setFlagsLoadedFromRemoteLocked()
+                        self.setCachedFeatureFlags(featureFlags)
+                        self.setCachedFeatureFlagPayload(featureFlagPayloads)
                     }
+
+                    // Any successful /flags response (complete or partial/errored) marks flags loaded
+                    // from remote. $used_bootstrap_value is a global "a remote response has been
+                    // received" marker, set after any 200 (matches posthog-js), not per-key.
+                    self.setFlagsLoadedFromRemoteLocked()
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
@@ -624,20 +623,15 @@ class PostHogRemoteConfig {
         return flags?[key]
     }
 
-    /// Seeds `config.bootstrap` feature flags and payloads into the served cache as a base
-    /// layer, so reads return them before the first `/flags` response. Existing cached values
-    /// (from a prior load) win over bootstrapped ones; bootstrapped-only keys are added.
+    /// Seeds `config.bootstrap` feature flags and payloads as the served snapshot before the first
+    /// `/flags` response. The snapshot wins over any persisted flags (matches posthog-js): it is
+    /// applied as a complete replacement, so a returning user's fresh bootstrap takes precedence
+    /// until the first `/flags` response replaces it.
     private func seedBootstrapFlagsIfNeeded() {
         featureFlagsLock.withLock {
             guard !bootstrappedFlags.isEmpty else { return }
-
-            let existingFlags = getCachedFeatureFlags() ?? [:]
-            let mergedFlags = bootstrappedFlags.merging(existingFlags) { _, existing in existing }
-            setCachedFeatureFlags(mergedFlags)
-
-            let existingPayloads = getCachedFeatureFlagPayload() ?? [:]
-            let mergedPayloads = bootstrappedPayloads.merging(existingPayloads) { _, existing in existing }
-            setCachedFeatureFlagPayload(mergedPayloads)
+            setCachedFeatureFlags(bootstrappedFlags)
+            setCachedFeatureFlagPayload(bootstrappedPayloads)
         }
     }
 

@@ -253,22 +253,37 @@ let maxRetryDelay = 30.0
         }
     }
 
-    /// Browser-style reconciliation for a differing identified bootstrap (`isIdentifiedId == true`):
-    /// merge an existing anonymous user into the bootstrapped identity, or preserve a different
-    /// already-identified user and warn. A matching or fresh identity needs no reconciliation.
+    /// Browser-style reconciliation for an identified bootstrap (`isIdentifiedId == true`), matching
+    /// posthog-js: upgrade a matching anonymous id to identified without re-linking, merge a differing
+    /// anonymous user into the bootstrapped identity, or preserve a different already-identified user
+    /// and warn. Identity is persisted even while opted out (only event emission is suppressed).
     private func reconcileBootstrapIdentityIfNeeded() {
         guard let bootstrap = config.bootstrap, bootstrap.isIdentifiedId,
               let bootstrapId = bootstrap.distinctId,
               !bootstrapId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let storageManager = config.storageManager,
-              storageManager.getDistinctId() != bootstrapId
+              let storageManager = config.storageManager
         else {
             return
         }
 
+        if storageManager.getDistinctId() == bootstrapId {
+            // Same id: only the identified state needs upgrading. No identify() and no $identify
+            // event, since the distinct id is unchanged. Persists even while opted out.
+            if !storageManager.isIdentified() {
+                storageManager.setIdentified(true)
+            }
+            return
+        }
+
+        // Differing id.
         if storageManager.isIdentified() {
             hedgeLog("Bootstrap distinctId differs from an already-identified user. The existing " +
                 "identity is preserved. Call reset() before reinitializing to switch users.")
+        } else if isOptOutState() {
+            // Opted out: identify() returns early without persisting, so persist the merged identity
+            // locally (event emission stays suppressed) so it survives a later opt-in.
+            storageManager.setDistinctId(bootstrapId)
+            storageManager.setIdentified(true)
         } else {
             // Existing anonymous user — merge it into the identified bootstrap ID.
             identify(bootstrapId)

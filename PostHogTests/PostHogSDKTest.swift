@@ -189,6 +189,31 @@ class PostHogSDKTest: QuickSpec {
             expect(config.storageManager?.isIdentified()) == true
         }
 
+        it("upgrades a matching anonymous id to identified via an identified bootstrap") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // matching id: the user is upgraded to identified without re-linking
+            expect(sut.getDistinctId()) == "user-123"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("reconciles an identified bootstrap while opted out") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-xyz", distinct: nil, identified: false))
+            config.optOut = true
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-456", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // opted out: local identity is still reconciled, only event emission is suppressed
+            expect(sut.getDistinctId()) == "user-456"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

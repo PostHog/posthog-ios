@@ -1297,10 +1297,13 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
 
-        @Test("Bootstrapped-only keys survive a flags load")
-        func bootstrappedOnlyKeysSurviveLoad() async {
+        @Test("A complete flags load drops bootstrapped-only keys")
+        func completeLoadDropsBootstrappedOnlyKeys() async {
             let config = bootstrapConfig(featureFlags: ["bool-value": true, "legacy": true])
             let sut = getSut(storage: freshStorage(config), config: config)
+
+            // Before load: both bootstrapped keys are served
+            #expect(sut.getFeatureFlag("legacy") as? Bool == true)
 
             await withCheckedContinuation { continuation in
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
@@ -1308,9 +1311,9 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            // "legacy" is bootstrapped-only (absent from the /flags response) and must survive
-            #expect(sut.getFeatureFlag("legacy") as? Bool == true)
-            // the overlapping key reflects the loaded value
+            // A complete /flags response replaces the served flags: bootstrapped-only "legacy" is
+            // dropped, and the overlapping key reflects the loaded value.
+            #expect(sut.getFeatureFlag("legacy") == nil)
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
         }
 
@@ -1327,11 +1330,13 @@ enum PostHogFeatureFlagsTest {
                 }
             }
 
-            await load()
+            // Bootstrap serves "legacy" before any load
             #expect(sut.getFeatureFlag("legacy") as? Bool == true)
+
+            await load()
             #expect(sut.hasLoadedFeatureFlagsFromRemote() == true)
 
-            // reset() clears the bootstrap base layer and the loaded-from-remote latch
+            // reset() clears the retained bootstrap and the loaded-from-remote latch
             sut.clear()
             #expect(sut.hasLoadedFeatureFlagsFromRemote() == false)
 

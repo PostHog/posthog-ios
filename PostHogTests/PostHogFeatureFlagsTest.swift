@@ -1385,8 +1385,6 @@ enum PostHogFeatureFlagsTest {
 
             await flagsLoaded.wait()
 
-            // posthog-js fires onFeatureFlags when bootstrap is applied; iOS notifies with the seeded
-            // flags so listeners aren't blocked on the first /flags response.
             #expect(receivedFlags?["beta-ui"] as? Bool == true)
             _ = token
         }

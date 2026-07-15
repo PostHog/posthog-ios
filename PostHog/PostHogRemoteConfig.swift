@@ -97,9 +97,8 @@ class PostHogRemoteConfig {
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
 
-        // Seed bootstrapped flags before any network load so reads serve them immediately, and fire
-        // the flags-loaded notification right away (matches posthog-js, which fires onFeatureFlags
-        // when bootstrap is applied) so listeners aren't blocked waiting on the first /flags response
+        // Fire the flags-loaded notification as soon as bootstrap is seeded (matches posthog-js firing
+        // onFeatureFlags on bootstrap) so listeners aren't blocked on the first /flags response
         if seedBootstrapFlagsIfNeeded() {
             notifyFeatureFlags(getFeatureFlags())
         }
@@ -644,7 +643,6 @@ class PostHogRemoteConfig {
     /// `/flags` response. The snapshot wins over any persisted flags (matches posthog-js): it is
     /// applied as a complete replacement, so a returning user's fresh bootstrap takes precedence
     /// until the first `/flags` response replaces it.
-    /// - Returns: `true` when the bootstrap snapshot was applied, `false` when there was nothing to seed.
     @discardableResult
     private func seedBootstrapFlagsIfNeeded() -> Bool {
         featureFlagsLock.withLock {

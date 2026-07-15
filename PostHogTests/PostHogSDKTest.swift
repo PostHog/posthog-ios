@@ -266,6 +266,20 @@ class PostHogSDKTest: QuickSpec {
             expect(config.storageManager?.isIdentified()) == false
         }
 
+        it("drops a differing identified bootstrap for a returning anonymous user when personProfiles is never and opted out") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.personProfiles = .never
+            config.optOut = true
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-456", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // .never gates the reconcile regardless of opt-out, so the outcome matches the non-opted-out case above
+            expect(sut.getDistinctId()) == "anon-abc"
+            expect(config.storageManager?.isIdentified()) == false
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

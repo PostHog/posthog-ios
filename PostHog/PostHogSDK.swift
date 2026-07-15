@@ -280,10 +280,13 @@ let maxRetryDelay = 30.0
             hedgeLog("Bootstrap distinctId differs from an already-identified user. The existing " +
                 "identity is preserved. Call reset() before reinitializing to switch users.")
         } else if isOptOutState() {
-            // Opted out: identify() returns early without persisting, so persist the merged identity
-            // locally (event emission stays suppressed) so it survives a later opt-in.
-            storageManager.setDistinctId(bootstrapId)
-            storageManager.setIdentified(true)
+            // Opted out: identify() would return early without persisting, so write the identity
+            // directly to survive a later opt-in. Keep identify()'s personProfiles == .never gate,
+            // so opt-out never changes whether the bootstrap identity is written.
+            if config.personProfiles != .never {
+                storageManager.setDistinctId(bootstrapId)
+                storageManager.setIdentified(true)
+            }
         } else {
             // Existing anonymous user: merge it into the identified bootstrap ID via identify(),
             // which no-ops when personProfiles == .never. The fresh-install path

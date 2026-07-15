@@ -1367,6 +1367,29 @@ enum PostHogFeatureFlagsTest {
             await load()
             #expect(sut.getFeatureFlag("legacy") == nil)
         }
+
+        @Test("Bootstrap seed fires the flags-loaded notification")
+        @MainActor
+        func bootstrapSeedFiresFlagsLoaded() async {
+            let config = bootstrapConfig(featureFlags: ["beta-ui": true])
+            let flagsLoaded = AsyncLatch()
+            var receivedFlags: [String: Any]?
+
+            // @MainActor keeps this deterministic: init fires the notify on the main queue, which can't
+            // run until we suspend at `await` below, so the subscription is always registered first.
+            let sut = getSut(storage: freshStorage(config), config: config)
+            let token = sut.onFeatureFlagsLoaded.subscribe { flags in
+                receivedFlags = flags
+                flagsLoaded.signal()
+            }
+
+            await flagsLoaded.wait()
+
+            // posthog-js fires onFeatureFlags when bootstrap is applied; iOS notifies with the seeded
+            // flags so listeners aren't blocked on the first /flags response.
+            #expect(receivedFlags?["beta-ui"] as? Bool == true)
+            _ = token
+        }
     }
 
     @Suite("Test Bootstrap Feature Flag Reporting")

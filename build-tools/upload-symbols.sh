@@ -12,6 +12,7 @@
 #   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   With .env:      POSTHOG_DOTENV_FILE="${SRCROOT}/.env" "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
@@ -22,6 +23,9 @@
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
+#   POSTHOG_DOTENV_FILE - Path to a dotenv-style file providing POSTHOG_CLI_API_KEY /
+#                         POSTHOG_CLI_PROJECT_ID / POSTHOG_CLI_HOST (forwarded to
+#                         posthog-cli as --dotenv-file; requires posthog-cli >= 0.7.18)
 #
 
 # Skip non-Release builds.
@@ -48,6 +52,14 @@ fi
 if [ -z "$(find "${DWARF_DSYM_FOLDER_PATH}" -name '*.dSYM' -type d 2>/dev/null)" ]; then
     echo "info: No dSYM bundles found in ${DWARF_DSYM_FOLDER_PATH}"
     exit 0
+fi
+
+# Fail fast when the requested dotenv file is missing. posthog-cli itself only
+# warns and falls back to other credential sources (login session), which can
+# upload to the wrong project instead of surfacing the misconfiguration.
+if [ -n "${POSTHOG_DOTENV_FILE}" ] && [ ! -f "${POSTHOG_DOTENV_FILE}" ]; then
+    echo "error: POSTHOG_DOTENV_FILE not found: ${POSTHOG_DOTENV_FILE}"
+    exit 1
 fi
 
 # Find posthog-cli (Xcode doesn't load shell profiles)
@@ -85,6 +97,9 @@ fi
 MIN_POSTHOG_CLI_VERSION="0.7.7"
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
+fi
+if [ -n "${POSTHOG_DOTENV_FILE}" ]; then
+    MIN_POSTHOG_CLI_VERSION="0.7.18"
 fi
 PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
 
@@ -126,4 +141,10 @@ if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     CLI_ARGS+=(--skip-on-conflict)
 fi
 
-"${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1
+# Global CLI arguments (must precede the subcommand)
+GLOBAL_ARGS=()
+if [ -n "${POSTHOG_DOTENV_FILE}" ]; then
+    GLOBAL_ARGS+=(--dotenv-file "${POSTHOG_DOTENV_FILE}")
+fi
+
+"${PH_CLI_PATH}" ${GLOBAL_ARGS[@]+"${GLOBAL_ARGS[@]}"} dsym upload "${CLI_ARGS[@]}" || exit 1

@@ -1281,11 +1281,11 @@ enum PostHogFeatureFlagsTest {
 
         @Test("Loaded flags override bootstrapped values")
         func loadedFlagsOverrideBootstrap() async {
-            let config = bootstrapConfig(featureFlags: ["bool-value": false])
+            let config = bootstrapConfig(featureFlags: ["bool-value": "bootstrapped-variant"])
             let sut = getSut(storage: freshStorage(config), config: config)
 
             // Before load: the bootstrapped value wins
-            #expect(sut.getFeatureFlag("bool-value") as? Bool == false)
+            #expect(sut.getFeatureFlag("bool-value") as? String == "bootstrapped-variant")
 
             await withCheckedContinuation { continuation in
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
@@ -1293,8 +1293,31 @@ enum PostHogFeatureFlagsTest {
                 })
             }
 
-            // After load: the server value (true) overlays the bootstrapped false
+            // After load: the server value (true) replaces the bootstrapped one
             #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
+        }
+
+        @Test("A disabled (false) bootstrap flag is not served")
+        func disabledBootstrapFlagNotServed() {
+            let config = bootstrapConfig(featureFlags: ["enabled": true, "disabled": false, "variant": "v1"])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            // Only enabled flags (truthy values) are served, matching posthog-js.
+            #expect(sut.getFeatureFlag("enabled") as? Bool == true)
+            #expect(sut.getFeatureFlag("variant") as? String == "v1")
+            #expect(sut.getFeatureFlag("disabled") == nil)
+        }
+
+        @Test("A payload for a disabled bootstrap flag is not served")
+        func disabledBootstrapPayloadNotServed() {
+            let config = bootstrapConfig(
+                featureFlags: ["enabled": "v1", "disabled": false],
+                featureFlagPayloads: ["enabled": ["k": "v"], "disabled": ["k": "x"]]
+            )
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlagPayload("enabled") as? [String: String] == ["k": "v"])
+            #expect(sut.getFeatureFlagPayload("disabled") == nil)
         }
 
         @Test("A complete flags load drops bootstrapped-only keys")

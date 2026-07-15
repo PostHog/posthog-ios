@@ -86,8 +86,13 @@ class PostHogRemoteConfig {
         self.featureFlagCalledCallback = featureFlagCalledCallback
         // Sanitize like every other public [String: Any] input so a non-JSON-serializable value
         // (NaN/Infinity, a custom object) is dropped with a log instead of crashing setup.
-        bootstrappedFlags = sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:]
-        bootstrappedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
+        // Then keep only enabled flags (truthy values) and their payloads, matching posthog-js:
+        // a `false`/disabled bootstrap flag and its payload are not served.
+        let enabledFlags = (sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:])
+            .filter { PostHogRemoteConfig.isBootstrapFlagEnabled($0.value) }
+        let sanitizedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
+        bootstrappedFlags = enabledFlags
+        bootstrappedPayloads = sanitizedPayloads.filter { enabledFlags[$0.key] != nil }
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
@@ -621,6 +626,14 @@ class PostHogRemoteConfig {
         }
 
         return flags?[key]
+    }
+
+    /// Whether a bootstrapped flag value counts as enabled (posthog-js `!!value`): a `true` boolean
+    /// or a non-empty variant string. A `false` boolean or empty string is disabled and not served.
+    private static func isBootstrapFlagEnabled(_ value: Any) -> Bool {
+        if let boolValue = value as? Bool { return boolValue }
+        if let stringValue = value as? String { return !stringValue.isEmpty }
+        return false
     }
 
     /// Seeds `config.bootstrap` feature flags and payloads as the served snapshot before the first

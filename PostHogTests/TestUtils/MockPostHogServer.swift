@@ -146,6 +146,7 @@ class MockPostHogServer {
                         "version": 23,
                         "payload": "true",
                         "description": "This is an enabled flag",
+                        "has_experiment": true,
                     ],
                 ],
                 "string-value": [
@@ -162,6 +163,7 @@ class MockPostHogServer {
                         "version": 1,
                         "payload": "\"string-value\"",
                         "description": "",
+                        "has_experiment": false,
                     ],
                 ],
                 "disabled-flag": [

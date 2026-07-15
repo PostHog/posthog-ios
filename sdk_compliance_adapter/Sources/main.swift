@@ -289,6 +289,10 @@ app.post("get_feature_flag") { req async throws -> Response in
     let value = flags?[flagReq.key] ?? false
     print("[ADAPTER] Flag \(flagReq.key) resolved to: \(String(describing: value))")
 
+    let flagDetails = (decoded?["flags"] as? [String: Any])?[flagReq.key] as? [String: Any]
+    let flagMetadata = flagDetails?["metadata"] as? [String: Any]
+    let hasExperiment = flagMetadata?["has_experiment"] as? Bool ?? false
+
     sdk.capture(
         "$feature_flag_called",
         distinctId: flagReq.distinctId,
@@ -296,6 +300,7 @@ app.post("get_feature_flag") { req async throws -> Response in
             "$feature_flag": flagReq.key,
             "$feature_flag_response": value,
             "$feature/\(flagReq.key)": value,
+            "$feature_flag_has_experiment": hasExperiment,
         ]
     )
     sdk.flush()

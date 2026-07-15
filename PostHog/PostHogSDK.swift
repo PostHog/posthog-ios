@@ -2147,6 +2147,7 @@ let maxRetryDelay = 30.0
                 "$feature_flag": flagKey,
                 "$feature_flag_response": flagValue ?? NSNull(),
                 "$feature_flag_request_id": requestId,
+                "$feature_flag_has_experiment": false,
             ]
 
             if let evaluatedAt {
@@ -2161,6 +2162,7 @@ let maxRetryDelay = 30.0
                 if let metadata = details["metadata"] as? [String: Any] {
                     properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
                     properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
+                    properties["$feature_flag_has_experiment"] = metadata["has_experiment"] as? Bool ?? false
                 }
             }
 

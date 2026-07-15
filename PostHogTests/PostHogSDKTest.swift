@@ -331,6 +331,7 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["$feature_flag_id"] as? Int) == 2
             expect(event.properties["$feature_flag_version"] as? Int) == 23
             expect(event.properties["$feature_flag_reason"] as? String) == "Matched condition set 3"
+            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == true
 
             sut.reset()
             sut.close()
@@ -354,6 +355,26 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["$feature_flag_id"] as? Int) == 3
             expect(event.properties["$feature_flag_version"] as? Int) == 1
             expect(event.properties["$feature_flag_reason"] as? String) == "Matched condition set 1"
+            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("send feature flag event with has_experiment false when server omits it") {
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitForFeatureFlagsLoaded(server, sut)
+            expect(sut.isFeatureEnabled("number-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            expect(event.properties["$feature_flag"] as? String) == "number-value"
+            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == false
 
             sut.reset()
             sut.close()

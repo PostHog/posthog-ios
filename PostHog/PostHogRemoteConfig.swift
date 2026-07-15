@@ -44,7 +44,9 @@ class PostHogRemoteConfig {
     /// `clear()` (on `reset()`) so bootstrap never re-applies to a different user. Under `featureFlagsLock`.
     private var bootstrappedFlags: [String: Any]
     private var bootstrappedPayloads: [String: Any]
-    private var flagsLoadedFromRemote: Bool?
+    // In-memory and reset each launch (matching posthog-js), so a returning user still reports
+    // $used_bootstrap_value true while served bootstrap values until this session's own /flags.
+    private var flagsLoadedFromRemote = false
 
     private let personPropertiesForFlagsLock = NSLock()
     private var personPropertiesForFlags: [String: Any] = [:]
@@ -665,23 +667,15 @@ class PostHogRemoteConfig {
         featureFlagsLock.withLock { bootstrappedPayloads[key] }
     }
 
-    /// Whether a `/flags` response has been received (persisted across launches). Drives
-    /// `$used_bootstrap_value`: bootstrapped values are "used" until this becomes `true`.
+    /// Whether a `/flags` response has been received this session (in-memory, reset each launch).
+    /// Drives `$used_bootstrap_value`: bootstrapped values are "used" until this becomes `true`.
     func hasLoadedFeatureFlagsFromRemote() -> Bool {
-        featureFlagsLock.withLock {
-            if flagsLoadedFromRemote == nil {
-                flagsLoadedFromRemote = storage.getBool(forKey: .flagsLoadedFromRemote)
-            }
-            return flagsLoadedFromRemote ?? false
-        }
+        featureFlagsLock.withLock { flagsLoadedFromRemote }
     }
 
     // To be called after acquiring `featureFlagsLock`
     private func setFlagsLoadedFromRemoteLocked() {
-        if flagsLoadedFromRemote != true {
-            flagsLoadedFromRemote = true
-            storage.setBool(forKey: .flagsLoadedFromRemote, contents: true)
-        }
+        flagsLoadedFromRemote = true
     }
 
     // To be called after acquiring `featureFlagsLock`
@@ -991,8 +985,7 @@ class PostHogRemoteConfig {
             clearFeatureFlagsLocked()
             bootstrappedFlags = [:]
             bootstrappedPayloads = [:]
-            flagsLoadedFromRemote = nil
-            storage.remove(key: .flagsLoadedFromRemote)
+            flagsLoadedFromRemote = false
         }
 
         sessionReplayLock.withLock {

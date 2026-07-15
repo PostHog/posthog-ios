@@ -1,21 +1,23 @@
 import Foundation
 
-/// Pre-seeded values applied on the very first SDK launch when no per-device state has
-/// been persisted yet.
+/// Pre-seeded identity and feature-flag state applied during setup, before any network
+/// request completes.
 ///
 /// Set ``PostHogConfig/bootstrap`` before calling `setup(_:)` to seed identity and feature
-/// flag state before any network request completes. This ensures events captured
+/// flag state. This ensures events captured
 /// synchronously during initialization (`Application Installed` / `Application Updated`,
 /// pre-identify lifecycle events) carry a caller-controlled `$distinct_id` rather than the
 /// SDK-generated UUID, and that feature flag reads return caller-provided values before the
 /// first `/flags` response. Mirrors the [`bootstrap` option in `posthog-js`](https://posthog.com/docs/feature-flags/bootstrapping).
 ///
-/// Bootstrapped identity seeds only the very first session: once an anonymous ID is
-/// persisted on disk, or `identify(...)` has been called, it is ignored — it never
-/// overrides an already-identified user or re-links traffic across a previous
-/// anon→identified merge. Bootstrapped feature flags form a temporary base layer: the
-/// first complete `/flags` response replaces them, while a partial or errored response
-/// overlays only the keys it recomputed.
+/// Identity is seeded on a fresh install. For a returning user, an identified bootstrap
+/// (``isIdentifiedId`` `== true`) reconciles against the stored identity — upgrading a
+/// matching anonymous ID to identified, merging a differing anonymous user into the
+/// bootstrapped ID, or preserving a different already-identified user. An anonymous
+/// bootstrap is ignored once an anonymous ID is persisted. Bootstrapped feature flags form
+/// a temporary base layer applied on every initialization: the first complete `/flags`
+/// response replaces them, while a partial or errored response overlays only the keys it
+/// recomputed.
 @objc(PostHogBootstrapConfig) public class PostHogBootstrapConfig: NSObject {
     /// The distinct ID to seed on first launch.
     ///

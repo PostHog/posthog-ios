@@ -192,20 +192,25 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// - Returns: The UUID to persist as the anonymous ID.
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
 
-    /// Pre-seeded identity and feature-flag state applied on the very first SDK launch
-    /// when no per-device state has been persisted yet.
+    /// Pre-seeded identity and feature-flag state applied during setup, before any
+    /// network request completes.
     ///
-    /// Set this before calling `setup(_:)` to ensure events captured synchronously during
+    /// Set this before calling `setup(_:)` so events captured synchronously during
     /// initialization (`Application Installed` / `Application Updated`, pre-identify
     /// lifecycle events) carry a caller-controlled `$distinct_id` rather than the
-    /// SDK-generated UUID, and that feature flag reads return caller-provided values
+    /// SDK-generated UUID, and so feature flag reads return caller-provided values
     /// before the first `/flags` response. Mirrors the [`bootstrap` option in `posthog-js`](https://posthog.com/docs/feature-flags/bootstrapping).
     ///
-    /// Bootstrapped identity seeds only the very first session: once an anonymous ID is
-    /// persisted on disk, or `identify(...)` has been called, it is ignored — it never
-    /// overrides an already-identified user or re-links traffic across a previous
-    /// anon→identified merge. Bootstrapped feature flags form a base layer only:
-    /// values loaded from `/flags` overlay them for overlapping keys.
+    /// Identity is seeded on a fresh install. For a returning user, an identified bootstrap
+    /// (`isIdentifiedId == true`) reconciles against the stored identity — upgrading a
+    /// matching anonymous ID to identified, merging a differing anonymous user into the
+    /// bootstrapped ID, or preserving a different already-identified user. An anonymous
+    /// bootstrap is ignored once an anonymous ID is persisted.
+    ///
+    /// Feature flags are applied on every initialization and take precedence over the
+    /// persisted flag cache. They are a temporary base layer: the first complete `/flags`
+    /// response replaces them entirely, while a partial or errored response overlays only
+    /// the keys it recomputed.
     ///
     /// Defaults to `nil` (use the SDK-generated UUID and no bootstrapped flags).
     @objc public var bootstrap: PostHogBootstrapConfig?

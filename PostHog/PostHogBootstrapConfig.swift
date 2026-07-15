@@ -13,9 +13,9 @@ import Foundation
 /// Bootstrapped identity seeds only the very first session: once an anonymous ID is
 /// persisted on disk, or `identify(...)` has been called, it is ignored — it never
 /// overrides an already-identified user or re-links traffic across a previous
-/// anon→identified merge. Bootstrapped feature flags form a base layer only: values from
-/// `/flags` overlay them for overlapping keys, while bootstrapped-only keys remain
-/// available.
+/// anon→identified merge. Bootstrapped feature flags form a temporary base layer: the
+/// first complete `/flags` response replaces them, while a partial or errored response
+/// overlays only the keys it recomputed.
 @objc(PostHogBootstrapConfig) public class PostHogBootstrapConfig: NSObject {
     /// The distinct ID to seed on first launch.
     ///
@@ -36,8 +36,10 @@ import Foundation
     ///
     /// Maps a flag key to its value (a `Bool` for boolean flags or a `String` for
     /// multivariate flags). These values are served immediately after setup so flag reads
-    /// don't fall back to not-loaded defaults during cold start. Loaded values overlay
-    /// bootstrapped ones for overlapping keys; bootstrapped-only keys survive a load.
+    /// don't fall back to not-loaded defaults during cold start. They are a temporary base
+    /// layer: the first complete `/flags` response replaces the served set entirely, so
+    /// bootstrapped-only keys are not retained after it; a partial or errored response merges,
+    /// preserving keys it didn't recompute.
     @objc public var featureFlags: [String: Any]?
 
     /// JSON payloads paired with ``featureFlags``, keyed by flag key.

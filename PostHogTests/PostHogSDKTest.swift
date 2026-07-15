@@ -361,7 +361,7 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("send feature flag event with has_experiment false when server omits it") {
+        it("send feature flag event without has_experiment when server omits it") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 
             waitForFeatureFlagsLoaded(server, sut)
@@ -374,7 +374,7 @@ class PostHogSDKTest: QuickSpec {
             let event = events.first!
             expect(event.event) == "$feature_flag_called"
             expect(event.properties["$feature_flag"] as? String) == "number-value"
-            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == false
+            expect(event.properties["$feature_flag_has_experiment"]).to(beNil())
 
             sut.reset()
             sut.close()
@@ -774,6 +774,8 @@ class PostHogSDKTest: QuickSpec {
 
             let event = getBatchedEvents(server)
             expect(event.first!.event).to(equal("$feature_flag_called"))
+            // v3 responses carry no flag details, so has_experiment is unknown and omitted
+            expect(event.first!.properties["$feature_flag_has_experiment"]).to(beNil())
         }
 
         it("does not capture $feature_flag_called when getFeatureFlag is called twice") {

@@ -44,9 +44,14 @@ public class PostHogStorageManager {
     /// derivation — so `$device_id` is never the user's identified ID (matching posthog-js).
     /// When `false`, the value becomes the `.anonymousId`.
     private func applyBootstrapIdentityIfNeeded(_ bootstrap: PostHogBootstrapConfig?) {
-        guard let bootstrap, let bootstrapId = bootstrap.distinctId,
+        guard let bootstrap else { return }
+
+        guard let bootstrapId = bootstrap.distinctId,
               !bootstrapId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
+            if bootstrap.isIdentifiedId {
+                hedgeLog("PostHogConfig.bootstrap.isIdentifiedId is true but distinctId is nil or blank; the identified bootstrap is ignored.")
+            }
             return
         }
         // Persisted state wins — never override an existing anonymous ID, and never

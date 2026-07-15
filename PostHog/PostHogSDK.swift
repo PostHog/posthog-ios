@@ -2211,14 +2211,14 @@ let maxRetryDelay = 30.0
                 }
             }
 
-            if let bootstrappedResponse = remoteConfig?.getBootstrappedFeatureFlag(flagKey) {
-                properties["$feature_flag_bootstrapped_response"] = bootstrappedResponse
+            if let bootstrapMetadata = remoteConfig?.getBootstrapCallMetadata(flagKey) {
+                properties["$feature_flag_bootstrapped_response"] = bootstrapMetadata.response
 
-                if let bootstrappedPayload = remoteConfig?.getBootstrappedFeatureFlagPayload(flagKey) {
+                if let bootstrappedPayload = bootstrapMetadata.payload {
                     properties["$feature_flag_bootstrapped_payload"] = bootstrappedPayload
                 }
 
-                properties["$used_bootstrap_value"] = !(remoteConfig?.hasLoadedFeatureFlagsFromRemote() ?? false)
+                properties["$used_bootstrap_value"] = bootstrapMetadata.usedBootstrapValue
             }
 
             capture("$feature_flag_called", properties: properties)

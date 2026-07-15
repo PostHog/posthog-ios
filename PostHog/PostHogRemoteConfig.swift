@@ -90,8 +90,17 @@ class PostHogRemoteConfig {
         // (NaN/Infinity, a custom object) is dropped with a log instead of crashing setup.
         // Then keep only enabled flags (truthy values) and their payloads, matching posthog-js:
         // a `false`/disabled bootstrap flag and its payload are not served.
-        let enabledFlags = (sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:])
-            .filter { PostHogRemoteConfig.isBootstrapFlagEnabled($0.value) }
+        let sanitizedFlags = sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:]
+        // A serializable value that is neither Bool nor String can't be a flag value; it's dropped
+        // below (isBootstrapFlagEnabled returns false), so warn rather than fail silently.
+        let mistypedFlagKeys = sanitizedFlags
+            .filter { $0.value as? Bool == nil && $0.value as? String == nil }
+            .keys.sorted()
+        if !mistypedFlagKeys.isEmpty {
+            hedgeLog("Bootstrap featureFlags values for [\(mistypedFlagKeys.joined(separator: ", "))] are not a Bool " +
+                "or String and were ignored. Use a Bool for boolean flags or a String for multivariate flags.")
+        }
+        let enabledFlags = sanitizedFlags.filter { PostHogRemoteConfig.isBootstrapFlagEnabled($0.value) }
         let sanitizedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
         bootstrappedFlags = enabledFlags
         bootstrappedPayloads = sanitizedPayloads.filter { enabledFlags[$0.key] != nil }
@@ -655,16 +664,25 @@ class PostHogRemoteConfig {
         }
     }
 
-    /// The originally-bootstrapped value for `key`, if one was provided.
-    /// Used to enrich `$feature_flag_called` with `$feature_flag_bootstrapped_response`.
-    func getBootstrappedFeatureFlag(_ key: String) -> Any? {
-        featureFlagsLock.withLock { bootstrappedFlags[key] }
+    /// Bootstrap enrichment for a single `$feature_flag_called` event.
+    struct BootstrapCallMetadata {
+        let response: Any
+        let payload: Any?
+        let usedBootstrapValue: Bool
     }
 
-    /// The originally-bootstrapped payload for `key`, if one was provided.
-    /// Used to enrich `$feature_flag_called` with `$feature_flag_bootstrapped_payload`.
-    func getBootstrappedFeatureFlagPayload(_ key: String) -> Any? {
-        featureFlagsLock.withLock { bootstrappedPayloads[key] }
+    /// The bootstrap enrichment for a `$feature_flag_called` event (response, payload, and whether the
+    /// bootstrapped value is still in use), read in a single `featureFlagsLock` acquisition so a
+    /// concurrent `reset()` can't tear the three reads apart. `nil` when `key` was not bootstrapped.
+    func getBootstrapCallMetadata(_ key: String) -> BootstrapCallMetadata? {
+        featureFlagsLock.withLock {
+            guard let response = bootstrappedFlags[key] else { return nil }
+            return BootstrapCallMetadata(
+                response: response,
+                payload: bootstrappedPayloads[key],
+                usedBootstrapValue: !flagsLoadedFromRemote
+            )
+        }
     }
 
     /// Whether a `/flags` response has been received this session (in-memory, reset each launch).

@@ -32,6 +32,39 @@ public class PostHogStorageManager {
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
         idGen = config.getAnonymousId
+        applyBootstrapIdentityIfNeeded(config.bootstrap)
+    }
+
+    /// Persists the bootstrap distinct ID exactly once, on the very first launch with no
+    /// per-device state. Skipped when the device already has an anonymous ID on disk,
+    /// when the user is already identified, or when the caller did not supply one.
+    ///
+    /// When `bootstrap.isIdentifiedId` is `true`, the value is seeded as the `.distinctId`
+    /// and `isIdentified` is set, while the anonymous/device ID keeps its normal random-UUID
+    /// derivation — so `$device_id` is never the user's identified ID (matching posthog-js).
+    /// When `false`, the value becomes the `.anonymousId`.
+    private func applyBootstrapIdentityIfNeeded(_ bootstrap: PostHogBootstrapConfig?) {
+        guard let bootstrap else { return }
+
+        guard let bootstrapId = bootstrap.distinctId,
+              !bootstrapId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            if bootstrap.isIdentifiedId {
+                hedgeLog("PostHogConfig.bootstrap.isIdentifiedId is true but distinctId is nil or blank; the identified bootstrap is ignored.")
+            }
+            return
+        }
+        // Persisted state wins — never override an existing anonymous ID, and never
+        // re-link traffic across a previous anon→identified merge.
+        if storage.getString(forKey: .anonymousId) != nil { return }
+        if storage.getBool(forKey: .isIdentified) == true { return }
+
+        if bootstrap.isIdentifiedId {
+            setDistinctId(bootstrapId)
+            setIdentified(true)
+        } else {
+            setAnonymousId(bootstrapId)
+        }
     }
 
     /// Returns the persisted anonymous ID, creating one if needed.

@@ -218,6 +218,16 @@ let maxRetryDelay = 30.0
 
             logger = PostHogLogger(sdk: self)
 
+            // Reconcile an identified bootstrap against an existing local identity BEFORE
+            // installing integrations. The app-lifecycle integration can replay
+            // didFinishLaunching synchronously on install and capture Application
+            // Installed/Updated, so the identify() merge has to run first for those early
+            // events to carry the bootstrapped identity. Runs inside setupLock (recursive, so
+            // identify()'s own setupLock reads are safe re-entrancy), after enabled/queue/
+            // remoteConfig are ready. A fresh install is already seeded in PostHogStorageManager;
+            // this only reconciles an existing local identity.
+            reconcileBootstrapIdentityIfNeeded()
+
             if !config.optOut {
                 // don't install integrations if in opt-out state
                 installIntegrations()
@@ -240,6 +250,51 @@ let maxRetryDelay = 30.0
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: PostHogSDK.didStartNotification, object: nil)
             }
+        }
+    }
+
+    /// Browser-style reconciliation for an identified bootstrap (`isIdentifiedId == true`), matching
+    /// posthog-js: upgrade a matching anonymous id to identified without re-linking, merge a differing
+    /// anonymous user into the bootstrapped identity, or preserve a different already-identified user
+    /// and warn. Identity is persisted even while opted out (only event emission is suppressed).
+    private func reconcileBootstrapIdentityIfNeeded() {
+        guard let bootstrap = config.bootstrap, bootstrap.isIdentifiedId,
+              let bootstrapId = bootstrap.distinctId,
+              !bootstrapId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let storageManager = config.storageManager
+        else {
+            return
+        }
+
+        if storageManager.getDistinctId() == bootstrapId {
+            // Same id: only the identified state needs upgrading. No identify() and no $identify
+            // event, since the distinct id is unchanged. Persists even while opted out.
+            if !storageManager.isIdentified() {
+                storageManager.setIdentified(true)
+            }
+            return
+        }
+
+        // Differing id.
+        if storageManager.isIdentified() {
+            hedgeLog("Bootstrap distinctId differs from an already-identified user. The existing " +
+                "identity is preserved. Call reset() before reinitializing to switch users.")
+        } else if isOptOutState() {
+            // Opted out: identify() would return early without persisting, so write the identity
+            // directly to survive a later opt-in. Keep identify()'s personProfiles == .never gate,
+            // so opt-out never changes whether the bootstrap identity is written.
+            if config.personProfiles != .never {
+                storageManager.setDistinctId(bootstrapId)
+                storageManager.setIdentified(true)
+            }
+        } else {
+            // Existing anonymous user: merge it into the identified bootstrap ID via identify(),
+            // which no-ops when personProfiles == .never. The fresh-install path
+            // (PostHogStorageManager.applyBootstrapIdentityIfNeeded) instead seeds the identity
+            // directly, so under .never a returning anonymous user drops the bootstrap identity while a
+            // fresh install keeps it. That asymmetry is intentional posthog-js parity: the browser SDK
+            // reconciles the same paths through a gated identify() vs an ungated register().
+            identify(bootstrapId)
         }
     }
 
@@ -2162,6 +2217,16 @@ let maxRetryDelay = 30.0
                     properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
                     properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
                 }
+            }
+
+            if let bootstrapMetadata = remoteConfig?.getBootstrapCallMetadata(flagKey) {
+                properties["$feature_flag_bootstrapped_response"] = bootstrapMetadata.response
+
+                if let bootstrappedPayload = bootstrapMetadata.payload {
+                    properties["$feature_flag_bootstrapped_payload"] = bootstrappedPayload
+                }
+
+                properties["$used_bootstrap_value"] = bootstrapMetadata.usedBootstrapValue
             }
 
             capture("$feature_flag_called", properties: properties)

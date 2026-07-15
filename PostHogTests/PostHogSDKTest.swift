@@ -145,6 +145,141 @@ class PostHogSDKTest: QuickSpec {
             expect(sut.getSessionId()).to(beNil())
         }
 
+        func bootstrapReconcileConfig(existing: (anon: String, distinct: String?, identified: Bool)) -> PostHogConfig {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+            storage.setString(forKey: .anonymousId, contents: existing.anon)
+            if let distinct = existing.distinct {
+                storage.setString(forKey: .distinctId, contents: distinct)
+            }
+            if existing.identified {
+                storage.setBool(forKey: .isIdentified, contents: true)
+            }
+            return config
+        }
+
+        it("merges an anonymous local user into an identified bootstrap") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // the anonymous user is merged into the identified bootstrap ID
+            expect(sut.getDistinctId()) == "user-123"
+            expect(config.storageManager?.isIdentified()) == true
+            // the anonymous ID is preserved so the $identify links the merge ($anon_distinct_id)
+            expect(sut.getAnonymousId()) == "anon-abc"
+        }
+
+        it("preserves a different already-identified local user against an identified bootstrap") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-xyz", distinct: "user-existing", identified: true))
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // the existing identity wins; the bootstrap is ignored
+            expect(sut.getDistinctId()) == "user-existing"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("upgrades a matching anonymous id to identified via an identified bootstrap") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // matching id: the user is upgraded to identified without re-linking
+            expect(sut.getDistinctId()) == "user-123"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("reconciles an identified bootstrap while opted out") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-xyz", distinct: nil, identified: false))
+            config.optOut = true
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-456", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // opted out: local identity is still reconciled, only event emission is suppressed
+            expect(sut.getDistinctId()) == "user-456"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("early lifecycle events carry the reconciled bootstrap identity") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = true
+            // reconcile emits $identify, then Application Installed captures on install; flush both together
+            config.flushAt = 2
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // reconcile runs before installIntegrations, so the Application Installed event captured
+            // synchronously on install carries the merged bootstrap identity, not the old anonymous id
+            let events = getBatchedEvents(server)
+            let installed = events.first { $0.event == "Application Installed" }
+            expect(installed).toNot(beNil())
+            expect(installed?.distinctId) == "user-123"
+        }
+
+        // The .never asymmetry below is intentional posthog-js parity: the fresh-install seed applies the
+        // identity via an ungated write, while the returning-anon path routes through identify(), which
+        // no-ops under .never. These lock in that behavior so it isn't "made consistent" by mistake.
+        it("applies an identified bootstrap on a fresh install even when personProfiles is never") {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.personProfiles = .never
+            PostHogStorage(config).reset() // fresh install: no persisted identity
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // fresh-install seed applies the identity directly, without the person-processing gate
+            expect(sut.getDistinctId()) == "user-123"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("drops a differing identified bootstrap for a returning anonymous user when personProfiles is never") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.personProfiles = .never
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // returning-anon path routes through identify(), which no-ops under .never, so the bootstrap
+            // identity is dropped and the existing anonymous id is preserved
+            expect(sut.getDistinctId()) == "anon-abc"
+            expect(config.storageManager?.isIdentified()) == false
+        }
+
+        it("drops a differing identified bootstrap for a returning anonymous user when personProfiles is never and opted out") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.personProfiles = .never
+            config.optOut = true
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-456", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // .never gates the reconcile regardless of opt-out, so the outcome matches the non-opted-out case above
+            expect(sut.getDistinctId()) == "anon-abc"
+            expect(config.storageManager?.isIdentified()) == false
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

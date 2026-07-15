@@ -40,6 +40,14 @@ class PostHogRemoteConfig {
     private var requestId: String?
     private var evaluatedAt: Int?
 
+    /// Copies of `config.bootstrap`, retained for `$feature_flag_called` enrichment and cleared by
+    /// `clear()` (on `reset()`) so bootstrap never re-applies to a different user. Under `featureFlagsLock`.
+    private var bootstrappedFlags: [String: Any]
+    private var bootstrappedPayloads: [String: Any]
+    // In-memory and reset each launch (matching posthog-js), so a returning user still reports
+    // $used_bootstrap_value true while served bootstrap values until this session's own /flags.
+    private var flagsLoadedFromRemote = false
+
     private let personPropertiesForFlagsLock = NSLock()
     private var personPropertiesForFlags: [String: Any] = [:]
 
@@ -78,9 +86,33 @@ class PostHogRemoteConfig {
         self.api = api
         self.getDefaultPersonProperties = getDefaultPersonProperties
         self.featureFlagCalledCallback = featureFlagCalledCallback
+        // Sanitize like every other public [String: Any] input so a non-JSON-serializable value
+        // (NaN/Infinity, a custom object) is dropped with a log instead of crashing setup.
+        // Then keep only enabled flags (truthy values) and their payloads, matching posthog-js:
+        // a `false`/disabled bootstrap flag and its payload are not served.
+        let sanitizedFlags = sanitizeDictionary(config.bootstrap?.featureFlags) ?? [:]
+        // A serializable value that is neither Bool nor String can't be a flag value; it's dropped
+        // below (isBootstrapFlagEnabled returns false), so warn rather than fail silently.
+        let mistypedFlagKeys = sanitizedFlags
+            .filter { $0.value as? Bool == nil && $0.value as? String == nil }
+            .keys.sorted()
+        if !mistypedFlagKeys.isEmpty {
+            hedgeLog("Bootstrap featureFlags values for [\(mistypedFlagKeys.joined(separator: ", "))] are not a Bool " +
+                "or String and were ignored. Use a Bool for boolean flags or a String for multivariate flags.")
+        }
+        let enabledFlags = sanitizedFlags.filter { PostHogRemoteConfig.isBootstrapFlagEnabled($0.value) }
+        let sanitizedPayloads = sanitizeDictionary(config.bootstrap?.featureFlagPayloads) ?? [:]
+        bootstrappedFlags = enabledFlags
+        bootstrappedPayloads = sanitizedPayloads.filter { enabledFlags[$0.key] != nil }
 
         // Load cached person and group properties for flags
         loadCachedPropertiesForFlags()
+
+        // Fire the flags-loaded notification as soon as bootstrap is seeded (matches posthog-js firing
+        // onFeatureFlags on bootstrap) so listeners aren't blocked on the first /flags response
+        if seedBootstrapFlagsIfNeeded() {
+            notifyFeatureFlags(getFeatureFlags())
+        }
 
         preloadSessionReplay()
         preloadErrorTrackingConfig()
@@ -119,8 +151,12 @@ class PostHogRemoteConfig {
                         hedgeLog("hasFeatureFlags is false, clearing flags and skipping loading flags")
                         // Server responded with explicit hasFeatureFlags: false, meaning no active flags on the account
                         clearFeatureFlags()
-                        // need to notify cause people may be waiting for flags to load
-                        notifyFeatureFlags([:])
+                        // bootstrapped flags are a caller-provided base layer, not server state;
+                        // re-seed them so they stay available until a real /flags response overlays them
+                        seedBootstrapFlagsIfNeeded()
+                        // notify with the served flags (the re-seeded bootstrap base layer), not an
+                        // empty map, so onFeatureFlagsLoaded callbacks match what getFeatureFlag() returns
+                        notifyFeatureFlags(getFeatureFlags())
                     } else if self.config.preloadFeatureFlags {
                         // If we reach here, hasFeatureFlags is either true, nil or not a boolean value
                         // Note: notifyFeatureFlags() will be eventually called inside preloadFeatureFlags()
@@ -413,6 +449,9 @@ class PostHogRemoteConfig {
                         self.setCachedFeatureFlags(newFeatureFlags)
                         self.setCachedFeatureFlagPayload(newFeatureFlagsPayloads)
                     } else {
+                        // A complete /flags response replaces the served flags and payloads entirely
+                        // (matches posthog-js): bootstrapped-only keys and stale bootstrapped payloads
+                        // do not survive a complete load. Partial/errored responses merge above.
                         loadedFeatureFlags = featureFlags
                         if let flagsV4 {
                             self.setCachedFlags(flagsV4)
@@ -420,6 +459,11 @@ class PostHogRemoteConfig {
                         self.setCachedFeatureFlags(featureFlags)
                         self.setCachedFeatureFlagPayload(featureFlagPayloads)
                     }
+
+                    // Any successful /flags response (complete or partial/errored) marks flags loaded
+                    // from remote. $used_bootstrap_value is a global "a remote response has been
+                    // received" marker, set after any 200 (matches posthog-js), not per-key.
+                    self.setFlagsLoadedFromRemoteLocked()
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
@@ -596,6 +640,60 @@ class PostHogRemoteConfig {
         }
 
         return flags?[key]
+    }
+
+    /// Whether a bootstrapped flag value counts as enabled (posthog-js `!!value`): a `true` boolean
+    /// or a non-empty variant string. A `false` boolean or empty string is disabled and not served.
+    private static func isBootstrapFlagEnabled(_ value: Any) -> Bool {
+        if let boolValue = value as? Bool { return boolValue }
+        if let stringValue = value as? String { return !stringValue.isEmpty }
+        return false
+    }
+
+    /// Seeds `config.bootstrap` feature flags and payloads as the served snapshot before the first
+    /// `/flags` response. The snapshot wins over any persisted flags (matches posthog-js): it is
+    /// applied as a complete replacement, so a returning user's fresh bootstrap takes precedence
+    /// until the first `/flags` response replaces it.
+    @discardableResult
+    private func seedBootstrapFlagsIfNeeded() -> Bool {
+        featureFlagsLock.withLock {
+            guard !bootstrappedFlags.isEmpty else { return false }
+            setCachedFeatureFlags(bootstrappedFlags)
+            setCachedFeatureFlagPayload(bootstrappedPayloads)
+            return true
+        }
+    }
+
+    /// Bootstrap enrichment for a single `$feature_flag_called` event.
+    struct BootstrapCallMetadata {
+        let response: Any
+        let payload: Any?
+        let usedBootstrapValue: Bool
+    }
+
+    /// The bootstrap enrichment for a `$feature_flag_called` event (response, payload, and whether the
+    /// bootstrapped value is still in use), read in a single `featureFlagsLock` acquisition so a
+    /// concurrent `reset()` can't tear the three reads apart. `nil` when `key` was not bootstrapped.
+    func getBootstrapCallMetadata(_ key: String) -> BootstrapCallMetadata? {
+        featureFlagsLock.withLock {
+            guard let response = bootstrappedFlags[key] else { return nil }
+            return BootstrapCallMetadata(
+                response: response,
+                payload: bootstrappedPayloads[key],
+                usedBootstrapValue: !flagsLoadedFromRemote
+            )
+        }
+    }
+
+    /// Whether a `/flags` response has been received this session (in-memory, reset each launch).
+    /// Drives `$used_bootstrap_value`: bootstrapped values are "used" until this becomes `true`.
+    func hasLoadedFeatureFlagsFromRemote() -> Bool {
+        featureFlagsLock.withLock { flagsLoadedFromRemote }
+    }
+
+    // To be called after acquiring `featureFlagsLock`
+    private func setFlagsLoadedFromRemoteLocked() {
+        flagsLoadedFromRemote = true
     }
 
     // To be called after acquiring `featureFlagsLock`
@@ -880,19 +978,33 @@ class PostHogRemoteConfig {
 
     private func clearFeatureFlags() {
         featureFlagsLock.withLock {
-            setCachedFlags([:])
-            setCachedFeatureFlags([:])
-            setCachedFeatureFlagPayload([:])
-            setCachedRequestId(nil) // requestId no longer valid
-            setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
+            clearFeatureFlagsLocked()
         }
+    }
+
+    // To be called after acquiring `featureFlagsLock`
+    private func clearFeatureFlagsLocked() {
+        setCachedFlags([:])
+        setCachedFeatureFlags([:])
+        setCachedFeatureFlagPayload([:])
+        setCachedRequestId(nil) // requestId no longer valid
+        setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
     }
 
     /// Clears all cached feature flags, remote config state, and user-specific properties.
     /// This should be called during reset() to ensure stale data from a previous user
     /// doesn't persist in memory after the user switches.
     func clear() {
-        clearFeatureFlags()
+        // Clear the feature-flag caches and the bootstrap base layer under one lock acquisition:
+        // a separate section would let a concurrently-completing /flags load re-seed the previous
+        // user's bootstrap (and re-latch flagsLoadedFromRemote) in the gap between the two.
+        // Bootstrap is first-session only, so a post-reset user is never served the prior bootstrap.
+        featureFlagsLock.withLock {
+            clearFeatureFlagsLocked()
+            bootstrappedFlags = [:]
+            bootstrappedPayloads = [:]
+            flagsLoadedFromRemote = false
+        }
 
         sessionReplayLock.withLock {
             sessionReplayFlagActive = false

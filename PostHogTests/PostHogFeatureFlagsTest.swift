@@ -1218,4 +1218,253 @@ enum PostHogFeatureFlagsTest {
             #expect(evaluationContexts.contains("api"), "Expected 'api' in evaluation contexts")
         }
     }
+
+    @Suite("Test Bootstrap Feature Flags")
+    class TestBootstrapFeatureFlags: BaseTestClass {
+        private func bootstrapConfig(
+            featureFlags: [String: Any],
+            featureFlagPayloads: [String: Any]? = nil
+        ) -> PostHogConfig {
+            let c = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            c.preloadFeatureFlags = false
+            c.disableReachabilityForTesting = true
+            c.disableQueueTimerForTesting = true
+            c.disableFlushOnBackgroundForTesting = true
+            c.disableRemoteConfigForTesting = true
+            c.bootstrap = PostHogBootstrapConfig(
+                featureFlags: featureFlags,
+                featureFlagPayloads: featureFlagPayloads
+            )
+            return c
+        }
+
+        private func freshStorage(_ config: PostHogConfig) -> PostHogStorage {
+            let storage = PostHogStorage(config)
+            storage.reset()
+            return storage
+        }
+
+        @Test("Bootstrapped flags are readable immediately after setup")
+        func servesBootstrappedFlagsBeforeLoad() {
+            let config = bootstrapConfig(featureFlags: ["beta-ui": true])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlag("beta-ui") as? Bool == true)
+        }
+
+        @Test("Non-serializable bootstrapped values are dropped, not crashed on")
+        func sanitizesInvalidBootstrappedValues() {
+            // A non-JSON-serializable value (NaN) reaching the flag cache would raise an
+            // uncatchable NSException in JSONSerialization; setup must drop it, not crash.
+            let config = bootstrapConfig(
+                featureFlags: ["good": true, "bad": Double.nan],
+                featureFlagPayloads: ["good": ["k": "v"], "bad": ["n": Double.infinity]]
+            )
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlag("good") as? Bool == true)
+            #expect(sut.getFeatureFlag("bad") == nil)
+            #expect(sut.getFeatureFlagPayload("bad") == nil)
+        }
+
+        @Test("Bootstrapped payload is served with its flag")
+        func servesBootstrappedPayload() {
+            let config = bootstrapConfig(
+                featureFlags: ["beta-ui": "variant-a"],
+                featureFlagPayloads: ["beta-ui": ["color": "blue"]]
+            )
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlag("beta-ui") as? String == "variant-a")
+            #expect(sut.getFeatureFlagPayload("beta-ui") as? [String: String] == ["color": "blue"])
+        }
+
+        @Test("Loaded flags override bootstrapped values")
+        func loadedFlagsOverrideBootstrap() async {
+            let config = bootstrapConfig(featureFlags: ["bool-value": "bootstrapped-variant"])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            // Before load: the bootstrapped value wins
+            #expect(sut.getFeatureFlag("bool-value") as? String == "bootstrapped-variant")
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            // After load: the server value (true) replaces the bootstrapped one
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
+        }
+
+        @Test("A disabled (false) bootstrap flag is not served")
+        func disabledBootstrapFlagNotServed() {
+            let config = bootstrapConfig(featureFlags: ["enabled": true, "disabled": false, "variant": "v1"])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            // Only enabled flags (truthy values) are served, matching posthog-js.
+            #expect(sut.getFeatureFlag("enabled") as? Bool == true)
+            #expect(sut.getFeatureFlag("variant") as? String == "v1")
+            #expect(sut.getFeatureFlag("disabled") == nil)
+        }
+
+        @Test("A payload for a disabled bootstrap flag is not served")
+        func disabledBootstrapPayloadNotServed() {
+            let config = bootstrapConfig(
+                featureFlags: ["enabled": "v1", "disabled": false],
+                featureFlagPayloads: ["enabled": ["k": "v"], "disabled": ["k": "x"]]
+            )
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            #expect(sut.getFeatureFlagPayload("enabled") as? [String: String] == ["k": "v"])
+            #expect(sut.getFeatureFlagPayload("disabled") == nil)
+        }
+
+        @Test("A complete flags load drops bootstrapped-only keys")
+        func completeLoadDropsBootstrappedOnlyKeys() async {
+            let config = bootstrapConfig(featureFlags: ["bool-value": true, "legacy": true])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            // Before load: both bootstrapped keys are served
+            #expect(sut.getFeatureFlag("legacy") as? Bool == true)
+
+            await withCheckedContinuation { continuation in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
+                    continuation.resume()
+                })
+            }
+
+            // A complete /flags response replaces the served flags: bootstrapped-only "legacy" is
+            // dropped, and the overlapping key reflects the loaded value.
+            #expect(sut.getFeatureFlag("legacy") == nil)
+            #expect(sut.getFeatureFlag("bool-value") as? Bool == true)
+        }
+
+        @Test("Bootstrap is first-session only: not resurrected after reset")
+        func bootstrapNotReappliedAfterReset() async {
+            let config = bootstrapConfig(featureFlags: ["legacy": true])
+            let sut = getSut(storage: freshStorage(config), config: config)
+
+            func load() async {
+                await withCheckedContinuation { continuation in
+                    sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: "anonymousId", groups: [:], callback: { _ in
+                        continuation.resume()
+                    })
+                }
+            }
+
+            // Bootstrap serves "legacy" before any load
+            #expect(sut.getFeatureFlag("legacy") as? Bool == true)
+
+            await load()
+            #expect(sut.hasLoadedFeatureFlagsFromRemote() == true)
+
+            // reset() clears the retained bootstrap and the loaded-from-remote latch
+            sut.clear()
+            #expect(sut.hasLoadedFeatureFlagsFromRemote() == false)
+
+            // A reload for the new (post-reset) user must NOT re-inject the bootstrapped-only key
+            await load()
+            #expect(sut.getFeatureFlag("legacy") == nil)
+        }
+
+        @Test("Bootstrap seed fires the flags-loaded notification")
+        @MainActor
+        func bootstrapSeedFiresFlagsLoaded() async {
+            let config = bootstrapConfig(featureFlags: ["beta-ui": true])
+            let flagsLoaded = AsyncLatch()
+            var receivedFlags: [String: Any]?
+
+            // @MainActor keeps this deterministic: init fires the notify on the main queue, which can't
+            // run until we suspend at `await` below, so the subscription is always registered first.
+            let sut = getSut(storage: freshStorage(config), config: config)
+            let token = sut.onFeatureFlagsLoaded.subscribe { flags in
+                receivedFlags = flags
+                flagsLoaded.signal()
+            }
+
+            await flagsLoaded.wait()
+
+            #expect(receivedFlags?["beta-ui"] as? Bool == true)
+            _ = token
+        }
+    }
+
+    @Suite("Test Bootstrap Feature Flag Reporting")
+    class TestBootstrapFeatureFlagReporting: BaseTestClass {
+        private func enrichmentConfig(
+            featureFlags: [String: Any],
+            featureFlagPayloads: [String: Any]? = nil
+        ) -> PostHogConfig {
+            let c = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            c.preloadFeatureFlags = false
+            c.disableReachabilityForTesting = true
+            c.disableQueueTimerForTesting = true
+            c.disableFlushOnBackgroundForTesting = true
+            c.disableRemoteConfigForTesting = true
+            c.captureApplicationLifecycleEvents = false
+            c.captureScreenViews = false
+            c.sendFeatureFlagEvent = true
+            c.flushAt = 1
+            c.bootstrap = PostHogBootstrapConfig(
+                featureFlags: featureFlags,
+                featureFlagPayloads: featureFlagPayloads
+            )
+            return c
+        }
+
+        @Test("$feature_flag_called reports bootstrap use before a flags response")
+        func reportsUsedBootstrapTrueBeforeLoad() async throws {
+            let config = enrichmentConfig(
+                featureFlags: ["beta-ui": true],
+                featureFlagPayloads: ["beta-ui": ["color": "blue"]]
+            )
+            let sut = track(PostHogSDK.with(config))
+
+            server.reset(batchCount: 1)
+
+            _ = sut.getFeatureFlag("beta-ui")
+            sut.flush()
+
+            let events = try await getServerEvents(server)
+            let event = events.first {
+                $0.event == "$feature_flag_called" && $0.properties["$feature_flag"] as? String == "beta-ui"
+            }
+            #expect(event != nil)
+            #expect(event?.properties["$used_bootstrap_value"] as? Bool == true)
+            #expect(event?.properties["$feature_flag_bootstrapped_response"] as? Bool == true)
+            #expect(event?.properties["$feature_flag_bootstrapped_payload"] as? [String: String] == ["color": "blue"])
+
+            sut.close()
+        }
+
+        @Test("$feature_flag_called reports bootstrap not used after a flags response")
+        func reportsUsedBootstrapFalseAfterLoad() async throws {
+            let config = enrichmentConfig(featureFlags: ["beta-ui": true])
+            let sut = track(PostHogSDK.with(config))
+
+            // Receive a /flags response first
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            server.reset(batchCount: 1)
+
+            _ = sut.getFeatureFlag("beta-ui")
+            sut.flush()
+
+            let events = try await getServerEvents(server)
+            let event = events.first {
+                $0.event == "$feature_flag_called" && $0.properties["$feature_flag"] as? String == "beta-ui"
+            }
+            #expect(event != nil)
+            #expect(event?.properties["$used_bootstrap_value"] as? Bool == false)
+            // still reports the originally-bootstrapped response for the key
+            #expect(event?.properties["$feature_flag_bootstrapped_response"] as? Bool == true)
+
+            sut.close()
+        }
+    }
 }

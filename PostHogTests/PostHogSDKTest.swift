@@ -232,6 +232,40 @@ class PostHogSDKTest: QuickSpec {
             expect(installed?.distinctId) == "user-123"
         }
 
+        // The .never asymmetry below is intentional posthog-js parity: the fresh-install seed applies the
+        // identity via an ungated write, while the returning-anon path routes through identify(), which
+        // no-ops under .never. These lock in that behavior so it isn't "made consistent" by mistake.
+        it("applies an identified bootstrap on a fresh install even when personProfiles is never") {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.personProfiles = .never
+            PostHogStorage(config).reset() // fresh install: no persisted identity
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // fresh-install seed applies the identity directly, without the person-processing gate
+            expect(sut.getDistinctId()) == "user-123"
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("drops a differing identified bootstrap for a returning anonymous user when personProfiles is never") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.personProfiles = .never
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // returning-anon path routes through identify(), which no-ops under .never, so the bootstrap
+            // identity is dropped and the existing anonymous id is preserved
+            expect(sut.getDistinctId()) == "anon-abc"
+            expect(config.storageManager?.isIdentified()) == false
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

@@ -285,7 +285,12 @@ let maxRetryDelay = 30.0
             storageManager.setDistinctId(bootstrapId)
             storageManager.setIdentified(true)
         } else {
-            // Existing anonymous user — merge it into the identified bootstrap ID.
+            // Existing anonymous user: merge it into the identified bootstrap ID via identify(),
+            // which no-ops when personProfiles == .never. The fresh-install path
+            // (PostHogStorageManager.applyBootstrapIdentityIfNeeded) instead seeds the identity
+            // directly, so under .never a returning anonymous user drops the bootstrap identity while a
+            // fresh install keeps it. That asymmetry is intentional posthog-js parity: the browser SDK
+            // reconciles the same paths through a gated identify() vs an ungated register().
             identify(bootstrapId)
         }
     }

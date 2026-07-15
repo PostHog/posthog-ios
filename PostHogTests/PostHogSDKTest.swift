@@ -214,6 +214,24 @@ class PostHogSDKTest: QuickSpec {
             expect(config.storageManager?.isIdentified()) == true
         }
 
+        it("early lifecycle events carry the reconciled bootstrap identity") {
+            let config = bootstrapReconcileConfig(existing: (anon: "anon-abc", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = true
+            // reconcile emits $identify, then Application Installed captures on install; flush both together
+            config.flushAt = 2
+            config.bootstrap = PostHogBootstrapConfig(distinctId: "user-123", isIdentifiedId: true)
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            // reconcile runs before installIntegrations, so the Application Installed event captured
+            // synchronously on install carries the merged bootstrap identity, not the old anonymous id
+            let events = getBatchedEvents(server)
+            let installed = events.first { $0.event == "Application Installed" }
+            expect(installed).toNot(beNil())
+            expect(installed?.distinctId) == "user-123"
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

@@ -24,6 +24,15 @@ disabled_rules:
   - trailing_comma
   - opening_brace
 
+opt_in_rules:
+  - missing_docs
+
+missing_docs:
+  # the defaults skip members of any type that subclasses or conforms to anything
+  # (i.e. nearly the whole SDK), which would make the rule a no-op
+  excludes_inherited_types: false
+  excludes_extensions: false
+
 line_length:
   warning: 160
   ignores_comments: true

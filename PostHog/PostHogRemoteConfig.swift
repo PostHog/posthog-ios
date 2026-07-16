@@ -36,6 +36,7 @@ class PostHogRemoteConfig {
     private var loadingRemoteConfig = false
     private var remoteConfig: [String: Any]?
     private var remoteConfigDidFetch: Bool = false
+    private var remoteConfigWasCached: Bool = false
     private var featureFlagPayloads: [String: Any]?
     private var requestId: String?
     private var evaluatedAt: Int?
@@ -124,7 +125,9 @@ class PostHogRemoteConfig {
     private func preloadRemoteConfig() {
         remoteConfigLock.withLock {
             // load disk cached config to memory
-            _ = getCachedRemoteConfig()
+            if getCachedRemoteConfig() != nil {
+                remoteConfigWasCached = true
+            }
         }
 
         guard !config.disableRemoteConfigForTesting else {
@@ -1028,6 +1031,11 @@ class PostHogRemoteConfig {
     /// Whether a `/config` request has completed at least once (set on both success and failure).
     var hasFetchedRemoteConfig: Bool {
         remoteConfigLock.withLock { remoteConfigDidFetch }
+    }
+
+    /// Whether a disk-cached remote config was present at SDK startup (before any live fetch).
+    var hasCachedRemoteConfig: Bool {
+        remoteConfigLock.withLock { remoteConfigWasCached }
     }
 
     #if os(iOS)

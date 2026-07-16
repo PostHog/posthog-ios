@@ -515,6 +515,146 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        it("sends minimal feature flag event when gated and flag has no experiment") {
+            server.minimalFlagCalledEvents = true
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitForFeatureFlagsLoaded(server, sut)
+            expect(sut.isFeatureEnabled("string-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            // Strict allowlist: everything else (context envelope, super properties,
+            // $active_feature_flags, $feature/<key>, $is_identified) is stripped.
+            expect(Set(event.properties.keys)) == Set([
+                "$feature_flag",
+                "$feature_flag_response",
+                "$feature_flag_has_experiment",
+                "$feature_flag_id",
+                "$feature_flag_version",
+                "$feature_flag_reason",
+                "$feature_flag_request_id",
+                "$feature_flag_evaluated_at",
+                "$process_person_profile",
+                "$session_id",
+                "$lib",
+                "$lib_version",
+            ])
+            expect(event.properties["$feature_flag"] as? String) == "string-value"
+            expect(event.properties["$feature_flag_response"] as? String) == "test"
+            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == false
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("keeps $groups on minimal feature flag events") {
+            server.minimalFlagCalledEvents = true
+            // flushAt 2 so the $groupidentify and $feature_flag_called events share one batch
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true, flushAt: 2)
+
+            waitForFeatureFlagsLoaded(server, sut)
+
+            sut.group(type: "some-type", key: "some-key")
+
+            expect(sut.isFeatureEnabled("string-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 2
+
+            let event = events.last!
+            expect(event.event) == "$feature_flag_called"
+            // $groups is correctness-required (ingestion dedup key + personful routing for group
+            // flags), so it must survive minimization when groups are registered.
+            expect(Set(event.properties.keys)) == Set([
+                "$feature_flag",
+                "$feature_flag_response",
+                "$feature_flag_has_experiment",
+                "$feature_flag_id",
+                "$feature_flag_version",
+                "$feature_flag_reason",
+                "$feature_flag_request_id",
+                "$feature_flag_evaluated_at",
+                "$groups",
+                "$process_person_profile",
+                "$session_id",
+                "$lib",
+                "$lib_version",
+            ])
+            let groups = event.properties["$groups"] as? [String: String]
+            expect(groups?["some-type"]) == "some-key"
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("sends full feature flag event when gated but flag has an experiment") {
+            server.minimalFlagCalledEvents = true
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitForFeatureFlagsLoaded(server, sut)
+            expect(sut.isFeatureEnabled("bool-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == true
+            expect(event.properties["$feature/bool-value"] as? Bool) == true
+            expect(event.properties["$active_feature_flags"]).toNot(beNil())
+            expect(event.properties["$is_identified"]).toNot(beNil())
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("sends full feature flag event when gated but has_experiment is unknown") {
+            server.minimalFlagCalledEvents = true
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitForFeatureFlagsLoaded(server, sut)
+            expect(sut.isFeatureEnabled("number-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            expect(event.properties["$feature_flag_has_experiment"]).to(beNil())
+            expect(event.properties["$active_feature_flags"]).toNot(beNil())
+
+            sut.reset()
+            sut.close()
+        }
+
+        it("sends full feature flag event when the server does not gate minimal events") {
+            let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
+
+            waitForFeatureFlagsLoaded(server, sut)
+            expect(sut.isFeatureEnabled("string-value")) == true
+
+            let events = getBatchedEvents(server)
+
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$feature_flag_called"
+            expect(event.properties["$feature_flag_has_experiment"] as? Bool) == false
+            expect(event.properties["$feature/string-value"] as? String) == "test"
+            expect(event.properties["$active_feature_flags"]).toNot(beNil())
+
+            sut.reset()
+            sut.close()
+        }
+
         it("send feature flag event for getFeatureFlag when enabled") {
             let sut = self.getSut(preloadFeatureFlags: true, sendFeatureFlagEvent: true)
 

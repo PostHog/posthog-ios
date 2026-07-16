@@ -248,6 +248,7 @@ class PostHogStorage {
         case lastSeenSurveyDate = "posthog.lastSeenSurveyDate"
         case requestId = "posthog.requestId"
         case evaluatedAt = "posthog.evaluatedAt"
+        case minimalFlagCalledEvents = "posthog.minimalFlagCalledEvents"
         case personPropertiesForFlags = "posthog.personPropertiesForFlags"
         case groupPropertiesForFlags = "posthog.groupPropertiesForFlags"
         case errorTracking = "posthog.errorTracking"
@@ -414,6 +415,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .surveySeen))
         deleteSafely(url(forKey: .lastSeenSurveyDate))
         deleteSafely(url(forKey: .requestId))
+        deleteSafely(url(forKey: .minimalFlagCalledEvents))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
         // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs

@@ -1078,4 +1078,81 @@ enum PostHogRemoteConfigTest {
             #expect(sut.getRemoteConfig()?["capturePerformance"] != nil)
         }
     }
+
+    @Suite("Test minimal flag called events gate")
+    class TestMinimalFlagCalledEventsGate: BaseTestClass {
+        private func makeIsolatedConfig() -> PostHogConfig {
+            let config = PostHogConfig(projectToken: "\(testProjectToken)-\(UUID().uuidString)", host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = true
+            return config
+        }
+
+        @Test("gate is off by default and stays off when the response omits the field")
+        func gateOffWhenFieldAbsent() async {
+            let config = makeIsolatedConfig()
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+
+            #expect(sut.sendMinimalFlagCalledEvents == false)
+
+            await loadFeatureFlags(sut)
+
+            #expect(sut.sendMinimalFlagCalledEvents == false)
+        }
+
+        @Test("gate persists alongside cached flags across a simulated restart")
+        func gatePersistsAcrossRestart() async {
+            server.minimalFlagCalledEvents = true
+            let config = makeIsolatedConfig()
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+            await loadFeatureFlags(sut)
+
+            #expect(sut.sendMinimalFlagCalledEvents == true)
+
+            // a fresh instance on the same storage re-reads the persisted gate
+            let restarted = getSut(storage: storage, config: config)
+
+            #expect(restarted.sendMinimalFlagCalledEvents == true)
+        }
+
+        @Test("gate turns off when a later response no longer carries it")
+        func gateClearsWhenFieldDisappears() async {
+            server.minimalFlagCalledEvents = true
+            let config = makeIsolatedConfig()
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+            await loadFeatureFlags(sut)
+
+            #expect(sut.sendMinimalFlagCalledEvents == true)
+
+            server.minimalFlagCalledEvents = false
+            await loadFeatureFlags(sut)
+
+            #expect(sut.sendMinimalFlagCalledEvents == false)
+        }
+
+        @Test("clear() drops the persisted gate")
+        func clearDropsGate() async {
+            server.minimalFlagCalledEvents = true
+            let config = makeIsolatedConfig()
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+
+            let sut = getSut(storage: storage, config: config)
+            await loadFeatureFlags(sut)
+
+            #expect(sut.sendMinimalFlagCalledEvents == true)
+
+            sut.clear()
+
+            #expect(sut.sendMinimalFlagCalledEvents == false)
+        }
+    }
 }

@@ -1274,7 +1274,8 @@ let maxRetryDelay = 30.0
         userPropertiesSetOnce: [String: Any]? = nil,
         groups: [String: String]? = nil,
         timestamp: Date? = nil,
-        skipBuildProperties: Bool = false
+        skipBuildProperties: Bool = false,
+        propertyAllowlist: Set<String>? = nil
     ) {
         if !isEnabled() {
             return
@@ -1327,6 +1328,14 @@ let maxRetryDelay = 30.0
                 appendSharedProps: !isSnapshotEvent,
                 timestamp: timestamp
             )
+        }
+
+        // Filtering after the full build stays robust as new context properties are added later:
+        // anything not explicitly allowlisted is stripped. beforeSend hooks and the legacy
+        // propertiesSanitizer run later (in buildEvent) and may re-add keys — an accepted
+        // escape hatch, codified in the minimal-event contract.
+        if let propertyAllowlist {
+            finalProperties = finalProperties.filter { propertyAllowlist.contains($0.key) }
         }
 
         // Attach the session-scoped step buffer to a `$exception` unless the caller provided their own.
@@ -2171,6 +2180,29 @@ let maxRetryDelay = 30.0
         }
     }
 
+    /// The strict property allowlist for minimal `$feature_flag_called` events. Everything else —
+    /// registered super properties, the device/OS context envelope, `$active_feature_flags`, the
+    /// `$feature/<key>` enumeration, bootstrap enrichment — is stripped. Kept in sync with the
+    /// cross-SDK minimal `$feature_flag_called` contract.
+    private static let minimalFeatureFlagCalledProperties: Set<String> = [
+        "$feature_flag",
+        "$feature_flag_response",
+        "$feature_flag_has_experiment",
+        "$feature_flag_id",
+        "$feature_flag_version",
+        "$feature_flag_reason",
+        "$feature_flag_request_id",
+        "$feature_flag_evaluated_at",
+        "$feature_flag_error",
+        "$groups",
+        "$process_person_profile",
+        "$session_id",
+        "$window_id",
+        "$lib",
+        "$lib_version",
+        "$device_id",
+    ]
+
     private func reportFeatureFlagCalled(flagKey: String, flagValue: Any?) {
         if remoteConfig == nil {
             return
@@ -2197,6 +2229,8 @@ let maxRetryDelay = 30.0
             let requestId = remoteConfig?.lastRequestId ?? ""
             let evaluatedAt = remoteConfig?.lastEvaluatedAt
             let details = remoteConfig?.getFeatureFlagDetails(flagKey)
+            // Unknown until the flags response explicitly reports it; any missing signal → full event.
+            var hasExperiment: Bool?
 
             var properties: [String: Any] = [
                 "$feature_flag": flagKey,
@@ -2216,8 +2250,9 @@ let maxRetryDelay = 30.0
                 if let metadata = details["metadata"] as? [String: Any] {
                     properties["$feature_flag_id"] = metadata["id"] ?? NSNull()
                     properties["$feature_flag_version"] = metadata["version"] ?? NSNull()
-                    if let hasExperiment = metadata["has_experiment"] as? Bool {
-                        properties["$feature_flag_has_experiment"] = hasExperiment
+                    if let flagHasExperiment = metadata["has_experiment"] as? Bool {
+                        properties["$feature_flag_has_experiment"] = flagHasExperiment
+                        hasExperiment = flagHasExperiment
                     }
                 }
             }
@@ -2232,7 +2267,15 @@ let maxRetryDelay = 30.0
                 properties["$used_bootstrap_value"] = bootstrapMetadata.usedBootstrapValue
             }
 
-            capture("$feature_flag_called", properties: properties)
+            // Emit the minimal shape only when the server gate is on and the flag verifiably has no
+            // experiment. Experiment-linked flags keep the full envelope for exposure analysis.
+            let sendMinimalEvent = remoteConfig?.sendMinimalFlagCalledEvents == true && hasExperiment == false
+
+            captureInternal(
+                "$feature_flag_called",
+                properties: properties,
+                propertyAllowlist: sendMinimalEvent ? PostHogSDK.minimalFeatureFlagCalledProperties : nil
+            )
         }
     }
 

@@ -2657,6 +2657,13 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    func removeIntegration(_ integration: PostHogIntegration) {
+        let id = ObjectIdentifier(integration)
+        integration.uninstall(self)
+        installedIntegrations.removeAll { ObjectIdentifier($0) == id }
+        hedgeLog("Integration \(type(of: integration)) removed")
+    }
+
     private func uninstallIntegrations() {
         for integration in installedIntegrations {
             integration.uninstall(self)

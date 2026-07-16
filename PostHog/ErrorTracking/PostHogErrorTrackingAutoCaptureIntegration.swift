@@ -29,10 +29,12 @@ import Foundation
         private var remoteConfigLoadedToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            // Only block on remote config once it has actually loaded. Before the first
-            // fetch completes (e.g. first launch with no disk cache) we default to installing
-            // so that a crash on that very first launch is not silently missed.
-            if postHog.remoteConfig?.hasFetchedRemoteConfig == true,
+            // Block installation when remote config (live or disk-cached) explicitly disables
+            // autocapture. When there is no remote config at all (first launch, no disk cache)
+            // we default to installing so a crash on that very first launch is not missed.
+            let hasRemoteConfig = postHog.remoteConfig?.hasFetchedRemoteConfig == true
+                || postHog.remoteConfig?.hasCachedRemoteConfig == true
+            if hasRemoteConfig,
                postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false
             {
                 return .skipped(.disabledByRemoteConfig)
@@ -58,13 +60,13 @@ import Foundation
                     }
 
                     // If remote config was not yet loaded at install time, subscribe so we can
-                    // uninstall if the freshly-loaded config disables autocapture.
+                    // remove the integration if the freshly-loaded config disables autocapture.
                     if postHog.remoteConfig?.hasFetchedRemoteConfig == false {
                         remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self, weak postHog] _ in
                             guard let self, let postHog else { return }
                             self.remoteConfigLoadedToken = nil
                             if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
-                                self.stop()
+                                postHog.removeIntegration(self)
                             }
                         }
                     }

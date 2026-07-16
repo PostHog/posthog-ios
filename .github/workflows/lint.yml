@@ -28,6 +28,16 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
 
+      # TEMPORARY (July 2026): runner images mid-rollout ship different preinstalled SwiftFormat
+      # versions; 0.61 fails to parse the wrapIfStatementBodies disable in .swiftformat (rule added
+      # in 0.62). Remove once all macos-26 runners ship SwiftFormat >= 0.62.
+      - name: Upgrade SwiftFormat if it predates configured rules
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: |
+          if ! swiftformat --rules | grep -q wrapIfStatementBodies; then
+            brew update && brew upgrade swiftformat
+          fi
+
       - name: Check formatting
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make swiftFormatCheck

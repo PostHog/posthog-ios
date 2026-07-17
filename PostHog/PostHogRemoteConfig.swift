@@ -59,6 +59,11 @@ class PostHogRemoteConfig {
 
     let onRemoteConfigLoaded = PostHogMulticastCallback<[String: Any]?>()
     let onFeatureFlagsLoaded = PostHogMulticastCallback<[String: Any]?>()
+    /// Invoked (synchronously, on the calling thread) right after the person properties used
+    /// for feature flag evaluation change — via `identify`, `setPersonProperties`, or
+    /// `setPersonPropertiesForFlags`. Used internally to re-resolve the language of a survey
+    /// that is currently on screen so it follows updates to the user's `language` property.
+    let onPersonPropertiesForFlagsChanged = PostHogMulticastCallback<Void>()
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))
@@ -752,10 +757,10 @@ class PostHogRemoteConfig {
             // Persist to disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
         }
-        // Notify observers (e.g. surveys) so a survey already on screen can re-resolve its
-        // language if the user's `language` property changed. Posted outside the lock so
-        // observers don't run while we hold it.
-        NotificationCenter.default.post(name: PostHogSDK.personPropertiesForFlagsDidChange, object: nil)
+        // Notify subscribers (e.g. surveys) so a survey already on screen can re-resolve its
+        // language if the user's `language` property changed. Invoked outside the lock so
+        // subscribers don't run while we hold it.
+        onPersonPropertiesForFlagsChanged.invoke(())
     }
 
     func resetPersonPropertiesForFlags() {

@@ -42,7 +42,7 @@
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
-        private var personPropertiesChangedObserver: NSObjectProtocol?
+        private var personPropertiesChangedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -71,11 +71,7 @@
             // properties used for flags change (e.g. the user's `language` is updated). Not
             // gated on `os(iOS)` so the resolution logic stays exercised under TESTING; the
             // actual UI update is a no-op off iOS.
-            personPropertiesChangedObserver = NotificationCenter.default.addObserver(
-                forName: PostHogSDK.personPropertiesForFlagsDidChange,
-                object: nil,
-                queue: nil
-            ) { [weak self] _ in
+            personPropertiesChangedToken = postHog?.remoteConfig?.onPersonPropertiesForFlagsChanged.subscribe { [weak self] _ in
                 self?.refreshActiveSurveyTranslations()
             }
 
@@ -100,10 +96,7 @@
             eventCapturedToken = nil
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
-            if let personPropertiesChangedObserver {
-                NotificationCenter.default.removeObserver(personPropertiesChangedObserver)
-                self.personPropertiesChangedObserver = nil
-            }
+            personPropertiesChangedToken = nil
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     config?.surveysConfig.surveysDelegate.cleanupSurveys()

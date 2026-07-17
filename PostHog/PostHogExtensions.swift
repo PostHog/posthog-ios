@@ -26,13 +26,3 @@ public extension PostHogSDK {
     /// The notification object is `nil`.
     @objc static let didReceiveFeatureFlags = Notification.Name("PostHogDidReceiveFeatureFlags") // object: nil
 }
-
-extension PostHogSDK {
-    /// Posted (synchronously, on the calling thread) right after the person properties used
-    /// for feature flag evaluation change — via `identify`, `setPersonProperties`, or
-    /// `setPersonPropertiesForFlags`. Used internally to re-resolve the language of a survey
-    /// that is currently on screen so it follows updates to the user's `language` property.
-    ///
-    /// The notification object is `nil`.
-    static let personPropertiesForFlagsDidChange = Notification.Name("PostHogPersonPropertiesForFlagsDidChange") // object: nil
-}

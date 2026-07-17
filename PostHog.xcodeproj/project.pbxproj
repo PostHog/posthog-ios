@@ -1892,6 +1892,7 @@
 				DA263D412D800856004C100D /* SurveyButton.swift */,
 				DA263D392D7F1054004C100D /* Resources.swift */,
 				9473A633747872EA43FDCA3A /* SurveyTranslationResolver.swift */,
+				37A547D32B55E849A46CA13A /* PostHogSurveyMatching.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -1927,7 +1928,6 @@
 				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
 				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
 				DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */,
-				37A547D32B55E849A46CA13A /* PostHogSurveyMatching.swift */,
 				DA263D452D800EA9004C100D /* Utils */,
 			);
 			path = Surveys;

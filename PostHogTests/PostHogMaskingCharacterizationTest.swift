@@ -161,6 +161,35 @@
             #expect(PostHogTaggingTestSupport.nearestCommonAncestor(of: UIView(), and: UIView()) == nil)
         }
 
+        @Test("quirk is asymmetric: receiver that IS an ancestor of the other resolves to itself")
+        func nearestCommonAncestorSelfIsAncestor() {
+            // The receiver's own chain starts at self, so when the receiver is a
+            // proper ancestor of the argument it returns itself — the opposite
+            // direction (see the quirk test above) skips one level up.
+            let root = UIView()
+            let mid = UIView()
+            let leaf = UIView()
+            root.addSubview(mid)
+            mid.addSubview(leaf)
+
+            #expect(PostHogTaggingTestSupport.nearestCommonAncestor(of: mid, and: leaf) === mid)
+        }
+
+        @Test("tagger nested inside the anchor's subtree resolves no targets")
+        func targetViewsTaggerInsideAnchor() {
+            // Degenerate shape (never produced by the real modifier): the common
+            // ancestor resolves to the anchor itself, and the anchor is not part
+            // of its own descendants — so the traversal never starts.
+            let (anchor, tagger) = PostHogTaggingTestSupport.makeTagPair()
+            let root = UIView()
+            let inner = UIView()
+            root.addSubview(anchor)
+            anchor.addSubview(inner)
+            inner.addSubview(tagger)
+
+            #expect(PostHogTaggingTestSupport.targetViews(from: tagger).isEmpty)
+        }
+
         // MARK: - iOS 26 content-layer collection
 
         @Test("content layers: collects sized, non-view-backed layers whose center is inside the reference frame")

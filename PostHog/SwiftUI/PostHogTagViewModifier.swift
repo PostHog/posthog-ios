@@ -337,22 +337,53 @@
     func getTargetViews(from taggerView: UIView) -> [UIView] {
         guard
             let anchorView = taggerView.postHogAnchor,
-            let commonAncestor = anchorView.nearestCommonAncestor(with: taggerView)
+            let commonAncestor = anchorView.nearestCommonAncestor(with: taggerView),
+            // The anchor is not part of its own descendants, so when the common
+            // ancestor degenerates to the anchor itself the traversal never starts.
+            commonAncestor !== anchorView
         else {
             return []
         }
 
-        return commonAncestor
-            .allDescendants(between: anchorView, and: taggerView)
-            .lazy
-            .filter {
-                // ignore some system SwiftUI views
-                !swiftUIIgnoreTypes.contains(where: $0.isKind(of:))
+        // Iterative pre-order DFS over the flat descendant sequence of the common
+        // ancestor, starting directly at the anchor (everything before it was only
+        // ever enumerated to be dropped) and terminating at the tagger. Replaces the
+        // recursiveSequence/AnyIterator lazy chains whose per-element overhead
+        // (closure boxes, protocol-witness dispatch, per-node subviews bridging)
+        // dominated launch and scroll traces.
+        //
+        // Seed the stack with the anchor plus the not-yet-visited right siblings
+        // along the path from the anchor up to the common ancestor — exactly the
+        // remainder of the flat pre-order sequence from the anchor onwards.
+        var siblingChains: [ArraySlice<UIView>] = []
+        var pathNode = anchorView
+        while pathNode !== commonAncestor {
+            guard let parent = pathNode.superview else { return [] }
+            let siblings = parent.subviews
+            if let index = siblings.firstIndex(where: { $0 === pathNode }) {
+                siblingChains.append(siblings[(index + 1)...])
             }
-            .filter {
-                // exclude injected views
-                !$0.postHogView
+            pathNode = parent
+        }
+
+        var stack: [UIView] = []
+        for chain in siblingChains.reversed() {
+            stack.append(contentsOf: chain.reversed())
+        }
+        stack.append(anchorView)
+
+        var targets: [UIView] = []
+        while let view = stack.popLast() {
+            if view === taggerView {
+                break
             }
+            // ignore some system SwiftUI views, and exclude injected views
+            if !swiftUIIgnoreTypes.contains(where: view.isKind(of:)), !view.postHogView {
+                targets.append(view)
+            }
+            stack.append(contentsOf: view.subviews.reversed())
+        }
+        return targets
     }
 
     /// On iOS 26+, SwiftUI primitives may be rendered as CALayers instead of UIViews.
@@ -577,33 +608,37 @@
             set { objc_setAssociatedObject(self, &AssociatedKeys.phView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         }
 
-        func allDescendants(between bottomEntity: UIView, and topEntity: UIView) -> some Sequence<UIView> {
-            descendants
-                .lazy
-                .drop(while: { $0 !== bottomEntity })
-                .prefix(while: { $0 !== topEntity })
+        /// All descendants in pre-order DFS, excluding the receiver.
+        var descendants: [UIView] {
+            var result: [UIView] = []
+            var stack: [UIView] = subviews.reversed()
+            while let view = stack.popLast() {
+                result.append(view)
+                stack.append(contentsOf: view.subviews.reversed())
+            }
+            return result
         }
 
-        var ancestors: some Sequence<UIView> {
-            sequence(first: self, next: { $0.superview }).dropFirst()
-        }
-
-        var descendants: some Sequence<UIView> {
-            recursiveSequence([self], children: { $0.subviews }).dropFirst()
-        }
-
-        func isDescendant(of other: UIView) -> Bool {
-            ancestors.contains(other)
-        }
-
+        /// The first view in the receiver's ancestor-or-self chain that is a PROPER
+        /// ancestor of `other` (deliberately preserving the original semantics: the
+        /// receiver itself qualifies, `other` itself never does). O(depth) via an
+        /// ancestor set, replacing the O(depth²) isDescendant(of:) walk per step.
         func nearestCommonAncestor(with other: UIView) -> UIView? {
-            var nearestAncestor: UIView? = self
-
-            while let currentEntity = nearestAncestor, !other.isDescendant(of: currentEntity) {
-                nearestAncestor = currentEntity.superview
+            var otherProperAncestors = Set<ObjectIdentifier>()
+            var node = other.superview
+            while let current = node {
+                otherProperAncestors.insert(ObjectIdentifier(current))
+                node = current.superview
             }
 
-            return nearestAncestor
+            var candidate: UIView? = self
+            while let current = candidate {
+                if otherProperAncestors.contains(ObjectIdentifier(current)) {
+                    return current
+                }
+                candidate = current.superview
+            }
+            return nil
         }
 
         var postHogAnchor: UIView? {
@@ -623,33 +658,6 @@
         struct Pair {
             weak var anchor: PostHogTagAnchorUIView?
             weak var tagger: PostHogTagUIView?
-        }
-    }
-
-    /**
-     Recursively iterates over a sequence of elements, applying a function to each element to get its children.
-
-     - Parameters:
-     - sequence: The sequence of elements to iterate over.
-     - children: A function that takes an element and returns a sequence of its children.
-     - Returns: An AnySequence that iterates over all elements and their children.
-     */
-    private func recursiveSequence<S: Sequence>(_ sequence: S, children: @escaping (S.Element) -> S) -> AnySequence<S.Element> {
-        AnySequence {
-            var mainIterator = sequence.makeIterator()
-            // Current iterator, or `nil` if all sequences are exhausted:
-            var iterator: AnyIterator<S.Element>?
-
-            return AnyIterator {
-                guard let iterator, let element = iterator.next() else {
-                    if let element = mainIterator.next() {
-                        iterator = recursiveSequence(children(element), children: children).makeIterator()
-                        return element
-                    }
-                    return nil
-                }
-                return element
-            }
         }
     }
 

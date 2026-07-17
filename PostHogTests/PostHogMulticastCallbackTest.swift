@@ -288,4 +288,78 @@ class PostHogThrottledMulticastCallbackTests {
         #expect(callCount == 1)
         _ = token
     }
+
+    @Test("Invoke without subscribers is a safe no-op")
+    func invokeWithoutSubscribers() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+
+        callback.invoke(1)
+        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+
+        #expect(callback.subscriberCount == 0)
+    }
+
+    @Test("Subscriber added during another subscriber's throttle window fires immediately")
+    func lateSubscriberFiresImmediately() async {
+        let mockNow = MockDate()
+        now = { mockNow.date }
+        defer { now = { Date() } }
+
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var slowValues: [Int] = []
+        var lateValues: [Int] = []
+        let lock = NSLock()
+
+        let slowToken = callback.subscribe(throttle: 10.0) { value in
+            lock.withLock { slowValues.append(value) }
+        }
+
+        callback.invoke(1)
+        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        #expect(lock.withLock { slowValues } == [1])
+
+        // Deep inside the slow subscriber's throttle window, a new subscriber
+        // appears. It must receive the very next invoke — the eligibility gate
+        // may not suppress it based on the slow subscriber's window.
+        mockNow.date.addTimeInterval(1.0)
+        let lateToken = callback.subscribe(throttle: 1.0) { value in
+            lock.withLock { lateValues.append(value) }
+        }
+
+        callback.invoke(2)
+        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        #expect(lock.withLock { lateValues } == [2])
+        #expect(lock.withLock { slowValues } == [1], "still inside its 10s window")
+
+        _ = (slowToken, lateToken)
+    }
+
+    @Test("Resubscribing after all tokens deallocated fires again")
+    func resubscribeAfterEmpty() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var firstValues: [Int] = []
+        var secondValues: [Int] = []
+        let lock = NSLock()
+
+        var token: RegistrationToken? = callback.subscribe(throttle: 0) { value in
+            lock.withLock { firstValues.append(value) }
+        }
+        callback.invoke(1)
+        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+        #expect(lock.withLock { firstValues } == [1])
+
+        token = nil
+        callback.invoke(2)
+        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+
+        token = callback.subscribe(throttle: 0) { value in
+            lock.withLock { secondValues.append(value) }
+        }
+        callback.invoke(3)
+        try? await Task.sleep(nanoseconds: 50 * NSEC_PER_MSEC)
+
+        #expect(lock.withLock { firstValues } == [1])
+        #expect(lock.withLock { secondValues } == [3])
+        _ = token
+    }
 }

@@ -344,28 +344,28 @@
                   let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
             else { return }
 
-            let activeSurvey = activeSurveyLock.withLock { self.activeSurvey }
-            guard let activeSurvey else { return }
+            // Resolve and commit under a single hold of `activeSurveyLock`: with separate
+            // read/commit sections, overlapping refreshes (e.g. racing `setPersonProperties`
+            // calls with different languages) could commit out of order and leave the survey
+            // on a stale language.
+            let displaySurvey: PostHogDisplaySurvey? = activeSurveyLock.withLock {
+                guard let activeSurvey = self.activeSurvey else { return nil }
 
-            let language = resolveDisplayLanguage()
-            let translations = resolveSurveyTranslations(survey: activeSurvey, targetLanguage: language)
+                let language = resolveDisplayLanguage()
+                let translations = resolveSurveyTranslations(survey: activeSurvey, targetLanguage: language)
 
-            // Commit the new translation only if it targets a different language than what's
-            // currently shown (and the active survey hasn't changed underneath us).
-            let didChange: Bool = activeSurveyLock.withLock {
-                guard self.activeSurvey?.id == activeSurvey.id else { return false }
-                guard self.activeSurveyLanguage != translations.matchedKey else { return false }
+                // Commit only if the update targets a different language than what's currently shown
+                guard self.activeSurveyLanguage != translations.matchedKey else { return nil }
                 self.activeSurveyLanguage = translations.matchedKey
                 self.activeSurveyQuestionTranslations = translations.questions
-                return true
+
+                return activeSurvey.toDisplaySurvey(
+                    surveyTranslation: translations.survey,
+                    questionTranslations: translations.questions
+                )
             }
 
-            guard didChange else { return }
-
-            let displaySurvey = activeSurvey.toDisplaySurvey(
-                surveyTranslation: translations.survey,
-                questionTranslations: translations.questions
-            )
+            guard let displaySurvey else { return }
 
             DispatchQueue.main.async {
                 updateSurvey(displaySurvey)

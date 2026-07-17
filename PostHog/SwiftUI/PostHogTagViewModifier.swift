@@ -720,7 +720,7 @@
         }
     }
 
-    private extension UIView {
+    extension UIView {
         var postHogTagView: PostHogTagUIView? {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phTagView) as? PostHogTagUIView }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phTagView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }

@@ -1046,15 +1046,23 @@
                 return nil
             }
 
-            var maskableWidgets: [CGRect] = []
-            var maskChildren = false
-
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
-
             let wireframe = createBasicWireframe(window)
-            wireframe.maskableWidgets = maskableWidgets
+            wireframe.maskableWidgets = collectMaskableRects(in: window)
             wireframe.type = "screenshot"
             return wireframe
+        }
+
+        /// All rects to redact in `window`: heuristic + flag-tagged widgets from the
+        /// hierarchy walk, plus the live rects of `postHogMask()` reporter views
+        /// (computed at capture time from the registry — never cached, so a masked
+        /// view that moved since the last layout callback is still redacted at its
+        /// current position).
+        func collectMaskableRects(in window: UIWindow) -> [CGRect] {
+            var maskableWidgets: [CGRect] = []
+            var maskChildren = false
+            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            maskableWidgets.append(contentsOf: PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window))
+            return maskableWidgets
         }
 
         // To be called from main thread
@@ -1615,16 +1623,13 @@
 
         extension PostHogReplayIntegration {
             /// Debug-only: computes the redaction rects that `snapshot()` would produce
-            /// for `window` right now, via the exact production `findMaskableWidgets`
-            /// path (including the iOS 26 layer scan). Main thread only.
+            /// for `window` right now, via the exact production collection path (the
+            /// `findMaskableWidgets` walk plus the mask-reporter registry). Main thread only.
             ///
             /// Used by verification harnesses to compare masking output before/after
             /// SDK changes — see the masking characterization tests.
             func debugMaskableRects(in window: UIWindow) -> [CGRect] {
-                var rects: [CGRect] = []
-                var maskChildren = false
-                findMaskableWidgets(window, window, &rects, &maskChildren)
-                return rects
+                collectMaskableRects(in: window)
             }
 
             /// Debug-only: a transient integration bound to `postHog` so that

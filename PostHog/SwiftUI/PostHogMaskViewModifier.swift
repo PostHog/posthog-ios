@@ -14,16 +14,16 @@
         /**
          Marks a SwiftUI View to be masked in PostHog session replay recordings.
 
-         Note: On iOS 26+ (Xcode 26 SwiftUI rendering engine), SwiftUI views may no longer map
-         reliably to a backing `UIView`, so this modifier may behave inconsistently. A future SDK
-         update will try to address this limitation, but for now, we recommend using this modifier
-         with caution.
-
-         Because of the nature of how we intercept SwiftUI view hierarchy (and how it maps to UIKit),
-         we can't always be 100% confident that a view should be masked and may accidentally mark a
-         sensitive view as non-sensitive instead.
-
          Use this modifier to explicitly mask sensitive views in session replay recordings.
+
+         The masked region is reported through a single passive overlay view whose frame is
+         read live at capture time, so the redaction can never go stale — a row that scrolled,
+         animated, or was repositioned is redacted at its current position. This does not rely
+         on mapping SwiftUI content to backing UIKit views, so it behaves identically across
+         OS rendering engines (including iOS 26+).
+
+         Note: an explicit `postHogMask()` always masks its region, even inside an area marked
+         with `postHogNoMask()` — the explicit mask wins.
 
          For example:
          ```swift
@@ -40,18 +40,116 @@
          - Returns: A modified view that will be masked in session replay recordings when enabled
          */
         func postHogMask(_ isEnabled: Bool = true) -> some View {
-            modifier(
-                PostHogTagViewModifier(
-                    onChange: { owner, views, layers in
-                        views.forEach { $0.setPostHogNoCapture(isEnabled, owner: owner) }
-                        layers.forEach { $0.setPostHogNoCapture(isEnabled, owner: owner) }
-                    },
-                    onRemove: { owner, views, layers in
-                        views.forEach { $0.setPostHogNoCapture(false, owner: owner) }
-                        layers.forEach { $0.setPostHogNoCapture(false, owner: owner) }
-                    }
-                )
+            overlay(
+                PostHogMaskReporterView(isEnabled: isEnabled)
+                    .allowsHitTesting(false)
+                    .accessibility(hidden: true)
             )
+        }
+    }
+
+    /// Registry of live "mask reporter" views. The capture side computes each reporter's
+    /// rect at snapshot time via the same live geometry read used for flagged views —
+    /// nothing is cached, so rects can never go stale. Storage is weak, which makes any
+    /// missed teardown self-healing.
+    ///
+    /// Registration happens from view lifecycle callbacks (main thread) and reads happen
+    /// from the snapshot path; the lock keeps the registry itself thread-safe, while rect
+    /// computation touches UIKit and stays on the thread the capture path already uses
+    /// for hierarchy access.
+    final class PostHogSessionReplayMaskRegistry {
+        static let shared = PostHogSessionReplayMaskRegistry()
+
+        private let lock = NSLock()
+        private var reporters: [ObjectIdentifier: Weak<UIView>] = [:]
+
+        func register(_ reporter: UIView) {
+            lock.withLock { reporters[ObjectIdentifier(reporter)] = Weak(reporter) }
+        }
+
+        func unregister(_ reporter: UIView) {
+            lock.withLock { reporters[ObjectIdentifier(reporter)] = nil }
+        }
+
+        /// The rects to redact in `window`, read live from the registered reporters.
+        /// Reporters attached to other windows (iPad multi-window) are excluded.
+        func maskedRects(in window: UIWindow) -> [CGRect] {
+            let liveReporters = lock.withLock {
+                reporters = reporters.filter { $0.value.value != nil }
+                return reporters.values.compactMap(\.value)
+            }
+
+            var rects: [CGRect] = []
+            for reporter in liveReporters {
+                guard reporter.window === window, reporter.isVisible() else { continue }
+                let rect = reporter.toAbsoluteRect(window)
+                if !rect.isEmpty {
+                    rects.append(rect)
+                }
+            }
+            return rects
+        }
+
+        #if TESTING
+            var registeredCountForTesting: Int {
+                lock.withLock { reporters.values.compactMap(\.value).count }
+            }
+        #endif
+    }
+
+    /// The single view `postHogMask()` injects: transparent, hit-test-disabled, spanning
+    /// the masked view's extent. It does nothing except exist there and keep itself
+    /// registered while attached to a window — no traversals, no KVO, no per-layout work.
+    final class PostHogMaskReporterUIView: UIView {
+        var isMaskingEnabled = true {
+            didSet { updateRegistration() }
+        }
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+            backgroundColor = .clear
+            postHogView = true
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            nil
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            // Registration keys off window attachment: a reporter inside a freshly
+            // realized lazy row is registered before the row can appear in a snapshot.
+            updateRegistration()
+        }
+
+        private func updateRegistration() {
+            if window != nil, isMaskingEnabled {
+                PostHogSessionReplayMaskRegistry.shared.register(self)
+            } else {
+                PostHogSessionReplayMaskRegistry.shared.unregister(self)
+            }
+        }
+    }
+
+    struct PostHogMaskReporterView: UIViewRepresentable {
+        let isEnabled: Bool
+
+        func makeUIView(context _: Context) -> PostHogMaskReporterUIView {
+            let view = PostHogMaskReporterUIView(frame: .zero)
+            view.isMaskingEnabled = isEnabled
+            return view
+        }
+
+        func updateUIView(_ uiView: PostHogMaskReporterUIView, context _: Context) {
+            uiView.isMaskingEnabled = isEnabled
+            uiView.postHogView = true
+            uiView.superview?.postHogView = true
+        }
+
+        static func dismantleUIView(_ uiView: PostHogMaskReporterUIView, coordinator _: ()) {
+            PostHogSessionReplayMaskRegistry.shared.unregister(uiView)
         }
     }
 

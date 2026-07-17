@@ -464,4 +464,103 @@
             #expect(resolutions1 == 1, "drained set does not fire again")
         }
     }
+
+    /// Behavior tests for the `postHogMask()` reporter registry: masked regions are
+    /// registered by lifecycle, read live at capture time, filtered per window, and
+    /// self-healing on missed teardown.
+    @Suite("Session replay mask registry", .serialized)
+    @MainActor
+    final class PostHogMaskRegistryTest {
+        @Test("reporter rects are read live at capture time, never cached")
+        func liveRects() {
+            let registry = PostHogSessionReplayMaskRegistry()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let container = UIView(frame: window.bounds)
+            window.addSubview(container)
+            let reporter = UIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            container.addSubview(reporter)
+
+            registry.register(reporter)
+            #expect(registry.maskedRects(in: window) == [CGRect(x: 10, y: 20, width: 100, height: 40)])
+
+            // Reposition without any registry interaction — the next read must see
+            // the current geometry (this is the property that keeps fast-scrolling
+            // content redacted at its actual position).
+            reporter.frame = CGRect(x: 30, y: 200, width: 50, height: 25)
+            #expect(registry.maskedRects(in: window) == [CGRect(x: 30, y: 200, width: 50, height: 25)])
+
+            registry.unregister(reporter)
+            #expect(registry.maskedRects(in: window).isEmpty)
+        }
+
+        @Test("reporters attached to other windows are excluded")
+        func windowFiltering() {
+            let registry = PostHogSessionReplayMaskRegistry()
+            let windowA = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let windowB = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporterA = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+            let reporterB = UIView(frame: CGRect(x: 5, y: 5, width: 10, height: 10))
+            windowA.addSubview(reporterA)
+            windowB.addSubview(reporterB)
+            registry.register(reporterA)
+            registry.register(reporterB)
+
+            #expect(registry.maskedRects(in: windowA) == [CGRect(x: 0, y: 0, width: 10, height: 10)])
+            #expect(registry.maskedRects(in: windowB) == [CGRect(x: 5, y: 5, width: 10, height: 10)])
+        }
+
+        @Test("deallocated reporters self-heal out of the registry")
+        func weakSelfHealing() {
+            let registry = PostHogSessionReplayMaskRegistry()
+            autoreleasepool {
+                let reporter = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+                registry.register(reporter)
+                #expect(registry.registeredCountForTesting == 1)
+            }
+            #expect(registry.registeredCountForTesting == 0)
+        }
+
+        @Test("reporter view registers on window attach, unregisters on detach and disable")
+        func reporterLifecycle() {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 50, height: 50))
+
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
+
+            window.addSubview(reporter)
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window) == [CGRect(x: 10, y: 10, width: 50, height: 50)])
+
+            reporter.isMaskingEnabled = false
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
+
+            reporter.isMaskingEnabled = true
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).count == 1)
+
+            reporter.removeFromSuperview()
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
+        }
+
+        @Test("capture collection includes reporter rects alongside flag-tagged views")
+        func captureCollectionIncludesReporters() {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let container = UIView(frame: window.bounds)
+            window.addSubview(container)
+
+            let flagged = UIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            container.addSubview(flagged)
+            let owner = NSObject()
+            flagged.setPostHogNoCapture(true, owner: ObjectIdentifier(owner))
+
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 100, width: 100, height: 40))
+            container.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+
+            let integration = PostHogReplayIntegration()
+            let rects = integration.debugMaskableRects(in: window)
+
+            #expect(rects.contains(CGRect(x: 10, y: 20, width: 100, height: 40)), "flag-tagged view rect")
+            #expect(rects.contains(CGRect(x: 10, y: 100, width: 100, height: 40)), "reporter rect")
+            #expect(rects.count == 2)
+        }
+    }
 #endif

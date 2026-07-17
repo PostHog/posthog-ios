@@ -383,6 +383,59 @@
             #expect(!dropped.postHogNoCapture)
         }
 
+        @Test("iOS 26 layer scan: reference frame is the masked view's own extent, not the hosting view's")
+        func layerScanBoundedToCaptureExtent() {
+            guard #available(iOS 26.0, *) else { return }
+
+            // Mirrors the iOS 26 structure: content layers are bare sublayers of the
+            // hosting view; the capture view sits two wrapper views deep and spans
+            // exactly the masked view's extent.
+            let host = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 600))
+            let contentInside = CALayer()
+            contentInside.frame = CGRect(x: 10, y: 10, width: 50, height: 20)
+            host.layer.addSublayer(contentInside)
+            let contentOutside = CALayer()
+            contentOutside.frame = CGRect(x: 10, y: 300, width: 50, height: 20)
+            host.layer.addSublayer(contentOutside)
+
+            let inherited = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 100))
+            let platformHost = UIView(frame: inherited.bounds)
+            let captureView = PostHogTaggingTestSupport.makeFrameCaptureView()
+            captureView.frame = platformHost.bounds
+            platformHost.addSubview(captureView)
+            inherited.addSubview(platformHost)
+            host.addSubview(inherited)
+
+            let layers = PostHogTaggingTestSupport.targetLayers(fromCaptureView: captureView)
+
+            // Previously the reference frame was the whole hosting view, so
+            // contentOutside — a different mask's content — was collected too.
+            #expect(layers.elementsEqual([contentInside], by: ===))
+        }
+
+        @Test("iOS 26 layer scan: clipped subtrees outside the reference frame are pruned")
+        func layerScanPrunesClippedSubtrees() {
+            guard #available(iOS 26.0, *) else { return }
+
+            let referenceFrame = CGRect(x: 0, y: 0, width: 200, height: 200)
+            let root = CALayer()
+            root.frame = referenceFrame
+
+            // The clipped parent lies fully outside the reference frame; its child's
+            // absolute center falls inside, but masksToBounds means the child renders
+            // clipped away — collecting it would mask a region with no such content.
+            let clipped = CALayer()
+            clipped.frame = CGRect(x: 300, y: 300, width: 100, height: 100)
+            clipped.masksToBounds = true
+            let child = CALayer()
+            child.frame = CGRect(x: -250, y: -250, width: 50, height: 50)
+            clipped.addSublayer(child)
+            root.addSublayer(clipped)
+
+            let collected = PostHogTaggingTestSupport.contentLayers(under: root, containedIn: referenceFrame)
+            #expect(collected.isEmpty)
+        }
+
         @Test("coalescer resolves each dirty tagger exactly once per drain")
         func coalescerDrainsOncePerTagger() {
             let (anchor1, tagger1) = PostHogTaggingTestSupport.makeTagPair()

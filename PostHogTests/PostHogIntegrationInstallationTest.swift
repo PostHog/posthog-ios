@@ -162,6 +162,7 @@ class PostHogIntegrationInstallationTest {
         func errorTrackingUninstallsWhenRemoteConfigDisables() async {
             // Start with no cached config (hasFetchedRemoteConfig=false) → integration installs.
             // Then simulate remote config arriving with autocaptureExceptions=false → integration uninstalls.
+            server.configResponseDelay = 0.5
             server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
 
             let token = "test_error_tracking_\(UUID().uuidString)"

@@ -2769,10 +2769,14 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    /// Callable from any thread (e.g. the main-queue `onRemoteConfigLoaded` callback), so the
+    /// mutation runs under `setupLock` like every other `installedIntegrations` access.
     func removeIntegration(_ integration: PostHogIntegration) {
         let id = ObjectIdentifier(integration)
-        integration.uninstall(self)
-        installedIntegrations.removeAll { ObjectIdentifier($0) == id }
+        setupLock.withLock {
+            integration.uninstall(self)
+            installedIntegrations.removeAll { ObjectIdentifier($0) == id }
+        }
         hedgeLog("Integration \(type(of: integration)) removed")
     }
 
@@ -2870,7 +2874,9 @@ let maxRetryDelay = 30.0
         }
 
         private func getIntegration<T: PostHogIntegration>() -> T? {
-            installedIntegrations.compactMap { $0 as? T }.first
+            setupLock.withLock {
+                installedIntegrations.compactMap { $0 as? T }.first
+            }
         }
     }
 #endif

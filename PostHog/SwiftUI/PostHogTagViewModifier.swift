@@ -253,12 +253,15 @@
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            detectLayers()
+            // Per-layout re-scans are coalesced: one drain per run-loop turn instead
+            // of a full layer-tree walk per capture view per layout pass.
+            PostHogTagResolutionCoalescer.markDirty(self)
         }
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            // Trigger detection when fully added to window hierarchy
+            // Trigger detection when fully added to window hierarchy. Synchronous on
+            // first attach so freshly realized content is flagged before capture.
             if window != nil {
                 detectLayers()
             }
@@ -466,7 +469,12 @@
             return []
         }
 
-        let referenceFrame = parentView.convert(parentView.bounds, to: nil)
+        // The reference frame is the masked view's own extent — the capture view is a
+        // full-size overlay of the modified view. Deriving it from the hosting view
+        // (the previous behavior) made every mask collect and claim content layers
+        // across the entire hosting view, so overlapping masks constantly claimed and
+        // released each other's layers.
+        let referenceFrame = captureView.convert(captureView.bounds, to: nil)
         guard !referenceFrame.isEmpty else {
             return []
         }
@@ -496,6 +504,14 @@
 
             // Get the sublayer's frame in the parent layer's coordinate space
             let sublayerFrame = sublayer.convert(sublayer.bounds, to: nil)
+
+            // Prune clipped subtrees: when a layer clips its children to its own
+            // bounds and those bounds don't reach the reference frame, nothing inside
+            // it can be visible within the masked extent. Only safe under
+            // masksToBounds — unclipped children may extend outside their parent.
+            if sublayer.masksToBounds, !referenceFrame.intersects(sublayerFrame) {
+                continue
+            }
 
             // Only include layers whose center point is contained within the reference frame
             let sublayerFrameCenter = CGPoint(x: sublayerFrame.midX, y: sublayerFrame.midY)
@@ -621,18 +637,27 @@
         }
     }
 
-    /// Coalesces tagger re-resolution requests (layout passes, ancestor-hierarchy KVO
-    /// signals) into a single drain per main-run-loop turn. Invalidation stays
-    /// hierarchy-driven — the coalescer batches work, it never drops it: every marked
-    /// tagger is resolved on the next drain, so content replaced without a geometry
-    /// change is still re-tagged.
+    /// A view of the tag machinery whose target resolution can be deferred and batched.
+    @MainActor
+    protocol PostHogCoalescedResolving: AnyObject {
+        func performCoalescedResolution()
+    }
+
+    /// Coalesces re-resolution requests (layout passes, ancestor-hierarchy KVO signals)
+    /// into a single drain per main-run-loop turn. Invalidation stays hierarchy-driven —
+    /// the coalescer batches work, it never drops it: every marked resolver runs on the
+    /// next drain, so content replaced without a geometry change is still re-tagged.
     @MainActor
     enum PostHogTagResolutionCoalescer {
-        private static var dirtyTaggers: [ObjectIdentifier: Weak<PostHogTagUIView>] = [:]
+        private struct WeakResolver {
+            weak var value: (any PostHogCoalescedResolving)?
+        }
+
+        private static var dirtyResolvers: [ObjectIdentifier: WeakResolver] = [:]
         private static var isDrainScheduled = false
 
-        static func markDirty(_ tagger: PostHogTagUIView) {
-            dirtyTaggers[ObjectIdentifier(tagger)] = Weak(tagger)
+        static func markDirty(_ resolver: any PostHogCoalescedResolving) {
+            dirtyResolvers[ObjectIdentifier(resolver)] = WeakResolver(value: resolver)
             guard !isDrainScheduled else { return }
             isDrainScheduled = true
             DispatchQueue.main.async {
@@ -642,11 +667,11 @@
 
         private static func drain() {
             isDrainScheduled = false
-            guard !dirtyTaggers.isEmpty else { return }
-            let taggers = dirtyTaggers.values.compactMap(\.value)
-            dirtyTaggers.removeAll()
-            for tagger in taggers {
-                tagger.handler?()
+            guard !dirtyResolvers.isEmpty else { return }
+            let resolvers = dirtyResolvers.values.compactMap(\.value)
+            dirtyResolvers.removeAll()
+            for resolver in resolvers {
+                resolver.performCoalescedResolution()
             }
         }
 
@@ -655,6 +680,19 @@
                 drain()
             }
         #endif
+    }
+
+    extension PostHogTagUIView: PostHogCoalescedResolving {
+        func performCoalescedResolution() {
+            handler?()
+        }
+    }
+
+    @available(iOS 26.0, *)
+    extension PostHogFrameCaptureUIView: PostHogCoalescedResolving {
+        func performCoalescedResolution() {
+            detectLayers()
+        }
     }
 
     /// Observes layer hierarchy changes on an ancestor view using KVO.
@@ -796,6 +834,17 @@
                 var results: [CALayer] = []
                 collectContentLayers(from: layer, containedIn: referenceFrame, results: &results)
                 return results
+            }
+
+            @available(iOS 26.0, *)
+            static func makeFrameCaptureView() -> UIView {
+                PostHogFrameCaptureUIView(id: UUID(), handler: nil)
+            }
+
+            @available(iOS 26.0, *)
+            static func targetLayers(fromCaptureView captureView: UIView) -> [CALayer] {
+                guard let captureView = captureView as? PostHogFrameCaptureUIView else { return [] }
+                return getTargetLayers(from: captureView)
             }
         }
     #endif

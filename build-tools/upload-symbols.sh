@@ -9,8 +9,9 @@
 #
 #
 # Usage Examples:
-#   Basic:       "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   With source: POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
@@ -19,6 +20,8 @@
 # Environment Variables (optional):
 #   POSTHOG_CLI_INSTALL_DIR - Custom directory containing posthog-cli binary
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
+#   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
+#                              with different content instead of failing the build
 #
 
 # Skip non-Release builds.
@@ -80,7 +83,10 @@ fi
 
 # Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
 MIN_POSTHOG_CLI_VERSION="0.7.7"
-PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | awk '{print $NF}' | tr -d 'v')
+if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
+    MIN_POSTHOG_CLI_VERSION="0.7.12"
+fi
+PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
 
 if [ -z "$PH_CLI_VERSION" ]; then
     echo "error: could not determine posthog-cli version. Upgrade: npm install -g @posthog/cli@latest"
@@ -94,27 +100,30 @@ if [ "$LOWEST" != "$MIN_POSTHOG_CLI_VERSION" ]; then
     exit 1
 fi
 
-# Build CLI arguments
-CLI_ARGS="--directory $DWARF_DSYM_FOLDER_PATH"
+# Build CLI arguments as an array so paths with spaces are preserved.
+CLI_ARGS=(--directory "${DWARF_DSYM_FOLDER_PATH}")
 
 # Pass main target dSYM name for accurate version extraction
 if [ -n "${DWARF_DSYM_FILE_NAME}" ]; then
-    CLI_ARGS="$CLI_ARGS --main-dsym $DWARF_DSYM_FILE_NAME"
+    CLI_ARGS+=(--main-dsym "${DWARF_DSYM_FILE_NAME}")
 fi
 
 # Pass version info from Xcode build settings (overrides plist extraction)
 if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
-    CLI_ARGS="$CLI_ARGS --release-name $PRODUCT_BUNDLE_IDENTIFIER"
+    CLI_ARGS+=(--release-name "${PRODUCT_BUNDLE_IDENTIFIER}")
 fi
 if [ -n "${MARKETING_VERSION}" ]; then
-    CLI_ARGS="$CLI_ARGS --release-version $MARKETING_VERSION"
+    CLI_ARGS+=(--release-version "${MARKETING_VERSION}")
 fi
 if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
-    CLI_ARGS="$CLI_ARGS --build $CURRENT_PROJECT_VERSION"
+    CLI_ARGS+=(--build "${CURRENT_PROJECT_VERSION}")
 fi
 # Include source if requested via env var
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
-    CLI_ARGS="$CLI_ARGS --include-source"
+    CLI_ARGS+=(--include-source)
+fi
+if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
+    CLI_ARGS+=(--skip-on-conflict)
 fi
 
-$PH_CLI_PATH dsym upload $CLI_ARGS || exit 1
+"${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1

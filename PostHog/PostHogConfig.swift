@@ -95,7 +95,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// resets on a successful 2xx response. Default 3.
     @objc public var maxRetries: Int = Defaults.maxRetries
 
-    /// Maximum number of retries for feature flag requests after transient network errors.
+    /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.
     @objc public var featureFlagRequestMaxRetries: Int = Defaults.featureFlagRequestMaxRetries
     /// Required network connectivity mode for flushing queued data.
@@ -191,6 +191,29 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// - Parameter uuid: The SDK-generated anonymous UUID.
     /// - Returns: The UUID to persist as the anonymous ID.
     @objc public var getAnonymousId: ((UUID) -> UUID) = { uuid in uuid }
+
+    /// Pre-seeded identity and feature-flag state applied during setup, before any
+    /// network request completes.
+    ///
+    /// Set this before calling `setup(_:)` so events captured synchronously during
+    /// initialization (`Application Installed` / `Application Updated`, pre-identify
+    /// lifecycle events) carry a caller-controlled `$distinct_id` rather than the
+    /// SDK-generated UUID, and so feature flag reads return caller-provided values
+    /// before the first `/flags` response. Mirrors the [`bootstrap` option in `posthog-js`](https://posthog.com/docs/feature-flags/bootstrapping).
+    ///
+    /// Identity is seeded on a fresh install. For a returning user, an identified bootstrap
+    /// (`isIdentifiedId == true`) reconciles against the stored identity — upgrading a
+    /// matching anonymous ID to identified, merging a differing anonymous user into the
+    /// bootstrapped ID, or preserving a different already-identified user. An anonymous
+    /// bootstrap is ignored once an anonymous ID is persisted.
+    ///
+    /// Feature flags are applied on every initialization and take precedence over the
+    /// persisted flag cache. They are a temporary base layer: the first complete `/flags`
+    /// response replaces them entirely, while a partial or errored response overlays only
+    /// the keys it recomputed.
+    ///
+    /// Defaults to `nil` (use the SDK-generated UUID and no bootstrapped flags).
+    @objc public var bootstrap: PostHogBootstrapConfig?
 
     /// Flag to reuse the anonymous Id between `reset()` and next `identify()` calls
     ///
@@ -353,6 +376,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// If not set, uses URLSessionConfiguration.default
     /// Useful for testing, proxying, or custom network configurations
     @objc public var urlSessionConfiguration: URLSessionConfiguration?
+
+    /// Custom headers to send with every request to the PostHog API.
+    /// Useful for reverse-proxy setups that require authentication, e.g. an `Authorization` header.
+    /// Read once when the SDK is set up; changes after setup are ignored.
+    @objc public var requestHeaders: [String: String]?
 
     // only internal
     var disableReachabilityForTesting: Bool = false

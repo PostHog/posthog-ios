@@ -1,4 +1,10 @@
 /*
+ * VENDORED — protobuf-c (https://github.com/protobuf-c/protobuf-c) v1.4.0.
+ * Relocated into PLCrashReporter's Source/ from upstream Dependencies/protobuf-c/protobuf-c/
+ * so `#include "protobuf-c.h"` resolves via the compiler's same-directory rule (PostHog issue #469).
+ * Provenance and re-vendoring notes: vendor/UPSTREAM.md.
+ */
+/*
  * Copyright (c) 2008-2018, Dave Benson and the protobuf-c authors.
  * All rights reserved.
  *

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0799FC592DA8A0837BC771E3 /* PLCrashAsyncDwarfEncoding.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E8E1E01C22EB902B360AE5A3 /* PLCrashAsyncDwarfEncoding.cpp */; };
+		081C4D5910919F0E5872CAC2 /* PostHogBootstrapConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51CBE5E053785289B0CCA4ED /* PostHogBootstrapConfig.swift */; };
 		08CF51A212DF4E6ABF3DDA77 /* PLCrashMachExceptionPort.m in Sources */ = {isa = PBXBuildFile; fileRef = 0D784BEF45D7E472FBE56B84 /* PLCrashMachExceptionPort.m */; };
 		0D2F0FB4CD54D76A8C843D5F /* PLCrashAsyncThread_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = 09F0CB0EF4DFD9469CE01CDD /* PLCrashAsyncThread_arm.c */; };
 		0FF4B41BE5641E70EE173698 /* dwarf_opstream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 60CCBF99708406E47F683455 /* dwarf_opstream.cpp */; };
@@ -37,6 +38,8 @@
 		3AA34D01296D951B003398F4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AA34D00296D951B003398F4 /* Preview Assets.xcassets */; };
 		3AA34D17296D9993003398F4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA34D16296D9993003398F4 /* AppDelegate.swift */; };
 		3AC745C6296D6FE60025C109 /* PostHog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AC745B8296D6FE60025C109 /* PostHog.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E1A0B0063A0B000100000001 /* PHURLSessionTaskSafeAccess.h in Headers */ = {isa = PBXBuildFile; fileRef = E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E1A0B0013A0B000100000001 /* PHURLSessionTaskSafeAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */; };
 		3AE3FB2C2991320300AFFC18 /* Api.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB2B2991320300AFFC18 /* Api.swift */; };
 		3AE3FB332991388500AFFC18 /* PostHogQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB322991388500AFFC18 /* PostHogQueue.swift */; };
 		3AE3FB37299162EA00AFFC18 /* PostHogApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */; };
@@ -68,13 +71,12 @@
 		690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0DE2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift */; };
 		690FF0E12AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0E02AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift */; };
 		690FF0E32AEFD12900A0B06B /* PostHogConfigTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */; };
-		DAA1B2D12F8C100000112233 /* RageClickDetectorTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2D02F8C100000112233 /* RageClickDetectorTest.swift */; };
-		DAA1B2D32F8C100000112233 /* PostHogRageClickIntegrationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2D22F8C100000112233 /* PostHogRageClickIntegrationTest.swift */; };
 		690FF0E92AEFD3BD00A0B06B /* PostHogQueueTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0E82AEFD3BD00A0B06B /* PostHogQueueTest.swift */; };
 		690FF0EB2AEFF22F00A0B06B /* Quick in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0EA2AEFF22F00A0B06B /* Quick */; };
 		690FF0ED2AEFF23300A0B06B /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0EC2AEFF23300A0B06B /* Nimble */; };
 		690FF0EF2AEFF23D00A0B06B /* OHHTTPStubsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0EE2AEFF23D00A0B06B /* OHHTTPStubsSwift */; };
 		690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */ = {isa = PBXBuildFile; productRef = 690FF0F02AEFF24200A0B06B /* OHHTTPStubs */; };
+		E1A0B0203A0D000100000001 /* CwlCatchException in Frameworks */ = {isa = PBXBuildFile; productRef = E1A0B0213A0D000100000001 /* CwlCatchException */; };
 		690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */; };
 		69261D132AD5685B00232EC7 /* PostHogRemoteConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D122AD5685B00232EC7 /* PostHogRemoteConfig.swift */; };
 		69261D192AD9673500232EC7 /* PostHogUploadInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69261D182AD9673500232EC7 /* PostHogUploadInfo.swift */; };
@@ -162,10 +164,9 @@
 		A1B2C3D401234567DEADBEEF /* PostHogDeepLinkHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D501234567DEADBEEF /* PostHogDeepLinkHelper.swift */; };
 		A1B2C3D601234567DEADBEEF /* PostHogDeepLinkListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D701234567DEADBEEF /* PostHogDeepLinkListener.swift */; };
 		A54E1C29388E43AEA3B0FC83 /* LogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7B59CE7B8148E5A72D554F /* LogsView.swift */; };
-		DAA1B2E12F8C100000112233 /* RageClickControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2E02F8C100000112233 /* RageClickControlsView.swift */; };
-		DAA1B2E32F8C100000112233 /* RageClickControlsSwiftUIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2E22F8C100000112233 /* RageClickControlsSwiftUIView.swift */; };
 		A9B17C56137763FF18EFD0C0 /* CrashReporter.m in Sources */ = {isa = PBXBuildFile; fileRef = ECBFEE10291A87FD4E8A2E5B /* CrashReporter.m */; };
 		ABB09493E02B20855285B547 /* PLCrashAsyncMObject.c in Sources */ = {isa = PBXBuildFile; fileRef = D81133CFD99A504078A7C854 /* PLCrashAsyncMObject.c */; };
+		B1A0C0DE0000000000000002 /* PostHogExceptionStepsBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A0C0DE0000000000000001 /* PostHogExceptionStepsBuffer.swift */; };
 		BB04FDE3FEF9ED62590825AC /* fixture_survey_translation_noop.json in Resources */ = {isa = PBXBuildFile; fileRef = F4F3132F8AB899CDD425012C /* fixture_survey_translation_noop.json */; };
 		BE35097A002BF72D11C07FF6 /* PLCrashAsyncMachOImage.c in Sources */ = {isa = PBXBuildFile; fileRef = DB8675A0F452E915420ED0AC /* PLCrashAsyncMachOImage.c */; };
 		C1604B68CADF9BB54A3911EF /* PLCrashReportProcessInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 9F885D26FB2B0DE9BDAF22BF /* PLCrashReportProcessInfo.m */; };
@@ -234,7 +235,6 @@
 		DA0F98A22D940E8C009AB6F5 /* ApplicationViewLayoutPublisherTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */; };
 		DA0SAMP22E2302260001FF01 /* PostHogSampling.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0SAMP12E2302260001FF01 /* PostHogSampling.swift */; };
 		DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */; };
-		DAA1B2F12F8C100000112233 /* View+PostHogNoRageClick.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2F02F8C100000112233 /* View+PostHogNoRageClick.swift */; };
 		DA1044892D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */; };
 		DA1044902D0B1D4300C4ACF3 /* AssociatedKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */; };
 		DA1D295E2D10B7B2003A31DA /* ApplicationLifecyclePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */; };
@@ -250,6 +250,7 @@
 		DA26419C2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */; };
 		DA27AE712F56050B002A59CE /* SessionRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AE702F56050B002A59CE /* SessionRecordingView.swift */; };
 		DA27AEC12F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */; };
+		DB72000A2F80000100000002 /* PostHogSessionReplayRemoteConfigBufferTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */; };
 		DA27AEC92F56B3F3002A59CE /* PostHogSamplingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */; };
 		DA30AE692D3EFB4F00465A64 /* Optional+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */; };
 		DA30AE812D3FE63F00465A64 /* PostHogSurvey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */; };
@@ -266,6 +267,7 @@
 		DA4AF6292D119FCD0053EA38 /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA4AF62A2D119FCD0053EA38 /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA4FFB152DA93C78006BAEEA /* PostHogSessionReplayTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4FFB142DA93C78006BAEEA /* PostHogSessionReplayTest.swift */; };
+		DA4FFB192DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4FFB182DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift */; };
 		DA4FFBB52DAD5B01006BAEEA /* PostHogIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */; };
 		DA5063C92EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063C82EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift */; };
 		DA5063D22EF5918200C51DA0 /* PostHogCrashReportProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */; };
@@ -405,7 +407,6 @@
 		DA86D0E32E02D78C00CF3065 /* PostHogSurveysDefaultDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA86D0E22E02D78C00CF3065 /* PostHogSurveysDefaultDelegate.swift */; };
 		DA879D7A2F9CC8AD0036A854 /* PostHogGraphicsImageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA879D792F9CC8AD0036A854 /* PostHogGraphicsImageRenderer.swift */; };
 		DA8C9B982EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */; };
-		B1A0C0DE0000000000000002 /* PostHogExceptionStepsBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A0C0DE0000000000000001 /* PostHogExceptionStepsBuffer.swift */; };
 		DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
 		DA929C092D0B3A1D0018369C /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		DA92C6412DCE09C700C02F3E /* PostHogLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */; };
@@ -521,6 +522,11 @@
 		DAA022492D78205100197660 /* fixture_survey_url_match_type_is_not.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA022482D78205100197660 /* fixture_survey_url_match_type_is_not.json */; };
 		DAA0224B2D782D6F00197660 /* fixture_survey_url_match_type_exact.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA0224A2D782D6F00197660 /* fixture_survey_url_match_type_exact.json */; };
 		DAA1B2C32F8C100000112233 /* PostHogRageClickIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2C22F8C100000112233 /* PostHogRageClickIntegration.swift */; };
+		DAA1B2D12F8C100000112233 /* RageClickDetectorTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2D02F8C100000112233 /* RageClickDetectorTest.swift */; };
+		DAA1B2D32F8C100000112233 /* PostHogRageClickIntegrationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2D22F8C100000112233 /* PostHogRageClickIntegrationTest.swift */; };
+		DAA1B2E12F8C100000112233 /* RageClickControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2E02F8C100000112233 /* RageClickControlsView.swift */; };
+		DAA1B2E32F8C100000112233 /* RageClickControlsSwiftUIView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2E22F8C100000112233 /* RageClickControlsSwiftUIView.swift */; };
+		DAA1B2F12F8C100000112233 /* View+PostHogNoRageClick.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA1B2F02F8C100000112233 /* View+PostHogNoRageClick.swift */; };
 		DAA5ED972D4043A500D437E0 /* PostHogSurveysTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */; };
 		DAA5EE212D43605000D437E0 /* fixture_survey_branching_response_based_linkert.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE1A2D43605000D437E0 /* fixture_survey_branching_response_based_linkert.json */; };
 		DAA5EE242D43605000D437E0 /* fixture_survey_branching_response_based_empty.json in Resources */ = {isa = PBXBuildFile; fileRef = DAA5EE192D43605000D437E0 /* fixture_survey_branching_response_based_empty.json */; };
@@ -787,6 +793,8 @@
 		3AC745B5296D6FE60025C109 /* PostHog.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PostHog.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AC745B8296D6FE60025C109 /* PostHog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PostHog.h; sourceTree = "<group>"; };
 		3AC745BF296D6FE60025C109 /* PostHogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PostHogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHURLSessionTaskSafeAccess.h; sourceTree = "<group>"; };
+		E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHURLSessionTaskSafeAccess.m; sourceTree = "<group>"; };
 		3AE3FB2B2991320300AFFC18 /* Api.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Api.swift; sourceTree = "<group>"; };
 		3AE3FB322991388500AFFC18 /* PostHogQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueue.swift; sourceTree = "<group>"; };
 		3AE3FB36299162EA00AFFC18 /* PostHogApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApi.swift; sourceTree = "<group>"; };
@@ -807,8 +815,7 @@
 		47D619C6488AA0E8B84944FF /* PLCrashMachExceptionPortSet.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashMachExceptionPortSet.m; path = vendor/PHPLCrashReporter/Source/PLCrashMachExceptionPortSet.m; sourceTree = "<group>"; };
 		481CB44DF30DBC62657AAC48 /* PLCrashFrameStackUnwind.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashFrameStackUnwind.c; path = vendor/PHPLCrashReporter/Source/PLCrashFrameStackUnwind.c; sourceTree = "<group>"; };
 		4A7B59CE7B8148E5A72D554F /* LogsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogsView.swift; sourceTree = "<group>"; };
-		DAA1B2E02F8C100000112233 /* RageClickControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickControlsView.swift; sourceTree = "<group>"; };
-		DAA1B2E22F8C100000112233 /* RageClickControlsSwiftUIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickControlsSwiftUIView.swift; sourceTree = "<group>"; };
+		51CBE5E053785289B0CCA4ED /* PostHogBootstrapConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogBootstrapConfig.swift; sourceTree = "<group>"; };
 		57E2779AF27A014DB1B40BCB /* PLCrashAsyncThread_current.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncThread_current.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncThread_current.c; sourceTree = "<group>"; };
 		5A1B2C3D4E5F60718293A4B6 /* PostHogLogSeverity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogSeverity.swift; sourceTree = "<group>"; };
 		5B4E325C19D4C707C5FA9255 /* PLCrashAsyncDwarfFDE.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfFDE.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfFDE.cpp; sourceTree = "<group>"; };
@@ -834,8 +841,6 @@
 		690FF0DE2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLegacyQueueTest.swift; sourceTree = "<group>"; };
 		690FF0E02AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogFileBackedQueueTest.swift; sourceTree = "<group>"; };
 		690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogConfigTest.swift; sourceTree = "<group>"; };
-		DAA1B2D02F8C100000112233 /* RageClickDetectorTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickDetectorTest.swift; sourceTree = "<group>"; };
-		DAA1B2D22F8C100000112233 /* PostHogRageClickIntegrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRageClickIntegrationTest.swift; sourceTree = "<group>"; };
 		690FF0E82AEFD3BD00A0B06B /* PostHogQueueTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogQueueTest.swift; sourceTree = "<group>"; };
 		690FF0F42AF0F06100A0B06B /* PostHogSDKTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSDKTest.swift; sourceTree = "<group>"; };
 		690FF1732AF3CE8A00A0B06B /* PostHogExampleWatchOS.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleWatchOS.xcodeproj; path = PostHogExampleWatchOS/PostHogExampleWatchOS.xcodeproj; sourceTree = "<group>"; };
@@ -917,7 +922,7 @@
 		8A7639E3BB936A53A6ED17AC /* PostHogLogsOTLP.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsOTLP.swift; sourceTree = "<group>"; };
 		8AC7B7E5D1441557C48E5951 /* CrashReporterFramework.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CrashReporterFramework.m; path = vendor/PHPLCrashReporter/Source/CrashReporterFramework.m; sourceTree = "<group>"; };
 		8D1477A6BA86EB4E28DF64ED /* fixture_survey_conditions_event_property_filters.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = fixture_survey_conditions_event_property_filters.json; sourceTree = "<group>"; };
-		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c/protobuf-c.c"; sourceTree = "<group>"; };
+		91792EADDC2A0458982154FC /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "protobuf-c.c"; path = "vendor/PHPLCrashReporter/Source/protobuf-c.c"; sourceTree = "<group>"; };
 		9473A633747872EA43FDCA3A /* SurveyTranslationResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurveyTranslationResolver.swift; sourceTree = "<group>"; };
 		97A462C12E6F54A281DE5023 /* PLCrashProcessInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashProcessInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashProcessInfo.m; sourceTree = "<group>"; };
 		991CFA923BC02DA7DD6506C6 /* PLCrashAsyncImageList.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncImageList.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncImageList.cpp; sourceTree = "<group>"; };
@@ -931,6 +936,7 @@
 		A38F6D8BE8A49299433A915A /* PLCrashHostInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashHostInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashHostInfo.m; sourceTree = "<group>"; };
 		A8C82A825494404A8958F15C /* PLCrashAsyncDwarfPrimitives.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = PLCrashAsyncDwarfPrimitives.cpp; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncDwarfPrimitives.cpp; sourceTree = "<group>"; };
 		AA43A324507226180D2483CD /* PLCrashReporterNSError.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReporterNSError.m; path = vendor/PHPLCrashReporter/Source/PLCrashReporterNSError.m; sourceTree = "<group>"; };
+		B1A0C0DE0000000000000001 /* PostHogExceptionStepsBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsBuffer.swift; sourceTree = "<group>"; };
 		BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogsConfig.swift; sourceTree = "<group>"; };
 		C032F7F5B744465BA103BC94 /* PLCrashAsyncSymbolication.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncSymbolication.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncSymbolication.c; sourceTree = "<group>"; };
 		CB453C289F1DC872BE9945FC /* PLCrashAsyncCompactUnwindEncoding.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncCompactUnwindEncoding.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncCompactUnwindEncoding.c; sourceTree = "<group>"; };
@@ -991,7 +997,6 @@
 		DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationViewLayoutPublisherTest.swift; sourceTree = "<group>"; };
 		DA0SAMP12E2302260001FF01 /* PostHogSampling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSampling.swift; sourceTree = "<group>"; };
 		DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogLabel.swift"; sourceTree = "<group>"; };
-		DAA1B2F02F8C100000112233 /* View+PostHogNoRageClick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogNoRageClick.swift"; sourceTree = "<group>"; };
 		DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+PostHogLabel.swift"; sourceTree = "<group>"; };
 		DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssociatedKeys.swift; sourceTree = "<group>"; };
 		DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationLifecyclePublisher.swift; sourceTree = "<group>"; };
@@ -1007,6 +1012,7 @@
 		DA26419A2CC0499300CB427B /* PostHogAutocaptureEventTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTracker.swift; sourceTree = "<group>"; };
 		DA27AE702F56050B002A59CE /* SessionRecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecordingView.swift; sourceTree = "<group>"; };
 		DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayEventTriggersTest.swift; sourceTree = "<group>"; };
+		DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayRemoteConfigBufferTest.swift; sourceTree = "<group>"; };
 		DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSamplingTest.swift; sourceTree = "<group>"; };
 		DA30AE682D3EFB4F00465A64 /* Optional+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Util.swift"; sourceTree = "<group>"; };
 		DA30AE802D3FE63F00465A64 /* PostHogSurvey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurvey.swift; sourceTree = "<group>"; };
@@ -1021,6 +1027,7 @@
 		DA3BB5042EDF15320097A97A /* PostHogStackFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackFrame.swift; sourceTree = "<group>"; };
 		DA4531D2FCB608D6C55AFB85 /* PLCrashLogWriterEncoding.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashLogWriterEncoding.c; path = vendor/PHPLCrashReporter/Source/PLCrashLogWriterEncoding.c; sourceTree = "<group>"; };
 		DA4FFB142DA93C78006BAEEA /* PostHogSessionReplayTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayTest.swift; sourceTree = "<group>"; };
+		DA4FFB182DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReplayScreenshotDedupTest.swift; sourceTree = "<group>"; };
 		DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogIdentityTests.swift; sourceTree = "<group>"; };
 		DA5063C82EF585AB00C51DA0 /* PostHogErrorTrackingUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingUtils.swift; sourceTree = "<group>"; };
 		DA5063D12EF5918200C51DA0 /* PostHogCrashReportProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogCrashReportProcessor.swift; sourceTree = "<group>"; };
@@ -1057,8 +1064,8 @@
 		DA697CAF2EF935490019640F /* PostHogStackTraceProcessorTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStackTraceProcessorTest.swift; sourceTree = "<group>"; };
 		DA6A2A5D2F39BE9300BD1B4C /* PostHogPropertiesSerializationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPropertiesSerializationTest.swift; sourceTree = "<group>"; };
 		DA6F24812D4A6CA100CA2777 /* PostHogApiTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogApiTest.swift; sourceTree = "<group>"; };
-		DA6F27B52F9AAA7F0064044F /* protobuf-c.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "protobuf-c.h"; sourceTree = "<group>"; };
-		DA6F27B62F9AAA7F0064044F /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "protobuf-c.c"; sourceTree = "<group>"; };
+		DA6F27B52F9AAA7F0064044F /* protobuf-c.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "vendor/PHPLCrashReporter/Source/protobuf-c.h"; sourceTree = SOURCE_ROOT; };
+		DA6F27B62F9AAA7F0064044F /* protobuf-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "vendor/PHPLCrashReporter/Source/protobuf-c.c"; sourceTree = SOURCE_ROOT; };
 		DA6F27B82F9AAA7F0064044F /* generate-pb-c.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "generate-pb-c.sh"; sourceTree = "<group>"; };
 		DA6F27BB2F9AAA7F0064044F /* CrashReporter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CrashReporter.h; sourceTree = "<group>"; };
 		DA6F27BC2F9AAA7F0064044F /* PLCrashFeatureConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PLCrashFeatureConfig.h; sourceTree = "<group>"; };
@@ -1218,7 +1225,6 @@
 		DA86D0E22E02D78C00CF3065 /* PostHogSurveysDefaultDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysDefaultDelegate.swift; sourceTree = "<group>"; };
 		DA879D792F9CC8AD0036A854 /* PostHogGraphicsImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogGraphicsImageRenderer.swift; sourceTree = "<group>"; };
 		DA8C9B962EC633FA00C6EADB /* PostHogErrorTrackingConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogErrorTrackingConfig.swift; sourceTree = "<group>"; };
-		B1A0C0DE0000000000000001 /* PostHogExceptionStepsBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogExceptionStepsBuffer.swift; sourceTree = "<group>"; };
 		DA8D37242CBEAC02005EBD27 /* PostHogExampleAutocapture.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = PostHogExampleAutocapture.xcodeproj; path = PostHogExampleAutocapture/PostHogExampleAutocapture.xcodeproj; sourceTree = "<group>"; };
 		DA92C6402DCE09C700C02F3E /* PostHogLogEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLogEntry.swift; sourceTree = "<group>"; };
 		DA92C6482DCE09DE00C02F3E /* PostHogLogLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogLogLevel.swift; sourceTree = "<group>"; };
@@ -1333,6 +1339,11 @@
 		DAA022482D78205100197660 /* fixture_survey_url_match_type_is_not.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = fixture_survey_url_match_type_is_not.json; sourceTree = "<group>"; };
 		DAA0224A2D782D6F00197660 /* fixture_survey_url_match_type_exact.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = fixture_survey_url_match_type_exact.json; sourceTree = "<group>"; };
 		DAA1B2C22F8C100000112233 /* PostHogRageClickIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRageClickIntegration.swift; sourceTree = "<group>"; };
+		DAA1B2D02F8C100000112233 /* RageClickDetectorTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickDetectorTest.swift; sourceTree = "<group>"; };
+		DAA1B2D22F8C100000112233 /* PostHogRageClickIntegrationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogRageClickIntegrationTest.swift; sourceTree = "<group>"; };
+		DAA1B2E02F8C100000112233 /* RageClickControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickControlsView.swift; sourceTree = "<group>"; };
+		DAA1B2E22F8C100000112233 /* RageClickControlsSwiftUIView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickControlsSwiftUIView.swift; sourceTree = "<group>"; };
+		DAA1B2F02F8C100000112233 /* View+PostHogNoRageClick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogNoRageClick.swift"; sourceTree = "<group>"; };
 		DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveysTest.swift; sourceTree = "<group>"; };
 		DAA5EE132D43605000D437E0 /* fixture_survey_basic.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_basic.json; sourceTree = "<group>"; };
 		DAA5EE162D43605000D437E0 /* fixture_survey_branching_end.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = fixture_survey_branching_end.json; sourceTree = "<group>"; };
@@ -1414,6 +1425,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E1A0B0203A0D000100000001 /* CwlCatchException in Frameworks */,
 				690FF0F12AEFF24200A0B06B /* OHHTTPStubs in Frameworks */,
 				DA929C082D0B3A1D0018369C /* PostHog.framework in Frameworks */,
 				690FF0ED2AEFF23300A0B06B /* Nimble in Frameworks */,
@@ -1577,6 +1589,7 @@
 				DACC08B52D6E3C6800115E46 /* PostHogIntegration.swift */,
 				DAB06F9C2D09A744005B1C9B /* PostHog.modulemap */,
 				3AC745B8296D6FE60025C109 /* PostHog.h */,
+				E1A0B0053A0B000100000001 /* ObjCExceptionSupport */,
 				DA1D29612D115E13003A31DA /* DI.swift */,
 				DA578E912D6768A100B3A56C /* ScreenViews */,
 				DA703C132D6615300069097B /* AppLifeCycle */,
@@ -1612,8 +1625,18 @@
 				DB7100032F80000100000001 /* Tracing */,
 				DAB565D82D14C51E0088F720 /* SwiftUI */,
 				D977A46D673A5FA52C03105F /* Logs */,
+				51CBE5E053785289B0CCA4ED /* PostHogBootstrapConfig.swift */,
 			);
 			path = PostHog;
+			sourceTree = "<group>";
+		};
+		E1A0B0053A0B000100000001 /* ObjCExceptionSupport */ = {
+			isa = PBXGroup;
+			children = (
+				E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */,
+				E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */,
+			);
+			path = ObjCExceptionSupport;
 			sourceTree = "<group>";
 		};
 		3AC745C3296D6FE60025C109 /* PostHogTests */ = {
@@ -1622,6 +1645,7 @@
 				DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */,
 				DB7100052F80000100000001 /* PostHogTracingHeadersTest.swift */,
 				DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */,
+				DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */,
 				1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */,
 				DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */,
 				DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */,
@@ -1638,6 +1662,7 @@
 				690FF0BA2AEF8B8200A0B06B /* PostHogContextTest.swift */,
 				690FF0DE2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift */,
 				DA4FFB142DA93C78006BAEEA /* PostHogSessionReplayTest.swift */,
+				DA4FFB182DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift */,
 				690FF0E02AEFC59100A0B06B /* PostHogFileBackedQueueTest.swift */,
 				690FF0E22AEFD12900A0B06B /* PostHogConfigTest.swift */,
 				DAA1B2D02F8C100000112233 /* RageClickDetectorTest.swift */,
@@ -2516,6 +2541,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
+				E1A0B0063A0B000100000001 /* PHURLSessionTaskSafeAccess.h in Headers */,
 				DA0B66A52D64EC00006F5FF3 /* ph_sharpyuv_csp.h in Headers */,
 				DA0B66A62D64EC00006F5FF3 /* ph_sharpyuv_dsp.h in Headers */,
 				DA0B66A72D64EC00006F5FF3 /* ph_huffman_utils.h in Headers */,
@@ -2706,6 +2732,7 @@
 			);
 			name = PostHogTests;
 			packageProductDependencies = (
+				E1A0B0213A0D000100000001 /* CwlCatchException */,
 				690FF0EA2AEFF22F00A0B06B /* Quick */,
 				690FF0EC2AEFF23300A0B06B /* Nimble */,
 				690FF0EE2AEFF23D00A0B06B /* OHHTTPStubsSwift */,
@@ -2837,6 +2864,7 @@
 			);
 			mainGroup = 3AC745AB296D6FE60025C109;
 			packageReferences = (
+				E1A0B0223A0D000100000001 /* XCRemoteSwiftPackageReference "CwlCatchException" */,
 				3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */,
 				3A867B7129C1DFEF009D0852 /* XCRemoteSwiftPackageReference "Nimble" */,
 				3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */,
@@ -3067,6 +3095,7 @@
 				DAB9E23D2DE8901D00E62DB9 /* URLSessionExtension.swift in Sources */,
 				DAB9E23E2DE8901D00E62DB9 /* URLSessionSwizzler.swift in Sources */,
 				DAB9E23F2DE8901D00E62DB9 /* URLSessionInterceptor.swift in Sources */,
+				E1A0B0013A0B000100000001 /* PHURLSessionTaskSafeAccess.m in Sources */,
 				DA5175B32F6C4CEA00F0E00A /* PostHogReplayBufferDelegate.swift in Sources */,
 				DA5175B42F6C4CEA00F0E00A /* PostHogReplayBufferQueue.swift in Sources */,
 				69F23A782BB30991001194F6 /* NetworkSample.swift in Sources */,
@@ -3346,6 +3375,7 @@
 				88D516A0861C2F4F6D57CA7A /* PostHogLogsOTLP.swift in Sources */,
 				F0FBEDFF37952921D60EF57C /* PostHogSurveyTranslation.swift in Sources */,
 				9D16D700F4598774FB0A3C6F /* SurveyTranslationResolver.swift in Sources */,
+				081C4D5910919F0E5872CAC2 /* PostHogBootstrapConfig.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3364,6 +3394,7 @@
 				DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */,
 				3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */,
 				DA27AEC12F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift in Sources */,
+				DB72000A2F80000100000002 /* PostHogSessionReplayRemoteConfigBufferTest.swift in Sources */,
 				699C5FEF2C20242A007DB818 /* UUIDTest.swift in Sources */,
 				DA6A2A5E2F39BE9300BD1B4C /* PostHogPropertiesSerializationTest.swift in Sources */,
 				DA53DE7E2D3E66AA00C38DCA /* PostHogRemoteConfigTest.swift in Sources */,
@@ -3386,6 +3417,7 @@
 				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,
 				1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */,
 				DA4FFB152DA93C78006BAEEA /* PostHogSessionReplayTest.swift in Sources */,
+				DA4FFB192DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift in Sources */,
 				DADE7DFE2F7EA90D00C4650C /* PostHogDeepLinkIntegrationTests.swift in Sources */,
 				DA52CAEF2F24319800305F3D /* PostHogSessionReplayPluginTest.swift in Sources */,
 				690FF0DF2AEFBC5700A0B06B /* PostHogLegacyQueueTest.swift in Sources */,
@@ -3788,8 +3820,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -3813,7 +3843,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -3862,8 +3892,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -3887,7 +3915,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -4353,8 +4381,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c",
-					"$(SRCROOT)/vendor/PHPLCrashReporter/Dependencies/protobuf-c/protobuf-c",
 					"$(SRCROOT)/vendor/PHPLCrashReporter/Source",
 				);
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -4379,7 +4405,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG TESTING";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3,4,7";
@@ -4696,6 +4722,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		E1A0B0223A0D000100000001 /* XCRemoteSwiftPackageReference "CwlCatchException" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mattgallagher/CwlCatchException.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.2.1;
+			};
+		};
 		3A580B3D29E481F200C5C6F3 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/AliSoftware/OHHTTPStubs";
@@ -4723,6 +4757,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		E1A0B0213A0D000100000001 /* CwlCatchException */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E1A0B0223A0D000100000001 /* XCRemoteSwiftPackageReference "CwlCatchException" */;
+			productName = CwlCatchException;
+		};
 		690FF0EA2AEFF22F00A0B06B /* Quick */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 3A867B6E29C1DF73009D0852 /* XCRemoteSwiftPackageReference "Quick" */;

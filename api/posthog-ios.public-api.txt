@@ -34,6 +34,16 @@ PostHog | OnPostHogSurveyClosed | typealias | typealias OnPostHogSurveyClosed = 
 PostHog | OnPostHogSurveyResponse | typealias | typealias OnPostHogSurveyResponse = (PostHogDisplaySurvey, Int, PostHogSurveyResponse) -> PostHogNextSurveyQuestion? | s:7PostHog02OnaB14SurveyResponsea
 PostHog | OnPostHogSurveyShown | typealias | typealias OnPostHogSurveyShown = (PostHogDisplaySurvey) -> Void | s:7PostHog02OnaB11SurveyShowna
 PostHog | PostHogBeforeSendLogBlock | typealias | typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRecord? | s:7PostHog0aB18BeforeSendLogBlocka
+PostHog | PostHogBootstrapConfig | class | @objc(PostHogBootstrapConfig) class PostHogBootstrapConfig | c:@M@PostHog@objc(cs)PostHogBootstrapConfig
+PostHog | PostHogBootstrapConfig.distinctId | property | @objc var distinctId: String? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)distinctId
+PostHog | PostHogBootstrapConfig.featureFlagPayloads | property | @objc var featureFlagPayloads: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)featureFlagPayloads
+PostHog | PostHogBootstrapConfig.featureFlags | property | @objc var featureFlags: [String : Any]? | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)featureFlags
+PostHog | PostHogBootstrapConfig.init() | init | override init() | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)init
+PostHog | PostHogBootstrapConfig.init(anonymousId:) | init | @objc convenience init(anonymousId: String) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithAnonymousId:
+PostHog | PostHogBootstrapConfig.init(distinctId:isIdentifiedId:) | init | @objc convenience init(distinctId: String, isIdentifiedId: Bool) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithDistinctId:isIdentifiedId:
+PostHog | PostHogBootstrapConfig.init(distinctId:isIdentifiedId:featureFlags:featureFlagPayloads:) | init | @objc init(distinctId: String?, isIdentifiedId: Bool = false, featureFlags: [String : Any]?, featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithDistinctId:isIdentifiedId:featureFlags:featureFlagPayloads:
+PostHog | PostHogBootstrapConfig.init(featureFlags:featureFlagPayloads:) | init | @objc convenience init(featureFlags: [String : Any], featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithFeatureFlags:featureFlagPayloads:
+PostHog | PostHogBootstrapConfig.isIdentifiedId | property | @objc var isIdentifiedId: Bool | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)isIdentifiedId
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
 PostHog | PostHogConfig.PostHogDataMode | enum | @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF
@@ -42,6 +52,7 @@ PostHog | PostHogConfig.PostHogDataMode.init(rawValue:) | init | init?(rawValue:
 PostHog | PostHogConfig.PostHogDataMode.wifi | enum.case | case wifi | s:7PostHog0aB6ConfigC0aB8DataModeO4wifiyA2EmF
 PostHog | PostHogConfig.apiKey | property | @objc var apiKey: String { get } | c:@M@PostHog@objc(cs)PostHogConfig(py)apiKey
 PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdentifier: String? | c:@M@PostHog@objc(cs)PostHogConfig(py)appGroupIdentifier
+PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrapConfig? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
 PostHog | PostHogConfig.captureElementInteractions | property | @objc var captureElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureElementInteractions
 PostHog | PostHogConfig.captureScreenViews | property | @objc var captureScreenViews: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureScreenViews
@@ -72,6 +83,7 @@ PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String
 PostHog | PostHogConfig.propertiesSanitizer | property | @objc var propertiesSanitizer: (any PostHogPropertiesSanitizer)? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)propertiesSanitizer
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.remoteConfig | property | @objc var remoteConfig: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)remoteConfig
+PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders
 PostHog | PostHogConfig.reuseAnonymousId | property | @objc var reuseAnonymousId: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)reuseAnonymousId
 PostHog | PostHogConfig.sendFeatureFlagEvent | property | @objc var sendFeatureFlagEvent: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sendFeatureFlagEvent
 PostHog | PostHogConfig.sessionReplay | property | @objc var sessionReplay: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)sessionReplay
@@ -150,6 +162,7 @@ PostHog | PostHogDisplaySurveyTextContentType.text | enum.case | case text | c:@
 PostHog | PostHogErrorTrackingConfig | class | @objc class PostHogErrorTrackingConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig
 PostHog | PostHogErrorTrackingConfig.autoCapture | property | @objc var autoCapture: Bool { get set } | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)autoCapture
 PostHog | PostHogErrorTrackingConfig.exceptionSteps | property | @objc var exceptionSteps: PostHogExceptionStepsConfig | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)exceptionSteps
+PostHog | PostHogErrorTrackingConfig.ignoredExceptionTypes | property | @objc var ignoredExceptionTypes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)ignoredExceptionTypes
 PostHog | PostHogErrorTrackingConfig.inAppByDefault | property | @objc var inAppByDefault: Bool | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppByDefault
 PostHog | PostHogErrorTrackingConfig.inAppExcludes | property | @objc var inAppExcludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppExcludes
 PostHog | PostHogErrorTrackingConfig.inAppIncludes | property | @objc var inAppIncludes: [String] | c:@M@PostHog@objc(cs)PostHogErrorTrackingConfig(py)inAppIncludes

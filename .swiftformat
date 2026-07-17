@@ -9,6 +9,8 @@
 --disable redundantType
 --disable wrapPropertyBodies
 --disable blankLinesBetweenScopes
+# replaced the disabled-by-default wrapConditionalBodies in SwiftFormat 0.62, but ships enabled
+--disable wrapIfStatementBodies
 
 --acronyms ID,URL,UUID
 --allman false

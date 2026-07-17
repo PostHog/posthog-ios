@@ -191,6 +191,31 @@ app.post("capture") { req async throws -> Response in
     return try await result.encodeResponse(for: req)
 }
 
+func fetchFlagsWithRetry(flagsURL: URL, payload: [String: Any]) async throws -> Data {
+    let body = try JSONSerialization.data(withJSONObject: payload)
+    var lastStatus = 0
+
+    for _ in 0 ..< 3 {
+        var flagsRequest = URLRequest(url: flagsURL)
+        flagsRequest.httpMethod = "POST"
+        flagsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        flagsRequest.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: flagsRequest)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if (200 ..< 300).contains(statusCode) {
+            return data
+        }
+
+        lastStatus = statusCode
+        guard statusCode == 502 || statusCode == 504 else {
+            break
+        }
+    }
+
+    throw Abort(.internalServerError, reason: "flags request failed with status \(lastStatus)")
+}
+
 // Feature flag evaluation endpoint
 app.post("get_feature_flag") { req async throws -> Response in
     struct FlagRequest: Content {
@@ -258,25 +283,28 @@ app.post("get_feature_flag") { req async throws -> Response in
     guard let flagsURL = URL(string: host.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/flags/?v=2") else {
         throw Abort(.internalServerError, reason: "Invalid host URL: \(host)")
     }
-    var flagsRequest = URLRequest(url: flagsURL)
-    flagsRequest.httpMethod = "POST"
-    flagsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    flagsRequest.httpBody = try JSONSerialization.data(withJSONObject: flagsPayload)
-
-    let (data, _) = try await URLSession.shared.data(for: flagsRequest)
+    let data = try await fetchFlagsWithRetry(flagsURL: flagsURL, payload: flagsPayload)
     let decoded = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     let flags = decoded?["featureFlags"] as? [String: Any] ?? decoded?["flags"] as? [String: Any]
     let value = flags?[flagReq.key] ?? false
     print("[ADAPTER] Flag \(flagReq.key) resolved to: \(String(describing: value))")
 
+    let flagDetails = (decoded?["flags"] as? [String: Any])?[flagReq.key] as? [String: Any]
+    let flagMetadata = flagDetails?["metadata"] as? [String: Any]
+
+    var callProperties: [String: Any] = [
+        "$feature_flag": flagReq.key,
+        "$feature_flag_response": value,
+        "$feature/\(flagReq.key)": value,
+    ]
+    if let hasExperiment = flagMetadata?["has_experiment"] as? Bool {
+        callProperties["$feature_flag_has_experiment"] = hasExperiment
+    }
+
     sdk.capture(
         "$feature_flag_called",
         distinctId: flagReq.distinctId,
-        properties: [
-            "$feature_flag": flagReq.key,
-            "$feature_flag_response": value,
-            "$feature/\(flagReq.key)": value,
-        ]
+        properties: callProperties
     )
     sdk.flush()
     await RequestInterceptor.waitForFlushSettle()

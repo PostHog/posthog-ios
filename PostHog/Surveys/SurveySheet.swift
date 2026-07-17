@@ -14,26 +14,29 @@
         // Observed so the sheet re-renders when the displayed survey is updated in place
         // (e.g. re-translated after a language change), not just when questions advance.
         @ObservedObject var displayManager: SurveyDisplayController
+        // The `.sheet(item:)` snapshot: keeps content rendered while the sheet animates out
+        // after dismissal clears `displayedSurvey`.
+        let fallbackSurvey: PostHogDisplaySurvey
 
         @State private var sheetHeight: CGFloat = .zero
 
+        private var survey: PostHogDisplaySurvey {
+            displayManager.displayedSurvey ?? fallbackSurvey
+        }
+
         var body: some View {
-            Group {
-                if let survey = displayManager.displayedSurvey {
-                    surveyContent(for: survey)
+            surveyContent(for: survey)
+                .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
+                .readFrame(in: .named("survey-scroll-view")) { frame in
+                    sheetHeight = frame.height
                 }
-            }
-            .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
-            .readFrame(in: .named("survey-scroll-view")) { frame in
-                sheetHeight = frame.height
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    SurveyDismissButton(action: displayManager.dismissSurvey)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        SurveyDismissButton(action: displayManager.dismissSurvey)
+                    }
                 }
-            }
-            .surveyBottomSheet(height: sheetHeight)
-            .environment(\.surveyAppearance, appearance)
+                .surveyBottomSheet(height: sheetHeight)
+                .environment(\.surveyAppearance, appearance)
         }
 
         @ViewBuilder
@@ -78,7 +81,7 @@
         }
 
         private var appearance: SwiftUISurveyAppearance {
-            .getAppearanceWithDefaults(displayManager.displayedSurvey?.appearance)
+            .getAppearanceWithDefaults(survey.appearance)
         }
     }
 

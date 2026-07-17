@@ -15,11 +15,12 @@
         var body: some View {
             Color.clear
                 .allowsHitTesting(false)
-                .sheet(item: displayBinding) { _ in
-                    // Drive the sheet content from the display controller (not the snapshot
-                    // passed by `.sheet(item:)`) so in-place updates — like a survey being
-                    // re-translated after a language change — are reflected live.
-                    SurveySheet(displayManager: displayManager)
+                .sheet(item: displayBinding) { survey in
+                    // Content is driven by the display controller so in-place updates (like a
+                    // survey being re-translated after a language change) render live; the
+                    // `.sheet(item:)` snapshot is the fallback that keeps content on screen
+                    // during the dismiss animation, after `displayedSurvey` is cleared.
+                    SurveySheet(displayManager: displayManager, fallbackSurvey: survey)
                         .environment(\.colorScheme, .light) // enforce light theme for now
                 }
         }

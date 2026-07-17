@@ -42,30 +42,68 @@
         func postHogMask(_ isEnabled: Bool = true) -> some View {
             modifier(
                 PostHogTagViewModifier(
-                    onChange: { views, layers in
-                        views.forEach { $0.postHogNoCapture = isEnabled }
-                        layers.forEach { $0.postHogNoCapture = isEnabled }
+                    onChange: { owner, views, layers in
+                        views.forEach { $0.setPostHogNoCapture(isEnabled, owner: owner) }
+                        layers.forEach { $0.setPostHogNoCapture(isEnabled, owner: owner) }
                     },
-                    onRemove: { views, layers in
-                        views.forEach { $0.postHogNoCapture = false }
-                        layers.forEach { $0.postHogNoCapture = false }
+                    onRemove: { owner, views, layers in
+                        views.forEach { $0.setPostHogNoCapture(false, owner: owner) }
+                        layers.forEach { $0.setPostHogNoCapture(false, owner: owner) }
                     }
                 )
             )
         }
     }
 
+    /// Ref-counted flag ownership. A target can be claimed by several masks at once —
+    /// overlapping target sets are the norm on iOS 26, where masks resolve against the
+    /// shared hosting view — so a plain Boolean flag would let one mask's teardown
+    /// (e.g. a lazy row scrolling offscreen) unmask targets still owned by another.
+    /// A target stays flagged for as long as at least one owner claims it.
+    final class PostHogFlagOwners {
+        var owners: Set<ObjectIdentifier> = []
+    }
+
+    extension NSObject {
+        func isPostHogFlagOwned(_ key: UnsafeRawPointer) -> Bool {
+            (objc_getAssociatedObject(self, key) as? PostHogFlagOwners)?.owners.isEmpty == false
+        }
+
+        func setPostHogFlag(_ key: UnsafeRawPointer, enabled: Bool, owner: ObjectIdentifier) {
+            let box: PostHogFlagOwners
+            if let existing = objc_getAssociatedObject(self, key) as? PostHogFlagOwners {
+                box = existing
+            } else {
+                box = PostHogFlagOwners()
+                objc_setAssociatedObject(self, key, box, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
+            if enabled {
+                box.owners.insert(owner)
+            } else {
+                box.owners.remove(owner)
+            }
+        }
+    }
+
     extension UIView {
+        /// Whether at least one mask currently claims this view.
         var postHogNoCapture: Bool {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoCapture) as? Bool ?? false }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoCapture, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+            isPostHogFlagOwned(&AssociatedKeys.phNoCapture)
+        }
+
+        func setPostHogNoCapture(_ enabled: Bool, owner: ObjectIdentifier) {
+            setPostHogFlag(&AssociatedKeys.phNoCapture, enabled: enabled, owner: owner)
         }
     }
 
     extension CALayer {
+        /// Whether at least one mask currently claims this layer.
         var postHogNoCapture: Bool {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoCapture) as? Bool ?? false }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoCapture, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+            isPostHogFlagOwned(&AssociatedKeys.phNoCapture)
+        }
+
+        func setPostHogNoCapture(_ enabled: Bool, owner: ObjectIdentifier) {
+            setPostHogFlag(&AssociatedKeys.phNoCapture, enabled: enabled, owner: owner)
         }
     }
 #endif

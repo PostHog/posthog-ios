@@ -10,7 +10,10 @@
 #if os(iOS) && canImport(SwiftUI)
     import SwiftUI
 
-    typealias PostHogTagHandler = (_ views: [UIView], _ layers: [CALayer]) -> Void
+    /// - owner: identity of the injected view that resolved these targets. Used for
+    ///   ref-counted flag ownership (see `PostHogFlagOwners`), so that overlapping
+    ///   masks cannot clear each other's targets on teardown.
+    typealias PostHogTagHandler = (_ owner: ObjectIdentifier, _ views: [UIView], _ layers: [CALayer]) -> Void
 
     /**
      This is a helper view modifier for retrieving a list of underlying UIKit views for the current SwiftUI view.
@@ -174,10 +177,21 @@
             let changeHandler = onChange
             let view = PostHogFrameCaptureUIView(id: id) { captureView in
                 let layers = getTargetLayers(from: captureView)
-                if !layers.isEmpty {
-                    coordinator.cachedLayers = layers
-                    changeHandler([], layers)
+                guard !layers.isEmpty else { return }
+
+                // Reconcile against the previous resolution: release ownership on
+                // layers that dropped out, otherwise recycled layers keep stale flags.
+                let owner = ObjectIdentifier(captureView)
+                let previous = coordinator.cachedLayers
+                let dropped = previous.filter { previousLayer in
+                    !layers.contains(where: { $0 === previousLayer })
                 }
+                if !dropped.isEmpty {
+                    coordinator.onRemoveHandler(owner, [], dropped)
+                }
+
+                coordinator.cachedLayers = layers
+                changeHandler(owner, [], layers)
             }
             view.postHogView = true
             return view
@@ -196,7 +210,7 @@
                 : coordinator.cachedLayers
 
             if !layers.isEmpty {
-                coordinator.onRemoveHandler([], layers)
+                coordinator.onRemoveHandler(ObjectIdentifier(uiView), [], layers)
             }
             uiView.handler = nil
         }
@@ -297,12 +311,10 @@
         }
 
         func makeUIView(context: Context) -> PostHogTagUIView {
-            PostHogTagUIView(id: id) { controller in
-                let targets = getTargetViews(from: controller)
-                if !targets.isEmpty {
-                    context.coordinator.cachedTargets = targets
-                    onChangeHandler(targets, [])
-                }
+            let coordinator = context.coordinator
+            let onChange = onChangeHandler
+            return PostHogTagUIView(id: id) { taggerView in
+                resolveTagTargets(from: taggerView, coordinator: coordinator, onChange: onChange)
             }
         }
 
@@ -317,12 +329,38 @@
                 : coordinator.cachedTargets
 
             if !targets.isEmpty {
-                coordinator.onRemoveHandler(targets, [])
+                coordinator.onRemoveHandler(ObjectIdentifier(uiView), targets, [])
             }
 
             uiView.postHogTagView = nil
             uiView.handler = nil
         }
+    }
+
+    /// Resolves the tagger's current targets, reconciles them against the previously
+    /// cached set, and invokes `onChange` with the new set. The reconciliation releases
+    /// flag ownership on targets that dropped out of the resolution — without it, every
+    /// re-resolution (content replacement, hierarchy churn) would leak stale ownership
+    /// on views SwiftUI has recycled elsewhere.
+    func resolveTagTargets(
+        from taggerView: PostHogTagUIView,
+        coordinator: PostHogTagView.Coordinator,
+        onChange: PostHogTagHandler
+    ) {
+        let targets = getTargetViews(from: taggerView)
+        guard !targets.isEmpty else { return }
+
+        let owner = ObjectIdentifier(taggerView)
+        let previous = coordinator.cachedTargets
+        let dropped = previous.filter { previousTarget in
+            !targets.contains(where: { $0 === previousTarget })
+        }
+        if !dropped.isEmpty {
+            coordinator.onRemoveHandler(owner, dropped, [])
+        }
+
+        coordinator.cachedTargets = targets
+        onChange(owner, targets, [])
     }
 
     private let swiftUIIgnoreTypes: [AnyClass] = [
@@ -538,6 +576,9 @@
             super.didMoveToSuperview()
             postHogTagView = self
             postHogView = true
+            // First-attach resolution stays synchronous so a freshly realized view
+            // (e.g. a lazy row appearing mid-scroll) is flagged before it can show
+            // up in a snapshot.
             handler?()
         }
 
@@ -549,7 +590,9 @@
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            handler?()
+            // Re-resolutions triggered by layout are coalesced: one drain per
+            // run-loop turn instead of one traversal per tagger per layout pass.
+            PostHogTagResolutionCoalescer.markDirty(self)
         }
 
         private func setupAncestorObserver() {
@@ -565,11 +608,53 @@
             // Remove any existing observer
             ancestorObserver?.stopObserving()
 
-            // Create new observer for the common ancestor
+            // Create new observer for the common ancestor. On iOS 26 many taggers
+            // share (nearly) the same ancestor, so a single hierarchy change used to
+            // re-fire every tagger's traversal from its own observer — coalescing
+            // collapses that storm into one resolution per tagger per turn.
             ancestorObserver = AncestorSubviewObserver(ancestor: commonAncestor) { [weak self] in
-                self?.handler?()
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    PostHogTagResolutionCoalescer.markDirty(self)
+                }
             }
         }
+    }
+
+    /// Coalesces tagger re-resolution requests (layout passes, ancestor-hierarchy KVO
+    /// signals) into a single drain per main-run-loop turn. Invalidation stays
+    /// hierarchy-driven — the coalescer batches work, it never drops it: every marked
+    /// tagger is resolved on the next drain, so content replaced without a geometry
+    /// change is still re-tagged.
+    @MainActor
+    enum PostHogTagResolutionCoalescer {
+        private static var dirtyTaggers: [ObjectIdentifier: Weak<PostHogTagUIView>] = [:]
+        private static var isDrainScheduled = false
+
+        static func markDirty(_ tagger: PostHogTagUIView) {
+            dirtyTaggers[ObjectIdentifier(tagger)] = Weak(tagger)
+            guard !isDrainScheduled else { return }
+            isDrainScheduled = true
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { drain() }
+            }
+        }
+
+        private static func drain() {
+            isDrainScheduled = false
+            guard !dirtyTaggers.isEmpty else { return }
+            let taggers = dirtyTaggers.values.compactMap(\.value)
+            dirtyTaggers.removeAll()
+            for tagger in taggers {
+                tagger.handler?()
+            }
+        }
+
+        #if TESTING
+            static func drainForTesting() {
+                drain()
+            }
+        #endif
     }
 
     /// Observes layer hierarchy changes on an ancestor view using KVO.

@@ -339,10 +339,18 @@
         /// pushes the freshly translated content to the delegate for an in-place update.
         ///
         /// Triggered when the person properties used for flags change (e.g. the user's
-        /// `language` property is updated while a survey is displayed). No-op when no survey
-        /// is active or the resolved language is unchanged, so it never re-stamps
-        /// `$survey_language` or re-renders when nothing visible would change.
+        /// `language` property is updated while a survey is displayed). No-op when the
+        /// delegate doesn't implement `updateSurvey`, no survey is active, or the resolved
+        /// language is unchanged, so it never re-stamps `$survey_language` or re-renders
+        /// when nothing visible would change.
         private func refreshActiveSurveyTranslations() {
+            // `updateSurvey` is optional: when the delegate doesn't implement it (e.g. a custom
+            // delegate that predates live updates), skip the refresh entirely so the tracked
+            // language never advances past what's actually on screen.
+            guard #available(iOS 15.0, *),
+                  let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
+            else { return }
+
             let activeSurvey = activeSurveyLock.withLock { self.activeSurvey }
             guard let activeSurvey else { return }
 
@@ -366,11 +374,8 @@
                 questionTranslations: translations.questions
             )
 
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if #available(iOS 15.0, *) {
-                    self.postHog?.config._surveysConfig.surveysDelegate.updateSurvey?(displaySurvey)
-                }
+            DispatchQueue.main.async {
+                updateSurvey(displaySurvey)
             }
         }
 

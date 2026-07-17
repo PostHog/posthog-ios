@@ -378,6 +378,18 @@
                 func cleanupSurveys() {}
             }
 
+            /// A delegate that does not implement the optional `updateSurvey`.
+            final class NoLiveUpdateSurveysDelegate: NSObject, PostHogSurveysDelegate {
+                func renderSurvey(
+                    _: PostHogDisplaySurvey,
+                    onSurveyShown _: @escaping OnPostHogSurveyShown,
+                    onSurveyResponse _: @escaping OnPostHogSurveyResponse,
+                    onSurveyClosed _: @escaping OnPostHogSurveyClosed
+                ) {}
+
+                func cleanupSurveys() {}
+            }
+
             @Suite("Test live translation updates", .serialized)
             class TestLiveTranslationUpdate {
                 let server: MockPostHogServer
@@ -514,6 +526,25 @@
 
                     #expect(integration.testActiveSurveyLanguage == "fr")
                     #expect(spy.updatedSurveys.isEmpty)
+
+                    postHog.close()
+                    postHog.reset()
+                }
+
+                @Test("delegate without updateSurvey keeps the rendered language")
+                func delegateWithoutUpdateSurveyKeepsState() async throws {
+                    let postHog = getSut()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = NoLiveUpdateSurveysDelegate()
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    // Internal state must not advance past what was actually rendered.
+                    #expect(integration.testActiveSurveyLanguage == nil)
 
                     postHog.close()
                     postHog.reset()

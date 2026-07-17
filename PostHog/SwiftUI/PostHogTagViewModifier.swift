@@ -664,4 +664,47 @@
         }
     }
 
+    #if TESTING
+        /// Test-only entry points into the private tagging machinery.
+        ///
+        /// Used by the masking characterization tests, which pin the CURRENT resolution
+        /// behavior of the traversal before it is optimized — so that later performance
+        /// changes can prove they did not alter which views/layers get resolved.
+        /// Lives in this file so it can reach `private` declarations. Not compiled into
+        /// release builds.
+        @MainActor
+        enum PostHogTaggingTestSupport {
+            /// Creates a real anchor/tagger pair registered in the `TaggingStore`,
+            /// exactly like `PostHogTagViewModifier` does via its representables.
+            static func makeTagPair(id: UUID = UUID()) -> (anchor: UIView, tagger: PostHogTagUIView) {
+                (PostHogTagAnchorUIView(id: id), PostHogTagUIView(id: id, handler: nil))
+            }
+
+            static func targetViews(from tagger: PostHogTagUIView) -> [UIView] {
+                getTargetViews(from: tagger)
+            }
+
+            /// Applies the same marking `markPostHogView` performs from the
+            /// representables' `updateUIView` (the view and its direct superview).
+            static func markInjected(_ view: UIView) {
+                markPostHogView(view)
+            }
+
+            static func nearestCommonAncestor(of view: UIView, and other: UIView) -> UIView? {
+                view.nearestCommonAncestor(with: other)
+            }
+
+            static func descendants(of view: UIView) -> [UIView] {
+                Array(view.descendants)
+            }
+
+            @available(iOS 26.0, *)
+            static func contentLayers(under layer: CALayer, containedIn referenceFrame: CGRect) -> [CALayer] {
+                var results: [CALayer] = []
+                collectContentLayers(from: layer, containedIn: referenceFrame, results: &results)
+                return results
+            }
+        }
+    #endif
+
 #endif

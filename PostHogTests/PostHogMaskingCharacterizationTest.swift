@@ -241,7 +241,8 @@
             container.addSubview(plain)
             window.addSubview(container)
 
-            flagged.postHogNoCapture = true
+            let owner = NSObject()
+            flagged.setPostHogNoCapture(true, owner: ObjectIdentifier(owner))
 
             // A bare integration (no PostHogSDK attached) exercises the traversal
             // with all config-dependent heuristics off, isolating flag consumption.
@@ -262,12 +263,152 @@
             let contentLayer = CALayer()
             contentLayer.frame = CGRect(x: 30, y: 60, width: 80, height: 20)
             container.layer.addSublayer(contentLayer)
-            contentLayer.postHogNoCapture = true
+            let owner = NSObject()
+            contentLayer.setPostHogNoCapture(true, owner: ObjectIdentifier(owner))
 
             let integration = PostHogReplayIntegration()
             let rects = integration.debugMaskableRects(in: window)
 
             #expect(rects == [CGRect(x: 30, y: 60, width: 80, height: 20)])
+        }
+    }
+
+    /// Behavior tests for the ref-counted flag ownership and the re-resolution
+    /// coalescer — the two mechanisms that make overlapping masks safe (one mask's
+    /// teardown must not unmask targets still claimed by another) and hierarchy
+    /// churn affordable (one resolution per tagger per run-loop turn).
+    @Suite("SwiftUI masking ownership & coalescing", .serialized)
+    @MainActor
+    final class PostHogMaskOwnershipTest {
+        private func maskHandlers() -> (onChange: PostHogTagHandler, onRemove: PostHogTagHandler) {
+            (
+                onChange: { owner, views, layers in
+                    views.forEach { $0.setPostHogNoCapture(true, owner: owner) }
+                    layers.forEach { $0.setPostHogNoCapture(true, owner: owner) }
+                },
+                onRemove: { owner, views, layers in
+                    views.forEach { $0.setPostHogNoCapture(false, owner: owner) }
+                    layers.forEach { $0.setPostHogNoCapture(false, owner: owner) }
+                }
+            )
+        }
+
+        @Test("a view stays flagged until every owner releases it")
+        func overlappingOwnersOnView() {
+            let view = UIView()
+            let ownerA = NSObject()
+            let ownerB = NSObject()
+
+            view.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerA))
+            view.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerB))
+            #expect(view.postHogNoCapture)
+
+            view.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerA))
+            #expect(view.postHogNoCapture, "still owned by B")
+
+            view.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerB))
+            #expect(!view.postHogNoCapture)
+        }
+
+        @Test("a layer stays flagged until every owner releases it")
+        func overlappingOwnersOnLayer() {
+            let layer = CALayer()
+            let ownerA = NSObject()
+            let ownerB = NSObject()
+
+            layer.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerA))
+            layer.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerB))
+            layer.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerB))
+            #expect(layer.postHogNoCapture)
+
+            layer.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerA))
+            #expect(!layer.postHogNoCapture)
+        }
+
+        @Test("dismantling one of two overlapping masks keeps the shared target masked")
+        func overlappingMasksThroughMachinery() {
+            // Two real anchor/tagger sandwiches whose target sets both contain the
+            // shared view — the RC7 scenario where the Boolean flag used to let the
+            // first teardown unmask the survivor's target.
+            let (anchor1, tagger1) = PostHogTaggingTestSupport.makeTagPair()
+            let (anchor2, tagger2) = PostHogTaggingTestSupport.makeTagPair()
+            let root = UIView()
+            let shared = UIView()
+            root.addSubview(anchor1)
+            root.addSubview(anchor2)
+            root.addSubview(shared)
+            root.addSubview(tagger2)
+            root.addSubview(tagger1)
+
+            let handlers = maskHandlers()
+            let coordinator1 = PostHogTagView.Coordinator(onRemove: handlers.onRemove)
+            let coordinator2 = PostHogTagView.Coordinator(onRemove: handlers.onRemove)
+
+            resolveTagTargets(from: tagger1, coordinator: coordinator1, onChange: handlers.onChange)
+            resolveTagTargets(from: tagger2, coordinator: coordinator2, onChange: handlers.onChange)
+            #expect(shared.postHogNoCapture)
+
+            PostHogTagView.dismantleUIView(tagger2, coordinator: coordinator2)
+            #expect(shared.postHogNoCapture, "still owned by the first mask")
+
+            PostHogTagView.dismantleUIView(tagger1, coordinator: coordinator1)
+            #expect(!shared.postHogNoCapture)
+        }
+
+        @Test("re-resolution releases ownership on targets that dropped out")
+        func reconciliationReleasesDroppedTargets() {
+            let (anchor, tagger) = PostHogTaggingTestSupport.makeTagPair()
+            let root = UIView()
+            let keep = UIView()
+            let dropped = UIView()
+            root.addSubview(anchor)
+            root.addSubview(keep)
+            root.addSubview(dropped)
+            root.addSubview(tagger)
+
+            let handlers = maskHandlers()
+            let coordinator = PostHogTagView.Coordinator(onRemove: handlers.onRemove)
+
+            resolveTagTargets(from: tagger, coordinator: coordinator, onChange: handlers.onChange)
+            #expect(keep.postHogNoCapture)
+            #expect(dropped.postHogNoCapture)
+
+            // SwiftUI moves the view out of the sandwich; the next resolution must
+            // release this tagger's claim on it.
+            let elsewhere = UIView()
+            elsewhere.addSubview(dropped)
+            resolveTagTargets(from: tagger, coordinator: coordinator, onChange: handlers.onChange)
+
+            #expect(keep.postHogNoCapture)
+            #expect(!dropped.postHogNoCapture)
+        }
+
+        @Test("coalescer resolves each dirty tagger exactly once per drain")
+        func coalescerDrainsOncePerTagger() {
+            let (anchor1, tagger1) = PostHogTaggingTestSupport.makeTagPair()
+            let (anchor2, tagger2) = PostHogTaggingTestSupport.makeTagPair()
+            let root = UIView()
+            root.addSubview(anchor1)
+            root.addSubview(anchor2)
+            root.addSubview(tagger2)
+            root.addSubview(tagger1)
+
+            var resolutions1 = 0
+            var resolutions2 = 0
+            tagger1.handler = { resolutions1 += 1 }
+            tagger2.handler = { resolutions2 += 1 }
+
+            PostHogTagResolutionCoalescer.markDirty(tagger1)
+            PostHogTagResolutionCoalescer.markDirty(tagger1)
+            PostHogTagResolutionCoalescer.markDirty(tagger2)
+            PostHogTagResolutionCoalescer.markDirty(tagger1)
+            PostHogTagResolutionCoalescer.drainForTesting()
+
+            #expect(resolutions1 == 1)
+            #expect(resolutions2 == 1)
+
+            PostHogTagResolutionCoalescer.drainForTesting()
+            #expect(resolutions1 == 1, "drained set does not fire again")
         }
     }
 #endif

@@ -39,10 +39,15 @@
             return false
         }
 
-        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier.
+        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier. Owner-set
+        /// backed (see `PostHogFlagOwners`) so overlapping regions don't clear each
+        /// other on teardown.
         var postHogNoRageClick: Bool {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoRageClick) as? Bool ?? false }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoRageClick, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+            isPostHogFlagOwned(&AssociatedKeys.phNoRageClick)
+        }
+
+        func setPostHogNoRageClick(_ enabled: Bool, owner: ObjectIdentifier) {
+            setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
         func toImage(afterScreenUpdates: Bool = false) -> UIImage? {
@@ -79,10 +84,14 @@
             convert(bounds, to: window?.layer)
         }
 
-        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on layer-backed views.
+        /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on layer-backed
+        /// views. Owner-set backed, same as the UIView flag.
         var postHogNoRageClick: Bool {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoRageClick) as? Bool ?? false }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoRageClick, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+            isPostHogFlagOwned(&AssociatedKeys.phNoRageClick)
+        }
+
+        func setPostHogNoRageClick(_ enabled: Bool, owner: ObjectIdentifier) {
+            setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
     }
 #endif

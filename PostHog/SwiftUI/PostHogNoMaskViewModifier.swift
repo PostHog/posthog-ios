@@ -42,30 +42,38 @@
         func postHogNoMask() -> some View {
             modifier(
                 PostHogTagViewModifier(
-                    onChange: { views, layers in
-                        views.forEach { $0.postHogNoMask = true }
-                        layers.forEach { $0.postHogNoMask = true }
+                    onChange: { owner, views, layers in
+                        views.forEach { $0.setPostHogNoMask(true, owner: owner) }
+                        layers.forEach { $0.setPostHogNoMask(true, owner: owner) }
                     },
-                    onRemove: { views, layers in
-                        views.forEach { $0.postHogNoMask = false }
-                        layers.forEach { $0.postHogNoMask = false }
+                    onRemove: { owner, views, layers in
+                        views.forEach { $0.setPostHogNoMask(false, owner: owner) }
+                        layers.forEach { $0.setPostHogNoMask(false, owner: owner) }
                     }
                 )
             )
         }
     }
 
+    // Same ref-counted ownership as `postHogNoCapture` (see PostHogFlagOwners):
+    // overlapping no-mask regions must not clear each other on teardown.
     extension UIView {
         var postHogNoMask: Bool {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoMask) as? Bool ?? false }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoMask, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+            isPostHogFlagOwned(&AssociatedKeys.phNoMask)
+        }
+
+        func setPostHogNoMask(_ enabled: Bool, owner: ObjectIdentifier) {
+            setPostHogFlag(&AssociatedKeys.phNoMask, enabled: enabled, owner: owner)
         }
     }
 
     extension CALayer {
         var postHogNoMask: Bool {
-            get { objc_getAssociatedObject(self, &AssociatedKeys.phNoMask) as? Bool ?? false }
-            set { objc_setAssociatedObject(self, &AssociatedKeys.phNoMask, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+            isPostHogFlagOwned(&AssociatedKeys.phNoMask)
+        }
+
+        func setPostHogNoMask(_ enabled: Bool, owner: ObjectIdentifier) {
+            setPostHogFlag(&AssociatedKeys.phNoMask, enabled: enabled, owner: owner)
         }
     }
 

@@ -29,7 +29,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         #if os(iOS)
             guard #available(iOS 15.0, *) else { return }
 
-            if surveysWindow == nil {
+            if displayController == nil {
                 // setup window for first-time display
                 setupWindow()
             }
@@ -143,3 +143,12 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         }
     #endif
 }
+
+#if os(iOS) && TESTING
+    extension PostHogSurveysDefaultDelegate {
+        /// Injects a display controller so tests can drive rendering without a `UIWindowScene`
+        func setDisplayControllerForTesting(_ controller: SurveyDisplayController) {
+            displayController = controller
+        }
+    }
+#endif

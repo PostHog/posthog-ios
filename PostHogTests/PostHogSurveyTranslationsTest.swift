@@ -624,6 +624,63 @@
                     #expect(controller.displayedSurvey == nil)
                 }
             }
+
+            @Suite("Test default delegate delayed display update", .serialized)
+            struct TestDefaultDelegateDelayedDisplay {
+                private func displaySurvey(name: String, delaySeconds: TimeInterval) -> PostHogDisplaySurvey {
+                    PostHogDisplaySurvey(
+                        id: "survey-1",
+                        name: name,
+                        questions: [],
+                        appearance: PostHogDisplaySurveyAppearance(
+                            fontFamily: nil,
+                            backgroundColor: nil,
+                            borderColor: nil,
+                            submitButtonColor: nil,
+                            submitButtonText: nil,
+                            submitButtonTextColor: nil,
+                            textColor: nil,
+                            descriptionTextColor: nil,
+                            ratingButtonColor: nil,
+                            ratingButtonActiveColor: nil,
+                            inputBackground: nil,
+                            inputTextColor: nil,
+                            placeholder: nil,
+                            surveyPopupDelaySeconds: delaySeconds,
+                            displayThankYouMessage: false,
+                            thankYouMessageHeader: nil,
+                            thankYouMessageDescription: nil,
+                            thankYouMessageDescriptionContentType: nil,
+                            thankYouMessageCloseButtonText: nil
+                        ),
+                        startDate: nil,
+                        endDate: nil
+                    )
+                }
+
+                @MainActor
+                @Test("survey updated during its display delay shows the updated copy")
+                func delayedDisplayShowsUpdatedCopy() async throws {
+                    let delegate = PostHogSurveysDefaultDelegate()
+                    let controller = SurveyDisplayController()
+                    delegate.setDisplayControllerForTesting(controller)
+
+                    delegate.renderSurvey(
+                        displaySurvey(name: "Original", delaySeconds: 0.1),
+                        onSurveyShown: { _ in },
+                        onSurveyResponse: { _, _, _ in nil },
+                        onSurveyClosed: { _ in }
+                    )
+                    #expect(controller.displayedSurvey == nil)
+
+                    delegate.updateSurvey(displaySurvey(name: "Updated", delaySeconds: 0.1))
+
+                    for _ in 0 ..< 100 where controller.displayedSurvey == nil {
+                        try await Task.sleep(nanoseconds: 20_000_000)
+                    }
+                    #expect(controller.displayedSurvey?.name == "Updated")
+                }
+            }
         #endif
 
         @Suite("Test display survey with translations")

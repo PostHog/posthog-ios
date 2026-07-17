@@ -26,6 +26,7 @@ class MockPostHogServer {
     var flagsRequests = [URLRequest]()
     private var stubDescriptors = [HTTPStubsDescriptor]()
     var flagsResponseDelay: TimeInterval = 0
+    var configResponseDelay: TimeInterval = 0
     var flagsResponseHandler: ((URLRequest) -> HTTPStubsResponse)?
     /// If set, the closure is invoked for each `/i/v1/logs` request (with the
     /// 1-based request number) and returns the stub response. If `nil`, the
@@ -439,7 +440,11 @@ class MockPostHogServer {
                 }
                 """.data(using: .utf8)!
 
-            return HTTPStubsResponse(data: configData, statusCode: 200, headers: nil)
+            let response = HTTPStubsResponse(data: configData, statusCode: 200, headers: nil)
+            if self.configResponseDelay > 0 {
+                response.responseTime = self.configResponseDelay
+            }
+            return response
         })
 
         HTTPStubs.onStubActivation { request, _, _ in

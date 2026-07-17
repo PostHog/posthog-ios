@@ -163,6 +163,8 @@ class PostHogIntegrationInstallationTest {
             // Start with no cached config (hasFetchedRemoteConfig=false) → integration installs.
             // Then simulate remote config arriving with autocaptureExceptions=false → integration uninstalls.
             server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
+            // Hold the /config response so the installed-by-default state is observable before it lands.
+            server.configResponseDelay = 0.5
 
             let token = "test_error_tracking_\(UUID().uuidString)"
             let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
@@ -183,11 +185,10 @@ class PostHogIntegrationInstallationTest {
             // Before /config arrives the integration must be installed (default-on)
             #expect(sut.getErrorTrackingIntegration() != nil)
 
-            // Wait for /config to arrive
-            let remoteConfigLoaded = AsyncLatch()
-            let token2 = sut.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in remoteConfigLoaded.signal() }
-            await remoteConfigLoaded.wait()
-            _ = token2
+            // Poll for the end state rather than awaiting onRemoteConfigLoaded: multicast callbacks
+            // are unordered, so a subscriber can be notified before the integration's own removal
+            // callback has run.
+            await waitUntil(timeout: 10) { sut.getErrorTrackingIntegration() == nil }
 
             // After /config with autocaptureExceptions=false the integration must be removed
             #expect(sut.getErrorTrackingIntegration() == nil)
@@ -212,10 +213,12 @@ class PostHogIntegrationInstallationTest {
             let sut = PostHogSDK.with(config)
             defer { sut.close() }
 
-            let remoteConfigLoaded = AsyncLatch()
-            let token2 = sut.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in remoteConfigLoaded.signal() }
-            await remoteConfigLoaded.wait()
-            _ = token2
+            #expect(sut.getErrorTrackingIntegration() != nil)
+
+            // onRemoteConfigLoaded is enqueued on main before hasFetchedRemoteConfig flips, so a
+            // main-queue hop after the flag flips guarantees any removal callback has already run.
+            await waitUntil(timeout: 10) { sut.remoteConfig?.hasFetchedRemoteConfig == true }
+            await MainActor.run {}
 
             #expect(sut.getErrorTrackingIntegration() != nil)
         }

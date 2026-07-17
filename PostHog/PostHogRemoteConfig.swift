@@ -769,6 +769,7 @@ class PostHogRemoteConfig {
             // Clear from disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
         }
+        onPersonPropertiesForFlagsChanged.invoke(())
     }
 
     func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {

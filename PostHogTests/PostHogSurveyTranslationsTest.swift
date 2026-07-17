@@ -550,6 +550,31 @@
                     postHog.reset()
                 }
 
+                @Test("resetting person properties reverts the active survey language")
+                func resetRevertsActiveSurveyLanguage() async throws {
+                    let postHog = getSut()
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+
+                    postHog.resetPersonPropertiesForFlags(reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(integration.testActiveSurveyLanguage == nil)
+                    #expect(spy.updatedSurveys.count == 2)
+                    #expect(spy.updatedSurveys.last?.name == "Original")
+
+                    postHog.close()
+                    postHog.reset()
+                }
+
                 @Test("no active survey means no update is pushed")
                 func noActiveSurveyIsNoop() async throws {
                     let postHog = getSut()

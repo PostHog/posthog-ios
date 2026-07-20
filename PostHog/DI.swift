@@ -24,5 +24,10 @@ enum DI {
             // publishes global view layout events within a throttle interval (UIView.layoutSubviews)
             lazy var viewLayoutPublisher: ViewLayoutPublishing = ApplicationViewLayoutPublisher.shared
         #endif
+
+        #if os(iOS) || os(macOS)
+            // publishes push notification events (device token, notification open)
+            lazy var pushNotificationPublisher: PushNotificationPublishing = PushNotificationPublisher.shared
+        #endif
     }
 }

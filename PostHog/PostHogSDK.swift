@@ -17,6 +17,10 @@ import Foundation
     import WatchKit
 #endif
 
+#if os(iOS) || os(macOS)
+    import UserNotifications
+#endif
+
 // SDK compliance harness 0.9.0 validates retry timing against this base cadence.
 let retryDelay = 1.0
 let maxRetryDelay = 30.0
@@ -48,6 +52,7 @@ let maxRetryDelay = 30.0
         lastScreenLock.withLock { _lastScreenName }
     }
 
+    private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
     private var queue: PostHogQueue<PostHogEvent>?
     private let exceptionStepsBufferLock = NSLock()
     private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
@@ -175,6 +180,18 @@ let maxRetryDelay = 30.0
                 context = PostHogContext()
             #endif
 
+            pushSubscriptionHandler = PostHogPushSubscriptionHandler(
+                api,
+                theStorage,
+                config,
+                distinctIdProvider: { [weak self] in self?.getDistinctId() ?? "" },
+                isConnectedProvider: { [weak self] in self?.isNetworkReachable() ?? true },
+                isAllowedProvider: { [weak self] in
+                    self.map { $0.isEnabled() && !$0.isOptOutState() } ?? false
+                },
+                onEventContextChanged: onEventContextChanged
+            )
+
             optOutLock.withLock {
                 let optOut = theStorage.getBool(forKey: .optOut)
                 config.optOut = optOut ?? config.optOut
@@ -238,6 +255,10 @@ let maxRetryDelay = 30.0
                 notifyContextDidChange()
                 notifyExceptionStepsDidChange()
             }
+
+            // Next-launch retry for a persisted, not-yet-delivered push subscription
+            // (no-ops while opted out, offline, or when the record was already delivered).
+            pushSubscriptionHandler?.retryIfNeeded()
 
             // Flush the queue when the app enters background to ensure
             // pending events are sent before the app is suspended
@@ -612,6 +633,7 @@ let maxRetryDelay = 30.0
         queue?.flush()
         replayQueue?.flush()
         logsQueue?.flush()
+        pushSubscriptionHandler?.retryIfNeeded()
     }
 
     /// Resets local identity, super properties, feature flag cache, and session state.
@@ -956,6 +978,23 @@ let maxRetryDelay = 30.0
             return true
         }
         return false
+    }
+
+    /// Best-effort connectivity check for deferring push registration while offline.
+    /// Defaults to `true` when reachability isn't available (watchOS or disabled for testing).
+    private func isNetworkReachable() -> Bool {
+        #if !os(watchOS)
+            if config.disableReachabilityForTesting {
+                return true
+            }
+            guard let reachability else { return true }
+            if case .unavailable = reachability.connection {
+                return false
+            }
+            return true
+        #else
+            return true
+        #endif
     }
 
     private func setPersonPropertiesForFlagsIfNeeded(
@@ -2323,6 +2362,7 @@ let maxRetryDelay = 30.0
             queue = nil
             replayQueue = nil
             logsQueue = nil
+            pushSubscriptionHandler = nil
             // Closing ends the run: clear the buffer, which publishes empty steps so the integration
             // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)
             let bufferToClear = exceptionStepsBuffer
@@ -2824,6 +2864,124 @@ let maxRetryDelay = 30.0
             onExceptionStepsChanged.invoke(steps)
         }
     }
+
+    // MARK: - Push Notifications
+
+    /// Sends a device push token to PostHog so Workflows can deliver push notifications to this device.
+    ///
+    /// Call this from `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` when you don't
+    /// rely on automatic swizzling (for example when `enableSwizzling` is `false`).
+    ///
+    /// The token is linked to the current distinct id, so it follows the user across `identify(_:)`.
+    ///
+    /// - Note: Registration is iOS-only in this version; calling this from another platform still
+    ///   sends a request labeled `platform: "ios"`.
+    ///
+    /// - Parameter deviceToken: The APNs token as a lowercase-hex string. Convert a `Data` token via
+    ///   `token.map { String(format: "%02x", $0) }.joined()`.
+    @objc public func handlePushNotificationDeviceToken(_ deviceToken: String) {
+        handlePushNotificationDeviceToken(deviceToken, appId: nil)
+    }
+
+    /// Sends a device push token to PostHog under an explicit app id.
+    ///
+    /// Use the `appId` overload when relaying a token obtained through another provider (for example a
+    /// Firebase `project_id`). When `appId` is `nil` the app's bundle identifier is used.
+    ///
+    /// - Note: Registration is iOS-only in this version; calling this from another platform still
+    ///   sends a request labeled `platform: "ios"`.
+    ///
+    /// - Parameters:
+    ///   - deviceToken: The push token string (APNs lowercase-hex, or an FCM token verbatim).
+    ///   - appId: The app identifier the token belongs to, or `nil` to use the bundle identifier.
+    @objc public func handlePushNotificationDeviceToken(_ deviceToken: String, appId: String?) {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        pushSubscriptionHandler?.send(deviceToken: deviceToken, appId: appId)
+    }
+
+    #if os(iOS) || os(macOS)
+        /// Manually captures a `$push_notification_opened` event for a notification the user tapped.
+        ///
+        /// Use this when you're not relying on the automatic swizzling installed by
+        /// `capturePushNotificationOpened`, for example when `enableSwizzling` is `false` or when you
+        /// manage your own `UNUserNotificationCenterDelegate`. Call it from your
+        /// `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
+        ///
+        /// - Parameter response: The `UNNotificationResponse` received from the system.
+        @available(iOS 14.0, macOS 11.0, *)
+        @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
+            let content = response.notification.request.content
+            capturePushNotificationOpened(
+                title: content.title,
+                subtitle: content.subtitle,
+                body: content.body,
+                userInfo: content.userInfo,
+                actionIdentifier: response.actionIdentifier
+            )
+        }
+
+        func capturePushNotificationOpened(
+            title: String,
+            subtitle: String,
+            body: String,
+            userInfo: [AnyHashable: Any],
+            actionIdentifier: String
+        ) {
+            if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                return
+            }
+
+            var properties: [String: Any] = [
+                "$notification_title": title,
+            ]
+
+            if !subtitle.isEmpty {
+                properties["$notification_subtitle"] = subtitle
+            }
+
+            if !body.isEmpty {
+                properties["$notification_body"] = body
+            }
+
+            if let posthogData = posthogPayload(from: userInfo["posthog"]) {
+                for (key, value) in posthogData {
+                    properties["$notification_\(key)"] = value
+                }
+            }
+
+            if actionIdentifier != UNNotificationDefaultActionIdentifier {
+                properties["$notification_action"] = actionIdentifier
+            }
+
+            capture("$push_notification_opened", properties: properties)
+        }
+
+        /// The `posthog` attribution payload arrives as a dictionary when delivered through APNs
+        /// directly, but as a JSON string when relayed through FCM (`message.data` is string→string).
+        private func posthogPayload(from value: Any?) -> [String: Any]? {
+            if let dict = value as? [String: Any] {
+                return dict
+            }
+            if let string = value as? String {
+                if let data = string.data(using: .utf8), let dict = fromJSONData(data) {
+                    return dict
+                }
+                hedgeLog("Push notification 'posthog' payload is not a JSON object; ignoring.")
+            }
+            return nil
+        }
+    #endif
 }
 
 #if TESTING
@@ -2840,6 +2998,13 @@ let maxRetryDelay = 30.0
 
         #if os(iOS)
             func getReplayIntegration() -> PostHogReplayIntegration? {
+                getIntegration()
+            }
+        #endif
+
+        #if os(iOS) || os(macOS)
+            @available(iOS 14.0, macOS 11.0, *)
+            func getPushNotificationIntegration() -> PostHogPushNotificationOpenIntegration? {
                 getIntegration()
             }
         #endif

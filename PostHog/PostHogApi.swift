@@ -236,6 +236,42 @@ class PostHogApi {
         }.resume()
     }
 
+    /// Registers a device push token with PostHog so Workflows can deliver push notifications.
+    /// `platform` is always `ios`: registration is iOS-only in v1 (the backend rejects `macos`).
+    ///
+    /// - Parameter completion: Invoked exactly once on every code path with the HTTP status and any
+    ///   `Retry-After` header, so the caller can apply the shared retry/backoff policy.
+    func pushSubscription(
+        distinctId: String,
+        deviceToken: String,
+        appId: String,
+        completion: @escaping (PostHogUploadInfo) -> Void
+    ) {
+        guard let url = getEndpointURL("/api/push_subscriptions", relativeTo: config.host) else {
+            hedgeLog("Malformed push subscriptions URL error.")
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+        }
+
+        let toSend: [String: Any] = [
+            "api_key": config.projectToken,
+            "distinct_id": distinctId,
+            "device_token": deviceToken,
+            "platform": "ios",
+            "app_id": appId,
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
+            hedgeLog("Error parsing the push subscription body")
+            return completion(PostHogUploadInfo(statusCode: nil, error: nil))
+        }
+
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "push subscription")
+
+        session.uploadTask(with: request, from: payload) { data, response, error in
+            processUploadResponse(endpointName: "push subscription", data: data, response: response, error: error, completion: completion)
+        }.resume()
+    }
+
     func flags(
         distinctId: String,
         anonymousId: String?,

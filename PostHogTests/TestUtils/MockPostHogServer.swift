@@ -24,6 +24,14 @@ class MockPostHogServer {
     var logsExpectationCount: Int?
     var flagsExpectationCount: Int?
     var flagsRequests = [URLRequest]()
+    var pushSubscriptionRequests = [URLRequest]()
+    /// Forces `/push_subscriptions` to reply 500 (independent of the global `return500`).
+    var returnPushSubscription500 = false
+    /// When set, `/push_subscriptions` replies with this exact status code (takes precedence over the
+    /// 500 toggles). Used to exercise non-retryable responses like 400.
+    var pushSubscriptionStatusCode: Int?
+    /// When set, `/push_subscriptions` responses carry this `Retry-After` header value.
+    var pushSubscriptionRetryAfter: String?
     private var stubDescriptors = [HTTPStubsDescriptor]()
     var flagsResponseDelay: TimeInterval = 0
     var flagsResponseHandler: ((URLRequest) -> HTTPStubsResponse)?
@@ -348,6 +356,27 @@ class MockPostHogServer {
             }
         })
 
+        stubDescriptors.append(stub(condition: pathEndsWith("/push_subscriptions")) { request in
+            self.pushSubscriptionRequests.append(request)
+
+            let status: Int
+            if let code = self.pushSubscriptionStatusCode {
+                status = code
+            } else if self.return500 || self.returnPushSubscription500 {
+                status = 500
+            } else {
+                status = 200
+            }
+
+            var headers: [String: String]?
+            if let retryAfter = self.pushSubscriptionRetryAfter {
+                headers = ["Retry-After": retryAfter]
+            }
+
+            let jsonObject: Any = (200 ... 299 ~= status) ? ["distinct_id": "test", "platform": "ios"] : []
+            return HTTPStubsResponse(jsonObject: jsonObject, statusCode: Int32(status), headers: headers)
+        })
+
         stubDescriptors.append(stub(condition: pathEndsWith("/i/v1/logs")) { request in
             // Default: 200 OK. Tests can install `logsResponseHandler` to vary
             // the response per request (e.g. 413 then 200 for backpressure tests).
@@ -475,6 +504,7 @@ class MockPostHogServer {
         snapshotRequests = []
         logsRequests = []
         flagsRequests = []
+        pushSubscriptionRequests = []
         batchExpectation = XCTestExpectation(description: "\(batchCount) batch requests to occur")
         snapshotExpectation = XCTestExpectation(description: "\(snapshotCount) snapshot requests to occur")
         logsExpectation = XCTestExpectation(description: "\(logsCount) logs requests to occur")
@@ -489,6 +519,9 @@ class MockPostHogServer {
         errorsWhileComputingFlags = false
         return500 = false
         batchResponseHandler = nil
+        returnPushSubscription500 = false
+        pushSubscriptionStatusCode = nil
+        pushSubscriptionRetryAfter = nil
     }
 
     func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {

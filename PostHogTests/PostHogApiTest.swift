@@ -90,6 +90,45 @@ enum PostHogApiTests {
             #expect(resp.statusCode == 200)
         }
 
+        func testPushSubscriptionEndpoint(forHost host: String) async throws {
+            let sut = getSut(host: host)
+            let resp: PostHogUploadInfo = await getApiResponse { completion in
+                sut.pushSubscription(
+                    distinctId: "test-user",
+                    deviceToken: "abc123",
+                    appId: "com.example.app",
+                    completion: completion
+                )
+            }
+
+            #expect(resp.error == nil)
+            #expect(resp.statusCode == 200)
+        }
+
+        /// Shared test vector 3: the registration body must serialize exactly the five snake_case fields.
+        @Test("push subscription body serializes exactly the five snake_case fields")
+        func pushSubscriptionBodyFields() async throws {
+            let sut = getSut(host: "http://localhost")
+            let _: PostHogUploadInfo = await getApiResponse { completion in
+                sut.pushSubscription(
+                    distinctId: "user-42",
+                    deviceToken: "deadbeef",
+                    appId: "com.example.app",
+                    completion: completion
+                )
+            }
+
+            let request = try #require(server.pushSubscriptionRequests.first)
+            let body = try #require(server.parseRequest(request))
+
+            #expect(Set(body.keys) == ["api_key", "distinct_id", "device_token", "platform", "app_id"])
+            #expect(body["api_key"] as? String == "test_project_token")
+            #expect(body["distinct_id"] as? String == "user-42")
+            #expect(body["device_token"] as? String == "deadbeef")
+            #expect(body["platform"] as? String == "ios")
+            #expect(body["app_id"] as? String == "com.example.app")
+        }
+
         func getSut(host: String) -> PostHogApi {
             PostHogApi(PostHogConfig(projectToken: "test_project_token", host: host))
         }
@@ -171,6 +210,44 @@ enum PostHogApiTests {
         }
     }
 
+    @Suite("Test push subscription endpoint with different host paths")
+    class TestPushSubscriptionEndpoint: BaseTestSuite {
+        @Test("with host containing no path")
+        func testHostWithNoPath() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost")
+        }
+
+        @Test("with host containing no path and trailing slash")
+        func testHostWithNoPathAndTrailingSlash() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost/")
+        }
+
+        @Test("with host containing path")
+        func testHostWithPath() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost/api/v1")
+        }
+
+        @Test("with host containing path and trailing slash")
+        func testHostWithPathAndTrailingSlash() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost/api/v1/")
+        }
+
+        @Test("with host containing port number")
+        func testHostWithPortNumber() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost:9000")
+        }
+
+        @Test("with host containing port number and path")
+        func testHostWithPortNumberAndPath() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost:9000/api/v1")
+        }
+
+        @Test("with host containing port number, path and trailing slash")
+        func testHostWithPortNumberAndTrailingSlash() async throws {
+            try await testPushSubscriptionEndpoint(forHost: "http://localhost:9000/api/v1/")
+        }
+    }
+
     /// Guards the per-request Content-Encoding policy: upload endpoints
     /// declare `gzip`, /flags does not. A regression that re-added
     /// session-level gzip would silently mis-label /flags on the wire.
@@ -203,6 +280,16 @@ enum PostHogApiTests {
                 sut.logs(payload: ["resourceLogs": []], completion: completion)
             }
             let request = try #require(server.logsRequests.first)
+            #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        }
+
+        @Test("/push_subscriptions declares gzip Content-Encoding")
+        func pushSubscriptionDeclaresGzip() async throws {
+            let sut = getSut(host: "http://localhost")
+            let _: PostHogUploadInfo = await getApiResponse { completion in
+                sut.pushSubscription(distinctId: "x", deviceToken: "tok", appId: "app", completion: completion)
+            }
+            let request = try #require(server.pushSubscriptionRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
         }
 

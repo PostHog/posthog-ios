@@ -2467,6 +2467,30 @@ let maxRetryDelay = 30.0
 
             return replayIntegration?.captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame) ?? false
         }
+
+        /**
+         Displays the survey with the given ID on demand, regardless of its display conditions.
+
+         The survey must be running and present in the project's surveys. Display conditions
+         (targeting flags, event triggers, and the seen/wait-period checks) are bypassed, so this
+         also works for API-type surveys, which are never displayed automatically. If another
+         survey is already being displayed, the call is ignored.
+
+         This method will have no effect if PostHog is not enabled, or if surveys are disabled in the SDK configuration.
+
+         - Parameter surveyId: The ID of the survey to display
+         */
+        @objc public func displaySurvey(_ surveyId: String) {
+            if !isEnabled() {
+                return
+            }
+
+            guard let surveysIntegration else {
+                return hedgeLog("Cannot display survey \(surveyId) - surveys integration is not installed.")
+            }
+
+            surveysIntegration.displaySurvey(surveyId: surveyId)
+        }
     #endif
 
     /// Creates and sets up an additional SDK instance.

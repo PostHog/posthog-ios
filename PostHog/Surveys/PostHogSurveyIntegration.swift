@@ -295,24 +295,61 @@
                 // Check if there is a new popover surveys to be displayed
                 getActiveMatchingSurveys { activeSurveys in
                     if let survey = activeSurveys.first(where: self.canRenderSurvey) {
-                        let language = self.resolveDisplayLanguage()
-                        let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
-                        self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
+                        self.presentSurvey(survey)
+                    }
+                }
+            #endif
+        }
 
-                        DispatchQueue.main.async { [weak self] in
-                            if let self {
-                                // render the survey
-                                self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
-                                    survey.toDisplaySurvey(
-                                        surveyTranslation: translations.survey,
-                                        questionTranslations: translations.questions
-                                    ),
-                                    onSurveyShown: self.handleSurveyShown,
-                                    onSurveyResponse: self.handleSurveyResponse,
-                                    onSurveyClosed: self.handleSurveyClosed
-                                )
-                            }
-                        }
+        /// Displays the survey with the given ID on demand.
+        ///
+        /// Unlike automatic display, this bypasses display conditions (targeting flags, event
+        /// triggers, and the seen/wait-period checks), so it also works for API-type surveys,
+        /// which are never auto-displayed. If another survey is already being displayed, the
+        /// call is ignored.
+        func displaySurvey(surveyId: String) {
+            #if os(iOS)
+                guard #available(iOS 15.0, *) else {
+                    hedgeLog("[Surveys] Surveys can be rendered only on iOS 15+")
+                    return
+                }
+            #endif
+
+            guard canShowNextSurvey() else {
+                hedgeLog("[Surveys] Cannot display survey \(surveyId) - another survey is already being displayed")
+                return
+            }
+
+            getSurveys { [weak self] surveys in
+                guard let self else { return }
+                guard let survey = surveys.first(where: { $0.id == surveyId }) else {
+                    hedgeLog("[Surveys] Cannot display survey \(surveyId) - survey not found")
+                    return
+                }
+                self.presentSurvey(survey)
+            }
+        }
+
+        /// Resolves translations, marks the survey as active, and renders it with the configured delegate
+        private func presentSurvey(_ survey: PostHogSurvey) {
+            let language = resolveDisplayLanguage()
+            let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
+            setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
+
+            #if os(iOS)
+                guard #available(iOS 15.0, *) else { return }
+                DispatchQueue.main.async { [weak self] in
+                    if let self {
+                        // render the survey
+                        self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
+                            survey.toDisplaySurvey(
+                                surveyTranslation: translations.survey,
+                                questionTranslations: translations.questions
+                            ),
+                            onSurveyShown: self.handleSurveyShown,
+                            onSurveyResponse: self.handleSurveyResponse,
+                            onSurveyClosed: self.handleSurveyClosed
+                        )
                     }
                 }
             #endif
@@ -1064,6 +1101,10 @@
         extension PostHogSurveyIntegration {
             func setSurveys(_ surveys: [PostHogSurvey]) {
                 allSurveys = surveys
+            }
+
+            func getActiveSurvey() -> PostHogSurvey? {
+                activeSurveyLock.withLock { activeSurvey }
             }
 
             func setShownSurvey(_ survey: PostHogSurvey) {

@@ -84,6 +84,7 @@ class MockPostHogServer {
     var flagsSkipReplayVariantName = false
     var replayVariantValue: Any = true
     var quotaLimitFeatureFlags: Bool = false
+    var minimalFlagCalledEvents: Bool = false
     var remoteConfigSurveys: String?
     var hasFeatureFlags: Bool? = true
     var featureFlags: [String: Any]?
@@ -294,6 +295,10 @@ class MockPostHogServer {
                     "requestId": "0f801b5b-0776-42ca-b0f7-8375c95730bf",
                     "evaluatedAt": 1234567890,
                 ]
+            }
+
+            if self.minimalFlagCalledEvents {
+                obj["minimalFlagCalledEvents"] = true
             }
 
             if self.returnReplay {

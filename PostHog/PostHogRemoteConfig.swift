@@ -39,6 +39,7 @@ class PostHogRemoteConfig {
     private var featureFlagPayloads: [String: Any]?
     private var requestId: String?
     private var evaluatedAt: Int?
+    private var minimalFlagCalledEvents: Bool?
 
     /// Copies of `config.bootstrap`, retained for `$feature_flag_called` enrichment and cleared by
     /// `clear()` (on `reset()`) so bootstrap never re-applies to a different user. Under `featureFlagsLock`.
@@ -72,6 +73,15 @@ class PostHogRemoteConfig {
     var lastEvaluatedAt: Int? {
         featureFlagsLock.withLock {
             getCachedValue(\.evaluatedAt, key: .evaluatedAt) { storage.getInt(forKey: $0) }
+        }
+    }
+
+    /// Whether the server gated this project into minimal `$feature_flag_called` events
+    /// (top-level `minimalFlagCalledEvents` of the v2 `/flags` response). Absent from the
+    /// response or cache means `false`, so the SDK fails safe to full events.
+    var sendMinimalFlagCalledEvents: Bool {
+        featureFlagsLock.withLock {
+            getCachedValue(\.minimalFlagCalledEvents, key: .minimalFlagCalledEvents) { storage.getBool(forKey: $0) } ?? false
         }
     }
 
@@ -432,6 +442,10 @@ class PostHogRemoteConfig {
                     if let evaluatedAt {
                         self.setCachedEvaluatedAt(evaluatedAt)
                     }
+
+                    // Persist the minimal $feature_flag_called gate alongside the cached flags so it
+                    // survives restarts. Set unconditionally: an absent field means the gate is off.
+                    self.setCachedMinimalFlagCalledEvents(data["minimalFlagCalledEvents"] as? Bool)
 
                     if errorsWhileComputingFlags {
                         let cachedFlags = self.getCachedFlags() ?? [:]
@@ -921,12 +935,22 @@ class PostHogRemoteConfig {
         }
     }
 
+    // To be called after acquiring `featureFlagsLock`
+    private func setCachedMinimalFlagCalledEvents(_ value: Bool?) {
+        setCachedValue(value, cache: \.minimalFlagCalledEvents, key: .minimalFlagCalledEvents) { key, value in
+            storage.setBool(forKey: key, contents: value)
+        }
+    }
+
     private func getCachedValue<T>(
-        _ cache: KeyPath<PostHogRemoteConfig, T?>,
+        _ cache: ReferenceWritableKeyPath<PostHogRemoteConfig, T?>,
         key: PostHogStorage.StorageKey,
         load: (PostHogStorage.StorageKey) -> T?
     ) -> T? {
-        self[keyPath: cache] ?? load(key)
+        if self[keyPath: cache] == nil {
+            self[keyPath: cache] = load(key)
+        }
+        return self[keyPath: cache]
     }
 
     private func setCachedValue<T>(
@@ -989,6 +1013,7 @@ class PostHogRemoteConfig {
         setCachedFeatureFlagPayload([:])
         setCachedRequestId(nil) // requestId no longer valid
         setCachedEvaluatedAt(nil) // evaluatedAt no longer valid
+        setCachedMinimalFlagCalledEvents(nil) // gate travels with the cached flags; re-arms on the next /flags
     }
 
     /// Clears all cached feature flags, remote config state, and user-specific properties.

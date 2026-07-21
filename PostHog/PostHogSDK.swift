@@ -2181,9 +2181,9 @@ let maxRetryDelay = 30.0
     }
 
     /// The strict property allowlist for minimal `$feature_flag_called` events. Everything else —
-    /// registered super properties, the device/OS context envelope, `$active_feature_flags`, the
-    /// `$feature/<key>` enumeration, bootstrap enrichment — is stripped. Kept in sync with the
-    /// cross-SDK minimal `$feature_flag_called` contract.
+    /// registered super properties, `$active_feature_flags`, the `$feature/<key>` enumeration,
+    /// bootstrap enrichment — is stripped. Kept in sync with the cross-SDK minimal
+    /// `$feature_flag_called` contract.
     private static let minimalFeatureFlagCalledProperties: Set<String> = [
         "$feature_flag",
         "$feature_flag_response",
@@ -2198,6 +2198,11 @@ let maxRetryDelay = 30.0
         "$session_id",
         "$lib",
         "$lib_version",
+        // Mobile's debug/breakdown analog to python's $os/$os_version/$python_runtime and browser
+        // JS's $current_url/$pathname: kept so OS- and app-version-segmented insights still work.
+        "$os_name",
+        "$os_version",
+        "$app_version",
         // Forward-looking cross-SDK contract entries: not produced by buildProperties for
         // $feature_flag_called on iOS today ($device_id is added later by PostHogApi on the
         // /flags request only; $window_id is snapshot-only; $feature_flag_error isn't emitted

@@ -528,8 +528,9 @@ class PostHogSDKTest: QuickSpec {
 
             let event = events.first!
             expect(event.event) == "$feature_flag_called"
-            // Strict allowlist: everything else (context envelope, super properties,
-            // $active_feature_flags, $feature/<key>, $is_identified) is stripped.
+            // Strict allowlist: everything else (super properties, $active_feature_flags,
+            // $feature/<key>, $is_identified) is stripped; $os_name/$os_version/$app_version
+            // survive as mobile's OS- and app-version-breakdown analog.
             expect(Set(event.properties.keys)) == Set([
                 "$feature_flag",
                 "$feature_flag_response",
@@ -543,6 +544,9 @@ class PostHogSDKTest: QuickSpec {
                 "$session_id",
                 "$lib",
                 "$lib_version",
+                "$os_name",
+                "$os_version",
+                "$app_version",
             ])
             expect(event.properties["$feature_flag"] as? String) == "string-value"
             expect(event.properties["$feature_flag_response"] as? String) == "test"
@@ -585,6 +589,9 @@ class PostHogSDKTest: QuickSpec {
                 "$session_id",
                 "$lib",
                 "$lib_version",
+                "$os_name",
+                "$os_version",
+                "$app_version",
             ])
             let groups = event.properties["$groups"] as? [String: String]
             expect(groups?["some-type"]) == "some-key"

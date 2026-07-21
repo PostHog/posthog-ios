@@ -566,6 +566,45 @@
 
                     #expect(spy.updatedSurveys.isEmpty)
                 }
+
+                @Test("survey shown reconciles a language change that landed before display")
+                func showReconcilesPreDisplayLanguageChange() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    // Survey is set up (rendered) in the base language but not yet shown.
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+
+                    // A language change commits before the survey reaches the screen. On a real
+                    // controller this update is dropped (nothing displayed yet); the tracked language
+                    // still advances to `fr`.
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+                    let updatesBeforeShow = spy.updatedSurveys.count
+
+                    // When the survey is finally shown, the missed translation is reconciled.
+                    integration.testHandleSurveyShown(survey: translatedSurvey().toDisplaySurvey())
+                    await drainMainQueue()
+
+                    #expect(spy.updatedSurveys.count == updatesBeforeShow + 1)
+                    #expect(spy.updatedSurveys.last?.name == "Bonjour")
+                    #expect(spy.updatedSurveys.last?.questions.first?.question == "Question FR?")
+                }
+
+                @Test("survey shown does not reconcile when the rendered language is current")
+                func showDoesNotReconcileWhenLanguageUnchanged() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    integration.testHandleSurveyShown(survey: translatedSurvey().toDisplaySurvey())
+                    await drainMainQueue()
+
+                    #expect(spy.updatedSurveys.isEmpty)
+                }
             }
 
             @Suite("Test display controller in-place update")

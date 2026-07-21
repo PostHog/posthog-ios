@@ -47,6 +47,11 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
+        /// Language the on-screen survey content was actually rendered with. Set when the survey is
+        /// set up and updated by the show-time reconcile. Deliberately NOT touched by
+        /// `refreshActiveSurveyTranslations`, whose `updateSurvey` is dropped when the survey isn't
+        /// displayable yet — leaving this behind lets `handleSurveyShown` detect that drop.
+        private var activeSurveyRenderedLanguage: String?
         private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         private var activeSurveyResponses: [String: PostHogSurveyResponse] = [:] // keyed by question identifier
         private var activeSurveyCompleted: Bool = false
@@ -494,13 +499,19 @@
 
         /// Handle a survey that is shown
         private func handleSurveyShown(survey: PostHogDisplaySurvey) {
-            let (activeSurvey, language) = activeSurveyLock.withLock { (self.activeSurvey, self.activeSurveyLanguage) }
+            let activeSurvey = activeSurveyLock.withLock { self.activeSurvey }
 
             guard let activeSurvey, survey.id == activeSurvey.id else {
                 hedgeLog("[Surveys] Received a show event for a non-active survey")
                 return
             }
 
+            // A language change that committed while the survey was still being set up would have
+            // dropped its `updateSurvey` (nothing was on screen yet). Now that it's visible, push the
+            // current translation once if the rendered language fell behind the tracked one.
+            reconcileRenderedTranslationOnShow(activeSurvey: activeSurvey)
+
+            let language = activeSurveyLock.withLock { self.activeSurveyLanguage }
             sendSurveyShownEvent(survey: activeSurvey, language: language)
 
             // clear up event-activated surveys
@@ -508,6 +519,38 @@
                 eventActivatedSurveysLock.withLock {
                     _ = eventActivatedSurveys.remove(activeSurvey.id)
                 }
+            }
+        }
+
+        /// Re-delivers the current translation when a language change committed after `setActiveSurvey`
+        /// but before the survey reached the screen — in that window its `updateSurvey` is dropped
+        /// (nothing displayed, no pending survey) and later refreshes no-op since the tracked language
+        /// already matches. Called when the survey becomes visible: if the rendered language fell behind
+        /// the tracked one, re-resolve and push a single update so the on-screen content catches up.
+        private func reconcileRenderedTranslationOnShow(activeSurvey: PostHogSurvey) {
+            guard #available(iOS 15.0, *),
+                  let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
+            else { return }
+
+            let displaySurvey: PostHogDisplaySurvey? = activeSurveyLock.withLock {
+                guard activeSurveyRenderedLanguage != activeSurveyLanguage else { return nil }
+
+                let language = resolveDisplayLanguage()
+                let translations = resolveSurveyTranslations(survey: activeSurvey, targetLanguage: language)
+                activeSurveyLanguage = translations.matchedKey
+                activeSurveyQuestionTranslations = translations.questions
+                activeSurveyRenderedLanguage = translations.matchedKey
+
+                return activeSurvey.toDisplaySurvey(
+                    surveyTranslation: translations.survey,
+                    questionTranslations: translations.questions
+                )
+            }
+
+            guard let displaySurvey else { return }
+
+            DispatchQueue.main.async {
+                updateSurvey(displaySurvey)
             }
         }
 
@@ -770,6 +813,7 @@
                 if activeSurvey == nil {
                     activeSurvey = survey
                     activeSurveyLanguage = language
+                    activeSurveyRenderedLanguage = language
                     activeSurveyQuestionTranslations = questionTranslations
                     activeSurveyCompleted = false
                     activeSurveyResponses = [:]
@@ -782,6 +826,7 @@
             activeSurveyLock.withLock {
                 activeSurvey = nil
                 activeSurveyLanguage = nil
+                activeSurveyRenderedLanguage = nil
                 activeSurveyQuestionTranslations = nil
                 activeSurveyCompleted = false
                 activeSurveyResponses = [:]
@@ -1025,6 +1070,10 @@
 
             func testSendSurveyShownEvent(survey: PostHogSurvey, language: String? = nil) {
                 sendSurveyShownEvent(survey: survey, language: language)
+            }
+
+            func testHandleSurveyShown(survey: PostHogDisplaySurvey) {
+                handleSurveyShown(survey: survey)
             }
 
             func testSendSurveySentEvent(

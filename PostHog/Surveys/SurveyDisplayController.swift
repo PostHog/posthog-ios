@@ -64,9 +64,11 @@
             if let survey = displayedSurvey {
                 onSurveyClosed?(survey)
             }
+            // Only clear the survey reference. Leave `currentQuestionIndex`/`isSurveyCompleted`
+            // untouched so the sheet, which now observes this controller live, keeps rendering its
+            // final frame through the dismiss animation instead of snapping back to question 1.
+            // Both are reset by `showSurvey` before the next survey is presented.
             displayedSurvey = nil
-            isSurveyCompleted = false
-            currentQuestionIndex = 0
         }
     }
 

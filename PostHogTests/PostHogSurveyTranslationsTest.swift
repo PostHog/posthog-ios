@@ -203,17 +203,23 @@
         @Suite("Test survey_language event property", .serialized)
         class TestSurveyLanguageEventProperty {
             let server: MockPostHogServer
+            let postHog: PostHogSDK
 
             init() {
                 server = MockPostHogServer()
                 server.start()
+                postHog = Self.getSut()
             }
 
             deinit {
+                // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
+                // (and its person-property subscription) into the next serialized test.
+                postHog.close()
+                postHog.reset()
                 server.stop()
             }
 
-            private func getSut() -> PostHogSDK {
+            private static func getSut() -> PostHogSDK {
                 let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
                 config._surveys = true
                 config.flushAt = 1
@@ -267,32 +273,25 @@
 
             @Test("survey shown stamps $survey_language when language is set")
             func surveyShownStampsLanguage() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyShownEvent(survey: minimalSurvey(), language: "fr")
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey shown")
                 #expect(events[0].properties["$survey_language"] as? String == "fr")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey shown omits $survey_language when no language matched")
             func surveyShownOmitsLanguageWhenNil() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyShownEvent(survey: minimalSurvey(), language: nil)
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].properties["$survey_language"] == nil)
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey sent stamps $survey_language when set")
             func surveySentStampsLanguage() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveySentEvent(
                     survey: minimalSurvey(),
@@ -303,13 +302,10 @@
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey sent")
                 #expect(events[0].properties["$survey_language"] as? String == "pt")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey sent carries translated question text in $survey_questions")
             func surveySentCarriesTranslatedQuestionText() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 let translation = PostHogSurveyQuestionTranslation(
                     question: "Question traduite?",
@@ -330,33 +326,25 @@
                 #expect(events.count == 1)
                 let questions = events[0].properties["$survey_questions"] as? [[String: Any]]
                 #expect(questions?.first?["question"] as? String == "Question traduite?")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey dismissed stamps $survey_language when set")
             func surveyDismissedStampsLanguage() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyDismissedEvent(survey: minimalSurvey(), language: "fr")
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey dismissed")
                 #expect(events[0].properties["$survey_language"] as? String == "fr")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey dismissed omits $survey_language when nil")
             func surveyDismissedOmitsLanguageWhenNil() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyDismissedEvent(survey: minimalSurvey(), language: nil)
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].properties["$survey_language"] == nil)
-                postHog.close()
-                postHog.reset()
             }
         }
 
@@ -393,17 +381,23 @@
             @Suite("Test live translation updates", .serialized)
             class TestLiveTranslationUpdate {
                 let server: MockPostHogServer
+                let postHog: PostHogSDK
 
                 init() {
                     server = MockPostHogServer()
                     server.start()
+                    postHog = Self.getSut()
                 }
 
                 deinit {
+                    // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
+                    // (and its person-property subscription) into the next serialized test.
+                    postHog.close()
+                    postHog.reset()
                     server.stop()
                 }
 
-                private func getSut() -> PostHogSDK {
+                private static func getSut() -> PostHogSDK {
                     let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
                     config._surveys = true
                     config.flushAt = 1
@@ -477,7 +471,6 @@
 
                 @Test("changing the language person property re-translates the active survey")
                 func languageChangeRetranslatesActiveSurvey() async throws {
-                    let postHog = getSut()
                     let spy = SpySurveysDelegate()
                     // Use the backing property directly: the public `surveysConfig` accessor is
                     // gated to iOS 15+, but the delegate it exposes is not version-specific.
@@ -492,14 +485,10 @@
                     #expect(spy.updatedSurveys.count == 1)
                     #expect(spy.updatedSurveys.first?.name == "Bonjour")
                     #expect(spy.updatedSurveys.first?.questions.first?.question == "Question FR?")
-
-                    postHog.close()
-                    postHog.reset()
                 }
 
                 @Test("re-resolving the same language does not push an update")
                 func sameLanguageIsNoop() async throws {
-                    let postHog = getSut()
                     let spy = SpySurveysDelegate()
                     // Use the backing property directly: the public `surveysConfig` accessor is
                     // gated to iOS 15+, but the delegate it exposes is not version-specific.
@@ -526,14 +515,10 @@
 
                     #expect(integration.testActiveSurveyLanguage == "fr")
                     #expect(spy.updatedSurveys.isEmpty)
-
-                    postHog.close()
-                    postHog.reset()
                 }
 
                 @Test("delegate without updateSurvey keeps the rendered language")
                 func delegateWithoutUpdateSurveyKeepsState() async throws {
-                    let postHog = getSut()
                     // Use the backing property directly: the public `surveysConfig` accessor is
                     // gated to iOS 15+, but the delegate it exposes is not version-specific.
                     postHog.config._surveysConfig.surveysDelegate = NoLiveUpdateSurveysDelegate()
@@ -545,14 +530,10 @@
 
                     // Internal state must not advance past what was actually rendered.
                     #expect(integration.testActiveSurveyLanguage == nil)
-
-                    postHog.close()
-                    postHog.reset()
                 }
 
                 @Test("resetting person properties reverts the active survey language")
                 func resetRevertsActiveSurveyLanguage() async throws {
-                    let postHog = getSut()
                     let spy = SpySurveysDelegate()
                     // Use the backing property directly: the public `surveysConfig` accessor is
                     // gated to iOS 15+, but the delegate it exposes is not version-specific.
@@ -570,14 +551,10 @@
                     #expect(integration.testActiveSurveyLanguage == nil)
                     #expect(spy.updatedSurveys.count == 2)
                     #expect(spy.updatedSurveys.last?.name == "Original")
-
-                    postHog.close()
-                    postHog.reset()
                 }
 
                 @Test("no active survey means no update is pushed")
                 func noActiveSurveyIsNoop() async throws {
-                    let postHog = getSut()
                     let spy = SpySurveysDelegate()
                     // Use the backing property directly: the public `surveysConfig` accessor is
                     // gated to iOS 15+, but the delegate it exposes is not version-specific.
@@ -588,9 +565,6 @@
                     await drainMainQueue()
 
                     #expect(spy.updatedSurveys.isEmpty)
-
-                    postHog.close()
-                    postHog.reset()
                 }
             }
 

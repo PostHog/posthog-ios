@@ -340,6 +340,7 @@ PostHog | PostHogSDK.startSessionRecording() | method | @objc(startSessionRecord
 PostHog | PostHogSDK.startSessionRecording(resumeCurrent:) | method | @objc(startSessionRecordingWithResumeCurrent:) func startSessionRecording(resumeCurrent: Bool) | c:@M@PostHog@objc(cs)PostHogSDK(im)startSessionRecordingWithResumeCurrent:
 PostHog | PostHogSDK.stopSessionRecording() | method | @objc func stopSessionRecording() | c:@M@PostHog@objc(cs)PostHogSDK(im)stopSessionRecording
 PostHog | PostHogSDK.unregister(_:) | method | @objc(unregisterProperties:) func unregister(_ key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterProperties:
+PostHog | PostHogSDK.unregisterPushNotificationToken() | method | @objc func unregisterPushNotificationToken() | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterPushNotificationToken
 PostHog | PostHogSDK.with(_:) | type.method | @objc static func with(_ config: PostHogConfig) -> PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK(cm)with:
 PostHog | PostHogSessionManager | class | @objc class PostHogSessionManager | c:@M@PostHog@objc(cs)PostHogSessionManager
 PostHog | PostHogSessionManager.setSessionId(_:) | method | @objc func setSessionId(_ sessionId: String) | c:@M@PostHog@objc(cs)PostHogSessionManager(im)setSessionId:

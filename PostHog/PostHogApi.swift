@@ -83,9 +83,9 @@ class PostHogApi {
 
     /// `gzipped: true` adds `Content-Encoding: gzip` for upload endpoints
     /// (/batch, /s/, /i/v1/logs) whose bodies are gzipped.
-    private func getURLRequest(_ url: URL, gzipped: Bool = false) -> URLRequest {
+    private func getURLRequest(_ url: URL, gzipped: Bool = false, httpMethod: String = "POST") -> URLRequest {
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = httpMethod
         request.timeoutInterval = defaultTimeout
         applyCustomHeaders(&request)
         if gzipped {
@@ -110,12 +110,12 @@ class PostHogApi {
         "content-type", "user-agent", "accept-encoding", "content-encoding",
     ]
 
-    private func requestAndPayload(url: URL, data: Data, endpointName: String) -> (URLRequest, Data) {
+    private func requestAndPayload(url: URL, data: Data, endpointName: String, httpMethod: String = "POST") -> (URLRequest, Data) {
         do {
-            return (getURLRequest(url, gzipped: true), try Self.gzipData(data))
+            return (getURLRequest(url, gzipped: true, httpMethod: httpMethod), try Self.gzipData(data))
         } catch {
             hedgeLog("Error gzipping the \(endpointName) body, sending it uncompressed: \(error).")
-            return (getURLRequest(url), data)
+            return (getURLRequest(url, httpMethod: httpMethod), data)
         }
     }
 
@@ -247,6 +247,35 @@ class PostHogApi {
         appId: String,
         completion: @escaping (PostHogUploadInfo) -> Void
     ) {
+        sendPushSubscription(
+            httpMethod: "POST", endpointName: "push subscription",
+            distinctId: distinctId, deviceToken: deviceToken, appId: appId, completion: completion
+        )
+    }
+
+    /// Unregisters a device token: `DELETE /api/push_subscriptions` with the same 5-field body as
+    /// registration (the backend `$unset`s `$device_push_subscription_<app_id>`). Best-effort — the
+    /// SDK fires this once and does not retry a failure.
+    func deletePushSubscription(
+        distinctId: String,
+        deviceToken: String,
+        appId: String,
+        completion: @escaping (PostHogUploadInfo) -> Void
+    ) {
+        sendPushSubscription(
+            httpMethod: "DELETE", endpointName: "push unsubscription",
+            distinctId: distinctId, deviceToken: deviceToken, appId: appId, completion: completion
+        )
+    }
+
+    private func sendPushSubscription(
+        httpMethod: String,
+        endpointName: String,
+        distinctId: String,
+        deviceToken: String,
+        appId: String,
+        completion: @escaping (PostHogUploadInfo) -> Void
+    ) {
         guard let url = getEndpointURL("/api/push_subscriptions", relativeTo: config.host) else {
             hedgeLog("Malformed push subscriptions URL error.")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
@@ -261,14 +290,14 @@ class PostHogApi {
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
-            hedgeLog("Error parsing the push subscription body")
+            hedgeLog("Error parsing the \(endpointName) body")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: "push subscription")
+        let (request, payload) = requestAndPayload(url: url, data: data, endpointName: endpointName, httpMethod: httpMethod)
 
         session.uploadTask(with: request, from: payload) { data, response, error in
-            processUploadResponse(endpointName: "push subscription", data: data, response: response, error: error, completion: completion)
+            processUploadResponse(endpointName: endpointName, data: data, response: response, error: error, completion: completion)
         }.resume()
     }
 

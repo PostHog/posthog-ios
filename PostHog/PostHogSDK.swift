@@ -645,6 +645,15 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Snapshot the push token + old identity BEFORE storage is cleared, so it can be unregistered
+        // for the logged-out user and re-registered under the new anonymous id (decision 5/6).
+        let pushResetContext: (oldDistinctId: String, deviceToken: String, appId: String)?
+        if let record = pushSubscriptionHandler?.recordForReset() {
+            pushResetContext = (getDistinctId(), record.deviceToken, record.appId)
+        } else {
+            pushResetContext = nil
+        }
+
         // storage also removes all feature flags
         storage?.reset(keepAnonymousId: config.reuseAnonymousId)
         config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
@@ -663,6 +672,17 @@ let maxRetryDelay = 30.0
 
         // Notify integrations of context change (e.g., for crash reporting)
         notifyContextDidChange()
+
+        if let ctx = pushResetContext {
+            // Only unregister the old identity when it actually changed. When reset() keeps the same id
+            // (reuseAnonymousId on an anonymous user), the DELETE would unregister the very id we
+            // re-register under — and race the re-register on the same person. Re-register always, so the
+            // record (wiped above) is re-persisted.
+            if ctx.oldDistinctId != getDistinctId() {
+                pushSubscriptionHandler?.unregister(distinctId: ctx.oldDistinctId, deviceToken: ctx.deviceToken, appId: ctx.appId)
+            }
+            pushSubscriptionHandler?.send(deviceToken: ctx.deviceToken, appId: ctx.appId)
+        }
     }
 
     private func getGroups() -> [String: String] {
@@ -2904,6 +2924,25 @@ let maxRetryDelay = 30.0
         }
 
         pushSubscriptionHandler?.send(deviceToken: deviceToken, appId: appId)
+    }
+
+    /// Unregisters this device's push token from PostHog so Workflows stop targeting it — for example
+    /// from your logout flow.
+    ///
+    /// Sends a best-effort `DELETE /api/push_subscriptions` for the current distinct id (the backend
+    /// unsets the subscription property) and forgets the locally stored token. Unlike registration this
+    /// is not retried. It's called for you on `reset()` when `capturePushNotificationSubscriptions` is
+    /// enabled; call it directly if you manage push subscriptions yourself.
+    @objc public func unregisterPushNotificationToken() {
+        if !isEnabled() {
+            return
+        }
+
+        if isOptOutState() {
+            return
+        }
+
+        pushSubscriptionHandler?.unregisterCurrentToken()
     }
 
     #if os(iOS) || os(macOS)

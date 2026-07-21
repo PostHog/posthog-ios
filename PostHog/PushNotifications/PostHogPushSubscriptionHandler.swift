@@ -110,6 +110,45 @@ final class PostHogPushSubscriptionHandler {
         attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
     }
 
+    /// Best-effort unregister: a single `DELETE /api/push_subscriptions` for `distinctId`. Unlike
+    /// `send`, there is no retry, backoff, or persistence — a failure is logged and dropped (the
+    /// backend also unsets a dead token on the next send, and the durable path is the re-register).
+    func unregister(distinctId: String, deviceToken: String, appId: String) {
+        guard isAllowedProvider() else {
+            hedgeLog("Push unregister skipped: SDK is disabled or opted out.")
+            return
+        }
+        guard !distinctId.isEmpty, !deviceToken.isEmpty, !appId.isEmpty else {
+            hedgeLog("Push unregister skipped: missing distinct id, token, or app id.")
+            return
+        }
+        api.deletePushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { info in
+            if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
+                hedgeLog("Push subscription unregistered successfully.")
+            } else {
+                hedgeLog("Push unregister failed (status \(info.statusCode.map(String.init) ?? "none")); ignoring (best-effort).")
+            }
+        }
+    }
+
+    /// Snapshot of the stored token/appId, read *before* `reset()` clears storage so the old
+    /// identity's subscription can be DELETEd and then re-registered under the new anonymous id.
+    func recordForReset() -> (deviceToken: String, appId: String)? {
+        guard let record = loadRecord() else { return nil }
+        return (record.deviceToken, record.appId)
+    }
+
+    /// Public-API unregister: DELETE for the current distinct id, then forget the local record so a
+    /// later launch won't re-send it.
+    func unregisterCurrentToken() {
+        guard let record = loadRecord() else {
+            hedgeLog("Push unregister skipped: no registered token.")
+            return
+        }
+        unregister(distinctId: distinctIdProvider(), deviceToken: record.deviceToken, appId: record.appId)
+        storage.remove(key: .pushSubscription)
+    }
+
     // MARK: - Private
 
     private func resendIfDistinctIdChanged(currentDistinctId: String) {

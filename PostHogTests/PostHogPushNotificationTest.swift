@@ -83,11 +83,13 @@
         private func getSDK(
             optOut: Bool = false,
             enableSwizzling: Bool = true,
-            capturePushNotificationOpened: Bool = false
+            capturePushNotificationOpened: Bool = false,
+            reuseAnonymousId: Bool = false
         ) -> PostHogSDK {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.flushAt = 1
             config.optOut = optOut
+            config.reuseAnonymousId = reuseAnonymousId
             config.enableSwizzling = enableSwizzling
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
@@ -177,6 +179,112 @@
             #expect(saved?["deviceToken"] == "new-token")
             #expect(saved?["appId"] == "com.example.new")
             #expect(saved?["deliveredForDistinctId"] == nil)
+            #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        // MARK: - Unregister (decision 6)
+
+        @Test("unregister sends exactly one DELETE with the 5-field body and never retries (vector 7)")
+        func unregisterFiresOneDeleteNoRetry() async throws {
+            // Even a 500 must not be retried — unregister is best-effort, single-shot.
+            server.pushSubscriptionStatusCode = 500
+            let (handler, _, _) = makeHandler(distinctIdProvider: { "user-1" })
+
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "com.example.app")
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            // Give any (wrongful) retry a window to appear, then assert there was only one.
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            let deletes = server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }
+            #expect(deletes.count == 1)
+
+            let body = try #require(server.parseRequest(deletes[0]))
+            #expect(body["api_key"] as? String == testProjectToken)
+            #expect(body["distinct_id"] as? String == "user-1")
+            #expect(body["device_token"] as? String == "tok")
+            #expect(body["platform"] as? String == "ios")
+            #expect(body["app_id"] as? String == "com.example.app")
+        }
+
+        @Test("unregisterCurrentToken DELETEs for the current id and forgets the stored record")
+        func unregisterCurrentForgetsRecord() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-1" })
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            handler.unregisterCurrentToken()
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "user-1")
+            #expect(record(storage) == nil)
+        }
+
+        @Test("unregister is a no-op when the SDK is disabled or opted out (vector 7)")
+        func unregisterGuarded() async {
+            let (handler, _, _) = makeHandler(isAllowedProvider: { false })
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        @Test("reset() unregisters the old identity then re-registers under the new anonymous id (vector 8)")
+        func resetMovesTokenToAnonymous() async throws {
+            // Flag off — reset is record-based, not flag-gated (a manually-registered token still moves).
+            let sut = getSDK()
+            defer { sut.close() }
+
+            sut.identify("user-A")
+            sut.handlePushNotificationDeviceToken("tokA", appId: "com.example.app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+            #expect(sut.getDistinctId() == "user-A")
+            server.pushSubscriptionRequests = []
+
+            sut.reset()
+
+            #expect(await waitFor {
+                self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" }
+                    && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
+            })
+
+            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            let delBody = try #require(server.parseRequest(del))
+            #expect(delBody["distinct_id"] as? String == "user-A")
+            #expect(delBody["device_token"] as? String == "tokA")
+
+            let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+            let postBody = try #require(server.parseRequest(post))
+            #expect(postBody["device_token"] as? String == "tokA")
+            #expect(postBody["distinct_id"] as? String != "user-A")
+            #expect(postBody["distinct_id"] as? String == sut.getDistinctId())
+        }
+
+        @Test("reset() with reuseAnonymousId keeps the id: re-registers without a DELETE")
+        func resetReuseAnonymousIdSkipsDelete() async throws {
+            let sut = getSDK(reuseAnonymousId: true)
+            defer { sut.close() }
+
+            sut.handlePushNotificationDeviceToken("tokA", appId: "com.example.app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+            let idBefore = sut.getDistinctId()
+            server.pushSubscriptionRequests = []
+
+            sut.reset()
+            #expect(sut.getDistinctId() == idBefore)
+
+            // A re-register POST fires (the wiped record is re-persisted), but no DELETE — the id didn't change.
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
+        }
+
+        @Test("reset() sends no push requests when no token was ever registered")
+        func resetNoTokenNoRequests() async throws {
+            let sut = getSDK()
+            defer { sut.close() }
+
+            sut.reset()
+            try? await Task.sleep(nanoseconds: 300_000_000)
             #expect(server.pushSubscriptionRequests.isEmpty)
         }
 
@@ -362,6 +470,32 @@
             #expect(server.pushSubscriptionRequests.count == 1)
         }
 
+        @Test("opted out: an identity change does not resend (resendIfDistinctIdChanged)")
+        func optedOutIdentityChangeDoesNotResend() async throws {
+            var allowed = true
+            var distinctId = "user-1"
+            let contextChanged = PostHogMulticastCallback<[String: Any]>()
+            let (handler, storage, _) = makeHandler(
+                distinctIdProvider: { distinctId },
+                isAllowedProvider: { allowed },
+                onEventContextChanged: contextChanged
+            )
+
+            // Deliver once so the record is stamped with deliveredForDistinctId = "user-1".
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+
+            // Opt out, then change identity: resendIfDistinctIdChanged runs but the guard blocks the send.
+            allowed = false
+            distinctId = "user-2"
+            contextChanged.invoke(["distinct_id": "user-2"])
+
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.count == 1)
+            #expect(record(storage)?["deviceToken"] == "tok")
+        }
+
         // MARK: - SDK-level device token API
 
         @Test("handlePushNotificationDeviceToken with an explicit appId sends a request")
@@ -456,8 +590,8 @@
             sut.close()
         }
 
-        @Test("reset clears the persisted push subscription")
-        func sdkResetClearsPersistedSubscription() {
+        @Test("reset re-registers the persisted push subscription instead of dropping it (decision 5/6)")
+        func sdkResetReregistersPersistedSubscription() {
             let sut = getSDK()
 
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
@@ -467,7 +601,13 @@
             #expect(sut.storage?.getDictionary(forKey: .pushSubscription) != nil)
 
             sut.reset()
-            #expect(sut.storage?.getDictionary(forKey: .pushSubscription) == nil)
+
+            // The token follows the user rather than being dropped: reset() unregisters it for the old
+            // identity and re-registers it, so the record is re-persisted synchronously (the DELETE-then-POST
+            // wire behavior is covered by resetMovesTokenToAnonymous).
+            let moved = sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String]
+            #expect(moved?["deviceToken"] == "tok")
+            #expect(moved?["appId"] == "com.example.test")
 
             sut.close()
         }

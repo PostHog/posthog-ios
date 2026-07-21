@@ -74,6 +74,11 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
     /// Optional: delegates that don't support live updates can omit it and the survey simply
     /// keeps the language it was first rendered with.
     ///
+    /// Always delivered on the main thread. May arrive *before* the survey is visibly shown —
+    /// e.g. while a display delay (`surveyPopupDelaySeconds`) is still pending — so a delegate
+    /// that defers presentation must also apply the update to its pending survey, otherwise the
+    /// update is dropped and the survey shows the language it was first resolved with.
+    ///
     /// - Parameter survey: The survey with refreshed (e.g. re-translated) content. Its `id`
     ///   matches the survey passed to `renderSurvey`.
     @objc optional func updateSurvey(_ survey: PostHogDisplaySurvey)

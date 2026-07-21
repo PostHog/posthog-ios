@@ -235,7 +235,7 @@
             defer { sut.close() }
 
             sut.identify("user-A")
-            sut.handlePushNotificationDeviceToken("tokA", appId: "com.example.app")
+            sut.registerPushNotificationToken("tokA", appId: "com.example.app")
             #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
             #expect(sut.getDistinctId() == "user-A")
             server.pushSubscriptionRequests = []
@@ -264,7 +264,7 @@
             let sut = getSDK(reuseAnonymousId: true)
             defer { sut.close() }
 
-            sut.handlePushNotificationDeviceToken("tokA", appId: "com.example.app")
+            sut.registerPushNotificationToken("tokA", appId: "com.example.app")
             #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
             let idBefore = sut.getDistinctId()
             server.pushSubscriptionRequests = []
@@ -498,11 +498,11 @@
 
         // MARK: - SDK-level device token API
 
-        @Test("handlePushNotificationDeviceToken with an explicit appId sends a request")
+        @Test("registerPushNotificationToken with an explicit appId sends a request")
         func sdkHandleDeviceTokenWithExplicitAppId() async throws {
             let sut = getSDK()
 
-            sut.handlePushNotificationDeviceToken("deadbeef01", appId: "com.example.app")
+            sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
 
             #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
             let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
@@ -513,11 +513,11 @@
             sut.close()
         }
 
-        @Test("opted out: handlePushNotificationDeviceToken sends no request (vector 6)")
+        @Test("opted out: registerPushNotificationToken sends no request (vector 6)")
         func sdkRegistrationNoRequestWhenOptedOut() async throws {
             let sut = getSDK(optOut: true)
 
-            sut.handlePushNotificationDeviceToken("deadbeef", appId: "com.example.app")
+            sut.registerPushNotificationToken("deadbeef", appId: "com.example.app")
 
             try await Task.sleep(nanoseconds: 300_000_000)
             #expect(server.pushSubscriptionRequests.isEmpty)
@@ -717,6 +717,26 @@
             #expect(event.properties["$notification_title"] as? String == "Hello")
             #expect(event.properties["$notification_subtitle"] == nil)
             #expect(event.properties["$notification_body"] == nil)
+
+            sut.close()
+        }
+
+        @Test("omits an empty title")
+        func openCaptureOmitsEmptyTitle() async throws {
+            let sut = getSDK()
+
+            sut.capturePushNotificationOpened(
+                title: "",
+                subtitle: "",
+                body: "World",
+                userInfo: [:],
+                actionIdentifier: UNNotificationDefaultActionIdentifier
+            )
+
+            let events = getBatchedEvents(server)
+            let event = try #require(events.first)
+            #expect(event.properties["$notification_title"] == nil)
+            #expect(event.properties["$notification_body"] as? String == "World")
 
             sut.close()
         }

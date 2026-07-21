@@ -40,7 +40,7 @@
                 return
             }
             token = DI.main.pushNotificationPublisher.onDeviceToken.subscribe { [weak self] tokenString in
-                self?.postHog?.handlePushNotificationDeviceToken(tokenString)
+                self?.postHog?.registerPushNotificationToken(tokenString)
             }
         }
 

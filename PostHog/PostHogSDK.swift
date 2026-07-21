@@ -2899,8 +2899,8 @@ let maxRetryDelay = 30.0
     ///
     /// - Parameter deviceToken: The APNs token as a lowercase-hex string. Convert a `Data` token via
     ///   `token.map { String(format: "%02x", $0) }.joined()`.
-    @objc public func handlePushNotificationDeviceToken(_ deviceToken: String) {
-        handlePushNotificationDeviceToken(deviceToken, appId: nil)
+    @objc public func registerPushNotificationToken(_ deviceToken: String) {
+        registerPushNotificationToken(deviceToken, appId: nil)
     }
 
     /// Sends a device push token to PostHog under an explicit app id.
@@ -2914,7 +2914,7 @@ let maxRetryDelay = 30.0
     /// - Parameters:
     ///   - deviceToken: The push token string (APNs lowercase-hex, or an FCM token verbatim).
     ///   - appId: The app identifier the token belongs to, or `nil` to use the bundle identifier.
-    @objc public func handlePushNotificationDeviceToken(_ deviceToken: String, appId: String?) {
+    @objc public func registerPushNotificationToken(_ deviceToken: String, appId: String?) {
         if !isEnabled() {
             return
         }
@@ -2981,9 +2981,11 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            var properties: [String: Any] = [
-                "$notification_title": title,
-            ]
+            var properties: [String: Any] = [:]
+
+            if !title.isEmpty {
+                properties["$notification_title"] = title
+            }
 
             if !subtitle.isEmpty {
                 properties["$notification_subtitle"] = subtitle

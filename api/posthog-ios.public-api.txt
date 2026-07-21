@@ -301,8 +301,6 @@ PostHog | PostHogSDK.getFeatureFlagResult(_:sendFeatureFlagEvent:) | method | @o
 PostHog | PostHogSDK.getSessionId() | method | @objc func getSessionId() -> String? | c:@M@PostHog@objc(cs)PostHogSDK(im)getSessionId
 PostHog | PostHogSDK.group(type:key:) | method | @objc(groupWithType:key:) func group(type: String, key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)groupWithType:key:
 PostHog | PostHogSDK.group(type:key:groupProperties:) | method | @objc(groupWithType:key:groupProperties:) func group(type: String, key: String, groupProperties: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)groupWithType:key:groupProperties:
-PostHog | PostHogSDK.handlePushNotificationDeviceToken(_:) | method | @objc func handlePushNotificationDeviceToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)handlePushNotificationDeviceToken:
-PostHog | PostHogSDK.handlePushNotificationDeviceToken(_:appId:) | method | @objc func handlePushNotificationDeviceToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)handlePushNotificationDeviceToken:appId:
 PostHog | PostHogSDK.identify(_:) | method | @objc func identify(_ distinctId: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)identify:
 PostHog | PostHogSDK.identify(_:userProperties:) | method | @objc(identifyWithDistinctId:userProperties:) func identify(_ distinctId: String, userProperties: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)identifyWithDistinctId:userProperties:
 PostHog | PostHogSDK.identify(_:userProperties:userPropertiesSetOnce:) | method | @objc(identifyWithDistinctId:userProperties:userPropertiesSetOnce:) func identify(_ distinctId: String, userProperties: [String : Any]? = nil, userPropertiesSetOnce: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)identifyWithDistinctId:userProperties:userPropertiesSetOnce:
@@ -316,6 +314,8 @@ PostHog | PostHogSDK.logger | property | @objc var logger: PostHogLogger? { get 
 PostHog | PostHogSDK.optIn() | method | @objc func optIn() | c:@M@PostHog@objc(cs)PostHogSDK(im)optIn
 PostHog | PostHogSDK.optOut() | method | @objc func optOut() | c:@M@PostHog@objc(cs)PostHogSDK(im)optOut
 PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func register(_ properties: [String : Any]) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerProperties:
+PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
+PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
 PostHog | PostHogSDK.reloadFeatureFlags() | method | @objc func reloadFeatureFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlags
 PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping () -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
 PostHog | PostHogSDK.reset() | method | @objc func reset() | c:@M@PostHog@objc(cs)PostHogSDK(im)reset

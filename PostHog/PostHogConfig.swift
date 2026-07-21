@@ -166,7 +166,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// deliver push notifications.
         ///
         /// - Note: Requires `enableSwizzling` to be `true`. To register tokens without swizzling, call
-        ///   `PostHogSDK.handlePushNotificationDeviceToken(_:)` from your own
+        ///   `PostHogSDK.registerPushNotificationToken(_:)` from your own
         ///   `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` implementation.
         ///   Registration is iOS-only in this version.
         ///

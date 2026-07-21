@@ -47,10 +47,9 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
-        /// Language the on-screen survey content was actually rendered with. Set when the survey is
-        /// set up and updated by the show-time reconcile. Deliberately NOT touched by
-        /// `refreshActiveSurveyTranslations`, whose `updateSurvey` is dropped when the survey isn't
-        /// displayable yet — leaving this behind lets `handleSurveyShown` detect that drop.
+        /// Language the on-screen survey content was actually rendered with. Deliberately not touched
+        /// by `refreshActiveSurveyTranslations` (its `updateSurvey` is dropped when the survey isn't
+        /// displayable yet), so `handleSurveyShown` can detect that drop.
         private var activeSurveyRenderedLanguage: String?
         private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         private var activeSurveyResponses: [String: PostHogSurveyResponse] = [:] // keyed by question identifier
@@ -506,11 +505,9 @@
                 return
             }
 
-            // A language change that committed while the survey was still being set up would have
-            // dropped its `updateSurvey` (nothing was on screen yet). Now that it's visible, push the
-            // current translation once if the rendered language fell behind the tracked one.
             reconcileRenderedTranslationOnShow(activeSurvey: activeSurvey)
 
+            // Read after the reconcile so the shown event reports the reconciled language.
             let language = activeSurveyLock.withLock { self.activeSurveyLanguage }
             sendSurveyShownEvent(survey: activeSurvey, language: language)
 
@@ -523,17 +520,15 @@
         }
 
         /// Re-delivers the current translation when a language change committed after `setActiveSurvey`
-        /// but before the survey reached the screen — in that window its `updateSurvey` is dropped
-        /// (nothing displayed, no pending survey) and later refreshes no-op since the tracked language
-        /// already matches. Called when the survey becomes visible: if the rendered language fell behind
-        /// the tracked one, re-resolve and push a single update so the on-screen content catches up.
+        /// but before the survey reached the screen: in that window its `updateSurvey` is dropped and
+        /// later refreshes no-op (tracked language already matches). Pushes one update to catch up.
         private func reconcileRenderedTranslationOnShow(activeSurvey: PostHogSurvey) {
             guard #available(iOS 15.0, *),
                   let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
             else { return }
 
-            let displaySurvey: PostHogDisplaySurvey? = activeSurveyLock.withLock {
-                guard activeSurveyRenderedLanguage != activeSurveyLanguage else { return nil }
+            activeSurveyLock.withLock {
+                guard activeSurveyRenderedLanguage != activeSurveyLanguage else { return }
 
                 let language = resolveDisplayLanguage()
                 let translations = resolveSurveyTranslations(survey: activeSurvey, targetLanguage: language)
@@ -541,16 +536,14 @@
                 activeSurveyQuestionTranslations = translations.questions
                 activeSurveyRenderedLanguage = translations.matchedKey
 
-                return activeSurvey.toDisplaySurvey(
+                let displaySurvey = activeSurvey.toDisplaySurvey(
                     surveyTranslation: translations.survey,
                     questionTranslations: translations.questions
                 )
-            }
 
-            guard let displaySurvey else { return }
-
-            DispatchQueue.main.async {
-                updateSurvey(displaySurvey)
+                DispatchQueue.main.async {
+                    updateSurvey(displaySurvey)
+                }
             }
         }
 

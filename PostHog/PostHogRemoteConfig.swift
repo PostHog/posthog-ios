@@ -943,11 +943,14 @@ class PostHogRemoteConfig {
     }
 
     private func getCachedValue<T>(
-        _ cache: KeyPath<PostHogRemoteConfig, T?>,
+        _ cache: ReferenceWritableKeyPath<PostHogRemoteConfig, T?>,
         key: PostHogStorage.StorageKey,
         load: (PostHogStorage.StorageKey) -> T?
     ) -> T? {
-        self[keyPath: cache] ?? load(key)
+        if self[keyPath: cache] == nil {
+            self[keyPath: cache] = load(key)
+        }
+        return self[keyPath: cache]
     }
 
     private func setCachedValue<T>(

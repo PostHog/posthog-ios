@@ -751,25 +751,34 @@ class PostHogRemoteConfig {
     }
 
     func setPersonPropertiesForFlags(_ properties: [String: Any]) {
-        personPropertiesForFlagsLock.withLock {
+        let didChange = personPropertiesForFlagsLock.withLock {
+            let previous = personPropertiesForFlags
             // Merge properties additively, similar to JS SDK behavior
             personPropertiesForFlags.merge(properties, uniquingKeysWith: { _, new in new })
             // Persist to disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
+            return !NSDictionary(dictionary: personPropertiesForFlags).isEqual(to: previous)
         }
         // Notify subscribers (e.g. surveys) so a survey already on screen can re-resolve its
-        // language if the user's `language` property changed. Invoked outside the lock so
-        // subscribers don't run while we hold it.
-        onPersonPropertiesForFlagsChanged.invoke(())
+        // language if the user's `language` property changed. Skipped when the merge changed no
+        // value so a `capture()` carrying unchanged person properties doesn't re-run survey
+        // translation resolution. Invoked outside the lock so subscribers don't run while we hold it.
+        if didChange {
+            onPersonPropertiesForFlagsChanged.invoke(())
+        }
     }
 
     func resetPersonPropertiesForFlags() {
-        personPropertiesForFlagsLock.withLock {
+        let didChange = personPropertiesForFlagsLock.withLock {
+            let hadProperties = !personPropertiesForFlags.isEmpty
             personPropertiesForFlags.removeAll()
             // Clear from disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
+            return hadProperties
         }
-        onPersonPropertiesForFlagsChanged.invoke(())
+        if didChange {
+            onPersonPropertiesForFlagsChanged.invoke(())
+        }
     }
 
     func setGroupPropertiesForFlags(_ groupType: String, properties: [String: Any]) {

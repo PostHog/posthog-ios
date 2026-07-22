@@ -33,9 +33,10 @@
         }
 
         func start() {
-            // Remote-notification registration needs a real app bundle; skip in test runners / CLI tools.
+            // App-only: `UIApplication.shared` is unavailable in app extensions, which can't register for
+            // remote notifications anyway. This also skips test runners / CLI tools.
             let bundleExtension = Bundle.main.bundleURL.pathExtension
-            guard bundleExtension == "app" || bundleExtension == "appex" else {
+            guard bundleExtension == "app" else {
                 hedgeLog("Push subscription integration: skipping setup - not running in an app context")
                 return
             }

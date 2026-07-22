@@ -288,6 +288,45 @@
             #expect(server.pushSubscriptionRequests.isEmpty)
         }
 
+        @Test("reregisterAfterReset re-persists and sends the snapshot when storage was cleared")
+        func reregisterAfterResetPersistsWhenCleared() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "anon-1" })
+
+            handler.reregisterAfterReset(deviceToken: "tok", appId: "com.example.app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            let saved = try #require(record(storage))
+            #expect(saved["deviceToken"] == "tok")
+            #expect(saved["deliveredForDistinctId"] == "anon-1")
+
+            let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
+            #expect(body["device_token"] as? String == "tok")
+            #expect(body["distinct_id"] as? String == "anon-1")
+        }
+
+        @Test("reregisterAfterReset skips when a newer token was persisted during reset (no clobber)")
+        func reregisterAfterResetSkipsWhenSuperseded() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "anon-1" })
+
+            // Simulate an APNs delivery that raced reset(): a newer token is persisted after storage was
+            // cleared but before the stale snapshot re-register runs.
+            storage.setDictionary(forKey: .pushSubscription, contents: [
+                "deviceToken": "newer-token",
+                "appId": "com.example.new",
+            ])
+
+            handler.reregisterAfterReset(deviceToken: "stale-snapshot", appId: "com.example.old")
+
+            // Give any (wrongful) send a window to appear.
+            try? await Task.sleep(nanoseconds: 200_000_000)
+
+            // Newer token untouched; no POST for the stale snapshot.
+            let saved = try #require(record(storage))
+            #expect(saved["deviceToken"] == "newer-token")
+            #expect(saved["appId"] == "com.example.new")
+            #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
         // MARK: - Retry & backoff (vector 4)
 
         @Test("retry backoff is exponential, capped at 30s (vector 4)")

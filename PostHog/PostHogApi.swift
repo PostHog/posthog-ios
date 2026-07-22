@@ -253,7 +253,7 @@ class PostHogApi {
         )
     }
 
-    /// Unregisters a device token: `DELETE /api/push_subscriptions` with the same 5-field body as
+    /// Unregisters a device token: `DELETE /api/push_subscriptions/` with the same 5-field body as
     /// registration (the backend `$unset`s `$device_push_subscription_<app_id>`). Best-effort — the
     /// SDK fires this once and does not retry a failure.
     func deletePushSubscription(
@@ -276,7 +276,7 @@ class PostHogApi {
         appId: String,
         completion: @escaping (PostHogUploadInfo) -> Void
     ) {
-        guard let url = getEndpointURL("/api/push_subscriptions", relativeTo: config.host) else {
+        guard let url = getEndpointURL("/api/push_subscriptions/", relativeTo: config.host) else {
             hedgeLog("Malformed push subscriptions URL error.")
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }

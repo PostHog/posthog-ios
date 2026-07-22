@@ -676,12 +676,11 @@ let maxRetryDelay = 30.0
         if let ctx = pushResetContext {
             // Only unregister the old identity when it actually changed. When reset() keeps the same id
             // (reuseAnonymousId on an anonymous user), the DELETE would unregister the very id we
-            // re-register under — and race the re-register on the same person. Re-register always, so the
-            // record (wiped above) is re-persisted.
+            // re-register under — and race the re-register on the same person.
             if ctx.oldDistinctId != getDistinctId() {
                 pushSubscriptionHandler?.unregister(distinctId: ctx.oldDistinctId, deviceToken: ctx.deviceToken, appId: ctx.appId)
             }
-            pushSubscriptionHandler?.send(deviceToken: ctx.deviceToken, appId: ctx.appId)
+            pushSubscriptionHandler?.reregisterAfterReset(deviceToken: ctx.deviceToken, appId: ctx.appId)
         }
     }
 
@@ -2929,10 +2928,12 @@ let maxRetryDelay = 30.0
     /// Unregisters this device's push token from PostHog so Workflows stop targeting it — for example
     /// from your logout flow.
     ///
-    /// Sends a best-effort `DELETE /api/push_subscriptions` for the current distinct id (the backend
+    /// Sends a best-effort `DELETE /api/push_subscriptions/` for the current distinct id (the backend
     /// unsets the subscription property) and forgets the locally stored token. Unlike registration this
-    /// is not retried. It's called for you on `reset()` when `capturePushNotificationSubscriptions` is
-    /// enabled; call it directly if you manage push subscriptions yourself.
+    /// is not retried. Call it directly if you manage push subscriptions yourself. On `reset()` the SDK
+    /// already moves any registered token to the new anonymous identity (unregister then re-register),
+    /// independently of `capturePushNotificationSubscriptions` — that flag only gates automatic token
+    /// subscription at startup.
     @objc public func unregisterPushNotificationToken() {
         if !isEnabled() {
             return

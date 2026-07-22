@@ -32,14 +32,22 @@ final class PostHogPushSubscriptionHandler {
     /// SDK is disabled or opted out. The record is kept so an opt-in can resume later.
     private let isAllowedProvider: () -> Bool
 
-    /// Guards `retryCount`, `pausedUntil`, `isSending`, and `halted`.
+    /// Guards `retryCount`, `pausedUntil`, `isSending`, `pendingResend`, and `halted`.
     private let stateLock = NSLock()
     private var retryCount = 0
     private var pausedUntil: Date?
     private var isSending = false
+    /// A send/resend was requested while one was already in flight: re-attempt with the latest record
+    /// once it completes so an identity change (or newer token) mid-send isn't dropped until flush().
+    private var pendingResend = false
     /// Set after a non-retryable failure or once retries are exhausted: no more attempts this session,
     /// but the record is kept for one retry on the next launch.
     private var halted = false
+
+    /// Serializes storage-record read-modify-writes (persist, deliver-stamp, unregister-clear, reset
+    /// re-register) so a concurrent `send()`, `reset()`, or send completion can't interleave and lose a
+    /// token. `PostHogStorage` does no locking of its own.
+    private let recordLock = NSLock()
 
     private var contextChangedToken: RegistrationToken?
 
@@ -78,10 +86,9 @@ final class PostHogPushSubscriptionHandler {
             return
         }
 
-        storage.setDictionary(forKey: .pushSubscription, contents: [
-            Key.deviceToken: deviceToken,
-            Key.appId: appId,
-        ])
+        recordLock.withLock {
+            writeRecord(deviceToken: deviceToken, appId: appId)
+        }
 
         // A new token supersedes any previous failure — reset the whole retry state.
         resetRetryState()
@@ -138,15 +145,39 @@ final class PostHogPushSubscriptionHandler {
         return (record.deviceToken, record.appId)
     }
 
+    /// Re-registers a token snapshotted by `recordForReset()` after `reset()` cleared storage — used
+    /// only from `reset()`. Skips if a newer token was persisted in the meantime (an APNs delivery
+    /// racing reset), so the stale snapshot can't overwrite it.
+    func reregisterAfterReset(deviceToken: String, appId: String) {
+        let superseded = recordLock.withLock { () -> Bool in
+            if loadRecordLocked() != nil {
+                return true
+            }
+            writeRecord(deviceToken: deviceToken, appId: appId)
+            return false
+        }
+        if superseded {
+            hedgeLog("Push re-register after reset skipped: a newer token superseded the snapshot.")
+            return
+        }
+        resetRetryState()
+        attemptIfAllowed(deviceToken: deviceToken, appId: appId)
+    }
+
     /// Public-API unregister: DELETE for the current distinct id, then forget the local record so a
-    /// later launch won't re-send it.
+    /// later launch won't re-send it. The load-then-clear is atomic so a concurrent `send()` can't slip
+    /// a new token in between and have it silently dropped.
     func unregisterCurrentToken() {
-        guard let record = loadRecord() else {
+        let record: PendingRecord? = recordLock.withLock {
+            guard let record = loadRecordLocked() else { return nil }
+            storage.remove(key: .pushSubscription)
+            return record
+        }
+        guard let record else {
             hedgeLog("Push unregister skipped: no registered token.")
             return
         }
         unregister(distinctId: distinctIdProvider(), deviceToken: record.deviceToken, appId: record.appId)
-        storage.remove(key: .pushSubscription)
     }
 
     // MARK: - Private
@@ -191,7 +222,12 @@ final class PostHogPushSubscriptionHandler {
         }
 
         let shouldSend = stateLock.withLock { () -> Bool in
-            if halted || isSending {
+            if halted {
+                return false
+            }
+            if isSending {
+                // Fold this request into the in-flight send; replayed on completion (see pendingResend).
+                pendingResend = true
                 return false
             }
             if let until = pausedUntil, until > Date() {
@@ -208,15 +244,32 @@ final class PostHogPushSubscriptionHandler {
     }
 
     private func handleResult(_ info: PostHogUploadInfo, deviceToken: String, appId: String, distinctId: String) {
-        stateLock.withLock { isSending = false }
+        let hadPendingResend = stateLock.withLock { () -> Bool in
+            isSending = false
+            let pending = pendingResend
+            pendingResend = false
+            return pending
+        }
 
         if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
             markDelivered(deviceToken: deviceToken, appId: appId, distinctId: distinctId)
             resetRetryState()
             hedgeLog("Push subscription sent successfully.")
-            return
+        } else {
+            handleFailure(info)
         }
 
+        // A newer registration or identity change arrived while this send was in flight. Service it with
+        // fresh retry state so the latest token isn't stranded behind this send's backoff or halt.
+        if hadPendingResend, let record = loadRecord() {
+            resetRetryState()
+            attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
+        }
+    }
+
+    /// Applies backoff/halt state for a non-2xx result. Split from `handleResult` so a coalesced resend
+    /// is serviced afterward regardless of which failure branch this took.
+    private func handleFailure(_ info: PostHogUploadInfo) {
         // Retryable: transport error (no status), 429, or 5xx. Everything else (400/401) is terminal.
         let retryable: Bool
         if let statusCode = info.statusCode {
@@ -250,21 +303,40 @@ final class PostHogPushSubscriptionHandler {
     /// Keep the delivered record so the token can be re-sent when the distinct id changes, but only if
     /// a newer token hasn't superseded it while this request was in flight.
     private func markDelivered(deviceToken: String, appId: String, distinctId: String) {
-        guard let record = loadRecord(),
-              record.deviceToken == deviceToken,
-              record.appId == appId
-        else {
-            return
-        }
+        recordLock.withLock {
+            guard let record = loadRecordLocked(),
+                  record.deviceToken == deviceToken,
+                  record.appId == appId
+            else {
+                return
+            }
 
-        storage.setDictionary(forKey: .pushSubscription, contents: [
-            Key.deviceToken: deviceToken,
-            Key.appId: appId,
-            Key.deliveredForDistinctId: distinctId,
-        ])
+            writeRecord(deviceToken: deviceToken, appId: appId, deliveredForDistinctId: distinctId)
+        }
     }
 
+    /// Persists the record. Caller must hold `recordLock`. Pass `deliveredForDistinctId` to stamp it
+    /// delivered so an identity change can trigger a resend (decision 5).
+    private func writeRecord(deviceToken: String, appId: String, deliveredForDistinctId: String? = nil) {
+        var contents = [
+            Key.deviceToken: deviceToken,
+            Key.appId: appId,
+        ]
+        if let deliveredForDistinctId {
+            contents[Key.deliveredForDistinctId] = deliveredForDistinctId
+        }
+        storage.setDictionary(forKey: .pushSubscription, contents: contents)
+    }
+
+    /// Standalone record read; acquires `recordLock`. Default-safe entry point — call this unless you
+    /// already hold `recordLock`, in which case use `loadRecordLocked()`.
     private func loadRecord() -> PendingRecord? {
+        recordLock.withLock { loadRecordLocked() }
+    }
+
+    /// Reads the record without locking; the caller MUST already hold `recordLock`. Exists only so a
+    /// read-modify-write can happen atomically inside one `recordLock` critical section.
+    private func loadRecordLocked() -> PendingRecord? {
         guard let data = storage.getDictionary(forKey: .pushSubscription) as? [String: String],
               let deviceToken = data[Key.deviceToken],
               let appId = data[Key.appId]

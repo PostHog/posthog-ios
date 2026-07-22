@@ -228,55 +228,57 @@
             #expect(server.pushSubscriptionRequests.isEmpty)
         }
 
-        @Test("reset() unregisters the old identity then re-registers under the new anonymous id (vector 8)")
-        func resetMovesTokenToAnonymous() async throws {
-            // Flag off — reset is record-based, not flag-gated (a manually-registered token still moves).
-            let sut = getSDK()
-            defer { sut.close() }
+        #if os(iOS)
+            @Test("reset() unregisters the old identity then re-registers under the new anonymous id (vector 8)")
+            func resetMovesTokenToAnonymous() async throws {
+                // Flag off — reset is record-based, not flag-gated (a manually-registered token still moves).
+                let sut = getSDK()
+                defer { sut.close() }
 
-            sut.identify("user-A")
-            sut.registerPushNotificationToken("tokA", appId: "com.example.app")
-            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
-            #expect(sut.getDistinctId() == "user-A")
-            server.pushSubscriptionRequests = []
+                sut.identify("user-A")
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                #expect(sut.getDistinctId() == "user-A")
+                server.pushSubscriptionRequests = []
 
-            sut.reset()
+                sut.reset()
 
-            #expect(await waitFor {
-                self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" }
-                    && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
-            })
+                #expect(await waitFor {
+                    self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" }
+                        && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
+                })
 
-            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
-            let delBody = try #require(server.parseRequest(del))
-            #expect(delBody["distinct_id"] as? String == "user-A")
-            #expect(delBody["device_token"] as? String == "tokA")
+                let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+                let delBody = try #require(server.parseRequest(del))
+                #expect(delBody["distinct_id"] as? String == "user-A")
+                #expect(delBody["device_token"] as? String == "tokA")
 
-            let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
-            let postBody = try #require(server.parseRequest(post))
-            #expect(postBody["device_token"] as? String == "tokA")
-            #expect(postBody["distinct_id"] as? String != "user-A")
-            #expect(postBody["distinct_id"] as? String == sut.getDistinctId())
-        }
+                let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+                let postBody = try #require(server.parseRequest(post))
+                #expect(postBody["device_token"] as? String == "tokA")
+                #expect(postBody["distinct_id"] as? String != "user-A")
+                #expect(postBody["distinct_id"] as? String == sut.getDistinctId())
+            }
 
-        @Test("reset() with reuseAnonymousId keeps the id: re-registers without a DELETE")
-        func resetReuseAnonymousIdSkipsDelete() async throws {
-            let sut = getSDK(reuseAnonymousId: true)
-            defer { sut.close() }
+            @Test("reset() with reuseAnonymousId keeps the id: re-registers without a DELETE")
+            func resetReuseAnonymousIdSkipsDelete() async throws {
+                let sut = getSDK(reuseAnonymousId: true)
+                defer { sut.close() }
 
-            sut.registerPushNotificationToken("tokA", appId: "com.example.app")
-            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
-            let idBefore = sut.getDistinctId()
-            server.pushSubscriptionRequests = []
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                let idBefore = sut.getDistinctId()
+                server.pushSubscriptionRequests = []
 
-            sut.reset()
-            #expect(sut.getDistinctId() == idBefore)
+                sut.reset()
+                #expect(sut.getDistinctId() == idBefore)
 
-            // A re-register POST fires (the wiped record is re-persisted), but no DELETE — the id didn't change.
-            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
-        }
+                // A re-register POST fires (the wiped record is re-persisted), but no DELETE — the id didn't change.
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" } })
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
+            }
+        #endif
 
         @Test("reset() sends no push requests when no token was ever registered")
         func resetNoTokenNoRequests() async throws {
@@ -537,32 +539,34 @@
 
         // MARK: - SDK-level device token API
 
-        @Test("registerPushNotificationToken with an explicit appId sends a request")
-        func sdkHandleDeviceTokenWithExplicitAppId() async throws {
-            let sut = getSDK()
+        #if os(iOS)
+            @Test("registerPushNotificationToken with an explicit appId sends a request")
+            func sdkHandleDeviceTokenWithExplicitAppId() async throws {
+                let sut = getSDK()
 
-            sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
+                sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
 
-            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
-            let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
-            #expect(body["device_token"] as? String == "deadbeef01")
-            #expect(body["app_id"] as? String == "com.example.app")
-            #expect(body["platform"] as? String == "ios")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+                let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
+                #expect(body["device_token"] as? String == "deadbeef01")
+                #expect(body["app_id"] as? String == "com.example.app")
+                #expect(body["platform"] as? String == "ios")
 
-            sut.close()
-        }
+                sut.close()
+            }
 
-        @Test("opted out: registerPushNotificationToken sends no request (vector 6)")
-        func sdkRegistrationNoRequestWhenOptedOut() async throws {
-            let sut = getSDK(optOut: true)
+            @Test("opted out: registerPushNotificationToken sends no request (vector 6)")
+            func sdkRegistrationNoRequestWhenOptedOut() async throws {
+                let sut = getSDK(optOut: true)
 
-            sut.registerPushNotificationToken("deadbeef", appId: "com.example.app")
+                sut.registerPushNotificationToken("deadbeef", appId: "com.example.app")
 
-            try await Task.sleep(nanoseconds: 300_000_000)
-            #expect(server.pushSubscriptionRequests.isEmpty)
+                try await Task.sleep(nanoseconds: 300_000_000)
+                #expect(server.pushSubscriptionRequests.isEmpty)
 
-            sut.close()
-        }
+                sut.close()
+            }
+        #endif
 
         @Test("flush retries a persisted subscription and marks it delivered")
         func sdkFlushRetriesPersistedSubscription() async throws {

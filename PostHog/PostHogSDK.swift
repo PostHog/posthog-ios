@@ -2886,65 +2886,65 @@ let maxRetryDelay = 30.0
 
     // MARK: - Push Notifications
 
-    /// Sends a device push token to PostHog so Workflows can deliver push notifications to this device.
-    ///
-    /// Call this from `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` when you don't
-    /// rely on automatic swizzling (for example when `enableSwizzling` is `false`).
-    ///
-    /// The token is linked to the current distinct id, so it follows the user across `identify(_:)`.
-    ///
-    /// - Note: Registration is iOS-only in this version; calling this from another platform still
-    ///   sends a request labeled `platform: "ios"`.
-    ///
-    /// - Parameter deviceToken: The APNs token as a lowercase-hex string. Convert a `Data` token via
-    ///   `token.map { String(format: "%02x", $0) }.joined()`.
-    @objc public func registerPushNotificationToken(_ deviceToken: String) {
-        registerPushNotificationToken(deviceToken, appId: nil)
-    }
-
-    /// Sends a device push token to PostHog under an explicit app id.
-    ///
-    /// Use the `appId` overload when relaying a token obtained through another provider (for example a
-    /// Firebase `project_id`). When `appId` is `nil` the app's bundle identifier is used.
-    ///
-    /// - Note: Registration is iOS-only in this version; calling this from another platform still
-    ///   sends a request labeled `platform: "ios"`.
-    ///
-    /// - Parameters:
-    ///   - deviceToken: The push token string (APNs lowercase-hex, or an FCM token verbatim).
-    ///   - appId: The app identifier the token belongs to, or `nil` to use the bundle identifier.
-    @objc public func registerPushNotificationToken(_ deviceToken: String, appId: String?) {
-        if !isEnabled() {
-            return
+    #if os(iOS)
+        /// Sends a device push token to PostHog so Workflows can deliver push notifications to this device.
+        ///
+        /// Call this from `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` when you don't
+        /// rely on automatic swizzling (for example when `enableSwizzling` is `false`).
+        ///
+        /// The token is linked to the current distinct id, so it follows the user across `identify(_:)`.
+        ///
+        /// - Note: Push registration is available on iOS only in this version.
+        ///
+        /// - Parameter deviceToken: The APNs token as a lowercase-hex string. Convert a `Data` token via
+        ///   `token.map { String(format: "%02x", $0) }.joined()`.
+        @objc public func registerPushNotificationToken(_ deviceToken: String) {
+            registerPushNotificationToken(deviceToken, appId: nil)
         }
 
-        if isOptOutState() {
-            return
+        /// Sends a device push token to PostHog under an explicit app id.
+        ///
+        /// Use the `appId` overload when relaying a token obtained through another provider (for example a
+        /// Firebase `project_id`). When `appId` is `nil` the app's bundle identifier is used.
+        ///
+        /// - Note: Push registration is available on iOS only in this version.
+        ///
+        /// - Parameters:
+        ///   - deviceToken: The push token string (APNs lowercase-hex, or an FCM token verbatim).
+        ///   - appId: The app identifier the token belongs to, or `nil` to use the bundle identifier.
+        @objc public func registerPushNotificationToken(_ deviceToken: String, appId: String?) {
+            if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                return
+            }
+
+            pushSubscriptionHandler?.send(deviceToken: deviceToken, appId: appId)
         }
 
-        pushSubscriptionHandler?.send(deviceToken: deviceToken, appId: appId)
-    }
+        /// Unregisters this device's push token from PostHog so Workflows stop targeting it — for example
+        /// from your logout flow.
+        ///
+        /// Sends a best-effort `DELETE /api/push_subscriptions/` for the current distinct id (the backend
+        /// unsets the subscription property) and forgets the locally stored token. Unlike registration this
+        /// is not retried. Call it directly if you manage push subscriptions yourself. On `reset()` the SDK
+        /// already moves any registered token to the new anonymous identity (unregister then re-register),
+        /// independently of `capturePushNotificationSubscriptions` — that flag only gates automatic token
+        /// subscription at startup.
+        @objc public func unregisterPushNotificationToken() {
+            if !isEnabled() {
+                return
+            }
 
-    /// Unregisters this device's push token from PostHog so Workflows stop targeting it — for example
-    /// from your logout flow.
-    ///
-    /// Sends a best-effort `DELETE /api/push_subscriptions/` for the current distinct id (the backend
-    /// unsets the subscription property) and forgets the locally stored token. Unlike registration this
-    /// is not retried. Call it directly if you manage push subscriptions yourself. On `reset()` the SDK
-    /// already moves any registered token to the new anonymous identity (unregister then re-register),
-    /// independently of `capturePushNotificationSubscriptions` — that flag only gates automatic token
-    /// subscription at startup.
-    @objc public func unregisterPushNotificationToken() {
-        if !isEnabled() {
-            return
+            if isOptOutState() {
+                return
+            }
+
+            pushSubscriptionHandler?.unregisterCurrentToken()
         }
-
-        if isOptOutState() {
-            return
-        }
-
-        pushSubscriptionHandler?.unregisterCurrentToken()
-    }
+    #endif
 
     #if os(iOS) || os(macOS)
         /// Manually captures a `$push_notification_opened` event for a notification the user tapped.

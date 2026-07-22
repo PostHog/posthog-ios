@@ -173,8 +173,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Default: true. Set to `false` to opt out.
         @objc public var capturePushNotificationSubscriptions: Bool = true
 
-        /// Automatically capture a `$push_notification_opened` event when the user taps a notification,
-        /// by swizzling `UNUserNotificationCenterDelegate`.
+        /// Automatically capture a `$push_notification_opened` event when the user taps a **remote** push
+        /// notification, by swizzling `UNUserNotificationCenterDelegate`. Locally-scheduled notifications
+        /// are ignored — call `capturePushNotificationOpened(response:)` yourself to capture those.
         ///
         /// - Note: Requires `enableSwizzling` to be `true`. To capture opens without swizzling, call
         ///   `PostHogSDK.capturePushNotificationOpened(response:)` from your own

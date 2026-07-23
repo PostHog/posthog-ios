@@ -182,26 +182,4 @@
             }
         }
     }
-
-    extension UIView {
-        /// Whether at least one mask currently claims this view.
-        var postHogNoCapture: Bool {
-            isPostHogFlagOwned(&AssociatedKeys.phNoCapture)
-        }
-
-        func setPostHogNoCapture(_ enabled: Bool, owner: ObjectIdentifier) {
-            setPostHogFlag(&AssociatedKeys.phNoCapture, enabled: enabled, owner: owner)
-        }
-    }
-
-    extension CALayer {
-        /// Whether at least one mask currently claims this layer.
-        var postHogNoCapture: Bool {
-            isPostHogFlagOwned(&AssociatedKeys.phNoCapture)
-        }
-
-        func setPostHogNoCapture(_ enabled: Bool, owner: ObjectIdentifier) {
-            setPostHogFlag(&AssociatedKeys.phNoCapture, enabled: enabled, owner: owner)
-        }
-    }
 #endif

@@ -55,8 +55,8 @@
         }
     }
 
-    // Same ref-counted ownership as `postHogNoCapture` (see PostHogFlagOwners):
-    // overlapping no-mask regions must not clear each other on teardown.
+    // Ref-counted ownership (see PostHogFlagOwners): overlapping no-mask regions
+    // must not clear each other on teardown.
     extension UIView {
         var postHogNoMask: Bool {
             isPostHogFlagOwned(&AssociatedKeys.phNoMask)

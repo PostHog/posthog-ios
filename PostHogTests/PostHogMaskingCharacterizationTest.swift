@@ -12,9 +12,8 @@
     import UIKit
 
     /// Characterization tests pinning the CURRENT behavior of the SwiftUI masking
-    /// machinery: the tag-view traversal (`getTargetViews` and its helpers), the
-    /// iOS 26 content-layer collection, and the capture-side consumption of the
-    /// `postHogNoCapture` flag (`findMaskableWidgets`).
+    /// machinery: the tag-view traversal (`getTargetViews` and its helpers) and the
+    /// iOS 26 content-layer collection.
     ///
     /// These are golden tests: they encode what the SDK does today — including
     /// behaviors that are quirky but relied upon — so that the performance rework
@@ -227,50 +226,6 @@
 
             #expect(collected.elementsEqual([content, childInside], by: ===))
         }
-
-        // MARK: - Capture-side flag consumption
-
-        @Test("findMaskableWidgets returns the absolute rect of postHogNoCapture-flagged views, and only those")
-        func maskableRectsForFlaggedViews() {
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            let container = UIView(frame: window.bounds)
-            let flagged = UIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
-            let plain = UIView(frame: CGRect(x: 10, y: 100, width: 100, height: 40))
-
-            container.addSubview(flagged)
-            container.addSubview(plain)
-            window.addSubview(container)
-
-            let owner = NSObject()
-            flagged.setPostHogNoCapture(true, owner: ObjectIdentifier(owner))
-
-            // A bare integration (no PostHogSDK attached) exercises the traversal
-            // with all config-dependent heuristics off, isolating flag consumption.
-            let integration = PostHogReplayIntegration()
-            let rects = integration.debugMaskableRects(in: window)
-
-            #expect(rects == [CGRect(x: 10, y: 20, width: 100, height: 40)])
-        }
-
-        @Test("iOS 26: findMaskableWidgets also returns rects for postHogNoCapture-flagged bare CALayers")
-        func maskableRectsForFlaggedLayers() throws {
-            guard #available(iOS 26.0, *) else { return }
-
-            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            let container = UIView(frame: window.bounds)
-            window.addSubview(container)
-
-            let contentLayer = CALayer()
-            contentLayer.frame = CGRect(x: 30, y: 60, width: 80, height: 20)
-            container.layer.addSublayer(contentLayer)
-            let owner = NSObject()
-            contentLayer.setPostHogNoCapture(true, owner: ObjectIdentifier(owner))
-
-            let integration = PostHogReplayIntegration()
-            let rects = integration.debugMaskableRects(in: window)
-
-            #expect(rects == [CGRect(x: 30, y: 60, width: 80, height: 20)])
-        }
     }
 
     /// Behavior tests for the ref-counted flag ownership and the re-resolution
@@ -283,12 +238,12 @@
         private func maskHandlers() -> (onChange: PostHogTagHandler, onRemove: PostHogTagHandler) {
             (
                 onChange: { owner, views, layers in
-                    views.forEach { $0.setPostHogNoCapture(true, owner: owner) }
-                    layers.forEach { $0.setPostHogNoCapture(true, owner: owner) }
+                    views.forEach { $0.setPostHogNoMask(true, owner: owner) }
+                    layers.forEach { $0.setPostHogNoMask(true, owner: owner) }
                 },
                 onRemove: { owner, views, layers in
-                    views.forEach { $0.setPostHogNoCapture(false, owner: owner) }
-                    layers.forEach { $0.setPostHogNoCapture(false, owner: owner) }
+                    views.forEach { $0.setPostHogNoMask(false, owner: owner) }
+                    layers.forEach { $0.setPostHogNoMask(false, owner: owner) }
                 }
             )
         }
@@ -299,15 +254,15 @@
             let ownerA = NSObject()
             let ownerB = NSObject()
 
-            view.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerA))
-            view.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerB))
-            #expect(view.postHogNoCapture)
+            view.setPostHogNoMask(true, owner: ObjectIdentifier(ownerA))
+            view.setPostHogNoMask(true, owner: ObjectIdentifier(ownerB))
+            #expect(view.postHogNoMask)
 
-            view.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerA))
-            #expect(view.postHogNoCapture, "still owned by B")
+            view.setPostHogNoMask(false, owner: ObjectIdentifier(ownerA))
+            #expect(view.postHogNoMask, "still owned by B")
 
-            view.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerB))
-            #expect(!view.postHogNoCapture)
+            view.setPostHogNoMask(false, owner: ObjectIdentifier(ownerB))
+            #expect(!view.postHogNoMask)
         }
 
         @Test("a layer stays flagged until every owner releases it")
@@ -316,13 +271,13 @@
             let ownerA = NSObject()
             let ownerB = NSObject()
 
-            layer.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerA))
-            layer.setPostHogNoCapture(true, owner: ObjectIdentifier(ownerB))
-            layer.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerB))
-            #expect(layer.postHogNoCapture)
+            layer.setPostHogNoMask(true, owner: ObjectIdentifier(ownerA))
+            layer.setPostHogNoMask(true, owner: ObjectIdentifier(ownerB))
+            layer.setPostHogNoMask(false, owner: ObjectIdentifier(ownerB))
+            #expect(layer.postHogNoMask)
 
-            layer.setPostHogNoCapture(false, owner: ObjectIdentifier(ownerA))
-            #expect(!layer.postHogNoCapture)
+            layer.setPostHogNoMask(false, owner: ObjectIdentifier(ownerA))
+            #expect(!layer.postHogNoMask)
         }
 
         @Test("dismantling one of two overlapping masks keeps the shared target masked")
@@ -346,13 +301,13 @@
 
             resolveTagTargets(from: tagger1, coordinator: coordinator1, onChange: handlers.onChange)
             resolveTagTargets(from: tagger2, coordinator: coordinator2, onChange: handlers.onChange)
-            #expect(shared.postHogNoCapture)
+            #expect(shared.postHogNoMask)
 
             PostHogTagView.dismantleUIView(tagger2, coordinator: coordinator2)
-            #expect(shared.postHogNoCapture, "still owned by the first mask")
+            #expect(shared.postHogNoMask, "still owned by the first mask")
 
             PostHogTagView.dismantleUIView(tagger1, coordinator: coordinator1)
-            #expect(!shared.postHogNoCapture)
+            #expect(!shared.postHogNoMask)
         }
 
         @Test("re-resolution releases ownership on targets that dropped out")
@@ -370,8 +325,8 @@
             let coordinator = PostHogTagView.Coordinator(onRemove: handlers.onRemove)
 
             resolveTagTargets(from: tagger, coordinator: coordinator, onChange: handlers.onChange)
-            #expect(keep.postHogNoCapture)
-            #expect(dropped.postHogNoCapture)
+            #expect(keep.postHogNoMask)
+            #expect(dropped.postHogNoMask)
 
             // SwiftUI moves the view out of the sandwich; the next resolution must
             // release this tagger's claim on it.
@@ -379,8 +334,8 @@
             elsewhere.addSubview(dropped)
             resolveTagTargets(from: tagger, coordinator: coordinator, onChange: handlers.onChange)
 
-            #expect(keep.postHogNoCapture)
-            #expect(!dropped.postHogNoCapture)
+            #expect(keep.postHogNoMask)
+            #expect(!dropped.postHogNoMask)
         }
 
         @Test("iOS 26 layer scan: reference frame is the masked view's own extent, not the hosting view's")
@@ -540,16 +495,11 @@
             #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
         }
 
-        @Test("capture collection includes reporter rects alongside flag-tagged views")
+        @Test("capture collection includes live reporter rects")
         func captureCollectionIncludesReporters() {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             let container = UIView(frame: window.bounds)
             window.addSubview(container)
-
-            let flagged = UIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
-            container.addSubview(flagged)
-            let owner = NSObject()
-            flagged.setPostHogNoCapture(true, owner: ObjectIdentifier(owner))
 
             let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 100, width: 100, height: 40))
             container.addSubview(reporter)
@@ -558,9 +508,7 @@
             let integration = PostHogReplayIntegration()
             let rects = integration.debugMaskableRects(in: window)
 
-            #expect(rects.contains(CGRect(x: 10, y: 20, width: 100, height: 40)), "flag-tagged view rect")
-            #expect(rects.contains(CGRect(x: 10, y: 100, width: 100, height: 40)), "reporter rect")
-            #expect(rects.count == 2)
+            #expect(rects == [CGRect(x: 10, y: 100, width: 100, height: 40)], "reporter rect flows through the capture collection")
         }
     }
 #endif

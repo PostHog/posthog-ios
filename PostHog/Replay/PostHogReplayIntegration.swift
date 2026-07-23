@@ -961,12 +961,6 @@
                 }
             }
 
-            // manually masked views through `.postHogMask()` view modifier
-            if view.postHogNoCapture {
-                maskableWidgets.append(view.toAbsoluteRect(window))
-                return
-            }
-
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases
             if view.isNoCapture() || maskChildren {
@@ -996,19 +990,14 @@
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
         ///
         /// On iOS 26, SwiftUI primitives (Text, Image, Button) are rendered as CALayer sublayers
-        /// of parent views rather than having their own backing UIView. When `.postHogMask()` is applied,
-        /// the flag is set directly on the CALayers via the PostHogTagViewModifier.
+        /// of parent views rather than having their own backing UIView, so the text/image
+        /// heuristics below inspect layers as well. (`.postHogMask()` regions are collected
+        /// separately via the mask-reporter registry.)
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
                 // Skip layers tagged with .postHogNoMask()
                 if sublayer.postHogNoMask {
-                    continue
-                }
-
-                // Check if layer is manually tagged with .postHogMask()
-                if sublayer.postHogNoCapture {
-                    maskableWidgets.append(sublayer.toAbsoluteRect(window))
                     continue
                 }
 

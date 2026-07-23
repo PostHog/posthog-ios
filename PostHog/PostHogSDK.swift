@@ -2962,17 +2962,33 @@ let maxRetryDelay = 30.0
                 title: content.title,
                 subtitle: content.subtitle,
                 body: content.body,
-                userInfo: content.userInfo,
-                actionIdentifier: response.actionIdentifier
+                payload: content.userInfo,
+                action: response.actionIdentifier
             )
         }
 
-        func capturePushNotificationOpened(
-            title: String,
-            subtitle: String,
-            body: String,
-            userInfo: [AnyHashable: Any],
-            actionIdentifier: String
+        /// Manually captures a `$push_notification_opened` event from raw notification fields.
+        ///
+        /// Use this when no `UNNotificationResponse` is available — for example when you handle a push
+        /// yourself in `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` or relay it
+        /// from a cross-platform layer. Mirrors the Android SDK's
+        /// `capturePushNotificationOpened(title:body:payload:action:)`.
+        ///
+        /// - Parameters:
+        ///   - title: The notification title; omitted from the event when `nil` or empty.
+        ///   - subtitle: The notification subtitle; omitted when `nil` or empty.
+        ///   - body: The notification body; omitted when `nil` or empty.
+        ///   - payload: The notification payload (`userInfo`). The keys of its `posthog` entry — a
+        ///     dictionary, or a JSON string when relayed through FCM — become `$notification_<key>`
+        ///     properties.
+        ///   - action: The action identifier for an action-button tap; leave `nil` for a plain tap
+        ///     (the default action is omitted from the event).
+        @objc public func capturePushNotificationOpened(
+            title: String? = nil,
+            subtitle: String? = nil,
+            body: String? = nil,
+            payload: [AnyHashable: Any]? = nil,
+            action: String? = nil
         ) {
             if !isEnabled() {
                 return
@@ -2984,26 +3000,26 @@ let maxRetryDelay = 30.0
 
             var properties: [String: Any] = [:]
 
-            if !title.isEmpty {
+            if let title, !title.isEmpty {
                 properties["$notification_title"] = title
             }
 
-            if !subtitle.isEmpty {
+            if let subtitle, !subtitle.isEmpty {
                 properties["$notification_subtitle"] = subtitle
             }
 
-            if !body.isEmpty {
+            if let body, !body.isEmpty {
                 properties["$notification_body"] = body
             }
 
-            if let posthogData = posthogPayload(from: userInfo["posthog"]) {
+            if let posthogData = posthogPayload(from: payload?["posthog"]) {
                 for (key, value) in posthogData {
                     properties["$notification_\(key)"] = value
                 }
             }
 
-            if actionIdentifier != UNNotificationDefaultActionIdentifier {
-                properties["$notification_action"] = actionIdentifier
+            if let action, !action.isEmpty, action != UNNotificationDefaultActionIdentifier {
+                properties["$notification_action"] = action
             }
 
             capture("$push_notification_opened", properties: properties)

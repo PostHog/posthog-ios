@@ -705,8 +705,8 @@
                 title: "Hello",
                 subtitle: "",
                 body: "World",
-                userInfo: ["posthog": ["campaign": "summer", "message_id": "42"]],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: ["posthog": ["campaign": "summer", "message_id": "42"]],
+                action: nil
             )
 
             let events = getBatchedEvents(server)
@@ -728,8 +728,8 @@
                 title: "Hello",
                 subtitle: "",
                 body: "World",
-                userInfo: ["posthog": "{\"campaign\":\"summer\",\"message_id\":\"42\"}"],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: ["posthog": "{\"campaign\":\"summer\",\"message_id\":\"42\"}"],
+                action: nil
             )
 
             let events = getBatchedEvents(server)
@@ -748,8 +748,8 @@
                 title: "Hello",
                 subtitle: "",
                 body: "",
-                userInfo: ["posthog": "not-json"],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: ["posthog": "not-json"],
+                action: nil
             )
 
             let events = getBatchedEvents(server)
@@ -768,8 +768,8 @@
                 title: "Hello",
                 subtitle: "Sub",
                 body: "World",
-                userInfo: ["unrelated": "ignored"],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: ["unrelated": "ignored"],
+                action: UNNotificationDefaultActionIdentifier
             )
 
             let events = getBatchedEvents(server)
@@ -791,8 +791,8 @@
                 title: "Hello",
                 subtitle: "",
                 body: "",
-                userInfo: [:],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: [:],
+                action: nil
             )
 
             let events = getBatchedEvents(server)
@@ -812,8 +812,8 @@
                 title: "",
                 subtitle: "",
                 body: "World",
-                userInfo: [:],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: [:],
+                action: nil
             )
 
             let events = getBatchedEvents(server)
@@ -832,13 +832,27 @@
                 title: "Hello",
                 subtitle: "",
                 body: "",
-                userInfo: [:],
-                actionIdentifier: "OPEN_URL"
+                payload: [:],
+                action: "OPEN_URL"
             )
 
             let events = getBatchedEvents(server)
             let event = try #require(events.first)
             #expect(event.properties["$notification_action"] as? String == "OPEN_URL")
+
+            sut.close()
+        }
+
+        @Test("all-nil arguments capture the event with no notification properties")
+        func openCaptureAllNilArguments() async throws {
+            let sut = getSDK()
+
+            sut.capturePushNotificationOpened()
+
+            let events = getBatchedEvents(server)
+            let event = try #require(events.first)
+            #expect(event.event == "$push_notification_opened")
+            #expect(event.properties.keys.filter { $0.hasPrefix("$notification_") }.isEmpty)
 
             sut.close()
         }
@@ -851,8 +865,8 @@
                 title: "Hello",
                 subtitle: "Sub",
                 body: "Body",
-                userInfo: [:],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: [:],
+                action: nil
             )
 
             try await Task.sleep(nanoseconds: 300_000_000)
@@ -873,8 +887,8 @@
                 title: "Hello",
                 subtitle: "",
                 body: "",
-                userInfo: [:],
-                actionIdentifier: UNNotificationDefaultActionIdentifier
+                payload: [:],
+                action: nil
             )
 
             let events = getBatchedEvents(server)

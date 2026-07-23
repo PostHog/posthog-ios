@@ -2863,7 +2863,8 @@ let maxRetryDelay = 30.0
 #endif
 
 #if os(iOS) && DEBUG
-    /// Debug-only session-replay introspection for verification harnesses.
+    /// Debug-only session-replay introspection for verification harnesses. SPI, not
+    /// part of the supported public API (mirrors `captureSessionReplaySnapshot`).
     public extension PostHogSDK {
         /// Debug-only: the redaction rects session replay would apply to `window` right
         /// now, computed through the production masking path (`findMaskableWidgets`,
@@ -2872,7 +2873,7 @@ let maxRetryDelay = 30.0
         /// Intended for verification harnesses that compare masking output across SDK
         /// changes. Works even when replay isn't recording (invalid token or replay
         /// flag off): a transient integration is used to read the local config.
-        func debugSessionReplayMaskableRects(in window: UIWindow) -> [CGRect] {
+        @_spi(PostHogInternal) func debugSessionReplayMaskableRects(in window: UIWindow) -> [CGRect] {
             guard isEnabled() else { return [] }
             let integration = replayIntegration ?? PostHogReplayIntegration.debugTransient(for: self)
             return integration.debugMaskableRects(in: window)
@@ -2881,7 +2882,7 @@ let maxRetryDelay = 30.0
         /// Objective-C-visible bridge for `debugSessionReplayMaskableRects(in:)`, so
         /// verification harnesses can discover the hook at runtime (`responds(to:)`)
         /// and keep compiling against SDK revisions that don't have it.
-        @objc(debugSessionReplayMaskableRectsIn:)
+        @_spi(PostHogInternal) @objc(debugSessionReplayMaskableRectsIn:)
         func debugSessionReplayMaskableRectValues(in window: UIWindow) -> [NSValue] {
             debugSessionReplayMaskableRects(in: window).map { NSValue(cgRect: $0) }
         }

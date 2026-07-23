@@ -182,6 +182,46 @@
             #expect(server.pushSubscriptionRequests.isEmpty)
         }
 
+        @Test("re-registering the delivered token for the same distinct id is skipped")
+        func sendSkipsAlreadyDeliveredToken() async {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-1" })
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.count == 1)
+            // The delivered stamp survives, so an identity change can still trigger a resend.
+            #expect(record(storage)?["deliveredForDistinctId"] == "user-1")
+        }
+
+        @Test("re-registering a different token after delivery sends again")
+        func sendSendsNewTokenAfterDelivery() async {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-1" })
+            handler.send(deviceToken: "tok-1", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            handler.send(deviceToken: "tok-2", appId: "com.example.app")
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+            #expect(record(storage)?["deviceToken"] == "tok-2")
+        }
+
+        @Test("re-registering the delivered token under a new distinct id sends again")
+        func sendResendsDeliveredTokenForNewDistinctId() async {
+            var distinctId = "user-1"
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { distinctId })
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            distinctId = "user-2"
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+            #expect(await waitFor { self.record(storage)?["deliveredForDistinctId"] == "user-2" })
+        }
+
         // MARK: - Unregister (decision 6)
 
         @Test("unregister sends exactly one DELETE with the 5-field body and never retries (vector 7)")

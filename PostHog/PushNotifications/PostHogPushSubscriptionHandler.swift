@@ -74,6 +74,8 @@ final class PostHogPushSubscriptionHandler {
     }
 
     /// Registers a device token. Persists it (latest-wins) and attempts to send immediately.
+    /// Re-registering the token already delivered for the current distinct id is a no-op, so APNs
+    /// re-delivering the same token on every launch doesn't re-POST it.
     func send(deviceToken: String, appId providedAppId: String? = nil) {
         if deviceToken.isEmpty {
             hedgeLog("Push subscription not sent: device token is empty.")
@@ -86,8 +88,22 @@ final class PostHogPushSubscriptionHandler {
             return
         }
 
-        recordLock.withLock {
+        let currentDistinctId = distinctIdProvider()
+        let alreadyDelivered = recordLock.withLock { () -> Bool in
+            if let record = loadRecordLocked(),
+               record.deviceToken == deviceToken,
+               record.appId == appId,
+               !currentDistinctId.isEmpty,
+               record.deliveredForDistinctId == currentDistinctId
+            {
+                return true
+            }
             writeRecord(deviceToken: deviceToken, appId: appId)
+            return false
+        }
+        if alreadyDelivered {
+            hedgeLog("Push subscription skipped: token already delivered for the current distinct id.")
+            return
         }
 
         // A new token supersedes any previous failure — reset the whole retry state.

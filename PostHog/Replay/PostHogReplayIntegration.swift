@@ -1619,6 +1619,7 @@
     #endif
 
     #if DEBUG
+
         // MARK: - Debug verification hooks
 
         extension PostHogReplayIntegration {

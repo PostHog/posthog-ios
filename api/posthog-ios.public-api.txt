@@ -55,6 +55,8 @@ PostHog | PostHogConfig.appGroupIdentifier | property | @objc var appGroupIdenti
 PostHog | PostHogConfig.bootstrap | property | @objc var bootstrap: PostHogBootstrapConfig? | c:@M@PostHog@objc(cs)PostHogConfig(py)bootstrap
 PostHog | PostHogConfig.captureApplicationLifecycleEvents | property | @objc var captureApplicationLifecycleEvents: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureApplicationLifecycleEvents
 PostHog | PostHogConfig.captureElementInteractions | property | @objc var captureElementInteractions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureElementInteractions
+PostHog | PostHogConfig.capturePushNotificationOpened | property | @objc var capturePushNotificationOpened: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationOpened
+PostHog | PostHogConfig.capturePushNotificationSubscriptions | property | @objc var capturePushNotificationSubscriptions: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)capturePushNotificationSubscriptions
 PostHog | PostHogConfig.captureScreenViews | property | @objc var captureScreenViews: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)captureScreenViews
 PostHog | PostHogConfig.dataMode | property | @objc var dataMode: PostHogConfig.PostHogDataMode | c:@M@PostHog@objc(cs)PostHogConfig(py)dataMode
 PostHog | PostHogConfig.debug | property | @objc var debug: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)debug
@@ -280,6 +282,8 @@ PostHog | PostHogSDK.captureLog(_:level:) | method | @objc(captureLogWithBody:le
 PostHog | PostHogSDK.captureLog(_:level:attributes:) | method | @objc(captureLogWithBody:level:attributes:) func captureLog(_ body: String, level: PostHogLogSeverity, attributes: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogSDK(im)captureLogWithBody:level:attributes:
 PostHog | PostHogSDK.captureLog(_:level:attributes:traceId:spanId:traceFlags:) | method | @objc(captureLogWithBody:level:attributes:traceId:spanId:traceFlags:) func captureLog(_ body: String, level: PostHogLogSeverity, attributes: [String : Any]?, traceId: String?, spanId: String?, traceFlags: NSNumber?) | c:@M@PostHog@objc(cs)PostHogSDK(im)captureLogWithBody:level:attributes:traceId:spanId:traceFlags:
 PostHog | PostHogSDK.captureLog(_:level:attributes:traceId:spanId:traceFlags:) | method | func captureLog(_ body: String, level: PostHogLogSeverity = .info, attributes: [String : Any]? = nil, traceId: String? = nil, spanId: String? = nil, traceFlags: Int? = nil) | s:7PostHog0aB3SDKC10captureLog_5level10attributes7traceId04spanI00H5FlagsySS_AA0abE8SeverityOSDySSypGSgSSSgANSiSgtF
+PostHog | PostHogSDK.capturePushNotificationOpened(response:) | method | @objc func capturePushNotificationOpened(response: UNNotificationResponse) | c:@M@PostHog@objc(cs)PostHogSDK(im)capturePushNotificationOpenedWithResponse:
+PostHog | PostHogSDK.capturePushNotificationOpened(title:subtitle:body:payload:action:) | method | @objc func capturePushNotificationOpened(title: String? = nil, subtitle: String? = nil, body: String? = nil, payload: [AnyHashable : Any]? = nil, action: String? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)capturePushNotificationOpenedWithTitle:subtitle:body:payload:action:
 PostHog | PostHogSDK.close() | method | @objc func close() | c:@M@PostHog@objc(cs)PostHogSDK(im)close
 PostHog | PostHogSDK.debug(_:) | method | @objc func debug(_ enabled: Bool = true) | c:@M@PostHog@objc(cs)PostHogSDK(im)debug:
 PostHog | PostHogSDK.didReceiveFeatureFlags | type.property | @objc static let didReceiveFeatureFlags: Notification.Name | c:@CM@PostHog@objc(cs)PostHogSDK(cpy)didReceiveFeatureFlags
@@ -311,6 +315,8 @@ PostHog | PostHogSDK.logger | property | @objc var logger: PostHogLogger? { get 
 PostHog | PostHogSDK.optIn() | method | @objc func optIn() | c:@M@PostHog@objc(cs)PostHogSDK(im)optIn
 PostHog | PostHogSDK.optOut() | method | @objc func optOut() | c:@M@PostHog@objc(cs)PostHogSDK(im)optOut
 PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func register(_ properties: [String : Any]) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerProperties:
+PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
+PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
 PostHog | PostHogSDK.reloadFeatureFlags() | method | @objc func reloadFeatureFlags() | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlags
 PostHog | PostHogSDK.reloadFeatureFlags(_:) | method | @objc(reloadFeatureFlagsWithCallback:) func reloadFeatureFlags(_ callback: @escaping () -> Void) | c:@M@PostHog@objc(cs)PostHogSDK(im)reloadFeatureFlagsWithCallback:
 PostHog | PostHogSDK.reset() | method | @objc func reset() | c:@M@PostHog@objc(cs)PostHogSDK(im)reset
@@ -335,6 +341,7 @@ PostHog | PostHogSDK.startSessionRecording() | method | @objc(startSessionRecord
 PostHog | PostHogSDK.startSessionRecording(resumeCurrent:) | method | @objc(startSessionRecordingWithResumeCurrent:) func startSessionRecording(resumeCurrent: Bool) | c:@M@PostHog@objc(cs)PostHogSDK(im)startSessionRecordingWithResumeCurrent:
 PostHog | PostHogSDK.stopSessionRecording() | method | @objc func stopSessionRecording() | c:@M@PostHog@objc(cs)PostHogSDK(im)stopSessionRecording
 PostHog | PostHogSDK.unregister(_:) | method | @objc(unregisterProperties:) func unregister(_ key: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterProperties:
+PostHog | PostHogSDK.unregisterPushNotificationToken() | method | @objc func unregisterPushNotificationToken() | c:@M@PostHog@objc(cs)PostHogSDK(im)unregisterPushNotificationToken
 PostHog | PostHogSDK.with(_:) | type.method | @objc static func with(_ config: PostHogConfig) -> PostHogSDK | c:@M@PostHog@objc(cs)PostHogSDK(cm)with:
 PostHog | PostHogSessionManager | class | @objc class PostHogSessionManager | c:@M@PostHog@objc(cs)PostHogSessionManager
 PostHog | PostHogSessionManager.setSessionId(_:) | method | @objc func setSessionId(_ sessionId: String) | c:@M@PostHog@objc(cs)PostHogSessionManager(im)setSessionId:

@@ -7,10 +7,15 @@
 
 @testable import PostHog
 import Testing
+import XCTest
 
 @Suite("Test integration installation", .serialized)
 class PostHogIntegrationInstallationTest {
+    var server: MockPostHogServer!
+
     init() {
+        server = MockPostHogServer()
+        server.start()
         #if os(iOS)
             PostHogReplayIntegration.clearInstalls()
         #endif
@@ -19,6 +24,14 @@ class PostHogIntegrationInstallationTest {
         #endif
         PostHogAppLifeCycleIntegration.clearInstalls()
         PostHogScreenViewIntegration.clearInstalls()
+        #if os(iOS) || os(macOS) || os(tvOS)
+            PostHogErrorTrackingAutoCaptureIntegration.clearInstalls()
+        #endif
+    }
+
+    deinit {
+        server.stop()
+        server = nil
     }
 
     private func getSut(
@@ -26,10 +39,15 @@ class PostHogIntegrationInstallationTest {
         sessionReplay: Bool = false,
         captureApplicationLifecycleEvents: Bool = false,
         captureScreenViews: Bool = false,
-        captureElementInteractions: Bool = false
+        captureElementInteractions: Bool = false,
+        disableRemoteConfig: Bool = true,
+        errorTrackingAutoCapture: Bool = false
     ) -> PostHogSDK {
-        let config = PostHogConfig(projectToken: projectToken)
+        let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
+        config.disableRemoteConfigForTesting = disableRemoteConfig
+        config.disableFlushOnBackgroundForTesting = true
+        config.disableReachabilityForTesting = true
 
         #if os(iOS)
             config.sessionReplay = sessionReplay
@@ -40,8 +58,7 @@ class PostHogIntegrationInstallationTest {
         #endif
 
         config.captureScreenViews = captureScreenViews
-        config.disableFlushOnBackgroundForTesting = true
-        config.disableReachabilityForTesting = true
+        config.errorTrackingConfig.autoCapture = errorTrackingAutoCapture
 
         let storage = PostHogStorage(config)
         storage.reset()
@@ -100,4 +117,111 @@ class PostHogIntegrationInstallationTest {
         first.close()
         second.close()
     }
+
+    // MARK: - Error tracking integration
+
+    #if os(iOS) || os(macOS) || os(tvOS)
+        @Test("error tracking integration installed on first launch before remote config arrives")
+        func errorTrackingInstalledBeforeRemoteConfig() {
+            // disableRemoteConfig=true means hasFetchedRemoteConfig stays false.
+            // The integration must install by default so a crash on the very first launch
+            // (before /config responds) is not silently missed.
+            let sut = getSut(
+                projectToken: "test_error_tracking_\(UUID().uuidString)",
+                disableRemoteConfig: true,
+                errorTrackingAutoCapture: true
+            )
+            defer { sut.close() }
+
+            #expect(sut.getErrorTrackingIntegration() != nil)
+        }
+
+        @Test("error tracking integration not installed when disk-cached remote config disables it")
+        func errorTrackingNotInstalledWhenRemoteConfigDisables() async {
+            // Remote fetch is disabled, so hasFetchedRemoteConfig stays false. The disk-cached config
+            // (seeded below) is what flips hasCachedRemoteConfig → true, and with autocaptureExceptions=false
+            // that makes the gate skip installation.
+            let token = "test_error_tracking_\(UUID().uuidString)"
+            let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.errorTrackingConfig.autoCapture = true
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+            // Seed disk-cached config with autocapture disabled so hasCachedRemoteConfig → true
+            storage.setDictionary(forKey: .remoteConfig, contents: ["errorTracking": ["autocaptureExceptions": false]])
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(sut.getErrorTrackingIntegration() == nil)
+        }
+
+        @Test("error tracking integration uninstalls when remote config loads with autocapture disabled")
+        func errorTrackingUninstallsWhenRemoteConfigDisables() async {
+            // Start with no cached config (hasFetchedRemoteConfig=false) → integration installs.
+            // Then simulate remote config arriving with autocaptureExceptions=false → integration uninstalls.
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": false]
+            // Hold the /config response so the installed-by-default state is observable before it lands.
+            server.configResponseDelay = 0.5
+
+            let token = "test_error_tracking_\(UUID().uuidString)"
+            let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = false
+            config.preloadFeatureFlags = false
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.errorTrackingConfig.autoCapture = true
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+            // Ensure no cached remote config so hasFetchedRemoteConfig starts false
+            storage.remove(key: .remoteConfig)
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            // Before /config arrives the integration must be installed (default-on)
+            #expect(sut.getErrorTrackingIntegration() != nil)
+
+            // Poll for the end state rather than awaiting onRemoteConfigLoaded: multicast callbacks
+            // are unordered, so a subscriber can be notified before the integration's own removal
+            // callback has run.
+            await waitUntil(timeout: 10) { sut.getErrorTrackingIntegration() == nil }
+
+            // After /config with autocaptureExceptions=false the integration must be removed
+            #expect(sut.getErrorTrackingIntegration() == nil)
+        }
+
+        @Test("error tracking integration stays installed when remote config loads with autocapture enabled")
+        func errorTrackingStaysInstalledWhenRemoteConfigEnables() async {
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+
+            let token = "test_error_tracking_\(UUID().uuidString)"
+            let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = false
+            config.preloadFeatureFlags = false
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.errorTrackingConfig.autoCapture = true
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+            storage.remove(key: .remoteConfig)
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(sut.getErrorTrackingIntegration() != nil)
+
+            // onRemoteConfigLoaded is enqueued on main before hasFetchedRemoteConfig flips, so a
+            // main-queue hop after the flag flips guarantees any removal callback has already run.
+            await waitUntil(timeout: 10) { sut.remoteConfig?.hasFetchedRemoteConfig == true }
+            await MainActor.run {}
+
+            #expect(sut.getErrorTrackingIntegration() != nil)
+        }
+    #endif
 }

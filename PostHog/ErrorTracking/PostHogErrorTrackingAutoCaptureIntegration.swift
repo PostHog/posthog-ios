@@ -14,6 +14,10 @@ import Foundation
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstallState = PostHogIntegrationInstallState()
 
+        static func clearInstalls() {
+            integrationInstallState.clear()
+        }
+
         var requiresSwizzling: Bool { false }
 
         private weak var postHog: PostHogSDK?
@@ -22,9 +26,17 @@ import Foundation
         private var crashCustomData: PostHogCrashCustomDataWriter?
         private var contextChangedToken: RegistrationToken?
         private var exceptionStepsChangedToken: RegistrationToken?
+        private var remoteConfigLoadedToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
+            // Block installation when remote config (live or disk-cached) explicitly disables
+            // autocapture. When there is no remote config at all (first launch, no disk cache)
+            // we default to installing so a crash on that very first launch is not missed.
+            let hasRemoteConfig = postHog.remoteConfig?.hasFetchedRemoteConfig == true
+                || postHog.remoteConfig?.hasCachedRemoteConfig == true
+            if hasRemoteConfig,
+               postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false
+            {
                 return .skipped(.disabledByRemoteConfig)
             }
 
@@ -46,6 +58,18 @@ import Foundation
                     exceptionStepsChangedToken = postHog.onExceptionStepsChanged.subscribe { [weak crashCustomData] steps in
                         crashCustomData?.setSteps(steps)
                     }
+
+                    // If remote config was not yet loaded at install time, subscribe so we can
+                    // remove the integration if the freshly-loaded config disables autocapture.
+                    if postHog.remoteConfig?.hasFetchedRemoteConfig == false {
+                        remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self, weak postHog] _ in
+                            guard let self, let postHog else { return }
+                            self.remoteConfigLoadedToken = nil
+                            if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
+                                postHog.removeIntegration(self)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -53,6 +77,7 @@ import Foundation
         func uninstall(_ postHog: PostHogSDK) {
             uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
+                remoteConfigLoadedToken = nil
                 contextChangedToken = nil
                 exceptionStepsChangedToken = nil
                 crashCustomData = nil

@@ -10,7 +10,10 @@
 #if os(iOS) && canImport(SwiftUI)
     import SwiftUI
 
-    typealias PostHogTagHandler = (_ views: [UIView], _ layers: [CALayer]) -> Void
+    /// - owner: identity of the injected view that resolved these targets. Used for
+    ///   ref-counted flag ownership (see `PostHogFlagOwners`), so that overlapping
+    ///   masks cannot clear each other's targets on teardown.
+    typealias PostHogTagHandler = (_ owner: ObjectIdentifier, _ views: [UIView], _ layers: [CALayer]) -> Void
 
     /**
      This is a helper view modifier for retrieving a list of underlying UIKit views for the current SwiftUI view.
@@ -174,10 +177,21 @@
             let changeHandler = onChange
             let view = PostHogFrameCaptureUIView(id: id) { captureView in
                 let layers = getTargetLayers(from: captureView)
-                if !layers.isEmpty {
-                    coordinator.cachedLayers = layers
-                    changeHandler([], layers)
+                guard !layers.isEmpty else { return }
+
+                // Reconcile against the previous resolution: release ownership on
+                // layers that dropped out, otherwise recycled layers keep stale flags.
+                let owner = ObjectIdentifier(captureView)
+                let previous = coordinator.cachedLayers
+                let dropped = previous.filter { previousLayer in
+                    !layers.contains(where: { $0 === previousLayer })
                 }
+                if !dropped.isEmpty {
+                    coordinator.onRemoveHandler(owner, [], dropped)
+                }
+
+                coordinator.cachedLayers = layers
+                changeHandler(owner, [], layers)
             }
             view.postHogView = true
             return view
@@ -196,7 +210,7 @@
                 : coordinator.cachedLayers
 
             if !layers.isEmpty {
-                coordinator.onRemoveHandler([], layers)
+                coordinator.onRemoveHandler(ObjectIdentifier(uiView), [], layers)
             }
             uiView.handler = nil
         }
@@ -239,12 +253,15 @@
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            detectLayers()
+            // Per-layout re-scans are coalesced: one drain per run-loop turn instead
+            // of a full layer-tree walk per capture view per layout pass.
+            PostHogTagResolutionCoalescer.markDirty(self)
         }
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            // Trigger detection when fully added to window hierarchy
+            // Trigger detection when fully added to window hierarchy. Synchronous on
+            // first attach so freshly realized content is flagged before capture.
             if window != nil {
                 detectLayers()
             }
@@ -297,12 +314,10 @@
         }
 
         func makeUIView(context: Context) -> PostHogTagUIView {
-            PostHogTagUIView(id: id) { controller in
-                let targets = getTargetViews(from: controller)
-                if !targets.isEmpty {
-                    context.coordinator.cachedTargets = targets
-                    onChangeHandler(targets, [])
-                }
+            let coordinator = context.coordinator
+            let onChange = onChangeHandler
+            return PostHogTagUIView(id: id) { taggerView in
+                resolveTagTargets(from: taggerView, coordinator: coordinator, onChange: onChange)
             }
         }
 
@@ -317,12 +332,38 @@
                 : coordinator.cachedTargets
 
             if !targets.isEmpty {
-                coordinator.onRemoveHandler(targets, [])
+                coordinator.onRemoveHandler(ObjectIdentifier(uiView), targets, [])
             }
 
             uiView.postHogTagView = nil
             uiView.handler = nil
         }
+    }
+
+    /// Resolves the tagger's current targets, reconciles them against the previously
+    /// cached set, and invokes `onChange` with the new set. The reconciliation releases
+    /// flag ownership on targets that dropped out of the resolution — without it, every
+    /// re-resolution (content replacement, hierarchy churn) would leak stale ownership
+    /// on views SwiftUI has recycled elsewhere.
+    func resolveTagTargets(
+        from taggerView: PostHogTagUIView,
+        coordinator: PostHogTagView.Coordinator,
+        onChange: PostHogTagHandler
+    ) {
+        let targets = getTargetViews(from: taggerView)
+        guard !targets.isEmpty else { return }
+
+        let owner = ObjectIdentifier(taggerView)
+        let previous = coordinator.cachedTargets
+        let dropped = previous.filter { previousTarget in
+            !targets.contains(where: { $0 === previousTarget })
+        }
+        if !dropped.isEmpty {
+            coordinator.onRemoveHandler(owner, dropped, [])
+        }
+
+        coordinator.cachedTargets = targets
+        onChange(owner, targets, [])
     }
 
     private let swiftUIIgnoreTypes: [AnyClass] = [
@@ -337,22 +378,53 @@
     func getTargetViews(from taggerView: UIView) -> [UIView] {
         guard
             let anchorView = taggerView.postHogAnchor,
-            let commonAncestor = anchorView.nearestCommonAncestor(with: taggerView)
+            let commonAncestor = anchorView.nearestCommonAncestor(with: taggerView),
+            // The anchor is not part of its own descendants, so when the common
+            // ancestor degenerates to the anchor itself the traversal never starts.
+            commonAncestor !== anchorView
         else {
             return []
         }
 
-        return commonAncestor
-            .allDescendants(between: anchorView, and: taggerView)
-            .lazy
-            .filter {
-                // ignore some system SwiftUI views
-                !swiftUIIgnoreTypes.contains(where: $0.isKind(of:))
+        // Iterative pre-order DFS over the flat descendant sequence of the common
+        // ancestor, starting directly at the anchor (everything before it was only
+        // ever enumerated to be dropped) and terminating at the tagger. Replaces the
+        // recursiveSequence/AnyIterator lazy chains whose per-element overhead
+        // (closure boxes, protocol-witness dispatch, per-node subviews bridging)
+        // dominated launch and scroll traces.
+        //
+        // Seed the stack with the anchor plus the not-yet-visited right siblings
+        // along the path from the anchor up to the common ancestor — exactly the
+        // remainder of the flat pre-order sequence from the anchor onwards.
+        var siblingChains: [ArraySlice<UIView>] = []
+        var pathNode = anchorView
+        while pathNode !== commonAncestor {
+            guard let parent = pathNode.superview else { return [] }
+            let siblings = parent.subviews
+            if let index = siblings.firstIndex(where: { $0 === pathNode }) {
+                siblingChains.append(siblings[(index + 1)...])
             }
-            .filter {
-                // exclude injected views
-                !$0.postHogView
+            pathNode = parent
+        }
+
+        var stack: [UIView] = []
+        for chain in siblingChains.reversed() {
+            stack.append(contentsOf: chain.reversed())
+        }
+        stack.append(anchorView)
+
+        var targets: [UIView] = []
+        while let view = stack.popLast() {
+            if view === taggerView {
+                break
             }
+            // ignore some system SwiftUI views, and exclude injected views
+            if !swiftUIIgnoreTypes.contains(where: view.isKind(of:)), !view.postHogView {
+                targets.append(view)
+            }
+            stack.append(contentsOf: view.subviews.reversed())
+        }
+        return targets
     }
 
     /// On iOS 26+, SwiftUI primitives may be rendered as CALayers instead of UIViews.
@@ -397,7 +469,12 @@
             return []
         }
 
-        let referenceFrame = parentView.convert(parentView.bounds, to: nil)
+        // The reference frame is the masked view's own extent — the capture view is a
+        // full-size overlay of the modified view. Deriving it from the hosting view
+        // (the previous behavior) made every mask collect and claim content layers
+        // across the entire hosting view, so overlapping masks constantly claimed and
+        // released each other's layers.
+        let referenceFrame = captureView.convert(captureView.bounds, to: nil)
         guard !referenceFrame.isEmpty else {
             return []
         }
@@ -427,6 +504,14 @@
 
             // Get the sublayer's frame in the parent layer's coordinate space
             let sublayerFrame = sublayer.convert(sublayer.bounds, to: nil)
+
+            // Prune clipped subtrees: when a layer clips its children to its own
+            // bounds and those bounds don't reach the reference frame, nothing inside
+            // it can be visible within the masked extent. Only safe under
+            // masksToBounds — unclipped children may extend outside their parent.
+            if sublayer.masksToBounds, !referenceFrame.intersects(sublayerFrame) {
+                continue
+            }
 
             // Only include layers whose center point is contained within the reference frame
             let sublayerFrameCenter = CGPoint(x: sublayerFrame.midX, y: sublayerFrame.midY)
@@ -507,6 +592,9 @@
             super.didMoveToSuperview()
             postHogTagView = self
             postHogView = true
+            // First-attach resolution stays synchronous so a freshly realized view
+            // (e.g. a lazy row appearing mid-scroll) is flagged before it can show
+            // up in a snapshot.
             handler?()
         }
 
@@ -518,7 +606,9 @@
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            handler?()
+            // Re-resolutions triggered by layout are coalesced: one drain per
+            // run-loop turn instead of one traversal per tagger per layout pass.
+            PostHogTagResolutionCoalescer.markDirty(self)
         }
 
         private func setupAncestorObserver() {
@@ -534,10 +624,74 @@
             // Remove any existing observer
             ancestorObserver?.stopObserving()
 
-            // Create new observer for the common ancestor
+            // Create new observer for the common ancestor. On iOS 26 many taggers
+            // share (nearly) the same ancestor, so a single hierarchy change used to
+            // re-fire every tagger's traversal from its own observer — coalescing
+            // collapses that storm into one resolution per tagger per turn.
             ancestorObserver = AncestorSubviewObserver(ancestor: commonAncestor) { [weak self] in
-                self?.handler?()
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    PostHogTagResolutionCoalescer.markDirty(self)
+                }
             }
+        }
+    }
+
+    /// A view of the tag machinery whose target resolution can be deferred and batched.
+    @MainActor
+    protocol PostHogCoalescedResolving: AnyObject {
+        func performCoalescedResolution()
+    }
+
+    /// Coalesces re-resolution requests (layout passes, ancestor-hierarchy KVO signals)
+    /// into a single drain per main-run-loop turn. Invalidation stays hierarchy-driven —
+    /// the coalescer batches work, it never drops it: every marked resolver runs on the
+    /// next drain, so content replaced without a geometry change is still re-tagged.
+    @MainActor
+    enum PostHogTagResolutionCoalescer {
+        private struct WeakResolver {
+            weak var value: (any PostHogCoalescedResolving)?
+        }
+
+        private static var dirtyResolvers: [ObjectIdentifier: WeakResolver] = [:]
+        private static var isDrainScheduled = false
+
+        static func markDirty(_ resolver: any PostHogCoalescedResolving) {
+            dirtyResolvers[ObjectIdentifier(resolver)] = WeakResolver(value: resolver)
+            guard !isDrainScheduled else { return }
+            isDrainScheduled = true
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { drain() }
+            }
+        }
+
+        private static func drain() {
+            isDrainScheduled = false
+            guard !dirtyResolvers.isEmpty else { return }
+            let resolvers = dirtyResolvers.values.compactMap(\.value)
+            dirtyResolvers.removeAll()
+            for resolver in resolvers {
+                resolver.performCoalescedResolution()
+            }
+        }
+
+        #if TESTING
+            static func drainForTesting() {
+                drain()
+            }
+        #endif
+    }
+
+    extension PostHogTagUIView: PostHogCoalescedResolving {
+        func performCoalescedResolution() {
+            handler?()
+        }
+    }
+
+    @available(iOS 26.0, *)
+    extension PostHogFrameCaptureUIView: PostHogCoalescedResolving {
+        func performCoalescedResolution() {
+            detectLayers()
         }
     }
 
@@ -566,7 +720,7 @@
         }
     }
 
-    private extension UIView {
+    extension UIView {
         var postHogTagView: PostHogTagUIView? {
             get { objc_getAssociatedObject(self, &AssociatedKeys.phTagView) as? PostHogTagUIView }
             set { objc_setAssociatedObject(self, &AssociatedKeys.phTagView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
@@ -577,33 +731,37 @@
             set { objc_setAssociatedObject(self, &AssociatedKeys.phView, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
         }
 
-        func allDescendants(between bottomEntity: UIView, and topEntity: UIView) -> some Sequence<UIView> {
-            descendants
-                .lazy
-                .drop(while: { $0 !== bottomEntity })
-                .prefix(while: { $0 !== topEntity })
+        /// All descendants in pre-order DFS, excluding the receiver.
+        var descendants: [UIView] {
+            var result: [UIView] = []
+            var stack: [UIView] = subviews.reversed()
+            while let view = stack.popLast() {
+                result.append(view)
+                stack.append(contentsOf: view.subviews.reversed())
+            }
+            return result
         }
 
-        var ancestors: some Sequence<UIView> {
-            sequence(first: self, next: { $0.superview }).dropFirst()
-        }
-
-        var descendants: some Sequence<UIView> {
-            recursiveSequence([self], children: { $0.subviews }).dropFirst()
-        }
-
-        func isDescendant(of other: UIView) -> Bool {
-            ancestors.contains(other)
-        }
-
+        /// The first view in the receiver's ancestor-or-self chain that is a PROPER
+        /// ancestor of `other` (deliberately preserving the original semantics: the
+        /// receiver itself qualifies, `other` itself never does). O(depth) via an
+        /// ancestor set, replacing the O(depth²) isDescendant(of:) walk per step.
         func nearestCommonAncestor(with other: UIView) -> UIView? {
-            var nearestAncestor: UIView? = self
-
-            while let currentEntity = nearestAncestor, !other.isDescendant(of: currentEntity) {
-                nearestAncestor = currentEntity.superview
+            var otherProperAncestors = Set<ObjectIdentifier>()
+            var node = other.superview
+            while let current = node {
+                otherProperAncestors.insert(ObjectIdentifier(current))
+                node = current.superview
             }
 
-            return nearestAncestor
+            var candidate: UIView? = self
+            while let current = candidate {
+                if otherProperAncestors.contains(ObjectIdentifier(current)) {
+                    return current
+                }
+                candidate = current.superview
+            }
+            return nil
         }
 
         var postHogAnchor: UIView? {
@@ -627,33 +785,6 @@
     }
 
     /**
-     Recursively iterates over a sequence of elements, applying a function to each element to get its children.
-
-     - Parameters:
-     - sequence: The sequence of elements to iterate over.
-     - children: A function that takes an element and returns a sequence of its children.
-     - Returns: An AnySequence that iterates over all elements and their children.
-     */
-    private func recursiveSequence<S: Sequence>(_ sequence: S, children: @escaping (S.Element) -> S) -> AnySequence<S.Element> {
-        AnySequence {
-            var mainIterator = sequence.makeIterator()
-            // Current iterator, or `nil` if all sequences are exhausted:
-            var iterator: AnyIterator<S.Element>?
-
-            return AnyIterator {
-                guard let iterator, let element = iterator.next() else {
-                    if let element = mainIterator.next() {
-                        iterator = recursiveSequence(children(element), children: children).makeIterator()
-                        return element
-                    }
-                    return nil
-                }
-                return element
-            }
-        }
-    }
-
-    /**
      Boxing a weak reference to a reference type.
      */
     final class Weak<T: AnyObject> {
@@ -663,5 +794,59 @@
             value = wrappedValue
         }
     }
+
+    #if TESTING
+        /// Test-only entry points into the private tagging machinery.
+        ///
+        /// Used by the masking characterization tests, which pin the CURRENT resolution
+        /// behavior of the traversal before it is optimized — so that later performance
+        /// changes can prove they did not alter which views/layers get resolved.
+        /// Lives in this file so it can reach `private` declarations. Not compiled into
+        /// release builds.
+        @MainActor
+        enum PostHogTaggingTestSupport {
+            /// Creates a real anchor/tagger pair registered in the `TaggingStore`,
+            /// exactly like `PostHogTagViewModifier` does via its representables.
+            static func makeTagPair(id: UUID = UUID()) -> (anchor: UIView, tagger: PostHogTagUIView) {
+                (PostHogTagAnchorUIView(id: id), PostHogTagUIView(id: id, handler: nil))
+            }
+
+            static func targetViews(from tagger: PostHogTagUIView) -> [UIView] {
+                getTargetViews(from: tagger)
+            }
+
+            /// Applies the same marking `markPostHogView` performs from the
+            /// representables' `updateUIView` (the view and its direct superview).
+            static func markInjected(_ view: UIView) {
+                markPostHogView(view)
+            }
+
+            static func nearestCommonAncestor(of view: UIView, and other: UIView) -> UIView? {
+                view.nearestCommonAncestor(with: other)
+            }
+
+            static func descendants(of view: UIView) -> [UIView] {
+                Array(view.descendants)
+            }
+
+            @available(iOS 26.0, *)
+            static func contentLayers(under layer: CALayer, containedIn referenceFrame: CGRect) -> [CALayer] {
+                var results: [CALayer] = []
+                collectContentLayers(from: layer, containedIn: referenceFrame, results: &results)
+                return results
+            }
+
+            @available(iOS 26.0, *)
+            static func makeFrameCaptureView() -> UIView {
+                PostHogFrameCaptureUIView(id: UUID(), handler: nil)
+            }
+
+            @available(iOS 26.0, *)
+            static func targetLayers(fromCaptureView captureView: UIView) -> [CALayer] {
+                guard let captureView = captureView as? PostHogFrameCaptureUIView else { return [] }
+                return getTargetLayers(from: captureView)
+            }
+        }
+    #endif
 
 #endif

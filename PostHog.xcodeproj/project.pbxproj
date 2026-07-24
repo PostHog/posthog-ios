@@ -233,6 +233,7 @@
 		DA0E43BE2D70438100D39B93 /* PostHogSurveyIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */; };
 		DA0F989B2D94081A009AB6F5 /* ApplicationViewLayoutPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0F989A2D94081A009AB6F5 /* ApplicationViewLayoutPublisher.swift */; };
 		DA0F98A22D940E8C009AB6F5 /* ApplicationViewLayoutPublisherTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */; };
+		AAC0FFEE2E20000100000002 /* PostHogMaskingCharacterizationTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC0FFEE2E20000100000001 /* PostHogMaskingCharacterizationTest.swift */; };
 		DA0SAMP22E2302260001FF01 /* PostHogSampling.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0SAMP12E2302260001FF01 /* PostHogSampling.swift */; };
 		DA1044882D0B1D2D00C4ACF3 /* View+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */; };
 		DA1044892D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */; };
@@ -994,6 +995,7 @@
 		DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyIntegration.swift; sourceTree = "<group>"; };
 		DA0F989A2D94081A009AB6F5 /* ApplicationViewLayoutPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationViewLayoutPublisher.swift; sourceTree = "<group>"; };
 		DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationViewLayoutPublisherTest.swift; sourceTree = "<group>"; };
+		AAC0FFEE2E20000100000001 /* PostHogMaskingCharacterizationTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskingCharacterizationTest.swift; sourceTree = "<group>"; };
 		DA0SAMP12E2302260001FF01 /* PostHogSampling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSampling.swift; sourceTree = "<group>"; };
 		DA1044852D0B1D2D00C4ACF3 /* View+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+PostHogLabel.swift"; sourceTree = "<group>"; };
 		DA1044872D0B1D2D00C4ACF3 /* UIView+PostHogLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+PostHogLabel.swift"; sourceTree = "<group>"; };
@@ -1647,6 +1649,7 @@
 				1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */,
 				DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */,
 				DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */,
+				AAC0FFEE2E20000100000001 /* PostHogMaskingCharacterizationTest.swift */,
 				DAD39DF52D561787002A1A69 /* UtilsTest.swift */,
 				9E781EB127B3DC1290199836 /* BundleUtilsTest.swift */,
 				DAF95F5B2D077BCC001E82BB /* Resources */,
@@ -3408,6 +3411,7 @@
 				DAF79A2A2D1309C00078A3C9 /* TestError.swift in Sources */,
 				DA703C0A2D6606EA0069097B /* PostHogIntegrationInstallationTest.swift in Sources */,
 				DA0F98A22D940E8C009AB6F5 /* ApplicationViewLayoutPublisherTest.swift in Sources */,
+				AAC0FFEE2E20000100000002 /* PostHogMaskingCharacterizationTest.swift in Sources */,
 				3A62647129CAF67B007E8C07 /* PostHogStorageManagerTest.swift in Sources */,
 				DA5E52EB2E0996C400159D20 /* PostHogSurveyEnumsTest.swift in Sources */,
 				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,

@@ -961,12 +961,6 @@
                 }
             }
 
-            // manually masked views through `.postHogMask()` view modifier
-            if view.postHogNoCapture {
-                maskableWidgets.append(view.toAbsoluteRect(window))
-                return
-            }
-
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases
             if view.isNoCapture() || maskChildren {
@@ -996,19 +990,14 @@
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
         ///
         /// On iOS 26, SwiftUI primitives (Text, Image, Button) are rendered as CALayer sublayers
-        /// of parent views rather than having their own backing UIView. When `.postHogMask()` is applied,
-        /// the flag is set directly on the CALayers via the PostHogTagViewModifier.
+        /// of parent views rather than having their own backing UIView, so the text/image
+        /// heuristics below inspect layers as well. (`.postHogMask()` regions are collected
+        /// separately via the mask-reporter registry.)
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
                 // Skip layers tagged with .postHogNoMask()
                 if sublayer.postHogNoMask {
-                    continue
-                }
-
-                // Check if layer is manually tagged with .postHogMask()
-                if sublayer.postHogNoCapture {
-                    maskableWidgets.append(sublayer.toAbsoluteRect(window))
                     continue
                 }
 
@@ -1046,15 +1035,23 @@
                 return nil
             }
 
-            var maskableWidgets: [CGRect] = []
-            var maskChildren = false
-
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
-
             let wireframe = createBasicWireframe(window)
-            wireframe.maskableWidgets = maskableWidgets
+            wireframe.maskableWidgets = collectMaskableRects(in: window)
             wireframe.type = "screenshot"
             return wireframe
+        }
+
+        /// All rects to redact in `window`: heuristic + flag-tagged widgets from the
+        /// hierarchy walk, plus the live rects of `postHogMask()` reporter views
+        /// (computed at capture time from the registry — never cached, so a masked
+        /// view that moved since the last layout callback is still redacted at its
+        /// current position).
+        func collectMaskableRects(in window: UIWindow) -> [CGRect] {
+            var maskableWidgets: [CGRect] = []
+            var maskChildren = false
+            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            maskableWidgets.append(contentsOf: PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window))
+            return maskableWidgets
         }
 
         // To be called from main thread
@@ -1606,6 +1603,32 @@
         extension PostHogReplayIntegration {
             static func clearInstalls() {
                 integrationInstallState.clear()
+            }
+        }
+    #endif
+
+    #if DEBUG
+
+        // MARK: - Debug verification hooks
+
+        extension PostHogReplayIntegration {
+            /// Debug-only: computes the redaction rects that `snapshot()` would produce
+            /// for `window` right now, via the exact production collection path (the
+            /// `findMaskableWidgets` walk plus the mask-reporter registry). Main thread only.
+            ///
+            /// Used by verification harnesses to compare masking output before/after
+            /// SDK changes — see the masking characterization tests.
+            func debugMaskableRects(in window: UIWindow) -> [CGRect] {
+                collectMaskableRects(in: window)
+            }
+
+            /// Debug-only: a transient integration bound to `postHog` so that
+            /// `debugMaskableRects(in:)` can read the session-replay config even when
+            /// replay isn't installed/recording (e.g. placeholder token, flag off).
+            static func debugTransient(for postHog: PostHogSDK) -> PostHogReplayIntegration {
+                let integration = PostHogReplayIntegration()
+                integration.postHog = postHog
+                return integration
             }
         }
     #endif

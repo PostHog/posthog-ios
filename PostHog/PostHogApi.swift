@@ -245,11 +245,13 @@ class PostHogApi {
         distinctId: String,
         deviceToken: String,
         appId: String,
+        identityToken: String?,
         completion: @escaping (PostHogUploadInfo) -> Void
     ) {
         sendPushSubscription(
             httpMethod: "POST", endpointName: "push subscription",
-            distinctId: distinctId, deviceToken: deviceToken, appId: appId, completion: completion
+            distinctId: distinctId, deviceToken: deviceToken, appId: appId,
+            identityToken: identityToken, completion: completion
         )
     }
 
@@ -260,11 +262,13 @@ class PostHogApi {
         distinctId: String,
         deviceToken: String,
         appId: String,
+        identityToken: String?,
         completion: @escaping (PostHogUploadInfo) -> Void
     ) {
         sendPushSubscription(
             httpMethod: "DELETE", endpointName: "push unsubscription",
-            distinctId: distinctId, deviceToken: deviceToken, appId: appId, completion: completion
+            distinctId: distinctId, deviceToken: deviceToken, appId: appId,
+            identityToken: identityToken, completion: completion
         )
     }
 
@@ -274,6 +278,7 @@ class PostHogApi {
         distinctId: String,
         deviceToken: String,
         appId: String,
+        identityToken: String?,
         completion: @escaping (PostHogUploadInfo) -> Void
     ) {
         guard let url = getEndpointURL("/api/push_subscriptions/", relativeTo: config.host) else {
@@ -281,13 +286,18 @@ class PostHogApi {
             return completion(PostHogUploadInfo(statusCode: nil, error: nil))
         }
 
-        let toSend: [String: Any] = [
+        // The token key is omitted entirely when absent — the backend treats a missing key as
+        // "unsigned"; an explicit null would fail its string check.
+        var toSend: [String: Any] = [
             "api_key": config.projectToken,
             "distinct_id": distinctId,
             "device_token": deviceToken,
             "platform": "ios",
             "app_id": appId,
         ]
+        if let identityToken {
+            toSend["identity_token"] = identityToken
+        }
 
         guard let data = try? JSONSerialization.data(withJSONObject: toSend) else {
             hedgeLog("Error parsing the \(endpointName) body")

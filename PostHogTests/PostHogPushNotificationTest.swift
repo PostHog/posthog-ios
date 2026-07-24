@@ -32,6 +32,23 @@
 
         // MARK: - Helpers
 
+        /// Thread-safe recorder for `pushIdentityProvider` closures, which may run on any thread.
+        private final class MintRecorder {
+            private let lock = NSLock()
+            private var invocations = [(distinctId: String, appId: String)]()
+
+            /// Records one invocation and returns its 1-based ordinal (usable as a unique token suffix).
+            func record(_ distinctId: String, _ appId: String) -> Int {
+                lock.withLock {
+                    invocations.append((distinctId, appId))
+                    return invocations.count
+                }
+            }
+
+            var count: Int { lock.withLock { invocations.count } }
+            var distinctIds: [String] { lock.withLock { invocations.map(\.distinctId) } }
+        }
+
         private func waitFor(_ condition: @escaping () -> Bool, timeout: TimeInterval = 5) async -> Bool {
             let deadline = Date().addingTimeInterval(timeout)
             while Date() < deadline {
@@ -84,13 +101,15 @@
             optOut: Bool = false,
             enableSwizzling: Bool = true,
             capturePushNotificationOpened: Bool = false,
-            reuseAnonymousId: Bool = false
+            reuseAnonymousId: Bool = false,
+            pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? = nil
         ) -> PostHogSDK {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.flushAt = 1
             config.optOut = optOut
             config.reuseAnonymousId = reuseAnonymousId
             config.enableSwizzling = enableSwizzling
+            config.pushIdentityProvider = pushIdentityProvider
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.capturePushNotificationSubscriptions = false
@@ -318,6 +337,50 @@
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
             }
+
+            @Test("reset(): DELETE reuses the old id's cached token, re-POST mints the anon id's (vector 11)")
+            func resetMintsPerLegIdentityTokens() async throws {
+                let recorder = MintRecorder()
+                let sut = getSDK(pushIdentityProvider: { distinctId, appId, completion in
+                    _ = recorder.record(distinctId, appId)
+                    completion("jwt-\(distinctId)")
+                })
+                defer { sut.close() }
+
+                sut.identify("user-A")
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor {
+                    (sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String])?["deliveredForDistinctId"] == "user-A"
+                })
+
+                // identify() re-registers under the new id (decision 5), minting user-B's token.
+                sut.identify("user-B")
+                #expect(await waitFor {
+                    (sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String])?["deliveredForDistinctId"] == "user-B"
+                })
+                server.pushSubscriptionRequests = []
+
+                sut.reset()
+
+                #expect(await waitFor {
+                    self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" }
+                        && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
+                })
+
+                // The DELETE reuses user-B's token cached at identify time; only the anon re-POST
+                // mints. One provider invocation per distinct id across the scenario.
+                let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+                let delBody = try #require(server.parseRequest(del))
+                #expect(delBody["distinct_id"] as? String == "user-B")
+                #expect(delBody["identity_token"] as? String == "jwt-user-B")
+
+                let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+                let postBody = try #require(server.parseRequest(post))
+                let anonId = try #require(postBody["distinct_id"] as? String)
+                #expect(anonId != "user-B")
+                #expect(postBody["identity_token"] as? String == "jwt-\(anonId)")
+                #expect(recorder.distinctIds == ["user-A", "user-B", anonId])
+            }
         #endif
 
         @Test("reset() sends no push requests when no token was ever registered")
@@ -477,6 +540,177 @@
             // Record kept, not marked delivered.
             #expect(record(storage)?["deviceToken"] == "tok")
             #expect(!delivered(storage))
+        }
+
+        // MARK: - Identity verification (vectors 9–14)
+
+        @Test("provider token lands as identity_token on register POST and unregister DELETE (vector 9)")
+        func identityTokenOnRegisterAndUnregister() async throws {
+            let (handler, storage, config) = makeHandler(distinctIdProvider: { "user-1" })
+            // Complete from a foreign thread — the provider contract allows any thread.
+            config.pushIdentityProvider = { _, _, completion in
+                DispatchQueue.global().async { completion("jwt-abc") }
+            }
+
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+            let postBody = try #require(server.parseRequest(post))
+            #expect(postBody["identity_token"] as? String == "jwt-abc")
+            #expect(postBody["api_key"] as? String == testProjectToken)
+            #expect(postBody["distinct_id"] as? String == "user-1")
+            #expect(postBody["device_token"] as? String == "tok")
+            #expect(postBody["platform"] as? String == "ios")
+            #expect(postBody["app_id"] as? String == "com.example.app")
+
+            handler.unregisterCurrentToken()
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(try #require(server.parseRequest(del))["identity_token"] as? String == "jwt-abc")
+        }
+
+        @Test("no provider: bodies contain no identity_token key (vector 10)")
+        func noProviderOmitsIdentityToken() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-1" })
+
+            handler.send(deviceToken: "tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+            handler.unregisterCurrentToken()
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+
+            for request in server.pushSubscriptionRequests {
+                let body = try #require(server.parseRequest(request))
+                #expect(!body.keys.contains("identity_token"))
+            }
+        }
+
+        @Test("provider completing nil: body contains no identity_token key (vector 10)")
+        func nilCompletionOmitsIdentityToken() async throws {
+            let (handler, storage, config) = makeHandler()
+            config.pushIdentityProvider = { _, _, completion in completion(nil) }
+
+            handler.send(deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
+            #expect(!body.keys.contains("identity_token"))
+        }
+
+        @Test("only the first provider completion is honored")
+        func onlyFirstProviderCompletionHonored() async throws {
+            let (handler, storage, config) = makeHandler()
+            config.pushIdentityProvider = { _, _, completion in
+                completion("jwt-first")
+                completion("jwt-second")
+            }
+
+            handler.send(deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+            let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
+            #expect(body["identity_token"] as? String == "jwt-first")
+        }
+
+        @Test("500 then 200: provider minted once, both attempts carry the same token (vector 12)")
+        func retryReusesCachedIdentityToken() async throws {
+            server.pushSubscriptionStatusHandler = { requestNumber in requestNumber == 1 ? 500 : 200 }
+            let recorder = MintRecorder()
+            let (handler, storage, config) = makeHandler()
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                completion("jwt-mint-\(recorder.record(distinctId, appId))")
+            }
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { handler.retryCountForTesting == 1 })
+
+            handler.clearBackoffForTesting()
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 2)
+            #expect(recorder.count == 1)
+            for request in server.pushSubscriptionRequests {
+                let body = try #require(server.parseRequest(request))
+                #expect(body["identity_token"] as? String == "jwt-mint-1")
+            }
+        }
+
+        @Test("401 then 200: one fresh-token retry with a re-minted token succeeds (vector 13)")
+        func authRetryWithFreshTokenSucceeds() async throws {
+            server.pushSubscriptionStatusHandler = { requestNumber in requestNumber == 1 ? 401 : 200 }
+            let recorder = MintRecorder()
+            let (handler, storage, config) = makeHandler()
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                completion("jwt-mint-\(recorder.record(distinctId, appId))")
+            }
+
+            handler.send(deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 2)
+            #expect(recorder.count == 2)
+            let first = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
+            #expect(first["identity_token"] as? String == "jwt-mint-1")
+            let second = try #require(server.parseRequest(server.pushSubscriptionRequests[1]))
+            #expect(second["identity_token"] as? String == "jwt-mint-2")
+        }
+
+        @Test("401 twice: terminal after exactly two requests and two mints, record kept (vector 13)")
+        func secondAuthFailureIsTerminal() async throws {
+            server.pushSubscriptionStatusCode = 401
+            let recorder = MintRecorder()
+            let (handler, storage, config) = makeHandler()
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                completion("jwt-mint-\(recorder.record(distinctId, appId))")
+            }
+
+            handler.send(deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { handler.isHaltedForTesting })
+            #expect(server.pushSubscriptionRequests.count == 2)
+            #expect(recorder.count == 2)
+
+            // No further in-session attempts while halted.
+            handler.clearBackoffForTesting()
+            handler.retryIfNeeded()
+            try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(server.pushSubscriptionRequests.count == 2)
+
+            #expect(record(storage)?["deviceToken"] == "tok")
+            #expect(!delivered(storage))
+        }
+
+        @Test("401 with no provider: terminal after one request, record kept (vector 14)")
+        func unauthorizedWithoutProviderIsTerminal() async throws {
+            server.pushSubscriptionStatusCode = 401
+            let (handler, storage, _) = makeHandler()
+
+            handler.send(deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { handler.isHaltedForTesting })
+            #expect(server.pushSubscriptionRequests.count == 1)
+            #expect(record(storage)?["deviceToken"] == "tok")
+            #expect(!delivered(storage))
+        }
+
+        @Test("unregister DELETE gets no 401 fresh-token retry (best-effort, single-shot)")
+        func unregisterNoAuthRetry() async throws {
+            server.pushSubscriptionStatusCode = 401
+            let recorder = MintRecorder()
+            let (handler, _, config) = makeHandler(distinctIdProvider: { "user-1" })
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                completion("jwt-mint-\(recorder.record(distinctId, appId))")
+            }
+
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 1)
+            #expect(recorder.count == 1)
         }
 
         // MARK: - Offline

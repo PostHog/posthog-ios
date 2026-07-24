@@ -30,6 +30,9 @@ class MockPostHogServer {
     /// When set, `/push_subscriptions` replies with this exact status code (takes precedence over the
     /// 500 toggles). Used to exercise non-retryable responses like 400.
     var pushSubscriptionStatusCode: Int?
+    /// When set, picks the `/push_subscriptions` status per request (1-based request number); takes
+    /// precedence over all fixed toggles. Used for scripted sequences (e.g. 401 then 200).
+    var pushSubscriptionStatusHandler: ((Int) -> Int)?
     /// When set, `/push_subscriptions` responses carry this `Retry-After` header value.
     var pushSubscriptionRetryAfter: String?
     private var stubDescriptors = [HTTPStubsDescriptor]()
@@ -365,7 +368,9 @@ class MockPostHogServer {
             self.pushSubscriptionRequests.append(request)
 
             let status: Int
-            if let code = self.pushSubscriptionStatusCode {
+            if let handler = self.pushSubscriptionStatusHandler {
+                status = handler(self.pushSubscriptionRequests.count)
+            } else if let code = self.pushSubscriptionStatusCode {
                 status = code
             } else if self.return500 || self.returnPushSubscription500 {
                 status = 500
@@ -526,6 +531,7 @@ class MockPostHogServer {
         batchResponseHandler = nil
         returnPushSubscription500 = false
         pushSubscriptionStatusCode = nil
+        pushSubscriptionStatusHandler = nil
         pushSubscriptionRetryAfter = nil
     }
 

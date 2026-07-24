@@ -2398,6 +2398,8 @@ let maxRetryDelay = 30.0
             storage?.setBool(forKey: .optOut, contents: true)
         }
 
+        pushSubscriptionHandler?.onOptOut()
+
         setupLock.withLock {
             uninstallIntegrations()
         }

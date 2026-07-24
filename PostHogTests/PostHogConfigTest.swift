@@ -32,6 +32,7 @@ class PostHogConfigTest: QuickSpec {
                 expect(config.capturePushNotificationSubscriptions) == true
                 expect(config.capturePushNotificationOpened) == true
             #endif
+            expect(config.pushIdentityProvider).to(beNil())
         }
 
         it("init takes project token") {

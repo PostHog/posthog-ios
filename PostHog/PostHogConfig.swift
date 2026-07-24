@@ -185,6 +185,21 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         @objc public var capturePushNotificationOpened: Bool = true
     #endif
 
+    /// Supplies a signed identity token to attach (as `identity_token`) to push subscription
+    /// register/unregister requests, for projects that enable identity verification on their push
+    /// integration. Invoked with the `distinct_id` and `app_id` the request carries; call `completion`
+    /// **exactly once**, from any thread, with a token minted by your backend — or `nil` to send the
+    /// request without one. The SDK never mints tokens itself: your backend signs an HS256 JWT with
+    /// the project's **secret** API key, claims `sub` = distinct id, `app_id`,
+    /// `aud` = "posthog:push_identity", and an `exp`.
+    ///
+    /// The token is cached in memory per `(distinctId, appId)` and re-requested on identity change, on
+    /// the next launch, and once after a 401 rejection. An uncalled `completion` strands that request
+    /// until the next launch.
+    ///
+    /// Default: `nil` (requests carry no identity token).
+    @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
+
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
         ///

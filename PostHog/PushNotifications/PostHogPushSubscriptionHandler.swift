@@ -20,6 +20,12 @@ final class PostHogPushSubscriptionHandler {
         let deliveredForDistinctId: String?
     }
 
+    private struct CachedIdentityToken {
+        let token: String
+        let distinctId: String
+        let appId: String
+    }
+
     private static let firstRetryDelay: TimeInterval = 5
     private static let maxRetryDelay: TimeInterval = 30
 
@@ -32,7 +38,8 @@ final class PostHogPushSubscriptionHandler {
     /// SDK is disabled or opted out. The record is kept so an opt-in can resume later.
     private let isAllowedProvider: () -> Bool
 
-    /// Guards `retryCount`, `pausedUntil`, `isSending`, `pendingResend`, and `halted`.
+    /// Guards `retryCount`, `pausedUntil`, `isSending`, `pendingResend`, `halted`,
+    /// `cachedIdentityToken`, and `didAuthRetry`.
     private let stateLock = NSLock()
     private var retryCount = 0
     private var pausedUntil: Date?
@@ -43,6 +50,12 @@ final class PostHogPushSubscriptionHandler {
     /// Set after a non-retryable failure or once retries are exhausted: no more attempts this session,
     /// but the record is kept for one retry on the next launch.
     private var halted = false
+    /// Last token minted by `config.pushIdentityProvider` for a `(distinctId, appId)` pair, reused by
+    /// retries and reset() to avoid extra provider roundtrips; cleared on a 401 re-mint and opt-out. In memory
+    /// only — unlike the persisted record, a short-lived credential must not outlive the process.
+    private var cachedIdentityToken: CachedIdentityToken?
+    /// One fresh-token retry per send-cycle after a 401; reset with the retry state.
+    private var didAuthRetry = false
 
     /// Serializes storage-record read-modify-writes (persist, deliver-stamp, unregister-clear, reset
     /// re-register) so a concurrent `send()`, `reset()`, or send completion can't interleave and lose a
@@ -145,11 +158,18 @@ final class PostHogPushSubscriptionHandler {
             hedgeLog("Push unregister skipped: missing distinct id, token, or app id.")
             return
         }
-        api.deletePushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { info in
-            if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
-                hedgeLog("Push subscription unregistered successfully.")
-            } else {
-                hedgeLog("Push unregister failed (status \(info.statusCode.map(String.init) ?? "none")); ignoring (best-effort).")
+        // Same one-verification-state as registration: the DELETE resolves a token for the distinct id
+        // it carries (the old identity on the reset() path). Still best-effort — no 401 refresh here.
+        resolveIdentityToken(distinctId: distinctId, appId: appId) { [weak self] identityToken in
+            guard let self, isAllowedProvider() else { return }
+            api.deletePushSubscription(
+                distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken
+            ) { info in
+                if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
+                    hedgeLog("Push subscription unregistered successfully.")
+                } else {
+                    hedgeLog("Push unregister failed (status \(info.statusCode.map(String.init) ?? "none")); ignoring (best-effort).")
+                }
             }
         }
     }
@@ -196,6 +216,11 @@ final class PostHogPushSubscriptionHandler {
         unregister(distinctId: distinctIdProvider(), deviceToken: record.deviceToken, appId: record.appId)
     }
 
+    /// Opt-out drops the cached identity credential so a later opt-in re-mints it.
+    func onOptOut() {
+        stateLock.withLock { cachedIdentityToken = nil }
+    }
+
     // MARK: - Private
 
     private func resendIfDistinctIdChanged(currentDistinctId: String) {
@@ -216,6 +241,7 @@ final class PostHogPushSubscriptionHandler {
             retryCount = 0
             pausedUntil = nil
             halted = false
+            didAuthRetry = false
         }
     }
 
@@ -254,8 +280,61 @@ final class PostHogPushSubscriptionHandler {
         }
         guard shouldSend else { return }
 
-        api.pushSubscription(distinctId: distinctId, deviceToken: deviceToken, appId: appId) { [weak self] info in
-            self?.handleResult(info, deviceToken: deviceToken, appId: appId, distinctId: distinctId)
+        // `isSending` stays claimed across the mint, so a registration arriving mid-mint folds into
+        // `pendingResend` exactly like one arriving mid-request.
+        resolveIdentityToken(distinctId: distinctId, appId: appId) { [weak self] identityToken in
+            guard let self else { return }
+            // Opt-out may land during a slow mint; re-check before sending.
+            guard isAllowedProvider() else {
+                stateLock.withLock { self.isSending = false }
+                return
+            }
+            api.pushSubscription(
+                distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken
+            ) { [weak self] info in
+                self?.handleResult(info, deviceToken: deviceToken, appId: appId, distinctId: distinctId)
+            }
+        }
+    }
+
+    /// Resolves the identity token for `distinctId`/`appId`, preferring an exact cache hit. The
+    /// completion may run synchronously or from whatever thread the provider completes on; extra
+    /// provider completions are ignored (an uncalled one strands the request — see the config doc).
+    private func resolveIdentityToken(distinctId: String, appId: String, completion: @escaping (String?) -> Void) {
+        guard let provider = config.pushIdentityProvider else {
+            hedgeLog("Push subscription request sent without identity token (no pushIdentityProvider).")
+            return completion(nil)
+        }
+
+        let cached = stateLock.withLock { () -> String? in
+            guard let cache = cachedIdentityToken, cache.distinctId == distinctId, cache.appId == appId else {
+                return nil
+            }
+            return cache.token
+        }
+        if let cached {
+            hedgeLog("Push subscription request sent with cached identity token.")
+            return completion(cached)
+        }
+
+        var completed = false
+        provider(distinctId, appId) { [weak self] token in
+            guard let self else { return }
+            let isFirst = self.stateLock.withLock { () -> Bool in
+                if completed {
+                    return false
+                }
+                completed = true
+                if let token {
+                    self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
+                }
+                return true
+            }
+            guard isFirst else { return }
+            hedgeLog(token != nil
+                ? "Push subscription request sent with freshly minted identity token."
+                : "Push subscription request sent without identity token (provider completed nil).")
+            completion(token)
         }
     }
 
@@ -272,7 +351,7 @@ final class PostHogPushSubscriptionHandler {
             resetRetryState()
             hedgeLog("Push subscription sent successfully.")
         } else {
-            handleFailure(info)
+            handleFailure(info, deviceToken: deviceToken, appId: appId)
         }
 
         // A newer registration or identity change arrived while this send was in flight. Service it with
@@ -285,7 +364,25 @@ final class PostHogPushSubscriptionHandler {
 
     /// Applies backoff/halt state for a non-2xx result. Split from `handleResult` so a coalesced resend
     /// is serviced afterward regardless of which failure branch this took.
-    private func handleFailure(_ info: PostHogUploadInfo) {
+    private func handleFailure(_ info: PostHogUploadInfo, deviceToken: String, appId: String) {
+        // A 401 means identity verification failed. With a provider, allow one fresh-token retry per
+        // send-cycle; a second 401 falls through to the terminal branch below.
+        if info.statusCode == 401, config.pushIdentityProvider != nil {
+            let shouldRetryWithFreshToken = stateLock.withLock { () -> Bool in
+                if didAuthRetry {
+                    return false
+                }
+                didAuthRetry = true
+                cachedIdentityToken = nil
+                return true
+            }
+            if shouldRetryWithFreshToken {
+                hedgeLog("Push subscription rejected (401). Retrying once with a fresh identity token.")
+                attemptIfAllowed(deviceToken: deviceToken, appId: appId)
+                return
+            }
+        }
+
         // Retryable: transport error (no status), 429, or 5xx. Everything else (400/401) is terminal.
         let retryable: Bool
         if let statusCode = info.statusCode {
@@ -296,7 +393,13 @@ final class PostHogPushSubscriptionHandler {
 
         guard retryable else {
             stateLock.withLock { halted = true }
-            hedgeLog("Push subscription rejected (status \(info.statusCode.map(String.init) ?? "none")). Keeping record for next launch.")
+            if info.statusCode == 401, config.pushIdentityProvider == nil {
+                hedgeLog(
+                    "Push subscription rejected (401): identity verification may be required — set config.pushIdentityProvider. Keeping record for next launch."
+                )
+            } else {
+                hedgeLog("Push subscription rejected (status \(info.statusCode.map(String.init) ?? "none")). Keeping record for next launch.")
+            }
             return
         }
 

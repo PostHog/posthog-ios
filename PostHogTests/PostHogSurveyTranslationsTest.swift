@@ -328,6 +328,32 @@
                 #expect(questions?.first?["question"] as? String == "Question traduite?")
             }
 
+            @Test("survey sent prefers the answer-time question snapshot over live translation")
+            func surveySentPrefersAnswerTimeSnapshot() async throws {
+                let integration = try getSurveyIntegration(postHog)
+                // Snapshot says the question was answered in the base language; the live translation
+                // (passed as questionTranslations) is French. The snapshot must win.
+                let frTranslation = PostHogSurveyQuestionTranslation(
+                    question: "Question FR?",
+                    description: nil,
+                    buttonText: nil,
+                    link: nil,
+                    lowerBoundLabel: nil,
+                    upperBoundLabel: nil,
+                    choices: nil
+                )
+                integration.testSendSurveySentEvent(
+                    survey: minimalSurvey(),
+                    responses: ["$survey_response": .openEnded("ok")],
+                    language: "en",
+                    questionTranslations: [frTranslation],
+                    responseQuestionText: [integration.testGetResponseKey(questionId: "q1"): "Question?"]
+                )
+                let events = try await getServerEvents(server)
+                let questions = events[0].properties["$survey_questions"] as? [[String: Any]]
+                #expect(questions?.first?["question"] as? String == "Question?")
+            }
+
             @Test("survey dismissed stamps $survey_language when set")
             func surveyDismissedStampsLanguage() async throws {
                 let integration = try getSurveyIntegration(postHog)
@@ -459,6 +485,54 @@
                             thankYouMessageDescription: nil,
                             thankYouMessageCloseButtonText: nil
                         )]
+                    )
+                }
+
+                /// A two-question survey where each question has a French translation, so an answer
+                /// given before a switch to French can be told apart from one given after.
+                private func twoQuestionTranslatedSurvey() -> PostHogSurvey {
+                    func question(id: String, index: Int, base: String, fr: String) -> PostHogSurveyQuestion {
+                        .open(PostHogOpenSurveyQuestion(
+                            id: id,
+                            question: base,
+                            description: nil,
+                            descriptionContentType: .text,
+                            optional: false,
+                            buttonText: nil,
+                            originalQuestionIndex: index,
+                            branching: nil,
+                            translations: ["fr": PostHogSurveyQuestionTranslation(
+                                question: fr,
+                                description: nil,
+                                buttonText: nil,
+                                link: nil,
+                                lowerBoundLabel: nil,
+                                upperBoundLabel: nil,
+                                choices: nil
+                            )]
+                        ))
+                    }
+
+                    return PostHogSurvey(
+                        id: "translated-survey",
+                        name: "Original",
+                        type: .popover,
+                        questions: [
+                            question(id: "q1", index: 0, base: "Question 1?", fr: "Question 1 FR?"),
+                            question(id: "q2", index: 1, base: "Question 2?", fr: "Question 2 FR?"),
+                        ],
+                        featureFlagKeys: nil,
+                        linkedFlagKey: nil,
+                        targetingFlagKey: nil,
+                        internalTargetingFlagKey: nil,
+                        conditions: nil,
+                        appearance: nil,
+                        currentIteration: nil,
+                        currentIterationStartDate: nil,
+                        startDate: Date(),
+                        endDate: nil,
+                        schedule: nil,
+                        translations: nil
                     )
                 }
 
@@ -604,6 +678,57 @@
                     await drainMainQueue()
 
                     #expect(spy.updatedSurveys.isEmpty)
+                }
+
+                @Test("survey sent reports each question in the language it was answered in")
+                func sentReportsAnswerTimeLanguagePerQuestion() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(twoQuestionTranslatedSurvey(), language: "en")
+                    _ = integration.getNextQuestion(index: 0, response: .openEnded("a1"))
+
+                    // Switch language mid-survey, then answer the remaining question.
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+
+                    _ = integration.getNextQuestion(index: 1, response: .openEnded("a2"))
+
+                    let events = try await getServerEvents(server)
+                    let sent = try #require(events.first { $0.event == "survey sent" })
+                    let questions = try #require(sent.properties["$survey_questions"] as? [[String: Any]])
+                    #expect(questions.count == 2)
+                    #expect(questions[0]["question"] as? String == "Question 1?") // answered in English
+                    #expect(questions[1]["question"] as? String == "Question 2 FR?") // answered in French
+                    // Survey-level language is frozen to show time so it agrees with `survey shown`.
+                    #expect(sent.properties["$survey_language"] as? String == "en")
+                }
+
+                @Test("survey dismissed keeps an answered question in its answer-time language")
+                func dismissKeepsAnswerTimeLanguage() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    // Answer Q1 in English, switch to French, dismiss without answering Q2.
+                    integration.setShownSurvey(twoQuestionTranslatedSurvey(), language: "en")
+                    _ = integration.getNextQuestion(index: 0, response: .openEnded("a1"))
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+
+                    integration.testHandleSurveyClosed(survey: twoQuestionTranslatedSurvey().toDisplaySurvey())
+
+                    let events = try await getServerEvents(server)
+                    let dismissed = try #require(events.first { $0.event == "survey dismissed" })
+                    let questions = try #require(dismissed.properties["$survey_questions"] as? [[String: Any]])
+                    // Q1 was answered in English and keeps that text despite the later switch.
+                    #expect(questions[0]["question"] as? String == "Question 1?")
+                    // Q2 was never answered, so it stays in the show-time language, matching $survey_language.
+                    #expect(questions[1]["question"] as? String == "Question 2?")
+                    #expect(dismissed.properties["$survey_language"] as? String == "en")
                 }
             }
 

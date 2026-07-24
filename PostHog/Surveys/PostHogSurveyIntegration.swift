@@ -111,7 +111,9 @@
                     .filter { survey in // 3. and match display conditions,
                         // TODO: Check screen conditions
                         // TODO: Check event conditions
-                        self.doesSurveyDeviceTypesMatch(survey: survey)
+                        self.doesSurveyDeviceTypesMatch(survey: survey) &&
+                            // web-only conditions (CSS selector / URL) can never be satisfied natively
+                            !self.hasWebOnlyConditions(survey: survey)
                     }
                     .filter { survey in // 3.5. wait period has passed
                         self.hasWaitPeriodPassed(survey: survey)
@@ -388,6 +390,22 @@
             let matchType = getMatchTypeOrDefault(conditions.deviceTypesMatchType)
 
             return matchType.matches(targets: deviceTypes, value: deviceType)
+        }
+
+        /// Checks if a survey is scoped to web-only display conditions (CSS selector or URL).
+        ///
+        /// These conditions can only be evaluated in a web context, so a survey that carries them
+        /// should never display in a native app. This keeps web-only surveys from leaking onto iOS
+        /// when the same survey is enabled across both surfaces.
+        private func hasWebOnlyConditions(survey: PostHogSurvey) -> Bool {
+            guard let conditions = survey.conditions else {
+                return false
+            }
+
+            let hasSelector = !(conditions.selector?.isEmpty ?? true)
+            let hasUrl = !(conditions.url?.isEmpty ?? true)
+
+            return hasSelector || hasUrl
         }
 
         /// Checks if the wait period has passed since the last seen survey date

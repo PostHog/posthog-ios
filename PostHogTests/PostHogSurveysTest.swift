@@ -896,6 +896,49 @@ enum PostHogSurveysTest {
             }
             """
 
+        let surveyWithSelectorCondition =
+            """
+            {
+                "id": "selector_id",
+                "name": "Web-only Survey (selector)",
+                "type": "popover",
+                "questions": [
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
+                    }
+                ],
+                "conditions": {
+                    "selector": "#my-button"
+                },
+                "start_date": "2024-07-23T09:18:18.376000Z"
+            }
+            """
+
+        let surveyWithUrlCondition =
+            """
+            {
+                "id": "url_id",
+                "name": "Web-only Survey (url)",
+                "type": "popover",
+                "questions": [
+                    {
+                        "id": "1",
+                        "type": "open",
+                        "question": "What is a completed survey?",
+                        "originalQuestionIndex": 0
+                    }
+                ],
+                "conditions": {
+                    "url": "https://example.com/pricing",
+                    "urlMatchType": "icontains"
+                },
+                "start_date": "2024-07-23T09:18:18.376000Z"
+            }
+            """
+
         let surveysWithFeatureFlags =
             """
             {
@@ -1109,6 +1152,42 @@ enum PostHogSurveysTest {
             } else {
                 #expect(matchedSurveys.map(\.id) == ["active_id"])
             }
+        }
+
+        @Test("does not return web-only surveys with a CSS selector condition")
+        func doesNotReturnSurveysWithSelectorCondition() async {
+            let surveys: [String] = [
+                activeSurvey,
+                surveyWithSelectorCondition,
+            ]
+
+            let sut = getSut(surveys: surveys)
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["active_id"])
+        }
+
+        @Test("does not return web-only surveys with a URL condition")
+        func doesNotReturnSurveysWithUrlCondition() async {
+            let surveys: [String] = [
+                activeSurvey,
+                surveyWithUrlCondition,
+            ]
+
+            let sut = getSut(surveys: surveys)
+
+            let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(with: .success($0))
+                }
+            }
+
+            #expect(matchedSurveys.map(\.id) == ["active_id"])
         }
 
         @Test("returns only surveys with enabled feature flags")

@@ -16,7 +16,10 @@
         let hasOpenChoiceQuestion: Bool
         let options: [String]
 
-        @Binding var selectedOptions: Set<String>
+        // Selection is keyed by choice index, not label text, so an in-place content swap
+        // (e.g. re-translating the survey) keeps the same options selected and the caller reads
+        // the current-language label at submit time.
+        @Binding var selectedOptions: Set<Int>
         @Binding var openChoiceInput: String
         @State private var textFieldRect: CGRect = .zero
         @FocusState private var isTextFieldFocused: Bool
@@ -27,15 +30,15 @@
 
         var body: some View {
             VStack {
-                ForEach(options, id: \.self) { option in
-                    let isSelected = isSelected(option)
+                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                    let isSelected = isSelected(index)
 
                     Button {
                         withAnimation(.linear(duration: 0.15)) {
-                            setSelected(!isSelected, option: option)
+                            setSelected(!isSelected, index: index)
                         }
                     } label: {
-                        if isOpenChoice(option) {
+                        if isOpenChoice(index) {
                             VStack(alignment: .leading) {
                                 Text("\(option):")
                                     .multilineTextAlignment(.leading)
@@ -58,46 +61,46 @@
                         }
                     }
                     // text field needs to overlay the Button so it can receive touches first when enabled
-                    .overlay(openChoiceField(option), alignment: .topLeading)
+                    .overlay(openChoiceField(index), alignment: .topLeading)
                 }
             }
         }
 
-        private func isOpenChoice(_ option: String) -> Bool {
-            hasOpenChoiceQuestion && options.last == option
+        private func isOpenChoice(_ index: Int) -> Bool {
+            hasOpenChoiceQuestion && index == options.count - 1
         }
 
-        private func isSelected(_ option: String) -> Bool {
-            selectedOptions.contains(option)
+        private func isSelected(_ index: Int) -> Bool {
+            selectedOptions.contains(index)
         }
 
-        private func setSelected(_ selected: Bool, option: String) {
+        private func setSelected(_ selected: Bool, index: Int) {
             if selected {
                 if allowsMultipleSelection {
-                    selectedOptions.insert(option)
+                    selectedOptions.insert(index)
                 } else {
-                    selectedOptions = [option]
+                    selectedOptions = [index]
                 }
 
-                let isOpenChoice = self.isOpenChoice(option)
+                let isOpenChoice = self.isOpenChoice(index)
                 // requires a small delay since textfield is enabled/disabled based on `selectedOptions` state update
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isTextFieldFocused = isOpenChoice
                 }
             } else {
-                selectedOptions.remove(option)
+                selectedOptions.remove(index)
             }
         }
 
         @ViewBuilder
-        private func openChoiceField(_ option: String) -> some View {
-            if isOpenChoice(option) {
+        private func openChoiceField(_ index: Int) -> some View {
+            if isOpenChoice(index) {
                 TextField("", text: $openChoiceInput)
                     .focused($isTextFieldFocused)
-                    .foregroundColor(isSelected(option) ? inputTextColor : inputTextColor.opacity(0.5))
+                    .foregroundColor(isSelected(index) ? inputTextColor : inputTextColor.opacity(0.5))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(maxWidth: textFieldRect.size.width)
-                    .disabled(!isSelected(option))
+                    .disabled(!isSelected(index))
                     .offset(
                         x: textFieldRect.origin.x,
                         y: textFieldRect.origin.y
@@ -138,7 +141,7 @@
     #if DEBUG
         @available(iOS 18.0, *)
         private struct TestView: View {
-            @State var selectedOptions: Set<String> = []
+            @State var selectedOptions: Set<Int> = []
             @State var openChoiceInput = ""
 
             var body: some View {

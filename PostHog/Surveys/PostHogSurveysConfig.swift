@@ -66,6 +66,23 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
         onSurveyClosed: @escaping OnPostHogSurveyClosed
     )
 
+    /// Called when the content of the currently displayed survey changes without restarting it,
+    /// for example when the user's language is updated and a new translation becomes available.
+    ///
+    /// Implementations should update the on-screen survey in place — preserving the current
+    /// question, progress, and any in-progress answers — rather than presenting it again.
+    /// Optional: delegates that don't support live updates can omit it and the survey simply
+    /// keeps the language it was first rendered with.
+    ///
+    /// Always delivered on the main thread. May arrive *before* the survey is visibly shown —
+    /// e.g. while a display delay (`surveyPopupDelaySeconds`) is still pending — so a delegate
+    /// that defers presentation must also apply the update to its pending survey, otherwise the
+    /// update is dropped and the survey shows the language it was first resolved with.
+    ///
+    /// - Parameter survey: The survey with refreshed (e.g. re-translated) content. Its `id`
+    ///   matches the survey passed to `renderSurvey`.
+    @objc optional func updateSurvey(_ survey: PostHogDisplaySurvey)
+
     /// Called when surveys are stopped to clean up any UI elements and reset the survey display state.
     /// This method should handle the dismissal of any active surveys and cleanup of associated resources.
     @objc func cleanupSurveys()

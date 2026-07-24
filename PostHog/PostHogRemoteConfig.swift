@@ -60,6 +60,11 @@ class PostHogRemoteConfig {
 
     let onRemoteConfigLoaded = PostHogMulticastCallback<[String: Any]?>()
     let onFeatureFlagsLoaded = PostHogMulticastCallback<[String: Any]?>()
+    /// Invoked (synchronously, on the calling thread) right after the person properties used
+    /// for feature flag evaluation change — via `identify`, `setPersonProperties`, or
+    /// `setPersonPropertiesForFlags`. Used internally to re-resolve the language of a survey
+    /// that is currently on screen so it follows updates to the user's `language` property.
+    let onPersonPropertiesForFlagsChanged = PostHogMulticastCallback<Void>()
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))
@@ -760,19 +765,33 @@ class PostHogRemoteConfig {
     }
 
     func setPersonPropertiesForFlags(_ properties: [String: Any]) {
-        personPropertiesForFlagsLock.withLock {
+        let didChange = personPropertiesForFlagsLock.withLock {
+            let previous = personPropertiesForFlags
             // Merge properties additively, similar to JS SDK behavior
             personPropertiesForFlags.merge(properties, uniquingKeysWith: { _, new in new })
             // Persist to disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
+            return !NSDictionary(dictionary: personPropertiesForFlags).isEqual(to: previous)
+        }
+        // Notify subscribers (e.g. surveys) so a survey already on screen can re-resolve its
+        // language if the user's `language` property changed. Skipped when the merge changed no
+        // value so a `capture()` carrying unchanged person properties doesn't re-run survey
+        // translation resolution. Invoked outside the lock so subscribers don't run while we hold it.
+        if didChange {
+            onPersonPropertiesForFlagsChanged.invoke(())
         }
     }
 
     func resetPersonPropertiesForFlags() {
-        personPropertiesForFlagsLock.withLock {
+        let didChange = personPropertiesForFlagsLock.withLock {
+            let hadProperties = !personPropertiesForFlags.isEmpty
             personPropertiesForFlags.removeAll()
             // Clear from disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
+            return hadProperties
+        }
+        if didChange {
+            onPersonPropertiesForFlagsChanged.invoke(())
         }
     }
 

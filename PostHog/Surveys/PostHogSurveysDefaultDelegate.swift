@@ -29,7 +29,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         #if os(iOS)
             guard #available(iOS 15.0, *) else { return }
 
-            if surveysWindow == nil {
+            if displayController == nil {
                 // setup window for first-time display
                 setupWindow()
             }
@@ -46,6 +46,20 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
             displayController.onSurveyClosed = onSurveyClosed
 
             scheduleSurveyDisplay(survey, displayController: displayController, onSurveyClosed: onSurveyClosed)
+        #endif
+    }
+
+    func updateSurvey(_ survey: PostHogDisplaySurvey) {
+        #if os(iOS)
+            guard #available(iOS 15.0, *) else { return }
+
+            // If the survey is still waiting out its display delay, refresh the queued copy so
+            // it gets shown with the latest content.
+            if pendingSurvey?.id == survey.id {
+                pendingSurvey = survey
+            }
+
+            displayController?.updateSurvey(survey)
         #endif
     }
 
@@ -98,7 +112,10 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
 
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self else { return }
-                guard self.pendingSurvey?.id == survey.id else {
+                // Read the latest pending copy: `updateSurvey` may have replaced it with a
+                // re-translated version (same id) while the delay was counting down. Showing
+                // the captured `survey` here would drop that update.
+                guard let pending = self.pendingSurvey, pending.id == survey.id else {
                     // current survey?
                     return
                 }
@@ -106,7 +123,7 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
                 self.pendingDisplayWorkItem = nil
                 self.pendingSurvey = nil
                 self.pendingSurveyClosedHandler = nil
-                displayController.showSurvey(survey)
+                displayController.showSurvey(pending)
             }
 
             pendingDisplayWorkItem = workItem
@@ -126,3 +143,12 @@ final class PostHogSurveysDefaultDelegate: PostHogSurveysDelegate {
         }
     #endif
 }
+
+#if os(iOS) && TESTING
+    extension PostHogSurveysDefaultDelegate {
+        /// Injects a display controller so tests can drive rendering without a `UIWindowScene`
+        func setDisplayControllerForTesting(_ controller: SurveyDisplayController) {
+            displayController = controller
+        }
+    }
+#endif

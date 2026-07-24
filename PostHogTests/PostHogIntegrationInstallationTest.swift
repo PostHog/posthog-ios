@@ -136,10 +136,11 @@ class PostHogIntegrationInstallationTest {
             #expect(sut.getErrorTrackingIntegration() != nil)
         }
 
-        @Test("error tracking integration not installed when remote config already loaded and disabled")
+        @Test("error tracking integration not installed when disk-cached remote config disables it")
         func errorTrackingNotInstalledWhenRemoteConfigDisables() async {
-            // Seed the cached remote config with autocaptureExceptions=false so hasFetchedRemoteConfig
-            // is true and the gate blocks installation.
+            // Remote fetch is disabled, so hasFetchedRemoteConfig stays false. The disk-cached config
+            // (seeded below) is what flips hasCachedRemoteConfig → true, and with autocaptureExceptions=false
+            // that makes the gate skip installation.
             let token = "test_error_tracking_\(UUID().uuidString)"
             let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
             config.disableRemoteConfigForTesting = true
@@ -149,7 +150,7 @@ class PostHogIntegrationInstallationTest {
 
             let storage = PostHogStorage(config)
             defer { storage.reset() }
-            // Seed cached config with autocapture disabled so hasFetchedRemoteConfig → true
+            // Seed disk-cached config with autocapture disabled so hasCachedRemoteConfig → true
             storage.setDictionary(forKey: .remoteConfig, contents: ["errorTracking": ["autocaptureExceptions": false]])
 
             let sut = PostHogSDK.with(config)

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.67.1
+
+### Patch Changes
+
+- 4c8c5a4: Fix surveys scoped to web via a CSS selector or URL display condition leaking onto native iOS. Surveys carrying `conditions.selector` or `conditions.url` are now treated as non-matching on native platforms, since those conditions can only be evaluated in a web context.
+
 ## 3.67.0
 
 ### Minor Changes

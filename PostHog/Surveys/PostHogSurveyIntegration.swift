@@ -47,20 +47,17 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
-        /// Language the on-screen survey content was actually rendered with. Deliberately not touched
-        /// by `refreshActiveSurveyTranslations` (dropped when the survey isn't displayable yet), so
-        /// `handleSurveyShown` can detect that drop. Frozen at show time, it also doubles as the
-        /// `$survey_language` stamped on `sent`/`dismissed`, keeping them aligned with `shown`.
+        /// Language the survey was actually rendered with, frozen at show time. Not touched by
+        /// `refreshActiveSurveyTranslations` (so `handleSurveyShown` can detect a dropped update), and
+        /// reused as `$survey_language` on `sent`/`dismissed` so they stay aligned with `shown`.
         private var activeSurveyRenderedLanguage: String?
         private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
-        /// Question translations frozen at show time (alongside `activeSurveyRenderedLanguage`), used
-        /// as the show-time fallback for questions never answered — so their reported text stays in the
-        /// same language as `$survey_language` rather than following a later live re-translation.
+        /// Question translations frozen at show time — the fallback text for questions never answered,
+        /// keeping them in `$survey_language` rather than a later live re-translation.
         private var activeSurveyRenderedQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         private var activeSurveyResponses: [String: PostHogSurveyResponse] = [:] // keyed by question identifier
-        /// Question text as it appeared on screen when each question was answered, keyed by the same
-        /// response keys as `activeSurveyResponses`. Frozen per answer so a later re-translation can't
-        /// rewrite the language a question was actually answered in.
+        /// Question text as shown when each question was answered, keyed like `activeSurveyResponses`, so
+        /// a later re-translation can't rewrite the language a question was answered in.
         private var activeSurveyResponseQuestionText: [String: String] = [:]
         private var activeSurveyCompleted: Bool = false
         private var activeSurveyQuestionIndex: Int = 0
@@ -748,8 +745,7 @@
 
             let surveyQuestions = survey.questions.enumerated().map { index, question in
                 let key = responseKey(questionId: question.id, index: index)
-                // Report the text the user actually saw: the answer-time snapshot when the question was
-                // answered, else the show-time translation, else the base text (for unanswered rows).
+                // Report the text the user saw: answer-time snapshot, else show-time translation, else base.
                 let effectiveQuestion = responseQuestionText[key]
                     ?? translatedQuestionText(from: questionTranslations, at: index)
                     ?? question.question
@@ -863,8 +859,8 @@
             )
         }
 
-        /// Stores a response for the current question in the active survey, and returns the updated
-        /// responses together with the per-question displayed-text snapshot.
+        /// Stores a response for the current question, returning the updated responses and the
+        /// per-question displayed-text snapshot.
         /// - Parameters:
         ///   - id: The question ID, empty if none
         ///   - index: The index of the question being answered
@@ -879,8 +875,8 @@
             activeSurveyLock.withLock {
                 let displayedText = displayedQuestionTextLocked(at: index)
 
-                // Response is stored under both key formats for back compatibility; the text snapshot is
-                // only read back via `responseKey`, so it needs the single matching key.
+                // Response is stored under both key formats for back compatibility; the snapshot only
+                // needs the single key it's read back under.
                 activeSurveyResponses[getOldResponseKey(for: index)] = response
                 if !id.isEmpty {
                     activeSurveyResponses[getNewResponseKey(for: id)] = response
@@ -892,22 +888,17 @@
             }
         }
 
-        /// The response-property key for a question: the id-based key, or the index-based key when the
-        /// question has no id. Kept identical between response storage and event building so a snapshot
-        /// stored under it is found again at build time.
+        /// The response-property key for a question, matching the one used when storing its response.
         private func responseKey(questionId: String, index: Int) -> String {
             questionId.isEmpty ? getOldResponseKey(for: index) : getNewResponseKey(for: questionId)
         }
 
-        /// The applied translation of the question at `index` (its `.question` text), or `nil` when the
-        /// index is out of range or no translation changed that question.
         private func translatedQuestionText(from translations: [PostHogSurveyQuestionTranslation?]?, at index: Int) -> String? {
             guard let translations, translations.indices.contains(index) else { return nil }
             return translations[index]?.question
         }
 
-        /// The question text on screen for `index`: the applied translation when one changed that
-        /// question, otherwise the survey's base text. Returns `nil` when the index is out of range.
+        /// Text on screen for `index`: the applied translation, else the base text; `nil` if out of range.
         /// Must be called with `activeSurveyLock` held.
         private func displayedQuestionTextLocked(at index: Int) -> String? {
             if let translated = translatedQuestionText(from: activeSurveyQuestionTranslations, at: index) {

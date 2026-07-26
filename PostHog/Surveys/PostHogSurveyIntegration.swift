@@ -47,9 +47,8 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
-        /// Language the survey was actually rendered with, frozen at show time. Not touched by
-        /// `refreshActiveSurveyTranslations` (so `handleSurveyShown` can detect a dropped update), and
-        /// reused as `$survey_language` on `sent`/`dismissed` so they stay aligned with `shown`.
+        /// Language the survey was rendered with, frozen at show time and reused as `$survey_language` on
+        /// `sent`/`dismissed`. Not touched by `refreshActiveSurveyTranslations`, so a drop stays detectable.
         private var activeSurveyRenderedLanguage: String?
         private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         /// Question translations frozen at show time — the fallback text for questions never answered,
@@ -77,10 +76,8 @@
         }
 
         func start() {
-            // Re-resolve the language of a survey already on screen whenever the person
-            // properties used for flags change (e.g. the user's `language` is updated). Not
-            // gated on `os(iOS)` so the resolution logic stays exercised under TESTING; the
-            // actual UI update is a no-op off iOS.
+            // Re-resolve a shown survey's language when the person properties used for flags change. Not
+            // gated on `os(iOS)` so resolution stays exercised under TESTING; the UI update no-ops off iOS.
             personPropertiesChangedToken = postHog?.remoteConfig?.onPersonPropertiesForFlagsChanged.subscribe { [weak self] _ in
                 self?.refreshActiveSurveyTranslations()
             }
@@ -338,28 +335,19 @@
             #endif
         }
 
-        /// Re-resolves the language of the survey currently on screen and, if it changed,
-        /// pushes the freshly translated content to the delegate for an in-place update.
-        ///
-        /// Triggered when the person properties used for flags change (e.g. the user's
-        /// `language` property is updated while a survey is displayed). No-op when the
-        /// delegate doesn't implement `updateSurvey`, no survey is active, or the resolved
-        /// language is unchanged, so it never re-stamps `$survey_language` or re-renders
-        /// when nothing visible would change.
+        /// Re-resolves the on-screen survey's language and, if it changed, pushes the freshly
+        /// translated content to the delegate for an in-place update. No-op when the delegate has no
+        /// `updateSurvey`, no survey is active, or the language is unchanged (so it never re-stamps
+        /// `$survey_language` or re-renders when nothing visible would change).
         private func refreshActiveSurveyTranslations() {
-            // `updateSurvey` is optional: when the delegate doesn't implement it (e.g. a custom
-            // delegate that predates live updates), skip the refresh entirely so the tracked
-            // language never advances past what's actually on screen.
+            // `updateSurvey` is optional; without it, skip so the tracked language never advances past
+            // what's actually on screen.
             guard #available(iOS 15.0, *),
                   let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey
             else { return }
 
-            // Resolve, commit, and enqueue the update under a single hold of `activeSurveyLock`.
-            // Enqueuing the main-queue update inside the lock keeps its order matched to commit
-            // order, so overlapping refreshes (e.g. racing `setPersonProperties` calls with
-            // different languages) can't leave the survey showing a language other than the one
-            // recorded in `activeSurveyLanguage`. The async enqueue doesn't block, so holding the
-            // lock across it is cheap.
+            // Enqueue the update inside `activeSurveyLock` so main-queue order matches commit order:
+            // racing refreshes can't leave the survey in a language other than `activeSurveyLanguage`.
             activeSurveyLock.withLock {
                 guard let activeSurvey = self.activeSurvey else { return }
 
@@ -525,9 +513,9 @@
             }
         }
 
-        /// Re-delivers the current translation when a language change committed after `setActiveSurvey`
-        /// but before the survey reached the screen: in that window its `updateSurvey` is dropped and
-        /// later refreshes no-op (tracked language already matches). Pushes one update to catch up.
+        /// Re-delivers the current translation for a language change that committed after `setActiveSurvey`
+        /// but before the survey was on screen — a window where `updateSurvey` is dropped and later
+        /// refreshes no-op. Pushes one update to catch up.
         private func reconcileRenderedTranslationOnShow(activeSurvey: PostHogSurvey) {
             guard #available(iOS 15.0, *),
                   let updateSurvey = postHog?.config._surveysConfig.surveysDelegate.updateSurvey

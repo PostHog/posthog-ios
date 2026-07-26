@@ -390,6 +390,7 @@ PostHog | PostHogSurveysConfig.surveysDelegate | property | var surveysDelegate:
 PostHog | PostHogSurveysDelegate | protocol | @objc protocol PostHogSurveysDelegate | c:@M@PostHog@objc(pl)PostHogSurveysDelegate
 PostHog | PostHogSurveysDelegate.cleanupSurveys() | method | @objc func cleanupSurveys() | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)cleanupSurveys
 PostHog | PostHogSurveysDelegate.renderSurvey(_:onSurveyShown:onSurveyResponse:onSurveyClosed:) | method | @objc func renderSurvey(_ survey: PostHogDisplaySurvey, onSurveyShown: @escaping OnPostHogSurveyShown, onSurveyResponse: @escaping OnPostHogSurveyResponse, onSurveyClosed: @escaping OnPostHogSurveyClosed) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)renderSurvey:onSurveyShown:onSurveyResponse:onSurveyClosed:
+PostHog | PostHogSurveysDelegate.updateSurvey(_:) | method | @objc optional func updateSurvey(_ survey: PostHogDisplaySurvey) | c:@M@PostHog@objc(pl)PostHogSurveysDelegate(im)updateSurvey:
 PostHog | ReachabilityError | enum | enum ReachabilityError | s:7PostHog17ReachabilityErrorO
 PostHog | ReachabilityError.failedToCreateWithAddress(_:_:) | enum.case | case failedToCreateWithAddress(sockaddr, Int32) | s:7PostHog17ReachabilityErrorO25failedToCreateWithAddressyACSo8sockaddrV_s5Int32VtcACmF
 PostHog | ReachabilityError.failedToCreateWithHostname(_:_:) | enum.case | case failedToCreateWithHostname(String, Int32) | s:7PostHog17ReachabilityErrorO26failedToCreateWithHostnameyACSS_s5Int32VtcACmF

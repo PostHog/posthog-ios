@@ -16,14 +16,12 @@
             Color.clear
                 .allowsHitTesting(false)
                 .sheet(item: displayBinding) { survey in
-                    SurveySheet(
-                        survey: survey,
-                        isSurveyCompleted: displayManager.isSurveyCompleted,
-                        currentQuestionIndex: displayManager.currentQuestionIndex,
-                        onClose: displayManager.dismissSurvey,
-                        onNextQuestionClicked: displayManager.onNextQuestion
-                    )
-                    .environment(\.colorScheme, .light) // enforce light theme for now
+                    // Content is driven by the display controller so in-place updates (like a
+                    // survey being re-translated after a language change) render live; the
+                    // `.sheet(item:)` snapshot is the fallback that keeps content on screen
+                    // during the dismiss animation, after `displayedSurvey` is cleared.
+                    SurveySheet(displayManager: displayManager, fallbackSurvey: survey)
+                        .environment(\.colorScheme, .light) // enforce light theme for now
                 }
         }
 

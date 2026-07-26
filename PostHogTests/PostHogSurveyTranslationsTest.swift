@@ -203,17 +203,23 @@
         @Suite("Test survey_language event property", .serialized)
         class TestSurveyLanguageEventProperty {
             let server: MockPostHogServer
+            let postHog: PostHogSDK
 
             init() {
                 server = MockPostHogServer()
                 server.start()
+                postHog = Self.getSut()
             }
 
             deinit {
+                // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
+                // (and its person-property subscription) into the next serialized test.
+                postHog.close()
+                postHog.reset()
                 server.stop()
             }
 
-            private func getSut() -> PostHogSDK {
+            private static func getSut() -> PostHogSDK {
                 let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
                 config._surveys = true
                 config.flushAt = 1
@@ -267,32 +273,25 @@
 
             @Test("survey shown stamps $survey_language when language is set")
             func surveyShownStampsLanguage() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyShownEvent(survey: minimalSurvey(), language: "fr")
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey shown")
                 #expect(events[0].properties["$survey_language"] as? String == "fr")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey shown omits $survey_language when no language matched")
             func surveyShownOmitsLanguageWhenNil() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyShownEvent(survey: minimalSurvey(), language: nil)
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].properties["$survey_language"] == nil)
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey sent stamps $survey_language when set")
             func surveySentStampsLanguage() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveySentEvent(
                     survey: minimalSurvey(),
@@ -303,13 +302,10 @@
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey sent")
                 #expect(events[0].properties["$survey_language"] as? String == "pt")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey sent carries translated question text in $survey_questions")
             func surveySentCarriesTranslatedQuestionText() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 let translation = PostHogSurveyQuestionTranslation(
                     question: "Question traduite?",
@@ -330,35 +326,525 @@
                 #expect(events.count == 1)
                 let questions = events[0].properties["$survey_questions"] as? [[String: Any]]
                 #expect(questions?.first?["question"] as? String == "Question traduite?")
-                postHog.close()
-                postHog.reset()
+            }
+
+            @Test("survey sent prefers the answer-time question snapshot over live translation")
+            func surveySentPrefersAnswerTimeSnapshot() async throws {
+                let integration = try getSurveyIntegration(postHog)
+                // Snapshot says the question was answered in the base language; the live translation
+                // (passed as questionTranslations) is French. The snapshot must win.
+                let frTranslation = PostHogSurveyQuestionTranslation(
+                    question: "Question FR?",
+                    description: nil,
+                    buttonText: nil,
+                    link: nil,
+                    lowerBoundLabel: nil,
+                    upperBoundLabel: nil,
+                    choices: nil
+                )
+                integration.testSendSurveySentEvent(
+                    survey: minimalSurvey(),
+                    responses: ["$survey_response": .openEnded("ok")],
+                    language: "en",
+                    questionTranslations: [frTranslation],
+                    responseQuestionText: [integration.testGetResponseKey(questionId: "q1"): "Question?"]
+                )
+                let events = try await getServerEvents(server)
+                let questions = events[0].properties["$survey_questions"] as? [[String: Any]]
+                #expect(questions?.first?["question"] as? String == "Question?")
             }
 
             @Test("survey dismissed stamps $survey_language when set")
             func surveyDismissedStampsLanguage() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyDismissedEvent(survey: minimalSurvey(), language: "fr")
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].event == "survey dismissed")
                 #expect(events[0].properties["$survey_language"] as? String == "fr")
-                postHog.close()
-                postHog.reset()
             }
 
             @Test("survey dismissed omits $survey_language when nil")
             func surveyDismissedOmitsLanguageWhenNil() async throws {
-                let postHog = getSut()
                 let integration = try getSurveyIntegration(postHog)
                 integration.testSendSurveyDismissedEvent(survey: minimalSurvey(), language: nil)
                 let events = try await getServerEvents(server)
                 #expect(events.count == 1)
                 #expect(events[0].properties["$survey_language"] == nil)
-                postHog.close()
-                postHog.reset()
             }
         }
+
+        #if os(iOS)
+            final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
+                var updatedSurveys: [PostHogDisplaySurvey] = []
+
+                func renderSurvey(
+                    _: PostHogDisplaySurvey,
+                    onSurveyShown _: @escaping OnPostHogSurveyShown,
+                    onSurveyResponse _: @escaping OnPostHogSurveyResponse,
+                    onSurveyClosed _: @escaping OnPostHogSurveyClosed
+                ) {}
+
+                func updateSurvey(_ survey: PostHogDisplaySurvey) {
+                    updatedSurveys.append(survey)
+                }
+
+                func cleanupSurveys() {}
+            }
+
+            /// A delegate that does not implement the optional `updateSurvey`.
+            final class NoLiveUpdateSurveysDelegate: NSObject, PostHogSurveysDelegate {
+                func renderSurvey(
+                    _: PostHogDisplaySurvey,
+                    onSurveyShown _: @escaping OnPostHogSurveyShown,
+                    onSurveyResponse _: @escaping OnPostHogSurveyResponse,
+                    onSurveyClosed _: @escaping OnPostHogSurveyClosed
+                ) {}
+
+                func cleanupSurveys() {}
+            }
+
+            @Suite("Test live translation updates", .serialized)
+            class TestLiveTranslationUpdate {
+                let server: MockPostHogServer
+                let postHog: PostHogSDK
+
+                init() {
+                    server = MockPostHogServer()
+                    server.start()
+                    postHog = Self.getSut()
+                }
+
+                deinit {
+                    // Tear down in deinit so a `#require` throwing in a test body can't leak the SDK
+                    // (and its person-property subscription) into the next serialized test.
+                    postHog.close()
+                    postHog.reset()
+                    server.stop()
+                }
+
+                private static func getSut() -> PostHogSDK {
+                    let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+                    config._surveys = true
+                    config.flushAt = 1
+                    config.disableReachabilityForTesting = true
+                    config.disableQueueTimerForTesting = true
+                    config.disableFlushOnBackgroundForTesting = true
+                    config.captureApplicationLifecycleEvents = false
+                    let storage = PostHogStorage(config)
+                    storage.reset()
+                    return PostHogSDK.with(config)
+                }
+
+                private func getSurveyIntegration(_ postHog: PostHogSDK) throws -> PostHogSurveyIntegration {
+                    PostHogSurveyIntegration.clearInstalls()
+                    let integration = PostHogSurveyIntegration()
+                    let installResult = integration.install(postHog)
+                    try #require(installResult == .installed)
+                    return integration
+                }
+
+                private func translatedSurvey() -> PostHogSurvey {
+                    PostHogSurvey(
+                        id: "translated-survey",
+                        name: "Original",
+                        type: .popover,
+                        questions: [.open(PostHogOpenSurveyQuestion(
+                            id: "q1",
+                            question: "Question?",
+                            description: nil,
+                            descriptionContentType: .text,
+                            optional: false,
+                            buttonText: nil,
+                            originalQuestionIndex: 0,
+                            branching: nil,
+                            translations: ["fr": PostHogSurveyQuestionTranslation(
+                                question: "Question FR?",
+                                description: nil,
+                                buttonText: nil,
+                                link: nil,
+                                lowerBoundLabel: nil,
+                                upperBoundLabel: nil,
+                                choices: nil
+                            )]
+                        ))],
+                        featureFlagKeys: nil,
+                        linkedFlagKey: nil,
+                        targetingFlagKey: nil,
+                        internalTargetingFlagKey: nil,
+                        conditions: nil,
+                        appearance: nil,
+                        currentIteration: nil,
+                        currentIterationStartDate: nil,
+                        startDate: Date(),
+                        endDate: nil,
+                        schedule: nil,
+                        translations: ["fr": PostHogSurveyTranslation(
+                            name: "Bonjour",
+                            thankYouMessageHeader: nil,
+                            thankYouMessageDescription: nil,
+                            thankYouMessageCloseButtonText: nil
+                        )]
+                    )
+                }
+
+                /// A two-question survey where each question has a French translation, so an answer
+                /// given before a switch to French can be told apart from one given after.
+                private func twoQuestionTranslatedSurvey() -> PostHogSurvey {
+                    func question(id: String, index: Int, base: String, fr: String) -> PostHogSurveyQuestion {
+                        .open(PostHogOpenSurveyQuestion(
+                            id: id,
+                            question: base,
+                            description: nil,
+                            descriptionContentType: .text,
+                            optional: false,
+                            buttonText: nil,
+                            originalQuestionIndex: index,
+                            branching: nil,
+                            translations: ["fr": PostHogSurveyQuestionTranslation(
+                                question: fr,
+                                description: nil,
+                                buttonText: nil,
+                                link: nil,
+                                lowerBoundLabel: nil,
+                                upperBoundLabel: nil,
+                                choices: nil
+                            )]
+                        ))
+                    }
+
+                    return PostHogSurvey(
+                        id: "translated-survey",
+                        name: "Original",
+                        type: .popover,
+                        questions: [
+                            question(id: "q1", index: 0, base: "Question 1?", fr: "Question 1 FR?"),
+                            question(id: "q2", index: 1, base: "Question 2?", fr: "Question 2 FR?"),
+                        ],
+                        featureFlagKeys: nil,
+                        linkedFlagKey: nil,
+                        targetingFlagKey: nil,
+                        internalTargetingFlagKey: nil,
+                        conditions: nil,
+                        appearance: nil,
+                        currentIteration: nil,
+                        currentIterationStartDate: nil,
+                        startDate: Date(),
+                        endDate: nil,
+                        schedule: nil,
+                        translations: nil
+                    )
+                }
+
+                /// Lets the main-queue work scheduled by the refresh run before asserting.
+                private func drainMainQueue() async {
+                    await withCheckedContinuation { continuation in
+                        DispatchQueue.main.async { continuation.resume() }
+                    }
+                }
+
+                @Test("changing the language person property re-translates the active survey")
+                func languageChangeRetranslatesActiveSurvey() async throws {
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(integration.testActiveSurveyLanguage == "fr")
+                    #expect(spy.updatedSurveys.count == 1)
+                    #expect(spy.updatedSurveys.first?.name == "Bonjour")
+                    #expect(spy.updatedSurveys.first?.questions.first?.question == "Question FR?")
+                }
+
+                @Test("re-resolving the same language does not push an update")
+                func sameLanguageIsNoop() async throws {
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    // Already showing the French translation
+                    integration.setShownSurvey(
+                        translatedSurvey(),
+                        language: "fr",
+                        questionTranslations: [PostHogSurveyQuestionTranslation(
+                            question: "Question FR?",
+                            description: nil,
+                            buttonText: nil,
+                            link: nil,
+                            lowerBoundLabel: nil,
+                            upperBoundLabel: nil,
+                            choices: nil
+                        )]
+                    )
+
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(integration.testActiveSurveyLanguage == "fr")
+                    #expect(spy.updatedSurveys.isEmpty)
+                }
+
+                @Test("delegate without updateSurvey keeps the rendered language")
+                func delegateWithoutUpdateSurveyKeepsState() async throws {
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = NoLiveUpdateSurveysDelegate()
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    // Internal state must not advance past what was actually rendered.
+                    #expect(integration.testActiveSurveyLanguage == nil)
+                }
+
+                @Test("resetting person properties reverts the active survey language")
+                func resetRevertsActiveSurveyLanguage() async throws {
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+
+                    postHog.resetPersonPropertiesForFlags(reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(integration.testActiveSurveyLanguage == nil)
+                    #expect(spy.updatedSurveys.count == 2)
+                    #expect(spy.updatedSurveys.last?.name == "Original")
+                }
+
+                @Test("no active survey means no update is pushed")
+                func noActiveSurveyIsNoop() async throws {
+                    let spy = SpySurveysDelegate()
+                    // Use the backing property directly: the public `surveysConfig` accessor is
+                    // gated to iOS 15+, but the delegate it exposes is not version-specific.
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    _ = try getSurveyIntegration(postHog)
+
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+
+                    #expect(spy.updatedSurveys.isEmpty)
+                }
+
+                @Test("survey shown reconciles a language change that landed before display")
+                func showReconcilesPreDisplayLanguageChange() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    // Survey is set up (rendered) in the base language but not yet shown.
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+
+                    // A language change commits before the survey reaches the screen. On a real
+                    // controller this update is dropped (nothing displayed yet); the tracked language
+                    // still advances to `fr`.
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+                    let updatesBeforeShow = spy.updatedSurveys.count
+
+                    // When the survey is finally shown, the missed translation is reconciled.
+                    integration.testHandleSurveyShown(survey: translatedSurvey().toDisplaySurvey())
+                    await drainMainQueue()
+
+                    #expect(spy.updatedSurveys.count == updatesBeforeShow + 1)
+                    #expect(spy.updatedSurveys.last?.name == "Bonjour")
+                    #expect(spy.updatedSurveys.last?.questions.first?.question == "Question FR?")
+                }
+
+                @Test("survey shown does not reconcile when the rendered language is current")
+                func showDoesNotReconcileWhenLanguageUnchanged() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(translatedSurvey(), language: nil)
+                    integration.testHandleSurveyShown(survey: translatedSurvey().toDisplaySurvey())
+                    await drainMainQueue()
+
+                    #expect(spy.updatedSurveys.isEmpty)
+                }
+
+                @Test("survey sent reports each question in the language it was answered in")
+                func sentReportsAnswerTimeLanguagePerQuestion() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    integration.setShownSurvey(twoQuestionTranslatedSurvey(), language: "en")
+                    _ = integration.getNextQuestion(index: 0, response: .openEnded("a1"))
+
+                    // Switch language mid-survey, then answer the remaining question.
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+
+                    _ = integration.getNextQuestion(index: 1, response: .openEnded("a2"))
+
+                    let events = try await getServerEvents(server)
+                    let sent = try #require(events.first { $0.event == "survey sent" })
+                    let questions = try #require(sent.properties["$survey_questions"] as? [[String: Any]])
+                    #expect(questions.count == 2)
+                    #expect(questions[0]["question"] as? String == "Question 1?") // answered in English
+                    #expect(questions[1]["question"] as? String == "Question 2 FR?") // answered in French
+                    // Survey-level language is frozen to show time so it agrees with `survey shown`.
+                    #expect(sent.properties["$survey_language"] as? String == "en")
+                }
+
+                @Test("survey dismissed keeps an answered question in its answer-time language")
+                func dismissKeepsAnswerTimeLanguage() async throws {
+                    let spy = SpySurveysDelegate()
+                    postHog.config._surveysConfig.surveysDelegate = spy
+                    let integration = try getSurveyIntegration(postHog)
+
+                    // Answer Q1 in English, switch to French, dismiss without answering Q2.
+                    integration.setShownSurvey(twoQuestionTranslatedSurvey(), language: "en")
+                    _ = integration.getNextQuestion(index: 0, response: .openEnded("a1"))
+                    postHog.setPersonPropertiesForFlags(["language": "fr"], reloadFeatureFlags: false)
+                    await drainMainQueue()
+                    try #require(integration.testActiveSurveyLanguage == "fr")
+
+                    integration.testHandleSurveyClosed(survey: twoQuestionTranslatedSurvey().toDisplaySurvey())
+
+                    let events = try await getServerEvents(server)
+                    let dismissed = try #require(events.first { $0.event == "survey dismissed" })
+                    let questions = try #require(dismissed.properties["$survey_questions"] as? [[String: Any]])
+                    // Q1 was answered in English and keeps that text despite the later switch.
+                    #expect(questions[0]["question"] as? String == "Question 1?")
+                    // Q2 was never answered, so it stays in the show-time language, matching $survey_language.
+                    #expect(questions[1]["question"] as? String == "Question 2?")
+                    #expect(dismissed.properties["$survey_language"] as? String == "en")
+                }
+            }
+
+            @Suite("Test display controller in-place update")
+            struct TestDisplayControllerUpdate {
+                private func displaySurvey(name: String) -> PostHogDisplaySurvey {
+                    PostHogDisplaySurvey(
+                        id: "survey-1",
+                        name: name,
+                        questions: [],
+                        appearance: nil,
+                        startDate: nil,
+                        endDate: nil
+                    )
+                }
+
+                @MainActor
+                @Test("update preserves question index and completion state")
+                func updatePreservesProgress() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(name: "Original"))
+                    controller.currentQuestionIndex = 2
+                    controller.isSurveyCompleted = true
+
+                    controller.updateSurvey(displaySurvey(name: "Bonjour"))
+
+                    #expect(controller.displayedSurvey?.name == "Bonjour")
+                    #expect(controller.currentQuestionIndex == 2)
+                    #expect(controller.isSurveyCompleted == true)
+                }
+
+                @MainActor
+                @Test("update for a different survey id is ignored")
+                func updateDifferentSurveyIgnored() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(name: "Original"))
+
+                    let other = PostHogDisplaySurvey(
+                        id: "survey-2",
+                        name: "Other",
+                        questions: [],
+                        appearance: nil,
+                        startDate: nil,
+                        endDate: nil
+                    )
+                    controller.updateSurvey(other)
+
+                    #expect(controller.displayedSurvey?.name == "Original")
+                }
+
+                @MainActor
+                @Test("update with no displayed survey is ignored")
+                func updateWithNoSurveyIgnored() {
+                    let controller = SurveyDisplayController()
+                    controller.updateSurvey(displaySurvey(name: "Bonjour"))
+                    #expect(controller.displayedSurvey == nil)
+                }
+            }
+
+            @Suite("Test default delegate delayed display update", .serialized)
+            struct TestDefaultDelegateDelayedDisplay {
+                private func displaySurvey(name: String, delaySeconds: TimeInterval) -> PostHogDisplaySurvey {
+                    PostHogDisplaySurvey(
+                        id: "survey-1",
+                        name: name,
+                        questions: [],
+                        appearance: PostHogDisplaySurveyAppearance(
+                            fontFamily: nil,
+                            backgroundColor: nil,
+                            borderColor: nil,
+                            submitButtonColor: nil,
+                            submitButtonText: nil,
+                            submitButtonTextColor: nil,
+                            textColor: nil,
+                            descriptionTextColor: nil,
+                            ratingButtonColor: nil,
+                            ratingButtonActiveColor: nil,
+                            inputBackground: nil,
+                            inputTextColor: nil,
+                            placeholder: nil,
+                            surveyPopupDelaySeconds: delaySeconds,
+                            displayThankYouMessage: false,
+                            thankYouMessageHeader: nil,
+                            thankYouMessageDescription: nil,
+                            thankYouMessageDescriptionContentType: nil,
+                            thankYouMessageCloseButtonText: nil
+                        ),
+                        startDate: nil,
+                        endDate: nil
+                    )
+                }
+
+                @MainActor
+                @Test("survey updated during its display delay shows the updated copy")
+                func delayedDisplayShowsUpdatedCopy() async throws {
+                    let delegate = PostHogSurveysDefaultDelegate()
+                    let controller = SurveyDisplayController()
+                    delegate.setDisplayControllerForTesting(controller)
+
+                    delegate.renderSurvey(
+                        displaySurvey(name: "Original", delaySeconds: 0.1),
+                        onSurveyShown: { _ in },
+                        onSurveyResponse: { _, _, _ in nil },
+                        onSurveyClosed: { _ in }
+                    )
+                    #expect(controller.displayedSurvey == nil)
+
+                    delegate.updateSurvey(displaySurvey(name: "Updated", delaySeconds: 0.1))
+
+                    for _ in 0 ..< 100 where controller.displayedSurvey == nil {
+                        try await Task.sleep(nanoseconds: 20_000_000)
+                    }
+                    #expect(controller.displayedSurvey?.name == "Updated")
+                }
+            }
+        #endif
 
         @Suite("Test display survey with translations")
         struct TestDisplayTranslation {

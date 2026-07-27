@@ -2821,6 +2821,31 @@ let maxRetryDelay = 30.0
         }
     #endif
 
+    /// Callable from any thread (e.g. the main-queue `onRemoteConfigLoaded` callback), so the
+    /// mutation runs under `setupLock` like every other `installedIntegrations` access.
+    func removeIntegration(_ integration: PostHogIntegration) {
+        let id = ObjectIdentifier(integration)
+        setupLock.withLock {
+            integration.uninstall(self)
+            installedIntegrations.removeAll { ObjectIdentifier($0) == id }
+        }
+        hedgeLog("Integration \(type(of: integration)) removed")
+    }
+
+    /// Installs a single integration after initial setup, tracking it for teardown. Twin of
+    /// `removeIntegration`, for integrations that install lazily once remote config lands (e.g.
+    /// error-tracking autocapture re-enabled by a live `/config` after a cached-disabled start).
+    /// Callable from any thread; runs under `setupLock` like every other `installedIntegrations` access.
+    func addIntegration(_ integration: PostHogIntegration) {
+        setupLock.withLock {
+            let id = ObjectIdentifier(integration)
+            guard !installedIntegrations.contains(where: { ObjectIdentifier($0) == id }) else { return }
+            guard case .installed = integration.install(self) else { return }
+            installedIntegrations.append(integration)
+            hedgeLog("Integration \(type(of: integration)) added")
+        }
+    }
+
     private func uninstallIntegrations() {
         for integration in installedIntegrations {
             integration.uninstall(self)
@@ -2896,6 +2921,12 @@ let maxRetryDelay = 30.0
             }
         #endif
 
+        #if os(iOS) || os(macOS) || os(tvOS)
+            func getErrorTrackingIntegration() -> PostHogErrorTrackingAutoCaptureIntegration? {
+                getIntegration()
+            }
+        #endif
+
         func getSessionManager() -> PostHogSessionManager? {
             sessionManager
         }
@@ -2909,7 +2940,9 @@ let maxRetryDelay = 30.0
         }
 
         private func getIntegration<T: PostHogIntegration>() -> T? {
-            installedIntegrations.compactMap { $0 as? T }.first
+            setupLock.withLock {
+                installedIntegrations.compactMap { $0 as? T }.first
+            }
         }
     }
 #endif

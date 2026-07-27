@@ -40,7 +40,7 @@ final class PostHogIntegrationInstallState {
     }
 }
 
-protocol PostHogIntegration {
+protocol PostHogIntegration: AnyObject {
     /**
      * Indicates whether this integration requires method swizzling to function.
      *

@@ -14,6 +14,11 @@ import Foundation
     class PostHogErrorTrackingAutoCaptureIntegration: PostHogIntegration {
         private static let integrationInstallState = PostHogIntegrationInstallState()
 
+        static func clearInstalls() {
+            integrationInstallState.clear()
+            pendingEnableToken = nil
+        }
+
         var requiresSwizzling: Bool { false }
 
         private weak var postHog: PostHogSDK?
@@ -22,11 +27,42 @@ import Foundation
         private var crashCustomData: PostHogCrashCustomDataWriter?
         private var contextChangedToken: RegistrationToken?
         private var exceptionStepsChangedToken: RegistrationToken?
+        private var remoteConfigLoadedToken: RegistrationToken?
+        /// Held while a cached-disabled start waits for a live `/config` that may re-enable autocapture.
+        /// Static (like `integrationInstallState`) and retains `self` so the skipped instance survives
+        /// until the live config lands; cleared once it does.
+        private static var pendingEnableToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
+            // Only block install when real config data (a successful live fetch or disk cache)
+            // disables autocapture. With no data — first launch, no cache, or a *failed* /config —
+            // default to installing so a first-launch crash isn't missed. A failed fetch sets
+            // `hasFetchedRemoteConfig` but stores none, so pair it with a data-present check;
+            // `hasFetchedRemoteConfig` also flips last (after the config is stored and applied), so
+            // the pairing never reads a half-applied live config.
+            let hasRemoteConfig = postHog.remoteConfig?.hasCachedRemoteConfig == true
+                || (postHog.remoteConfig?.hasFetchedRemoteConfig == true
+                    && postHog.remoteConfig?.getRemoteConfig() != nil)
+            if hasRemoteConfig,
+               postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false
+            {
+                // The native handler can't be torn down once enabled, so a crash during a prior
+                // default-on first-launch window may have left a report on disk. Config now says
+                // autocapture is disabled, so purge it rather than let a later re-enable transmit
+                // a crash that happened while the project was opted out.
+                purgePendingCrashReportIfNeeded()
+
+                // The disable verdict may have come purely from a disk-cached config. If the live
+                // /config has not landed yet, watch for it: a fresh response that re-enables
+                // autocapture should install now rather than wait for the next launch.
+                if postHog.remoteConfig?.hasFetchedRemoteConfig == false {
+                    watchForRemoteEnable(postHog)
+                }
                 return .skipped(.disabledByRemoteConfig)
             }
+
+            // Live config enabled autocapture: cancel any pending cached-disabled watch.
+            Self.pendingEnableToken = nil
 
             return installIfNeeded(using: Self.integrationInstallState) {
                 if let crashReporter = setupCrashReporter() {
@@ -46,6 +82,18 @@ import Foundation
                     exceptionStepsChangedToken = postHog.onExceptionStepsChanged.subscribe { [weak crashCustomData] steps in
                         crashCustomData?.setSteps(steps)
                     }
+
+                    // If remote config was not yet loaded at install time, subscribe so we can
+                    // remove the integration if the freshly-loaded config disables autocapture.
+                    if postHog.remoteConfig?.hasFetchedRemoteConfig == false {
+                        remoteConfigLoadedToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self, weak postHog] _ in
+                            guard let self, let postHog else { return }
+                            self.remoteConfigLoadedToken = nil
+                            if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false {
+                                postHog.removeIntegration(self)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -53,6 +101,7 @@ import Foundation
         func uninstall(_ postHog: PostHogSDK) {
             uninstallIfNeeded(from: postHog, installedPostHog: self.postHog, state: Self.integrationInstallState) {
                 stop()
+                remoteConfigLoadedToken = nil
                 contextChangedToken = nil
                 exceptionStepsChangedToken = nil
                 crashCustomData = nil
@@ -99,6 +148,28 @@ import Foundation
             if reporter.hasPendingCrashReport() {
                 hedgeLog("Found pending crash report, processing...")
                 processPendingCrashReport()
+            }
+        }
+
+        /// Discards any on-disk crash report without processing it. Creating the reporter here
+        /// only reads/purges the report file; it does not enable the native handler.
+        private func purgePendingCrashReportIfNeeded() {
+            guard let reporter = setupCrashReporter(), reporter.hasPendingCrashReport() else {
+                return
+            }
+            hedgeLog("Autocapture disabled by remote config, purging pending crash report")
+            reporter.purgePendingCrashReport()
+        }
+
+        /// Subscribes to the live `/config` for the case where a disk-cached config disabled
+        /// autocapture. If the fresh response re-enables it, install the integration. The closure
+        /// retains `self` (via the static token) so the skipped instance stays alive until then.
+        private func watchForRemoteEnable(_ postHog: PostHogSDK) {
+            Self.pendingEnableToken = postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { [self] _ in
+                Self.pendingEnableToken = nil
+                if postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == true {
+                    postHog.addIntegration(self)
+                }
             }
         }
 

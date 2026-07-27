@@ -367,8 +367,10 @@
                         && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
                 })
 
-                // The DELETE reuses user-B's token cached at identify time; only the anon re-POST
-                // mints. One provider invocation per distinct id across the scenario.
+                // Each leg carries a token minted for the id it sends. The exact invocation count is
+                // not asserted: reset()'s context-change resend races the explicit DELETE/re-POST
+                // legs, so the cache hit for the DELETE leg is timing-dependent (unlike Android,
+                // where the single executor serializes both legs).
                 let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
                 let delBody = try #require(server.parseRequest(del))
                 #expect(delBody["distinct_id"] as? String == "user-B")
@@ -379,7 +381,8 @@
                 let anonId = try #require(postBody["distinct_id"] as? String)
                 #expect(anonId != "user-B")
                 #expect(postBody["identity_token"] as? String == "jwt-\(anonId)")
-                #expect(recorder.distinctIds == ["user-A", "user-B", anonId])
+                #expect(recorder.distinctIds.starts(with: ["user-A", "user-B"]))
+                #expect(recorder.distinctIds.contains(anonId))
             }
         #endif
 

@@ -34,11 +34,15 @@ import Foundation
         private static var pendingEnableToken: RegistrationToken?
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
-            // Block installation when remote config (live or disk-cached) explicitly disables
-            // autocapture. When there is no remote config at all (first launch, no disk cache)
-            // we default to installing so a crash on that very first launch is not missed.
-            let hasRemoteConfig = postHog.remoteConfig?.hasFetchedRemoteConfig == true
-                || postHog.remoteConfig?.hasCachedRemoteConfig == true
+            // Only block install when real config data (a successful live fetch or disk cache)
+            // disables autocapture. With no data — first launch, no cache, or a *failed* /config —
+            // default to installing so a first-launch crash isn't missed. A failed fetch sets
+            // `hasFetchedRemoteConfig` but stores none, so pair it with a data-present check;
+            // `hasFetchedRemoteConfig` also flips last (after the config is stored and applied), so
+            // the pairing never reads a half-applied live config.
+            let hasRemoteConfig = postHog.remoteConfig?.hasCachedRemoteConfig == true
+                || (postHog.remoteConfig?.hasFetchedRemoteConfig == true
+                    && postHog.remoteConfig?.getRemoteConfig() != nil)
             if hasRemoteConfig,
                postHog.remoteConfig?.isAutocaptureExceptionsEnabled() == false
             {

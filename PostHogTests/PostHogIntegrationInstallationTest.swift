@@ -254,5 +254,34 @@ class PostHogIntegrationInstallationTest {
             await waitUntil(timeout: 10) { sut.getErrorTrackingIntegration() != nil }
             #expect(sut.getErrorTrackingIntegration() != nil)
         }
+
+        @Test("error tracking integration installs on re-install after a failed /config fetch")
+        func errorTrackingInstallsAfterFailedRemoteConfigFetch() async {
+            // A failed /config sets hasFetchedRemoteConfig=true but leaves no config data. A later
+            // re-install (here via optIn) must not read that failure as a remote disable — it should
+            // install by default, just as a first launch would.
+            let token = "test_error_tracking_\(UUID().uuidString)"
+            let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.errorTrackingConfig.autoCapture = true
+            config.optOut = true // integrations are not installed while opted out
+
+            let storage = PostHogStorage(config)
+            storage.reset() // no cached config → the only remote state is the simulated failed fetch
+            defer { storage.reset() }
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            #expect(sut.getErrorTrackingIntegration() == nil) // opted out, not installed yet
+
+            // Simulate a completed-but-failed /config: fetched flag set, no config data stored.
+            sut.remoteConfig?.setRemoteConfigDidFetchForTesting(true)
+
+            sut.optIn() // triggers re-install with a fetched-but-failed remote config
+            #expect(sut.getErrorTrackingIntegration() != nil)
+        }
     #endif
 }

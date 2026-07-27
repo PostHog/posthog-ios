@@ -1090,5 +1090,13 @@ private struct PendingFeatureFlagsRequest {
                 sessionReplayFlagActive = active
             }
         }
+
+        /// Force the "a /config request completed" flag without storing any config data, so tests can
+        /// simulate a failed fetch (fetched == true, no cached/live config) without a live request.
+        func setRemoteConfigDidFetchForTesting(_ didFetch: Bool) {
+            remoteConfigLock.withLock {
+                remoteConfigDidFetch = didFetch
+            }
+        }
     }
 #endif

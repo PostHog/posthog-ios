@@ -71,7 +71,7 @@
 
             // `touch.view` is nil for taps consumed by a gesture recognizer (text fields, pickers,
             // scroll views), so fall back to a hit-test to recover the tapped view.
-            let hitView = touch.view ?? window.hitTest(touchCoordinates, with: event)
+            let hitView = tappedView(touchView: touch.view, in: window, at: touchCoordinates, for: event)
 
             // Skip taps where rapid repeats are intentional before they reach the detector.
             // The ancestor walk covers UIKit; SwiftUI hosts controls below the hit view, so we
@@ -136,6 +136,18 @@
                 elementsChain: normalizedElementsChain,
                 properties: properties
             )
+        }
+
+        /// Resolves the tapped view, falling back to a hit-test when the touch itself has no view.
+        ///
+        /// IMPORTANT: the fallback hit-tests with `nil` (a stateless query), never the live `event`.
+        /// We run inside `UIApplication.sendEvent(_:)` (via swizzle), so re-entering UIKit's
+        /// hit-testing/gesture machinery with the in-flight event corrupts its internal touch/gesture
+        /// state and causes presented UI (e.g. PaperMarkupViewController popovers/sheets) to treat
+        /// the opening tap as an outside touch and dismiss immediately. `event` is accepted only to
+        /// make this contract explicit (and testable).
+        private func tappedView(touchView: UIView?, in window: UIWindow, at point: CGPoint, for _: UIEvent?) -> UIView? {
+            touchView ?? window.hitTest(point, with: nil)
         }
 
         private func currentScreenName() -> String? {
@@ -245,6 +257,10 @@
 
             func isRageClickIneligibleForTesting(view: UIView?, isKeyboardWindow: Bool = false) -> Bool {
                 isRageClickIneligible(view: view, isKeyboardWindow: isKeyboardWindow)
+            }
+
+            func tappedViewForTesting(touchView: UIView?, in window: UIWindow, at point: CGPoint, for event: UIEvent?) -> UIView? {
+                tappedView(touchView: touchView, in: window, at: point, for: event)
             }
         }
     #endif

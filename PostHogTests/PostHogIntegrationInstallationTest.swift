@@ -223,5 +223,36 @@ class PostHogIntegrationInstallationTest {
 
             #expect(sut.getErrorTrackingIntegration() != nil)
         }
+
+        @Test("error tracking integration installs when live remote config enables after a cached-disabled start")
+        func errorTrackingInstallsWhenRemoteConfigEnablesAfterCachedDisable() async {
+            // Disk cache disables autocapture → integration is skipped at startup. The live /config
+            // then enables it → the integration must install rather than wait for the next launch.
+            server.remoteConfigErrorTracking = ["autocaptureExceptions": true]
+            server.configResponseDelay = 0.5
+
+            let token = "test_error_tracking_\(UUID().uuidString)"
+            let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = false
+            config.preloadFeatureFlags = false
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.errorTrackingConfig.autoCapture = true
+
+            let storage = PostHogStorage(config)
+            defer { storage.reset() }
+            // Seed cached config with autocapture disabled so the startup gate skips installation.
+            storage.setDictionary(forKey: .remoteConfig, contents: ["errorTracking": ["autocaptureExceptions": false]])
+
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            // Cached-disabled: not installed before the live /config lands.
+            #expect(sut.getErrorTrackingIntegration() == nil)
+
+            // Live /config enables autocapture → integration installs.
+            await waitUntil(timeout: 10) { sut.getErrorTrackingIntegration() != nil }
+            #expect(sut.getErrorTrackingIntegration() != nil)
+        }
     #endif
 }

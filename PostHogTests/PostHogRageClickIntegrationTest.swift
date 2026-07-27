@@ -274,5 +274,65 @@
             #expect(integration.isRageClickIneligibleForTesting(view: UIView()) == false)
             #expect(integration.isRageClickIneligibleForTesting(view: nil) == false)
         }
+
+        // MARK: - Regression: markup/presented UI dismissed on open
+
+        /// A window that records every `event` argument passed to `hitTest(_:with:)`.
+        final class HitTestRecordingWindow: UIWindow {
+            /// Outer optional: `nil` means `hitTest` was never called.
+            /// Inner optional: the `event` value that was passed.
+            private(set) var recordedHitTestEvent: UIEvent??
+
+            override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+                recordedHitTestEvent = event
+                return super.hitTest(point, with: event)
+            }
+        }
+
+        /// Regression test for the bug where opening a `PaperMarkupViewController` (and other
+        /// presented popovers/sheets) got dismissed immediately.
+        ///
+        /// Root cause: the fallback hit-test forwarded the in-flight `UIEvent` from
+        /// `UIApplication.sendEvent(_:)` into `window.hitTest(_:with:)`, re-entering UIKit's
+        /// hit-testing/gesture machinery mid-delivery and corrupting touch state. The fix hit-tests
+        /// with `nil`. This asserts the live event is never forwarded, even when present.
+        @MainActor
+        @Test("Fallback hit-test never forwards the in-flight event (regression: markup dismissed on open)")
+        func fallbackHitTestNeverForwardsLiveEvent() throws {
+            let integration = PostHogRageClickIntegration()
+            let window = HitTestRecordingWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+
+            // A non-nil, live-ish event that must NOT be forwarded to hitTest.
+            let liveEvent = UIEvent()
+
+            // touchView == nil forces the hit-test fallback path.
+            _ = integration.tappedViewForTesting(
+                touchView: nil,
+                in: window,
+                at: CGPoint(x: 10, y: 10),
+                for: liveEvent
+            )
+
+            let recorded = try #require(window.recordedHitTestEvent, "expected the fallback to perform a hit-test")
+            #expect(recorded == nil, "fallback hit-test must be stateless (with: nil), not the in-flight event")
+        }
+
+        /// When the touch already has a view, no hit-test should happen at all.
+        @MainActor
+        @Test("Fallback hit-test is skipped when the touch already has a view")
+        func noHitTestWhenTouchHasView() {
+            let integration = PostHogRageClickIntegration()
+            let window = HitTestRecordingWindow(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+            let existingView = UIView()
+
+            _ = integration.tappedViewForTesting(
+                touchView: existingView,
+                in: window,
+                at: CGPoint(x: 10, y: 10),
+                for: UIEvent()
+            )
+
+            #expect(window.recordedHitTestEvent == nil, "hitTest should not be called when touch.view is set")
+        }
     }
 #endif

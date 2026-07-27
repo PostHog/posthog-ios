@@ -130,3 +130,6 @@ node_modules/
 # SDK compliance adapter local test report output
 sdk_compliance_adapter/report/
 sdk_compliance_adapter/adapter*.log
+
+# Masking snapshot diff artifacts (regenerated on failure, uploaded by CI)
+PostHogTests/__MaskSnapshotFailures__/

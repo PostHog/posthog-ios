@@ -1,0 +1,429 @@
+//
+//  PostHogMaskSnapshotTest.swift
+//  PostHog
+//
+//  Golden-image visual regression for session-replay masking. Each scenario renders
+//  the original UI beside the same UI with the SDK's redaction rects painted black
+//  (what replay bakes into the uploaded WebP), captioned with the masking option it
+//  exercises. A human verifies the committed goldens once; CI re-renders and fails
+//  if masking output drifts.
+//
+//  Selection is by test method (xcodebuild doesn't forward host env into the sim):
+//    - Refresh after an intentional masking change:  make recordMaskSnapshots
+//    - Verify (CI, required, pinned simulator):       make maskSnapshots
+//        → on mismatch writes __MaskSnapshotFailures__/case_N.{actual,diff}.png and fails.
+//
+//  Pixel-faithful, so OS-sensitive: the general testOniOSSimulator job (unpinned
+//  device) excludes this suite via -skip-testing.
+
+#if os(iOS) && canImport(SwiftUI)
+    import CoreGraphics
+    import Foundation
+    @testable import PostHog
+    import SwiftUI
+    import Testing
+    import UIKit
+
+    /// Fraction of pixels allowed to differ before a mismatch is reported — absorbs
+    /// sub-pixel antialiasing jitter; a real masking change dwarfs it.
+    private let diffTolerance = 0.02
+
+    @Suite("Replay masking snapshots (PR #728)", .serialized)
+    @MainActor
+    struct PostHogMaskSnapshotTest {
+        private static let secret = "SSN 123-45-6789"
+
+        /// A real raster image so heuristic masking goes through the image path
+        /// (`maskAllImages`). SF Symbols render as shape/drawing layers governed by the
+        /// text heuristic instead, so they can't demonstrate `maskAllImages`.
+        private static let sampleImage: UIImage = {
+            let size = CGSize(width: 160, height: 120)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+                UIColor.systemTeal.setFill()
+                ctx.fill(CGRect(origin: .zero, size: size))
+                UIColor.white.setFill()
+                ctx.cgContext.fillEllipse(in: CGRect(x: 40, y: 25, width: 55, height: 55))
+                UIColor.systemOrange.setFill()
+                ctx.fill(CGRect(x: 0, y: 88, width: size.width, height: 32))
+            }
+        }()
+
+        /// One shared, installed Capture. Replay install is guarded by a process-wide
+        /// static, so a second install() would no-op and leave its integration without a
+        /// bound config; sharing one instance keeps config-driven masking working even if
+        /// both @Tests run in the same process.
+        private static let capture = Capture()
+
+        @Test("record goldens — run via `make recordMaskSnapshots`, then review + commit")
+        func recordGoldens() throws {
+            let capture = Self.capture
+            for scenario in scenarios {
+                try write(capture.composite(for: scenario), to: Self.goldenURL(scenario.id))
+            }
+            print("Recorded \(scenarios.count) mask goldens to \(Self.snapshotDir.path) — review and commit.")
+        }
+
+        @Test("committed goldens match the rendered masking output")
+        func verifyGoldens() throws {
+            let capture = Self.capture
+            var failures: [String] = []
+
+            for scenario in scenarios {
+                let composite = capture.composite(for: scenario)
+
+                guard let goldenData = try? Data(contentsOf: Self.goldenURL(scenario.id)),
+                      let golden = UIImage(data: goldenData)
+                else {
+                    failures.append("case \(scenario.id): no golden — run `make recordMaskSnapshots`")
+                    continue
+                }
+
+                let fraction = pixelDiffFraction(golden, composite)
+                if fraction > diffTolerance {
+                    let pct = String(format: "%.1f", fraction * 100)
+                    try? write(composite, to: Self.failureURL(scenario.id, "actual"))
+                    if let diff = diffHeatmap(golden, composite) {
+                        try? write(diff, to: Self.failureURL(scenario.id, "diff"))
+                    }
+                    failures.append("case \(scenario.id) (\(scenario.title)): \(pct)% of pixels changed")
+                }
+            }
+
+            let report = failures.joined(separator: "\n  ")
+            #expect(failures.isEmpty, "MASK SNAPSHOT REGRESSION:\n  \(report)")
+        }
+
+        // MARK: - Scenarios
+
+        private struct Scenario {
+            let id: Int
+            let title: String
+            /// The masking option(s) this case exercises — captioned onto the golden.
+            let option: String
+            let view: AnyView
+            var scrollOffset: CGFloat = 0
+            /// Per-scenario config; nil means the defaults (mask all text inputs + images).
+            var configure: ((PostHogConfig) -> Void)?
+        }
+
+        private var scenarios: [Scenario] {
+            [
+                // Explicit .postHogMask() — leaf vs container extent.
+                Scenario(id: 1, title: "Mask a Text", option: ".postHogMask() on a Text",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             Text(Self.secret).postHogMask()
+                         })),
+                Scenario(id: 2, title: "Mask an Image", option: ".postHogMask() on an Image",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             Image(systemName: "creditcard.fill").resizable().frame(width: 160, height: 100).postHogMask()
+                         })),
+                Scenario(id: 3, title: "Mask a container", option: ".postHogMask() on a container (full extent)",
+                         view: AnyView(VStack(spacing: 8) {
+                             Text("Row title")
+                             Text(Self.secret)
+                             Image(systemName: "person.crop.circle").resizable().frame(width: 60, height: 60)
+                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask())),
+                // Heuristic config defaults.
+                Scenario(id: 4, title: "TextField", option: "maskAllTextInputs (default)",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             TextField("card number", text: .constant("4242 4242 4242 4242"))
+                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                         })),
+                Scenario(id: 5, title: "Image", option: "maskAllImages (default)",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                         })),
+                // mask / noMask interaction.
+                Scenario(id: 6, title: "noMask child in masked container",
+                         option: ".postHogMask() container + child .postHogNoMask() (fail-closed)",
+                         view: AnyView(VStack(spacing: 8) {
+                             Text("masked \(Self.secret)")
+                             Text("EXEMPT should stay visible").postHogNoMask()
+                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask())),
+                Scenario(id: 7, title: "mask child in noMask container",
+                         option: ".postHogNoMask() container + child .postHogMask()",
+                         view: AnyView(VStack(spacing: 8) {
+                             Text("exempt area visible")
+                             Text(Self.secret).postHogMask()
+                         }.padding().background(Color.green.opacity(0.2)).postHogNoMask())),
+                // Per-row masking inside scrollable lists (leaf vs whole-row, and under scroll).
+                Scenario(id: 8, title: "List, per-row leaf mask (top)", option: ".postHogMask() on each row's label",
+                         view: AnyView(MaskScrollList(rowLevelMask: false))),
+                Scenario(id: 9, title: "List, per-row leaf mask (scrolled)",
+                         option: ".postHogMask() on each row's label, scrolled",
+                         view: AnyView(MaskScrollList(rowLevelMask: false)), scrollOffset: 320),
+                Scenario(id: 10, title: "List, TextField rows (scrolled)", option: "maskAllTextInputs in a list, scrolled",
+                         view: AnyView(MaskScrollList(useTextField: true)), scrollOffset: 320),
+                Scenario(id: 11, title: "List, whole-row mask (top)", option: ".postHogMask() on the whole row",
+                         view: AnyView(MaskScrollList(rowLevelMask: true))),
+                Scenario(id: 12, title: "List, whole-row mask (scrolled)", option: ".postHogMask() on the whole row, scrolled",
+                         view: AnyView(MaskScrollList(rowLevelMask: true)), scrollOffset: 320),
+                // Other text-input types under maskAllTextInputs.
+                Scenario(id: 13, title: "SecureField", option: "maskAllTextInputs (SecureField)",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             SecureField("password", text: .constant("hunter2-secret"))
+                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                         })),
+                Scenario(id: 14, title: "Multiple text inputs", option: "maskAllTextInputs (form)",
+                         view: AnyView(VStack(spacing: 12) {
+                             Text("Payment")
+                             TextField("name", text: .constant("Jane Appleseed"))
+                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                             TextField("card", text: .constant("4242 4242 4242 4242"))
+                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                         })),
+                // Config toggles OFF — the item is no longer redacted.
+                Scenario(id: 15, title: "Text, text masking OFF", option: "maskAllTextInputs = false",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             Text(Self.secret)
+                         }), configure: { $0.sessionReplayConfig.maskAllTextInputs = false }),
+                Scenario(id: 16, title: "Image, image masking OFF", option: "maskAllImages = false",
+                         view: AnyView(VStack(spacing: 16) {
+                             Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                         }), configure: { $0.sessionReplayConfig.maskAllImages = false }),
+                // .postHogNoMask() opting a view out of the config default.
+                Scenario(id: 17, title: "noMask rescues text", option: "maskAllTextInputs + .postHogNoMask()",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("masked \(Self.secret)")
+                             Text("PUBLIC banner text").postHogNoMask()
+                         })),
+                Scenario(id: 18, title: "noMask rescues image", option: "maskAllImages + .postHogNoMask()",
+                         view: AnyView(VStack(spacing: 16) {
+                             Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90)
+                             Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90).postHogNoMask()
+                         })),
+                // Disabled explicit mask, with the config default also off.
+                Scenario(id: 19, title: "Disabled explicit mask", option: "maskAllTextInputs = false + .postHogMask(false)",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("Visible label")
+                             Text(Self.secret).postHogMask(false)
+                         }), configure: { $0.sessionReplayConfig.maskAllTextInputs = false }),
+                // Two independent explicit masks in one view.
+                Scenario(id: 20, title: "Sibling explicit masks", option: "two sibling .postHogMask()",
+                         view: AnyView(VStack(spacing: 16) {
+                             Text("card \(Self.secret)").postHogMask()
+                             Text("Visible label")
+                             Text("pin 4021").postHogMask()
+                         })),
+                // Controls: Button (UIButton) and Toggle (UISwitch) sensitivity.
+                Scenario(id: 21, title: "Button + Toggle", option: "maskAllTextInputs (Button, Toggle)",
+                         view: AnyView(VStack(spacing: 24) {
+                             Button("Reveal \(Self.secret)") {}
+                             Toggle("Biometric login", isOn: .constant(true)).padding(.horizontal, 40)
+                         })),
+            ]
+        }
+
+        // MARK: - Capture
+
+        /// Renders a scenario to its captioned `[ original | masked ]` composite.
+        ///
+        /// Config (maskAllTextInputs/maskAllImages) is read live via the integration's
+        /// bound SDK, so heuristic masking needs a real installed integration. Install is
+        /// guarded by a process-wide static, so we install ONE SDK once and mutate its
+        /// `sessionReplayConfig` per scenario rather than spinning up one per config.
+        @MainActor
+        private final class Capture {
+            private let sdk: PostHogSDK
+            private let integration = PostHogReplayIntegration()
+
+            init() {
+                let config = PostHogConfig(apiKey: "phc_maskSnapshotTest")
+                config.disableReachabilityForTesting = true
+                sdk = PostHogSDK.with(config)
+                _ = integration.install(sdk)
+            }
+
+            func composite(for scenario: Scenario) -> UIImage {
+                // Reset to the SDK defaults, then apply the scenario's override (if any).
+                sdk.config.sessionReplayConfig.maskAllTextInputs = true
+                sdk.config.sessionReplayConfig.maskAllImages = true
+                scenario.configure?(sdk.config)
+
+                let controller = UIHostingController(rootView: scenario.view)
+                let window = UIWindow(frame: CGRect(origin: .zero, size: CGSize(width: 390, height: 844)))
+                window.rootViewController = controller
+                window.makeKeyAndVisible()
+                controller.view.frame = window.bounds
+                settle(window)
+
+                if scenario.scrollOffset > 0, let scroll = firstScrollView(in: window) {
+                    scroll.setContentOffset(CGPoint(x: 0, y: scenario.scrollOffset), animated: false)
+                    settle(window)
+                }
+
+                let original = render(controller.view)
+                let masked = paintingBlack(integration.collectMaskableRects(in: window) ?? [],
+                                           over: original, in: window.bounds)
+                return compose(scenario, original: original, masked: masked)
+            }
+
+            private func settle(_ window: UIWindow) {
+                for _ in 0 ..< 3 {
+                    window.setNeedsLayout()
+                    window.layoutIfNeeded()
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+                }
+            }
+
+            private func firstScrollView(in view: UIView) -> UIScrollView? {
+                if let scroll = view as? UIScrollView { return scroll }
+                for sub in view.subviews {
+                    if let found = firstScrollView(in: sub) { return found }
+                }
+                return nil
+            }
+
+            private func render(_ view: UIView) -> UIImage {
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1 // fixed scale → device-independent pixel dimensions
+                // layer.render(in:) draws the layer tree on the calling thread, so it works in a
+                // hostless test bundle; drawHierarchy() needs an active window scene and renders blank.
+                return UIGraphicsImageRenderer(bounds: view.bounds, format: format).image { ctx in
+                    view.layer.render(in: ctx.cgContext)
+                }
+            }
+
+            private func paintingBlack(_ rects: [CGRect], over image: UIImage, in bounds: CGRect) -> UIImage {
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                return UIGraphicsImageRenderer(bounds: bounds, format: format).image { ctx in
+                    image.draw(in: bounds)
+                    UIColor.black.setFill()
+                    for rect in rects {
+                        ctx.fill(rect)
+                    }
+                }
+            }
+
+            /// Stacks a caption header (id, title, option) above the original and masked panels.
+            private func compose(_ scenario: Scenario, original: UIImage, masked: UIImage) -> UIImage {
+                let header: CGFloat = 96
+                let gap: CGFloat = 8
+                let panelW = original.size.width
+                let size = CGSize(width: panelW * 2 + gap,
+                                  height: header + max(original.size.height, masked.size.height))
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+                    UIColor.white.setFill()
+                    ctx.fill(CGRect(origin: .zero, size: size))
+
+                    draw("\(scenario.id). \(scenario.title)", at: CGPoint(x: 16, y: 14),
+                         font: .boldSystemFont(ofSize: 22), color: .black, maxWidth: size.width - 32)
+                    draw(scenario.option, at: CGPoint(x: 16, y: 46),
+                         font: .systemFont(ofSize: 16), color: .darkGray, maxWidth: size.width - 32)
+                    draw("ORIGINAL", at: CGPoint(x: 16, y: 74), font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
+                    draw("MASKED (redacted in replay)", at: CGPoint(x: panelW + gap + 16, y: 74),
+                         font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
+
+                    original.draw(at: CGPoint(x: 0, y: header))
+                    masked.draw(at: CGPoint(x: panelW + gap, y: header))
+                    UIColor.systemGray4.setFill()
+                    ctx.fill(CGRect(x: panelW, y: header, width: gap, height: size.height - header))
+                }
+            }
+
+            private func draw(_ text: String, at point: CGPoint, font: UIFont, color: UIColor, maxWidth: CGFloat) {
+                (text as NSString).draw(
+                    in: CGRect(x: point.x, y: point.y, width: maxWidth, height: font.lineHeight + 4),
+                    withAttributes: [.font: font, .foregroundColor: color]
+                )
+            }
+        }
+
+        // MARK: - Pixel comparison
+
+        private func rgbaBytes(_ image: UIImage) -> (bytes: [UInt8], width: Int, height: Int)? {
+            guard let cg = image.cgImage else { return nil }
+            let width = cg.width, height = cg.height
+            var bytes = [UInt8](repeating: 0, count: width * height * 4)
+            guard let ctx = CGContext(
+                data: &bytes, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return nil }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return (bytes, width, height)
+        }
+
+        /// Whether the RGB channels at byte offset `o` differ beyond the antialiasing threshold.
+        private func pixelChanged(_ a: [UInt8], _ b: [UInt8], at o: Int) -> Bool {
+            let threshold: Int16 = 16
+            return abs(Int16(a[o]) - Int16(b[o])) > threshold
+                || abs(Int16(a[o + 1]) - Int16(b[o + 1])) > threshold
+                || abs(Int16(a[o + 2]) - Int16(b[o + 2])) > threshold
+        }
+
+        private func pixelDiffFraction(_ a: UIImage, _ b: UIImage) -> Double {
+            guard let pa = rgbaBytes(a), let pb = rgbaBytes(b) else { return 1 }
+            guard pa.width == pb.width, pa.height == pb.height else { return 1 }
+            var differing = 0
+            let pixelCount = pa.width * pa.height
+            for i in 0 ..< pixelCount where pixelChanged(pa.bytes, pb.bytes, at: i * 4) {
+                differing += 1
+            }
+            return pixelCount == 0 ? 1 : Double(differing) / Double(pixelCount)
+        }
+
+        private func diffHeatmap(_ a: UIImage, _ b: UIImage) -> UIImage? {
+            guard let pa = rgbaBytes(a), let pb = rgbaBytes(b),
+                  pa.width == pb.width, pa.height == pb.height else { return nil }
+            var out = pa.bytes
+            for i in 0 ..< (pa.width * pa.height) {
+                let o = i * 4
+                if pixelChanged(pa.bytes, pb.bytes, at: o) {
+                    out[o] = 255
+                    out[o + 1] = 0
+                    out[o + 2] = 0
+                    out[o + 3] = 255
+                } else {
+                    // Dim the unchanged background so changed pixels pop in the artifact.
+                    out[o] /= 3
+                    out[o + 1] /= 3
+                    out[o + 2] /= 3
+                }
+            }
+            guard let ctx = CGContext(
+                data: &out, width: pa.width, height: pa.height, bitsPerComponent: 8,
+                bytesPerRow: pa.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ), let cg = ctx.makeImage() else { return nil }
+            return UIImage(cgImage: cg)
+        }
+
+        // MARK: - Paths & IO
+
+        private static let snapshotDir = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().appendingPathComponent("__MaskSnapshots__")
+        private static let failureDir = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().appendingPathComponent("__MaskSnapshotFailures__")
+
+        private static func goldenURL(_ id: Int) -> URL {
+            snapshotDir.appendingPathComponent("case_\(id).png")
+        }
+
+        private static func failureURL(_ id: Int, _ kind: String) -> URL {
+            failureDir.appendingPathComponent("case_\(id).\(kind).png")
+        }
+
+        private func write(_ image: UIImage, to url: URL) throws {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            guard let data = image.pngData() else {
+                throw NSError(domain: "MaskSnapshot", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: "pngData() failed for \(url.lastPathComponent)"])
+            }
+            try data.write(to: url)
+        }
+    }
+#endif

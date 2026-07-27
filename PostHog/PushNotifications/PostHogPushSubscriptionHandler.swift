@@ -320,12 +320,15 @@ final class PostHogPushSubscriptionHandler {
         var completed = false
         provider(distinctId, appId) { [weak self] token in
             guard let self else { return }
+            // A mint can complete after opt-out cleared the cache; caching it would resurrect a
+            // stale credential on a later opt-in. The 401 refresh covers the residual race window.
+            let allowed = isAllowedProvider()
             let isFirst = self.stateLock.withLock { () -> Bool in
                 if completed {
                     return false
                 }
                 completed = true
-                if let token {
+                if let token, allowed {
                     self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
                 }
                 return true

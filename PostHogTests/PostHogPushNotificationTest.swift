@@ -614,6 +614,32 @@
             #expect(body["identity_token"] as? String == "jwt-first")
         }
 
+        @Test("a mint completing after opt-out is not cached; opt-in re-mints")
+        func lateMintAfterOptOutNotCached() async throws {
+            var allowed = true
+            var pendingCompletion: ((String?) -> Void)?
+            var mints = 0
+            let (handler, storage, config) = makeHandler(isAllowedProvider: { allowed })
+            config.pushIdentityProvider = { _, _, completion in
+                mints += 1
+                pendingCompletion = completion
+            }
+
+            handler.send(deviceToken: "tok", appId: "app")
+            allowed = false
+            handler.onOptOut()
+            pendingCompletion?("jwt-stale")
+
+            allowed = true
+            handler.send(deviceToken: "tok", appId: "app")
+            pendingCompletion?("jwt-fresh")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(mints == 2)
+            let post = try #require(server.pushSubscriptionRequests.last)
+            #expect(try #require(server.parseRequest(post))["identity_token"] as? String == "jwt-fresh")
+        }
+
         @Test("500 then 200: provider minted once, both attempts carry the same token (vector 12)")
         func retryReusesCachedIdentityToken() async throws {
             server.pushSubscriptionStatusHandler = { requestNumber in requestNumber == 1 ? 500 : 200 }

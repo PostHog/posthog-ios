@@ -601,6 +601,24 @@
             #expect(!body.keys.contains("identity_token"))
         }
 
+        @Test("a provider that never completes falls back to a token-less send instead of wedging")
+        func neverCompletingProviderFallsBackTokenLess() async throws {
+            let (handler, storage, config) = makeHandler()
+            handler.identityTokenMintTimeout = 0.05
+            config.pushIdentityProvider = { _, _, _ in } // never calls completion
+
+            handler.send(deviceToken: "tok-1", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            let firstPost = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+            #expect(!(try #require(server.parseRequest(firstPost))).keys.contains("identity_token"))
+
+            // isSending was released by the fallback, so a later registration is not wedged.
+            handler.send(deviceToken: "tok-2", appId: "app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count == 2 })
+            let secondPost = server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }[1]
+            #expect(try #require(server.parseRequest(secondPost))["device_token"] as? String == "tok-2")
+        }
+
         @Test("only the first provider completion is honored")
         func onlyFirstProviderCompletionHonored() async throws {
             let (handler, storage, config) = makeHandler()

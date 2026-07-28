@@ -197,6 +197,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// the next launch, and once after a 401 rejection. An uncalled `completion` strands that request
     /// until the next launch.
     ///
+    /// The hook is invoked synchronously on the SDK's push-registration work (only `completion` may be
+    /// called from any thread), so return quickly: mint the token asynchronously and call `completion`
+    /// when it finishes. Blocking here stalls the push retry/offline-resume flow.
+    ///
     /// Default: `nil` (requests carry no identity token).
     @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
 

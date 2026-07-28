@@ -29,6 +29,12 @@ final class PostHogPushSubscriptionHandler {
     private static let firstRetryDelay: TimeInterval = 5
     private static let maxRetryDelay: TimeInterval = 30
 
+    /// Watchdog window for `pushIdentityProvider`: if the host never calls completion within this, fall
+    /// back to a token-less send so a misbehaving provider can't wedge sending for the whole process.
+    /// A slow legitimate mint on a bad network is cut off and retried token-less (the 401 refresh
+    /// re-mints). Test seam: shrunk in tests so the fallback fires quickly. Keep in parity with Android.
+    var identityTokenMintTimeout: TimeInterval = 10
+
     private let api: PostHogApi
     private let storage: PostHogStorage
     private let config: PostHogConfig
@@ -302,7 +308,7 @@ final class PostHogPushSubscriptionHandler {
     /// provider completions are ignored (an uncalled one strands the request — see the config doc).
     private func resolveIdentityToken(distinctId: String, appId: String, completion: @escaping (String?) -> Void) {
         guard let provider = config.pushIdentityProvider else {
-            hedgeLog("Push subscription request sent without identity token (no pushIdentityProvider).")
+            hedgeLog("No identity token attached to push request (no pushIdentityProvider).")
             return completion(nil)
         }
 
@@ -313,11 +319,28 @@ final class PostHogPushSubscriptionHandler {
             return cache.token
         }
         if let cached {
-            hedgeLog("Push subscription request sent with cached identity token.")
+            hedgeLog("Attaching cached identity token to push request.")
             return completion(cached)
         }
 
         var completed = false
+        // A provider that never calls its completion would hold isSending for the whole process and
+        // wedge every later send. Bound the wait: if the mint doesn't land in time, fall back to a
+        // token-less send. A late real completion is a no-op via `completed`.
+        let timeout = identityTokenMintTimeout
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
+            guard let self else { return }
+            let isFirst = self.stateLock.withLock { () -> Bool in
+                if completed {
+                    return false
+                }
+                completed = true
+                return true
+            }
+            guard isFirst else { return }
+            hedgeLog("pushIdentityProvider did not complete within \(timeout)s; sending without identity token.")
+            completion(nil)
+        }
         provider(distinctId, appId) { [weak self] token in
             guard let self else { return }
             // A mint can complete after opt-out cleared the cache; caching it would resurrect a
@@ -335,8 +358,8 @@ final class PostHogPushSubscriptionHandler {
             }
             guard isFirst else { return }
             hedgeLog(token != nil
-                ? "Push subscription request sent with freshly minted identity token."
-                : "Push subscription request sent without identity token (provider completed nil).")
+                ? "Attaching freshly minted identity token to push request."
+                : "No identity token attached to push request (provider completed nil).")
             completion(token)
         }
     }

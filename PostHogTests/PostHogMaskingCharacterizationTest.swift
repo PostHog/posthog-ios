@@ -531,7 +531,7 @@
             window.layoutIfNeeded()
 
             let integration = PostHogReplayIntegration()
-            let rects = integration.debugMaskableRects(in: window)
+            let rects = integration.collectMaskableRects(in: window)
 
             #expect(rects == [CGRect(x: 10, y: 100, width: 100, height: 40)], "reporter rect flows through the capture collection")
         }
@@ -727,7 +727,6 @@
 
             let integration = PostHogReplayIntegration()
             #expect(integration.collectMaskableRects(in: window) == nil, "frame must be skipped, not captured under-masked")
-            #expect(integration.debugMaskableRects(in: window) == nil, "debug hook must preserve the skipped-frame signal")
 
             window.layoutIfNeeded()
             #expect(integration.collectMaskableRects(in: window) == [CGRect(x: 10, y: 100, width: 100, height: 40)])

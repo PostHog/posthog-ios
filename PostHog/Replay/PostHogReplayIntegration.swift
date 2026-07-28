@@ -1623,30 +1623,6 @@
         }
     #endif
 
-    #if DEBUG
-
-        // MARK: - Debug verification hooks
-
-        extension PostHogReplayIntegration {
-            /// Debug-only: the redaction rects `snapshot()` would produce for `window`
-            /// right now, via the production collection path. Main thread only.
-            /// nil = production would skip this frame; [] = captured with nothing
-            /// redacted — harnesses must not conflate the two.
-            func debugMaskableRects(in window: UIWindow) -> [CGRect]? {
-                collectMaskableRects(in: window)
-            }
-
-            /// Debug-only: a transient integration bound to `postHog` so that
-            /// `debugMaskableRects(in:)` can read the session-replay config even when
-            /// replay isn't installed/recording (e.g. placeholder token, flag off).
-            static func debugTransient(for postHog: PostHogSDK) -> PostHogReplayIntegration {
-                let integration = PostHogReplayIntegration()
-                integration.postHog = postHog
-                return integration
-            }
-        }
-    #endif
-
 #endif
 
 // swiftlint:enable cyclomatic_complexity file_length

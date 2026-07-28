@@ -46,7 +46,7 @@
             isPostHogFlagOwned(&AssociatedKeys.phNoRageClick)
         }
 
-        func setPostHogNoRageClick(_ enabled: Bool, owner: ObjectIdentifier) {
+        func setPostHogNoRageClick(_ enabled: Bool, owner: UIView) {
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
@@ -90,7 +90,7 @@
             isPostHogFlagOwned(&AssociatedKeys.phNoRageClick)
         }
 
-        func setPostHogNoRageClick(_ enabled: Bool, owner: ObjectIdentifier) {
+        func setPostHogNoRageClick(_ enabled: Bool, owner: UIView) {
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
     }

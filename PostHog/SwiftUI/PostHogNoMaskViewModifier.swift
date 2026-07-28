@@ -62,7 +62,7 @@
             isPostHogFlagOwned(&AssociatedKeys.phNoMask)
         }
 
-        func setPostHogNoMask(_ enabled: Bool, owner: ObjectIdentifier) {
+        func setPostHogNoMask(_ enabled: Bool, owner: UIView) {
             setPostHogFlag(&AssociatedKeys.phNoMask, enabled: enabled, owner: owner)
         }
     }
@@ -72,7 +72,7 @@
             isPostHogFlagOwned(&AssociatedKeys.phNoMask)
         }
 
-        func setPostHogNoMask(_ enabled: Bool, owner: ObjectIdentifier) {
+        func setPostHogNoMask(_ enabled: Bool, owner: UIView) {
             setPostHogFlag(&AssociatedKeys.phNoMask, enabled: enabled, owner: owner)
         }
     }

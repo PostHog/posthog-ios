@@ -252,33 +252,47 @@
         @Test("a view stays flagged until every owner releases it")
         func overlappingOwnersOnView() {
             let view = UIView()
-            let ownerA = NSObject()
-            let ownerB = NSObject()
+            let ownerA = UIView()
+            let ownerB = UIView()
 
-            view.setPostHogNoMask(true, owner: ObjectIdentifier(ownerA))
-            view.setPostHogNoMask(true, owner: ObjectIdentifier(ownerB))
+            view.setPostHogNoMask(true, owner: ownerA)
+            view.setPostHogNoMask(true, owner: ownerB)
             #expect(view.postHogNoMask)
 
-            view.setPostHogNoMask(false, owner: ObjectIdentifier(ownerA))
+            view.setPostHogNoMask(false, owner: ownerA)
             #expect(view.postHogNoMask, "still owned by B")
 
-            view.setPostHogNoMask(false, owner: ObjectIdentifier(ownerB))
+            view.setPostHogNoMask(false, owner: ownerB)
             #expect(!view.postHogNoMask)
         }
 
         @Test("a layer stays flagged until every owner releases it")
         func overlappingOwnersOnLayer() {
             let layer = CALayer()
-            let ownerA = NSObject()
-            let ownerB = NSObject()
+            let ownerA = UIView()
+            let ownerB = UIView()
 
-            layer.setPostHogNoMask(true, owner: ObjectIdentifier(ownerA))
-            layer.setPostHogNoMask(true, owner: ObjectIdentifier(ownerB))
-            layer.setPostHogNoMask(false, owner: ObjectIdentifier(ownerB))
+            layer.setPostHogNoMask(true, owner: ownerA)
+            layer.setPostHogNoMask(true, owner: ownerB)
+            layer.setPostHogNoMask(false, owner: ownerB)
             #expect(layer.postHogNoMask)
 
-            layer.setPostHogNoMask(false, owner: ObjectIdentifier(ownerA))
+            layer.setPostHogNoMask(false, owner: ownerA)
             #expect(!layer.postHogNoMask)
+        }
+
+        @Test("a dead owner's claim self-heals instead of flagging the target forever")
+        func deadOwnerClaimSelfHeals() {
+            let view = UIView()
+            weak var probe: UIView?
+            autoreleasepool {
+                let owner = UIView()
+                probe = owner
+                view.setPostHogNoMask(true, owner: owner)
+                #expect(view.postHogNoMask)
+            }
+            #expect(probe == nil, "owner must be deallocated for this test to be meaningful")
+            #expect(!view.postHogNoMask, "a claim must not outlive its owner")
         }
 
         @Test("dismantling one of two overlapping masks keeps the shared target masked")

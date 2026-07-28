@@ -10,10 +10,10 @@
 #if os(iOS) && canImport(SwiftUI)
     import SwiftUI
 
-    /// - owner: identity of the injected view that resolved these targets. Used for
-    ///   ref-counted flag ownership (see `PostHogFlagOwners`), so that overlapping
-    ///   masks cannot clear each other's targets on teardown.
-    typealias PostHogTagHandler = (_ owner: ObjectIdentifier, _ views: [UIView], _ layers: [CALayer]) -> Void
+    /// - owner: the injected view that resolved these targets. Used for ref-counted
+    ///   flag ownership (see `PostHogFlagOwners`), so that overlapping masks cannot
+    ///   clear each other's targets on teardown.
+    typealias PostHogTagHandler = (_ owner: UIView, _ views: [UIView], _ layers: [CALayer]) -> Void
 
     /**
      This is a helper view modifier for retrieving a list of underlying UIKit views for the current SwiftUI view.
@@ -181,7 +181,7 @@
 
                 // Reconcile against the previous resolution: release ownership on
                 // layers that dropped out, otherwise recycled layers keep stale flags.
-                let owner = ObjectIdentifier(captureView)
+                let owner = captureView
                 let previous = coordinator.cachedLayers
                 let dropped = previous.filter { previousLayer in
                     !layers.contains(where: { $0 === previousLayer })
@@ -210,7 +210,7 @@
                 : coordinator.cachedLayers
 
             if !layers.isEmpty {
-                coordinator.onRemoveHandler(ObjectIdentifier(uiView), [], layers)
+                coordinator.onRemoveHandler(uiView, [], layers)
             }
             uiView.handler = nil
         }
@@ -332,7 +332,7 @@
                 : coordinator.cachedTargets
 
             if !targets.isEmpty {
-                coordinator.onRemoveHandler(ObjectIdentifier(uiView), targets, [])
+                coordinator.onRemoveHandler(uiView, targets, [])
             }
 
             uiView.postHogTagView = nil
@@ -353,7 +353,7 @@
         let targets = getTargetViews(from: taggerView)
         guard !targets.isEmpty else { return }
 
-        let owner = ObjectIdentifier(taggerView)
+        let owner = taggerView
         let previous = coordinator.cachedTargets
         let dropped = previous.filter { previousTarget in
             !targets.contains(where: { $0 === previousTarget })

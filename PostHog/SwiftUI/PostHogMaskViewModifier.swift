@@ -198,17 +198,25 @@
     /// overlapping target sets are the norm on iOS 26, where masks resolve against the
     /// shared hosting view — so a plain Boolean flag would let one mask's teardown
     /// (e.g. a lazy row scrolling offscreen) unmask targets still owned by another.
-    /// A target stays flagged for as long as at least one owner claims it.
+    /// A target stays flagged for as long as at least one owner claims it. Owners are
+    /// held weakly and pruned on read, so a claim can't outlive its owner (a missed
+    /// teardown self-heals) and a recycled address can't resolve to a dead owner.
+    /// Main-thread confined, like the tag machinery that drives it — no lock needed.
     final class PostHogFlagOwners {
-        var owners: Set<ObjectIdentifier> = []
+        var owners: [ObjectIdentifier: Weak<UIView>] = [:]
+
+        func pruneAndHasLiveOwner() -> Bool {
+            owners = owners.filter { $0.value.value != nil }
+            return !owners.isEmpty
+        }
     }
 
     extension NSObject {
         func isPostHogFlagOwned(_ key: UnsafeRawPointer) -> Bool {
-            (objc_getAssociatedObject(self, key) as? PostHogFlagOwners)?.owners.isEmpty == false
+            (objc_getAssociatedObject(self, key) as? PostHogFlagOwners)?.pruneAndHasLiveOwner() == true
         }
 
-        func setPostHogFlag(_ key: UnsafeRawPointer, enabled: Bool, owner: ObjectIdentifier) {
+        func setPostHogFlag(_ key: UnsafeRawPointer, enabled: Bool, owner: UIView) {
             let box: PostHogFlagOwners
             if let existing = objc_getAssociatedObject(self, key) as? PostHogFlagOwners {
                 box = existing
@@ -216,11 +224,7 @@
                 box = PostHogFlagOwners()
                 objc_setAssociatedObject(self, key, box, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             }
-            if enabled {
-                box.owners.insert(owner)
-            } else {
-                box.owners.remove(owner)
-            }
+            box.owners[ObjectIdentifier(owner)] = enabled ? Weak(owner) : nil
         }
     }
 #endif

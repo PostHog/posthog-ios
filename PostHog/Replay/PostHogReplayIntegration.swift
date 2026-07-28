@@ -1035,22 +1035,38 @@
                 return nil
             }
 
+            // nil = a mask reporter has no geometry yet; capturing now could show that
+            // content unmasked. Skip the tick (fail closed), like the transition bail.
+            guard let maskableWidgets = collectMaskableRects(in: window) else {
+                hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
+                return nil
+            }
+
             let wireframe = createBasicWireframe(window)
-            wireframe.maskableWidgets = collectMaskableRects(in: window)
+            wireframe.maskableWidgets = maskableWidgets
             wireframe.type = "screenshot"
             return wireframe
         }
 
-        /// All rects to redact in `window`: heuristic + flag-tagged widgets from the
-        /// hierarchy walk, plus the live rects of `postHogMask()` reporter views
-        /// (computed at capture time from the registry — never cached, so a masked
-        /// view that moved since the last layout callback is still redacted at its
-        /// current position).
-        func collectMaskableRects(in window: UIWindow) -> [CGRect] {
+        /// All rects to redact in `window`: heuristic widgets from the hierarchy walk
+        /// plus the live rects of `postHogMask()` reporters. Returns nil when a
+        /// reporter hasn't been laid out yet — the caller must skip the frame rather
+        /// than capture it under-masked.
+        ///
+        /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by
+        /// default): pixels render after this collection, so any rect source can go
+        /// stale for content committed in between.
+        func collectMaskableRects(in window: UIWindow) -> [CGRect]? {
+            // The cheap registry read can veto the frame; keep it before the walk.
+            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window)
+            guard !masked.hasUnsettledReporters else {
+                return nil
+            }
+
             var maskableWidgets: [CGRect] = []
             var maskChildren = false
             findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
-            maskableWidgets.append(contentsOf: PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window))
+            maskableWidgets.append(contentsOf: masked.rects)
             return maskableWidgets
         }
 
@@ -1612,13 +1628,11 @@
         // MARK: - Debug verification hooks
 
         extension PostHogReplayIntegration {
-            /// Debug-only: computes the redaction rects that `snapshot()` would produce
-            /// for `window` right now, via the exact production collection path (the
-            /// `findMaskableWidgets` walk plus the mask-reporter registry). Main thread only.
-            ///
-            /// Used by verification harnesses to compare masking output before/after
-            /// SDK changes — see the masking characterization tests.
-            func debugMaskableRects(in window: UIWindow) -> [CGRect] {
+            /// Debug-only: the redaction rects `snapshot()` would produce for `window`
+            /// right now, via the production collection path. Main thread only.
+            /// nil = production would skip this frame; [] = captured with nothing
+            /// redacted — harnesses must not conflate the two.
+            func debugMaskableRects(in window: UIWindow) -> [CGRect]? {
                 collectMaskableRects(in: window)
             }
 

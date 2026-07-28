@@ -61,33 +61,50 @@
         static let shared = PostHogSessionReplayMaskRegistry()
 
         private let lock = NSLock()
-        private var reporters: [ObjectIdentifier: Weak<UIView>] = [:]
+        private var reporters: [ObjectIdentifier: Weak<PostHogMaskReporterUIView>] = [:]
 
-        func register(_ reporter: UIView) {
+        struct MaskedRects {
+            let rects: [CGRect]
+            /// A reporter in this window hasn't been laid out yet, so its region can't
+            /// be reported. Callers must skip the frame instead of masking nothing.
+            let hasUnsettledReporters: Bool
+        }
+
+        func register(_ reporter: PostHogMaskReporterUIView) {
             lock.withLock { reporters[ObjectIdentifier(reporter)] = Weak(reporter) }
         }
 
-        func unregister(_ reporter: UIView) {
+        func unregister(_ reporter: PostHogMaskReporterUIView) {
             lock.withLock { reporters[ObjectIdentifier(reporter)] = nil }
         }
 
         /// The rects to redact in `window`, read live from the registered reporters.
-        /// Reporters attached to other windows (iPad multi-window) are excluded.
-        func maskedRects(in window: UIWindow) -> [CGRect] {
+        /// Deliberately not using `isVisible()`: its `frame == .zero` check can't
+        /// distinguish "not laid out yet" (must fail closed) from "legitimately empty".
+        func maskedRects(in window: UIWindow) -> MaskedRects {
+            // `hasCompletedFirstLayout` is main-confined; this assert stays active in
+            // Release builds too (dispatch_assert_queue is not NDEBUG-gated).
+            dispatchPrecondition(condition: .onQueue(.main))
+
             let liveReporters = lock.withLock {
                 reporters = reporters.filter { $0.value.value != nil }
                 return reporters.values.compactMap(\.value)
             }
 
             var rects: [CGRect] = []
+            var hasUnsettledReporters = false
             for reporter in liveReporters {
-                guard reporter.window === window, reporter.isVisible() else { continue }
+                guard reporter.window === window, !reporter.isHidden, reporter.alpha > 0 else { continue }
+                guard reporter.hasCompletedFirstLayout else {
+                    hasUnsettledReporters = true
+                    continue
+                }
                 let rect = reporter.toAbsoluteRect(window)
                 if !rect.isEmpty {
                     rects.append(rect)
                 }
             }
-            return rects
+            return MaskedRects(rects: rects, hasUnsettledReporters: hasUnsettledReporters)
         }
 
         #if TESTING
@@ -98,18 +115,30 @@
     }
 
     /// The single view `postHogMask()` injects: transparent, hit-test-disabled, spanning
-    /// the masked view's extent. It does nothing except exist there and keep itself
-    /// registered while attached to a window — no traversals, no KVO, no per-layout work.
+    /// the masked view's extent. It only exists there and keeps itself registered while
+    /// attached to a window — no traversals, no KVO, no per-layout resolution work.
     final class PostHogMaskReporterUIView: UIView {
         var isMaskingEnabled = true {
             didSet { updateRegistration() }
         }
+
+        /// Distinguishes "not laid out yet" (fail closed) from a legitimately
+        /// zero-sized laid-out view (safe to skip).
+        private(set) var hasCompletedFirstLayout = false
 
         override init(frame: CGRect) {
             super.init(frame: frame)
             isUserInteractionEnabled = false
             backgroundColor = .clear
             postHogView = true
+        }
+
+        private weak var lastLayoutWindow: UIWindow?
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            hasCompletedFirstLayout = true
+            lastLayoutWindow = window
         }
 
         @available(*, unavailable)
@@ -119,8 +148,20 @@
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            // Registration keys off window attachment: a reporter inside a freshly
-            // realized lazy row is registered before the row can appear in a snapshot.
+            if let window {
+                // Frames from another window's layout are stale; same-window re-adds
+                // (cell reuse) keep the settled state — rects are read live anyway.
+                if window !== lastLayoutWindow {
+                    hasCompletedFirstLayout = false
+                }
+                // Unsettled reporters must be layout-dirty, or one whose bounds never
+                // change again (e.g. laid out before attachment) would block snapshots forever.
+                if !hasCompletedFirstLayout {
+                    setNeedsLayout()
+                }
+            }
+            // Register on window attachment so a freshly realized lazy row is
+            // registered before it can appear in a snapshot.
             updateRegistration()
         }
 

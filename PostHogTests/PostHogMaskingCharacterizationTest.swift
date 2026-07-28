@@ -8,6 +8,7 @@
 #if os(iOS)
     import Foundation
     @testable import PostHog
+    import SwiftUI
     import Testing
     import UIKit
 
@@ -432,20 +433,22 @@
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             let container = UIView(frame: window.bounds)
             window.addSubview(container)
-            let reporter = UIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
             container.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
 
             registry.register(reporter)
-            #expect(registry.maskedRects(in: window) == [CGRect(x: 10, y: 20, width: 100, height: 40)])
+            #expect(registry.maskedRects(in: window).rects == [CGRect(x: 10, y: 20, width: 100, height: 40)])
 
             // Reposition without any registry interaction — the next read must see
             // the current geometry (this is the property that keeps fast-scrolling
             // content redacted at its actual position).
             reporter.frame = CGRect(x: 30, y: 200, width: 50, height: 25)
-            #expect(registry.maskedRects(in: window) == [CGRect(x: 30, y: 200, width: 50, height: 25)])
+            #expect(registry.maskedRects(in: window).rects == [CGRect(x: 30, y: 200, width: 50, height: 25)])
 
             registry.unregister(reporter)
-            #expect(registry.maskedRects(in: window).isEmpty)
+            #expect(registry.maskedRects(in: window).rects.isEmpty)
         }
 
         @Test("reporters attached to other windows are excluded")
@@ -453,22 +456,28 @@
             let registry = PostHogSessionReplayMaskRegistry()
             let windowA = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             let windowB = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
-            let reporterA = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
-            let reporterB = UIView(frame: CGRect(x: 5, y: 5, width: 10, height: 10))
+            let reporterA = PostHogMaskReporterUIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+            let reporterB = PostHogMaskReporterUIView(frame: CGRect(x: 5, y: 5, width: 10, height: 10))
             windowA.addSubview(reporterA)
             windowB.addSubview(reporterB)
+            defer {
+                reporterA.removeFromSuperview()
+                reporterB.removeFromSuperview()
+            }
+            windowA.layoutIfNeeded()
+            windowB.layoutIfNeeded()
             registry.register(reporterA)
             registry.register(reporterB)
 
-            #expect(registry.maskedRects(in: windowA) == [CGRect(x: 0, y: 0, width: 10, height: 10)])
-            #expect(registry.maskedRects(in: windowB) == [CGRect(x: 5, y: 5, width: 10, height: 10)])
+            #expect(registry.maskedRects(in: windowA).rects == [CGRect(x: 0, y: 0, width: 10, height: 10)])
+            #expect(registry.maskedRects(in: windowB).rects == [CGRect(x: 5, y: 5, width: 10, height: 10)])
         }
 
         @Test("deallocated reporters self-heal out of the registry")
         func weakSelfHealing() {
             let registry = PostHogSessionReplayMaskRegistry()
             autoreleasepool {
-                let reporter = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+                let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
                 registry.register(reporter)
                 #expect(registry.registeredCountForTesting == 1)
             }
@@ -480,19 +489,20 @@
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 10, width: 50, height: 50))
 
-            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).rects.isEmpty)
 
             window.addSubview(reporter)
-            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window) == [CGRect(x: 10, y: 10, width: 50, height: 50)])
+            window.layoutIfNeeded()
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).rects == [CGRect(x: 10, y: 10, width: 50, height: 50)])
 
             reporter.isMaskingEnabled = false
-            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).rects.isEmpty)
 
             reporter.isMaskingEnabled = true
-            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).count == 1)
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).rects.count == 1)
 
             reporter.removeFromSuperview()
-            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).isEmpty)
+            #expect(PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).rects.isEmpty)
         }
 
         @Test("capture collection includes live reporter rects")
@@ -504,11 +514,209 @@
             let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 100, width: 100, height: 40))
             container.addSubview(reporter)
             defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
 
             let integration = PostHogReplayIntegration()
             let rects = integration.debugMaskableRects(in: window)
 
             #expect(rects == [CGRect(x: 10, y: 100, width: 100, height: 40)], "reporter rect flows through the capture collection")
+        }
+
+        // MARK: - Pre-first-layout gap (fail closed)
+
+        @Test("a reporter completes its first layout even at zero size")
+        func zeroSizeReporterCompletesFirstLayout() {
+            // A zero-sized view must still get a layout pass, or it would flag the
+            // window unsettled forever and block snapshots.
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: .zero)
+            #expect(!reporter.hasCompletedFirstLayout)
+
+            window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
+
+            #expect(reporter.hasCompletedFirstLayout)
+        }
+
+        @Test("a pre-layout reporter marks the window unsettled instead of being dropped")
+        func preLayoutReporterMarksUnsettled() {
+            let registry = PostHogSessionReplayMaskRegistry()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            registry.register(reporter)
+
+            // Registered but not laid out yet: dropping it silently would leave the
+            // region unmasked.
+            let beforeLayout = registry.maskedRects(in: window)
+            #expect(beforeLayout.hasUnsettledReporters)
+            #expect(beforeLayout.rects.isEmpty)
+
+            window.layoutIfNeeded()
+            let afterLayout = registry.maskedRects(in: window)
+            #expect(!afterLayout.hasUnsettledReporters)
+            #expect(afterLayout.rects == [CGRect(x: 10, y: 20, width: 100, height: 40)])
+        }
+
+        @Test("a zero-sized reporter that has been laid out does not block snapshots")
+        func laidOutZeroSizeReporterDoesNotBlock() {
+            let registry = PostHogSessionReplayMaskRegistry()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: .zero)
+            window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
+            registry.register(reporter)
+
+            let result = registry.maskedRects(in: window)
+            #expect(!result.hasUnsettledReporters, "legitimately empty view must not stall capture")
+            #expect(result.rects.isEmpty)
+        }
+
+        @Test("an unsettled reporter in another window does not block this window")
+        func unsettledReporterInOtherWindowDoesNotBlock() {
+            // Guard-order pin: the window filter must precede the settled check, or a
+            // side window realizing content would stall the foreground window's capture.
+            let registry = PostHogSessionReplayMaskRegistry()
+            let windowA = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let windowB = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+
+            let settled = PostHogMaskReporterUIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+            windowA.addSubview(settled)
+            defer { settled.removeFromSuperview() }
+            windowA.layoutIfNeeded()
+
+            let unsettled = PostHogMaskReporterUIView(frame: CGRect(x: 5, y: 5, width: 10, height: 10))
+            windowB.addSubview(unsettled)
+            defer { unsettled.removeFromSuperview() }
+            // no layout pass in windowB
+
+            registry.register(settled)
+            registry.register(unsettled)
+
+            let resultA = registry.maskedRects(in: windowA)
+            #expect(!resultA.hasUnsettledReporters)
+            #expect(resultA.rects == [CGRect(x: 0, y: 0, width: 10, height: 10)])
+
+            #expect(registry.maskedRects(in: windowB).hasUnsettledReporters)
+        }
+
+        @Test("a hidden pre-layout reporter does not mark the window unsettled")
+        func hiddenPreLayoutReporterDoesNotMarkUnsettled() {
+            // Hidden content isn't rendered, so it must not stall the frame even pre-layout.
+            let registry = PostHogSessionReplayMaskRegistry()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            reporter.isHidden = true
+            window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            registry.register(reporter)
+
+            let result = registry.maskedRects(in: window)
+            #expect(!result.hasUnsettledReporters)
+            #expect(result.rects.isEmpty)
+        }
+
+        @Test("an alpha-zero pre-layout reporter does not mark the window unsettled")
+        func alphaZeroPreLayoutReporterDoesNotMarkUnsettled() {
+            // Pins the other half of the visibility guard order (see the hidden test).
+            let registry = PostHogSessionReplayMaskRegistry()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            reporter.alpha = 0
+            window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            registry.register(reporter)
+
+            let result = registry.maskedRects(in: window)
+            #expect(!result.hasUnsettledReporters)
+            #expect(result.rects.isEmpty)
+        }
+
+        @Test("same-window re-adds (cell reuse) keep the reporter settled")
+        func sameWindowReaddKeepsSettled() {
+            // Cell reuse re-fires didMoveToWindow on every recycle; resetting there
+            // would skip capture ticks throughout a scroll gesture.
+            let registry = PostHogSessionReplayMaskRegistry()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            window.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            window.layoutIfNeeded()
+            registry.register(reporter)
+            #expect(reporter.hasCompletedFirstLayout)
+
+            reporter.removeFromSuperview()
+            window.addSubview(reporter)
+
+            let result = registry.maskedRects(in: window)
+            #expect(!result.hasUnsettledReporters)
+            #expect(result.rects == [CGRect(x: 10, y: 20, width: 100, height: 40)])
+        }
+
+        @Test("reattaching to a window requires a fresh layout pass before the reporter settles")
+        func reattachmentRequiresFreshLayout() {
+            let registry = PostHogSessionReplayMaskRegistry()
+            let windowA = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let windowB = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 20, width: 100, height: 40))
+            windowA.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+            windowA.layoutIfNeeded()
+            registry.register(reporter)
+            #expect(reporter.hasCompletedFirstLayout)
+
+            // Old-window geometry is stale: fail closed until the new window lays it out.
+            windowB.addSubview(reporter)
+            #expect(!reporter.hasCompletedFirstLayout)
+            #expect(registry.maskedRects(in: windowB).hasUnsettledReporters)
+
+            windowB.layoutIfNeeded()
+            let settled = registry.maskedRects(in: windowB)
+            #expect(!settled.hasUnsettledReporters)
+            #expect(settled.rects == [CGRect(x: 10, y: 20, width: 100, height: 40)])
+        }
+
+        @Test("a SwiftUI-hosted zero-sized mask settles after the hosting layout pass")
+        func swiftUIHostedZeroSizeMaskSettles() {
+            // Pins that real SwiftUI hosting delivers a first layout pass even to a
+            // zero-sized masked view.
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let baselineCount = PostHogSessionReplayMaskRegistry.shared.registeredCountForTesting
+            let host = UIHostingController(rootView: Color.clear.frame(width: 0, height: 0).postHogMask())
+            window.rootViewController = host
+            window.isHidden = false
+            defer {
+                window.isHidden = true
+                window.rootViewController = nil
+            }
+            window.layoutIfNeeded()
+
+            // Non-vacuity: exactly this test's reporter must have registered.
+            #expect(PostHogSessionReplayMaskRegistry.shared.registeredCountForTesting == baselineCount + 1)
+            #expect(!PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window).hasUnsettledReporters)
+        }
+
+        @Test("capture collection skips the frame while a reporter is unsettled")
+        func captureCollectionSkipsUnsettledFrame() {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            let container = UIView(frame: window.bounds)
+            window.addSubview(container)
+            window.layoutIfNeeded()
+
+            // Like a lazy row: attaching registers the reporter before any layout pass.
+            let reporter = PostHogMaskReporterUIView(frame: CGRect(x: 10, y: 100, width: 100, height: 40))
+            container.addSubview(reporter)
+            defer { reporter.removeFromSuperview() }
+
+            let integration = PostHogReplayIntegration()
+            #expect(integration.collectMaskableRects(in: window) == nil, "frame must be skipped, not captured under-masked")
+            #expect(integration.debugMaskableRects(in: window) == nil, "debug hook must preserve the skipped-frame signal")
+
+            window.layoutIfNeeded()
+            #expect(integration.collectMaskableRects(in: window) == [CGRect(x: 10, y: 100, width: 100, height: 40)])
         }
     }
 #endif

@@ -2955,11 +2955,12 @@ let maxRetryDelay = 30.0
         /// now, computed through the production masking path (`findMaskableWidgets`,
         /// including the iOS 26 layer scan). Main thread only.
         ///
-        /// Intended for verification harnesses that compare masking output across SDK
-        /// changes. Works even when replay isn't recording (invalid token or replay
-        /// flag off): a transient integration is used to read the local config.
-        @_spi(PostHogInternal) func debugSessionReplayMaskableRects(in window: UIWindow) -> [CGRect] {
-            guard isEnabled() else { return [] }
+        /// For verification harnesses; works even when replay isn't recording.
+        /// Returns nil when no frame would be captured (a masked view isn't laid out
+        /// yet, or the SDK isn't set up) — distinct from an empty list (frame captured
+        /// with nothing masked). Main queue only; enforced also in Release builds.
+        @_spi(PostHogInternal) func debugSessionReplayMaskableRects(in window: UIWindow) -> [CGRect]? {
+            guard isEnabled() else { return nil }
             let integration = replayIntegration ?? PostHogReplayIntegration.debugTransient(for: self)
             return integration.debugMaskableRects(in: window)
         }
@@ -2968,8 +2969,8 @@ let maxRetryDelay = 30.0
         /// verification harnesses can discover the hook at runtime (`responds(to:)`)
         /// and keep compiling against SDK revisions that don't have it.
         @_spi(PostHogInternal) @objc(debugSessionReplayMaskableRectsIn:)
-        func debugSessionReplayMaskableRectValues(in window: UIWindow) -> [NSValue] {
-            debugSessionReplayMaskableRects(in: window).map { NSValue(cgRect: $0) }
+        func debugSessionReplayMaskableRectValues(in window: UIWindow) -> [NSValue]? {
+            debugSessionReplayMaskableRects(in: window)?.map { NSValue(cgRect: $0) }
         }
     }
 #endif

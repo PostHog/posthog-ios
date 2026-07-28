@@ -222,9 +222,13 @@ final class PostHogPushSubscriptionHandler {
         unregister(distinctId: distinctIdProvider(), deviceToken: record.deviceToken, appId: record.appId)
     }
 
-    /// Opt-out drops the cached identity credential so a later opt-in re-mints it.
+    /// Opt-out drops the cached identity credential so a later opt-in re-mints it, and clears the
+    /// per-cycle 401 retry flag so a consumed retry doesn't stay stuck and suppress the next one.
     func onOptOut() {
-        stateLock.withLock { cachedIdentityToken = nil }
+        stateLock.withLock {
+            cachedIdentityToken = nil
+            didAuthRetry = false
+        }
     }
 
     // MARK: - Private
@@ -292,7 +296,13 @@ final class PostHogPushSubscriptionHandler {
             guard let self else { return }
             // Opt-out may land during a slow mint; re-check before sending.
             guard isAllowedProvider() else {
-                stateLock.withLock { self.isSending = false }
+                // Also drop any registration that folded into `pendingResend` during the mint. We're
+                // opted out, so it must not fire, and leaving it set would make the next send's
+                // `handleResult` service a stale resend. A later opt-in re-registers normally.
+                stateLock.withLock {
+                    self.isSending = false
+                    self.pendingResend = false
+                }
                 return
             }
             api.pushSubscription(
@@ -343,15 +353,16 @@ final class PostHogPushSubscriptionHandler {
         }
         provider(distinctId, appId) { [weak self] token in
             guard let self else { return }
-            // A mint can complete after opt-out cleared the cache; caching it would resurrect a
-            // stale credential on a later opt-in. The 401 refresh covers the residual race window.
-            let allowed = isAllowedProvider()
             let isFirst = self.stateLock.withLock { () -> Bool in
                 if completed {
                     return false
                 }
                 completed = true
-                if let token, allowed {
+                // Sample opt-out under the same lock onOptOut() clears the cache with, so an opt-out
+                // can't land between the check and the write and leave a stale token cached. If opt-out
+                // wins, isAllowedProvider() is false here and nothing is cached; if we win, onOptOut()
+                // clears our write right after we release the lock.
+                if let token, self.isAllowedProvider() {
                     self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
                 }
                 return true

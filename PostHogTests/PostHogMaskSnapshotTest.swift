@@ -112,7 +112,9 @@
         /// per-scenario care needed. Views must still be *content*-deterministic: no
         /// `Date()`, randomness, `TimelineView`, `AsyncImage`, or running animations.
         private struct Scenario {
-            let id: Int
+            /// Assigned from array order (1-based) — appending scenarios keeps existing
+            /// goldens stable; inserting mid-list renumbers and forces a re-record.
+            var id = 0
             let title: String
             /// The masking option(s) this case exercises — captioned onto the golden.
             let option: String
@@ -123,6 +125,18 @@
             var scrollOffset: CGFloat = 0
             /// Per-scenario config; nil means the defaults (mask all text inputs + images).
             var configure: ((PostHogConfig) -> Void)?
+
+            init(title: String, option: String, expected: String,
+                 scrollOffset: CGFloat = 0, configure: ((PostHogConfig) -> Void)? = nil,
+                 @ViewBuilder view: () -> some View)
+            {
+                self.title = title
+                self.option = option
+                self.expected = expected
+                self.scrollOffset = scrollOffset
+                self.configure = configure
+                self.view = AnyView(view())
+            }
         }
 
         /// Heuristics off — scenarios demonstrating only the explicit
@@ -135,140 +149,254 @@
         }
 
         private var scenarios: [Scenario] {
-            [
+            var entries: [Scenario] = [
                 // Explicit .postHogMask() — leaf vs container extent (heuristics off).
-                Scenario(id: 1, title: "Mask a Text", option: ".postHogMask() on a Text",
+                Scenario(title: "Mask a Text",
+                         option: ".postHogMask() on a Text",
                          expected: "secret masked; label above stays visible",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             Text(Self.secret).postHogMask()
-                         }), configure: Self.explicitMasksOnly),
-                Scenario(id: 2, title: "Mask an Image", option: ".postHogMask() on an Image",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Text(Self.secret).postHogMask()
+                    }
+                },
+                Scenario(title: "Mask an Image",
+                         option: ".postHogMask() on an Image",
                          expected: "image masked; label above stays visible",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             Image(systemName: "creditcard.fill").resizable().frame(width: 160, height: 100).postHogMask()
-                         }), configure: Self.explicitMasksOnly),
-                Scenario(id: 3, title: "Mask a container", option: ".postHogMask() on a container (full extent)",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Image(systemName: "creditcard.fill").resizable().frame(width: 160, height: 100).postHogMask()
+                    }
+                },
+                Scenario(title: "Mask a container",
+                         option: ".postHogMask() on a container (full extent)",
                          expected: "one block over the whole container (title, secret, avatar)",
-                         view: AnyView(VStack(spacing: 8) {
-                             Text("Row title")
-                             Text(Self.secret)
-                             Image(systemName: "person.crop.circle").resizable().frame(width: 60, height: 60)
-                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask()), configure: Self.explicitMasksOnly),
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 8) {
+                        Text("Row title")
+                        Text(Self.secret)
+                        Image(systemName: "person.crop.circle").resizable().frame(width: 60, height: 60)
+                    }.padding().background(Color.yellow.opacity(0.3)).postHogMask()
+                },
                 // Heuristic config defaults.
-                Scenario(id: 4, title: "TextField", option: "maskAllTextInputs (default)",
-                         expected: "field masked; label ALSO masked — maskAllTextInputs redacts all text, not just inputs",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             TextField("card number", text: .constant("4242 4242 4242 4242"))
-                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
-                         })),
-                Scenario(id: 5, title: "Image", option: "maskAllImages (default)",
-                         expected: "image masked; label ALSO masked (maskAllTextInputs default)",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
-                         })),
+                Scenario(title: "TextField",
+                         option: "maskAllTextInputs (default)",
+                         expected: "field masked; label ALSO masked — maskAllTextInputs redacts all text, not just inputs")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        TextField("card number", text: .constant("4242 4242 4242 4242"))
+                            .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                    }
+                },
+                Scenario(title: "Image",
+                         option: "maskAllImages (default)",
+                         expected: "image masked; label ALSO masked (maskAllTextInputs default)")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                    }
+                },
                 // mask / noMask interaction (heuristics off).
-                Scenario(id: 6, title: "noMask child in masked container",
+                Scenario(title: "noMask child in masked container",
                          option: ".postHogMask() container + child .postHogNoMask() (fail-closed)",
                          expected: "whole container masked — child noMask does NOT punch a hole",
-                         view: AnyView(VStack(spacing: 8) {
-                             Text("masked \(Self.secret)")
-                             Text("EXEMPT should stay visible").postHogNoMask()
-                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask()), configure: Self.explicitMasksOnly),
-                Scenario(id: 7, title: "mask child in noMask container",
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 8) {
+                        Text("masked \(Self.secret)")
+                        Text("EXEMPT should stay visible").postHogNoMask()
+                    }.padding().background(Color.yellow.opacity(0.3)).postHogMask()
+                },
+                Scenario(title: "mask child in noMask container",
                          option: ".postHogNoMask() container + child .postHogMask()",
                          expected: "only the secret masked; exempt text visible",
-                         view: AnyView(VStack(spacing: 8) {
-                             Text("exempt area visible")
-                             Text(Self.secret).postHogMask()
-                         }.padding().background(Color.green.opacity(0.2)).postHogNoMask()), configure: Self.explicitMasksOnly),
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 8) {
+                        Text("exempt area visible")
+                        Text(Self.secret).postHogMask()
+                    }.padding().background(Color.green.opacity(0.2)).postHogNoMask()
+                },
                 // Per-row masking inside scrollable lists (leaf vs whole-row, and under scroll; heuristics off).
-                Scenario(id: 8, title: "List, per-row leaf mask (top)", option: ".postHogMask() on each row's label",
+                Scenario(title: "List, per-row leaf mask (top)",
+                         option: ".postHogMask() on each row's label",
                          expected: "each SSN masked hugging its label; row titles visible",
-                         view: AnyView(MaskScrollList(rowLevelMask: false)), configure: Self.explicitMasksOnly),
-                Scenario(id: 9, title: "List, per-row leaf mask (scrolled)",
+                         configure: Self.explicitMasksOnly)
+                {
+                    MaskScrollList(rowLevelMask: false)
+                },
+                Scenario(title: "List, per-row leaf mask (scrolled)",
                          option: ".postHogMask() on each row's label, scrolled",
                          expected: "masks track scrolled positions; row titles visible",
-                         view: AnyView(MaskScrollList(rowLevelMask: false)), scrollOffset: 320,
-                         configure: Self.explicitMasksOnly),
-                Scenario(id: 10, title: "List, TextField rows (scrolled)", option: "maskAllTextInputs in a list, scrolled",
+                         scrollOffset: 320,
+                         configure: Self.explicitMasksOnly)
+                {
+                    MaskScrollList(rowLevelMask: false)
+                },
+                Scenario(title: "List, TextField rows (scrolled)",
+                         option: "maskAllTextInputs in a list, scrolled",
                          expected: "fields masked; row titles ALSO masked (maskAllTextInputs redacts all text)",
-                         view: AnyView(MaskScrollList(useTextField: true)), scrollOffset: 320),
-                Scenario(id: 11, title: "List, whole-row mask (top)", option: ".postHogMask() on the whole row",
+                         scrollOffset: 320)
+                {
+                    MaskScrollList(useTextField: true)
+                },
+                Scenario(title: "List, whole-row mask (top)",
+                         option: ".postHogMask() on the whole row",
                          expected: "each row masked full-width",
-                         view: AnyView(MaskScrollList(rowLevelMask: true)), configure: Self.explicitMasksOnly),
-                Scenario(id: 12, title: "List, whole-row mask (scrolled)", option: ".postHogMask() on the whole row, scrolled",
+                         configure: Self.explicitMasksOnly)
+                {
+                    MaskScrollList(rowLevelMask: true)
+                },
+                Scenario(title: "List, whole-row mask (scrolled)",
+                         option: ".postHogMask() on the whole row, scrolled",
                          expected: "full-width row masks track scrolled positions",
-                         view: AnyView(MaskScrollList(rowLevelMask: true)), scrollOffset: 320,
-                         configure: Self.explicitMasksOnly),
+                         scrollOffset: 320,
+                         configure: Self.explicitMasksOnly)
+                {
+                    MaskScrollList(rowLevelMask: true)
+                },
                 // Other text-input types under maskAllTextInputs.
-                Scenario(id: 13, title: "SecureField", option: "maskAllTextInputs (SecureField)",
-                         expected: "field masked; label ALSO masked (maskAllTextInputs redacts all text)",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             SecureField("password", text: .constant("hunter2-secret"))
-                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
-                         })),
-                Scenario(id: 14, title: "Multiple text inputs", option: "maskAllTextInputs (form)",
-                         expected: "both fields and the heading masked",
-                         view: AnyView(VStack(spacing: 12) {
-                             Text("Payment")
-                             TextField("name", text: .constant("Jane Appleseed"))
-                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
-                             TextField("card", text: .constant("4242 4242 4242 4242"))
-                                 .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
-                         })),
+                Scenario(title: "SecureField",
+                         option: "maskAllTextInputs (SecureField)",
+                         expected: "field masked; label ALSO masked (maskAllTextInputs redacts all text)")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        SecureField("password", text: .constant("hunter2-secret"))
+                            .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                    }
+                },
+                Scenario(title: "Multiple text inputs",
+                         option: "maskAllTextInputs (form)",
+                         expected: "both fields and the heading masked")
+                {
+                    VStack(spacing: 12) {
+                        Text("Payment")
+                        TextField("name", text: .constant("Jane Appleseed"))
+                            .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                        TextField("card", text: .constant("4242 4242 4242 4242"))
+                            .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                    }
+                },
                 // Config toggles OFF — the item is no longer redacted.
-                Scenario(id: 15, title: "Text, text masking OFF", option: "maskAllTextInputs = false",
+                Scenario(title: "Text, text masking OFF",
+                         option: "maskAllTextInputs = false",
                          expected: "nothing masked",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             Text(Self.secret)
-                         }), configure: { $0.sessionReplayConfig.maskAllTextInputs = false }),
-                Scenario(id: 16, title: "Image, image masking OFF", option: "maskAllImages = false",
+                         configure: { $0.sessionReplayConfig.maskAllTextInputs = false })
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Text(Self.secret)
+                    }
+                },
+                Scenario(title: "Image, image masking OFF",
+                         option: "maskAllImages = false",
                          expected: "image visible (nothing masked)",
-                         view: AnyView(VStack(spacing: 16) {
-                             Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
-                         }), configure: { $0.sessionReplayConfig.maskAllImages = false }),
+                         configure: { $0.sessionReplayConfig.maskAllImages = false })
+                {
+                    VStack(spacing: 16) {
+                        Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                    }
+                },
                 // .postHogNoMask() opting a view out of the config default.
-                Scenario(id: 17, title: "noMask rescues text", option: "maskAllTextInputs + .postHogNoMask()",
-                         expected: "secret masked; banner visible via noMask",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("masked \(Self.secret)")
-                             Text("PUBLIC banner text").postHogNoMask()
-                         })),
-                Scenario(id: 18, title: "noMask rescues image", option: "maskAllImages + .postHogNoMask()",
-                         expected: "top image masked; bottom image visible via noMask",
-                         view: AnyView(VStack(spacing: 16) {
-                             Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90)
-                             Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90).postHogNoMask()
-                         })),
+                Scenario(title: "noMask rescues text",
+                         option: "maskAllTextInputs + .postHogNoMask()",
+                         expected: "secret masked; banner visible via noMask")
+                {
+                    VStack(spacing: 16) {
+                        Text("masked \(Self.secret)")
+                        Text("PUBLIC banner text").postHogNoMask()
+                    }
+                },
+                Scenario(title: "noMask rescues image",
+                         option: "maskAllImages + .postHogNoMask()",
+                         expected: "top image masked; bottom image visible via noMask")
+                {
+                    VStack(spacing: 16) {
+                        Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90)
+                        Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90).postHogNoMask()
+                    }
+                },
                 // Disabled explicit mask, with the config default also off.
-                Scenario(id: 19, title: "Disabled explicit mask", option: "maskAllTextInputs = false + .postHogMask(false)",
+                Scenario(title: "Disabled explicit mask",
+                         option: "maskAllTextInputs = false + .postHogMask(false)",
                          expected: "nothing masked",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("Visible label")
-                             Text(Self.secret).postHogMask(false)
-                         }), configure: { $0.sessionReplayConfig.maskAllTextInputs = false }),
+                         configure: { $0.sessionReplayConfig.maskAllTextInputs = false })
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Text(Self.secret).postHogMask(false)
+                    }
+                },
                 // Two independent explicit masks in one view.
-                Scenario(id: 20, title: "Sibling explicit masks", option: "two sibling .postHogMask()",
+                Scenario(title: "Sibling explicit masks",
+                         option: "two sibling .postHogMask()",
                          expected: "card and pin masked separately; middle label visible",
-                         view: AnyView(VStack(spacing: 16) {
-                             Text("card \(Self.secret)").postHogMask()
-                             Text("Visible label")
-                             Text("pin 4021").postHogMask()
-                         }), configure: Self.explicitMasksOnly),
+                         configure: Self.explicitMasksOnly)
+                {
+                    VStack(spacing: 16) {
+                        Text("card \(Self.secret)").postHogMask()
+                        Text("Visible label")
+                        Text("pin 4021").postHogMask()
+                    }
+                },
                 // Controls: Button (UIButton) and Toggle (UISwitch) sensitivity.
-                Scenario(id: 21, title: "Button + Toggle", option: "maskAllTextInputs (Button, Toggle)",
-                         expected: "button title and toggle masked",
-                         view: AnyView(VStack(spacing: 24) {
-                             Button("Reveal \(Self.secret)") {}
-                             Toggle("Biometric login", isOn: .constant(true)).padding(.horizontal, 40)
-                         })),
+                Scenario(title: "Button + Toggle",
+                         option: "maskAllTextInputs (Button, Toggle)",
+                         expected: "button title and toggle masked")
+                {
+                    VStack(spacing: 24) {
+                        Button("Reveal \(Self.secret)") {}
+                        Toggle("Biometric login", isOn: .constant(true)).padding(.horizontal, 40)
+                    }
+                },
+                // Fail-closed: secure entry stays masked even with text masking off.
+                Scenario(title: "SecureField, text masking OFF",
+                         option: "maskAllTextInputs = false (SecureField)",
+                         expected: "password STILL masked (secure entry is always sensitive); label visible",
+                         configure: { $0.sessionReplayConfig.maskAllTextInputs = false })
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        SecureField("password", text: .constant("hunter2-secret"))
+                            .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                    }
+                },
+                // SF Symbols render as shape layers under the TEXT heuristic, never
+                // reaching the image path — maskAllImages alone doesn't touch them.
+                Scenario(title: "SF Symbol under maskAllImages",
+                         option: "maskAllImages (SF Symbol)",
+                         expected: "symbol NOT masked (text heuristic, off here); raster image below IS masked",
+                         configure: { $0.sessionReplayConfig.maskAllTextInputs = false })
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        Image(systemName: "creditcard.fill").resizable().frame(width: 120, height: 80)
+                        Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
+                    }
+                },
+                // Empty field: placeholder alone makes it sensitive (hasText(placeholder)).
+                Scenario(title: "TextField, placeholder only",
+                         option: "maskAllTextInputs (empty field)",
+                         expected: "empty field masked via its placeholder; label ALSO masked (maskAllTextInputs)")
+                {
+                    VStack(spacing: 16) {
+                        Text("Visible label")
+                        TextField("Card number", text: .constant(""))
+                            .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
+                    }
+                },
             ]
+            for i in entries.indices {
+                entries[i].id = i + 1
+            }
+            return entries
         }
 
         // MARK: - Capture

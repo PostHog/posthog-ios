@@ -730,6 +730,37 @@
             #expect(!delivered(storage))
         }
 
+        @Test("a resend coalesced during a 401 auth-retry doesn't reopen the one-retry cap (no mint loop)")
+        func coalescedResendDoesNotBreakAuthRetryCap() async throws {
+            // Every request 401s. Hold the first mint open so a second registration coalesces into
+            // pendingResend while the original send is in flight; releasing it drives the 401 cascade.
+            // Under the bug, servicing the coalesced resend reset didAuthRetry out from under the
+            // in-flight auth-retry, granting an unbounded chain of fresh-token retries that never halts.
+            server.pushSubscriptionStatusCode = 401
+            let recorder = MintRecorder()
+            var firstCompletion: ((String?) -> Void)?
+            let (handler, _, config) = makeHandler()
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                let n = recorder.record(distinctId, appId)
+                if n == 1 {
+                    firstCompletion = completion
+                } else {
+                    DispatchQueue.global().async { completion("jwt-mint-\(n)") }
+                }
+            }
+
+            handler.send(deviceToken: "tok-1", appId: "app") // isSending claimed, mint #1 held open
+            handler.send(deviceToken: "tok-2", appId: "app") // coalesces into pendingResend
+            DispatchQueue.global().async { firstCompletion?("jwt-mint-1") }
+
+            // Fix: R1(tok-1) + its one auth-retry, then the resend cycle R3(tok-2) + its one
+            // auth-retry — four requests, then terminal. The bug never halts and requests run away.
+            #expect(await waitFor { handler.isHaltedForTesting })
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.count == 4)
+            #expect(recorder.count <= 4)
+        }
+
         @Test("401 with no provider: terminal after one request, record kept (vector 14)")
         func unauthorizedWithoutProviderIsTerminal() async throws {
             server.pushSubscriptionStatusCode = 401

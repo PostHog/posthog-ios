@@ -315,7 +315,8 @@ final class PostHogPushSubscriptionHandler {
 
     /// Resolves the identity token for `distinctId`/`appId`, preferring an exact cache hit. The
     /// completion may run synchronously or from whatever thread the provider completes on; extra
-    /// provider completions are ignored (an uncalled one strands the request — see the config doc).
+    /// provider completions are ignored (an uncalled one falls back to a token-less send after the
+    /// watchdog timeout — see the config doc).
     private func resolveIdentityToken(distinctId: String, appId: String, completion: @escaping (String?) -> Void) {
         guard let provider = config.pushIdentityProvider else {
             hedgeLog("No identity token attached to push request (no pushIdentityProvider).")
@@ -392,10 +393,22 @@ final class PostHogPushSubscriptionHandler {
         }
 
         // A newer registration or identity change arrived while this send was in flight. Service it with
-        // fresh retry state so the latest token isn't stranded behind this send's backoff or halt.
-        if hadPendingResend, let record = loadRecord() {
-            resetRetryState()
-            attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
+        // fresh retry state so the latest token isn't stranded behind this send's backoff or halt —
+        // unless a retry (e.g. the 401 fresh-token retry `handleFailure` just started) is already in
+        // flight for this cycle: reset would clear that retry's per-cycle `didAuthRetry` cap out from
+        // under it, so fold into it instead and let its completion service the latest record here.
+        if hadPendingResend {
+            let deferredToInFlight = stateLock.withLock { () -> Bool in
+                if isSending {
+                    pendingResend = true
+                    return true
+                }
+                return false
+            }
+            if !deferredToInFlight, let record = loadRecord() {
+                resetRetryState()
+                attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
+            }
         }
     }
 

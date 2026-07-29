@@ -255,6 +255,8 @@ class PostHogRemoteConfig {
         callback: (([String: Any]?) -> Void)? = nil
     ) {
         guard canReloadFlagsForTesting else {
+            // still resolve the caller so a completion handler is never dropped
+            callback?(nil)
             return
         }
 
@@ -358,24 +360,29 @@ class PostHogRemoteConfig {
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void
     ) {
-        let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
+        let shouldStart: Bool = loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
-                let prev = self.pendingFeatureFlagsRequest?.callback
+                // Coalesce into the single pending slot. The newest parameters win (they carry the
+                // most recent identity and groups), but every displaced caller's completion handler
+                // is carried over so it resolves against a response that actually goes out. Resolving
+                // a displaced caller against `getCachedFeatureFlags()` here would hand it disk-cached,
+                // pre-override values — the request-time person properties it was waiting for are only
+                // read when the request is actually sent.
+                var callbacks = self.pendingFeatureFlagsRequest?.callbacks ?? []
+                callbacks.append(callback)
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
                     deviceId: deviceId,
                     groups: groups,
-                    callback: callback
+                    callbacks: callbacks
                 )
-                return (true, prev)
+                return false
             }
             self.loadingFeatureFlags = true
-            return (false, nil)
+            return true
         }
-        if alreadyLoading {
-            let cached = featureFlagsLock.withLock { getCachedFeatureFlags() }
-            previousCallback?(cached)
+        guard shouldStart else {
             return
         }
 
@@ -638,7 +645,11 @@ class PostHogRemoteConfig {
                 anonymousId: pending.anonymousId,
                 deviceId: pending.deviceId,
                 groups: pending.groups,
-                callback: pending.callback
+                callback: { flags in
+                    for callback in pending.callbacks {
+                        callback(flags)
+                    }
+                }
             )
         }
     }
@@ -1116,12 +1127,15 @@ class PostHogRemoteConfig {
     }
 }
 
+/// The single coalesced `/flags` request waiting behind the one in flight. Later callers overwrite
+/// the parameters but append to `callbacks`, so no caller is resolved against a request that never
+/// went out.
 private struct PendingFeatureFlagsRequest {
     let distinctId: String
     let anonymousId: String?
     let deviceId: String?
     let groups: [String: String]
-    let callback: ([String: Any]?) -> Void
+    let callbacks: [([String: Any]?) -> Void]
 }
 
 #if TESTING

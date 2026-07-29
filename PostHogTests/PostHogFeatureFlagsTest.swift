@@ -5,6 +5,7 @@
 //  Created by Yiannis Josephides on 20/01/2025.
 //
 
+import OHHTTPStubs
 @testable import PostHog
 import Testing
 import XCTest
@@ -1465,6 +1466,112 @@ enum PostHogFeatureFlagsTest {
             #expect(event?.properties["$feature_flag_bootstrapped_response"] as? Bool == true)
 
             sut.close()
+        }
+    }
+
+    @Suite("Test concurrent flag reload coalescing")
+    class TestConcurrentFlagReloads: BaseTestClass {
+        /// Stubs `/flags` so that `override-flag` is only enabled when the request body actually
+        /// carried `app_version_semver`. That makes a callback resolved against a real response
+        /// distinguishable from one resolved against disk-cached, pre-override values.
+        private func stubFlagsRequiringOverride(delay: TimeInterval) {
+            server.flagsResponseDelay = delay
+            server.flagsResponseHandler = { request in
+                var personProperties: [String: Any]?
+                if let data = request.body(),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                {
+                    personProperties = json["person_properties"] as? [String: Any]
+                }
+                let carriedOverride = personProperties?["app_version_semver"] as? String == "3.09.0"
+
+                let body: [String: Any] = [
+                    "featureFlags": ["override-flag": carriedOverride],
+                    "featureFlagPayloads": [String: Any](),
+                    "errorsWhileComputingFlags": false,
+                ]
+                return HTTPStubsResponse(jsonObject: body, statusCode: 200, headers: nil)
+            }
+        }
+
+        @Test("a reload displaced from the pending slot resolves against a request that went out")
+        func displacedReloadResolvesAgainstRealResponse() async {
+            let sut = getSut()
+            stubFlagsRequiringOverride(delay: 0.3)
+
+            // 1. A request goes out before the app sets its overrides (the automatic preload).
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
+
+            // 2. The app sets its overrides. The next reload lands in the pending slot.
+            sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
+
+            let flags = await withCheckedContinuation { (continuation: CheckedContinuation<[String: Any]?, Never>) in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { flags in
+                    continuation.resume(returning: flags)
+                })
+
+                // 3. A third reload displaces the second one from the pending slot. The displaced
+                // caller must still be resolved against the coalesced request, not the disk cache.
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
+            }
+
+            #expect(flags?["override-flag"] as? Bool == true)
+            #expect(server.flagsRequests.count == 2, "Expected the two later reloads to coalesce into one request")
+        }
+
+        @Test("setup -> set properties -> identify -> reload reads flags evaluated with the overrides")
+        func startupSequenceReadsFlagsWithOverrides() async {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            config.preloadFeatureFlags = true
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.sendFeatureFlagEvent = false
+
+            // /config resolves while the first /flags request is still in flight, so the automatic
+            // preload it kicks off competes with the app's own reloads.
+            stubFlagsRequiringOverride(delay: 0.3)
+            server.configResponseDelay = 0.15
+
+            let sut = track(PostHogSDK.with(config))
+
+            await withCheckedContinuation { continuation in
+                // setup -> set properties -> identify -> reload
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
+                sut.identify("test_user")
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+        }
+
+        @Test("setPersonPropertiesForFlags completion resolves after a response carrying them")
+        func setPersonPropertiesForFlagsCompletionHandler() async {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableRemoteConfigForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.sendFeatureFlagEvent = false
+
+            stubFlagsRequiringOverride(delay: 0)
+
+            let sut = track(PostHogSDK.with(config))
+
+            await withCheckedContinuation { continuation in
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"]) {
+                    continuation.resume()
+                }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
         }
     }
 }

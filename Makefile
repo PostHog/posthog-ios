@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -101,32 +101,40 @@ testOniOSSimulator:
 	[ -n "$$device" ] || { echo "No available iPhone simulator found; install one via Xcode or 'xcrun simctl create'."; exit 1; }; \
 	echo "Testing on simulator: $$device"; \
 	set -o pipefail; \
-	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -skip-testing:PostHogTests/PostHogMaskSnapshotTest -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty; \
+	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty; \
 	status=$$?; \
 	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 
-# Golden-image masking snapshots (PostHogMaskSnapshotTest). Pixel-faithful, so the
-# simulator is PINNED. The committed goldens were recorded on this device/OS; if the
-# CI runner pins a different one, re-record once (make recordMaskSnapshots) and commit.
-# Rendering uses a fixed 390x844 window + CALayer rasterization, so it's largely device-
-# model-independent — the OS version is the load-bearing part of the pin.
-# maskSnapshots verifies (required CI step, blocks on drift); recordMaskSnapshots
-# regenerates the goldens after an intentional masking change (then review + commit).
-MASK_SNAPSHOT_DEVICE ?= iPhone 16
+# Golden-image masking snapshots (PostHogMaskSnapshotTest). The test forces the render
+# environment (see forceDeviceIndependentEnvironment), so any iPhone on the pinned OS
+# produces identical output — the OS version is the only pin. If the runner's runtime
+# rotates or a masking change is intentional: make recordMaskSnapshots, review, commit.
 MASK_SNAPSHOT_OS ?= 26.2
-MASK_SNAPSHOT_DESTINATION = platform=iOS Simulator,name=$(MASK_SNAPSHOT_DEVICE),OS=$(MASK_SNAPSHOT_OS)
+# First available iPhone on the pinned runtime, by UDID (any iPhone renders identically).
+MASK_SNAPSHOT_UDID = $$(xcrun simctl list devices available | awk '/-- iOS $(MASK_SNAPSHOT_OS) --/{f=1;next} /^--/{f=0} f && /iPhone/' | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
 
-maskSnapshots:
+checkMaskSnapshotRuntime:
+	@xcrun simctl list runtimes | grep -q "iOS $(MASK_SNAPSHOT_OS)" || { \
+	  echo "error: pinned iOS $(MASK_SNAPSHOT_OS) simulator runtime is not installed (CI runner image likely rotated)."; \
+	  echo "Fix: bump MASK_SNAPSHOT_OS in the Makefile, run 'make recordMaskSnapshots', then review + commit the refreshed goldens."; \
+	  exit 1; }
+	@[ -n "$(MASK_SNAPSHOT_UDID)" ] || { \
+	  echo "error: no available iPhone simulator on the iOS $(MASK_SNAPSHOT_OS) runtime; create one via Xcode or 'xcrun simctl create'."; \
+	  exit 1; }
+
+maskSnapshots: checkMaskSnapshotRuntime
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
-	  -destination "$(MASK_SNAPSHOT_DESTINATION)" \
+	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS' \
 	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/verifyGoldens()" | xcpretty
 
-recordMaskSnapshots:
+recordMaskSnapshots: checkMaskSnapshotRuntime
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
-	  -destination "$(MASK_SNAPSHOT_DESTINATION)" \
+	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS RECORD_MASK_SNAPSHOTS' \
 	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/recordGoldens()" | xcpretty
 
 # Usage: make test filter=<pattern>

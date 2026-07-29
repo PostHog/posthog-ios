@@ -8,15 +8,16 @@
 //  exercises. A human verifies the committed goldens once; CI re-renders and fails
 //  if masking output drifts.
 //
-//  Selection is by test method (xcodebuild doesn't forward host env into the sim):
-//    - Refresh after an intentional masking change:  make recordMaskSnapshots
-//    - Verify (CI, required, pinned simulator):       make maskSnapshots
+//  Compile-flag gated (xcodebuild doesn't forward host env into the sim):
+//  TEST_MASK_SNAPSHOTS compiles the suite in — only the dedicated make targets pass it,
+//  so normal test runs (Xcode ⌘U, testOniOSSimulator) don't contain it at all —
+//  and RECORD_MASK_SNAPSHOTS additionally enables recording, so a verify run can
+//  never silently rewrite the goldens.
+//    - Verify (CI, required, pinned OS runtime):     make maskSnapshots
 //        → on mismatch writes __MaskSnapshotFailures__/case_N.{actual,diff}.png and fails.
-//
-//  Pixel-faithful, so OS-sensitive: the general testOniOSSimulator job (unpinned
-//  device) excludes this suite via -skip-testing.
+//    - Refresh after an intentional masking change:  make recordMaskSnapshots
 
-#if os(iOS) && canImport(SwiftUI)
+#if os(iOS) && canImport(SwiftUI) && TEST_MASK_SNAPSHOTS
     import CoreGraphics
     import Foundation
     @testable import PostHog
@@ -56,7 +57,16 @@
         /// both @Tests run in the same process.
         private static let capture = Capture()
 
-        @Test("record goldens — run via `make recordMaskSnapshots`, then review + commit")
+        #if RECORD_MASK_SNAPSHOTS
+            private static let recordingEnabled = true
+        #else
+            private static let recordingEnabled = false
+        #endif
+
+        @Test(
+            "record goldens — run via `make recordMaskSnapshots`, then review + commit",
+            .enabled(if: recordingEnabled, "compile-gated (RECORD_MASK_SNAPSHOTS) — use `make recordMaskSnapshots`")
+        )
         func recordGoldens() throws {
             let capture = Self.capture
             for scenario in scenarios {
@@ -97,81 +107,113 @@
 
         // MARK: - Scenarios
 
+        /// The harness forces every device-shaped input (window size, traits, safe area,
+        /// appearance, locale), so scenario views render identically on any device — no
+        /// per-scenario care needed. Views must still be *content*-deterministic: no
+        /// `Date()`, randomness, `TimelineView`, `AsyncImage`, or running animations.
         private struct Scenario {
             let id: Int
             let title: String
             /// The masking option(s) this case exercises — captioned onto the golden.
             let option: String
+            /// What the masked panel should show, captioned so a reviewer can judge the
+            /// golden without reading the scenario code.
+            let expected: String
             let view: AnyView
             var scrollOffset: CGFloat = 0
             /// Per-scenario config; nil means the defaults (mask all text inputs + images).
             var configure: ((PostHogConfig) -> Void)?
         }
 
+        /// Heuristics off — scenarios demonstrating only the explicit
+        /// `.postHogMask()`/`.postHogNoMask()` modifiers. With the defaults on,
+        /// `maskAllTextInputs` masks ALL text (not just inputs), which would redact the
+        /// "visible" reference labels and muddy what the explicit modifier contributes.
+        private static func explicitMasksOnly(_ config: PostHogConfig) {
+            config.sessionReplayConfig.maskAllTextInputs = false
+            config.sessionReplayConfig.maskAllImages = false
+        }
+
         private var scenarios: [Scenario] {
             [
-                // Explicit .postHogMask() — leaf vs container extent.
+                // Explicit .postHogMask() — leaf vs container extent (heuristics off).
                 Scenario(id: 1, title: "Mask a Text", option: ".postHogMask() on a Text",
+                         expected: "secret masked; label above stays visible",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              Text(Self.secret).postHogMask()
-                         })),
+                         }), configure: Self.explicitMasksOnly),
                 Scenario(id: 2, title: "Mask an Image", option: ".postHogMask() on an Image",
+                         expected: "image masked; label above stays visible",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              Image(systemName: "creditcard.fill").resizable().frame(width: 160, height: 100).postHogMask()
-                         })),
+                         }), configure: Self.explicitMasksOnly),
                 Scenario(id: 3, title: "Mask a container", option: ".postHogMask() on a container (full extent)",
+                         expected: "one block over the whole container (title, secret, avatar)",
                          view: AnyView(VStack(spacing: 8) {
                              Text("Row title")
                              Text(Self.secret)
                              Image(systemName: "person.crop.circle").resizable().frame(width: 60, height: 60)
-                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask())),
+                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask()), configure: Self.explicitMasksOnly),
                 // Heuristic config defaults.
                 Scenario(id: 4, title: "TextField", option: "maskAllTextInputs (default)",
+                         expected: "field masked; label ALSO masked — maskAllTextInputs redacts all text, not just inputs",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              TextField("card number", text: .constant("4242 4242 4242 4242"))
                                  .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
                          })),
                 Scenario(id: 5, title: "Image", option: "maskAllImages (default)",
+                         expected: "image masked; label ALSO masked (maskAllTextInputs default)",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
                          })),
-                // mask / noMask interaction.
+                // mask / noMask interaction (heuristics off).
                 Scenario(id: 6, title: "noMask child in masked container",
                          option: ".postHogMask() container + child .postHogNoMask() (fail-closed)",
+                         expected: "whole container masked — child noMask does NOT punch a hole",
                          view: AnyView(VStack(spacing: 8) {
                              Text("masked \(Self.secret)")
                              Text("EXEMPT should stay visible").postHogNoMask()
-                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask())),
+                         }.padding().background(Color.yellow.opacity(0.3)).postHogMask()), configure: Self.explicitMasksOnly),
                 Scenario(id: 7, title: "mask child in noMask container",
                          option: ".postHogNoMask() container + child .postHogMask()",
+                         expected: "only the secret masked; exempt text visible",
                          view: AnyView(VStack(spacing: 8) {
                              Text("exempt area visible")
                              Text(Self.secret).postHogMask()
-                         }.padding().background(Color.green.opacity(0.2)).postHogNoMask())),
-                // Per-row masking inside scrollable lists (leaf vs whole-row, and under scroll).
+                         }.padding().background(Color.green.opacity(0.2)).postHogNoMask()), configure: Self.explicitMasksOnly),
+                // Per-row masking inside scrollable lists (leaf vs whole-row, and under scroll; heuristics off).
                 Scenario(id: 8, title: "List, per-row leaf mask (top)", option: ".postHogMask() on each row's label",
-                         view: AnyView(MaskScrollList(rowLevelMask: false))),
+                         expected: "each SSN masked hugging its label; row titles visible",
+                         view: AnyView(MaskScrollList(rowLevelMask: false)), configure: Self.explicitMasksOnly),
                 Scenario(id: 9, title: "List, per-row leaf mask (scrolled)",
                          option: ".postHogMask() on each row's label, scrolled",
-                         view: AnyView(MaskScrollList(rowLevelMask: false)), scrollOffset: 320),
+                         expected: "masks track scrolled positions; row titles visible",
+                         view: AnyView(MaskScrollList(rowLevelMask: false)), scrollOffset: 320,
+                         configure: Self.explicitMasksOnly),
                 Scenario(id: 10, title: "List, TextField rows (scrolled)", option: "maskAllTextInputs in a list, scrolled",
+                         expected: "fields masked; row titles ALSO masked (maskAllTextInputs redacts all text)",
                          view: AnyView(MaskScrollList(useTextField: true)), scrollOffset: 320),
                 Scenario(id: 11, title: "List, whole-row mask (top)", option: ".postHogMask() on the whole row",
-                         view: AnyView(MaskScrollList(rowLevelMask: true))),
+                         expected: "each row masked full-width",
+                         view: AnyView(MaskScrollList(rowLevelMask: true)), configure: Self.explicitMasksOnly),
                 Scenario(id: 12, title: "List, whole-row mask (scrolled)", option: ".postHogMask() on the whole row, scrolled",
-                         view: AnyView(MaskScrollList(rowLevelMask: true)), scrollOffset: 320),
+                         expected: "full-width row masks track scrolled positions",
+                         view: AnyView(MaskScrollList(rowLevelMask: true)), scrollOffset: 320,
+                         configure: Self.explicitMasksOnly),
                 // Other text-input types under maskAllTextInputs.
                 Scenario(id: 13, title: "SecureField", option: "maskAllTextInputs (SecureField)",
+                         expected: "field masked; label ALSO masked (maskAllTextInputs redacts all text)",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              SecureField("password", text: .constant("hunter2-secret"))
                                  .textFieldStyle(.roundedBorder).padding(.horizontal, 40)
                          })),
                 Scenario(id: 14, title: "Multiple text inputs", option: "maskAllTextInputs (form)",
+                         expected: "both fields and the heading masked",
                          view: AnyView(VStack(spacing: 12) {
                              Text("Payment")
                              TextField("name", text: .constant("Jane Appleseed"))
@@ -181,40 +223,47 @@
                          })),
                 // Config toggles OFF — the item is no longer redacted.
                 Scenario(id: 15, title: "Text, text masking OFF", option: "maskAllTextInputs = false",
+                         expected: "nothing masked",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              Text(Self.secret)
                          }), configure: { $0.sessionReplayConfig.maskAllTextInputs = false }),
                 Scenario(id: 16, title: "Image, image masking OFF", option: "maskAllImages = false",
+                         expected: "image visible (nothing masked)",
                          view: AnyView(VStack(spacing: 16) {
                              Image(uiImage: Self.sampleImage).resizable().frame(width: 160, height: 120)
                          }), configure: { $0.sessionReplayConfig.maskAllImages = false }),
                 // .postHogNoMask() opting a view out of the config default.
                 Scenario(id: 17, title: "noMask rescues text", option: "maskAllTextInputs + .postHogNoMask()",
+                         expected: "secret masked; banner visible via noMask",
                          view: AnyView(VStack(spacing: 16) {
                              Text("masked \(Self.secret)")
                              Text("PUBLIC banner text").postHogNoMask()
                          })),
                 Scenario(id: 18, title: "noMask rescues image", option: "maskAllImages + .postHogNoMask()",
+                         expected: "top image masked; bottom image visible via noMask",
                          view: AnyView(VStack(spacing: 16) {
                              Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90)
                              Image(uiImage: Self.sampleImage).resizable().frame(width: 120, height: 90).postHogNoMask()
                          })),
                 // Disabled explicit mask, with the config default also off.
                 Scenario(id: 19, title: "Disabled explicit mask", option: "maskAllTextInputs = false + .postHogMask(false)",
+                         expected: "nothing masked",
                          view: AnyView(VStack(spacing: 16) {
                              Text("Visible label")
                              Text(Self.secret).postHogMask(false)
                          }), configure: { $0.sessionReplayConfig.maskAllTextInputs = false }),
                 // Two independent explicit masks in one view.
                 Scenario(id: 20, title: "Sibling explicit masks", option: "two sibling .postHogMask()",
+                         expected: "card and pin masked separately; middle label visible",
                          view: AnyView(VStack(spacing: 16) {
                              Text("card \(Self.secret)").postHogMask()
                              Text("Visible label")
                              Text("pin 4021").postHogMask()
-                         })),
+                         }), configure: Self.explicitMasksOnly),
                 // Controls: Button (UIButton) and Toggle (UISwitch) sensitivity.
                 Scenario(id: 21, title: "Button + Toggle", option: "maskAllTextInputs (Button, Toggle)",
+                         expected: "button title and toggle masked",
                          view: AnyView(VStack(spacing: 24) {
                              Button("Reveal \(Self.secret)") {}
                              Toggle("Biometric login", isOn: .constant(true)).padding(.horizontal, 40)
@@ -248,9 +297,12 @@
                 sdk.config.sessionReplayConfig.maskAllImages = true
                 scenario.configure?(sdk.config)
 
-                let controller = UIHostingController(rootView: scenario.view)
+                let controller = UIHostingController(
+                    rootView: AnyView(scenario.view.environment(\.locale, Locale(identifier: "en_US")))
+                )
                 let window = UIWindow(frame: CGRect(origin: .zero, size: CGSize(width: 390, height: 844)))
                 window.rootViewController = controller
+                forceDeviceIndependentEnvironment(window: window, controller: controller)
                 window.makeKeyAndVisible()
                 controller.view.frame = window.bounds
                 settle(window)
@@ -304,13 +356,14 @@
                 }
             }
 
-            /// Stacks a caption header (id, title, option) above the original and masked panels.
             private func compose(_ scenario: Scenario, original: UIImage, masked: UIImage) -> UIImage {
-                let header: CGFloat = 96
+                let header: CGFloat = 148
                 let gap: CGFloat = 8
                 let panelW = original.size.width
                 let size = CGSize(width: panelW * 2 + gap,
                                   height: header + max(original.size.height, masked.size.height))
+                let replay = sdk.config.sessionReplayConfig
+                let configLine = "config: maskAllTextInputs=\(replay.maskAllTextInputs)  maskAllImages=\(replay.maskAllImages)"
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 1
                 return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
@@ -321,8 +374,13 @@
                          font: .boldSystemFont(ofSize: 22), color: .black, maxWidth: size.width - 32)
                     draw(scenario.option, at: CGPoint(x: 16, y: 46),
                          font: .systemFont(ofSize: 16), color: .darkGray, maxWidth: size.width - 32)
-                    draw("ORIGINAL", at: CGPoint(x: 16, y: 74), font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
-                    draw("MASKED (redacted in replay)", at: CGPoint(x: panelW + gap + 16, y: 74),
+                    draw(configLine, at: CGPoint(x: 16, y: 72),
+                         font: .monospacedSystemFont(ofSize: 13, weight: .regular), color: .gray,
+                         maxWidth: size.width - 32)
+                    draw("expect: \(scenario.expected)", at: CGPoint(x: 16, y: 94),
+                         font: .italicSystemFont(ofSize: 15), color: .systemBlue, maxWidth: size.width - 32)
+                    draw("ORIGINAL", at: CGPoint(x: 16, y: 124), font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
+                    draw("MASKED (redacted in replay)", at: CGPoint(x: panelW + gap + 16, y: 124),
                          font: .systemFont(ofSize: 12), color: .gray, maxWidth: panelW)
 
                     original.draw(at: CGPoint(x: 0, y: header))
@@ -346,13 +404,18 @@
             guard let cg = image.cgImage else { return nil }
             let width = cg.width, height = cg.height
             var bytes = [UInt8](repeating: 0, count: width * height * 4)
-            guard let ctx = CGContext(
-                data: &bytes, width: width, height: height, bitsPerComponent: 8,
-                bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { return nil }
-            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
-            return (bytes, width, height)
+            // The buffer pointer is only valid inside withUnsafeMutableBytes, so the
+            // context must be created AND drawn into within the closure.
+            let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+                guard let ctx = CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                ) else { return false }
+                ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+                return true
+            }
+            return drawn ? (bytes, width, height) : nil
         }
 
         /// Whether the RGB channels at byte offset `o` differ beyond the antialiasing threshold.
@@ -366,12 +429,38 @@
         private func pixelDiffFraction(_ a: UIImage, _ b: UIImage) -> Double {
             guard let pa = rgbaBytes(a), let pb = rgbaBytes(b) else { return 1 }
             guard pa.width == pb.width, pa.height == pb.height else { return 1 }
+            // Compare 2x-downsampled: sub-pixel text antialiasing (the only cross-device
+            // render difference) averages out, while a missing/moved mask block survives
+            // at full strength — so the tolerance stays tight for real drift.
+            let da = downsample2x(pa), db = downsample2x(pb)
             var differing = 0
-            let pixelCount = pa.width * pa.height
-            for i in 0 ..< pixelCount where pixelChanged(pa.bytes, pb.bytes, at: i * 4) {
+            let pixelCount = da.width * da.height
+            for i in 0 ..< pixelCount where pixelChanged(da.bytes, db.bytes, at: i * 4) {
                 differing += 1
             }
             return pixelCount == 0 ? 1 : Double(differing) / Double(pixelCount)
+        }
+
+        private func downsample2x(
+            _ p: (bytes: [UInt8], width: Int, height: Int)
+        ) -> (bytes: [UInt8], width: Int, height: Int) {
+            let w = p.width / 2, h = p.height / 2
+            var out = [UInt8](repeating: 0, count: w * h * 4)
+            for y in 0 ..< h {
+                for x in 0 ..< w {
+                    let o = (y * w + x) * 4
+                    let i0 = (y * 2 * p.width + x * 2) * 4
+                    let i1 = i0 + 4
+                    let i2 = i0 + p.width * 4
+                    let i3 = i2 + 4
+                    for c in 0 ..< 4 {
+                        let sum = Int(p.bytes[i0 + c]) + Int(p.bytes[i1 + c])
+                            + Int(p.bytes[i2 + c]) + Int(p.bytes[i3 + c])
+                        out[o + c] = UInt8(sum / 4)
+                    }
+                }
+            }
+            return (out, w, h)
         }
 
         private func diffHeatmap(_ a: UIImage, _ b: UIImage) -> UIImage? {
@@ -392,11 +481,16 @@
                     out[o + 2] /= 3
                 }
             }
-            guard let ctx = CGContext(
-                data: &out, width: pa.width, height: pa.height, bitsPerComponent: 8,
-                bytesPerRow: pa.width * 4, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ), let cg = ctx.makeImage() else { return nil }
+            // Data owns a copy of the pixels, so the CGImage can't outlive its backing
+            // store (a bitmap context over `out` would reference the array's buffer
+            // beyond its guaranteed lifetime).
+            guard let provider = CGDataProvider(data: Data(out) as CFData),
+                  let cg = CGImage(
+                      width: pa.width, height: pa.height, bitsPerComponent: 8, bitsPerPixel: 32,
+                      bytesPerRow: pa.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                      bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                      provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+                  ) else { return nil }
             return UIImage(cgImage: cg)
         }
 

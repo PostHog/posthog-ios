@@ -32,9 +32,12 @@
         /// Caller retains the returned `Host` for the duration of the test so the
         /// reporter views stay registered and attached to a window.
         private func host(_ view: some View) -> Host {
-            let controller = UIHostingController(rootView: AnyView(view))
+            let controller = UIHostingController(
+                rootView: AnyView(view.environment(\.locale, Locale(identifier: "en_US")))
+            )
             let window = UIWindow(frame: CGRect(origin: .zero, size: Self.windowSize))
             window.rootViewController = controller
+            forceDeviceIndependentEnvironment(window: window, controller: controller)
             window.makeKeyAndVisible()
             controller.view.frame = window.bounds
             settle(window)
@@ -217,6 +220,25 @@
             // Registry reads live geometry at capture time, so scrolling moves the
             // redaction rects — the set of positions must differ from before.
             #expect(Set(before.map(\.minY)) != Set(after.map(\.minY)))
+        }
+    }
+
+    /// Pin every device-model-dependent render input (appearance, safe area, traits) so
+    /// the pixel and geometric harnesses match on any device running the pinned OS (see
+    /// Makefile mask-snapshot notes). safeAreaRegions (16.4) and traitOverrides (17)
+    /// always apply on the iOS-26 sim; the guards exist only for the iOS-13 deployment target.
+    @MainActor
+    func forceDeviceIndependentEnvironment(window: UIWindow, controller: UIHostingController<AnyView>) {
+        window.overrideUserInterfaceStyle = .light
+        if #available(iOS 16.4, *) {
+            controller.safeAreaRegions = []
+        }
+        if #available(iOS 17.0, *) {
+            controller.traitOverrides.displayScale = 3
+            controller.traitOverrides.preferredContentSizeCategory = .large
+            controller.traitOverrides.layoutDirection = .leftToRight
+            controller.traitOverrides.userInterfaceIdiom = .phone
+            controller.traitOverrides.displayGamut = .SRGB
         }
     }
 

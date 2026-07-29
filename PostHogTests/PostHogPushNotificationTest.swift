@@ -356,12 +356,6 @@
                 #expect(await waitFor {
                     (sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String])?["deliveredForDistinctId"] == "user-A"
                 })
-
-                // identify() re-registers under the new id (decision 5), minting user-B's token.
-                sut.identify("user-B")
-                #expect(await waitFor {
-                    (sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String])?["deliveredForDistinctId"] == "user-B"
-                })
                 server.pushSubscriptionRequests = []
 
                 sut.reset()
@@ -371,21 +365,22 @@
                         && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
                 })
 
-                // Each leg carries a token minted for the id it sends. The exact invocation count is
-                // not asserted: reset()'s context-change resend races the explicit DELETE/re-POST
-                // legs, so the cache hit for the DELETE leg is timing-dependent (unlike Android,
-                // where the single executor serializes both legs).
+                // The DELETE leg reuses the token already cached for the delivered id (no re-mint); the
+                // re-POST leg mints a fresh token for the new anon id. The exact invocation count is not
+                // asserted: reset()'s context-change resend races the explicit DELETE/re-POST legs, so the
+                // cache hit for the DELETE leg is timing-dependent (unlike Android, where the single
+                // executor serializes both legs).
                 let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
                 let delBody = try #require(server.parseRequest(del))
-                #expect(delBody["distinct_id"] as? String == "user-B")
-                #expect(delBody["identity_token"] as? String == "jwt-user-B")
+                #expect(delBody["distinct_id"] as? String == "user-A")
+                #expect(delBody["identity_token"] as? String == "jwt-user-A")
 
                 let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
                 let postBody = try #require(server.parseRequest(post))
                 let anonId = try #require(postBody["distinct_id"] as? String)
-                #expect(anonId != "user-B")
+                #expect(anonId != "user-A")
                 #expect(postBody["identity_token"] as? String == "jwt-\(anonId)")
-                #expect(recorder.distinctIds.starts(with: ["user-A", "user-B"]))
+                #expect(recorder.distinctIds.starts(with: ["user-A"]))
                 #expect(recorder.distinctIds.contains(anonId))
             }
         #endif

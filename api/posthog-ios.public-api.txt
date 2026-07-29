@@ -83,6 +83,7 @@ PostHog | PostHogConfig.personProfiles | property | @objc var personProfiles: Po
 PostHog | PostHogConfig.preloadFeatureFlags | property | @objc var preloadFeatureFlags: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)preloadFeatureFlags
 PostHog | PostHogConfig.projectToken | property | @objc let projectToken: String | c:@M@PostHog@objc(cs)PostHogConfig(py)projectToken
 PostHog | PostHogConfig.propertiesSanitizer | property | @objc var propertiesSanitizer: (any PostHogPropertiesSanitizer)? { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)propertiesSanitizer
+PostHog | PostHogConfig.pushIdentityProvider | property | @objc var pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? | c:@M@PostHog@objc(cs)PostHogConfig(py)pushIdentityProvider
 PostHog | PostHogConfig.rageClickConfig | property | @objc let rageClickConfig: PostHogRageClickConfig | c:@M@PostHog@objc(cs)PostHogConfig(py)rageClickConfig
 PostHog | PostHogConfig.remoteConfig | property | @objc var remoteConfig: Bool { get set } | c:@M@PostHog@objc(cs)PostHogConfig(py)remoteConfig
 PostHog | PostHogConfig.requestHeaders | property | @objc var requestHeaders: [String : String]? | c:@M@PostHog@objc(cs)PostHogConfig(py)requestHeaders

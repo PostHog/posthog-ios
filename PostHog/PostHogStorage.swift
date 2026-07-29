@@ -255,6 +255,7 @@ class PostHogStorage {
         case capturePerformance = "posthog.capturePerformance"
         case deviceId = "posthog.deviceId"
         case pushSubscription = "posthog.pushSubscription"
+        case pushPendingUnregister = "posthog.pushPendingUnregister"
     }
 
     // The location for storing data that we always want to keep

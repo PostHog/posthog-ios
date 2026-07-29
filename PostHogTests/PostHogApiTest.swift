@@ -97,6 +97,7 @@ enum PostHogApiTests {
                     distinctId: "test-user",
                     deviceToken: "abc123",
                     appId: "com.example.app",
+                    identityToken: nil,
                     completion: completion
                 )
             }
@@ -114,6 +115,7 @@ enum PostHogApiTests {
                     distinctId: "user-42",
                     deviceToken: "deadbeef",
                     appId: "com.example.app",
+                    identityToken: nil,
                     completion: completion
                 )
             }
@@ -127,6 +129,38 @@ enum PostHogApiTests {
             #expect(body["device_token"] as? String == "deadbeef")
             #expect(body["platform"] as? String == "ios")
             #expect(body["app_id"] as? String == "com.example.app")
+        }
+
+        /// Shared test vector 9 at the API layer: a provided identity token is serialized as
+        /// `identity_token` alongside the unchanged five fields, on POST and DELETE alike.
+        @Test("push subscription bodies carry identity_token when provided")
+        func pushSubscriptionBodyIdentityToken() async throws {
+            let sut = getSut(host: "http://localhost")
+            let _: PostHogUploadInfo = await getApiResponse { completion in
+                sut.pushSubscription(
+                    distinctId: "user-42",
+                    deviceToken: "deadbeef",
+                    appId: "com.example.app",
+                    identityToken: "jwt-abc",
+                    completion: completion
+                )
+            }
+            let _: PostHogUploadInfo = await getApiResponse { completion in
+                sut.deletePushSubscription(
+                    distinctId: "user-42",
+                    deviceToken: "deadbeef",
+                    appId: "com.example.app",
+                    identityToken: "jwt-abc",
+                    completion: completion
+                )
+            }
+
+            #expect(server.pushSubscriptionRequests.count == 2)
+            for request in server.pushSubscriptionRequests {
+                let body = try #require(server.parseRequest(request))
+                #expect(Set(body.keys) == ["api_key", "distinct_id", "device_token", "platform", "app_id", "identity_token"])
+                #expect(body["identity_token"] as? String == "jwt-abc")
+            }
         }
 
         func getSut(host: String) -> PostHogApi {
@@ -287,7 +321,7 @@ enum PostHogApiTests {
         func pushSubscriptionDeclaresGzip() async throws {
             let sut = getSut(host: "http://localhost")
             let _: PostHogUploadInfo = await getApiResponse { completion in
-                sut.pushSubscription(distinctId: "x", deviceToken: "tok", appId: "app", completion: completion)
+                sut.pushSubscription(distinctId: "x", deviceToken: "tok", appId: "app", identityToken: nil, completion: completion)
             }
             let request = try #require(server.pushSubscriptionRequests.first)
             #expect(request.value(forHTTPHeaderField: "Content-Encoding") == "gzip")

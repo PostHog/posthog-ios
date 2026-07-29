@@ -24,7 +24,16 @@ class MockPostHogServer {
     var logsExpectationCount: Int?
     var flagsExpectationCount: Int?
     var flagsRequests = [URLRequest]()
-    var pushSubscriptionRequests = [URLRequest]()
+    /// Appended from OHHTTPStubs' network queue while tests read/reset it from their own thread. The
+    /// push suite drives heavy cross-thread resend churn (mint queue + watchdog + context-change
+    /// resend), so unlike the other bare request arrays this one races — a lock keeps the concurrent
+    /// append from corrupting the array (segfault). Access only via `pushSubscriptionRequests`.
+    private let pushSubscriptionRequestsLock = NSLock()
+    private var _pushSubscriptionRequests = [URLRequest]()
+    var pushSubscriptionRequests: [URLRequest] {
+        get { pushSubscriptionRequestsLock.withLock { _pushSubscriptionRequests } }
+        set { pushSubscriptionRequestsLock.withLock { _pushSubscriptionRequests = newValue } }
+    }
     /// Forces `/push_subscriptions` to reply 500 (independent of the global `return500`).
     var returnPushSubscription500 = false
     /// When set, `/push_subscriptions` replies with this exact status code (takes precedence over the
@@ -365,11 +374,14 @@ class MockPostHogServer {
         })
 
         stubDescriptors.append(stub(condition: pathEndsWith("/push_subscriptions")) { request in
-            self.pushSubscriptionRequests.append(request)
+            let requestCount = self.pushSubscriptionRequestsLock.withLock { () -> Int in
+                self._pushSubscriptionRequests.append(request)
+                return self._pushSubscriptionRequests.count
+            }
 
             let status: Int
             if let handler = self.pushSubscriptionStatusHandler {
-                status = handler(self.pushSubscriptionRequests.count)
+                status = handler(requestCount)
             } else if let code = self.pushSubscriptionStatusCode {
                 status = code
             } else if self.return500 || self.returnPushSubscription500 {

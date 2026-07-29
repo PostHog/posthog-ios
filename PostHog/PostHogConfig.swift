@@ -194,8 +194,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// `aud` = "posthog:push_identity", and an `exp`.
     ///
     /// The token is cached in memory per `(distinctId, appId)` and re-requested on identity change, on
-    /// the next launch, and once after a 401 rejection. An uncalled `completion` strands that request
-    /// until the next launch.
+    /// the next launch, and once after a 401 rejection. If `completion` isn't called within ~10s the
+    /// SDK stops waiting and sends the request without an identity token; where your project requires
+    /// identity verification the backend will likely reject it, so make sure your provider always
+    /// completes.
     ///
     /// The hook is invoked synchronously on the SDK's push-registration work (only `completion` may be
     /// called from any thread), so return quickly: mint the token asynchronously and call `completion`

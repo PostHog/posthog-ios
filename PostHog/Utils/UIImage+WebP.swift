@@ -10,9 +10,12 @@
     import Accelerate
     import CoreGraphics
     import Foundation
-
-    // Vendored WebP is an implementation detail.
-    @_implementationOnly import phlibwebp
+    #if compiler(>=6.0)
+        internal import phlibwebp
+    #else
+        // swiftlint:disable:next duplicate_imports
+        @_implementationOnly import phlibwebp
+    #endif
     import UIKit
 
     extension UIImage {

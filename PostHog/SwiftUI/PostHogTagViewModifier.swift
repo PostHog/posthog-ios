@@ -176,22 +176,13 @@
             let coordinator = context.coordinator
             let changeHandler = onChange
             let view = PostHogFrameCaptureUIView(id: id) { captureView in
-                let layers = getTargetLayers(from: captureView)
-                guard !layers.isEmpty else { return }
-
-                // Reconcile against the previous resolution: release ownership on
-                // layers that dropped out, otherwise recycled layers keep stale flags.
-                let owner = captureView
-                let previous = coordinator.cachedLayers
-                let dropped = previous.filter { previousLayer in
-                    !layers.contains(where: { $0 === previousLayer })
-                }
-                if !dropped.isEmpty {
-                    coordinator.onRemoveHandler(owner, [], dropped)
-                }
-
-                coordinator.cachedLayers = layers
-                changeHandler(owner, [], layers)
+                coordinator.cachedLayers = reconcileAndEmit(
+                    owner: captureView,
+                    resolved: getTargetLayers(from: captureView),
+                    previous: coordinator.cachedLayers,
+                    onRemove: { coordinator.onRemoveHandler($0, [], $1) },
+                    onChange: { changeHandler($0, [], $1) }
+                )
             }
             view.postHogView = true
             return view
@@ -340,30 +331,47 @@
         }
     }
 
-    /// Resolves the tagger's current targets, reconciles them against the previously
-    /// cached set, and invokes `onChange` with the new set. The reconciliation releases
-    /// flag ownership on targets that dropped out of the resolution — without it, every
-    /// re-resolution (content replacement, hierarchy churn) would leak stale ownership
-    /// on views SwiftUI has recycled elsewhere.
+    /// Reconciles a fresh target resolution against the previously cached one and
+    /// returns the new cache. Ownership is released on targets that dropped out —
+    /// including when the new resolution is empty (a broken sandwich during hierarchy
+    /// churn), otherwise a recycled view would keep a stale claim from a prior
+    /// resolution and be treated as safe to record. `onChange` only fires for
+    /// non-empty resolutions.
+    func reconcileAndEmit<Target: AnyObject>(
+        owner: UIView,
+        resolved: [Target],
+        previous: [Target],
+        onRemove: (UIView, [Target]) -> Void,
+        onChange: (UIView, [Target]) -> Void
+    ) -> [Target] {
+        let dropped = previous.filter { previousTarget in
+            !resolved.contains(where: { $0 === previousTarget })
+        }
+        if !dropped.isEmpty {
+            onRemove(owner, dropped)
+        }
+        if !resolved.isEmpty {
+            onChange(owner, resolved)
+        }
+        return resolved
+    }
+
+    /// Resolves the tagger's current targets and reconciles them against the cached
+    /// set (see `reconcileAndEmit`) — without the release, every re-resolution
+    /// (content replacement, hierarchy churn) would leak stale ownership on views
+    /// SwiftUI has recycled elsewhere.
     func resolveTagTargets(
         from taggerView: PostHogTagUIView,
         coordinator: PostHogTagView.Coordinator,
         onChange: PostHogTagHandler
     ) {
-        let targets = getTargetViews(from: taggerView)
-        guard !targets.isEmpty else { return }
-
-        let owner = taggerView
-        let previous = coordinator.cachedTargets
-        let dropped = previous.filter { previousTarget in
-            !targets.contains(where: { $0 === previousTarget })
-        }
-        if !dropped.isEmpty {
-            coordinator.onRemoveHandler(owner, dropped, [])
-        }
-
-        coordinator.cachedTargets = targets
-        onChange(owner, targets, [])
+        coordinator.cachedTargets = reconcileAndEmit(
+            owner: taggerView,
+            resolved: getTargetViews(from: taggerView),
+            previous: coordinator.cachedTargets,
+            onRemove: { coordinator.onRemoveHandler($0, $1, []) },
+            onChange: { onChange($0, $1, []) }
+        )
     }
 
     private let swiftUIIgnoreTypes: [AnyClass] = [

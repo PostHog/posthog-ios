@@ -325,6 +325,49 @@
             #expect(!shared.postHogNoMask)
         }
 
+        @Test("an empty re-resolution releases all previously claimed targets")
+        func emptyResolutionReleasesAllClaims() {
+            let (anchor, tagger) = PostHogTaggingTestSupport.makeTagPair()
+            let root = UIView()
+            let target = UIView()
+            root.addSubview(anchor)
+            root.addSubview(target)
+            root.addSubview(tagger)
+
+            let handlers = maskHandlers()
+            let coordinator = PostHogTagView.Coordinator(onRemove: handlers.onRemove)
+
+            resolveTagTargets(from: tagger, coordinator: coordinator, onChange: handlers.onChange)
+            #expect(target.postHogNoMask)
+
+            // Break the sandwich (anchor gone → resolution is empty) while the tagger
+            // stays alive: the recycled target must not keep the stale no-mask claim.
+            anchor.removeFromSuperview()
+            resolveTagTargets(from: tagger, coordinator: coordinator, onChange: handlers.onChange)
+            #expect(!target.postHogNoMask, "stale claim would mark recycled content safe to record")
+            #expect(coordinator.cachedTargets.isEmpty)
+        }
+
+        @Test("reconcileAndEmit releases dropped layers on an empty resolution without emitting")
+        func reconcileAndEmitEmptyLayerResolution() {
+            let owner = UIView()
+            let previous = [CALayer(), CALayer()]
+            var removed: [CALayer] = []
+            var changed = false
+
+            let cache = reconcileAndEmit(
+                owner: owner,
+                resolved: [CALayer](),
+                previous: previous,
+                onRemove: { _, dropped in removed = dropped },
+                onChange: { _, _ in changed = true }
+            )
+
+            #expect(removed.count == 2)
+            #expect(!changed, "onChange must not fire for an empty resolution")
+            #expect(cache.isEmpty)
+        }
+
         @Test("re-resolution releases ownership on targets that dropped out")
         func reconciliationReleasesDroppedTargets() {
             let (anchor, tagger) = PostHogTaggingTestSupport.makeTagPair()

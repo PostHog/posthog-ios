@@ -9,7 +9,12 @@
 #if os(iOS)
 
     import Foundation
-    @_implementationOnly import PostHogObjCExceptionSupport
+    #if compiler(>=6.0)
+        internal import PostHogObjCExceptionSupport
+    #else
+        // swiftlint:disable:next duplicate_imports
+        @_implementationOnly import PostHogObjCExceptionSupport
+    #endif
 
     final class URLSessionInstrumentation {
         typealias RequestModifier = (URLRequest) -> URLRequest

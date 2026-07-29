@@ -56,20 +56,22 @@ import Quick
             }
 
             context("processing events") {
-                it("should process an event") {
+                it("should process events without a debounce interval") {
                     let event = createTestEventData()
+                    server.start(batchCount: 2)
+
                     integration.process(source: .actionMethod(description: "buttonPress"), event: event)
                     integration.process(source: .actionMethod(description: "buttonPress"), event: event)
 
                     let events = getBatchedEvents(server)
 
-                    expect(events.count).to(equal(1))
+                    expect(events.count).to(equal(2))
                 }
 
-                it("should respect shouldProcess based on configuration") {
+                it("should process events from different sources") {
                     let event = createTestEventData()
 
-                    server.start(batchCount: 2)
+                    server.start(batchCount: 3)
 
                     integration.process(source: .actionMethod(description: "action"), event: event)
                     integration.process(source: .actionMethod(description: "action"), event: event)
@@ -77,7 +79,7 @@ import Quick
 
                     let events = getBatchedEvents(server)
 
-                    expect(events.count).to(equal(2))
+                    expect(events.count).to(equal(3))
                 }
 
                 it("should debounce events if debounceInterval is greater than 0") {

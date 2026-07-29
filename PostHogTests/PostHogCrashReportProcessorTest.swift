@@ -10,8 +10,6 @@ import Foundation
 import Testing
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    // SDK imports this @_implementationOnly, so @testable doesn't re-export it; imported
-    // directly here via the test target's own dependency (Package.swift / SWIFT_INCLUDE_PATHS).
     import PHPLCrashReporter
 
     @Suite("PostHogCrashReportProcessor Tests")

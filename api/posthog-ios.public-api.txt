@@ -45,7 +45,7 @@ PostHog | PostHogBootstrapConfig.init(distinctId:isIdentifiedId:featureFlags:fea
 PostHog | PostHogBootstrapConfig.init(featureFlags:featureFlagPayloads:) | init | @objc convenience init(featureFlags: [String : Any], featureFlagPayloads: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(im)initWithFeatureFlags:featureFlagPayloads:
 PostHog | PostHogBootstrapConfig.isIdentifiedId | property | @objc var isIdentifiedId: Bool | c:@M@PostHog@objc(cs)PostHogBootstrapConfig(py)isIdentifiedId
 PostHog | PostHogConfig | class | @objc(PostHogConfig) class PostHogConfig | c:@M@PostHog@objc(cs)PostHogConfig
-PostHog | PostHogConfig.PostHogDataMode | enum | @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
+PostHog | PostHogConfig.PostHogDataMode | enum | @frozen @objc(PostHogDataMode) enum PostHogDataMode | s:7PostHog0aB6ConfigC0aB8DataModeO
 PostHog | PostHogConfig.PostHogDataMode.any | enum.case | case any | s:7PostHog0aB6ConfigC0aB8DataModeO3anyyA2EmF
 PostHog | PostHogConfig.PostHogDataMode.cellular | enum.case | case cellular | s:7PostHog0aB6ConfigC0aB8DataModeO8cellularyA2EmF
 PostHog | PostHogConfig.PostHogDataMode.init(rawValue:) | init | init?(rawValue: Int) | s:7PostHog0aB6ConfigC0aB8DataModeO8rawValueAESgSi_tcfc

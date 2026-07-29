@@ -199,9 +199,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// identity verification the backend will likely reject it, so make sure your provider always
     /// completes.
     ///
-    /// The hook is invoked synchronously on the SDK's push-registration work (only `completion` may be
-    /// called from any thread), so return quickly: mint the token asynchronously and call `completion`
-    /// when it finishes. Blocking here stalls the push retry/offline-resume flow.
+    /// The hook is invoked on a background queue that serializes push-registration work — never on the
+    /// calling thread — and `completion` may be called from any thread. Still return promptly: blocking
+    /// here stalls the SDK's push retry/offline-resume flow (though not your app's main thread).
     ///
     /// Default: `nil` (requests carry no identity token).
     @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?

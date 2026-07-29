@@ -637,26 +637,32 @@
 
         @Test("a mint completing after opt-out is not cached; opt-in re-mints")
         func lateMintAfterOptOutNotCached() async throws {
+            // The provider is invoked off the caller's thread, so guard the shared state with a lock
+            // and wait for each mint to land before driving its completion.
+            let lock = NSLock()
             var allowed = true
             var pendingCompletion: ((String?) -> Void)?
             var mints = 0
-            let (handler, storage, config) = makeHandler(isAllowedProvider: { allowed })
+            let (handler, storage, config) = makeHandler(isAllowedProvider: { lock.withLock { allowed } })
             config.pushIdentityProvider = { _, _, completion in
-                mints += 1
-                pendingCompletion = completion
+                lock.withLock { mints += 1
+                    pendingCompletion = completion
+                }
             }
 
             handler.send(deviceToken: "tok", appId: "app")
-            allowed = false
+            #expect(await waitFor { lock.withLock { mints } == 1 })
+            lock.withLock { allowed = false }
             handler.onOptOut()
-            pendingCompletion?("jwt-stale")
+            lock.withLock { pendingCompletion }?("jwt-stale")
 
-            allowed = true
+            lock.withLock { allowed = true }
             handler.send(deviceToken: "tok", appId: "app")
-            pendingCompletion?("jwt-fresh")
+            #expect(await waitFor { lock.withLock { mints } == 2 })
+            lock.withLock { pendingCompletion }?("jwt-fresh")
 
             #expect(await waitFor { self.delivered(storage) })
-            #expect(mints == 2)
+            #expect(lock.withLock { mints } == 2)
             let post = try #require(server.pushSubscriptionRequests.last)
             #expect(try #require(server.parseRequest(post))["identity_token"] as? String == "jwt-fresh")
         }
@@ -738,20 +744,24 @@
             // in-flight auth-retry, granting an unbounded chain of fresh-token retries that never halts.
             server.pushSubscriptionStatusCode = 401
             let recorder = MintRecorder()
+            let lock = NSLock()
             var firstCompletion: ((String?) -> Void)?
             let (handler, _, config) = makeHandler()
             config.pushIdentityProvider = { distinctId, appId, completion in
                 let n = recorder.record(distinctId, appId)
                 if n == 1 {
-                    firstCompletion = completion
+                    lock.withLock { firstCompletion = completion }
                 } else {
                     DispatchQueue.global().async { completion("jwt-mint-\(n)") }
                 }
             }
 
-            handler.send(deviceToken: "tok-1", appId: "app") // isSending claimed, mint #1 held open
-            handler.send(deviceToken: "tok-2", appId: "app") // coalesces into pendingResend
-            DispatchQueue.global().async { firstCompletion?("jwt-mint-1") }
+            // `isSending` is claimed synchronously in send #1, so send #2 coalesces into pendingResend
+            // before mint #1 (which runs off-thread) completes. Wait for that mint, then release it.
+            handler.send(deviceToken: "tok-1", appId: "app")
+            handler.send(deviceToken: "tok-2", appId: "app")
+            #expect(await waitFor { recorder.count >= 1 })
+            lock.withLock { firstCompletion }?("jwt-mint-1")
 
             // Fix: R1(tok-1) + its one auth-retry, then the resend cycle R3(tok-2) + its one
             // auth-retry — four requests, then terminal. The bug never halts and requests run away.

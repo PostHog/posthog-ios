@@ -68,6 +68,12 @@ final class PostHogPushSubscriptionHandler {
     /// token. `PostHogStorage` does no locking of its own.
     private let recordLock = NSLock()
 
+    /// Runs `config.pushIdentityProvider` off the caller's thread (which is the host's main thread on
+    /// the first registration, via `didRegisterForRemoteNotificationsWithDeviceToken:`). A provider
+    /// that blocks can only stall this serial queue — and the mint watchdog still fires on a separate
+    /// queue — never the host's UI. Matches Android, where minting runs on the SDK executor.
+    private let mintQueue = DispatchQueue(label: "com.posthog.push.identity-mint")
+
     private var contextChangedToken: RegistrationToken?
 
     init(
@@ -352,27 +358,31 @@ final class PostHogPushSubscriptionHandler {
             hedgeLog("pushIdentityProvider did not complete within \(timeout)s; sending without identity token.")
             completion(nil)
         }
-        provider(distinctId, appId) { [weak self] token in
-            guard let self else { return }
-            let isFirst = self.stateLock.withLock { () -> Bool in
-                if completed {
-                    return false
+        // Hop off the caller's (often main) thread: a blocking provider stalls only `mintQueue`, and
+        // the watchdog above still fires from `DispatchQueue.global()` to unwedge the send.
+        mintQueue.async {
+            provider(distinctId, appId) { [weak self] token in
+                guard let self else { return }
+                let isFirst = self.stateLock.withLock { () -> Bool in
+                    if completed {
+                        return false
+                    }
+                    completed = true
+                    // Sample opt-out under the same lock onOptOut() clears the cache with, so an opt-out
+                    // can't land between the check and the write and leave a stale token cached. If opt-out
+                    // wins, isAllowedProvider() is false here and nothing is cached; if we win, onOptOut()
+                    // clears our write right after we release the lock.
+                    if let token, self.isAllowedProvider() {
+                        self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
+                    }
+                    return true
                 }
-                completed = true
-                // Sample opt-out under the same lock onOptOut() clears the cache with, so an opt-out
-                // can't land between the check and the write and leave a stale token cached. If opt-out
-                // wins, isAllowedProvider() is false here and nothing is cached; if we win, onOptOut()
-                // clears our write right after we release the lock.
-                if let token, self.isAllowedProvider() {
-                    self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
-                }
-                return true
+                guard isFirst else { return }
+                hedgeLog(token != nil
+                    ? "Attaching freshly minted identity token to push request."
+                    : "No identity token attached to push request (provider completed nil).")
+                completion(token)
             }
-            guard isFirst else { return }
-            hedgeLog(token != nil
-                ? "Attaching freshly minted identity token to push request."
-                : "No identity token attached to push request (provider completed nil).")
-            completion(token)
         }
     }
 

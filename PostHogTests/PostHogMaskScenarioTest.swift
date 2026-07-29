@@ -44,16 +44,6 @@
             return Host(window: window, controller: controller)
         }
 
-        /// Spin layout + main run loop so SwiftUI commits its UIKit representation
-        /// (reporter overlays are realized and register on `didMoveToWindow`).
-        private func settle(_ window: UIWindow) {
-            for _ in 0 ..< 3 {
-                window.setNeedsLayout()
-                window.layoutIfNeeded()
-                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-            }
-        }
-
         /// The rects the replay snapshot path would redact for `window` right now.
         /// `collectMaskableRects` returns nil only when a reporter hasn't been laid out
         /// yet (fail-closed skip); after `settle` that shouldn't happen, and a stray nil
@@ -62,18 +52,10 @@
             PostHogReplayIntegration().collectMaskableRects(in: host.window) ?? []
         }
 
-        private func firstScrollView(in view: UIView) -> UIScrollView? {
-            if let scroll = view as? UIScrollView { return scroll }
-            for sub in view.subviews {
-                if let found = firstScrollView(in: sub) { return found }
-            }
-            return nil
-        }
-
         // MARK: - Explicit-mask leaf vs container extent
 
         @Test("case 1: postHogMask on a Text hugs the label (not the whole screen)")
-        func maskOnText() {
+        func maskOnText() throws {
             let host = host(VStack(spacing: 16) {
                 Text("Visible label")
                 Text(Self.secret).postHogMask()
@@ -81,7 +63,7 @@
             let rects = maskRects(host)
 
             #expect(rects.count == 1)
-            let rect = rects[0]
+            let rect = try #require(rects.first)
             // Leaf mask: single line, well short of full screen width (no over-collection).
             #expect(rect.height < 60)
             #expect(rect.width < Self.windowSize.width * 0.9)
@@ -89,7 +71,7 @@
         }
 
         @Test("case 2: postHogMask on an Image covers the image frame")
-        func maskOnImage() {
+        func maskOnImage() throws {
             let host = host(VStack(spacing: 16) {
                 Text("Visible label")
                 Image(systemName: "creditcard.fill")
@@ -99,14 +81,14 @@
             let rects = maskRects(host)
 
             #expect(rects.count == 1)
-            let rect = rects[0]
+            let rect = try #require(rects.first)
             // Reporter overlays the 160x100 image frame.
             #expect(abs(rect.width - 160) < 40)
             #expect(abs(rect.height - 100) < 40)
         }
 
         @Test("case 3: postHogMask on a container covers its full extent")
-        func maskOnContainer() {
+        func maskOnContainer() throws {
             let host = host(
                 VStack(spacing: 8) {
                     Text("Row title")
@@ -122,13 +104,13 @@
             #expect(rects.count == 1)
             // Full-extent: spans the stacked title + secret + 60pt image + padding,
             // far taller than any single leaf line.
-            #expect(rects[0].height > 90)
+            #expect(try #require(rects.first).height > 90)
         }
 
         // MARK: - mask / noMask interaction (fail-closed)
 
         @Test("case 6: noMask child inside a masked container stays masked (fail-closed)")
-        func noMaskChildInsideMaskedContainer() {
+        func noMaskChildInsideMaskedContainer() throws {
             let host = host(
                 VStack(spacing: 8) {
                     Text("masked \(Self.secret)")
@@ -143,11 +125,11 @@
             // The container mask is not cleared by the child's postHogNoMask:
             // one rect covering the whole container.
             #expect(rects.count == 1)
-            #expect(rects[0].height > 40)
+            #expect(try #require(rects.first).height > 40)
         }
 
         @Test("case 7: masked child inside a noMask container stays masked")
-        func maskChildInsideNoMaskContainer() {
+        func maskChildInsideNoMaskContainer() throws {
             let host = host(
                 VStack(spacing: 8) {
                     Text("exempt area visible")
@@ -161,8 +143,9 @@
 
             // The explicit mask on the secret wins over the surrounding noMask.
             #expect(rects.count == 1)
-            #expect(rects[0].height < 60)
-            #expect(rects[0].width < Self.windowSize.width * 0.9)
+            let rect = try #require(rects.first)
+            #expect(rect.height < 60)
+            #expect(rect.width < Self.windowSize.width * 0.9)
         }
 
         // MARK: - Lists: leaf per-row vs whole-row extent
@@ -221,6 +204,27 @@
             // redaction rects — the set of positions must differ from before.
             #expect(Set(before.map(\.minY)) != Set(after.map(\.minY)))
         }
+    }
+
+    /// Spin layout + main run loop so SwiftUI commits its UIKit representation
+    /// (reporter overlays are realized and register on `didMoveToWindow`).
+    /// Shared with PostHogMaskSnapshotTest.
+    @MainActor
+    func settle(_ window: UIWindow) {
+        for _ in 0 ..< 3 {
+            window.setNeedsLayout()
+            window.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+    }
+
+    /// Shared with PostHogMaskSnapshotTest.
+    func firstScrollView(in view: UIView) -> UIScrollView? {
+        if let scroll = view as? UIScrollView { return scroll }
+        for sub in view.subviews {
+            if let found = firstScrollView(in: sub) { return found }
+        }
+        return nil
     }
 
     /// Pin every device-model-dependent render input (appearance, safe area, traits) so

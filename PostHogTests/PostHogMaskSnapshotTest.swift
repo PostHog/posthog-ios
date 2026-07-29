@@ -25,9 +25,10 @@
     import Testing
     import UIKit
 
-    /// Fraction of pixels allowed to differ before a mismatch is reported — absorbs
-    /// sub-pixel antialiasing jitter; a real masking change dwarfs it.
-    private let diffTolerance = 0.02
+    /// Fraction of pixels allowed to differ before a mismatch is reported. The downsample
+    /// + per-channel threshold already absorbs antialiasing jitter, so keep this tight:
+    /// even a single small leaf mask regressing flips ~0.4% of the composite's pixels.
+    private let diffTolerance = 0.001
 
     @Suite("Replay masking snapshots (PR #728)", .serialized)
     @MainActor
@@ -69,6 +70,9 @@
         )
         func recordGoldens() throws {
             let capture = Self.capture
+            for stale in Self.goldenFilenames() where !scenarios.contains(where: { stale == "case_\($0.id).png" }) {
+                try? FileManager.default.removeItem(at: Self.snapshotDir.appendingPathComponent(stale))
+            }
             for scenario in scenarios {
                 try write(capture.composite(for: scenario), to: Self.goldenURL(scenario.id))
             }
@@ -99,6 +103,11 @@
                     }
                     failures.append("case \(scenario.id) (\(scenario.title)): \(pct)% of pixels changed")
                 }
+            }
+
+            let expected = Set(scenarios.map { "case_\($0.id).png" })
+            for orphan in Self.goldenFilenames() where !expected.contains(orphan) {
+                failures.append("\(orphan): orphaned golden (no matching scenario) — run `make recordMaskSnapshots`")
             }
 
             let report = failures.joined(separator: "\n  ")
@@ -446,22 +455,6 @@
                 return compose(scenario, original: original, masked: masked)
             }
 
-            private func settle(_ window: UIWindow) {
-                for _ in 0 ..< 3 {
-                    window.setNeedsLayout()
-                    window.layoutIfNeeded()
-                    RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-                }
-            }
-
-            private func firstScrollView(in view: UIView) -> UIScrollView? {
-                if let scroll = view as? UIScrollView { return scroll }
-                for sub in view.subviews {
-                    if let found = firstScrollView(in: sub) { return found }
-                }
-                return nil
-            }
-
             private func render(_ view: UIView) -> UIImage {
                 let format = UIGraphicsImageRendererFormat()
                 format.scale = 1 // fixed scale → device-independent pixel dimensions
@@ -631,6 +624,11 @@
 
         private static func goldenURL(_ id: Int) -> URL {
             snapshotDir.appendingPathComponent("case_\(id).png")
+        }
+
+        private static func goldenFilenames() -> [String] {
+            let contents = (try? FileManager.default.contentsOfDirectory(atPath: snapshotDir.path)) ?? []
+            return contents.filter { $0.hasPrefix("case_") && $0.hasSuffix(".png") }
         }
 
         private static func failureURL(_ id: Int, _ kind: String) -> URL {

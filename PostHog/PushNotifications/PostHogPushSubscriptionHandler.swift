@@ -12,12 +12,27 @@ final class PostHogPushSubscriptionHandler {
         static let deviceToken = "deviceToken"
         static let appId = "appId"
         static let deliveredForDistinctId = "deliveredForDistinctId"
+        static let distinctId = "distinctId"
     }
 
     private struct PendingRecord {
         let deviceToken: String
         let appId: String
         let deliveredForDistinctId: String?
+    }
+
+    /// A durable "delete this subscription" intent for the identity it names, persisted so an offline or
+    /// failed unregister (logout/reset) is retried on `flush()`/next launch instead of silently leaving
+    /// the device associated with the logged-out user. Separate key from `PendingRecord` so it coexists
+    /// with a fresh registration the reset path writes under the new anonymous id.
+    ///
+    /// Single-slot, last-write-wins: only one identity's unregister can be pending at a time. Two
+    /// overlapping logouts (rapid double-reset) drop the older intent — acceptable given one device token
+    /// and how rare that is; a per-identity queue would be the fix if it ever matters.
+    private struct PendingUnregister: Equatable {
+        let distinctId: String
+        let deviceToken: String
+        let appId: String
     }
 
     private struct CachedIdentityToken {
@@ -140,6 +155,13 @@ final class PostHogPushSubscriptionHandler {
     /// Retries a persisted, not-yet-delivered subscription if the backoff window has elapsed.
     /// Called from `PostHogSDK.flush()`.
     func retryIfNeeded() {
+        // Drain any pending unregister first (offline logout, transport failure) — independent of the
+        // send record, which is usually absent after a logout. On this path the in-memory identity-token
+        // cache is empty, so the retry re-mints a fresh token and sidesteps the expired-token 401.
+        if let pending = loadPendingUnregister() {
+            attemptUnregister(pending)
+        }
+
         guard let record = loadRecord() else { return }
 
         let distinctId = distinctIdProvider()
@@ -158,9 +180,10 @@ final class PostHogPushSubscriptionHandler {
         attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
     }
 
-    /// Best-effort unregister: a single `DELETE /api/push_subscriptions` for `distinctId`. Unlike
-    /// `send`, there is no retry, backoff, or persistence — a failure is logged and dropped (the
-    /// backend also unsets a dead token on the next send, and the durable path is the re-register).
+    /// Unregister: `DELETE /api/push_subscriptions` for `distinctId`. The intent is persisted first, so an
+    /// offline or failed attempt is retried on `flush()`/next launch (see `PendingUnregister`) rather than
+    /// dropped — otherwise a logout while offline, or with an expired identity token, would leave the
+    /// device associated with the logged-out user on the backend. Cleared on a 2xx or a terminal 4xx.
     func unregister(distinctId: String, deviceToken: String, appId: String) {
         guard isAllowedProvider() else {
             hedgeLog("Push unregister skipped: SDK is disabled or opted out.")
@@ -170,20 +193,57 @@ final class PostHogPushSubscriptionHandler {
             hedgeLog("Push unregister skipped: missing distinct id, token, or app id.")
             return
         }
-        // Same one-verification-state as registration: the DELETE resolves a token for the distinct id
-        // it carries (the old identity on the reset() path). Still best-effort — no 401 refresh here.
-        resolveIdentityToken(distinctId: distinctId, appId: appId) { [weak self] identityToken in
+        let pending = PendingUnregister(distinctId: distinctId, deviceToken: deviceToken, appId: appId)
+        writePendingUnregister(pending)
+        attemptUnregister(pending)
+    }
+
+    /// Attempts the persisted DELETE. Offline defers without clearing the intent (retried later). On a 401
+    /// with a provider, re-mints a fresh identity token once and retries — the same-process logout path may
+    /// hold an expired cached token (the provider mints a short TTL). `isRetry` caps that to one re-mint.
+    private func attemptUnregister(_ pending: PendingUnregister, isRetry: Bool = false) {
+        guard isAllowedProvider() else { return }
+        guard isConnectedProvider() else {
+            hedgeLog("Push unregister deferred: no network connection. Will retry on flush/next launch.")
+            return
+        }
+        // Same one-verification-state as registration: the DELETE resolves a token for the distinct id it
+        // carries (the old identity on the reset() path).
+        resolveIdentityToken(distinctId: pending.distinctId, appId: pending.appId) { [weak self] identityToken in
             guard let self, isAllowedProvider() else { return }
             api.deletePushSubscription(
-                distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken
-            ) { info in
-                if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
-                    hedgeLog("Push subscription unregistered successfully.")
-                } else {
-                    hedgeLog("Push unregister failed (status \(info.statusCode.map(String.init) ?? "none")); ignoring (best-effort).")
-                }
+                distinctId: pending.distinctId, deviceToken: pending.deviceToken, appId: pending.appId,
+                identityToken: identityToken
+            ) { [weak self] info in
+                self?.handleUnregisterResult(info, pending: pending, isRetry: isRetry)
             }
         }
+    }
+
+    private func handleUnregisterResult(_ info: PostHogUploadInfo, pending: PendingUnregister, isRetry: Bool) {
+        if let statusCode = info.statusCode, 200 ... 299 ~= statusCode {
+            clearPendingUnregister(matching: pending)
+            hedgeLog("Push subscription unregistered successfully.")
+            return
+        }
+
+        // 401: identity verification failed. Re-mint once and retry, mirroring the send-path 401 refresh.
+        if info.statusCode == 401, config.pushIdentityProvider != nil, !isRetry {
+            stateLock.withLock { cachedIdentityToken = nil }
+            hedgeLog("Push unregister rejected (401). Retrying once with a fresh identity token.")
+            attemptUnregister(pending, isRetry: true)
+            return
+        }
+
+        // Retryable (transport error, 429, 5xx): keep the intent for flush/next launch.
+        if isRetryable(info) {
+            hedgeLog("Push unregister failed (status \(statusString(info))); will retry on flush/next launch.")
+            return
+        }
+
+        // Terminal (post-retry 401, 404 already gone, other 4xx): drop the intent, best-effort ceiling.
+        clearPendingUnregister(matching: pending)
+        hedgeLog("Push unregister failed (status \(statusString(info))); dropping (best-effort).")
     }
 
     /// Snapshot of the stored token/appId, read *before* `reset()` clears storage so the old
@@ -443,22 +503,14 @@ final class PostHogPushSubscriptionHandler {
             }
         }
 
-        // Retryable: transport error (no status), 429, or 5xx. Everything else (400/401) is terminal.
-        let retryable: Bool
-        if let statusCode = info.statusCode {
-            retryable = statusCode == 429 || (500 ... 599 ~= statusCode)
-        } else {
-            retryable = true
-        }
-
-        guard retryable else {
+        guard isRetryable(info) else {
             stateLock.withLock { halted = true }
             if info.statusCode == 401, config.pushIdentityProvider == nil {
                 hedgeLog(
                     "Push subscription rejected (401): identity verification may be required — set config.pushIdentityProvider. Keeping record for next launch."
                 )
             } else {
-                hedgeLog("Push subscription rejected (status \(info.statusCode.map(String.init) ?? "none")). Keeping record for next launch.")
+                hedgeLog("Push subscription rejected (status \(statusString(info))). Keeping record for next launch.")
             }
             return
         }
@@ -491,6 +543,13 @@ final class PostHogPushSubscriptionHandler {
             }
 
             writeRecord(deviceToken: deviceToken, appId: appId, deliveredForDistinctId: distinctId)
+
+            // A fresh registration delivered to this identity supersedes any queued logout-DELETE for
+            // it (log out of A, then back into A): otherwise the next retryIfNeeded() drain would
+            // unregister the subscription we just re-registered.
+            clearPendingUnregisterLocked(
+                matching: PendingUnregister(distinctId: distinctId, deviceToken: deviceToken, appId: appId)
+            )
         }
     }
 
@@ -525,6 +584,52 @@ final class PostHogPushSubscriptionHandler {
         return PendingRecord(deviceToken: deviceToken, appId: appId, deliveredForDistinctId: data[Key.deliveredForDistinctId])
     }
 
+    private func writePendingUnregister(_ pending: PendingUnregister) {
+        recordLock.withLock {
+            storage.setDictionary(forKey: .pushPendingUnregister, contents: [
+                Key.distinctId: pending.distinctId,
+                Key.deviceToken: pending.deviceToken,
+                Key.appId: pending.appId,
+            ])
+        }
+    }
+
+    private func loadPendingUnregister() -> PendingUnregister? {
+        recordLock.withLock { loadPendingUnregisterLocked() }
+    }
+
+    private func loadPendingUnregisterLocked() -> PendingUnregister? {
+        guard let data = storage.getDictionary(forKey: .pushPendingUnregister) as? [String: String],
+              let distinctId = data[Key.distinctId],
+              let deviceToken = data[Key.deviceToken],
+              let appId = data[Key.appId]
+        else {
+            return nil
+        }
+        return PendingUnregister(distinctId: distinctId, deviceToken: deviceToken, appId: appId)
+    }
+
+    /// Clears the intent only if it's still the one that just resolved — a newer unregister (a second
+    /// logout while this DELETE was in flight) may have overwritten the slot, and its intent must not be
+    /// dropped by this stale completion.
+    private func clearPendingUnregister(matching pending: PendingUnregister) {
+        recordLock.withLock { clearPendingUnregisterLocked(matching: pending) }
+    }
+
+    private func clearPendingUnregisterLocked(matching pending: PendingUnregister) {
+        guard loadPendingUnregisterLocked() == pending else { return }
+        storage.remove(key: .pushPendingUnregister)
+    }
+
+    /// Transport error (no status), 429, or 5xx is retryable; everything else (4xx) is terminal.
+    private func isRetryable(_ info: PostHogUploadInfo) -> Bool {
+        info.statusCode.map { $0 == 429 || (500 ... 599 ~= $0) } ?? true
+    }
+
+    private func statusString(_ info: PostHogUploadInfo) -> String {
+        info.statusCode.map(String.init) ?? "none"
+    }
+
     /// Exponential backoff: `min(5 * 2^(attempt-1), 30)` → 5, 10, 20, 30, 30, …
     func retryDelay(forAttempt attempt: Int) -> TimeInterval {
         min(Self.firstRetryDelay * pow(2, Double(attempt - 1)), Self.maxRetryDelay)
@@ -544,6 +649,10 @@ final class PostHogPushSubscriptionHandler {
         /// Clears the backoff window (but not the halted flag) so a retry can be driven without waiting.
         func clearBackoffForTesting() {
             stateLock.withLock { pausedUntil = nil }
+        }
+
+        var hasPendingUnregisterForTesting: Bool {
+            loadPendingUnregister() != nil
         }
     }
 #endif

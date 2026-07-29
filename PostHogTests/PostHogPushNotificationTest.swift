@@ -84,6 +84,9 @@
             let storage = PostHogStorage(config)
             if resetStorage {
                 storage.reset()
+                // reset() deliberately keeps .pushPendingUnregister (a logout DELETE must outlive reset);
+                // clear it here so a durable intent from a prior test can't leak into this handler.
+                storage.remove(key: .pushPendingUnregister)
             }
             let handler = PostHogPushSubscriptionHandler(
                 api,
@@ -243,9 +246,10 @@
 
         // MARK: - Unregister (decision 6)
 
-        @Test("unregister sends exactly one DELETE with the 5-field body and never retries (vector 7)")
+        @Test("unregister sends exactly one DELETE with the 5-field body per attempt (vector 7)")
         func unregisterFiresOneDeleteNoRetry() async throws {
-            // Even a 500 must not be retried — unregister is best-effort, single-shot.
+            // A 500 fires one DELETE per attempt (no immediate retry); the intent is kept and retried
+            // only on flush()/next launch, so no second DELETE appears within this call.
             server.pushSubscriptionStatusCode = 500
             let (handler, _, _) = makeHandler(distinctIdProvider: { "user-1" })
 
@@ -784,8 +788,29 @@
             #expect(!delivered(storage))
         }
 
-        @Test("unregister DELETE gets no 401 fresh-token retry (best-effort, single-shot)")
-        func unregisterNoAuthRetry() async throws {
+        @Test("unregister DELETE gets one 401 fresh-token retry then succeeds (mirrors register vector 13)")
+        func unregisterAuthRetryWithFreshTokenSucceeds() async throws {
+            // A same-process logout can carry an expired cached token; a 401 must re-mint and retry once.
+            server.pushSubscriptionStatusHandler = { requestNumber in requestNumber == 1 ? 401 : 200 }
+            let recorder = MintRecorder()
+            let (handler, _, config) = makeHandler(distinctIdProvider: { "user-1" })
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                completion("jwt-mint-\(recorder.record(distinctId, appId))")
+            }
+
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 2 })
+            #expect(recorder.count == 2) // cache cleared on the 401, so the retry re-mints
+            let deletes = server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }
+            #expect(try #require(server.parseRequest(deletes[0]))["identity_token"] as? String == "jwt-mint-1")
+            #expect(try #require(server.parseRequest(deletes[1]))["identity_token"] as? String == "jwt-mint-2")
+            // Success on the retry clears the durable intent.
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+        }
+
+        @Test("unregister twice-401 is terminal: exactly one fresh-token retry, then intent dropped")
+        func unregisterAuthRetryTerminalDropsIntent() async throws {
             server.pushSubscriptionStatusCode = 401
             let recorder = MintRecorder()
             let (handler, _, config) = makeHandler(distinctIdProvider: { "user-1" })
@@ -795,10 +820,62 @@
 
             handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
 
-            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            #expect(await waitFor { self.server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 2 })
             try await Task.sleep(nanoseconds: 300_000_000)
-            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 1)
-            #expect(recorder.count == 1)
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == 2)
+            #expect(recorder.count == 2)
+            // A terminal 401 is a best-effort ceiling — the intent is dropped, not retried on flush.
+            #expect(!handler.hasPendingUnregisterForTesting)
+        }
+
+        @Test("unregister offline persists the intent and drains it on retryIfNeeded")
+        func unregisterOfflinePersistsAndDrains() async throws {
+            var connected = false
+            let (handler, _, _) = makeHandler(distinctIdProvider: { "user-1" }, isConnectedProvider: { connected })
+
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(server.pushSubscriptionRequests.isEmpty) // no attempt while offline
+            #expect(handler.hasPendingUnregisterForTesting) // but the delete intent is durable
+
+            connected = true
+            handler.retryIfNeeded()
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting }) // cleared on 2xx
+        }
+
+        @Test("unregister drops the pending intent on a terminal 4xx")
+        func unregisterTerminalDropsIntent() async throws {
+            server.pushSubscriptionStatusCode = 400
+            let (handler, _, _) = makeHandler(distinctIdProvider: { "user-1" })
+
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+        }
+
+        @Test("re-registering the same identity cancels a queued unregister for it")
+        func reRegisterCancelsPendingUnregister() async throws {
+            var connected = false
+            let (handler, _, _) = makeHandler(distinctIdProvider: { "user-A" }, isConnectedProvider: { connected })
+
+            // Offline logout queues a durable unregister for user-A.
+            handler.unregister(distinctId: "user-A", deviceToken: "tok", appId: "app")
+            try await Task.sleep(nanoseconds: 150_000_000)
+            #expect(handler.hasPendingUnregisterForTesting)
+
+            // Re-login as user-A: a delivered registration must supersede the stale logout-DELETE.
+            connected = true
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+
+            // A later flush must not delete the freshly re-registered subscription.
+            let deletesBefore = server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count
+            handler.retryIfNeeded()
+            try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count == deletesBefore)
         }
 
         // MARK: - Offline

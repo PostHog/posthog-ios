@@ -961,12 +961,6 @@
                 }
             }
 
-            // manually masked views through `.postHogMask()` view modifier
-            if view.postHogNoCapture {
-                maskableWidgets.append(view.toAbsoluteRect(window))
-                return
-            }
-
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases
             if view.isNoCapture() || maskChildren {
@@ -996,19 +990,14 @@
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
         ///
         /// On iOS 26, SwiftUI primitives (Text, Image, Button) are rendered as CALayer sublayers
-        /// of parent views rather than having their own backing UIView. When `.postHogMask()` is applied,
-        /// the flag is set directly on the CALayers via the PostHogTagViewModifier.
+        /// of parent views rather than having their own backing UIView, so the text/image
+        /// heuristics below inspect layers as well. (`.postHogMask()` regions are collected
+        /// separately via the mask-reporter registry.)
         @available(iOS 26.0, *)
         private func findMaskableLayers(_ layer: CALayer, _ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect]) {
             for sublayer in layer.sublayers ?? [] {
                 // Skip layers tagged with .postHogNoMask()
                 if sublayer.postHogNoMask {
-                    continue
-                }
-
-                // Check if layer is manually tagged with .postHogMask()
-                if sublayer.postHogNoCapture {
-                    maskableWidgets.append(sublayer.toAbsoluteRect(window))
                     continue
                 }
 
@@ -1046,15 +1035,39 @@
                 return nil
             }
 
-            var maskableWidgets: [CGRect] = []
-            var maskChildren = false
-
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            // nil = a mask reporter has no geometry yet; capturing now could show that
+            // content unmasked. Skip the tick (fail closed), like the transition bail.
+            guard let maskableWidgets = collectMaskableRects(in: window) else {
+                hedgeLog("[Session Replay] Skipping snapshot: a masked view hasn't been laid out yet")
+                return nil
+            }
 
             let wireframe = createBasicWireframe(window)
             wireframe.maskableWidgets = maskableWidgets
             wireframe.type = "screenshot"
             return wireframe
+        }
+
+        /// All rects to redact in `window`: heuristic widgets from the hierarchy walk
+        /// plus the live rects of `postHogMask()` reporters. Returns nil when a
+        /// reporter hasn't been laid out yet — the caller must skip the frame rather
+        /// than capture it under-masked.
+        ///
+        /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by
+        /// default): pixels render after this collection, so any rect source can go
+        /// stale for content committed in between.
+        func collectMaskableRects(in window: UIWindow) -> [CGRect]? {
+            // The cheap registry read can veto the frame; keep it before the walk.
+            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window)
+            guard !masked.hasUnsettledReporters else {
+                return nil
+            }
+
+            var maskableWidgets: [CGRect] = []
+            var maskChildren = false
+            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            maskableWidgets.append(contentsOf: masked.rects)
+            return maskableWidgets
         }
 
         // To be called from main thread

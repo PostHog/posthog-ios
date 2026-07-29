@@ -261,7 +261,8 @@
         func viewMarkedByFlagIsIneligible() {
             let integration = PostHogRageClickIntegration()
             let view = UIView()
-            view.postHogNoRageClick = true
+            let owner = UIView()
+            view.setPostHogNoRageClick(true, owner: owner)
 
             #expect(integration.isRageClickIneligibleForTesting(view: view))
         }

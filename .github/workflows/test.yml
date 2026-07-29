@@ -87,6 +87,32 @@ jobs:
             echo "No flaky (retried) tests detected." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # Golden-image masking regression. Any iPhone on the Makefile-pinned OS runtime renders
+  # identically; on failure the heatmap PNGs upload as an artifact.
+  mask-snapshots:
+    needs: detect-markdown-only
+    runs-on: macos-15
+    steps:
+      - name: Complete markdown-only PR check
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        with:
+          xcode-version: latest-stable
+      - name: Verify masking goldens
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: make maskSnapshots
+      - name: Upload diff images on failure
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        if: failure() && needs.detect-markdown-only.outputs.markdown_only != 'true'
+        with:
+          name: mask-snapshot-diffs
+          path: PostHogTests/__MaskSnapshotFailures__/*.png
+          if-no-files-found: ignore
+
   downgrade-compatibility:
     needs: detect-markdown-only
     runs-on: macos-15

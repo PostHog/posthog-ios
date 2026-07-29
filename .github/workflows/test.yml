@@ -90,6 +90,7 @@ jobs:
   # Golden-image masking regression. Any iPhone on the Makefile-pinned OS runtime renders
   # identically; on failure the heatmap PNGs upload as an artifact.
   mask-snapshots:
+    name: Session replay masking snapshots
     needs: detect-markdown-only
     runs-on: macos-15
     steps:

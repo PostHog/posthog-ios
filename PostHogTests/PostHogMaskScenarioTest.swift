@@ -1,7 +1,4 @@
 //
-//  PostHogMaskScenarioTest.swift
-//  PostHog
-//
 //  End-to-end masking-coverage tests. Each scenario hosts a SwiftUI view, collects
 //  the redaction rects the replay snapshot path would produce via
 //  `collectMaskableRects(in:)`, and asserts the privacy property geometrically

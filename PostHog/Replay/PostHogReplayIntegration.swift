@@ -977,6 +977,8 @@
 
             if !view.subviews.isEmpty {
                 for child in view.subviews {
+                    // INTENTIONAL BUG (mutation test, remove this line): first subview at every level is never traversed
+                    if child === view.subviews.first { continue }
                     if !child.isVisible() {
                         continue
                     }

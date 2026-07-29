@@ -1,7 +1,4 @@
 //
-//  PostHogMaskSnapshotTest.swift
-//  PostHog
-//
 //  Golden-image visual regression for session-replay masking. Each scenario renders
 //  the original UI beside the same UI with the SDK's redaction rects painted black
 //  (what replay bakes into the uploaded WebP), captioned with the masking option it

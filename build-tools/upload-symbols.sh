@@ -22,13 +22,12 @@
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
-#   POSTHOG_NO_RELEASE_ASSOCIATION - Set to "1" to upload symbol sets without binding them to the
-#                              created release (via `dsym upload --no-release-association`). The
-#                              release is still created; the server resolves it from the
-#                              `$app_version` / `$app_namespace` / `$app_build` the SDK sends on
-#                              every event, so the uploaded chunks stay content-addressed and
-#                              release-independent. Requires a posthog-cli that supports
-#                              `dsym upload --no-release-association`.
+#   POSTHOG_NO_RELEASE_BIND - Set to "1" to upload symbol sets without binding them to the created
+#                              release (via `dsym upload --no-release-bind`). The release is still
+#                              created; the server resolves it from the `$app_version` /
+#                              `$app_namespace` / `$app_build` the SDK sends on every event, so the
+#                              uploaded chunks stay content-addressed and release-independent.
+#                              Requires a posthog-cli that supports `dsym upload --no-release-bind`.
 #
 
 # Skip non-Release builds.
@@ -136,8 +135,8 @@ fi
 # Optionally upload the symbol sets without binding them to the release. The release is still
 # created, and the server resolves it from the $app_version / $app_namespace / $app_build the SDK
 # sends on every event, so nothing is written into the built bundle.
-if [ "${POSTHOG_NO_RELEASE_ASSOCIATION}" = "1" ]; then
-    CLI_ARGS+=(--no-release-association)
+if [ "${POSTHOG_NO_RELEASE_BIND}" = "1" ]; then
+    CLI_ARGS+=(--no-release-bind)
 fi
 
 "${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1

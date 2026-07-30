@@ -3035,14 +3035,24 @@ let maxRetryDelay = 30.0
         /// manage your own `UNUserNotificationCenterDelegate`. Call it from your
         /// `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
         ///
+        /// The notification's title/subtitle/body are included only when the push is attributed to
+        /// PostHog (a `posthog` key in its `userInfo`); unattributed pushes capture the open event
+        /// without content. Use the field-based overload to capture content explicitly.
+        ///
         /// - Parameter response: The `UNNotificationResponse` received from the system.
         @available(iOS 14.0, macOS 11.0, *)
         @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
             let content = response.notification.request.content
+            // Free-text content is captured only for PostHog-attributed pushes: forwarding the
+            // title/body of arbitrary third-party notifications (OTPs, chat previews) would ship
+            // sensitive text to analytics by default. Matches Android's auto path, which never
+            // passes content. The field-based overload stays ungated — there the developer passes
+            // content explicitly.
+            let isPostHogNotification = content.userInfo["posthog"] != nil
             capturePushNotificationOpened(
-                title: content.title,
-                subtitle: content.subtitle,
-                body: content.body,
+                title: isPostHogNotification ? content.title : nil,
+                subtitle: isPostHogNotification ? content.subtitle : nil,
+                body: isPostHogNotification ? content.body : nil,
                 payload: content.userInfo,
                 action: response.actionIdentifier
             )

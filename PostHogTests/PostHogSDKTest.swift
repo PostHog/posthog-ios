@@ -280,6 +280,70 @@ class PostHogSDKTest: QuickSpec {
             expect(config.storageManager?.isIdentified()) == false
         }
 
+        it("identifies an anonymous user via identify() when the id already matches the persisted distinct id") {
+            // Anonymous user whose persisted id already equals the id being identified with
+            // (e.g. a non-identified bootstrap seeded the same id).
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 1
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123")
+
+            // No $identify (nothing to merge); a single person-processed $set marks the transition.
+            let events = getBatchedEvents(server)
+            expect(events.count) == 1
+            expect(events.first?.event) == "$set"
+            expect(events.first?.properties["$process_person_profile"] as? Bool) == true
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("does not emit a second $set on a repeated matching-id identify") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 2
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123") // transition: one $set
+            sut.identify("user-123") // already identified: no event
+            sut.capture("event") // flushes the batch (flushAt 2)
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 2
+            expect(events[0].event) == "$set"
+            expect(events[1].event) == "event"
+        }
+
+        it("forwards userProperties and userPropertiesSetOnce on a matching-id identify") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 1
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123", userProperties: ["foo": "bar"], userPropertiesSetOnce: ["baz": "qux"])
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$set"
+            expect(event.properties["$process_person_profile"] as? Bool) == true
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["foo"] as? String) == "bar"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["baz"] as? String) == "qux"
+
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

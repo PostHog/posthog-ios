@@ -326,6 +326,13 @@
                     hedgeLog("[Surveys] Cannot display survey \(surveyId) - survey not found")
                     return
                 }
+                // Honor the documented "must be running" precondition. We deliberately bypass
+                // targeting flags, event triggers, and seen/wait-period checks, but a survey
+                // that has been stopped on the dashboard (endDate set) must not be shown.
+                guard survey.isActive else {
+                    hedgeLog("[Surveys] Cannot display survey \(surveyId) - survey is not running")
+                    return
+                }
                 self.presentSurvey(survey)
             }
         }
@@ -334,7 +341,14 @@
         private func presentSurvey(_ survey: PostHogSurvey) {
             let language = resolveDisplayLanguage()
             let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
-            setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
+
+            // Atomically claim the active-survey slot. If another survey won it (e.g. a
+            // concurrent automatic trigger races a manual `displaySurvey` call), bail out
+            // without rendering so the on-screen survey never diverges from `activeSurvey`.
+            guard setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions) else {
+                hedgeLog("[Surveys] Cannot display survey \(survey.id) - another survey is already being displayed")
+                return
+            }
 
             #if os(iOS)
                 guard #available(iOS 15.0, *) else { return }
@@ -748,16 +762,23 @@
             return surveyProperty
         }
 
-        private func setActiveSurvey(survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil) {
+        /// Atomically claims the active-survey slot for the given survey.
+        ///
+        /// Returns `true` if this call won the slot (it was previously empty), or `false` if
+        /// another survey already holds it. Callers must only render when this returns `true`,
+        /// otherwise two concurrent flows could render a survey that diverges from the tracked
+        /// `activeSurvey`, which would permanently block all future surveys.
+        @discardableResult
+        private func setActiveSurvey(survey: PostHogSurvey, language: String? = nil, questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil) -> Bool {
             activeSurveyLock.withLock {
-                if activeSurvey == nil {
-                    activeSurvey = survey
-                    activeSurveyLanguage = language
-                    activeSurveyQuestionTranslations = questionTranslations
-                    activeSurveyCompleted = false
-                    activeSurveyResponses = [:]
-                    activeSurveyQuestionIndex = 0
-                }
+                guard activeSurvey == nil else { return false }
+                activeSurvey = survey
+                activeSurveyLanguage = language
+                activeSurveyQuestionTranslations = questionTranslations
+                activeSurveyCompleted = false
+                activeSurveyResponses = [:]
+                activeSurveyQuestionIndex = 0
+                return true
             }
         }
 

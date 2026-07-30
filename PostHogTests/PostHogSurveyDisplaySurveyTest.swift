@@ -42,7 +42,9 @@ class PostHogSurveyDisplaySurveyTest {
         id: String = "test-survey-id",
         name: String = "Test Survey",
         type: PostHogSurveyType = .popover,
-        conditions: PostHogSurveyConditions? = nil
+        conditions: PostHogSurveyConditions? = nil,
+        startDate: Date? = Date(),
+        endDate: Date? = nil
     ) -> PostHogSurvey {
         PostHogSurvey(
             id: id,
@@ -69,8 +71,8 @@ class PostHogSurveyDisplaySurveyTest {
             appearance: nil,
             currentIteration: nil,
             currentIterationStartDate: nil,
-            startDate: Date(),
-            endDate: nil,
+            startDate: startDate,
+            endDate: endDate,
             schedule: nil,
             translations: nil
         )
@@ -167,6 +169,26 @@ class PostHogSurveyDisplaySurveyTest {
         integration.setSurveys([getTestSurvey(id: "api-survey-id", type: .api)])
 
         integration.displaySurvey(surveyId: "unknown-id")
+
+        #expect(integration.getActiveSurvey() == nil)
+        #expect(integration.canShowNextSurvey() == true)
+    }
+
+    @Test("displaySurvey does not show a stopped survey")
+    func displaySurveyIgnoresStoppedSurvey() throws {
+        let postHog = getSut()
+        let integration = try getSurveyIntegration(postHog)
+        defer {
+            integration.uninstall(postHog)
+            postHog.close()
+            postHog.reset()
+        }
+
+        // survey that has been stopped on the dashboard (endDate set)
+        let survey = getTestSurvey(id: "stopped-survey-id", type: .api, endDate: Date())
+        integration.setSurveys([survey])
+
+        integration.displaySurvey(surveyId: "stopped-survey-id")
 
         #expect(integration.getActiveSurvey() == nil)
         #expect(integration.canShowNextSurvey() == true)

@@ -128,7 +128,7 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: "github-actions[bot]"
-          body-includes: Mask snapshot diffs
+          body-includes: "<!-- mask-snapshot-diffs -->"
       - name: Post mask-diff artifact link
         if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
@@ -136,6 +136,7 @@ jobs:
           comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
+            <!-- mask-snapshot-diffs -->
             ### Mask snapshot diffs
 
             Session replay masking goldens diverged. [Download the diff heatmaps](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }}) (actual + diff PNGs per failing case).

@@ -129,8 +129,9 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: "github-actions[bot]"
           body-includes: "<!-- mask-snapshot-diffs -->"
+      # Snapshot mismatch: diff PNGs exist, so link the artifact.
       - name: Post mask-diff artifact link
-        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.diff-upload.outputs.artifact-id != '' }}
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
@@ -144,6 +145,20 @@ jobs:
             **[Download the diff artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }})** — per failing case: `expected` (committed golden), `actual` (this run), `diff` (heatmap of changed pixels).
 
             If the change is intended, refresh with `make recordMaskSnapshots` and commit the updated PNGs.
+          edit-mode: replace
+      # Job failed before rendering snapshots (build/simulator/infra): no artifact to link,
+      # but still flag the red on the PR rather than going silent.
+      - name: Post mask-diff build failure notice
+        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.diff-upload.outputs.artifact-id == '' }}
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- mask-snapshot-diffs -->
+            ### ⚠️ Session replay mask snapshots
+
+            The masking snapshot job failed before rendering any snapshots (build, simulator, or infrastructure failure), so there are no diff images to compare. See the [run logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the failure.
           edit-mode: replace
       # Goldens match again: drop the stale divergence comment so a green PR reads clean.
       - name: Clear mask-diff comment on success

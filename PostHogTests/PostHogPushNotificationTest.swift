@@ -1,6 +1,8 @@
 #if os(iOS) || os(macOS)
 
     import Foundation
+    import OHHTTPStubs
+    import OHHTTPStubsSwift
     @testable import PostHog
     import Testing
     import UserNotifications
@@ -434,6 +436,111 @@
             #expect(server.pushSubscriptionRequests.isEmpty)
         }
 
+        // MARK: - Stale identity / identical re-register races
+
+        @Test("distinct id changing during the identity-token mint skips the stale send")
+        func staleDistinctIdDuringMintSkipsSend() async throws {
+            var distinctId = "user-1"
+            let lock = NSLock()
+            var pendingCompletion: ((String?) -> Void)?
+            let (handler, storage, config) = makeHandler(distinctIdProvider: { distinctId })
+            config.pushIdentityProvider = { _, _, completion in
+                lock.withLock { pendingCompletion = completion }
+            }
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { lock.withLock { pendingCompletion != nil } })
+
+            // Identity changes while the mint is still in flight.
+            distinctId = "user-2"
+            lock.withLock { pendingCompletion }?("jwt-user-1")
+
+            // The stale-identity send is skipped; no request fires for it.
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.isEmpty)
+            #expect(!delivered(storage))
+
+            // `isSending` was released, so a fresh send for the new identity still works.
+            config.pushIdentityProvider = { _, _, completion in completion("jwt-user-2") }
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(record(storage)?["deliveredForDistinctId"] == "user-2")
+        }
+
+        @Test("re-registering an identical undelivered token does not reset retry state (keeps backoff)")
+        func repeatIdenticalRegisterKeepsBackoffPause() async throws {
+            server.pushSubscriptionStatusCode = 500
+            let (handler, _, _) = makeHandler()
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { handler.retryCountForTesting == 1 })
+
+            // APNs re-delivers the same token while still paused — must not reset retryCount/backoff.
+            handler.send(deviceToken: "tok", appId: "app")
+            try await Task.sleep(nanoseconds: 200_000_000)
+
+            #expect(handler.retryCountForTesting == 1)
+            #expect(server.pushSubscriptionRequests.count == 1) // still paused, no immediate re-attempt
+        }
+
+        @Test("a registration racing an unregister's identity mint cancels the pending DELETE (supersede at mint completion)")
+        func registrationDuringUnregisterMintCancelsDelete() async throws {
+            let lock = NSLock()
+            var mintCount = 0
+            var completions: [Int: (String?) -> Void] = [:]
+            let (handler, storage, config) = makeHandler(distinctIdProvider: { "user-1" })
+            config.pushIdentityProvider = { _, _, completion in
+                lock.withLock {
+                    mintCount += 1
+                    completions[mintCount] = completion
+                }
+            }
+
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+            #expect(await waitFor { lock.withLock { completions[1] != nil } })
+
+            // Re-login as user-1 for the same app while the DELETE's mint is still in flight; its own
+            // mint is captured too, so the registration record exists but isn't delivered yet.
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { lock.withLock { completions[2] != nil } })
+
+            // Release the DELETE's mint: the pending unregister still matches this identity/app, and a
+            // (still-undelivered) registration record for it exists, so the DELETE must be cancelled.
+            lock.withLock { completions[1] }?("jwt-1")
+            try await Task.sleep(nanoseconds: 300_000_000)
+            #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
+            #expect(!handler.hasPendingUnregisterForTesting)
+
+            // Let the registration finish normally.
+            lock.withLock { completions[2] }?("jwt-2")
+            #expect(await waitFor { self.delivered(storage) })
+        }
+
+        @Test("retryIfNeeded fires a pending unregister for a different app id even when a registration is queued")
+        func retryFiresDifferentAppIdUnregisterWhenRegistrationQueued() async throws {
+            var connected = false
+            let (handler, _, _) = makeHandler(distinctIdProvider: { "user-1" }, isConnectedProvider: { connected })
+
+            // Log out of user-1's appA while offline, then register a token for a different app (appB).
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "com.example.appA")
+            handler.send(deviceToken: "tok2", appId: "com.example.appB")
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(server.pushSubscriptionRequests.isEmpty)
+            #expect(handler.hasPendingUnregisterForTesting)
+
+            connected = true
+            handler.retryIfNeeded()
+
+            // Different app_id: the backend keys registrations per (person, app_id), so the queued
+            // DELETE for appA still fires alongside the POST for appB — neither supersedes the other.
+            #expect(await waitFor {
+                self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" }
+                    && self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
+            })
+            #expect(await waitFor { !handler.hasPendingUnregisterForTesting })
+        }
+
         // MARK: - Retry & backoff (vector 4)
 
         @Test("retry backoff is exponential, capped at 30s (vector 4)")
@@ -520,6 +627,50 @@
             // A retryable failure schedules a backoff; the request is still counted.
             #expect(await waitFor { handler.retryCountForTesting == 1 })
             #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("a 429 response is retried (rate limited)")
+        func retries429ThenSucceeds() async throws {
+            server.pushSubscriptionStatusHandler = { requestNumber in requestNumber == 1 ? 429 : 200 }
+            let (handler, storage, _) = makeHandler()
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { handler.retryCountForTesting == 1 })
+            #expect(!delivered(storage))
+
+            handler.clearBackoffForTesting()
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 2)
+        }
+
+        @Test("a transport error (no HTTP response) is retried")
+        func retriesTransportErrorThenSucceeds() async throws {
+            let lock = NSLock()
+            var requestCount = 0
+            server.pushSubscriptionResponseHandler = { _ in
+                let count = lock.withLock { () -> Int in
+                    requestCount += 1
+                    return requestCount
+                }
+                if count == 1 {
+                    let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut, userInfo: nil)
+                    return HTTPStubsResponse(error: networkError)
+                }
+                return HTTPStubsResponse(jsonObject: ["distinct_id": "test", "platform": "ios"], statusCode: 200, headers: nil)
+            }
+            let (handler, storage, _) = makeHandler()
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { handler.retryCountForTesting == 1 })
+            #expect(!delivered(storage))
+
+            handler.clearBackoffForTesting()
+            handler.retryIfNeeded()
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 2)
         }
 
         // MARK: - Non-retryable (vector 5)

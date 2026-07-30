@@ -44,6 +44,9 @@ class MockPostHogServer {
     var pushSubscriptionStatusHandler: ((Int) -> Int)?
     /// When set, `/push_subscriptions` responses carry this `Retry-After` header value.
     var pushSubscriptionRetryAfter: String?
+    /// When set, replaces the entire `/push_subscriptions` response (e.g. `HTTPStubsResponse(error:)`
+    /// to simulate a transport-level failure) — takes precedence over all status-based fields above.
+    var pushSubscriptionResponseHandler: ((URLRequest) -> HTTPStubsResponse)?
     private var stubDescriptors = [HTTPStubsDescriptor]()
     var flagsResponseDelay: TimeInterval = 0
     var configResponseDelay: TimeInterval = 0
@@ -380,6 +383,10 @@ class MockPostHogServer {
                 return self._pushSubscriptionRequests.count
             }
 
+            if let responseHandler = self.pushSubscriptionResponseHandler {
+                return responseHandler(request)
+            }
+
             let status: Int
             if let handler = self.pushSubscriptionStatusHandler {
                 status = handler(requestCount)
@@ -550,6 +557,7 @@ class MockPostHogServer {
         pushSubscriptionStatusCode = nil
         pushSubscriptionStatusHandler = nil
         pushSubscriptionRetryAfter = nil
+        pushSubscriptionResponseHandler = nil
     }
 
     func parseRequest(_ context: URLRequest, gzip: Bool = true) -> [String: Any]? {

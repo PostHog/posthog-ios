@@ -119,9 +119,10 @@ jobs:
           if-no-files-found: ignore
 
       # GitHub never renders artifacts on the PR page, so surface a download link there.
-      # Skipped on fork PRs: their tokens are read-only, so the comment POST would fail.
+      # Looked up on every non-cancelled run so the success branch can clear a stale link.
+      # Skipped on fork PRs: their tokens are read-only, so the comment write would fail.
       - name: Find existing mask-diff comment
-        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ !cancelled() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
         uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
         id: find-mask-comment
         with:
@@ -139,6 +140,12 @@ jobs:
 
             Session replay masking goldens diverged. [Download the diff heatmaps](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }}) (actual + diff PNGs per failing case).
           edit-mode: replace
+      # Goldens match again: drop the stale divergence comment so a green PR reads clean.
+      - name: Clear mask-diff comment on success
+        if: ${{ success() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.find-mask-comment.outputs.comment-id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ steps.find-mask-comment.outputs.comment-id }}"
 
   downgrade-compatibility:
     needs: detect-markdown-only

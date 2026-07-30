@@ -137,7 +137,7 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             <!-- mask-snapshot-diffs -->
-            ### Session replay mask snapshots
+            ### ⚠️ Session replay mask snapshots
 
             The rendered masking output no longer matches the committed goldens, so a mask has moved, grown, shrunk, or disappeared. That's either a real regression or an intended masking change that needs the goldens refreshed.
 

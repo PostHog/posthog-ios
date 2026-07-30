@@ -27,6 +27,12 @@ class PostHogConfigTest: QuickSpec {
             expect(config.captureScreenViews) == true
             expect(config.debug) == false
             expect(config.optOut) == false
+
+            #if os(iOS) || os(macOS)
+                expect(config.capturePushNotificationSubscriptions) == true
+                expect(config.capturePushNotificationOpened) == true
+            #endif
+            expect(config.pushIdentityProvider).to(beNil())
         }
 
         it("init takes project token") {

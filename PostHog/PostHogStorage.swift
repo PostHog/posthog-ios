@@ -254,6 +254,8 @@ class PostHogStorage {
         case errorTracking = "posthog.errorTracking"
         case capturePerformance = "posthog.capturePerformance"
         case deviceId = "posthog.deviceId"
+        case pushSubscription = "posthog.pushSubscription"
+        case pushPendingUnregister = "posthog.pushPendingUnregister"
     }
 
     // The location for storing data that we always want to keep
@@ -422,6 +424,8 @@ class PostHogStorage {
         deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .errorTracking))
         deleteSafely(url(forKey: .capturePerformance))
+        // Drop the push token on logout so a new user doesn't inherit the previous user's subscription.
+        deleteSafely(url(forKey: .pushSubscription))
     }
 
     func remove(key: StorageKey) {

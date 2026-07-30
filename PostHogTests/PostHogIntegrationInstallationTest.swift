@@ -22,6 +22,16 @@ class PostHogIntegrationInstallationTest {
         #if os(iOS) || targetEnvironment(macCatalyst)
             PostHogAutocaptureIntegration.clearInstalls()
         #endif
+        #if os(iOS) || os(macOS)
+            if #available(iOS 14.0, macOS 11.0, *) {
+                PostHogPushNotificationOpenIntegration.clearInstalls()
+            }
+        #endif
+        #if os(iOS)
+            if #available(iOS 14.0, *) {
+                PostHogPushNotificationSubscriptionIntegration.clearInstalls()
+            }
+        #endif
         PostHogAppLifeCycleIntegration.clearInstalls()
         PostHogScreenViewIntegration.clearInstalls()
         #if os(iOS) || os(macOS) || os(tvOS)
@@ -41,13 +51,16 @@ class PostHogIntegrationInstallationTest {
         captureScreenViews: Bool = false,
         captureElementInteractions: Bool = false,
         disableRemoteConfig: Bool = true,
-        errorTrackingAutoCapture: Bool = false
+        errorTrackingAutoCapture: Bool = false,
+        enableSwizzling: Bool = true,
+        capturePushNotificationOpened: Bool = false
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
         config.disableRemoteConfigForTesting = disableRemoteConfig
         config.disableFlushOnBackgroundForTesting = true
         config.disableReachabilityForTesting = true
+        config.enableSwizzling = enableSwizzling
 
         #if os(iOS)
             config.sessionReplay = sessionReplay
@@ -55,6 +68,12 @@ class PostHogIntegrationInstallationTest {
 
         #if os(iOS) || targetEnvironment(macCatalyst)
             config.captureElementInteractions = captureElementInteractions
+        #endif
+
+        #if os(iOS) || os(macOS)
+            // Keep push integrations opt-in per test; they default to true otherwise.
+            config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationOpened = capturePushNotificationOpened
         #endif
 
         config.captureScreenViews = captureScreenViews
@@ -282,6 +301,41 @@ class PostHogIntegrationInstallationTest {
 
             sut.optIn() // triggers re-install with a fetched-but-failed remote config
             #expect(sut.getErrorTrackingIntegration() != nil)
+        }
+    #endif
+
+    #if os(iOS) || os(macOS)
+        @Test("push notification opened integration installed only once, on first instance")
+        func pushNotificationOpenedIntegrationInstalledOnce() async {
+            guard #available(iOS 14.0, macOS 11.0, *) else { return }
+            let first = getSut(projectToken: "test_project_token", capturePushNotificationOpened: true)
+            let second = getSut(projectToken: "test_project_token", capturePushNotificationOpened: true)
+
+            #expect(first.getPushNotificationIntegration() != nil)
+            #expect(second.getPushNotificationIntegration() == nil)
+
+            first.close()
+            second.close()
+        }
+
+        @Test("push notification opened integration not installed when the flag is disabled")
+        func pushNotificationOpenedIntegrationNotInstalledWhenDisabled() async {
+            guard #available(iOS 14.0, macOS 11.0, *) else { return }
+            let sut = getSut(projectToken: "test_project_token", capturePushNotificationOpened: false)
+
+            #expect(sut.getPushNotificationIntegration() == nil)
+
+            sut.close()
+        }
+
+        @Test("push notification opened integration skipped when swizzling is disabled")
+        func pushNotificationOpenedIntegrationSkippedWithoutSwizzling() async {
+            guard #available(iOS 14.0, macOS 11.0, *) else { return }
+            let sut = getSut(projectToken: "test_project_token", enableSwizzling: false, capturePushNotificationOpened: true)
+
+            #expect(sut.getPushNotificationIntegration() == nil)
+
+            sut.close()
         }
     #endif
 }

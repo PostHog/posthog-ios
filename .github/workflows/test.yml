@@ -165,7 +165,8 @@ jobs:
         if: ${{ success() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.find-mask-comment.outputs.comment-id != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ steps.find-mask-comment.outputs.comment-id }}"
+          COMMENT_ID: ${{ steps.find-mask-comment.outputs.comment-id }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/comments/$COMMENT_ID"
 
   downgrade-compatibility:
     needs: detect-markdown-only

@@ -1,5 +1,7 @@
 ## Next
 
+- fix: `identify()` no longer leaves a user anonymous when the supplied ID already matches the persisted distinct ID (for example after a non-identified bootstrap seeded the same ID); the SDK now marks the user identified and captures a person-processed `$set` event
+
 ## 3.68.4
 
 ### Patch Changes

@@ -763,6 +763,7 @@ let maxRetryDelay = 30.0
         let isIdentified = storageManager.isIdentified()
 
         let hasDifferentDistinctId = distinctId != oldDistinctId
+        let shouldTransitionToIdentified = !hasDifferentDistinctId && !isIdentified
 
         if hasDifferentDistinctId, !isIdentified {
             var props: [String: Any] = ["distinct_id": distinctId]
@@ -799,6 +800,37 @@ let maxRetryDelay = 30.0
 
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
+        } else if shouldTransitionToIdentified {
+            // Matching id while still anonymous (e.g. a non-identified bootstrap seeded the same
+            // id): upgrade to identified and emit one person-processed $set — there is no
+            // anonymous id to merge, so no $identify (matches posthog-js).
+            storageManager.setIdentified(true)
+
+            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+
+            capture("$set",
+                    distinctId: distinctId,
+                    userProperties: userProperties,
+                    userPropertiesSetOnce: userPropertiesSetOnce)
+
+            // The transition event must fire even when an identical property call was cached
+            // earlier; cache only after capture so deduplication cannot suppress it.
+            let hash = getPersonPropertiesHash(
+                distinctId: distinctId,
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
+            )
+            cachedPersonPropertiesLock.withLock {
+                cachedPersonPropertiesHash = hash
+            }
+
+            // The identified state itself is not part of the flags request; reload only when the
+            // caller supplied properties that can affect flag evaluation.
+            if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+                remoteConfig?.reloadFeatureFlags()
+            }
+
+            notifyContextDidChange()
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
             if !shouldCapturePersonPropertiesEvent(
                 distinctId: distinctId,

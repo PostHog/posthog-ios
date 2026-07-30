@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -107,6 +107,48 @@ testOniOSSimulator:
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
+
+# Golden-image masking snapshots (PostHogMaskSnapshotTest). The test forces the render
+# environment (see forceDeviceIndependentEnvironment), so any iPhone on the pinned OS
+# produces identical output — the OS version is the only pin. If the runner's runtime
+# rotates or a masking change is intentional: make recordMaskSnapshots, review, commit.
+MASK_SNAPSHOT_OS ?= 26.2
+# Pinned alongside the OS: latest-stable can bump the compiler/SDK while the sim OS stays
+# fixed, and the goldens are byte-sensitive. Bump this with MASK_SNAPSHOT_OS and re-record.
+MASK_SNAPSHOT_XCODE ?= 26.3
+# First available iPhone on the pinned runtime, by UDID (any iPhone renders identically).
+MASK_SNAPSHOT_UDID = $$(xcrun simctl list devices available | awk '/-- iOS $(MASK_SNAPSHOT_OS) --/{f=1;next} /^--/{f=0} f && /iPhone/' | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+
+checkMaskSnapshotRuntime:
+	@xcrun simctl list runtimes | grep -q "iOS $(MASK_SNAPSHOT_OS)" || { \
+	  echo "error: pinned iOS $(MASK_SNAPSHOT_OS) simulator runtime is not installed (CI runner image likely rotated)."; \
+	  echo "Fix: bump MASK_SNAPSHOT_OS in the Makefile, run 'make recordMaskSnapshots', then review + commit the refreshed goldens."; \
+	  exit 1; }
+	@[ -n "$(MASK_SNAPSHOT_UDID)" ] || { \
+	  echo "error: no available iPhone simulator on the iOS $(MASK_SNAPSHOT_OS) runtime; create one via Xcode or 'xcrun simctl create'."; \
+	  exit 1; }
+	@xcodebuild -version | grep -q "Xcode $(MASK_SNAPSHOT_XCODE)" || { \
+	  echo "error: pinned Xcode $(MASK_SNAPSHOT_XCODE) is not selected (found: $$(xcodebuild -version | head -1)); goldens are byte-sensitive to the compiler/SDK."; \
+	  echo "Fix: select Xcode $(MASK_SNAPSHOT_XCODE), or bump MASK_SNAPSHOT_XCODE alongside MASK_SNAPSHOT_OS and re-record."; \
+	  exit 1; }
+
+# xcpretty collapses a Swift Testing run to a summary that reads green even at 0 tests, so a
+# broken compile gate or -only-testing selector could pass silently. Tee the raw log and
+# assert verifyGoldens() actually ran.
+maskSnapshots: checkMaskSnapshotRuntime
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
+	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS' \
+	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/verifyGoldens()" 2>&1 | tee mask-snapshots.log | xcpretty
+	@grep -qE 'Test "[^"]+" passed' mask-snapshots.log || { \
+	  echo "error: no masking snapshot test executed (0-test run); the TEST_MASK_SNAPSHOTS gate or -only-testing selector likely broke."; \
+	  exit 1; }
+
+recordMaskSnapshots: checkMaskSnapshotRuntime
+	set -o pipefail && xcrun xcodebuild test -scheme PostHog \
+	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS RECORD_MASK_SNAPSHOTS' \
+	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/recordGoldens()" | xcpretty
 
 # Usage: make test filter=<pattern>
 # Examples:

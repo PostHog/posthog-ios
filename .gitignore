@@ -133,3 +133,5 @@ sdk_compliance_adapter/adapter*.log
 
 # Masking snapshot diff artifacts (regenerated on failure, uploaded by CI)
 PostHogTests/__MaskSnapshotFailures__/
+# Raw xcodebuild log the maskSnapshots target tees to assert the test actually ran
+mask-snapshots.log

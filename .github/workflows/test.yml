@@ -105,7 +105,9 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
-          xcode-version: latest-stable
+          # Pinned, not latest-stable: the goldens are byte-sensitive to the compiler/SDK,
+          # so the Xcode is pinned alongside MASK_SNAPSHOT_OS. Keep in sync with the Makefile.
+          xcode-version: "26.3"
       - name: Verify masking goldens
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
         run: make maskSnapshots

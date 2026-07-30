@@ -11,7 +11,7 @@
 //  and RECORD_MASK_SNAPSHOTS additionally enables recording, so a verify run can
 //  never silently rewrite the goldens.
 //    - Verify (CI, required, pinned OS runtime):     make maskSnapshots
-//        → on mismatch writes __MaskSnapshotFailures__/case_N.{actual,diff}.png and fails.
+//        → on mismatch writes __MaskSnapshotFailures__/case_N.{expected,actual,diff}.png and fails.
 //    - Refresh after an intentional masking change:  make recordMaskSnapshots
 
 #if os(iOS) && canImport(SwiftUI) && TEST_MASK_SNAPSHOTS
@@ -94,6 +94,7 @@
                 let fraction = pixelDiffFraction(golden, composite)
                 if fraction > diffTolerance {
                     let pct = String(format: "%.1f", fraction * 100)
+                    try? write(golden, to: Self.failureURL(scenario.id, "expected"))
                     try? write(composite, to: Self.failureURL(scenario.id, "actual"))
                     if let diff = diffHeatmap(golden, composite) {
                         try? write(diff, to: Self.failureURL(scenario.id, "diff"))

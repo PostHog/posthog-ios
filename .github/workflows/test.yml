@@ -137,9 +137,13 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             <!-- mask-snapshot-diffs -->
-            ### Mask snapshot diffs
+            ### Session replay mask snapshots
 
-            Session replay masking goldens diverged. [Download the diff heatmaps](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }}) (actual + diff PNGs per failing case).
+            The rendered masking output no longer matches the committed goldens, so a mask has moved, grown, shrunk, or disappeared. That's either a real regression or an intended masking change that needs the goldens refreshed.
+
+            **[Download the diff artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }})** — per failing case: `expected` (committed golden), `actual` (this run), `diff` (heatmap of changed pixels).
+
+            If the change is intended, refresh with `make recordMaskSnapshots` and commit the updated PNGs.
           edit-mode: replace
       # Goldens match again: drop the stale divergence comment so a green PR reads clean.
       - name: Clear mask-diff comment on success

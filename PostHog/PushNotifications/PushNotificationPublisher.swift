@@ -97,12 +97,16 @@
 
         private func swizzleAppDelegateMethods() {
             // UIApplication.shared / NSApplication.shared are main-thread-only, and setup() may run
-            // off-main. Both install and uninstall hop to main so they also stay ordered.
-            guard Thread.isMainThread else {
-                DispatchQueue.main.async { self.swizzleAppDelegateMethods() }
-                return
+            // off-main. Always hop (never call synchronously even if already on main) so install and
+            // uninstall land on the main queue in the same order they were requested — an on-main
+            // close() can otherwise unswizzle synchronously ahead of an off-main setup()'s already
+            // -enqueued deferred swizzle, leaving the delegate swizzled with subscriber count 0.
+            DispatchQueue.main.async { [weak self] in
+                self?.performSwizzleAppDelegateMethods()
             }
+        }
 
+        private func performSwizzleAppDelegateMethods() {
             #if os(iOS)
                 guard let appDelegate = UIApplication.shared.delegate,
                       let appDelegateClass = object_getClass(appDelegate)
@@ -125,11 +129,12 @@
         }
 
         private func unswizzleAppDelegateMethods() {
-            guard Thread.isMainThread else {
-                DispatchQueue.main.async { self.unswizzleAppDelegateMethods() }
-                return
+            DispatchQueue.main.async { [weak self] in
+                self?.performUnswizzleAppDelegateMethods()
             }
+        }
 
+        private func performUnswizzleAppDelegateMethods() {
             guard let appDelegateClass = swizzledAppDelegateClass else { return }
             // Reverses the exchange. Methods added by swizzleAddingIfNeeded stay on the class — their
             // IMPs are swapped back but the method entries remain. Known, harmless limitation.

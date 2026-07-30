@@ -89,6 +89,17 @@ final class PostHogPushSubscriptionHandler {
     /// queue — never the host's UI. Matches Android, where minting runs on the SDK executor.
     private let mintQueue = DispatchQueue(label: "com.posthog.push.identity-mint")
 
+    /// Runs the disk-backed `resendIfDistinctIdChanged` re-check off the caller's thread, matching
+    /// Android's serial executor. Only reached when the synchronous in-memory check in the
+    /// `onEventContextChanged` subscriber sees a genuine mismatch (or an unhydrated cache).
+    private let workQueue = DispatchQueue(label: "com.posthog.push.subscription-handler")
+
+    /// In-memory mirror of the persisted record's `deliveredForDistinctId`, guarded by `recordLock`.
+    /// Lets the `onEventContextChanged` subscriber decide "nothing to resend" synchronously with no
+    /// disk I/O on the caller's (often main) thread. `nil` = not yet hydrated from disk;
+    /// `.some(x)` = hydrated, where `x` is nil when there is no delivered record.
+    private var cachedDeliveredDistinctId: String??
+
     private var contextChangedToken: RegistrationToken?
 
     init(
@@ -108,8 +119,16 @@ final class PostHogPushSubscriptionHandler {
         self.isAllowedProvider = isAllowedProvider
 
         contextChangedToken = onEventContextChanged.subscribe { [weak self] context in
-            guard let distinctId = context["distinct_id"] as? String, !distinctId.isEmpty else { return }
-            self?.resendIfDistinctIdChanged(currentDistinctId: distinctId)
+            guard let self, let distinctId = context["distinct_id"] as? String, !distinctId.isEmpty else { return }
+            // Synchronous in-memory check so the common no-change case costs no disk I/O on the
+            // caller's thread, and so the decision uses the record state at notify time — an async
+            // re-read would race reset()'s clear/re-register sequence. Only a genuine mismatch (or
+            // an unhydrated cache right after launch) pays for the queue hop and full re-check.
+            let cached = recordLock.withLock { self.cachedDeliveredDistinctId }
+            if case let .some(delivered) = cached, delivered == nil || delivered == distinctId {
+                return
+            }
+            workQueue.async { [weak self] in self?.resendIfDistinctIdChanged(currentDistinctId: distinctId) }
         }
     }
 
@@ -271,11 +290,18 @@ final class PostHogPushSubscriptionHandler {
         hedgeLog("Push unregister failed (status \(statusString(info))); dropping (best-effort).")
     }
 
-    /// Snapshot of the stored token/appId, read *before* `reset()` clears storage so the old
-    /// identity's subscription can be DELETEd and then re-registered under the new anonymous id.
+    /// Snapshot of the stored token/appId, read *before* `reset()` clears the rest of storage so the
+    /// old identity's subscription can be DELETEd and then re-registered under the new anonymous id.
+    /// Clears the record under `recordLock` here (rather than leaving it to `PostHogStorage.reset()`)
+    /// so a concurrent `send()` can't write a fresh record in the gap between this snapshot and the
+    /// unlocked storage clear only to have it erased.
     func recordForReset() -> (deviceToken: String, appId: String)? {
-        guard let record = loadRecord() else { return nil }
-        return (record.deviceToken, record.appId)
+        recordLock.withLock {
+            guard let record = loadRecordLocked() else { return nil }
+            storage.remove(key: .pushSubscription)
+            cachedDeliveredDistinctId = .some(nil)
+            return (record.deviceToken, record.appId)
+        }
     }
 
     /// Re-registers a token snapshotted by `recordForReset()` after `reset()` cleared storage — used
@@ -304,6 +330,7 @@ final class PostHogPushSubscriptionHandler {
         let record: PendingRecord? = recordLock.withLock {
             guard let record = loadRecordLocked() else { return nil }
             storage.remove(key: .pushSubscription)
+            cachedDeliveredDistinctId = .some(nil)
             return record
         }
         guard let record else {
@@ -324,7 +351,16 @@ final class PostHogPushSubscriptionHandler {
 
     // MARK: - Private
 
+    #if TESTING
+        /// Observes the thread `resendIfDistinctIdChanged` actually runs on, so tests can assert the
+        /// `onEventContextChanged` subscriber's disk read never happens on the caller's thread.
+        var onResendForTesting: ((Bool) -> Void)?
+    #endif
+
     private func resendIfDistinctIdChanged(currentDistinctId: String) {
+        #if TESTING
+            onResendForTesting?(Thread.isMainThread)
+        #endif
         guard let record = loadRecord(),
               let delivered = record.deliveredForDistinctId,
               delivered != currentDistinctId
@@ -600,6 +636,7 @@ final class PostHogPushSubscriptionHandler {
             contents[Key.deliveredForDistinctId] = deliveredForDistinctId
         }
         storage.setDictionary(forKey: .pushSubscription, contents: contents)
+        cachedDeliveredDistinctId = .some(deliveredForDistinctId)
     }
 
     /// Standalone record read; acquires `recordLock`. Default-safe entry point — call this unless you
@@ -615,9 +652,12 @@ final class PostHogPushSubscriptionHandler {
               let deviceToken = data[Key.deviceToken],
               let appId = data[Key.appId]
         else {
+            cachedDeliveredDistinctId = .some(nil)
             return nil
         }
-        return PendingRecord(deviceToken: deviceToken, appId: appId, deliveredForDistinctId: data[Key.deliveredForDistinctId])
+        let record = PendingRecord(deviceToken: deviceToken, appId: appId, deliveredForDistinctId: data[Key.deliveredForDistinctId])
+        cachedDeliveredDistinctId = .some(record.deliveredForDistinctId)
+        return record
     }
 
     private func writePendingUnregister(_ pending: PendingUnregister) {

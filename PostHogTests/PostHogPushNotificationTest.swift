@@ -86,9 +86,11 @@
             let storage = PostHogStorage(config)
             if resetStorage {
                 storage.reset()
-                // reset() deliberately keeps .pushPendingUnregister (a logout DELETE must outlive reset);
-                // clear it here so a durable intent from a prior test can't leak into this handler.
+                // reset() deliberately keeps .pushPendingUnregister (a logout DELETE must outlive
+                // reset) and .pushSubscription (the handler clears it under recordLock instead);
+                // clear both here so state from a prior test can't leak into this handler.
                 storage.remove(key: .pushPendingUnregister)
+                storage.remove(key: .pushSubscription)
             }
             let handler = PostHogPushSubscriptionHandler(
                 api,
@@ -125,6 +127,8 @@
 
             let storage = PostHogStorage(config)
             storage.reset()
+            storage.remove(key: .pushSubscription)
+            storage.remove(key: .pushPendingUnregister)
 
             return PostHogSDK.with(config)
         }
@@ -263,7 +267,8 @@
             let deletes = server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }
             #expect(deletes.count == 1)
 
-            let body = try #require(server.parseRequest(deletes[0]))
+            let firstDelete = try #require(deletes.first)
+            let body = try #require(server.parseRequest(firstDelete))
             #expect(body["api_key"] as? String == testProjectToken)
             #expect(body["distinct_id"] as? String == "user-1")
             #expect(body["device_token"] as? String == "tok")
@@ -434,6 +439,32 @@
             #expect(saved["deviceToken"] == "newer-token")
             #expect(saved["appId"] == "com.example.new")
             #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        @Test("recordForReset clears the record under its lock so a concurrent send() isn't lost")
+        func recordForResetClearsUnderLockPreservesConcurrentSend() async throws {
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-1" })
+
+            handler.send(deviceToken: "old-tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            // recordForReset() snapshots AND clears in the same locked section — nothing left for an
+            // unlocked storage.reset() to delete afterward.
+            let snapshot = handler.recordForReset()
+            #expect(snapshot?.deviceToken == "old-tok")
+            #expect(record(storage) == nil)
+
+            // A send() racing the reset lands in the gap before reregisterAfterReset() runs.
+            handler.send(deviceToken: "new-tok", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            handler.reregisterAfterReset(deviceToken: snapshot!.deviceToken, appId: snapshot!.appId)
+            try? await Task.sleep(nanoseconds: 200_000_000)
+
+            // The fresh, concurrently-written record survives; the stale pre-reset snapshot is not
+            // rewritten over it.
+            let saved = try #require(record(storage))
+            #expect(saved["deviceToken"] == "new-tok")
         }
 
         // MARK: - Stale identity / identical re-register races
@@ -1144,6 +1175,41 @@
             #expect(record(storage)?["deviceToken"] == "tok")
         }
 
+        @Test("resendIfDistinctIdChanged's disk read never runs on the caller's (main) thread")
+        func resendRunsOffCallerThread() async throws {
+            var distinctId = "user-1"
+            let contextChanged = PostHogMulticastCallback<[String: Any]>()
+            let (handler, storage, _) = makeHandler(
+                distinctIdProvider: { distinctId },
+                onEventContextChanged: contextChanged
+            )
+
+            handler.send(deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            final class Observation: @unchecked Sendable {
+                private let lock = NSLock()
+                private var value: Bool?
+                func record(_ isMainThread: Bool) {
+                    lock.withLock { value = isMainThread }
+                }
+                var ranOnMainThread: Bool? { lock.withLock { value } }
+            }
+            let observation = Observation()
+            handler.onResendForTesting = { isMainThread in
+                observation.record(isMainThread)
+            }
+
+            // Mirrors how screen() actually fires this: synchronously on the calling (main) thread.
+            distinctId = "user-2"
+            await MainActor.run {
+                contextChanged.invoke(["distinct_id": "user-2"])
+            }
+
+            #expect(await waitFor { observation.ranOnMainThread != nil })
+            #expect(observation.ranOnMainThread == false)
+        }
+
         // MARK: - SDK-level device token API
 
         #if os(iOS)
@@ -1246,6 +1312,7 @@
             // Seed the record before the SDK exists, as a previous launch would have.
             let storage = PostHogStorage(config)
             storage.reset()
+            storage.remove(key: .pushPendingUnregister)
             storage.setDictionary(forKey: .pushSubscription, contents: [
                 "deviceToken": "tok-from-last-launch",
                 "appId": "com.example.test",

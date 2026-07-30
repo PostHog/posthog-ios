@@ -424,8 +424,10 @@ class PostHogStorage {
         deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .errorTracking))
         deleteSafely(url(forKey: .capturePerformance))
-        // Drop the push token on logout so a new user doesn't inherit the previous user's subscription.
-        deleteSafely(url(forKey: .pushSubscription))
+        // .pushSubscription is deliberately NOT cleared here: PostHogPushSubscriptionHandler.recordForReset()
+        // clears it under its own recordLock (before this runs) so a concurrent send() can't write a
+        // fresh record into the gap and have it erased unlocked. When there is no push handler
+        // (feature disabled/absent), no record exists to leak, so skipping the clear here is safe.
         // .pushPendingUnregister is deliberately NOT cleared here: it holds a durable "delete this
         // subscription" intent for the identity being logged out of, and must outlive reset() so an
         // offline/failed unregister keeps retrying on flush()/next launch (see PostHogPushSubscriptionHandler).

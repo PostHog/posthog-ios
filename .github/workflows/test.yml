@@ -89,13 +89,16 @@ jobs:
 
   # Golden-image masking regression. Any iPhone on the Makefile-pinned OS runtime renders
   # identically; on failure the heatmap PNGs upload as an artifact.
+  # Golden verification runs read-only: it never touches the PR. It only exposes the diff
+  # artifact id so the follow-up comment job (which holds the write scope) can link it.
   mask-snapshots:
     name: Session replay masking snapshots
     needs: detect-markdown-only
     runs-on: macos-15
     permissions:
       contents: read
-      pull-requests: write
+    outputs:
+      artifact_id: ${{ steps.diff-upload.outputs.artifact-id }}
     steps:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
@@ -120,11 +123,19 @@ jobs:
           path: PostHogTests/__MaskSnapshotFailures__/*.png
           if-no-files-found: ignore
 
-      # GitHub never renders artifacts on the PR page, so surface a download link there.
-      # Looked up on every non-cancelled run so the success branch can clear a stale link.
-      # Skipped on fork PRs: their tokens are read-only, so the comment write would fail.
+  # GitHub never renders artifacts on the PR page, so surface a download link there. This is
+  # the only job with pull-requests: write, and it checks out nothing, so the write scope is
+  # kept away from the code-running mask-snapshots job. Skipped on fork PRs: their tokens are
+  # read-only, so the comment write would fail.
+  mask-snapshots-comment:
+    needs: [detect-markdown-only, mask-snapshots]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
       - name: Find existing mask-diff comment
-        if: ${{ !cancelled() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
         uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
         id: find-mask-comment
         with:
@@ -133,7 +144,7 @@ jobs:
           body-includes: "<!-- mask-snapshot-diffs -->"
       # Snapshot mismatch: diff PNGs exist, so link the artifact.
       - name: Post mask-diff artifact link
-        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.diff-upload.outputs.artifact-id != '' }}
+        if: ${{ needs.mask-snapshots.result == 'failure' && needs.mask-snapshots.outputs.artifact_id != '' }}
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
@@ -144,14 +155,14 @@ jobs:
 
             The rendered masking output no longer matches the committed goldens, so a mask has moved, grown, shrunk, or disappeared. That's either a real regression or an intended masking change that needs the goldens refreshed.
 
-            **[Download the diff artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }})** — per failing case: `expected` (committed golden), `actual` (this run), `diff` (heatmap of changed pixels).
+            **[Download the diff artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ needs.mask-snapshots.outputs.artifact_id }})** — per failing case: `expected` (committed golden), `actual` (this run), `diff` (heatmap of changed pixels).
 
             If the change is intended, refresh with `make recordMaskSnapshots` and commit the updated PNGs.
           edit-mode: replace
       # Job failed before rendering snapshots (build/simulator/infra): no artifact to link,
       # but still flag the red on the PR rather than going silent.
       - name: Post mask-diff build failure notice
-        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.diff-upload.outputs.artifact-id == '' }}
+        if: ${{ needs.mask-snapshots.result == 'failure' && needs.mask-snapshots.outputs.artifact_id == '' }}
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
@@ -164,7 +175,7 @@ jobs:
           edit-mode: replace
       # Goldens match again: drop the stale divergence comment so a green PR reads clean.
       - name: Clear mask-diff comment on success
-        if: ${{ success() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.find-mask-comment.outputs.comment-id != '' }}
+        if: ${{ needs.mask-snapshots.result == 'success' && steps.find-mask-comment.outputs.comment-id != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ steps.find-mask-comment.outputs.comment-id }}

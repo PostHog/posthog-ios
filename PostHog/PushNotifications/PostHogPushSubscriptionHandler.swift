@@ -156,13 +156,20 @@ final class PostHogPushSubscriptionHandler {
     /// Called from `PostHogSDK.flush()`.
     func retryIfNeeded() {
         // Drain any pending unregister first (offline logout, transport failure) — independent of the
-        // send record, which is usually absent after a logout. On this path the in-memory identity-token
-        // cache is empty, so the retry re-mints a fresh token and sidesteps the expired-token 401.
+        // send record, usually absent after a logout; the in-memory identity-token cache is empty here,
+        // so the retry re-mints a fresh token and sidesteps the expired-token 401. If a same-identity
+        // registration is queued (logged out then back in), drop the DELETE instead — an in-flight
+        // DELETE completing after the POST would kill the subscription just delivered.
+        let record = loadRecord()
         if let pending = loadPendingUnregister() {
-            attemptUnregister(pending)
+            if record != nil, pending.distinctId == distinctIdProvider() {
+                clearPendingUnregister(matching: pending)
+            } else {
+                attemptUnregister(pending)
+            }
         }
 
-        guard let record = loadRecord() else { return }
+        guard let record else { return }
 
         let distinctId = distinctIdProvider()
         guard !distinctId.isEmpty else { return }

@@ -840,6 +840,28 @@
             #expect(await waitFor { !handler.hasPendingUnregisterForTesting }) // cleared on 2xx
         }
 
+        @Test("retryIfNeeded drops a pending unregister for the current identity when a registration is queued")
+        func retryDropsSameIdentityUnregisterWhenRegistrationQueued() async throws {
+            var connected = false
+            let (handler, _, _) = makeHandler(distinctIdProvider: { "user-1" }, isConnectedProvider: { connected })
+
+            // Log out of user-1 while offline, then re-register for the same identity.
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+            handler.send(deviceToken: "tok", appId: "app")
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+            #expect(server.pushSubscriptionRequests.isEmpty)
+            #expect(handler.hasPendingUnregisterForTesting)
+
+            connected = true
+            handler.retryIfNeeded()
+
+            // Register supersedes the queued DELETE: only the POST goes out, the intent is dropped.
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+            #expect(server.pushSubscriptionRequests[0].httpMethod == "POST")
+            #expect(!handler.hasPendingUnregisterForTesting)
+        }
+
         @Test("unregister drops the pending intent on a terminal 4xx")
         func unregisterTerminalDropsIntent() async throws {
             server.pushSubscriptionStatusCode = 400

@@ -448,8 +448,10 @@
                 }
 
                 let original = render(controller.view)
-                let masked = paintingBlack(integration.collectMaskableRects(in: window) ?? [],
-                                           over: original, in: window.bounds)
+                // Redact through the exact production painter (RRWireframe.maskImage) so the golden
+                // reflects real replay output (rounded corners, scale-1), not hand-drawn squares.
+                let rects = integration.collectMaskableRects(in: window) ?? []
+                let masked = RRWireframe.maskImage(original, maskableWidgets: rects) ?? original
                 return compose(scenario, original: original, masked: masked)
             }
 
@@ -460,18 +462,6 @@
                 // hostless test bundle; drawHierarchy() needs an active window scene and renders blank.
                 return UIGraphicsImageRenderer(bounds: view.bounds, format: format).image { ctx in
                     view.layer.render(in: ctx.cgContext)
-                }
-            }
-
-            private func paintingBlack(_ rects: [CGRect], over image: UIImage, in bounds: CGRect) -> UIImage {
-                let format = UIGraphicsImageRendererFormat()
-                format.scale = 1
-                return UIGraphicsImageRenderer(bounds: bounds, format: format).image { ctx in
-                    image.draw(in: bounds)
-                    UIColor.black.setFill()
-                    for rect in rects {
-                        ctx.fill(rect)
-                    }
                 }
             }
 

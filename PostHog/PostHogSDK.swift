@@ -3045,9 +3045,8 @@ let maxRetryDelay = 30.0
             let content = response.notification.request.content
             // Free-text content is captured only for PostHog-attributed pushes: forwarding the
             // title/body of arbitrary third-party notifications (OTPs, chat previews) would ship
-            // sensitive text to analytics by default. Matches Android's auto path, which never
-            // passes content. The field-based overload stays ungated — there the developer passes
-            // content explicitly.
+            // sensitive text to analytics by default. The field-based overload stays ungated —
+            // there the developer passes content explicitly.
             let isPostHogNotification = content.userInfo["posthog"] != nil
             capturePushNotificationOpened(
                 title: isPostHogNotification ? content.title : nil,
@@ -3062,8 +3061,7 @@ let maxRetryDelay = 30.0
         ///
         /// Use this when no `UNNotificationResponse` is available — for example when you handle a push
         /// yourself in `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` or relay it
-        /// from a cross-platform layer. Mirrors the Android SDK's
-        /// `capturePushNotificationOpened(title:body:payload:action:)`.
+        /// from a cross-platform layer.
         ///
         /// - Parameters:
         ///   - title: The notification title; omitted from the event when `nil` or empty.

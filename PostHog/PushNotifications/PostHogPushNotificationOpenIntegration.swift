@@ -38,7 +38,7 @@
                 return
             }
             token = DI.main.pushNotificationPublisher.onNotificationResponse.subscribe { [weak self] response in
-                // Auto-capture remote pushes only, matching Android's FCM-only auto-capture. A local
+                // Auto-capture remote pushes only. A local
                 // notification (calendar/interval/location trigger, or none) is the app's own, not a
                 // delivered push; users who want to capture those can call
                 // `capturePushNotificationOpened(response:)` themselves — it stays unfiltered.

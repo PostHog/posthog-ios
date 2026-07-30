@@ -47,7 +47,7 @@ final class PostHogPushSubscriptionHandler {
     /// Watchdog window for `pushIdentityProvider`: if the host never calls completion within this, fall
     /// back to a token-less send so a misbehaving provider can't wedge sending for the whole process.
     /// A slow legitimate mint on a bad network is cut off and retried token-less (the 401 refresh
-    /// re-mints). Test seam: shrunk in tests so the fallback fires quickly. Keep in parity with Android.
+    /// re-mints). Test seam: shrunk in tests so the fallback fires quickly.
     var identityTokenMintTimeout: TimeInterval = 10
 
     private let api: PostHogApi
@@ -86,12 +86,12 @@ final class PostHogPushSubscriptionHandler {
     /// Runs `config.pushIdentityProvider` off the caller's thread (which is the host's main thread on
     /// the first registration, via `didRegisterForRemoteNotificationsWithDeviceToken:`). A provider
     /// that blocks can only stall this serial queue — and the mint watchdog still fires on a separate
-    /// queue — never the host's UI. Matches Android, where minting runs on the SDK executor.
+    /// queue — never the host's UI.
     private let mintQueue = DispatchQueue(label: "com.posthog.push.identity-mint")
 
-    /// Runs the disk-backed `resendIfDistinctIdChanged` re-check off the caller's thread, matching
-    /// Android's serial executor. Only reached when the synchronous in-memory check in the
-    /// `onEventContextChanged` subscriber sees a genuine mismatch (or an unhydrated cache).
+    /// Runs the disk-backed `resendIfDistinctIdChanged` re-check off the caller's thread. Only
+    /// reached when the synchronous in-memory check in the `onEventContextChanged` subscriber sees
+    /// a genuine mismatch (or an unhydrated cache).
     private let workQueue = DispatchQueue(label: "com.posthog.push.subscription-handler")
 
     /// In-memory mirror of the persisted record's `deliveredForDistinctId`, guarded by `recordLock`.

@@ -8,8 +8,12 @@
 import Foundation
 
 #if os(iOS) || os(macOS) || os(tvOS)
-    // Vendored crash reporting is an implementation detail.
-    @_implementationOnly import PHPLCrashReporter
+    #if compiler(>=6.0)
+        internal import PHPLCrashReporter
+    #else
+        // swiftlint:disable:next duplicate_imports
+        @_implementationOnly import PHPLCrashReporter
+    #endif
 
     enum PostHogCrashReportProcessor {
         /// Process a PHPLCrashReport and convert it to PostHog $exception event properties

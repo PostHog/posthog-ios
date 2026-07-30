@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "PostHog"
-  s.version          = "3.68.3"
+  s.version          = "3.68.4"
   s.summary          = "The hassle-free way to add posthog to your iOS app."
 
   s.description      = <<-DESC
@@ -28,6 +28,7 @@ Pod::Spec.new do |s|
   # Vendored PLCrashReporter source (not available on watchOS/visionOS)
   s.libraries = 'c++'
   s.pod_target_xcconfig = {
+    'BUILD_LIBRARY_FOR_DISTRIBUTION' => 'YES',
     'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD PLCRASHREPORTER_PREFIX=PH SWIFT_PACKAGE',
     'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"',
     'SWIFT_INCLUDE_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/phlibwebp" "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/PHPLCrashReporter" "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/PostHogObjCExceptionSupport"'

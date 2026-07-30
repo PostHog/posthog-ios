@@ -92,6 +92,8 @@ let package = Package(
                 "Nimble",
                 "OHHTTPStubs",
                 .product(name: "OHHTTPStubsSwift", package: "OHHTTPStubs"),
+                // The crash-report processor tests import this directly to build a PHPLCrashReport.
+                .target(name: "PHPLCrashReporter", condition: .when(platforms: [.iOS, .macOS, .macCatalyst, .tvOS])),
             ],
             path: "PostHogTests",
             resources: [

@@ -53,7 +53,8 @@ class PostHogIntegrationInstallationTest {
         disableRemoteConfig: Bool = true,
         errorTrackingAutoCapture: Bool = false,
         enableSwizzling: Bool = true,
-        capturePushNotificationOpened: Bool = false
+        capturePushNotificationOpened: Bool = false,
+        capturePushNotificationSubscriptions: Bool = false
     ) -> PostHogSDK {
         let config = PostHogConfig(projectToken: projectToken, host: "http://localhost:9001")
         config.captureApplicationLifecycleEvents = captureApplicationLifecycleEvents
@@ -72,7 +73,7 @@ class PostHogIntegrationInstallationTest {
 
         #if os(iOS) || os(macOS)
             // Keep push integrations opt-in per test; they default to true otherwise.
-            config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationSubscriptions = capturePushNotificationSubscriptions
             config.capturePushNotificationOpened = capturePushNotificationOpened
         #endif
 
@@ -334,6 +335,42 @@ class PostHogIntegrationInstallationTest {
             let sut = getSut(projectToken: "test_project_token", enableSwizzling: false, capturePushNotificationOpened: true)
 
             #expect(sut.getPushNotificationIntegration() == nil)
+
+            sut.close()
+        }
+
+    #endif
+
+    #if os(iOS)
+        @Test("push notification subscription integration installed only once, on first instance")
+        func pushNotificationSubscriptionIntegrationInstalledOnce() async {
+            guard #available(iOS 14.0, *) else { return }
+            let first = getSut(projectToken: "test_project_token", capturePushNotificationSubscriptions: true)
+            let second = getSut(projectToken: "test_project_token", capturePushNotificationSubscriptions: true)
+
+            #expect(first.getPushNotificationSubscriptionIntegration() != nil)
+            #expect(second.getPushNotificationSubscriptionIntegration() == nil)
+
+            first.close()
+            second.close()
+        }
+
+        @Test("push notification subscription integration not installed when the flag is disabled")
+        func pushNotificationSubscriptionIntegrationNotInstalledWhenDisabled() async {
+            guard #available(iOS 14.0, *) else { return }
+            let sut = getSut(projectToken: "test_project_token", capturePushNotificationSubscriptions: false)
+
+            #expect(sut.getPushNotificationSubscriptionIntegration() == nil)
+
+            sut.close()
+        }
+
+        @Test("push notification subscription integration skipped when swizzling is disabled")
+        func pushNotificationSubscriptionIntegrationSkippedWithoutSwizzling() async {
+            guard #available(iOS 14.0, *) else { return }
+            let sut = getSut(projectToken: "test_project_token", enableSwizzling: false, capturePushNotificationSubscriptions: true)
+
+            #expect(sut.getPushNotificationSubscriptionIntegration() == nil)
 
             sut.close()
         }

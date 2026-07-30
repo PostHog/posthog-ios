@@ -426,6 +426,9 @@ class PostHogStorage {
         deleteSafely(url(forKey: .capturePerformance))
         // Drop the push token on logout so a new user doesn't inherit the previous user's subscription.
         deleteSafely(url(forKey: .pushSubscription))
+        // .pushPendingUnregister is deliberately NOT cleared here: it holds a durable "delete this
+        // subscription" intent for the identity being logged out of, and must outlive reset() so an
+        // offline/failed unregister keeps retrying on flush()/next launch (see PostHogPushSubscriptionHandler).
     }
 
     func remove(key: StorageKey) {

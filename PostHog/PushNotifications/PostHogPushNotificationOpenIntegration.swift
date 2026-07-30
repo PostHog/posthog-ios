@@ -42,7 +42,11 @@
                 // notification (calendar/interval/location trigger, or none) is the app's own, not a
                 // delivered push; users who want to capture those can call
                 // `capturePushNotificationOpened(response:)` themselves — it stays unfiltered.
-                guard response.notification.request.trigger is UNPushNotificationTrigger else {
+                // Exclude dismiss actions: a `.customDismissAction` category invokes this same delegate
+                // callback on swipe-to-dismiss, which is not the user "opening" the notification.
+                guard response.notification.request.trigger is UNPushNotificationTrigger,
+                      response.actionIdentifier != UNNotificationDismissActionIdentifier
+                else {
                     return
                 }
                 self?.postHog?.capturePushNotificationOpened(response: response)

@@ -23,6 +23,14 @@ private class FixtureImplementingCycle: NSObject {
 private class FixtureMissing: NSObject {}
 private class FixtureMissingCycle: NSObject {}
 private class FixtureMissingPostCycle: NSObject {}
+private class FixtureMissingMultiArg: NSObject {}
+
+// Declares the two-arg "original" selector so #selector can reference it, mirroring an app-delegate
+// method like `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`. FixtureMissingMultiArg
+// (a plain NSObject subclass) does NOT implement this, so it exercises the "missing" add path.
+private class FixtureMultiArgOriginalOwner: NSObject {
+    @objc dynamic func ph_test_multiArgOriginal(_: NSNumber, _: NSNumber) {}
+}
 
 private extension NSObject {
     @objc func ph_test_swizzled_fixtureCallback(_ value: NSNumber) {
@@ -33,6 +41,14 @@ private extension NSObject {
     @objc func ph_test_noop_fixtureCallback(_ value: NSNumber) {
         SwizzlerLog.invocations.append("noop:\(value)")
     }
+
+    // Mirrors the app-delegate selectors this swizzler is actually used for in production
+    // (e.g. `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`), which take two
+    // arguments and are called via `swizzleAddingIfNeeded(..., noop: nil)`.
+    @objc func ph_test_swizzled_multiArgCallback(_ value: NSNumber, _ other: NSNumber) {
+        SwizzlerLog.invocations.append("swizzled:\(value):\(other)")
+        ph_test_swizzled_multiArgCallback(value, other)
+    }
 }
 
 @Suite("Test swizzleAddingIfNeeded", .serialized)
@@ -40,6 +56,8 @@ class PostHogSwizzlerTest {
     private let originalSelector = #selector(FixtureImplementing.ph_test_fixtureCallback(_:))
     private let swizzledSelector = #selector(NSObject.ph_test_swizzled_fixtureCallback(_:))
     private let noopSelector = #selector(NSObject.ph_test_noop_fixtureCallback(_:))
+    private let multiArgOriginalSelector = #selector(FixtureMultiArgOriginalOwner.ph_test_multiArgOriginal(_:_:))
+    private let multiArgSwizzledSelector = #selector(NSObject.ph_test_swizzled_multiArgCallback(_:_:))
 
     init() {
         SwizzlerLog.invocations = []
@@ -89,6 +107,18 @@ class PostHogSwizzlerTest {
         swizzleAddingIfNeeded(on: FixtureMissingPostCycle.self, original: originalSelector, swizzled: swizzledSelector, noop: noopSelector)
         invoke(FixtureMissingPostCycle(), 5)
         #expect(SwizzlerLog.invocations == ["swizzled:5", "noop:5"])
+    }
+
+    @Test("no-noop fallback on a multi-arg selector adds an empty call-through under the real type encoding")
+    func addsEmptyCallThroughForMultiArgSelectorWithoutNoop() {
+        // No `noop:` — mirrors the production app-delegate registrations, which call this with
+        // `noop: nil` for 2-arg selectors like didRegisterForRemoteNotificationsWithDeviceToken:.
+        swizzleAddingIfNeeded(on: FixtureMissingMultiArg.self, original: multiArgOriginalSelector, swizzled: multiArgSwizzledSelector)
+
+        let target = FixtureMissingMultiArg()
+        _ = target.perform(multiArgOriginalSelector, with: NSNumber(value: 1), with: NSNumber(value: 2))
+
+        #expect(SwizzlerLog.invocations == ["swizzled:1:2"])
     }
 
     @Test("re-install after unswizzle works when the first install added the missing method")

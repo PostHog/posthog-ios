@@ -202,16 +202,16 @@ final class PostHogPushSubscriptionHandler {
     /// dropped — otherwise a logout while offline, or with an expired identity token, would leave the
     /// device associated with the logged-out user on the backend. Cleared on a 2xx or a terminal 4xx.
     func unregister(distinctId: String, deviceToken: String, appId: String) {
-        guard isAllowedProvider() else {
-            hedgeLog("Push unregister skipped: SDK is disabled or opted out.")
-            return
-        }
         guard !distinctId.isEmpty, !deviceToken.isEmpty, !appId.isEmpty else {
             hedgeLog("Push unregister skipped: missing distinct id, token, or app id.")
             return
         }
         let pending = PendingUnregister(distinctId: distinctId, deviceToken: deviceToken, appId: appId)
         writePendingUnregister(pending)
+        guard isAllowedProvider() else {
+            hedgeLog("Push unregister deferred: SDK is disabled or opted out. Will retry on flush/opt-in.")
+            return
+        }
         attemptUnregister(pending)
     }
 

@@ -639,7 +639,8 @@ let maxRetryDelay = 30.0
     /// Resets local identity, super properties, feature flag cache, and session state.
     ///
     /// Call this when a user logs out. The next captured event will use a new anonymous identity
-    /// unless `PostHogConfig.reuseAnonymousId` is enabled.
+    /// unless `PostHogConfig.reuseAnonymousId` is enabled. If a push token is registered, it is
+    /// unregistered for the logged-out identity and re-registered under the new anonymous id.
     @objc public func reset() {
         if !isEnabled() {
             return
@@ -3149,6 +3150,14 @@ let maxRetryDelay = 30.0
         #if os(iOS) || os(macOS)
             @available(iOS 14.0, macOS 11.0, *)
             func getPushNotificationIntegration() -> PostHogPushNotificationOpenIntegration? {
+                getIntegration()
+            }
+
+        #endif
+
+        #if os(iOS)
+            @available(iOS 14.0, *)
+            func getPushNotificationSubscriptionIntegration() -> PostHogPushNotificationSubscriptionIntegration? {
                 getIntegration()
             }
         #endif

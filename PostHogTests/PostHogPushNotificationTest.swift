@@ -1150,6 +1150,7 @@
             @Test("registerPushNotificationToken with an explicit appId sends a request")
             func sdkHandleDeviceTokenWithExplicitAppId() async throws {
                 let sut = getSDK()
+                defer { sut.close() }
 
                 sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
 
@@ -1158,26 +1159,48 @@
                 #expect(body["device_token"] as? String == "deadbeef01")
                 #expect(body["app_id"] as? String == "com.example.app")
                 #expect(body["platform"] as? String == "ios")
-
-                sut.close()
             }
 
             @Test("opted out: registerPushNotificationToken sends no request (vector 6)")
             func sdkRegistrationNoRequestWhenOptedOut() async throws {
                 let sut = getSDK(optOut: true)
+                defer { sut.close() }
 
                 sut.registerPushNotificationToken("deadbeef", appId: "com.example.app")
 
                 try await Task.sleep(nanoseconds: 300_000_000)
                 #expect(server.pushSubscriptionRequests.isEmpty)
+            }
 
-                sut.close()
+            @Test("unregisterPushNotificationToken fires a DELETE for a previously-registered token")
+            func sdkUnregisterFiresDelete() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+
+                sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+
+                sut.unregisterPushNotificationToken()
+
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            }
+
+            @Test("opted out: unregisterPushNotificationToken sends no request")
+            func sdkUnregisterNoRequestWhenOptedOut() async throws {
+                let sut = getSDK(optOut: true)
+                defer { sut.close() }
+
+                sut.unregisterPushNotificationToken()
+
+                try await Task.sleep(nanoseconds: 300_000_000)
+                #expect(server.pushSubscriptionRequests.isEmpty)
             }
         #endif
 
         @Test("flush retries a persisted subscription and marks it delivered")
         func sdkFlushRetriesPersistedSubscription() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             // Bundle.main.bundleIdentifier is nil under the SPM runner, so write the record directly.
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
@@ -1191,13 +1214,12 @@
             #expect(await waitFor {
                 (sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String])?["deliveredForDistinctId"] != nil
             })
-
-            sut.close()
         }
 
         @Test("opted out: flush does not retry a persisted subscription (vector 6)")
         func optedOutFlushDoesNotRetry() async throws {
             let sut = getSDK(optOut: true)
+            defer { sut.close() }
 
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
                 "deviceToken": "deadbeef",
@@ -1208,8 +1230,6 @@
 
             try await Task.sleep(nanoseconds: 300_000_000)
             #expect(server.pushSubscriptionRequests.isEmpty)
-
-            sut.close()
         }
 
         @Test("setup retries a persisted subscription from a previous launch")
@@ -1236,13 +1256,12 @@
             #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
             let body = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
             #expect(body["device_token"] as? String == "tok-from-last-launch")
-
-            sut.close()
         }
 
         @Test("reset re-registers the persisted push subscription instead of dropping it (decision 5/6)")
         func sdkResetReregistersPersistedSubscription() {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.storage?.setDictionary(forKey: .pushSubscription, contents: [
                 "deviceToken": "tok",
@@ -1258,8 +1277,6 @@
             let moved = sut.storage?.getDictionary(forKey: .pushSubscription) as? [String: String]
             #expect(moved?["deviceToken"] == "tok")
             #expect(moved?["appId"] == "com.example.test")
-
-            sut.close()
         }
 
         // MARK: - Opened capture property mapping (vectors 1, 2, 6)
@@ -1267,6 +1284,7 @@
         @Test("captures $push_notification_opened with the posthog payload flattened (vector 1)")
         func openCaptureFlattensPosthogPayload() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1283,13 +1301,12 @@
             #expect(event.properties["$notification_body"] as? String == "World")
             #expect(event.properties["$notification_campaign"] as? String == "summer")
             #expect(event.properties["$notification_message_id"] as? String == "42")
-
-            sut.close()
         }
 
         @Test("parses a JSON-string posthog payload (FCM relay path)")
         func openCaptureParsesPosthogJSONString() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1303,13 +1320,12 @@
             let event = try #require(events.first)
             #expect(event.properties["$notification_campaign"] as? String == "summer")
             #expect(event.properties["$notification_message_id"] as? String == "42")
-
-            sut.close()
         }
 
         @Test("ignores a posthog payload string that is not a JSON object")
         func openCaptureIgnoresInvalidPosthogString() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1323,13 +1339,12 @@
             let event = try #require(events.first)
             #expect(event.properties["$notification_title"] as? String == "Hello")
             #expect(event.properties.keys.filter { $0.hasPrefix("$notification_") } == ["$notification_title"])
-
-            sut.close()
         }
 
         @Test("captures only base notification props when there is no posthog payload (vector 2)")
         func openCaptureBasePropsOnly() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1346,13 +1361,12 @@
             #expect(event.properties["$notification_body"] as? String == "World")
             #expect(event.properties["$notification_action"] == nil)
             #expect(event.properties["$notification_unrelated"] == nil)
-
-            sut.close()
         }
 
         @Test("omits empty subtitle and body")
         func openCaptureOmitsEmptyFields() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1367,13 +1381,12 @@
             #expect(event.properties["$notification_title"] as? String == "Hello")
             #expect(event.properties["$notification_subtitle"] == nil)
             #expect(event.properties["$notification_body"] == nil)
-
-            sut.close()
         }
 
         @Test("omits an empty title")
         func openCaptureOmitsEmptyTitle() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "",
@@ -1387,13 +1400,12 @@
             let event = try #require(events.first)
             #expect(event.properties["$notification_title"] == nil)
             #expect(event.properties["$notification_body"] as? String == "World")
-
-            sut.close()
         }
 
         @Test("includes the action identifier when it is non-default")
         func openCaptureIncludesCustomAction() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1406,13 +1418,12 @@
             let events = getBatchedEvents(server)
             let event = try #require(events.first)
             #expect(event.properties["$notification_action"] as? String == "OPEN_URL")
-
-            sut.close()
         }
 
         @Test("all-nil arguments capture the event with no notification properties")
         func openCaptureAllNilArguments() async throws {
             let sut = getSDK()
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened()
 
@@ -1420,13 +1431,12 @@
             let event = try #require(events.first)
             #expect(event.event == "$push_notification_opened")
             #expect(event.properties.keys.filter { $0.hasPrefix("$notification_") }.isEmpty)
-
-            sut.close()
         }
 
         @Test("opted out: no $push_notification_opened event is captured (vector 6)")
         func openCaptureNoEventWhenOptedOut() async throws {
             let sut = getSDK(optOut: true)
+            defer { sut.close() }
 
             sut.capturePushNotificationOpened(
                 title: "Hello",
@@ -1438,13 +1448,12 @@
 
             try await Task.sleep(nanoseconds: 300_000_000)
             #expect(server.batchRequests.isEmpty)
-
-            sut.close()
         }
 
         @Test("manual open-capture works when swizzling is disabled")
         func openCaptureWorksWithoutSwizzling() async throws {
             let sut = getSDK(enableSwizzling: false, capturePushNotificationOpened: true)
+            defer { sut.close() }
 
             if #available(iOS 14.0, macOS 11.0, *) {
                 #expect(sut.getPushNotificationIntegration() == nil)
@@ -1462,8 +1471,6 @@
             let event = try #require(events.first)
             #expect(event.event == "$push_notification_opened")
             #expect(event.properties["$notification_title"] as? String == "Hello")
-
-            sut.close()
         }
     }
 

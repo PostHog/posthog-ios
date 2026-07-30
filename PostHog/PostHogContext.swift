@@ -45,13 +45,6 @@ class PostHogContext {
 
         properties["$app_namespace"] = getBundleIdentifier()
 
-        // Release id baked into the build by posthog-cli (Info.plist key `PostHogReleaseId`).
-        // Emitted on every event so the server resolves the release with a plain foreign-key
-        // lookup instead of matching on app version, which the upload can rename.
-        if let releaseId = infoDictionary?["PostHogReleaseId"] as? String, !releaseId.isEmpty {
-            properties["$release_id"] = releaseId
-        }
-
         properties["$device_manufacturer"] = "Apple"
         let deviceModel = platform()
         properties["$device_model"] = deviceModel

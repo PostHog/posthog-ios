@@ -93,6 +93,9 @@ jobs:
     name: Session replay masking snapshots
     needs: detect-markdown-only
     runs-on: macos-15
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
@@ -108,11 +111,34 @@ jobs:
         run: make maskSnapshots
       - name: Upload diff images on failure
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        id: diff-upload
         if: failure() && needs.detect-markdown-only.outputs.markdown_only != 'true'
         with:
           name: mask-snapshot-diffs
           path: PostHogTests/__MaskSnapshotFailures__/*.png
           if-no-files-found: ignore
+
+      # GitHub never renders artifacts on the PR page, so surface a download link there.
+      # Skipped on fork PRs: their tokens are read-only, so the comment POST would fail.
+      - name: Find existing mask-diff comment
+        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
+        id: find-mask-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: Mask snapshot diffs
+      - name: Post mask-diff artifact link
+        if: ${{ failure() && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### Mask snapshot diffs
+
+            Session replay masking goldens diverged. [Download the diff heatmaps](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.diff-upload.outputs.artifact-id }}) (actual + diff PNGs per failing case).
+          edit-mode: replace
 
   downgrade-compatibility:
     needs: detect-markdown-only

@@ -318,6 +318,32 @@ class PostHogSDKTest: QuickSpec {
             expect(events[1].event) == "event"
         }
 
+        it("forwards userProperties and userPropertiesSetOnce on a matching-id identify") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 1
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123", userProperties: ["foo": "bar"], userPropertiesSetOnce: ["baz": "qux"])
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$set"
+            expect(event.properties["$process_person_profile"] as? Bool) == true
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["foo"] as? String) == "bar"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["baz"] as? String) == "qux"
+
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 

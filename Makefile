@@ -140,8 +140,8 @@ maskSnapshots: checkMaskSnapshotRuntime
 	  -destination "platform=iOS Simulator,id=$(MASK_SNAPSHOT_UDID)" \
 	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_MASK_SNAPSHOTS' \
 	  "-only-testing:PostHogTests/PostHogMaskSnapshotTest/verifyGoldens()" 2>&1 | tee mask-snapshots.log | xcpretty
-	@grep -qE 'Test "?verifyGoldens\(\)"? passed' mask-snapshots.log || { \
-	  echo "error: verifyGoldens() did not execute (0-test run); the TEST_MASK_SNAPSHOTS gate or -only-testing selector likely broke."; \
+	@grep -qE 'Test "[^"]+" passed' mask-snapshots.log || { \
+	  echo "error: no masking snapshot test executed (0-test run); the TEST_MASK_SNAPSHOTS gate or -only-testing selector likely broke."; \
 	  exit 1; }
 
 recordMaskSnapshots: checkMaskSnapshotRuntime

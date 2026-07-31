@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.0
+
+### Minor Changes
+
+- c37aea6: Add push notification support for PostHog Workflows. The SDK now registers the device's APNs token (iOS) so Workflows can deliver push notifications, and captures a `$push_notification_opened` event when a notification is tapped. Both are on by default and can be turned off with the new `capturePushNotificationSubscriptions` and `capturePushNotificationOpened` config flags. For setups that don't use swizzling, use `registerPushNotificationToken(_:appId:)` and `capturePushNotificationOpened(response:)` to feed these manually, or `capturePushNotificationOpened(title:subtitle:body:payload:action:)` when no `UNNotificationResponse` is available. On `reset()` the token is unregistered for the logged-out user and re-registered under the new anonymous id, and `unregisterPushNotificationToken()` lets you unregister manually.
+
 - fix: `identify()` no longer leaves a user anonymous when the supplied ID already matches the persisted distinct ID (for example after a non-identified bootstrap seeded the same ID); the SDK now marks the user identified and captures a person-processed `$set` event. The identity transition is now atomic, so concurrent `identify()` calls can no longer emit duplicate person events for the same transition
 
 ## 3.68.4

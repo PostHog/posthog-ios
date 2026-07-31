@@ -94,6 +94,12 @@ final class PostHogPushSubscriptionHandler {
     /// a genuine mismatch (or an unhydrated cache).
     private let workQueue = DispatchQueue(label: "com.posthog.push.subscription-handler")
 
+    /// At most one push HTTP request (POST or DELETE) in flight at a time, in dispatch order, so a
+    /// straggler can't land at the server after a newer request and undo it (e.g. a logout DELETE
+    /// erasing the subscription a re-login just delivered). Identity-token mints happen before
+    /// enqueueing, so a slow provider never blocks this queue.
+    private let httpQueue = DispatchQueue(label: "com.posthog.push.http")
+
     /// In-memory mirror of the persisted record's `deliveredForDistinctId`, guarded by `recordLock`.
     /// Lets the `onEventContextChanged` subscriber decide "nothing to resend" synchronously with no
     /// disk I/O on the caller's (often main) thread. `nil` = not yet hydrated from disk;
@@ -255,10 +261,12 @@ final class PostHogPushSubscriptionHandler {
                 clearPendingUnregister(matching: pending)
                 return
             }
-            api.deletePushSubscription(
-                distinctId: pending.distinctId, deviceToken: pending.deviceToken, appId: pending.appId,
-                identityToken: identityToken
-            ) { [weak self] info in
+            performSerialized({ done in
+                self.api.deletePushSubscription(
+                    distinctId: pending.distinctId, deviceToken: pending.deviceToken, appId: pending.appId,
+                    identityToken: identityToken, completion: done
+                )
+            }) { [weak self] info in
                 self?.handleUnregisterResult(info, pending: pending, isRetry: isRetry)
             }
         }
@@ -450,11 +458,38 @@ final class PostHogPushSubscriptionHandler {
                 }
                 return
             }
-            api.pushSubscription(
-                distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken
-            ) { [weak self] info in
+            performSerialized({ done in
+                self.api.pushSubscription(
+                    distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken,
+                    completion: done
+                )
+            }) { [weak self] info in
                 self?.handleResult(info, deviceToken: deviceToken, appId: appId, distinctId: distinctId)
             }
+        }
+    }
+
+    /// Runs `request` on `httpQueue`, blocking the queue until its completion fires so the next push
+    /// request can't dispatch before this one finishes. The wait is a safety net over the request's
+    /// own 10s timeout: a dropped completion must not wedge every future push request behind it.
+    /// Result handlers re-enter via `httpQueue.async` (401 retries), which is safe — this block's
+    /// wait has already ended by then.
+    private func performSerialized(
+        _ request: @escaping (@escaping (PostHogUploadInfo) -> Void) -> Void,
+        completion: @escaping (PostHogUploadInfo) -> Void
+    ) {
+        httpQueue.async {
+            let done = DispatchSemaphore(value: 0)
+            let resultLock = NSLock()
+            var result = PostHogUploadInfo(statusCode: nil, error: nil)
+            request { info in
+                resultLock.withLock { result = info }
+                done.signal()
+            }
+            // On timeout the transport-error default is reported (retryable); a late real
+            // completion only signals a semaphore nobody waits on anymore.
+            _ = done.wait(timeout: .now() + 30)
+            completion(resultLock.withLock { result })
         }
     }
 

@@ -413,6 +413,44 @@
                 #expect(postBody["identity_token"] as? String == "jwt-\(anonId)")
             }
 
+            @Test("reset() during an in-flight POST defers the DELETE until the POST completes")
+            func resetDuringInFlightPostSerializesDelete() async throws {
+                server.pushSubscriptionResponseHandler = { request in
+                    let response = HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
+                    if request.httpMethod == "POST" {
+                        response.responseTime = 2.0
+                    }
+                    return response
+                }
+                defer { server.pushSubscriptionResponseHandler = nil }
+
+                let sut = getSDK(pushIdentityProvider: { distinctId, _, completion in
+                    completion("jwt-\(distinctId)")
+                })
+                defer { sut.close() }
+
+                let oldId = sut.getDistinctId()
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+
+                // The POST's response is now held for 2s. reset()'s DELETE must wait for it: if the
+                // DELETE could land at the server first, the POST would recreate the old id's
+                // subscription with the durable unregister intent already consumed.
+                sut.reset()
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                #expect(server.pushSubscriptionRequests.count == 1)
+
+                // POST(old) completes, then the DELETE dispatches, then the folded re-register
+                // POSTs the new anon id.
+                #expect(await waitFor({ self.server.pushSubscriptionRequests.count == 3 }, timeout: 10))
+                let methods = server.pushSubscriptionRequests.map(\.httpMethod)
+                #expect(methods == ["POST", "DELETE", "POST"])
+                let deleteBody = try #require(server.parseRequest(server.pushSubscriptionRequests[1]))
+                #expect(deleteBody["distinct_id"] as? String == oldId)
+                let repostBody = try #require(server.parseRequest(server.pushSubscriptionRequests[2]))
+                #expect(repostBody["distinct_id"] as? String == sut.getDistinctId())
+            }
+
             @Test("reset(): DELETE reuses the old id's cached token, re-POST mints the anon id's (vector 11)")
             func resetMintsPerLegIdentityTokens() async throws {
                 let recorder = MintRecorder()
@@ -438,9 +476,8 @@
 
                 // The DELETE leg reuses the token already cached for the delivered id (no re-mint); the
                 // re-POST leg mints a fresh token for the new anon id. The exact invocation count is not
-                // asserted: reset()'s context-change resend races the explicit DELETE/re-POST legs, so the
-                // cache hit for the DELETE leg is timing-dependent (unlike Android, where the single
-                // executor serializes both legs).
+                // asserted: reset()'s context-change resend races the explicit DELETE/re-POST legs, so
+                // which leg mints first is timing-dependent.
                 let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
                 let delBody = try #require(server.parseRequest(del))
                 #expect(delBody["distinct_id"] as? String == "user-A")

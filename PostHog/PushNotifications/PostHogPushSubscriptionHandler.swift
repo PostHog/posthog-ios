@@ -261,12 +261,12 @@ final class PostHogPushSubscriptionHandler {
                 clearPendingUnregister(matching: pending)
                 return
             }
-            performSerialized({ done in
+            performSerialized { done in
                 self.api.deletePushSubscription(
                     distinctId: pending.distinctId, deviceToken: pending.deviceToken, appId: pending.appId,
                     identityToken: identityToken, completion: done
                 )
-            }) { [weak self] info in
+            } completion: { [weak self] info in
                 self?.handleUnregisterResult(info, pending: pending, isRetry: isRetry)
             }
         }
@@ -458,12 +458,12 @@ final class PostHogPushSubscriptionHandler {
                 }
                 return
             }
-            performSerialized({ done in
+            performSerialized { done in
                 self.api.pushSubscription(
                     distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken,
                     completion: done
                 )
-            }) { [weak self] info in
+            } completion: { [weak self] info in
                 self?.handleResult(info, deviceToken: deviceToken, appId: appId, distinctId: distinctId)
             }
         }

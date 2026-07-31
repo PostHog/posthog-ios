@@ -445,9 +445,8 @@ final class PostHogPushSubscriptionHandler {
                     self.pendingResend = false
                     return pending
                 }
-                if hadPendingResend, let record = loadRecord() {
-                    resetRetryState()
-                    attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
+                if hadPendingResend {
+                    servicePendingResend()
                 }
                 return
             }
@@ -542,23 +541,27 @@ final class PostHogPushSubscriptionHandler {
             handleFailure(info, deviceToken: deviceToken, appId: appId)
         }
 
-        // A newer registration or identity change arrived while this send was in flight. Service it with
-        // fresh retry state so the latest token isn't stranded behind this send's backoff or halt —
-        // unless a retry (e.g. the 401 fresh-token retry `handleFailure` just started) is already in
-        // flight for this cycle: reset would clear that retry's per-cycle `didAuthRetry` cap out from
-        // under it, so fold into it instead and let its completion service the latest record here.
         if hadPendingResend {
-            let deferredToInFlight = stateLock.withLock { () -> Bool in
-                if isSending {
-                    pendingResend = true
-                    return true
-                }
-                return false
+            servicePendingResend()
+        }
+    }
+
+    /// Services a registration or identity change that folded into `pendingResend` while a send
+    /// cycle was in flight, with fresh retry state so the latest token isn't stranded behind that
+    /// cycle's backoff or halt. If a newer send already reclaimed `isSending` (e.g. the 401
+    /// fresh-token retry `handleFailure` starts), folds back into it instead: resetting retry
+    /// state here would clear that cycle's `didAuthRetry` cap out from under it.
+    private func servicePendingResend() {
+        let deferredToInFlight = stateLock.withLock { () -> Bool in
+            if isSending {
+                pendingResend = true
+                return true
             }
-            if !deferredToInFlight, let record = loadRecord() {
-                resetRetryState()
-                attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
-            }
+            return false
+        }
+        if !deferredToInFlight, let record = loadRecord() {
+            resetRetryState()
+            attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
         }
     }
 

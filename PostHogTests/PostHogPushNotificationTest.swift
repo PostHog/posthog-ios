@@ -349,6 +349,70 @@
                 #expect(!server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" })
             }
 
+            @Test("reset() during an in-flight identity mint re-registers the new anon id without waiting for a flush")
+            func resetDuringMintServicesPendingResend() async throws {
+                /// Parks the first mint completion so reset() can land mid-mint; later mints
+                /// (the DELETE leg's re-mint for the old id, the new anon id's) complete inline.
+                final class ParkedMint: @unchecked Sendable {
+                    private let lock = NSLock()
+                    private var parked: ((String?) -> Void)?
+                    private var didPark = false
+
+                    func parkFirst(_ completion: @escaping (String?) -> Void) -> Bool {
+                        lock.withLock {
+                            guard !didPark else { return false }
+                            didPark = true
+                            parked = completion
+                            return true
+                        }
+                    }
+
+                    func release(_ token: String?) {
+                        let completion = lock.withLock { () -> ((String?) -> Void)? in
+                            let c = parked
+                            parked = nil
+                            return c
+                        }
+                        completion?(token)
+                    }
+
+                    var isParked: Bool { lock.withLock { parked != nil } }
+                }
+
+                let mint = ParkedMint()
+                let sut = getSDK(pushIdentityProvider: { distinctId, _, completion in
+                    if mint.parkFirst(completion) {
+                        return
+                    }
+                    completion("jwt-\(distinctId)")
+                })
+                defer { sut.close() }
+
+                // No identify: default reset() already moves anon-1 -> anon-2, which is all the
+                // stale-identity guard needs — and capturing no events keeps the shared disk
+                // queue empty so nothing leaks into later tests' batches.
+                let oldId = sut.getDistinctId()
+                sut.registerPushNotificationToken("tokA", appId: "com.example.app")
+                #expect(await waitFor { mint.isParked })
+                #expect(server.pushSubscriptionRequests.isEmpty)
+
+                sut.reset()
+                let anonId = sut.getDistinctId()
+                #expect(anonId != oldId)
+
+                // The old id's mint completes only now, after reset already folded its
+                // re-register into pendingResend. The stale-identity guard must service it.
+                mint.release("jwt-\(oldId)")
+
+                #expect(await waitFor {
+                    self.server.pushSubscriptionRequests.contains { $0.httpMethod == "POST" }
+                })
+                let post = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "POST" })
+                let postBody = try #require(server.parseRequest(post))
+                #expect(postBody["distinct_id"] as? String == anonId)
+                #expect(postBody["identity_token"] as? String == "jwt-\(anonId)")
+            }
+
             @Test("reset(): DELETE reuses the old id's cached token, re-POST mints the anon id's (vector 11)")
             func resetMintsPerLegIdentityTokens() async throws {
                 let recorder = MintRecorder()

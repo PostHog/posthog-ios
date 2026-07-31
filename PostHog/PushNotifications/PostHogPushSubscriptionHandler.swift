@@ -434,12 +434,20 @@ final class PostHogPushSubscriptionHandler {
             }
             // The identity may have changed while the mint was in flight (identify/reset racing a
             // slow provider): sending under the stale distinctId would register the token to the
-            // wrong person. Skip — the identify/reset-driven resend already covers the new identity.
+            // wrong person. Skip this send, but service any registration that folded into
+            // `pendingResend` during the mint (e.g. reset's re-register) — dropping it would leave
+            // the new identity unregistered until `retryIfNeeded` heals it on the next flush/launch.
             guard self.distinctIdProvider() == distinctId else {
                 hedgeLog("Push subscription skipped: distinct id changed while minting the identity token.")
-                stateLock.withLock {
+                let hadPendingResend = stateLock.withLock { () -> Bool in
                     self.isSending = false
+                    let pending = self.pendingResend
                     self.pendingResend = false
+                    return pending
+                }
+                if hadPendingResend, let record = loadRecord() {
+                    resetRetryState()
+                    attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
                 }
                 return
             }

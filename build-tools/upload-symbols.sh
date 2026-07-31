@@ -12,6 +12,7 @@
 #   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   No release bind: POSTHOG_NO_RELEASE_BIND=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File

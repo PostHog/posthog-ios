@@ -23,6 +23,12 @@
             PostHogAppLifeCycleIntegration.clearInstalls()
             PostHogScreenViewIntegration.clearInstalls()
 
+            // Swift Testing suites don't get TestPollingConfiguration's Quick-only beforeEach, so
+            // wipe persisted state here: a prior test's unsent event (e.g. an $identify still in
+            // the disk queue when close() raced its flush) would otherwise leak into this test's
+            // first batch via the shared project-token queue folder.
+            deleteSafely(applicationSupportDirectoryURL())
+
             server = MockPostHogServer()
             server.start()
         }

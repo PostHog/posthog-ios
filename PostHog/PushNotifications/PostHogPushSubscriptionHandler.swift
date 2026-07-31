@@ -517,7 +517,8 @@ final class PostHogPushSubscriptionHandler {
         var completed = false
         // A provider that never calls its completion would hold isSending for the whole process and
         // wedge every later send. Bound the wait: if the mint doesn't land in time, fall back to a
-        // token-less send. A late real completion is a no-op via `completed`.
+        // token-less send. A late real completion doesn't deliver (via `completed`) but still
+        // caches its token so the next attempt skips the mint.
         let timeout = identityTokenMintTimeout
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
             guard let self else { return }
@@ -538,17 +539,18 @@ final class PostHogPushSubscriptionHandler {
             provider(distinctId, appId) { [weak self] token in
                 guard let self else { return }
                 let isFirst = self.stateLock.withLock { () -> Bool in
+                    // Cache regardless of who wins the race: a provider persistently slower than
+                    // the watchdog would otherwise never populate the cache and re-mint on every
+                    // future attempt. Guarded by the same lock onOptOut() uses to clear the cache,
+                    // so a concurrent opt-out can't leave a stale token cached (isAllowedProvider()
+                    // is already false here if opt-out won).
+                    if let token, self.isAllowedProvider() {
+                        self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
+                    }
                     if completed {
                         return false
                     }
                     completed = true
-                    // Sample opt-out under the same lock onOptOut() clears the cache with, so an opt-out
-                    // can't land between the check and the write and leave a stale token cached. If opt-out
-                    // wins, isAllowedProvider() is false here and nothing is cached; if we win, onOptOut()
-                    // clears our write right after we release the lock.
-                    if let token, self.isAllowedProvider() {
-                        self.cachedIdentityToken = CachedIdentityToken(token: token, distinctId: distinctId, appId: appId)
-                    }
                     return true
                 }
                 guard isFirst else { return }

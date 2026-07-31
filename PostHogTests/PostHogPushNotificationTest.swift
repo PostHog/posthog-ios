@@ -51,6 +51,35 @@
             var distinctIds: [String] { lock.withLock { invocations.map(\.distinctId) } }
         }
 
+        /// Parks the first mint completion so the test controls when (and whether) it lands —
+        /// e.g. after a reset, or after the watchdog has already claimed the send. Later mints
+        /// pass through (`parkFirst` returns false) so the caller can complete them inline.
+        private final class ParkedMint: @unchecked Sendable {
+            private let lock = NSLock()
+            private var parked: ((String?) -> Void)?
+            private var didPark = false
+
+            func parkFirst(_ completion: @escaping (String?) -> Void) -> Bool {
+                lock.withLock {
+                    guard !didPark else { return false }
+                    didPark = true
+                    parked = completion
+                    return true
+                }
+            }
+
+            func release(_ token: String?) {
+                let completion = lock.withLock { () -> ((String?) -> Void)? in
+                    let c = parked
+                    parked = nil
+                    return c
+                }
+                completion?(token)
+            }
+
+            var isParked: Bool { lock.withLock { parked != nil } }
+        }
+
         private func waitFor(_ condition: @escaping () -> Bool, timeout: TimeInterval = 5) async -> Bool {
             let deadline = Date().addingTimeInterval(timeout)
             while Date() < deadline {
@@ -351,34 +380,6 @@
 
             @Test("reset() during an in-flight identity mint re-registers the new anon id without waiting for a flush")
             func resetDuringMintServicesPendingResend() async throws {
-                /// Parks the first mint completion so reset() can land mid-mint; later mints
-                /// (the DELETE leg's re-mint for the old id, the new anon id's) complete inline.
-                final class ParkedMint: @unchecked Sendable {
-                    private let lock = NSLock()
-                    private var parked: ((String?) -> Void)?
-                    private var didPark = false
-
-                    func parkFirst(_ completion: @escaping (String?) -> Void) -> Bool {
-                        lock.withLock {
-                            guard !didPark else { return false }
-                            didPark = true
-                            parked = completion
-                            return true
-                        }
-                    }
-
-                    func release(_ token: String?) {
-                        let completion = lock.withLock { () -> ((String?) -> Void)? in
-                            let c = parked
-                            parked = nil
-                            return c
-                        }
-                        completion?(token)
-                    }
-
-                    var isParked: Bool { lock.withLock { parked != nil } }
-                }
-
                 let mint = ParkedMint()
                 let sut = getSDK(pushIdentityProvider: { distinctId, _, completion in
                     if mint.parkFirst(completion) {
@@ -899,6 +900,34 @@
             #expect(await waitFor { self.server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count == 2 })
             let secondPost = server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }[1]
             #expect(try #require(server.parseRequest(secondPost))["device_token"] as? String == "tok-2")
+        }
+
+        @Test("a mint completing after the watchdog still caches its token for the next send")
+        func lateMintTokenIsCachedForNextSend() async throws {
+            let (handler, storage, config) = makeHandler()
+            handler.identityTokenMintTimeout = 0.05
+            let mint = ParkedMint()
+            let mints = MintRecorder()
+            config.pushIdentityProvider = { distinctId, appId, completion in
+                _ = mints.record(distinctId, appId)
+                if mint.parkFirst(completion) { return }
+                completion("jwt-fresh")
+            }
+
+            handler.send(deviceToken: "tok-1", appId: "app")
+            #expect(await waitFor { self.delivered(storage) })
+            let first = try #require(server.parseRequest(server.pushSubscriptionRequests[0]))
+            #expect(!first.keys.contains("identity_token"))
+
+            // The watchdog already claimed the send (token-less POST above); the provider's
+            // genuine token lands only now, and must still be cached.
+            mint.release("jwt-late")
+
+            handler.send(deviceToken: "tok-2", appId: "app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.count == 2 })
+            let second = try #require(server.parseRequest(server.pushSubscriptionRequests[1]))
+            #expect(second["identity_token"] as? String == "jwt-late")
+            #expect(mints.count == 1)
         }
 
         @Test("only the first provider completion is honored")

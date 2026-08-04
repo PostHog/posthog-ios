@@ -28,7 +28,7 @@
 #                              created; the server resolves it from the `$app_version` /
 #                              `$app_namespace` / `$app_build` the SDK sends on every event, so the
 #                              uploaded chunks stay content-addressed and release-independent.
-#                              Requires a posthog-cli that supports `dsym upload --no-release-bind`.
+#                              Requires posthog-cli >= 0.10.0.
 #
 
 # Skip non-Release builds.
@@ -92,6 +92,9 @@ fi
 MIN_POSTHOG_CLI_VERSION="0.7.7"
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
+fi
+if [ "${POSTHOG_NO_RELEASE_BIND}" = "1" ]; then
+    MIN_POSTHOG_CLI_VERSION="0.10.0"
 fi
 PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
 

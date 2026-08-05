@@ -50,10 +50,10 @@ buildExamplePodsStaticFramework:
 		-scheme PostHogExampleWithPods \
 		-destination generic/platform=ios | xcpretty
 
-buildExamplePodsStaticLib: 
+buildExamplePodsStaticLib:
 	cd PostHogExampleWithPods && \
 	pod install && cd .. && \
-	set -o pipefail && xcrun xcodebuild clean build \
+	set -o pipefail && xcrun xcodebuild clean archive \
 		-workspace PostHogExampleWithPods/PostHogExampleWithPods.xcworkspace \
 		-scheme PostHogExampleWithPods \
 		-destination generic/platform=ios | xcpretty

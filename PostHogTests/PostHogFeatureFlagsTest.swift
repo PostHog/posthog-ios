@@ -1519,6 +1519,61 @@ enum PostHogFeatureFlagsTest {
             #expect(server.flagsRequests.count == 2, "Expected the two later reloads to coalesce into one request")
         }
 
+        @Test("overlapping property updates resolve against their own request context")
+        func overlappingPropertyUpdatesKeepRequestContext() async {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableRemoteConfigForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.sendFeatureFlagEvent = false
+
+            server.flagsResponseDelay = 0.1
+            server.flagsResponseHandler = { request in
+                var override: String?
+                if let data = request.body(),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let personProperties = json["person_properties"] as? [String: Any]
+                {
+                    override = personProperties["app_version_semver"] as? String
+                }
+
+                let body: [String: Any] = [
+                    "featureFlags": ["override-flag": override ?? "missing"],
+                    "featureFlagPayloads": [String: Any](),
+                    "errorsWhileComputingFlags": false,
+                ]
+                return HTTPStubsResponse(jsonObject: body, statusCode: 200, headers: nil)
+            }
+
+            let sut = track(PostHogSDK.with(config))
+            let observedValues = AsyncStream<String> { continuation in
+                sut.reloadFeatureFlags()
+                sut.setPersonPropertiesForFlags(["app_version_semver": "second"], reloadFeatureFlags: false) {}
+                // Queue a generic reload, then attach an exact-context completion to the same snapshot.
+                sut.reloadFeatureFlags()
+                sut.setPersonPropertiesForFlags(["app_version_semver": "second"]) {
+                    continuation.yield(sut.getFeatureFlag("override-flag") as? String ?? "missing")
+                }
+                // A later snapshot must not displace the exact-context callback above.
+                sut.setPersonPropertiesForFlags(["app_version_semver": "third"]) {
+                    continuation.yield(sut.getFeatureFlag("override-flag") as? String ?? "missing")
+                    continuation.finish()
+                }
+            }
+
+            var values: [String] = []
+            for await value in observedValues {
+                values.append(value)
+            }
+
+            #expect(values == ["second", "third"])
+            #expect(server.flagsRequests.count == 3, "Expected distinct evaluation contexts to remain ordered")
+        }
+
         @Test("setup -> set properties -> identify -> reload reads flags evaluated with the overrides")
         func startupSequenceReadsFlagsWithOverrides() async {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")

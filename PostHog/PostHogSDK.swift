@@ -1822,14 +1822,14 @@ let maxRetryDelay = 30.0
             completion()
             return
         }
-        remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
+        let personProperties = remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
 
-        guard reloadFeatureFlags, let remoteConfig else {
+        guard reloadFeatureFlags, let remoteConfig, let personProperties else {
             completion()
             return
         }
 
-        remoteConfig.reloadFeatureFlags { _ in
+        remoteConfig.reloadFeatureFlags(personProperties: personProperties) { _ in
             completion()
         }
     }

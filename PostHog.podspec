@@ -31,8 +31,10 @@ Pod::Spec.new do |s|
     'BUILD_LIBRARY_FOR_DISTRIBUTION' => 'YES',
     'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) PLCR_PRIVATE PLCF_RELEASE_BUILD PLCRASHREPORTER_PREFIX=PH SWIFT_PACKAGE',
     # Static-library source pods cannot resolve the underlying Objective-C module
-    # while verifying the emitted Swift interface.
+    # while verifying the emitted Swift interface. Xcode 16.2 still schedules
+    # verification when the build setting is NO, so pass the compiler flag as well.
     'SWIFT_VERIFY_EMITTED_MODULE_INTERFACE' => 'NO',
+    'OTHER_SWIFT_FLAGS' => '$(inherited) -no-verify-emitted-module-interface',
     'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/vendor/PHPLCrashReporter/Source"',
     'SWIFT_INCLUDE_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/phlibwebp" "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/PHPLCrashReporter" "${PODS_TARGET_SRCROOT}/PostHog/PrivateModules/PostHogObjCExceptionSupport"'
   }

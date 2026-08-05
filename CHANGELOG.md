@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.1
+
+### Patch Changes
+
+- 9a7f442: Fix CocoaPods static-library archives by skipping emitted module interface verification for source pod builds.
+
 ## 3.69.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.2
+
+### Patch Changes
+
+- 6623953: Fix CocoaPods static-library builds on older Xcode versions by disabling emitted module interface verification with the Swift compiler flag.
+
 ## 3.69.1
 
 ### Patch Changes

@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */; };
 		B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */; };
+		D0E500012FA0000100000002 /* PostHogEventSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */; };
+		D0E500012FA0000100000021 /* event-shapes-batch.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000011 /* event-shapes-batch.json */; };
+		D0E500012FA0000100000022 /* feature-flags-request.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000012 /* feature-flags-request.json */; };
+		D0E500012FA0000100000023 /* session-replay-request.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000013 /* session-replay-request.json */; };
 		0799FC592DA8A0837BC771E3 /* PLCrashAsyncDwarfEncoding.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E8E1E01C22EB902B360AE5A3 /* PLCrashAsyncDwarfEncoding.cpp */; };
 		081C4D5910919F0E5872CAC2 /* PostHogBootstrapConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51CBE5E053785289B0CCA4ED /* PostHogBootstrapConfig.swift */; };
 		08CF51A212DF4E6ABF3DDA77 /* PLCrashMachExceptionPort.m in Sources */ = {isa = PBXBuildFile; fileRef = 0D784BEF45D7E472FBE56B84 /* PLCrashMachExceptionPort.m */; };
@@ -770,6 +774,10 @@
 		B74800000000000000000004 /* PostHogTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		B74800000000000000000005 /* PHNotificationDelegateTestFixture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHNotificationDelegateTestFixture.h; sourceTree = "<group>"; };
 		B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHNotificationDelegateTestFixture.m; sourceTree = "<group>"; };
+		D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEventSnapshotTests.swift; sourceTree = "<group>"; };
+		D0E500012FA0000100000011 /* event-shapes-batch.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "event-shapes-batch.json"; sourceTree = "<group>"; };
+		D0E500012FA0000100000012 /* feature-flags-request.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "feature-flags-request.json"; sourceTree = "<group>"; };
+		D0E500012FA0000100000013 /* session-replay-request.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "session-replay-request.json"; sourceTree = "<group>"; };
 		001A4831298758176E2711B8 /* PLCrashLogWriter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashLogWriter.m; path = vendor/PHPLCrashReporter/Source/PLCrashLogWriter.m; sourceTree = "<group>"; };
 		00F98E7D98CC906E4BA3D582 /* PostHogReachabilityTest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogReachabilityTest.swift; sourceTree = "<group>"; };
 		045078ECC7B3488DA27D06E9 /* PostHogLogger.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogLogger.swift; sourceTree = "<group>"; };
@@ -1679,6 +1687,7 @@
 			children = (
 				B74800000000000000000004 /* PostHogTests-Bridging-Header.h */,
 				B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */,
+				D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */,
 				DA27AEC82F56B3F3002A59CE /* PostHogSamplingTest.swift */,
 				DB7100052F80000100000001 /* PostHogTracingHeadersTest.swift */,
 				DA27AEC02F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift */,
@@ -2538,6 +2547,9 @@
 		DAF95F5B2D077BCC001E82BB /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				D0E500012FA0000100000011 /* event-shapes-batch.json */,
+				D0E500012FA0000100000012 /* feature-flags-request.json */,
+				D0E500012FA0000100000013 /* session-replay-request.json */,
 				DA53DE702D3E299F00C38DCA /* fixture_remote_config.json */,
 				DAA5EE132D43605000D437E0 /* fixture_survey_basic.json */,
 				DAA5EE162D43605000D437E0 /* fixture_survey_branching_end.json */,
@@ -3030,6 +3042,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0E500012FA0000100000021 /* event-shapes-batch.json in Resources */,
+				D0E500012FA0000100000022 /* feature-flags-request.json in Resources */,
+				D0E500012FA0000100000023 /* session-replay-request.json in Resources */,
 				DA53DE762D3E29A900C38DCA /* fixture_remote_config.json in Resources */,
 				DA7185482D07E11200396388 /* input_3.png in Resources */,
 				DAA022472D78203D00197660 /* fixture_survey_url_match_type_not_regex.json in Resources */,
@@ -3442,6 +3457,7 @@
 			files = (
 				B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */,
 				B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */,
+				D0E500012FA0000100000002 /* PostHogEventSnapshotTests.swift in Sources */,
 				DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */,
 				DA0C944B2D54CDD000BFD9FB /* PostHogStorageMigrationTest.swift in Sources */,
 				690FF0F52AF0F06100A0B06B /* PostHogSDKTest.swift in Sources */,

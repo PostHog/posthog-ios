@@ -790,7 +790,7 @@
 
             @Suite("Test display controller intro screen")
             struct TestDisplayControllerIntroScreen {
-                private func displaySurvey(displayIntroScreen: Bool) -> PostHogDisplaySurvey {
+                private func displaySurvey(displayIntroScreen: Bool, introScreenHeader: String? = "Welcome!") -> PostHogDisplaySurvey {
                     PostHogDisplaySurvey(
                         id: "survey-1",
                         name: "Survey",
@@ -816,7 +816,7 @@
                             thankYouMessageDescriptionContentType: nil,
                             thankYouMessageCloseButtonText: nil,
                             displayIntroScreen: displayIntroScreen,
-                            introScreenHeader: "Welcome!"
+                            introScreenHeader: introScreenHeader
                         ),
                         startDate: nil,
                         endDate: nil
@@ -833,6 +833,14 @@
                     let other = SurveyDisplayController()
                     other.showSurvey(displaySurvey(displayIntroScreen: false))
                     #expect(other.showingIntroScreen == false)
+                }
+
+                @MainActor
+                @Test("intro screen with no copy at all is skipped")
+                func showSurveySkipsEmptyIntro() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(displayIntroScreen: true, introScreenHeader: nil))
+                    #expect(controller.showingIntroScreen == false)
                 }
 
                 @MainActor

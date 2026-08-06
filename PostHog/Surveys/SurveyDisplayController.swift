@@ -27,7 +27,11 @@
             displayedSurvey = survey
             isSurveyCompleted = false
             currentQuestionIndex = 0
-            showingIntroScreen = survey.appearance?.displayIntroScreen == true
+            // The intro has no default header, so an intro with no copy at all is skipped
+            // instead of drawing an empty sheet with a lone button.
+            let hasIntroContent = survey.appearance?.introScreenHeader?.isEmpty == false
+                || survey.appearance?.introScreenDescription?.isEmpty == false
+            showingIntroScreen = survey.appearance?.displayIntroScreen == true && hasIntroContent
             onSurveyShown?(survey)
         }
 

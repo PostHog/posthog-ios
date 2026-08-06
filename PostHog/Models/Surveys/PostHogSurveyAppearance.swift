@@ -29,6 +29,11 @@ struct PostHogSurveyAppearance: Decodable {
     let thankYouMessageDescription: String?
     let thankYouMessageDescriptionContentType: PostHogSurveyTextContentType?
     let thankYouMessageCloseButtonText: String?
+    let displayIntroScreen: Bool?
+    let introScreenHeader: String?
+    let introScreenDescription: String?
+    let introScreenDescriptionContentType: PostHogSurveyTextContentType?
+    let introScreenButtonText: String?
     let borderColor: String?
     let placeholder: String?
     let shuffleQuestions: Bool?

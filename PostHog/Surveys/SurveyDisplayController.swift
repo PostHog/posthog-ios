@@ -12,6 +12,7 @@
         @Published var displayedSurvey: PostHogDisplaySurvey?
         @Published var isSurveyCompleted: Bool = false
         @Published var currentQuestionIndex: Int = 0
+        @Published var showingIntroScreen: Bool = false
 
         var onSurveyShown: OnPostHogSurveyShown?
         var onSurveyResponse: OnPostHogSurveyResponse?
@@ -26,6 +27,7 @@
             displayedSurvey = survey
             isSurveyCompleted = false
             currentQuestionIndex = 0
+            showingIntroScreen = survey.appearance?.displayIntroScreen == true
             onSurveyShown?(survey)
         }
 
@@ -44,6 +46,12 @@
             }
 
             self.displayedSurvey = survey
+        }
+
+        /// Advances past the intro screen to the first question. This is a pure UI transition:
+        /// no response is recorded and no survey event is sent.
+        func dismissIntroScreen() {
+            showingIntroScreen = false
         }
 
         func onNextQuestion(index: Int, response: PostHogSurveyResponse) {

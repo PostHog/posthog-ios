@@ -19,6 +19,15 @@
 
     // MARK: - Publisher
 
+    private final class OriginalDelegateIMP {
+        let lock = NSLock()
+        var value: IMP?
+
+        init(_ value: IMP?) {
+            self.value = value
+        }
+    }
+
     /// Owns all push-notification swizzling and publishes events to subscribers.
     ///
     /// Swizzles are installed when the first subscriber attaches and removed when the last one detaches,
@@ -64,33 +73,98 @@
 
         private static let delegateSetterOriginal = #selector(setter: UNUserNotificationCenter.delegate)
         private static let delegateSetterSwizzled = #selector(UNUserNotificationCenter.ph_swizzled_setDelegate(_:))
+        private static let didReceiveResponseSelector = #selector(
+            UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)
+        )
 
         private func swizzleNotificationCenterDelegateSetter() {
             swizzle(forClass: UNUserNotificationCenter.self, original: Self.delegateSetterOriginal, new: Self.delegateSetterSwizzled)
         }
 
         private func unswizzleNotificationCenterDelegateSetter() {
-            // Calling swizzle() again reverses the exchange. `swizzledDelegateClasses` is deliberately
-            // NOT cleared: the per-class `didReceive` swaps stay in place for the process lifetime
-            // (invoking an empty multicast is a no-op), and clearing the set would make a re-install
-            // exchange the implementations a second time — swapping our handler back OUT.
+            // Calling swizzle() again reverses the setter exchange. `swizzledDelegateClasses` is
+            // deliberately NOT cleared: the per-class `didReceive` replacements stay in place for the
+            // process lifetime (invoking an empty multicast is a no-op), and clearing the set would wrap
+            // an already-replaced method on re-install.
             swizzle(forClass: UNUserNotificationCenter.self, original: Self.delegateSetterOriginal, new: Self.delegateSetterSwizzled)
         }
 
         func swizzleNotificationDelegateMethods(on delegateClass: AnyClass) {
-            let classId = ObjectIdentifier(delegateClass)
-            let alreadySwizzled = delegateClassesLock.withLock {
-                !swizzledDelegateClasses.insert(classId).inserted
+            delegateClassesLock.withLock {
+                let classId = ObjectIdentifier(delegateClass)
+                guard !swizzledDelegateClasses.contains(classId) else { return }
+
+                let selector = Self.didReceiveResponseSelector
+                let originalMethod = class_getInstanceMethod(delegateClass, selector)
+                let originalImplementation = originalMethod.map(method_getImplementation)
+                let ownsMethod = originalMethod != class_getSuperclass(delegateClass).flatMap {
+                    class_getInstanceMethod($0, selector)
+                }
+                if !ownsMethod {
+                    var superclass: AnyClass? = class_getSuperclass(delegateClass)
+                    while let current = superclass {
+                        if swizzledDelegateClasses.contains(ObjectIdentifier(current)) {
+                            swizzledDelegateClasses.insert(classId)
+                            return
+                        }
+                        superclass = class_getSuperclass(current)
+                    }
+                }
+
+                let typeEncoding: UnsafePointer<CChar>?
+                if let originalMethod {
+                    typeEncoding = method_getTypeEncoding(originalMethod)
+                } else {
+                    guard let delegateProtocol = objc_getProtocol("UNUserNotificationCenterDelegate") else {
+                        hedgeLog("Push notification publisher: UNUserNotificationCenterDelegate protocol not found")
+                        return
+                    }
+                    typeEncoding = protocol_getMethodDescription(delegateProtocol, selector, false, true).types.map {
+                        UnsafePointer<CChar>($0)
+                    }
+                }
+                guard let typeEncoding else {
+                    hedgeLog("Push notification publisher: type encoding not found for \(selector)")
+                    return
+                }
+
+                typealias CompletionHandler = @convention(block) () -> Void
+                typealias OriginalImplementation = @convention(c) (
+                    AnyObject,
+                    Selector,
+                    UNUserNotificationCenter,
+                    UNNotificationResponse,
+                    CompletionHandler
+                ) -> Void
+                typealias ReplacementBlock = @convention(block) (
+                    AnyObject,
+                    UNUserNotificationCenter,
+                    UNNotificationResponse,
+                    CompletionHandler
+                ) -> Void
+
+                let implementationHolder = OriginalDelegateIMP(originalImplementation)
+                let replacement: ReplacementBlock = { delegate, center, response, completionHandler in
+                    DI.main.pushNotificationPublisher.onNotificationResponse.invoke(response)
+                    guard let originalImplementation = implementationHolder.lock.withLock({ implementationHolder.value }) else {
+                        completionHandler()
+                        return
+                    }
+                    // Call the captured IMP with its original selector. Aliasing it under a synthetic
+                    // selector breaks call-through for some Objective-C delegates (see #748).
+                    let callOriginal = unsafeBitCast(originalImplementation, to: OriginalImplementation.self)
+                    callOriginal(delegate, selector, center, response, completionHandler)
+                }
+                let replacementImplementation = imp_implementationWithBlock(replacement)
+
+                // Keep replacement invocations from observing the pre-replacement fallback while the
+                // runtime atomically returns a newer direct implementation installed by another swizzler.
+                implementationHolder.lock.lock()
+                let replacedImplementation = class_replaceMethod(delegateClass, selector, replacementImplementation, typeEncoding)
+                implementationHolder.value = replacedImplementation ?? originalImplementation
+                implementationHolder.lock.unlock()
+                swizzledDelegateClasses.insert(classId)
             }
-            if alreadySwizzled {
-                return
-            }
-            swizzleAddingIfNeeded(
-                on: delegateClass,
-                original: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)),
-                swizzled: #selector(NSObject.ph_swizzled_userNotificationCenter(_:didReceive:withCompletionHandler:)),
-                noop: #selector(NSObject.ph_noop_userNotificationCenter(_:didReceive:withCompletionHandler:))
-            )
         }
 
         // MARK: - App Delegate Swizzling
@@ -186,25 +260,6 @@
     // MARK: - NSObject Swizzled Methods
 
     extension NSObject {
-        @objc func ph_swizzled_userNotificationCenter(
-            _ center: UNUserNotificationCenter,
-            didReceive response: UNNotificationResponse,
-            withCompletionHandler completionHandler: @escaping () -> Void
-        ) {
-            DI.main.pushNotificationPublisher.onNotificationResponse.invoke(response)
-            ph_swizzled_userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
-        }
-
-        /// Call-through target when the host delegate never implemented `didReceive`: the system still
-        /// expects its completion handler to be invoked.
-        @objc func ph_noop_userNotificationCenter(
-            _: UNUserNotificationCenter,
-            didReceive _: UNNotificationResponse,
-            withCompletionHandler completionHandler: @escaping () -> Void
-        ) {
-            completionHandler()
-        }
-
         #if os(iOS)
             @objc func ph_swizzled_application(
                 _ application: UIApplication,
@@ -249,8 +304,8 @@
 
     #if TESTING
         extension PushNotificationPublisher {
-            /// Test isolation only — safe because the bundle guard in the integrations means no
-            /// swizzle is ever actually installed under a test runner.
+            /// Test isolation only. Production delegate swizzles are skipped by the integrations'
+            /// bundle guard; swizzling tests use process-unique Objective-C fixture classes.
             static func reset() {
                 shared.swizzledAppDelegateClass = nil
                 shared.delegateClassesLock.withLock {

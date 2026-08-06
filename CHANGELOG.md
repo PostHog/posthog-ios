@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.3
+
+### Patch Changes
+
+- 057f4d6: Fix push notification open forwarding for Objective-C delegates.
+
 ## 3.69.2
 
 ### Patch Changes

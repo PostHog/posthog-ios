@@ -43,6 +43,8 @@
         private func surveyContent(for survey: PostHogDisplaySurvey) -> some View {
             if displayManager.isSurveyCompleted, appearance.displayThankYouMessage {
                 ConfirmationMessage(onClose: displayManager.dismissSurvey)
+            } else if displayManager.showingIntroScreen {
+                IntroMessage(onStart: displayManager.dismissIntroScreen)
             } else if let currentQuestion = currentQuestion(in: survey) {
                 switch currentQuestion {
                 case let currentQuestion as PostHogDisplayOpenQuestion:
@@ -185,6 +187,11 @@
         var thankYouMessageDescription: String?
         var thankYouMessageDescriptionContentType: PostHogDisplaySurveyTextContentType = .text
         var thankYouMessageCloseButtonText: String
+        var displayIntroScreen: Bool = false
+        var introScreenHeader: String = ""
+        var introScreenDescription: String?
+        var introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType = .text
+        var introScreenButtonText: String = "Get started"
         var borderColor: Color
         var placeholder: String?
     }
@@ -219,8 +226,14 @@
                 inputTextColor: colorFrom(css: appearance?.inputTextColor),
                 displayThankYouMessage: appearance?.displayThankYouMessage ?? true,
                 thankYouMessageHeader: appearance?.thankYouMessageHeader ?? "Thank you for your feedback!",
+                thankYouMessageDescription: appearance?.thankYouMessageDescription,
                 thankYouMessageDescriptionContentType: appearance?.thankYouMessageDescriptionContentType ?? .text,
                 thankYouMessageCloseButtonText: appearance?.thankYouMessageCloseButtonText ?? "Close",
+                displayIntroScreen: appearance?.displayIntroScreen ?? false,
+                introScreenHeader: appearance?.introScreenHeader ?? "",
+                introScreenDescription: appearance?.introScreenDescription,
+                introScreenDescriptionContentType: appearance?.introScreenDescriptionContentType ?? .text,
+                introScreenButtonText: appearance?.introScreenButtonText ?? "Get started",
                 borderColor: colorFrom(css: appearance?.borderColor, defaultColor: .systemFill)
             )
         }

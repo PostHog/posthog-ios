@@ -61,6 +61,18 @@ import Foundation
     /// Optional text for the close button in the thank you message
     public let thankYouMessageCloseButtonText: String?
 
+    // Intro screen
+    /// Whether to show an intro screen before the first question
+    public let displayIntroScreen: Bool
+    /// Optional header text for the intro screen
+    public let introScreenHeader: String?
+    /// Optional description text for the intro screen
+    public let introScreenDescription: String?
+    /// Optional content type for the intro screen description
+    public let introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType?
+    /// Optional text for the button that advances past the intro screen
+    public let introScreenButtonText: String?
+
     init(
         fontFamily: String?,
         backgroundColor: String?,
@@ -80,7 +92,12 @@ import Foundation
         thankYouMessageHeader: String?,
         thankYouMessageDescription: String?,
         thankYouMessageDescriptionContentType: PostHogDisplaySurveyTextContentType?,
-        thankYouMessageCloseButtonText: String?
+        thankYouMessageCloseButtonText: String?,
+        displayIntroScreen: Bool = false,
+        introScreenHeader: String? = nil,
+        introScreenDescription: String? = nil,
+        introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? = nil,
+        introScreenButtonText: String? = nil
     ) {
         self.fontFamily = fontFamily
         self.backgroundColor = backgroundColor
@@ -101,6 +118,11 @@ import Foundation
         self.thankYouMessageDescription = thankYouMessageDescription
         self.thankYouMessageDescriptionContentType = thankYouMessageDescriptionContentType
         self.thankYouMessageCloseButtonText = thankYouMessageCloseButtonText
+        self.displayIntroScreen = displayIntroScreen
+        self.introScreenHeader = introScreenHeader
+        self.introScreenDescription = introScreenDescription
+        self.introScreenDescriptionContentType = introScreenDescriptionContentType
+        self.introScreenButtonText = introScreenButtonText
         super.init()
     }
 }

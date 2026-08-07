@@ -1853,7 +1853,14 @@ enum PostHogSurveysTest {
 
     @Suite("Test survey to display model mapping")
     struct TestSurveyToDisplayMapping {
-        private func makeAppearance(delay: TimeInterval?) -> PostHogSurveyAppearance {
+        private func makeAppearance(
+            delay: TimeInterval?,
+            displayIntroScreen: Bool? = nil,
+            introScreenHeader: String? = nil,
+            introScreenDescription: String? = nil,
+            introScreenDescriptionContentType: PostHogSurveyTextContentType? = nil,
+            introScreenButtonText: String? = nil
+        ) -> PostHogSurveyAppearance {
             PostHogSurveyAppearance(
                 position: nil, fontFamily: nil, backgroundColor: nil,
                 submitButtonColor: nil, submitButtonText: nil, submitButtonTextColor: nil,
@@ -1863,7 +1870,13 @@ enum PostHogSurveysTest {
                 autoDisappear: nil, displayThankYouMessage: nil,
                 thankYouMessageHeader: nil, thankYouMessageDescription: nil,
                 thankYouMessageDescriptionContentType: nil,
-                thankYouMessageCloseButtonText: nil, borderColor: nil,
+                thankYouMessageCloseButtonText: nil,
+                displayIntroScreen: displayIntroScreen,
+                introScreenHeader: introScreenHeader,
+                introScreenDescription: introScreenDescription,
+                introScreenDescriptionContentType: introScreenDescriptionContentType,
+                introScreenButtonText: introScreenButtonText,
+                borderColor: nil,
                 placeholder: nil, shuffleQuestions: nil,
                 surveyPopupDelaySeconds: delay,
                 widgetType: nil, widgetSelector: nil, widgetLabel: nil, widgetColor: nil
@@ -1892,6 +1905,43 @@ enum PostHogSurveysTest {
             let displaySurvey = survey.toDisplaySurvey()
 
             #expect(displaySurvey.appearance?.surveyPopupDelaySeconds == nil)
+        }
+
+        @Test("maps intro screen fields to display survey appearance")
+        func mapsIntroScreenFieldsToDisplayAppearance() {
+            let survey = PostHogSurvey.testInstance(
+                name: "intro-mapped",
+                appearance: makeAppearance(
+                    delay: nil,
+                    displayIntroScreen: true,
+                    introScreenHeader: "Welcome!",
+                    introScreenDescription: "Two quick questions.",
+                    introScreenDescriptionContentType: .text,
+                    introScreenButtonText: "Get started"
+                )
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.displayIntroScreen == true)
+            #expect(displaySurvey.appearance?.introScreenHeader == "Welcome!")
+            #expect(displaySurvey.appearance?.introScreenDescription == "Two quick questions.")
+            #expect(displaySurvey.appearance?.introScreenDescriptionContentType == .text)
+            #expect(displaySurvey.appearance?.introScreenButtonText == "Get started")
+        }
+
+        @Test("defaults displayIntroScreen to false on display survey appearance when missing")
+        func defaultsDisplayIntroScreenToFalseWhenMissing() {
+            let survey = PostHogSurvey.testInstance(
+                name: "intro-missing",
+                appearance: makeAppearance(delay: nil)
+            )
+
+            let displaySurvey = survey.toDisplaySurvey()
+
+            #expect(displaySurvey.appearance?.displayIntroScreen == false)
+            #expect(displaySurvey.appearance?.introScreenHeader == nil)
+            #expect(displaySurvey.appearance?.introScreenButtonText == nil)
         }
 
         @Test(

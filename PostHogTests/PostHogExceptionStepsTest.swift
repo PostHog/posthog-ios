@@ -94,15 +94,15 @@ class PostHogExceptionStepsTest {
 
     @Test("preserves buffered steps when the caller supplies their own $exception_steps")
     func preservesBufferOnManualOverride() {
-        let sut = getSut()
-        server.reset(batchCount: 2)
+        let sut = getSut(flushAt: 2)
+        server.reset(batchCount: 1)
 
         sut.addExceptionStep("buffered")
 
         // Caller supplies their own steps: the SDK must neither attach nor discard its buffer.
         let manual: [[String: Any]] = [["$message": "manual", "$timestamp": "2026-06-09T10:00:00.000Z"]]
-        sut.captureException(TestError.boom, properties: ["$exception_steps": manual]) // batch 1
-        sut.captureException(TestError.boom) // batch 2 — the preserved buffered step attaches here
+        sut.captureException(TestError.boom, properties: ["$exception_steps": manual])
+        sut.captureException(TestError.boom) // both exceptions flush in one deterministic batch
 
         let events = getBatchedEvents(server).filter { $0.event == "$exception" }
         #expect(events.count == 2)

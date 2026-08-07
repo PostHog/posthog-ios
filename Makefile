@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -156,6 +156,9 @@ recordMaskSnapshots: checkMaskSnapshotRuntime
 #   make test filter=PostHogPropertiesSerializationTests        # Run specific test suite, class or method
 test:
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
+
+recordEventShapeSnapshots:
+	UPDATE_EVENT_SHAPE_SNAPSHOTS=1 $(MAKE) test filter=PostHogEventSnapshotTests
 
 testDowngradeCompatibility:
 	DOWNGRADE_REF="$${DOWNGRADE_REF:-3.48.0}" ./scripts/test-downgrade-compatibility.sh

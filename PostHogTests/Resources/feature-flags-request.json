@@ -1,0 +1,47 @@
+{
+  "body" : {
+    "$anon_distinct_id" : "<uuid>",
+    "$device_id" : "<uuid>",
+    "api_key" : "snapshot-project-token",
+    "distinct_id" : "user-123",
+    "group_properties" : {
+      "company" : {
+        "employees" : 120,
+        "industry" : "analytics"
+      }
+    },
+    "groups" : {
+      "company" : "posthog"
+    },
+    "person_properties" : {
+      "$app_namespace" : "<environment-string>",
+      "$device_type" : "<environment-string>",
+      "$lib" : "posthog-ios",
+      "$lib_version" : "<sdk-version>",
+      "$os_name" : "<environment-string>",
+      "$os_version" : "<environment-string>",
+      "email" : "person@example.com",
+      "plan" : "enterprise"
+    },
+    "timezone" : "<timezone>"
+  },
+  "headers" : {
+    "accept-encoding" : "gzip",
+    "content-length" : "<content-length>",
+    "content-type" : "application\/json; charset=utf-8",
+    "user-agent" : "posthog-ios\/<sdk-version>"
+  },
+  "method" : "POST",
+  "url" : {
+    "host" : "localhost",
+    "path" : "\/flags",
+    "port" : 9001,
+    "query" : [
+      {
+        "name" : "v",
+        "value" : "2"
+      }
+    ],
+    "scheme" : "http"
+  }
+}

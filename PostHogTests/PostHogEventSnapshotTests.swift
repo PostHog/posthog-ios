@@ -264,10 +264,18 @@ final class PostHogEventSnapshotTests {
 
         // These keys are optional in SwiftPM's command-line test bundle but are populated by
         // the Xcode test host. Validate them when available, then omit them from the shared golden.
-        for key in ["$app_name", "$app_version", "$app_build"] where properties[key] != nil {
+        for key in ["$app_name", "$app_version"] where properties[key] != nil {
             let value = try #require(properties[key] as? String)
             #expect(!value.isEmpty)
             properties.removeValue(forKey: key)
+        }
+        if let appBuild = properties["$app_build"] {
+            if let appBuild = appBuild as? String {
+                #expect(!appBuild.isEmpty)
+            } else {
+                _ = try #require(appBuild as? NSNumber)
+            }
+            properties.removeValue(forKey: "$app_build")
         }
 
         let stringKeys = [

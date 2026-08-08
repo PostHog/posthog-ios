@@ -19,7 +19,7 @@ class PostHogRemoteConfig {
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
-    private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
+    private var pendingFeatureFlagsRequests: [PendingFeatureFlagsRequest] = []
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -252,9 +252,12 @@ class PostHogRemoteConfig {
     }
 
     func reloadFeatureFlags(
+        personProperties: [String: Any]? = nil,
         callback: (([String: Any]?) -> Void)? = nil
     ) {
         guard canReloadFlagsForTesting else {
+            // still resolve the caller so a completion handler is never dropped
+            callback?(nil)
             return
         }
 
@@ -274,6 +277,7 @@ class PostHogRemoteConfig {
             anonymousId: anonymousId,
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
+            personProperties: personProperties,
             callback: callback ?? { _ in }
         )
     }
@@ -356,38 +360,66 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
+        personProperties: [String: Any]? = nil,
         callback: @escaping ([String: Any]?) -> Void
     ) {
-        let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
+        let request = PendingFeatureFlagsRequest(
+            distinctId: distinctId,
+            anonymousId: anonymousId,
+            deviceId: deviceId,
+            groups: groups,
+            personProperties: personProperties ?? getPersonPropertiesForFlags(),
+            groupProperties: getGroupPropertiesForFlags(),
+            requiresExactContext: personProperties != nil,
+            callbacks: [callback]
+        )
+
+        let shouldStart: Bool = loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
-                let prev = self.pendingFeatureFlagsRequest?.callback
-                self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
-                    distinctId: distinctId,
-                    anonymousId: anonymousId,
-                    deviceId: deviceId,
-                    groups: groups,
-                    callback: callback
-                )
-                return (true, prev)
+                // Generic reloads keep the latest pending context and carry callbacks forward. An
+                // explicit person-property snapshot must remain ordered so its completion cannot
+                // resolve against a later caller's overrides.
+                if let lastIndex = self.pendingFeatureFlagsRequests.indices.last {
+                    let pending = self.pendingFeatureFlagsRequests[lastIndex]
+                    if pending.hasSameContext(as: request) {
+                        self.pendingFeatureFlagsRequests[lastIndex].requiresExactContext =
+                            pending.requiresExactContext || request.requiresExactContext
+                        self.pendingFeatureFlagsRequests[lastIndex].callbacks.append(callback)
+                    } else if pending.requiresExactContext {
+                        self.pendingFeatureFlagsRequests.append(request)
+                    } else {
+                        var replacement = request
+                        replacement.callbacks = pending.callbacks + [callback]
+                        self.pendingFeatureFlagsRequests[lastIndex] = replacement
+                    }
+                } else {
+                    self.pendingFeatureFlagsRequests.append(request)
+                }
+                return false
             }
             self.loadingFeatureFlags = true
-            return (false, nil)
+            return true
         }
-        if alreadyLoading {
-            let cached = featureFlagsLock.withLock { getCachedFeatureFlags() }
-            previousCallback?(cached)
+        guard shouldStart else {
             return
         }
 
-        let personProperties = getPersonPropertiesForFlags()
-        let groupProperties = getGroupPropertiesForFlags()
+        startFeatureFlagsRequest(request)
+    }
 
-        api.flags(distinctId: distinctId,
-                  anonymousId: anonymousId,
-                  deviceId: deviceId,
-                  groups: groups,
-                  personProperties: personProperties,
-                  groupProperties: groupProperties.isEmpty ? nil : groupProperties)
+    private func startFeatureFlagsRequest(_ request: PendingFeatureFlagsRequest) {
+        let callback: ([String: Any]?) -> Void = { flags in
+            for callback in request.callbacks {
+                callback(flags)
+            }
+        }
+
+        api.flags(distinctId: request.distinctId,
+                  anonymousId: request.anonymousId,
+                  deviceId: request.deviceId,
+                  groups: request.groups,
+                  personProperties: request.personProperties,
+                  groupProperties: request.groupProperties.isEmpty ? nil : request.groupProperties)
         { data, _ in
             self.dispatchQueue.async {
                 // Check for quota limitation first
@@ -626,20 +658,15 @@ class PostHogRemoteConfig {
         notifyFeatureFlags(featureFlags)
 
         let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
-            self.loadingFeatureFlags = false
-            let req = self.pendingFeatureFlagsRequest
-            self.pendingFeatureFlagsRequest = nil
-            return req
+            guard !self.pendingFeatureFlagsRequests.isEmpty else {
+                self.loadingFeatureFlags = false
+                return nil
+            }
+            return self.pendingFeatureFlagsRequests.removeFirst()
         }
 
         if let pending {
-            loadFeatureFlags(
-                distinctId: pending.distinctId,
-                anonymousId: pending.anonymousId,
-                deviceId: pending.deviceId,
-                groups: pending.groups,
-                callback: pending.callback
-            )
+            startFeatureFlagsRequest(pending)
         }
     }
 
@@ -767,14 +794,16 @@ class PostHogRemoteConfig {
         storage.setDictionary(forKey: key, contents: value)
     }
 
-    func setPersonPropertiesForFlags(_ properties: [String: Any]) {
-        let didChange = personPropertiesForFlagsLock.withLock {
+    @discardableResult
+    func setPersonPropertiesForFlags(_ properties: [String: Any]) -> [String: Any] {
+        let (didChange, propertiesSnapshot) = personPropertiesForFlagsLock.withLock {
             let previous = personPropertiesForFlags
             // Merge properties additively, similar to JS SDK behavior
             personPropertiesForFlags.merge(properties, uniquingKeysWith: { _, new in new })
             // Persist to disk
             storage.setDictionary(forKey: .personPropertiesForFlags, contents: personPropertiesForFlags)
-            return !NSDictionary(dictionary: personPropertiesForFlags).isEqual(to: previous)
+            let didChange = !NSDictionary(dictionary: personPropertiesForFlags).isEqual(to: previous)
+            return (didChange, personPropertiesForFlags)
         }
         // Notify subscribers (e.g. surveys) so a survey already on screen can re-resolve its
         // language if the user's `language` property changed. Skipped when the merge changed no
@@ -783,6 +812,11 @@ class PostHogRemoteConfig {
         if didChange {
             onPersonPropertiesForFlagsChanged.invoke(())
         }
+
+        guard config.setDefaultPersonProperties else {
+            return propertiesSnapshot
+        }
+        return getDefaultPersonProperties().merging(propertiesSnapshot) { _, userValue in userValue }
     }
 
     func resetPersonPropertiesForFlags() {
@@ -826,18 +860,16 @@ class PostHogRemoteConfig {
     }
 
     func getPersonPropertiesForFlags() -> [String: Any] {
-        personPropertiesForFlagsLock.withLock {
-            var properties = personPropertiesForFlags
+        let properties = personPropertiesForFlagsLock.withLock {
+            personPropertiesForFlags
+        }
 
-            // Always include fresh default properties if enabled
-            if config.setDefaultPersonProperties {
-                let defaultProperties = getDefaultPersonProperties()
-                // User-set properties override default properties
-                properties = defaultProperties.merging(properties) { _, userValue in userValue }
-            }
-
+        // Resolve defaults after releasing the properties lock. The callback can acquire SDK locks,
+        // while SDK operations can update flag properties, so invoking it under this lock can deadlock.
+        guard config.setDefaultPersonProperties else {
             return properties
         }
+        return getDefaultPersonProperties().merging(properties) { _, userValue in userValue }
     }
 
     private func loadCachedPropertiesForFlags() {
@@ -1116,12 +1148,28 @@ class PostHogRemoteConfig {
     }
 }
 
+/// A `/flags` request waiting behind the one in flight. Matching contexts share callbacks, generic
+/// reloads keep only the latest pending context, and explicit person-property snapshots remain ordered
+/// so their callbacks observe the response requested for them.
 private struct PendingFeatureFlagsRequest {
     let distinctId: String
     let anonymousId: String?
     let deviceId: String?
     let groups: [String: String]
-    let callback: ([String: Any]?) -> Void
+    let personProperties: [String: Any]
+    let groupProperties: [String: [String: Any]]
+    var requiresExactContext: Bool
+    var callbacks: [([String: Any]?) -> Void]
+
+    func hasSameContext(as other: PendingFeatureFlagsRequest) -> Bool {
+        distinctId == other.distinctId
+            && anonymousId == other.anonymousId
+            && deviceId == other.deviceId
+            && groups == other.groups
+            && NSDictionary(dictionary: personProperties).isEqual(to: other.personProperties)
+            && NSDictionary(dictionary: groupProperties.mapValues { $0 as Any })
+            .isEqual(to: other.groupProperties.mapValues { $0 as Any })
+    }
 }
 
 #if TESTING

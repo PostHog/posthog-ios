@@ -1712,6 +1712,24 @@
                     #expect(refetchCount == 0, "manual push mode leaves the token lifecycle to the host")
                 }
             }
+
+            @Test("opt-in does not re-request the token when swizzling is disabled")
+            func optInSkipsReRequestWhenSwizzlingDisabled() {
+                if #available(iOS 14.0, *) {
+                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                    var refetchCount = 0
+                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+
+                    // Auto-capture on, but swizzling off: the subscription integration is not installed,
+                    // so refetching would fire the host's APNs lifecycle with no observer to catch it.
+                    let sut = getSDK(optOut: true, enableSwizzling: false, capturePushNotificationSubscriptions: true)
+                    defer { sut.close() }
+
+                    sut.optIn()
+                    #expect(refetchCount == 0, "no observer is installed without swizzling, so opt-in must not refetch")
+                }
+            }
         #endif
     }
 

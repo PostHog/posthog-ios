@@ -758,6 +758,7 @@
                 distinctIdProvider: { "user-1" },
                 isConnectedProvider: { true },
                 isAllowedProvider: { true },
+                isEnabledProvider: { true },
                 onEventContextChanged: .init()
             )
             relaunched.retryIfNeeded()

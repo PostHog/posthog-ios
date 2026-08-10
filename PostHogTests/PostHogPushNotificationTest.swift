@@ -143,6 +143,7 @@
             optOut: Bool = false,
             enableSwizzling: Bool = true,
             capturePushNotificationOpened: Bool = false,
+            capturePushNotificationSubscriptions: Bool = false,
             reuseAnonymousId: Bool = false,
             pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? = nil
         ) -> PostHogSDK {
@@ -154,7 +155,7 @@
             config.pushIdentityProvider = pushIdentityProvider
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
-            config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationSubscriptions = capturePushNotificationSubscriptions
             config.capturePushNotificationOpened = capturePushNotificationOpened
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
@@ -1675,6 +1676,43 @@
             #expect(event.event == "$push_notification_opened")
             #expect(event.properties["$notification_title"] as? String == "Hello")
         }
+
+        // MARK: - Opt-in re-registration (posthog-ios#746)
+
+        #if os(iOS)
+            @Test("opting back in re-requests the push token so push re-arms without an app restart")
+            func optInReRequestsPushToken() {
+                if #available(iOS 14.0, *) {
+                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                    var refetchCount = 0
+                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+
+                    let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: true)
+                    defer { sut.close() }
+
+                    #expect(sut.isOptOut())
+                    sut.optIn()
+                    #expect(refetchCount == 1, "opt-in should re-request the APNs token, not just restore consent")
+                }
+            }
+
+            @Test("opt-in does not re-request the token when auto-capture is disabled")
+            func optInSkipsReRequestWhenAutoCaptureDisabled() {
+                if #available(iOS 14.0, *) {
+                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                    var refetchCount = 0
+                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+
+                    let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: false)
+                    defer { sut.close() }
+
+                    sut.optIn()
+                    #expect(refetchCount == 0, "manual push mode leaves the token lifecycle to the host")
+                }
+            }
+        #endif
     }
 
 #endif

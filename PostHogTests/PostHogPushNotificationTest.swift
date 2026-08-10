@@ -111,6 +111,7 @@
             distinctIdProvider: @escaping () -> String = { "user-1" },
             isConnectedProvider: @escaping () -> Bool = { true },
             isAllowedProvider: @escaping () -> Bool = { true },
+            isEnabledProvider: @escaping () -> Bool = { true },
             onEventContextChanged: PostHogMulticastCallback<[String: Any]> = .init(),
             resetStorage: Bool = true
         ) -> (handler: PostHogPushSubscriptionHandler, storage: PostHogStorage, config: PostHogConfig) {
@@ -134,6 +135,7 @@
                 distinctIdProvider: distinctIdProvider,
                 isConnectedProvider: isConnectedProvider,
                 isAllowedProvider: isAllowedProvider,
+                isEnabledProvider: isEnabledProvider,
                 onEventContextChanged: onEventContextChanged
             )
             return (handler, storage, config)
@@ -325,12 +327,20 @@
             #expect(record(storage) == nil)
         }
 
-        @Test("unregister is a no-op when the SDK is disabled or opted out (vector 7)")
-        func unregisterGuarded() async {
-            let (handler, _, _) = makeHandler(isAllowedProvider: { false })
+        @Test("unregister is a no-op while the SDK is disabled (vector 7)")
+        func unregisterGuardedWhenDisabled() async {
+            let (handler, _, _) = makeHandler(isEnabledProvider: { false })
             handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
             try? await Task.sleep(nanoseconds: 150_000_000)
             #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        @Test("unregister still sends the DELETE while opted out (cleanup is not gated by opt-out, posthog-ios#746)")
+        func unregisterSendsWhileOptedOut() async {
+            // Opted out means don't register or send, but a DELETE removes data, so it must still go out.
+            let (handler, _, _) = makeHandler(isAllowedProvider: { false }, isEnabledProvider: { true })
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
         }
 
         #if os(iOS)

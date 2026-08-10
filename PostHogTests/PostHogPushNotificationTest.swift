@@ -1695,13 +1695,19 @@
             let parked = ParkedMint()
             let lock = NSLock()
             var allowed = true
-            func isAllowed() -> Bool { lock.withLock { allowed } }
+            func isAllowed() -> Bool {
+                lock.withLock { allowed }
+            }
 
             let (handler, storage, config) = makeHandler(isAllowedProvider: { isAllowed() })
             handler.identityTokenMintTimeout = 60 // keep the watchdog from firing before we release
 
-            func posts() -> Int { server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count }
-            func deletes() -> Int { server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count }
+            func posts() -> Int {
+                server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count
+            }
+            func deletes() -> Int {
+                server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count
+            }
 
             // 1) Register the device token while allowed. No provider set yet, so no identity mint.
             handler.send(deviceToken: "abcdef", appId: "com.example.app")

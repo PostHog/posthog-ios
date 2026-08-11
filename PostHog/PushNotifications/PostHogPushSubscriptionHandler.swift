@@ -59,6 +59,11 @@ final class PostHogPushSubscriptionHandler {
     /// SDK is disabled or opted out. The record is kept so an opt-in can resume later.
     private let isAllowedProvider: () -> Bool
 
+    /// Gates cleanup (the unregister DELETE): `false` only while the SDK is disabled. Unlike
+    /// `isAllowedProvider` this ignores opt-out, because a DELETE removes data rather than collecting
+    /// it, so opt-out must not strand it (posthog-ios#746).
+    private let isEnabledProvider: () -> Bool
+
     /// Guards `retryCount`, `pausedUntil`, `isSending`, `pendingResend`, `halted`,
     /// `cachedIdentityToken`, and `didAuthRetry`.
     private let stateLock = NSLock()
@@ -115,6 +120,7 @@ final class PostHogPushSubscriptionHandler {
         distinctIdProvider: @escaping () -> String,
         isConnectedProvider: @escaping () -> Bool,
         isAllowedProvider: @escaping () -> Bool,
+        isEnabledProvider: @escaping () -> Bool,
         onEventContextChanged: PostHogMulticastCallback<[String: Any]>
     ) {
         self.api = api
@@ -123,6 +129,7 @@ final class PostHogPushSubscriptionHandler {
         self.distinctIdProvider = distinctIdProvider
         self.isConnectedProvider = isConnectedProvider
         self.isAllowedProvider = isAllowedProvider
+        self.isEnabledProvider = isEnabledProvider
 
         contextChangedToken = onEventContextChanged.subscribe { [weak self] context in
             guard let self, let distinctId = context["distinct_id"] as? String, !distinctId.isEmpty else { return }
@@ -233,8 +240,8 @@ final class PostHogPushSubscriptionHandler {
         }
         let pending = PendingUnregister(distinctId: distinctId, deviceToken: deviceToken, appId: appId)
         writePendingUnregister(pending)
-        guard isAllowedProvider() else {
-            hedgeLog("Push unregister deferred: SDK is disabled or opted out. Will retry on flush/opt-in.")
+        guard isEnabledProvider() else {
+            hedgeLog("Push unregister deferred: SDK is disabled. Will retry on flush/next launch.")
             return
         }
         attemptUnregister(pending)
@@ -244,7 +251,7 @@ final class PostHogPushSubscriptionHandler {
     /// with a provider, re-mints a fresh identity token once and retries — the same-process logout path may
     /// hold an expired cached token (the provider mints a short TTL). `isRetry` caps that to one re-mint.
     private func attemptUnregister(_ pending: PendingUnregister, isRetry: Bool = false) {
-        guard isAllowedProvider() else { return }
+        guard isEnabledProvider() else { return }
         guard isConnectedProvider() else {
             hedgeLog("Push unregister deferred: no network connection. Will retry on flush/next launch.")
             return
@@ -252,7 +259,7 @@ final class PostHogPushSubscriptionHandler {
         // Same one-verification-state as registration: the DELETE resolves a token for the distinct id it
         // carries (the old identity on the reset() path).
         resolveIdentityToken(distinctId: pending.distinctId, appId: pending.appId) { [weak self] identityToken in
-            guard let self, isAllowedProvider() else { return }
+            guard let self, isEnabledProvider() else { return }
             // A registration may have superseded this intent while the mint was in flight (re-login
             // during a slow mint) — re-apply the same supersede rule the retry drain uses, and bail if
             // the intent was already cleared/replaced by something else in the meantime.

@@ -2428,6 +2428,18 @@ let maxRetryDelay = 30.0
             notifyContextDidChange()
             notifyExceptionStepsDidChange()
         }
+
+        #if os(iOS)
+            // A prior logout unregister cleared the push token; opt-in re-installs the subscription
+            // integration above but that alone doesn't refetch the token. Re-request it so the
+            // redelivered token re-registers this device, re-arming push without an app restart (#746).
+            // Gate on the same conditions that install the subscription integration: auto-capture and
+            // swizzling. Without swizzling the integration is skipped, so refetching would fire the host's
+            // APNs lifecycle with no observer to forward the token.
+            if #available(iOS 14.0, *), config.capturePushNotificationSubscriptions, config.enableSwizzling {
+                PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh()
+            }
+        #endif
     }
 
     /// Opts the current user out of data capture.

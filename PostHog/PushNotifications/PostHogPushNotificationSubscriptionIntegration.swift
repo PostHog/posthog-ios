@@ -2,6 +2,7 @@
 // still supports macOS). See the push-notifications shared plan, decision 3.
 #if os(iOS)
     import Foundation
+    import UIKit
     import UserNotifications
 
     /// Subscribes to `PushNotificationPublisher.onDeviceToken` to automatically forward APNs tokens
@@ -47,6 +48,19 @@
 
         func stop() {
             token = nil
+        }
+
+        /// Re-requests the APNs device token so opting back in re-arms push without an app restart.
+        /// A prior logout unregister clears the stored token, and opt-in only restores consent and the
+        /// observer; asking the OS to register again redelivers the token to the swizzled callback, which
+        /// re-registers it. Overridable in tests (posthog-ios#746).
+        static var requestTokenRefresh: () -> Void = {
+            // App-only: `UIApplication.shared` is unavailable in app extensions, which can't register for
+            // remote notifications anyway.
+            guard Bundle.main.bundleURL.pathExtension == "app" else { return }
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
         }
     }
 

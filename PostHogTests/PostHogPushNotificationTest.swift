@@ -111,6 +111,7 @@
             distinctIdProvider: @escaping () -> String = { "user-1" },
             isConnectedProvider: @escaping () -> Bool = { true },
             isAllowedProvider: @escaping () -> Bool = { true },
+            isEnabledProvider: @escaping () -> Bool = { true },
             onEventContextChanged: PostHogMulticastCallback<[String: Any]> = .init(),
             resetStorage: Bool = true
         ) -> (handler: PostHogPushSubscriptionHandler, storage: PostHogStorage, config: PostHogConfig) {
@@ -134,6 +135,7 @@
                 distinctIdProvider: distinctIdProvider,
                 isConnectedProvider: isConnectedProvider,
                 isAllowedProvider: isAllowedProvider,
+                isEnabledProvider: isEnabledProvider,
                 onEventContextChanged: onEventContextChanged
             )
             return (handler, storage, config)
@@ -326,12 +328,20 @@
             #expect(record(storage) == nil)
         }
 
-        @Test("unregister is a no-op when the SDK is disabled or opted out (vector 7)")
-        func unregisterGuarded() async {
-            let (handler, _, _) = makeHandler(isAllowedProvider: { false })
+        @Test("unregister is a no-op while the SDK is disabled (vector 7)")
+        func unregisterGuardedWhenDisabled() async {
+            let (handler, _, _) = makeHandler(isEnabledProvider: { false })
             handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
             try? await Task.sleep(nanoseconds: 150_000_000)
             #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        @Test("unregister still sends the DELETE while opted out (cleanup is not gated by opt-out, posthog-ios#746)")
+        func unregisterSendsWhileOptedOut() async {
+            // Opted out means don't register or send, but a DELETE removes data, so it must still go out.
+            let (handler, _, _) = makeHandler(isAllowedProvider: { false }, isEnabledProvider: { true })
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
         }
 
         #if os(iOS)
@@ -749,6 +759,7 @@
                 distinctIdProvider: { "user-1" },
                 isConnectedProvider: { true },
                 isAllowedProvider: { true },
+                isEnabledProvider: { true },
                 onEventContextChanged: .init()
             )
             relaunched.retryIfNeeded()
@@ -1731,6 +1742,53 @@
                 }
             }
         #endif
+
+        // MARK: - Opt-out / unregister race (posthog-ios#746)
+
+        @available(iOS 14.0, macOS 11.0, *)
+        @Test("posthog-ios#746: opt-out during an in-flight unregister must still send the DELETE")
+        func optOutDuringUnregisterStrandsDelete() async throws {
+            let parked = ParkedMint()
+            let lock = NSLock()
+            var allowed = true
+            func isAllowed() -> Bool {
+                lock.withLock { allowed }
+            }
+
+            let (handler, storage, config) = makeHandler(isAllowedProvider: { isAllowed() })
+            handler.identityTokenMintTimeout = 60 // keep the watchdog from firing before we release
+
+            func posts() -> Int {
+                server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count
+            }
+            func deletes() -> Int {
+                server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count
+            }
+
+            // 1) Register the device token while allowed. No provider set yet, so no identity mint.
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(posts() == 1)
+            #expect(deletes() == 0)
+
+            // 2) The wrapper's opt-out flow: unregister, then opt out. A provider that parks the
+            //    unregister's mint lets opt-out land while the DELETE is in flight (the reported race).
+            config.pushIdentityProvider = { _, _, completion in
+                if !parked.parkFirst(completion) { completion(nil) }
+            }
+            // unregisterCurrentToken() is the logout path: it clears the stored record first, so the
+            // post-mint supersede rule can't cancel the DELETE, isolating the opt-out gate.
+            handler.unregisterCurrentToken()
+            #expect(await waitFor { parked.isParked }, "unregister should reach the identity mint")
+            lock.withLock { allowed = false } // opt-out flips the consent gate mid-flight
+            parked.release("identity-token") // let the mint complete
+
+            // A DELETE is data removal, so opt-out must not block it. Pre-fix, the post-mint
+            // isAllowedProvider() gate returned early and the DELETE never went out, leaving the
+            // server-side subscription active for the whole opted-out period.
+            let sawDelete = await waitFor { deletes() == 1 }
+            #expect(sawDelete, "posthog-ios#746: opt-out stranded the unregister DELETE; subscription stays active")
+        }
     }
 
 #endif

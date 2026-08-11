@@ -190,6 +190,7 @@ let maxRetryDelay = 30.0
                 isAllowedProvider: { [weak self] in
                     self.map { $0.isEnabled() && !$0.isOptOutState() } ?? false
                 },
+                isEnabledProvider: { [weak self] in self?.isEnabled() ?? false },
                 onEventContextChanged: onEventContextChanged
             )
 

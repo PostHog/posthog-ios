@@ -646,8 +646,6 @@ class PostHogRemoteConfig {
     }
 
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
-        notifyFeatureFlags(featureFlags)
-
         let (pending, surveyWaiters): (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
             let req = self.pendingFeatureFlagsRequest
@@ -671,6 +669,7 @@ class PostHogRemoteConfig {
                 waiter(featureFlags)
             }
         }
+        notifyFeatureFlags(featureFlags)
     }
 
     func getFeatureFlags() -> [String: Any]? {

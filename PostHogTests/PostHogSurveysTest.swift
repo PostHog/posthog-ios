@@ -1315,6 +1315,70 @@ enum PostHogSurveysTest {
                 _ = (sut, remoteToken, flagsToken)
             }
 
+            @Test("does not use an older flag refresh for newer surveys")
+            func doesNotUseOlderFlagRefreshForNewerSurveys() async throws {
+                let delegate = SpySurveysDelegate()
+                postHog.config._surveysConfig.surveysDelegate = delegate
+                let sut = getSut(surveys: [])
+                sut.hasActiveSurveyWindow = { true }
+
+                let survey: [String: Any] = [
+                    "id": "flagged_survey",
+                    "name": "Flagged Survey",
+                    "type": "popover",
+                    "questions": [[
+                        "id": "1",
+                        "type": "open",
+                        "question": "What do you think?",
+                        "originalQuestionIndex": 0,
+                    ]],
+                    "linked_flag_key": "survey-flag",
+                    "start_date": "2024-07-23T09:18:18.376000Z",
+                ]
+                let requestLock = NSLock()
+                var requestCount = 0
+                server.flagsResponseHandler = { _ in
+                    let index = requestLock.withLock {
+                        requestCount += 1
+                        return requestCount
+                    }
+                    let response = HTTPStubsResponse(
+                        jsonObject: [
+                            "featureFlags": ["survey-flag": index == 1],
+                            "featureFlagPayloads": [:],
+                            "flags": [:],
+                        ],
+                        statusCode: 200,
+                        headers: nil
+                    )
+                    if index == 1 { response.responseTime = 0.1 }
+                    return response
+                }
+
+                let flagsLoaded = AsyncLatch()
+                let loadedLock = NSLock()
+                var loadedCount = 0
+                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
+                    guard flags != nil else { return }
+                    let isSecondLoad = loadedLock.withLock {
+                        loadedCount += 1
+                        return loadedCount == 2
+                    }
+                    if isSecondLoad { flagsLoaded.signal() }
+                })
+
+                postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
+                postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
+                await flagsLoaded.wait()
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }
+                }
+
+                #expect(requestLock.withLock { requestCount } == 2)
+                #expect(delegate.renderedSurveyIds.isEmpty)
+                _ = (sut, flagsToken)
+            }
+
             @Test("recovers survey rendering after a feature flag refresh failure")
             func recoversSurveyRenderingAfterFeatureFlagRefreshFailure() async throws {
                 let delegate = SpySurveysDelegate()
@@ -1354,7 +1418,7 @@ enum PostHogSurveysTest {
                 server.featureFlags = ["survey-flag": true]
                 let rendered = AsyncLatch()
                 delegate.onRender = { rendered.signal() }
-                postHog.remoteConfig?.reloadFeatureFlags()
+                postHog.remoteConfig?.reloadRemoteConfig()
                 await rendered.wait()
 
                 #expect(delegate.renderedSurveyIds == ["flagged_survey"])

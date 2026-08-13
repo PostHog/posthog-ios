@@ -41,7 +41,7 @@
         let freshFeatureFlagsLock = NSLock()
         var surveyRefreshGeneration = 0
         var surveyAwaitingFeatureFlagsGeneration: Int?
-        var surveyFailedFeatureFlagsGeneration: Int?
+        var surveyFeatureFlagsUnavailable = false
         #if os(iOS)
             var hasActiveSurveyWindow: () -> Bool = { UIApplication.getCurrentWindow() != nil }
         #endif
@@ -51,7 +51,6 @@
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
         var remoteConfigLoadedToken: RegistrationToken?
-        var featureFlagsLoadedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -144,6 +143,7 @@
                         self.hasWaitPeriodPassed(survey: survey)
                     }
                     .filter { survey in // 4. and match linked flags
+                        guard !survey.requiresFeatureFlagEvaluation || self.canEvaluateSurveyFeatureFlags else { return false }
                         let allKeys: [String?] = [
                             [survey.linkedFlagKey],
                             [survey.targetingFlagKey],

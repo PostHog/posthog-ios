@@ -20,6 +20,7 @@ class PostHogRemoteConfig {
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
     private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
+    private var pendingSurveyFeatureFlagsRequest: PendingFeatureFlagsRequest?
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -254,6 +255,17 @@ class PostHogRemoteConfig {
     func reloadFeatureFlags(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
+        reloadFeatureFlags(callback: callback, forSurveyRefresh: false)
+    }
+
+    func reloadFeatureFlagsForSurvey(callback: @escaping ([String: Any]?) -> Void) {
+        reloadFeatureFlags(callback: callback, forSurveyRefresh: true)
+    }
+
+    private func reloadFeatureFlags(
+        callback: (([String: Any]?) -> Void)?,
+        forSurveyRefresh: Bool
+    ) {
         guard canReloadFlagsForTesting else {
             return
         }
@@ -274,7 +286,8 @@ class PostHogRemoteConfig {
             anonymousId: anonymousId,
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
-            callback: callback ?? { _ in }
+            callback: callback ?? { _ in },
+            forSurveyRefresh: forSurveyRefresh
         )
     }
 
@@ -356,18 +369,26 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
-        callback: @escaping ([String: Any]?) -> Void
+        callback: @escaping ([String: Any]?) -> Void,
+        forSurveyRefresh: Bool = false
     ) {
         let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
             if self.loadingFeatureFlags {
-                let prev = self.pendingFeatureFlagsRequest?.callback
-                self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
+                let request = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
                     deviceId: deviceId,
                     groups: groups,
-                    callback: callback
+                    callback: callback,
+                    forSurveyRefresh: forSurveyRefresh
                 )
+                if forSurveyRefresh {
+                    let prev = self.pendingSurveyFeatureFlagsRequest?.callback
+                    self.pendingSurveyFeatureFlagsRequest = request
+                    return (true, prev)
+                }
+                let prev = self.pendingFeatureFlagsRequest?.callback
+                self.pendingFeatureFlagsRequest = request
                 return (true, prev)
             }
             self.loadingFeatureFlags = true
@@ -627,6 +648,10 @@ class PostHogRemoteConfig {
 
         let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
+            if let req = self.pendingSurveyFeatureFlagsRequest {
+                self.pendingSurveyFeatureFlagsRequest = nil
+                return req
+            }
             let req = self.pendingFeatureFlagsRequest
             self.pendingFeatureFlagsRequest = nil
             return req
@@ -638,7 +663,8 @@ class PostHogRemoteConfig {
                 anonymousId: pending.anonymousId,
                 deviceId: pending.deviceId,
                 groups: pending.groups,
-                callback: pending.callback
+                callback: pending.callback,
+                forSurveyRefresh: pending.forSurveyRefresh
             )
         }
     }
@@ -1122,6 +1148,7 @@ private struct PendingFeatureFlagsRequest {
     let deviceId: String?
     let groups: [String: String]
     let callback: ([String: Any]?) -> Void
+    let forSurveyRefresh: Bool
 }
 
 #if TESTING

@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import OHHTTPStubs
+import OHHTTPStubsSwift
 @testable import PostHog
 import Testing
 
@@ -1311,6 +1313,52 @@ enum PostHogSurveysTest {
                 await featureFlagsLoaded.wait()
                 #expect(delegate.renderedSurveyIds.isEmpty)
                 _ = (sut, remoteToken, flagsToken)
+            }
+
+            @Test("recovers survey rendering after a feature flag refresh failure")
+            func recoversSurveyRenderingAfterFeatureFlagRefreshFailure() async throws {
+                let delegate = SpySurveysDelegate()
+                postHog.config._surveysConfig.surveysDelegate = delegate
+                postHog.config.preloadFeatureFlags = false
+                let sut = getSut(surveys: [])
+                sut.hasActiveSurveyWindow = { true }
+                server.remoteConfigSurveys =
+                    """
+                    [{
+                        "id": "flagged_survey",
+                        "name": "Flagged Survey",
+                        "type": "popover",
+                        "questions": [{
+                            "id": "1",
+                            "type": "open",
+                            "question": "What do you think?",
+                            "originalQuestionIndex": 0
+                        }],
+                        "linked_flag_key": "survey-flag",
+                        "start_date": "2024-07-23T09:18:18.376000Z"
+                    }]
+                    """
+                server.flagsResponseHandler = { _ in
+                    HTTPStubsResponse(jsonObject: [:], statusCode: 200, headers: nil)
+                }
+
+                let failed = AsyncLatch()
+                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
+                    if flags == nil { failed.signal() }
+                })
+                postHog.remoteConfig?.reloadRemoteConfig()
+                await failed.wait()
+                #expect(delegate.renderedSurveyIds.isEmpty)
+
+                server.flagsResponseHandler = nil
+                server.featureFlags = ["survey-flag": true]
+                let rendered = AsyncLatch()
+                delegate.onRender = { rendered.signal() }
+                postHog.remoteConfig?.reloadFeatureFlags()
+                await rendered.wait()
+
+                #expect(delegate.renderedSurveyIds == ["flagged_survey"])
+                _ = (sut, flagsToken)
             }
         #endif
 

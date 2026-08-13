@@ -41,6 +41,7 @@
         let freshFeatureFlagsLock = NSLock()
         var surveyRefreshGeneration = 0
         var surveyAwaitingFeatureFlagsGeneration: Int?
+        var surveyFailedFeatureFlagsGeneration: Int?
         #if os(iOS)
             var hasActiveSurveyWindow: () -> Bool = { UIApplication.getCurrentWindow() != nil }
         #endif
@@ -50,6 +51,7 @@
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
         var remoteConfigLoadedToken: RegistrationToken?
+        var featureFlagsLoadedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?

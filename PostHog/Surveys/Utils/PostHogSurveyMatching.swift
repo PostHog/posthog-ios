@@ -106,13 +106,27 @@
                     }
                 )
             }
+            featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] flags in
+                guard let self, flags != nil else { return }
+                let shouldShow = self.freshFeatureFlagsLock.withLock {
+                    guard let failedGeneration = self.surveyFailedFeatureFlagsGeneration,
+                          failedGeneration == self.surveyAwaitingFeatureFlagsGeneration
+                    else { return false }
+                    self.surveyAwaitingFeatureFlagsGeneration = nil
+                    self.surveyFailedFeatureFlagsGeneration = nil
+                    return true
+                }
+                if shouldShow { self.showNextSurvey() }
+            }
         }
 
         func unsubscribeFromRemoteConfigUpdates() {
             remoteConfigLoadedToken = nil
+            featureFlagsLoadedToken = nil
             freshFeatureFlagsLock.withLock {
                 surveyRefreshGeneration += 1
                 surveyAwaitingFeatureFlagsGeneration = nil
+                surveyFailedFeatureFlagsGeneration = nil
             }
         }
 
@@ -121,16 +135,26 @@
             let generation = freshFeatureFlagsLock.withLock {
                 surveyRefreshGeneration += 1
                 surveyAwaitingFeatureFlagsGeneration = needsFlags ? surveyRefreshGeneration : nil
+                surveyFailedFeatureFlagsGeneration = nil
                 return surveyAwaitingFeatureFlagsGeneration
             }
             guard let generation else { return }
 
             postHog?.remoteConfig?.reloadFeatureFlags { [weak self] flags in
-                guard let self, flags != nil else { return }
+                guard let self else { return }
+                guard flags != nil else {
+                    self.freshFeatureFlagsLock.withLock {
+                        if self.surveyAwaitingFeatureFlagsGeneration == generation {
+                            self.surveyFailedFeatureFlagsGeneration = generation
+                        }
+                    }
+                    return
+                }
                 DispatchQueue.main.async {
                     let shouldShow = self.freshFeatureFlagsLock.withLock {
                         guard self.surveyAwaitingFeatureFlagsGeneration == generation else { return false }
                         self.surveyAwaitingFeatureFlagsGeneration = nil
+                        self.surveyFailedFeatureFlagsGeneration = nil
                         return true
                     }
                     if shouldShow { self.showNextSurvey() }

@@ -39,7 +39,8 @@
         let eventActivatedSurveysLock = NSLock()
         var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
         let freshFeatureFlagsLock = NSLock()
-        var surveysAwaitingFreshFeatureFlags = false
+        var surveyRefreshGeneration = 0
+        var surveyAwaitingFeatureFlagsGeneration: Int?
         #if os(iOS)
             var hasActiveSurveyWindow: () -> Bool = { UIApplication.getCurrentWindow() != nil }
         #endif
@@ -49,11 +50,12 @@
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
         var remoteConfigLoadedToken: RegistrationToken?
-        var featureFlagsLoadedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
+        /// Language the survey was rendered with, frozen at show time and reused as `$survey_language` on
+        /// `sent`/`dismissed`. Not touched by `refreshActiveSurveyTranslations`, so a drop stays detectable.
         private var activeSurveyRenderedLanguage: String?
         private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         /// Question translations frozen at show time — the fallback text for questions never answered,
@@ -250,46 +252,13 @@
             }
         }
 
-        func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
-            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
-
-            let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
-                if let surveyEvents = current.conditions?.events?.values {
-                    for eventCondition in surveyEvents {
-                        result[eventCondition.name, default: []].append(
-                            (surveyId: current.id, condition: eventCondition)
-                        )
-                    }
-                }
-            }
-
-            allSurveysLock.withLock {
-                self.allSurveys = loadedSurveys
-            }
-            eventsToSurveysLock.withLock {
-                self.eventsToSurveys = eventMap
-            }
-            reconcileEventActivations(with: loadedSurveys)
-
-            callback(loadedSurveys)
-        }
-
-        private func decodeSurveys(from remoteConfig: [String: Any]) -> [PostHogSurvey] {
-            guard let surveysJSON = remoteConfig["surveys"] as? [[String: Any]] else {
-                // surveys not json, disabled
-                return []
-            }
-
-            // Decode each survey individually so one malformed entry doesn't drop the entire list
-            return surveysJSON.compactMap { surveyJSON in
-                do {
-                    let jsonData = try JSONSerialization.data(withJSONObject: surveyJSON)
-                    return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: jsonData)
-                } catch {
-                    hedgeLog("Error decoding Survey: \(error)")
-                    return nil
-                }
-            }
+        func updateSurveyCache(
+            _ surveys: [PostHogSurvey],
+            events: [String: [(surveyId: String, condition: PostHogEventCondition)]]
+        ) {
+            allSurveysLock.withLock { allSurveys = surveys }
+            eventsToSurveysLock.withLock { eventsToSurveys = events }
+            reconcileEventActivations(with: surveys)
         }
 
         private func isSurveyFeatureFlagEnabled(flagKey: String?) -> Bool {

@@ -1276,6 +1276,7 @@ enum PostHogSurveysTest {
 
                 let delegate = SpySurveysDelegate()
                 postHog.config._surveysConfig.surveysDelegate = delegate
+                postHog.config.preloadFeatureFlags = false
                 let sut = getSut(surveys: [])
                 server.remoteConfigSurveys =
                     """
@@ -1294,6 +1295,11 @@ enum PostHogSurveysTest {
                     }]
                     """
 
+                server.featureFlags = ["survey-flag": false]
+                let featureFlagsLoaded = AsyncLatch()
+                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in
+                    featureFlagsLoaded.signal()
+                })
                 let remoteConfigLoaded = AsyncLatch()
                 let remoteToken = try #require(postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in
                     DispatchQueue.main.async { DispatchQueue.main.async { remoteConfigLoaded.signal() } }
@@ -1302,12 +1308,6 @@ enum PostHogSurveysTest {
                 await remoteConfigLoaded.wait()
                 #expect(delegate.renderedSurveyIds.isEmpty)
 
-                server.featureFlags = ["survey-flag": false]
-                let featureFlagsLoaded = AsyncLatch()
-                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { _ in
-                    DispatchQueue.main.async { DispatchQueue.main.async { featureFlagsLoaded.signal() } }
-                })
-                postHog.remoteConfig?.reloadFeatureFlags()
                 await featureFlagsLoaded.wait()
                 #expect(delegate.renderedSurveyIds.isEmpty)
                 _ = (sut, remoteToken, flagsToken)

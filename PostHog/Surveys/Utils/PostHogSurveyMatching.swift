@@ -162,15 +162,13 @@
 
             postHog?.remoteConfig?.reloadFeatureFlagsForSurvey { [weak self] flags in
                 guard let self else { return }
-                DispatchQueue.main.async {
-                    let shouldShow = self.freshFeatureFlagsLock.withLock {
-                        guard self.surveyAwaitingFeatureFlagsGeneration == generation else { return false }
-                        self.surveyAwaitingFeatureFlagsGeneration = nil
-                        self.surveyFeatureFlagsUnavailable = flags == nil
-                        return true
-                    }
-                    if shouldShow { self.showNextSurvey() }
+                let shouldShow = self.freshFeatureFlagsLock.withLock {
+                    guard self.surveyAwaitingFeatureFlagsGeneration == generation else { return false }
+                    self.surveyAwaitingFeatureFlagsGeneration = nil
+                    self.surveyFeatureFlagsUnavailable = flags == nil
+                    return true
                 }
+                if shouldShow { self.showNextSurvey() }
             }
             return true
         }

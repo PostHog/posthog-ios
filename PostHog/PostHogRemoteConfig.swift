@@ -20,6 +20,7 @@ class PostHogRemoteConfig {
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
     private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
+    private var surveyFeatureFlagsWaiters: [([String: Any]?) -> Void] = []
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -69,6 +70,10 @@ class PostHogRemoteConfig {
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))
+
+    var isLoadingFeatureFlags: Bool {
+        loadingFeatureFlagsLock.withLock { loadingFeatureFlags }
+    }
 
     var lastRequestId: String? {
         featureFlagsLock.withLock {
@@ -254,24 +259,26 @@ class PostHogRemoteConfig {
     func reloadFeatureFlags(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
-        reloadFeatureFlags(callback: callback, forSurveyRefresh: false)
+        reloadFeatureFlags(callback: callback, surveyCompletion: nil)
     }
 
     func reloadFeatureFlagsForSurvey(callback: @escaping ([String: Any]?) -> Void) {
-        reloadFeatureFlags(callback: callback, forSurveyRefresh: true)
+        reloadFeatureFlags(callback: nil, surveyCompletion: callback)
     }
 
     private func reloadFeatureFlags(
         callback: (([String: Any]?) -> Void)?,
-        forSurveyRefresh: Bool
+        surveyCompletion: (([String: Any]?) -> Void)?
     ) {
         guard canReloadFlagsForTesting else {
+            surveyCompletion?(nil)
             return
         }
 
         guard let storageManager = config.storageManager else {
             hedgeLog("No PostHogStorageManager found in config, skipping loading feature flags")
             callback?(nil)
+            surveyCompletion?(nil)
             return
         }
 
@@ -286,7 +293,7 @@ class PostHogRemoteConfig {
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
             callback: callback ?? { _ in },
-            forSurveyRefresh: forSurveyRefresh
+            surveyCompletion: surveyCompletion
         )
     }
 
@@ -369,23 +376,21 @@ class PostHogRemoteConfig {
         deviceId: String? = nil,
         groups: [String: String],
         callback: @escaping ([String: Any]?) -> Void,
-        forSurveyRefresh: Bool = false
+        surveyCompletion: (([String: Any]?) -> Void)? = nil
     ) {
         let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
+            if let surveyCompletion {
+                self.surveyFeatureFlagsWaiters.append(surveyCompletion)
+            }
             if self.loadingFeatureFlags {
-                let request = PendingFeatureFlagsRequest(
+                let prev = self.pendingFeatureFlagsRequest?.callback
+                self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
                     deviceId: deviceId,
                     groups: groups,
-                    callback: callback,
-                    forSurveyRefresh: forSurveyRefresh
+                    callback: callback
                 )
-                let previous = self.pendingFeatureFlagsRequest
-                self.pendingFeatureFlagsRequest = request
-                let prev = previous.map { pending in
-                    pending.forSurveyRefresh ? { _ in pending.callback(nil) } : pending.callback
-                }
                 return (true, prev)
             }
             self.loadingFeatureFlags = true
@@ -643,11 +648,14 @@ class PostHogRemoteConfig {
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
         notifyFeatureFlags(featureFlags)
 
-        let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
+        let (pending, surveyWaiters): (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
             let req = self.pendingFeatureFlagsRequest
             self.pendingFeatureFlagsRequest = nil
-            return req
+            guard req == nil else { return (req, []) }
+            let waiters = self.surveyFeatureFlagsWaiters
+            self.surveyFeatureFlagsWaiters = []
+            return (nil, waiters)
         }
 
         if let pending {
@@ -656,9 +664,12 @@ class PostHogRemoteConfig {
                 anonymousId: pending.anonymousId,
                 deviceId: pending.deviceId,
                 groups: pending.groups,
-                callback: pending.callback,
-                forSurveyRefresh: pending.forSurveyRefresh
+                callback: pending.callback
             )
+        } else {
+            for waiter in surveyWaiters {
+                waiter(featureFlags)
+            }
         }
     }
 
@@ -1141,7 +1152,6 @@ private struct PendingFeatureFlagsRequest {
     let deviceId: String?
     let groups: [String: String]
     let callback: ([String: Any]?) -> Void
-    let forSurveyRefresh: Bool
 }
 
 #if TESTING

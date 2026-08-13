@@ -48,11 +48,11 @@
     extension PostHogSurveyIntegration {
         func decodeAndSetSurveys(
             remoteConfig: [String: Any]?,
-            beforeCacheUpdate: SurveyCallback? = nil,
+            beforeCacheUpdate: (([PostHogSurvey]) -> Bool)? = nil,
             callback: @escaping SurveyCallback
         ) {
             let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
-            beforeCacheUpdate?(loadedSurveys)
+            guard beforeCacheUpdate?(loadedSurveys) != false else { return }
 
             let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
                 if let surveyEvents = current.conditions?.events?.values {
@@ -92,7 +92,8 @@
         }
 
         var canShowSurveyWithFreshFeatureFlags: Bool {
-            freshFeatureFlagsLock.withLock { surveyAwaitingFeatureFlagsGeneration == nil }
+            freshFeatureFlagsLock.withLock { surveyAwaitingFeatureFlagsGeneration == nil } &&
+                postHog?.remoteConfig?.isLoadingFeatureFlags != true
         }
 
         var canEvaluateSurveyFeatureFlags: Bool {
@@ -102,18 +103,25 @@
         func subscribeToRemoteConfigUpdates() {
             remoteConfigLoadedToken = postHog?.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] remoteConfig in
                 guard let self, let remoteConfig else { return }
+                let generation = self.beginSurveyRefresh()
                 self.decodeAndSetSurveys(
                     remoteConfig: remoteConfig,
-                    beforeCacheUpdate: { surveys in self.refreshFeatureFlagsIfNeeded(for: surveys) },
+                    beforeCacheUpdate: { surveys in
+                        self.refreshFeatureFlagsIfNeeded(for: surveys, generation: generation)
+                    },
                     callback: { _ in
                         if self.canShowSurveyWithFreshFeatureFlags { self.showNextSurvey() }
                     }
                 )
             }
+            featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] _ in
+                self?.showNextSurvey()
+            }
         }
 
         func unsubscribeFromRemoteConfigUpdates() {
             remoteConfigLoadedToken = nil
+            featureFlagsLoadedToken = nil
             freshFeatureFlagsLock.withLock {
                 surveyRefreshGeneration += 1
                 surveyAwaitingFeatureFlagsGeneration = nil
@@ -121,15 +129,23 @@
             }
         }
 
-        func refreshFeatureFlagsIfNeeded(for surveys: [PostHogSurvey]) {
-            let needsFlags = surveys.contains(where: \.requiresFeatureFlagEvaluation)
-            let generation = freshFeatureFlagsLock.withLock {
+        func beginSurveyRefresh() -> Int {
+            freshFeatureFlagsLock.withLock {
                 surveyRefreshGeneration += 1
-                surveyAwaitingFeatureFlagsGeneration = needsFlags ? surveyRefreshGeneration : nil
-                if !needsFlags { surveyFeatureFlagsUnavailable = false }
-                return surveyAwaitingFeatureFlagsGeneration
+                surveyAwaitingFeatureFlagsGeneration = surveyRefreshGeneration
+                return surveyRefreshGeneration
             }
-            guard let generation else { return }
+        }
+
+        func refreshFeatureFlagsIfNeeded(for surveys: [PostHogSurvey], generation: Int) -> Bool {
+            let needsFlags = surveys.contains(where: \.requiresFeatureFlagEvaluation)
+            let shouldRefresh = freshFeatureFlagsLock.withLock {
+                guard surveyRefreshGeneration == generation else { return false }
+                surveyAwaitingFeatureFlagsGeneration = needsFlags ? generation : nil
+                if !needsFlags { surveyFeatureFlagsUnavailable = false }
+                return needsFlags
+            }
+            guard shouldRefresh else { return freshFeatureFlagsLock.withLock { surveyRefreshGeneration == generation } }
 
             postHog?.remoteConfig?.reloadFeatureFlagsForSurvey { [weak self] flags in
                 guard let self else { return }
@@ -143,6 +159,7 @@
                     if shouldShow { self.showNextSurvey() }
                 }
             }
+            return true
         }
 
         func reconcileEventActivations(with surveys: [PostHogSurvey]) {

@@ -114,8 +114,16 @@
                     }
                 )
             }
-            featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] _ in
-                self?.showNextSurvey()
+            featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] flags in
+                guard let self else { return }
+                if flags != nil {
+                    self.freshFeatureFlagsLock.withLock {
+                        if self.surveyAwaitingFeatureFlagsGeneration == nil {
+                            self.surveyFeatureFlagsUnavailable = false
+                        }
+                    }
+                }
+                self.showNextSurvey()
             }
         }
 

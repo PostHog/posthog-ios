@@ -1419,7 +1419,7 @@ enum PostHogSurveysTest {
                 server.featureFlags = ["survey-flag": true]
                 let rendered = AsyncLatch()
                 delegate.onRender = { rendered.signal() }
-                postHog.remoteConfig?.reloadRemoteConfig()
+                postHog.remoteConfig?.reloadFeatureFlags()
                 await rendered.wait()
 
                 #expect(delegate.renderedSurveyIds == ["flagged_survey"])

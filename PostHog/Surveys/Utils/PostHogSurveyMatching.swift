@@ -103,16 +103,17 @@
         func subscribeToRemoteConfigUpdates() {
             remoteConfigLoadedToken = postHog?.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] remoteConfig in
                 guard let self, let remoteConfig else { return }
-                let generation = self.beginSurveyRefresh()
-                self.decodeAndSetSurveys(
-                    remoteConfig: remoteConfig,
-                    beforeCacheUpdate: { surveys in
-                        self.refreshFeatureFlagsIfNeeded(for: surveys, generation: generation)
-                    },
-                    callback: { _ in
-                        if self.canShowSurveyWithFreshFeatureFlags { self.showNextSurvey() }
-                    }
-                )
+                self.surveyRefreshProcessingLock.withLock {
+                    let generation = self.beginSurveyRefresh()
+                    self.decodeAndSetSurveys(
+                        remoteConfig: remoteConfig,
+                        beforeCacheUpdate: { _ in self.isCurrentSurveyRefresh(generation) },
+                        callback: { surveys in
+                            _ = self.refreshFeatureFlagsIfNeeded(for: surveys, generation: generation)
+                            if self.canShowSurveyWithFreshFeatureFlags { self.showNextSurvey() }
+                        }
+                    )
+                }
             }
             featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] flags in
                 guard let self else { return }
@@ -143,6 +144,10 @@
                 surveyAwaitingFeatureFlagsGeneration = surveyRefreshGeneration
                 return surveyRefreshGeneration
             }
+        }
+
+        func isCurrentSurveyRefresh(_ generation: Int) -> Bool {
+            freshFeatureFlagsLock.withLock { surveyRefreshGeneration == generation }
         }
 
         func refreshFeatureFlagsIfNeeded(for surveys: [PostHogSurvey], generation: Int) -> Bool {

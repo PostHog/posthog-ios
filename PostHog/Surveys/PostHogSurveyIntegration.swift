@@ -39,6 +39,7 @@
         let eventActivatedSurveysLock = NSLock()
         var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
         let freshFeatureFlagsLock = NSLock()
+        let surveyRefreshProcessingLock = NSLock()
         var surveyRefreshGeneration = 0
         var surveyAwaitingFeatureFlagsGeneration: Int?
         var surveyFeatureFlagsUnavailable = false

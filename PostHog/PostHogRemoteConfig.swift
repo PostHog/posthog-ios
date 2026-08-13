@@ -20,7 +20,6 @@ class PostHogRemoteConfig {
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
     private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
-    private var pendingSurveyFeatureFlagsRequest: PendingFeatureFlagsRequest?
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -382,13 +381,11 @@ class PostHogRemoteConfig {
                     callback: callback,
                     forSurveyRefresh: forSurveyRefresh
                 )
-                if forSurveyRefresh {
-                    let prev = self.pendingSurveyFeatureFlagsRequest?.callback
-                    self.pendingSurveyFeatureFlagsRequest = request
-                    return (true, prev)
-                }
-                let prev = self.pendingFeatureFlagsRequest?.callback
+                let previous = self.pendingFeatureFlagsRequest
                 self.pendingFeatureFlagsRequest = request
+                let prev = previous.map { pending in
+                    pending.forSurveyRefresh ? { _ in pending.callback(nil) } : pending.callback
+                }
                 return (true, prev)
             }
             self.loadingFeatureFlags = true
@@ -648,10 +645,6 @@ class PostHogRemoteConfig {
 
         let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
-            if let req = self.pendingSurveyFeatureFlagsRequest {
-                self.pendingSurveyFeatureFlagsRequest = nil
-                return req
-            }
             let req = self.pendingFeatureFlagsRequest
             self.pendingFeatureFlagsRequest = nil
             return req

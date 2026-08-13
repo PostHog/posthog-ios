@@ -286,26 +286,31 @@
                 guard hasActiveSurveyWindow(), canShowNextSurvey(), canShowSurveyWithFreshFeatureFlags
                 else { return }
 
+                let refreshGeneration = freshFeatureFlagsLock.withLock { surveyRefreshGeneration }
                 getActiveMatchingSurveys { activeSurveys in
-                    if let survey = activeSurveys.first(where: self.canRenderSurvey) {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self,
+                              self.freshFeatureFlagsLock.withLock({ self.surveyRefreshGeneration == refreshGeneration }),
+                              self.hasActiveSurveyWindow(),
+                              self.canShowNextSurvey(),
+                              self.canShowSurveyWithFreshFeatureFlags,
+                              let survey = activeSurveys.first(where: self.canRenderSurvey)
+                        else { return }
+
                         let language = self.resolveDisplayLanguage()
                         let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
                         self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
 
-                        DispatchQueue.main.async { [weak self] in
-                            if let self {
-                                // render the survey
-                                self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
-                                    survey.toDisplaySurvey(
-                                        surveyTranslation: translations.survey,
-                                        questionTranslations: translations.questions
-                                    ),
-                                    onSurveyShown: self.handleSurveyShown,
-                                    onSurveyResponse: self.handleSurveyResponse,
-                                    onSurveyClosed: self.handleSurveyClosed
-                                )
-                            }
-                        }
+                        // render the survey
+                        self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
+                            survey.toDisplaySurvey(
+                                surveyTranslation: translations.survey,
+                                questionTranslations: translations.questions
+                            ),
+                            onSurveyShown: self.handleSurveyShown,
+                            onSurveyResponse: self.handleSurveyResponse,
+                            onSurveyClosed: self.handleSurveyClosed
+                        )
                     }
                 }
             #endif

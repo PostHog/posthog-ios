@@ -1369,6 +1369,7 @@ enum PostHogSurveysTest {
 
                 postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
                 postHog.remoteConfig?.onRemoteConfigLoaded.invoke(["surveys": [survey]])
+                postHog.remoteConfig?.reloadFeatureFlags()
                 await flagsLoaded.wait()
                 await withCheckedContinuation { continuation in
                     DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }

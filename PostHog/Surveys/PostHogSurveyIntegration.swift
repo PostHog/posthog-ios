@@ -22,7 +22,7 @@
         private let kSurveySeenKeyPrefix = "seenSurvey_"
         private let kSurveyResponseKey = "$survey_response"
 
-        private var postHog: PostHogSDK?
+        var postHog: PostHogSDK?
         private var config: PostHogConfig? { postHog?.config }
         private var storage: PostHogStorage? { postHog?.storage }
         private var remoteConfig: PostHogRemoteConfig? { postHog?.remoteConfig }
@@ -36,14 +36,17 @@
         private var seenSurveyKeysLock = NSLock()
         private var seenSurveyKeys: [AnyHashable: Any]?
 
-        private var eventActivatedSurveysLock = NSLock()
-        private var eventActivatedSurveys: Set<String> = []
+        let eventActivatedSurveysLock = NSLock()
+        var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
+        let freshFeatureFlagsLock = NSLock()
+        var surveysAwaitingFreshFeatureFlags = false
 
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
-        private var remoteConfigLoadedToken: RegistrationToken?
+        var remoteConfigLoadedToken: RegistrationToken?
+        var featureFlagsLoadedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -82,10 +85,7 @@
             personPropertiesChangedToken = postHog?.remoteConfig?.onPersonPropertiesForFlagsChanged.subscribe { [weak self] _ in
                 self?.refreshActiveSurveyTranslations()
             }
-            remoteConfigLoadedToken = postHog?.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] remoteConfig in
-                guard let self, let remoteConfig else { return }
-                self.decodeAndSetSurveys(remoteConfig: remoteConfig) { _ in self.showNextSurvey() }
-            }
+            subscribeToRemoteConfigUpdates()
             #if os(iOS)
                 // Subscribe to event captures
                 eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
@@ -106,7 +106,7 @@
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
             personPropertiesChangedToken = nil
-            remoteConfigLoadedToken = nil
+            unsubscribeFromRemoteConfigUpdates()
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     config?.surveysConfig.surveysDelegate.cleanupSurveys()
@@ -168,15 +168,14 @@
             let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event.event] } ?? []
             guard !candidates.isEmpty else { return }
 
-            let matchingSurveyIds = candidates
+            let matchingSurveys = candidates
                 .filter { matchPropertyFilters($0.condition.propertyFilters, eventProperties: event.properties) }
-                .map(\.surveyId)
 
-            guard !matchingSurveyIds.isEmpty else { return }
+            guard !matchingSurveys.isEmpty else { return }
 
             eventActivatedSurveysLock.withLock {
-                for survey in matchingSurveyIds {
-                    eventActivatedSurveys.insert(survey)
+                for survey in matchingSurveys where eventActivatedSurveys[survey.surveyId]?.contains(survey.condition) != true {
+                    eventActivatedSurveys[survey.surveyId, default: []].append(survey.condition)
                 }
             }
 
@@ -250,7 +249,7 @@
             }
         }
 
-        private func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
+        func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
             let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
 
             let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
@@ -269,6 +268,7 @@
             eventsToSurveysLock.withLock {
                 self.eventsToSurveys = eventMap
             }
+            reconcileEventActivations(with: loadedSurveys)
 
             callback(loadedSurveys)
         }
@@ -305,16 +305,16 @@
         }
 
         /// Shows next survey in queue. No-op if a survey is already being shown
-        private func showNextSurvey() {
+        func showNextSurvey() {
             #if os(iOS)
                 guard #available(iOS 15.0, *) else {
                     hedgeLog("[Surveys] Surveys can be rendered only on iOS 15+")
                     return
                 }
 
-                guard canShowNextSurvey() else { return }
+                guard canShowNextSurvey(), canShowSurveyWithFreshFeatureFlags
+                else { return }
 
-                // Check if there is a new popover surveys to be displayed
                 getActiveMatchingSurveys { activeSurveys in
                     if let survey = activeSurveys.first(where: self.canRenderSurvey) {
                         let language = self.resolveDisplayLanguage()
@@ -506,9 +506,9 @@
 
         /// Checks if a survey has been previously activated by an associated event
         private func isSurveyEventActivated(survey: PostHogSurvey) -> Bool {
-            eventActivatedSurveysLock.withLock {
-                eventActivatedSurveys.contains(survey.id)
-            }
+            let activatedConditions = eventActivatedSurveysLock.withLock { eventActivatedSurveys[survey.id] } ?? []
+            let currentConditions = survey.conditions?.events?.values ?? []
+            return activatedConditions.contains { currentConditions.contains($0) }
         }
 
         /// Handle a survey that is shown
@@ -529,7 +529,7 @@
             // clear up event-activated surveys
             if activeSurvey.hasEvents {
                 eventActivatedSurveysLock.withLock {
-                    _ = eventActivatedSurveys.remove(activeSurvey.id)
+                    _ = eventActivatedSurveys.removeValue(forKey: activeSurvey.id)
                 }
             }
         }
@@ -1184,7 +1184,7 @@
 
             func testIsEventActivated(surveyId: String) -> Bool {
                 eventActivatedSurveysLock.withLock {
-                    eventActivatedSurveys.contains(surveyId)
+                    eventActivatedSurveys[surveyId] != nil
                 }
             }
 

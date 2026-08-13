@@ -37,6 +37,57 @@
             (conditions?.events?.repeatedActivation == true && hasEvents) ||
                 schedule == .always
         }
+
+        var requiresFeatureFlagEvaluation: Bool {
+            let keys = [linkedFlagKey, targetingFlagKey, canActivateRepeatedly ? nil : internalTargetingFlagKey] +
+                (featureFlagKeys?.map(\.value) ?? [])
+            return keys.contains { !($0?.isEmpty ?? true) }
+        }
+    }
+
+    extension PostHogSurveyIntegration {
+        var canShowSurveyWithFreshFeatureFlags: Bool {
+            freshFeatureFlagsLock.withLock { !surveysAwaitingFreshFeatureFlags }
+        }
+
+        func subscribeToRemoteConfigUpdates() {
+            remoteConfigLoadedToken = postHog?.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] remoteConfig in
+                guard let self, let remoteConfig else { return }
+                self.decodeAndSetSurveys(remoteConfig: remoteConfig) { surveys in
+                    let reloadsFlags = self.postHog?.config.preloadFeatureFlags == true ||
+                        remoteConfig["hasFeatureFlags"] as? Bool == false
+                    let awaitingFlags = reloadsFlags && surveys.contains(where: \.requiresFeatureFlagEvaluation)
+                    self.freshFeatureFlagsLock.withLock { self.surveysAwaitingFreshFeatureFlags = awaitingFlags }
+                    if !awaitingFlags { self.showNextSurvey() }
+                }
+            }
+            featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] flags in
+                guard let self, flags != nil else { return }
+                let shouldShow = self.freshFeatureFlagsLock.withLock {
+                    defer { self.surveysAwaitingFreshFeatureFlags = false }
+                    return self.surveysAwaitingFreshFeatureFlags
+                }
+                if shouldShow { self.showNextSurvey() }
+            }
+        }
+
+        func unsubscribeFromRemoteConfigUpdates() {
+            remoteConfigLoadedToken = nil
+            featureFlagsLoadedToken = nil
+            freshFeatureFlagsLock.withLock { surveysAwaitingFreshFeatureFlags = false }
+        }
+
+        func reconcileEventActivations(with surveys: [PostHogSurvey]) {
+            let current = surveys.reduce(into: [String: [PostHogEventCondition]]()) {
+                $0[$1.id] = $1.conditions?.events?.values ?? []
+            }
+            eventActivatedSurveysLock.withLock {
+                eventActivatedSurveys = eventActivatedSurveys.reduce(into: [:]) { result, activation in
+                    let retained = activation.value.filter { current[activation.key]?.contains($0) == true }
+                    if !retained.isEmpty { result[activation.key] = retained }
+                }
+            }
+        }
     }
 
     extension PostHogSurveyMatchType {

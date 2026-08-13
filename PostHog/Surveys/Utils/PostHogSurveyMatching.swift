@@ -46,6 +46,10 @@
     }
 
     extension PostHogSurveyIntegration {
+        func canRenderSurvey(survey: PostHogSurvey) -> Bool {
+            survey.type == .popover
+        }
+
         var canShowSurveyWithFreshFeatureFlags: Bool {
             freshFeatureFlagsLock.withLock { !surveysAwaitingFreshFeatureFlags }
         }

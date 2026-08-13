@@ -40,6 +40,9 @@
         var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
         let freshFeatureFlagsLock = NSLock()
         var surveysAwaitingFreshFeatureFlags = false
+        #if os(iOS)
+            var hasActiveSurveyWindow: () -> Bool = { UIApplication.getCurrentWindow() != nil }
+        #endif
 
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
@@ -51,8 +54,6 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyLanguage: String?
-        /// Language the survey was rendered with, frozen at show time and reused as `$survey_language` on
-        /// `sent`/`dismissed`. Not touched by `refreshActiveSurveyTranslations`, so a drop stays detectable.
         private var activeSurveyRenderedLanguage: String?
         private var activeSurveyQuestionTranslations: [PostHogSurveyQuestionTranslation?]?
         /// Question translations frozen at show time — the fallback text for questions never answered,
@@ -299,11 +300,6 @@
             return postHog.isFeatureEnabled(flagKey)
         }
 
-        private func canRenderSurvey(survey: PostHogSurvey) -> Bool {
-            // only render popover surveys for now
-            survey.type == .popover
-        }
-
         /// Shows next survey in queue. No-op if a survey is already being shown
         func showNextSurvey() {
             #if os(iOS)
@@ -312,7 +308,11 @@
                     return
                 }
 
-                guard canShowNextSurvey(), canShowSurveyWithFreshFeatureFlags
+                guard Thread.isMainThread else {
+                    DispatchQueue.main.async { [weak self] in self?.showNextSurvey() }
+                    return
+                }
+                guard hasActiveSurveyWindow(), canShowNextSurvey(), canShowSurveyWithFreshFeatureFlags
                 else { return }
 
                 getActiveMatchingSurveys { activeSurveys in

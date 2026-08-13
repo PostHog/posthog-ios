@@ -776,6 +776,7 @@ enum PostHogSurveysTest {
         #if os(iOS)
             final class SpySurveysDelegate: NSObject, PostHogSurveysDelegate {
                 var renderedSurveyIds: [String] = []
+                var onRender: (() -> Void)?
 
                 func renderSurvey(
                     _ survey: PostHogDisplaySurvey,
@@ -784,6 +785,7 @@ enum PostHogSurveysTest {
                     onSurveyClosed _: @escaping OnPostHogSurveyClosed
                 ) {
                     renderedSurveyIds.append(survey.id)
+                    onRender?()
                 }
 
                 func cleanupSurveys() {}
@@ -1237,6 +1239,34 @@ enum PostHogSurveysTest {
         }
 
         #if os(iOS)
+            @Test("defers showing surveys until a foreground window exists")
+            func defersShowingSurveysUntilForegroundWindowExists() async {
+                let delegate = SpySurveysDelegate()
+                postHog.config._surveysConfig.surveysDelegate = delegate
+                let sut = getSut(surveys: [activeSurvey])
+                sut.hasActiveSurveyWindow = { false }
+
+                let matchingSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                    sut.getActiveMatchingSurveys(forceReload: true) {
+                        continuation.resume(returning: $0)
+                    }
+                }
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.main.async { DispatchQueue.main.async { continuation.resume() } }
+                }
+
+                #expect(matchingSurveys.map(\.id) == ["active_id"])
+                #expect(delegate.renderedSurveyIds.isEmpty)
+
+                let rendered = AsyncLatch()
+                delegate.onRender = { rendered.signal() }
+                sut.hasActiveSurveyWindow = { true }
+                DI.main.appLifecyclePublisher.onDidBecomeActive.invoke(())
+                await rendered.wait()
+
+                #expect(delegate.renderedSurveyIds == ["active_id"])
+            }
+
             @Test("waits for fresh feature flags before showing refreshed surveys")
             func waitsForFreshFeatureFlagsBeforeShowingRefreshedSurveys() async throws {
                 server.featureFlags = ["survey-flag": true]

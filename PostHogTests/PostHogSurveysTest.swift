@@ -777,6 +777,7 @@ enum PostHogSurveysTest {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9090")
             config._surveys = true
             config.disableFlushOnBackgroundForTesting = true
+            config.disableRemoteConfigForTesting = true
             postHog = PostHogSDK.with(config)
             let storage = PostHogStorage(config)
             storage.reset()
@@ -1127,6 +1128,68 @@ enum PostHogSurveysTest {
             }
 
             #expect(matchedSurveys.map(\.id) == ["active_id"])
+        }
+
+        @Test("refreshes cached surveys when remote config loads")
+        func refreshesCachedSurveysWhenRemoteConfigLoads() async throws {
+            let refreshedSurvey =
+                """
+                {
+                    "id": "refreshed_id",
+                    "name": "Refreshed Survey",
+                    "type": "popover",
+                    "questions": [
+                        {
+                            "id": "1",
+                            "type": "open",
+                            "question": "What do you think?",
+                            "originalQuestionIndex": 0
+                        }
+                    ],
+                    "conditions": {
+                        "events": {
+                            "values": [
+                                { "name": "new-trigger" }
+                            ]
+                        }
+                    },
+                    "start_date": "2024-07-23T09:18:18.376000Z"
+                }
+                """
+
+            let sut = getSut(surveys: [activeSurvey])
+            let initialSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys(forceReload: true) {
+                    continuation.resume(returning: $0)
+                }
+            }
+            #expect(initialSurveys.map(\.id) == ["active_id"])
+
+            server.remoteConfigSurveys = "[\(refreshedSurvey)]"
+            let remoteConfigLoaded = AsyncLatch()
+            let token = try #require(postHog.remoteConfig?.onRemoteConfigLoaded.subscribe { _ in
+                DispatchQueue.main.async {
+                    remoteConfigLoaded.signal()
+                }
+            })
+            postHog.remoteConfig?.reloadRemoteConfig()
+            await remoteConfigLoaded.wait()
+
+            sut.testOnEvent(event: PostHogEvent(
+                event: "new-trigger",
+                distinctId: "test",
+                properties: [:],
+                timestamp: Date()
+            ))
+            #expect(sut.testIsEventActivated(surveyId: "refreshed_id") == true)
+
+            let refreshedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys {
+                    continuation.resume(returning: $0)
+                }
+            }
+            #expect(refreshedSurveys.map(\.id) == ["refreshed_id"])
+            _ = token
         }
 
         @Test("returns surveys that match device type")

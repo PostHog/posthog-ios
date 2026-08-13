@@ -43,6 +43,7 @@
         private var didLayoutViewToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
+        private var remoteConfigLoadedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -81,18 +82,19 @@
             personPropertiesChangedToken = postHog?.remoteConfig?.onPersonPropertiesForFlagsChanged.subscribe { [weak self] _ in
                 self?.refreshActiveSurveyTranslations()
             }
-
+            remoteConfigLoadedToken = postHog?.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] remoteConfig in
+                guard let self, let remoteConfig else { return }
+                self.decodeAndSetSurveys(remoteConfig: remoteConfig) { _ in self.showNextSurvey() }
+            }
             #if os(iOS)
                 // Subscribe to event captures
                 eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
                     self?.onEvent(event: event)
                 }
-
                 // TODO: listen to screen view events
                 didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
                     self?.showNextSurvey()
                 }
-
                 didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                     self?.showNextSurvey()
                 }
@@ -104,6 +106,7 @@
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
             personPropertiesChangedToken = nil
+            remoteConfigLoadedToken = nil
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     config?.surveysConfig.surveysDelegate.cleanupSurveys()

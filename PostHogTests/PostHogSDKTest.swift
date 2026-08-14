@@ -1096,7 +1096,9 @@ class PostHogSDKTest: QuickSpec {
                         groups: ["groupProp": "value"],
                         timestamp: eventDate)
 
-            _ = getBatchedEvents(server)
+            let events = getBatchedEvents(server)
+            expect(events.count) == 1
+
             let requestBody = server.parseRequest(server.batchRequests.first!)
             let event = (requestBody?["batch"] as? [[String: Any]])?.first
 

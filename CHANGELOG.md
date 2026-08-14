@@ -1,5 +1,12 @@
 ## Next
 
+## 3.69.6
+
+### Patch Changes
+
+- 001ced2: Document and verify that custom event timestamps are serialized as equivalent UTC instants.
+- aca4f86: Refresh survey definitions when a new remote config loads.
+
 ## 3.69.5
 
 ### Patch Changes

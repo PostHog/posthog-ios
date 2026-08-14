@@ -1075,9 +1075,19 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures an event with a custom timestamp") {
+        it("captures an event with a custom timestamp as the equivalent UTC instant") {
             let sut = self.getSut()
-            let eventDate = Date().addingTimeInterval(-60 * 30)
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(secondsFromGMT: 5 * 60 * 60 + 30 * 60)!
+            let eventDate = calendar.date(from: DateComponents(
+                year: 2024,
+                month: 12,
+                day: 17,
+                hour: 22,
+                minute: 21,
+                second: 6,
+                nanosecond: 952_000_000
+            ))!
 
             sut.capture("test event",
                         properties: ["foo": "bar"],
@@ -1087,24 +1097,25 @@ class PostHogSDKTest: QuickSpec {
                         timestamp: eventDate)
 
             let events = getBatchedEvents(server)
-
             expect(events.count) == 1
 
-            let event = events.first!
-            expect(event.event) == "test event"
+            let requestBody = server.parseRequest(server.batchRequests.first!)
+            let event = (requestBody?["batch"] as? [[String: Any]])?.first
 
-            expect(event.properties["foo"] as? String) == "bar"
+            expect(event?["event"] as? String) == "test event"
+            expect(event?["timestamp"] as? String) == "2024-12-17T16:51:06.952Z"
 
-            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            let properties = event?["properties"] as? [String: Any] ?? [:]
+            expect(properties["foo"] as? String) == "bar"
+
+            let set = properties["$set"] as? [String: Any] ?? [:]
             expect(set["userProp"] as? String) == "value"
 
-            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            let setOnce = properties["$set_once"] as? [String: Any] ?? [:]
             expect(setOnce["userPropOnce"] as? String) == "value"
 
-            let groupProps = event.properties["$groups"] as? [String: String] ?? [:]
+            let groupProps = properties["$groups"] as? [String: String] ?? [:]
             expect(groupProps["groupProp"]) == "value"
-
-            expect(toISO8601String(event.timestamp)).to(equal(toISO8601String(eventDate)))
 
             sut.reset()
             sut.close()

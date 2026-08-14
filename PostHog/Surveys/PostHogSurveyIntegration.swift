@@ -22,7 +22,7 @@
         private let kSurveySeenKeyPrefix = "seenSurvey_"
         private let kSurveyResponseKey = "$survey_response"
 
-        private var postHog: PostHogSDK?
+        var postHog: PostHogSDK?
         private var config: PostHogConfig? { postHog?.config }
         private var storage: PostHogStorage? { postHog?.storage }
         private var remoteConfig: PostHogRemoteConfig? { postHog?.remoteConfig }
@@ -36,13 +36,23 @@
         private var seenSurveyKeysLock = NSLock()
         private var seenSurveyKeys: [AnyHashable: Any]?
 
-        private var eventActivatedSurveysLock = NSLock()
-        private var eventActivatedSurveys: Set<String> = []
+        let eventActivatedSurveysLock = NSLock()
+        var eventActivatedSurveys: [String: [PostHogEventCondition]] = [:]
+        let freshFeatureFlagsLock = NSLock()
+        let surveyRefreshProcessingLock = NSLock()
+        var surveyRefreshGeneration = 0
+        var surveyAwaitingFeatureFlagsGeneration: Int?
+        var surveyFeatureFlagsUnavailable = false
+        #if os(iOS)
+            var hasActiveSurveyWindow: () -> Bool = { UIApplication.getCurrentWindow() != nil }
+        #endif
 
         private var didBecomeActiveToken: RegistrationToken?
         private var didLayoutViewToken: RegistrationToken?
         private var eventCapturedToken: RegistrationToken?
         private var personPropertiesChangedToken: RegistrationToken?
+        var remoteConfigLoadedToken: RegistrationToken?
+        var featureFlagsLoadedToken: RegistrationToken?
 
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
@@ -81,18 +91,16 @@
             personPropertiesChangedToken = postHog?.remoteConfig?.onPersonPropertiesForFlagsChanged.subscribe { [weak self] _ in
                 self?.refreshActiveSurveyTranslations()
             }
-
+            subscribeToRemoteConfigUpdates()
             #if os(iOS)
                 // Subscribe to event captures
                 eventCapturedToken = postHog?.onEventCaptured.subscribe { [weak self] event in
                     self?.onEvent(event: event)
                 }
-
                 // TODO: listen to screen view events
                 didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
                     self?.showNextSurvey()
                 }
-
                 didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                     self?.showNextSurvey()
                 }
@@ -104,6 +112,7 @@
             didBecomeActiveToken = nil
             didLayoutViewToken = nil
             personPropertiesChangedToken = nil
+            unsubscribeFromRemoteConfigUpdates()
             #if os(iOS)
                 if #available(iOS 15.0, *) {
                     config?.surveysConfig.surveysDelegate.cleanupSurveys()
@@ -136,6 +145,7 @@
                         self.hasWaitPeriodPassed(survey: survey)
                     }
                     .filter { survey in // 4. and match linked flags
+                        guard !survey.requiresFeatureFlagEvaluation || self.canEvaluateSurveyFeatureFlags else { return false }
                         let allKeys: [String?] = [
                             [survey.linkedFlagKey],
                             [survey.targetingFlagKey],
@@ -165,15 +175,14 @@
             let candidates = eventsToSurveysLock.withLock { eventsToSurveys[event.event] } ?? []
             guard !candidates.isEmpty else { return }
 
-            let matchingSurveyIds = candidates
+            let matchingSurveys = candidates
                 .filter { matchPropertyFilters($0.condition.propertyFilters, eventProperties: event.properties) }
-                .map(\.surveyId)
 
-            guard !matchingSurveyIds.isEmpty else { return }
+            guard !matchingSurveys.isEmpty else { return }
 
             eventActivatedSurveysLock.withLock {
-                for survey in matchingSurveyIds {
-                    eventActivatedSurveys.insert(survey)
+                for survey in matchingSurveys where eventActivatedSurveys[survey.surveyId]?.contains(survey.condition) != true {
+                    eventActivatedSurveys[survey.surveyId, default: []].append(survey.condition)
                 }
             }
 
@@ -247,45 +256,13 @@
             }
         }
 
-        private func decodeAndSetSurveys(remoteConfig: [String: Any]?, callback: @escaping SurveyCallback) {
-            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
-
-            let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
-                if let surveyEvents = current.conditions?.events?.values {
-                    for eventCondition in surveyEvents {
-                        result[eventCondition.name, default: []].append(
-                            (surveyId: current.id, condition: eventCondition)
-                        )
-                    }
-                }
-            }
-
-            allSurveysLock.withLock {
-                self.allSurveys = loadedSurveys
-            }
-            eventsToSurveysLock.withLock {
-                self.eventsToSurveys = eventMap
-            }
-
-            callback(loadedSurveys)
-        }
-
-        private func decodeSurveys(from remoteConfig: [String: Any]) -> [PostHogSurvey] {
-            guard let surveysJSON = remoteConfig["surveys"] as? [[String: Any]] else {
-                // surveys not json, disabled
-                return []
-            }
-
-            // Decode each survey individually so one malformed entry doesn't drop the entire list
-            return surveysJSON.compactMap { surveyJSON in
-                do {
-                    let jsonData = try JSONSerialization.data(withJSONObject: surveyJSON)
-                    return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: jsonData)
-                } catch {
-                    hedgeLog("Error decoding Survey: \(error)")
-                    return nil
-                }
-            }
+        func updateSurveyCache(
+            _ surveys: [PostHogSurvey],
+            events: [String: [(surveyId: String, condition: PostHogEventCondition)]]
+        ) {
+            allSurveysLock.withLock { allSurveys = surveys }
+            eventsToSurveysLock.withLock { eventsToSurveys = events }
+            reconcileEventActivations(with: surveys)
         }
 
         private func isSurveyFeatureFlagEnabled(flagKey: String?) -> Bool {
@@ -296,42 +273,44 @@
             return postHog.isFeatureEnabled(flagKey)
         }
 
-        private func canRenderSurvey(survey: PostHogSurvey) -> Bool {
-            // only render popover surveys for now
-            survey.type == .popover
-        }
-
         /// Shows next survey in queue. No-op if a survey is already being shown
-        private func showNextSurvey() {
+        func showNextSurvey() {
             #if os(iOS)
                 guard #available(iOS 15.0, *) else {
                     hedgeLog("[Surveys] Surveys can be rendered only on iOS 15+")
                     return
                 }
 
-                guard canShowNextSurvey() else { return }
+                guard Thread.isMainThread else {
+                    DispatchQueue.main.async { [weak self] in self?.showNextSurvey() }
+                    return
+                }
+                guard hasActiveSurveyWindow(), canShowNextSurvey() else { return }
 
-                // Check if there is a new popover surveys to be displayed
+                let refreshGeneration = freshFeatureFlagsLock.withLock { surveyRefreshGeneration }
                 getActiveMatchingSurveys { activeSurveys in
-                    if let survey = activeSurveys.first(where: self.canRenderSurvey) {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self,
+                              self.freshFeatureFlagsLock.withLock({ self.surveyRefreshGeneration == refreshGeneration }),
+                              self.hasActiveSurveyWindow(),
+                              self.canShowNextSurvey(),
+                              let survey = activeSurveys.first(where: self.canRenderSurvey)
+                        else { return }
+
                         let language = self.resolveDisplayLanguage()
                         let translations = resolveSurveyTranslations(survey: survey, targetLanguage: language)
                         self.setActiveSurvey(survey: survey, language: translations.matchedKey, questionTranslations: translations.questions)
 
-                        DispatchQueue.main.async { [weak self] in
-                            if let self {
-                                // render the survey
-                                self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
-                                    survey.toDisplaySurvey(
-                                        surveyTranslation: translations.survey,
-                                        questionTranslations: translations.questions
-                                    ),
-                                    onSurveyShown: self.handleSurveyShown,
-                                    onSurveyResponse: self.handleSurveyResponse,
-                                    onSurveyClosed: self.handleSurveyClosed
-                                )
-                            }
-                        }
+                        // render the survey
+                        self.postHog?.config.surveysConfig.surveysDelegate.renderSurvey(
+                            survey.toDisplaySurvey(
+                                surveyTranslation: translations.survey,
+                                questionTranslations: translations.questions
+                            ),
+                            onSurveyShown: self.handleSurveyShown,
+                            onSurveyResponse: self.handleSurveyResponse,
+                            onSurveyClosed: self.handleSurveyClosed
+                        )
                     }
                 }
             #endif
@@ -503,9 +482,9 @@
 
         /// Checks if a survey has been previously activated by an associated event
         private func isSurveyEventActivated(survey: PostHogSurvey) -> Bool {
-            eventActivatedSurveysLock.withLock {
-                eventActivatedSurveys.contains(survey.id)
-            }
+            let activatedConditions = eventActivatedSurveysLock.withLock { eventActivatedSurveys[survey.id] } ?? []
+            let currentConditions = survey.conditions?.events?.values ?? []
+            return activatedConditions.contains { currentConditions.contains($0) }
         }
 
         /// Handle a survey that is shown
@@ -526,7 +505,7 @@
             // clear up event-activated surveys
             if activeSurvey.hasEvents {
                 eventActivatedSurveysLock.withLock {
-                    _ = eventActivatedSurveys.remove(activeSurvey.id)
+                    _ = eventActivatedSurveys.removeValue(forKey: activeSurvey.id)
                 }
             }
         }
@@ -1181,7 +1160,7 @@
 
             func testIsEventActivated(surveyId: String) -> Bool {
                 eventActivatedSurveysLock.withLock {
-                    eventActivatedSurveys.contains(surveyId)
+                    eventActivatedSurveys[surveyId] != nil
                 }
             }
 

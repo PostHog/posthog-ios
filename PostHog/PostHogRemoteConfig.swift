@@ -19,7 +19,10 @@ class PostHogRemoteConfig {
     private let loadingFeatureFlagsLock = NSLock()
     private let featureFlagsLock = NSLock()
     private var loadingFeatureFlags = false
+    private var featureFlagsEvaluationContextVersion = 0
+    private var activeFeatureFlagsRequestContext: [String: Any]?
     private var pendingFeatureFlagsRequest: PendingFeatureFlagsRequest?
+    private var surveyFeatureFlagsWaiters: [([String: Any]?) -> Void] = []
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
     private var recordingSampleRate: Double?
@@ -69,6 +72,10 @@ class PostHogRemoteConfig {
 
     private let dispatchQueue = DispatchQueue(label: "com.posthog.RemoteConfig",
                                               target: .global(qos: .utility))
+
+    var isLoadingFeatureFlags: Bool {
+        loadingFeatureFlagsLock.withLock { loadingFeatureFlags }
+    }
 
     var lastRequestId: String? {
         featureFlagsLock.withLock {
@@ -254,13 +261,26 @@ class PostHogRemoteConfig {
     func reloadFeatureFlags(
         callback: (([String: Any]?) -> Void)? = nil
     ) {
+        reloadFeatureFlags(callback: callback, surveyCompletion: nil)
+    }
+
+    func reloadFeatureFlagsForSurvey(callback: @escaping ([String: Any]?) -> Void) {
+        reloadFeatureFlags(callback: nil, surveyCompletion: callback)
+    }
+
+    private func reloadFeatureFlags(
+        callback: (([String: Any]?) -> Void)?,
+        surveyCompletion: (([String: Any]?) -> Void)?
+    ) {
         guard canReloadFlagsForTesting else {
+            surveyCompletion?(nil)
             return
         }
 
         guard let storageManager = config.storageManager else {
             hedgeLog("No PostHogStorageManager found in config, skipping loading feature flags")
             callback?(nil)
+            surveyCompletion?(nil)
             return
         }
 
@@ -274,7 +294,9 @@ class PostHogRemoteConfig {
             anonymousId: anonymousId,
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
-            callback: callback ?? { _ in }
+            callback: callback ?? { _ in },
+            surveyCompletion: surveyCompletion,
+            coalesceWithCurrentRequest: surveyCompletion != nil && callback == nil
         )
     }
 
@@ -356,10 +378,30 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
-        callback: @escaping ([String: Any]?) -> Void
+        callback: @escaping ([String: Any]?) -> Void,
+        surveyCompletion: (([String: Any]?) -> Void)? = nil,
+        coalesceWithCurrentRequest: Bool = false
     ) {
         let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
+            let requestContext: [String: Any] = [
+                "distinctId": distinctId,
+                "anonymousId": anonymousId ?? NSNull(),
+                "deviceId": deviceId ?? NSNull(),
+                "groups": groups,
+                "evaluationContextVersion": self.featureFlagsEvaluationContextVersion,
+            ]
+            if let surveyCompletion {
+                self.surveyFeatureFlagsWaiters.append(surveyCompletion)
+            }
             if self.loadingFeatureFlags {
+                if coalesceWithCurrentRequest,
+                   self.pendingFeatureFlagsRequest == nil,
+                   self.activeFeatureFlagsRequestContext.map({
+                       NSDictionary(dictionary: $0).isEqual(to: requestContext)
+                   }) == true
+                {
+                    return (true, nil)
+                }
                 let prev = self.pendingFeatureFlagsRequest?.callback
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
@@ -371,6 +413,7 @@ class PostHogRemoteConfig {
                 return (true, prev)
             }
             self.loadingFeatureFlags = true
+            self.activeFeatureFlagsRequestContext = requestContext
             return (false, nil)
         }
         if alreadyLoading {
@@ -623,13 +666,15 @@ class PostHogRemoteConfig {
     }
 
     private func notifyFeatureFlagsAndRelease(_ featureFlags: [String: Any]?) {
-        notifyFeatureFlags(featureFlags)
-
-        let pending: PendingFeatureFlagsRequest? = loadingFeatureFlagsLock.withLock {
+        let (pending, surveyWaiters): (PendingFeatureFlagsRequest?, [([String: Any]?) -> Void]) = loadingFeatureFlagsLock.withLock {
             self.loadingFeatureFlags = false
+            self.activeFeatureFlagsRequestContext = nil
             let req = self.pendingFeatureFlagsRequest
             self.pendingFeatureFlagsRequest = nil
-            return req
+            guard req == nil else { return (req, []) }
+            let waiters = self.surveyFeatureFlagsWaiters
+            self.surveyFeatureFlagsWaiters = []
+            return (nil, waiters)
         }
 
         if let pending {
@@ -640,7 +685,12 @@ class PostHogRemoteConfig {
                 groups: pending.groups,
                 callback: pending.callback
             )
+        } else {
+            for waiter in surveyWaiters {
+                waiter(featureFlags)
+            }
         }
+        notifyFeatureFlags(featureFlags)
     }
 
     func getFeatureFlags() -> [String: Any]? {
@@ -781,6 +831,7 @@ class PostHogRemoteConfig {
         // value so a `capture()` carrying unchanged person properties doesn't re-run survey
         // translation resolution. Invoked outside the lock so subscribers don't run while we hold it.
         if didChange {
+            loadingFeatureFlagsLock.withLock { featureFlagsEvaluationContextVersion += 1 }
             onPersonPropertiesForFlagsChanged.invoke(())
         }
     }
@@ -794,6 +845,7 @@ class PostHogRemoteConfig {
             return hadProperties
         }
         if didChange {
+            loadingFeatureFlagsLock.withLock { featureFlagsEvaluationContextVersion += 1 }
             onPersonPropertiesForFlagsChanged.invoke(())
         }
     }
@@ -805,6 +857,7 @@ class PostHogRemoteConfig {
             // Persist to disk
             storage.setDictionary(forKey: .groupPropertiesForFlags, contents: groupPropertiesForFlags)
         }
+        loadingFeatureFlagsLock.withLock { featureFlagsEvaluationContextVersion += 1 }
     }
 
     func resetGroupPropertiesForFlags(_ groupType: String? = nil) {
@@ -817,6 +870,7 @@ class PostHogRemoteConfig {
             // Persist changes to disk
             storage.setDictionary(forKey: .groupPropertiesForFlags, contents: groupPropertiesForFlags)
         }
+        loadingFeatureFlagsLock.withLock { featureFlagsEvaluationContextVersion += 1 }
     }
 
     private func getGroupPropertiesForFlags() -> [String: [String: Any]] {

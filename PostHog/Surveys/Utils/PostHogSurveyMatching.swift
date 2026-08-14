@@ -37,6 +37,150 @@
             (conditions?.events?.repeatedActivation == true && hasEvents) ||
                 schedule == .always
         }
+
+        var requiresFeatureFlagEvaluation: Bool {
+            let keys = [linkedFlagKey, targetingFlagKey, canActivateRepeatedly ? nil : internalTargetingFlagKey] +
+                (featureFlagKeys?.compactMap { $0.key.isEmpty ? nil : $0.value } ?? [])
+            return keys.contains { !($0?.isEmpty ?? true) }
+        }
+    }
+
+    extension PostHogSurveyIntegration {
+        func decodeAndSetSurveys(
+            remoteConfig: [String: Any]?,
+            beforeCacheUpdate: (([PostHogSurvey]) -> Bool)? = nil,
+            callback: @escaping SurveyCallback
+        ) {
+            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
+            guard beforeCacheUpdate?(loadedSurveys) != false else { return }
+
+            let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
+                if let surveyEvents = current.conditions?.events?.values {
+                    for eventCondition in surveyEvents {
+                        result[eventCondition.name, default: []].append(
+                            (surveyId: current.id, condition: eventCondition)
+                        )
+                    }
+                }
+            }
+
+            updateSurveyCache(loadedSurveys, events: eventMap)
+            callback(loadedSurveys)
+        }
+
+        func decodeSurveys(from remoteConfig: [String: Any]) -> [PostHogSurvey] {
+            guard let surveysJSON = remoteConfig["surveys"] as? [[String: Any]] else {
+                // surveys not json, disabled
+                return []
+            }
+
+            // Decode each survey individually so one malformed entry doesn't drop the entire list
+            return surveysJSON.compactMap { surveyJSON in
+                do {
+                    let jsonData = try JSONSerialization.data(withJSONObject: surveyJSON)
+                    return try PostHogApi.jsonDecoder.decode(PostHogSurvey.self, from: jsonData)
+                } catch {
+                    hedgeLog("Error decoding Survey: \(error)")
+                    return nil
+                }
+            }
+        }
+
+        func canRenderSurvey(survey: PostHogSurvey) -> Bool {
+            // only render popover surveys for now
+            survey.type == .popover
+        }
+
+        var canEvaluateSurveyFeatureFlags: Bool {
+            freshFeatureFlagsLock.withLock {
+                surveyAwaitingFeatureFlagsGeneration == nil && !surveyFeatureFlagsUnavailable
+            } && postHog?.remoteConfig?.isLoadingFeatureFlags != true
+        }
+
+        func subscribeToRemoteConfigUpdates() {
+            remoteConfigLoadedToken = postHog?.remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] remoteConfig in
+                guard let self, let remoteConfig else { return }
+                self.surveyRefreshProcessingLock.withLock {
+                    let generation = self.beginSurveyRefresh()
+                    self.decodeAndSetSurveys(
+                        remoteConfig: remoteConfig,
+                        beforeCacheUpdate: { _ in self.isCurrentSurveyRefresh(generation) },
+                        callback: { surveys in
+                            _ = self.refreshFeatureFlagsIfNeeded(for: surveys, generation: generation)
+                            self.showNextSurvey()
+                        }
+                    )
+                }
+            }
+            featureFlagsLoadedToken = postHog?.remoteConfig?.onFeatureFlagsLoaded.subscribe { [weak self] flags in
+                guard let self else { return }
+                if flags != nil {
+                    self.freshFeatureFlagsLock.withLock {
+                        if self.surveyAwaitingFeatureFlagsGeneration == nil {
+                            self.surveyFeatureFlagsUnavailable = false
+                        }
+                    }
+                }
+                self.showNextSurvey()
+            }
+        }
+
+        func unsubscribeFromRemoteConfigUpdates() {
+            remoteConfigLoadedToken = nil
+            featureFlagsLoadedToken = nil
+            freshFeatureFlagsLock.withLock {
+                surveyRefreshGeneration += 1
+                surveyAwaitingFeatureFlagsGeneration = nil
+                surveyFeatureFlagsUnavailable = false
+            }
+        }
+
+        func beginSurveyRefresh() -> Int {
+            freshFeatureFlagsLock.withLock {
+                surveyRefreshGeneration += 1
+                surveyAwaitingFeatureFlagsGeneration = surveyRefreshGeneration
+                return surveyRefreshGeneration
+            }
+        }
+
+        func isCurrentSurveyRefresh(_ generation: Int) -> Bool {
+            freshFeatureFlagsLock.withLock { surveyRefreshGeneration == generation }
+        }
+
+        func refreshFeatureFlagsIfNeeded(for surveys: [PostHogSurvey], generation: Int) -> Bool {
+            let needsFlags = surveys.contains(where: \.requiresFeatureFlagEvaluation)
+            let shouldRefresh = freshFeatureFlagsLock.withLock {
+                guard surveyRefreshGeneration == generation else { return false }
+                surveyAwaitingFeatureFlagsGeneration = needsFlags ? generation : nil
+                if !needsFlags { surveyFeatureFlagsUnavailable = false }
+                return needsFlags
+            }
+            guard shouldRefresh else { return freshFeatureFlagsLock.withLock { surveyRefreshGeneration == generation } }
+
+            postHog?.remoteConfig?.reloadFeatureFlagsForSurvey { [weak self] flags in
+                guard let self else { return }
+                let shouldShow = self.freshFeatureFlagsLock.withLock {
+                    guard self.surveyAwaitingFeatureFlagsGeneration == generation else { return false }
+                    self.surveyAwaitingFeatureFlagsGeneration = nil
+                    self.surveyFeatureFlagsUnavailable = flags == nil
+                    return true
+                }
+                if shouldShow { self.showNextSurvey() }
+            }
+            return true
+        }
+
+        func reconcileEventActivations(with surveys: [PostHogSurvey]) {
+            let current = surveys.reduce(into: [String: [PostHogEventCondition]]()) {
+                $0[$1.id] = $1.conditions?.events?.values ?? []
+            }
+            eventActivatedSurveysLock.withLock {
+                eventActivatedSurveys = eventActivatedSurveys.reduce(into: [:]) { result, activation in
+                    let retained = activation.value.filter { current[activation.key]?.contains($0) == true }
+                    if !retained.isEmpty { result[activation.key] = retained }
+                }
+            }
+        }
     }
 
     extension PostHogSurveyMatchType {

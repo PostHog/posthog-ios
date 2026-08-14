@@ -285,8 +285,7 @@
                     DispatchQueue.main.async { [weak self] in self?.showNextSurvey() }
                     return
                 }
-                guard hasActiveSurveyWindow(), canShowNextSurvey(), canShowSurveyWithFreshFeatureFlags
-                else { return }
+                guard hasActiveSurveyWindow(), canShowNextSurvey() else { return }
 
                 let refreshGeneration = freshFeatureFlagsLock.withLock { surveyRefreshGeneration }
                 getActiveMatchingSurveys { activeSurveys in
@@ -295,7 +294,6 @@
                               self.freshFeatureFlagsLock.withLock({ self.surveyRefreshGeneration == refreshGeneration }),
                               self.hasActiveSurveyWindow(),
                               self.canShowNextSurvey(),
-                              self.canShowSurveyWithFreshFeatureFlags,
                               let survey = activeSurveys.first(where: self.canRenderSurvey)
                         else { return }
 

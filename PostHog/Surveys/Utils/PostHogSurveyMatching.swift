@@ -40,7 +40,7 @@
 
         var requiresFeatureFlagEvaluation: Bool {
             let keys = [linkedFlagKey, targetingFlagKey, canActivateRepeatedly ? nil : internalTargetingFlagKey] +
-                (featureFlagKeys?.map(\.value) ?? [])
+                (featureFlagKeys?.compactMap { $0.key.isEmpty ? nil : $0.value } ?? [])
             return keys.contains { !($0?.isEmpty ?? true) }
         }
     }
@@ -91,13 +91,10 @@
             survey.type == .popover
         }
 
-        var canShowSurveyWithFreshFeatureFlags: Bool {
-            freshFeatureFlagsLock.withLock { surveyAwaitingFeatureFlagsGeneration == nil } &&
-                postHog?.remoteConfig?.isLoadingFeatureFlags != true
-        }
-
         var canEvaluateSurveyFeatureFlags: Bool {
-            freshFeatureFlagsLock.withLock { !surveyFeatureFlagsUnavailable }
+            freshFeatureFlagsLock.withLock {
+                surveyAwaitingFeatureFlagsGeneration == nil && !surveyFeatureFlagsUnavailable
+            } && postHog?.remoteConfig?.isLoadingFeatureFlags != true
         }
 
         func subscribeToRemoteConfigUpdates() {
@@ -110,7 +107,7 @@
                         beforeCacheUpdate: { _ in self.isCurrentSurveyRefresh(generation) },
                         callback: { surveys in
                             _ = self.refreshFeatureFlagsIfNeeded(for: surveys, generation: generation)
-                            if self.canShowSurveyWithFreshFeatureFlags { self.showNextSurvey() }
+                            self.showNextSurvey()
                         }
                     )
                 }

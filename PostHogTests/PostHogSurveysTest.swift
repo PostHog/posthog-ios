@@ -1136,6 +1136,10 @@ enum PostHogSurveysTest {
             return sut
         }
 
+        private func parseSurveys(_ surveys: String) throws -> [[String: Any]] {
+            try #require(JSONSerialization.jsonObject(with: Data("[\(surveys)]".utf8)) as? [[String: Any]])
+        }
+
         @Test("returns surveys that are active")
         func returnsActiveSurveys() async {
             let surveys: [String] = [
@@ -1380,6 +1384,59 @@ enum PostHogSurveysTest {
                 _ = (sut, flagsToken)
             }
 
+            @Test("renders surveys without flag conditions while flags load")
+            func rendersSurveysWithoutFlagsWhileFlagsLoad() async throws {
+                let delegate = SpySurveysDelegate()
+                postHog.config._surveysConfig.surveysDelegate = delegate
+                let sut = getSut(surveys: [])
+                sut.hasActiveSurveyWindow = { true }
+
+                server.flagsResponseHandler = { _ in
+                    let response = HTTPStubsResponse(
+                        jsonObject: [
+                            "featureFlags": ["survey-flag": true],
+                            "featureFlagPayloads": [:],
+                            "flags": [:],
+                        ],
+                        statusCode: 200,
+                        headers: nil
+                    )
+                    response.responseTime = 0.2
+                    return response
+                }
+
+                let stateLock = NSLock()
+                var featureFlagsLoaded = false
+                var renderedBeforeFlagsLoaded = false
+                let flagsLoaded = AsyncLatch()
+                let flagsToken = try #require(postHog.remoteConfig?.onFeatureFlagsLoaded.subscribe { flags in
+                    guard flags != nil else { return }
+                    stateLock.withLock { featureFlagsLoaded = true }
+                    flagsLoaded.signal()
+                })
+                let rendered = AsyncLatch()
+                delegate.onRender = {
+                    stateLock.withLock { renderedBeforeFlagsLoaded = !featureFlagsLoaded }
+                    rendered.signal()
+                }
+
+                let flaggedSurvey = activeSurvey
+                    .replacingOccurrences(of: "active_id", with: "flagged_survey")
+                    .replacingOccurrences(
+                        of: "\"start_date\"",
+                        with: "\"linked_flag_key\": \"survey-flag\", \"start_date\""
+                    )
+                postHog.remoteConfig?.onRemoteConfigLoaded.invoke([
+                    "surveys": try parseSurveys("\(flaggedSurvey),\(activeSurvey)"),
+                ])
+                await rendered.wait()
+
+                #expect(delegate.renderedSurveyIds == ["active_id"])
+                #expect(stateLock.withLock { renderedBeforeFlagsLoaded })
+                await flagsLoaded.wait()
+                _ = (sut, flagsToken)
+            }
+
             @Test("recovers survey rendering after a feature flag refresh failure")
             func recoversSurveyRenderingAfterFeatureFlagRefreshFailure() async throws {
                 let delegate = SpySurveysDelegate()
@@ -1514,6 +1571,15 @@ enum PostHogSurveysTest {
             }
 
             #expect(matchedSurveys.isEmpty)
+        }
+
+        @Test("does not require flag evaluation for surveys with missing keys or values")
+        func doesNotRequireFlagsForMissingKeysOrValues() throws {
+            let surveys = PostHogSurveyIntegration().decodeSurveys(from: [
+                "surveys": try parseSurveys(surveysWithMissingKeysAndValues),
+            ])
+
+            #expect(surveys.allSatisfy { !$0.requiresFeatureFlagEvaluation })
         }
 
         @Test("skips checking flags for surveys with missing keys or values ")

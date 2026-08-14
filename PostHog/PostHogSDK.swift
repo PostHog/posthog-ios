@@ -1207,8 +1207,8 @@ let maxRetryDelay = 30.0
     ///   - userProperties: Person properties to set. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
     ///   - groups: Group type/key pairs to attach to this event.
-    ///   - timestamp: Optional event timestamp. Defaults to the current time. UTC is preferred;
-    ///     an equivalent instant created from a non-UTC time zone is serialized in UTC.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time. The absolute instant
+    ///     is serialized in UTC, regardless of the calendar or time zone used to create it.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
     public func capture(_ event: String,
                         distinctId: String? = nil,

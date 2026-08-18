@@ -1549,8 +1549,57 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
         }
 
-        @Test("setPersonPropertiesForFlags completion resolves after a response carrying them")
-        func setPersonPropertiesForFlagsCompletionHandler() async {
+        @Test("setting properties then reloading resolves after a response carrying them")
+        func setPropertiesThenReloadResolvesWithProperties() async {
+            let sut = track(PostHogSDK.with(makeIsolatedConfig()))
+            stubFlagsRequiringOverride(delay: 0)
+
+            await withCheckedContinuation { continuation in
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+        }
+
+        @Test("a queued reload carries person properties set while it waits")
+        func queuedReloadCarriesLatePersonProperties() async {
+            let config = makeIsolatedConfig()
+            let sut = track(PostHogSDK.with(config))
+            stubFlagsRequiringOverride(delay: 0.2)
+            server.flagsRequests = []
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags()
+                sut.reloadFeatureFlags { continuation.resume() }
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+            #expect(server.flagsRequests.count == 2)
+        }
+
+        @Test("reloadFeatureFlags completion still resolves when the request fails")
+        func completionResolvesOnFailedReload() async {
+            let sut = track(PostHogSDK.with(makeIsolatedConfig()))
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: ["error": "nope"], statusCode: 400, headers: nil)
+            }
+
+            var resolved = false
+            await withCheckedContinuation { continuation in
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
+                sut.reloadFeatureFlags {
+                    resolved = true
+                    continuation.resume()
+                }
+            }
+
+            #expect(resolved)
+            #expect(sut.getFeatureFlag("override-flag") == nil)
+        }
+
+        private func makeIsolatedConfig() -> PostHogConfig {
             let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
             config.preloadFeatureFlags = false
             config.disableReachabilityForTesting = true
@@ -1560,18 +1609,7 @@ enum PostHogFeatureFlagsTest {
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
             config.sendFeatureFlagEvent = false
-
-            stubFlagsRequiringOverride(delay: 0)
-
-            let sut = track(PostHogSDK.with(config))
-
-            await withCheckedContinuation { continuation in
-                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"]) {
-                    continuation.resume()
-                }
-            }
-
-            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+            return config
         }
     }
 }

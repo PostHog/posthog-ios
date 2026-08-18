@@ -514,6 +514,22 @@ final class PostHogPushSubscriptionHandler {
                 }
                 return
             }
+            // Eligibility can also flip during the mint: remote config may resolve and drop this
+            // app_id. Re-check so a config that arrived mid-mint isn't ignored, which would POST a
+            // token the server discards and then record it as delivered, suppressing retries.
+            guard isRegisterable(appId) else {
+                hedgeLog("Push subscription skipped: app_id \(appId) is not configured for this project.")
+                let hadPendingResend = stateLock.withLock { () -> Bool in
+                    self.isSending = false
+                    let pending = self.pendingResend
+                    self.pendingResend = false
+                    return pending
+                }
+                if hadPendingResend {
+                    servicePendingResend()
+                }
+                return
+            }
             performSerialized { done in
                 self.api.pushSubscription(
                     distinctId: distinctId, deviceToken: deviceToken, appId: appId, identityToken: identityToken,

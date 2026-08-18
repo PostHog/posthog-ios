@@ -1848,6 +1848,34 @@
             #expect(server.pushSubscriptionRequests.count == 1)
         }
 
+        @Test("eligibility revoked during the identity token mint skips the send")
+        func skipsSendWhenEligibilityRevokedDuringMint() async {
+            // Registerable at send() time; remote config drops the app_id while the identity-token mint
+            // is still outstanding. Without a post-mint re-check the token would POST, get discarded,
+            // and be marked delivered, suppressing retries.
+            var appIds: [String]? = ["com.example.app"]
+            let (handler, storage, config) = makeHandler(pushAppIdsProvider: { appIds })
+            let parked = ParkedMint()
+            config.pushIdentityProvider = { _, _, completion in
+                if !parked.parkFirst(completion) { completion("jwt") }
+            }
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { parked.isParked })
+
+            appIds = []
+            parked.release("jwt")
+            #expect(await waitFor { self.record(storage) != nil })
+            #expect(!self.delivered(storage))
+            #expect(server.pushSubscriptionRequests.isEmpty)
+
+            // The record survives, so configuring push later still reaches the device with one POST.
+            appIds = ["com.example.app"]
+            handler.onPushAppIdsChanged(["com.example.app"])
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
         @Test("an unrelated app_id becoming registerable does not re-register")
         func doesNotReregisterForUnrelatedAppId() async {
             let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })

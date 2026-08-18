@@ -1771,16 +1771,20 @@ let maxRetryDelay = 30.0
     /// flags have been reloaded with them.
     ///
     /// Use this overload when you need to read a flag as soon as it reflects your overrides. The
-    /// completion handler is only invoked after a `/flags` response that was requested with these
-    /// properties, so it never resolves against pre-override cached values.
+    /// completion handler waits for a `/flags` response to a request that carried these properties,
+    /// rather than resolving immediately against pre-override cached values.
     ///
     /// ## Example Usage
     /// ```swift
     /// PostHogSDK.shared.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"]) {
-    ///     // Flags here were evaluated with app_version_semver = 3.09.0
+    ///     // Flags were requested with app_version_semver = 3.09.0
     ///     let flagValue = PostHogSDK.shared.isFeatureEnabled("new_feature")
     /// }
     /// ```
+    ///
+    /// - Important: The handler reports only that the reload finished, not that it succeeded. If the
+    ///   request fails, or the project is over its feature flag quota, the handler still runs and the
+    ///   flags you read are the previously cached ones. Treat the values as best-effort.
     ///
     /// ## Startup ordering
     /// Several code paths can each start a `/flags` request at launch, and they are **not** ordered
@@ -1804,8 +1808,9 @@ let maxRetryDelay = 30.0
     ///   - properties: Dictionary of person properties to include in flag evaluation
     ///   - reloadFeatureFlags: Whether to automatically reload feature flags after setting properties.
     ///     When `false`, the completion handler is invoked immediately without reloading.
-    ///   - completion: Invoked once the flag reload finishes, or immediately when the reload is skipped
-    ///     (SDK disabled/opted-out, no properties left after sanitization, or `reloadFeatureFlags: false`).
+    ///   - completion: Invoked once the flag reload finishes — successfully or not — or immediately when
+    ///     the reload is skipped (SDK disabled/opted-out, no properties left after sanitization, or
+    ///     `reloadFeatureFlags: false`).
     @objc(setPersonPropertiesForFlags:reloadFeatureFlags:completion:)
     public func setPersonPropertiesForFlags(
         _ properties: [String: Any],
@@ -1822,14 +1827,14 @@ let maxRetryDelay = 30.0
             completion()
             return
         }
-        let personProperties = remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
+        remoteConfig?.setPersonPropertiesForFlags(sanitizedProperties)
 
-        guard reloadFeatureFlags, let remoteConfig, let personProperties else {
+        guard reloadFeatureFlags, let remoteConfig else {
             completion()
             return
         }
 
-        remoteConfig.reloadFeatureFlags(personProperties: personProperties) { _ in
+        remoteConfig.reloadFeatureFlags { _ in
             completion()
         }
     }

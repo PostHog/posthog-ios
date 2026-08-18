@@ -29,6 +29,13 @@ class PostHogRemoteConfig {
     private var recordingMinimumDuration: TimeInterval?
 
     private let errorTrackingLock = NSLock()
+    private let pushLock = NSLock()
+    /// The app_ids this project accepts push registrations for, or nil when no server has told us.
+    /// Nil is not the empty list: it means attempt the registration, because a server older than
+    /// the key cannot be told apart from a project with push disabled.
+    private var pushAppIds: [String]?
+    /// app_ids that became registerable on the most recent /config read, drained by the handler.
+    private var newlyRegisterablePushAppIds: Set<String> = []
     private var autoCaptureExceptions = false
 
     private var flags: [String: Any]?
@@ -139,6 +146,7 @@ class PostHogRemoteConfig {
 
         preloadSessionReplay()
         preloadErrorTrackingConfig()
+        preloadPushConfig()
 
         // Remote config is always loaded (config.remoteConfig is now a no-op)
         preloadRemoteConfig()
@@ -236,6 +244,11 @@ class PostHogRemoteConfig {
 
                 // process error tracking config
                 self.processErrorTrackingConfig(config)
+
+                // process push config. Unlike the others this is not re-armed from cache on the
+                // /flags paths below: the in-memory list already holds the cached value, and a
+                // re-arm would compare the list against itself and find no transition.
+                self.processPushConfig(config)
 
                 // notify
                 DispatchQueue.main.async {
@@ -649,6 +662,53 @@ class PostHogRemoteConfig {
             errorTrackingLock.withLock {
                 autoCaptureExceptions = enabled
             }
+        }
+    }
+
+    /// Parses the `push` slice and records the app_ids that became registerable since the last read,
+    /// so the push handler can re-register a device that was stuck.
+    ///
+    /// A missing key clears the list rather than keeping it: a server that stops sending the key is
+    /// treated as one that never sent it, which means attempt the registration and never silently
+    /// withholds a device from a project that has push.
+    private func processPushConfig(_ data: [String: Any]?) {
+        let appIds = (data?["push"] as? [String: Any])?["appIds"] as? [String]
+
+        pushLock.withLock {
+            // Absent for the comparison means the empty set, not unknown. The first launch that ever
+            // sees the key therefore treats every configured app_id as new, which re-registers a
+            // device that recorded a success while its project had no integration. That costs one
+            // request per device, once, and it is the only way to reach a device whose project was
+            // configured before it updated to a version that reads this key.
+            let previous = Set(pushAppIds ?? [])
+            pushAppIds = appIds
+            newlyRegisterablePushAppIds = Set(appIds ?? []).subtracting(previous)
+        }
+    }
+
+    private func preloadPushConfig() {
+        let push = remoteConfigLock.withLock {
+            getCachedRemoteConfig()?["push"] as? [String: Any]
+        }
+        if let appIds = push?["appIds"] as? [String] {
+            pushLock.withLock {
+                pushAppIds = appIds
+            }
+        }
+    }
+
+    /// The app_ids this project accepts push registrations for, or nil when no server has told us.
+    func getPushAppIds() -> [String]? {
+        pushLock.withLock { pushAppIds }
+    }
+
+    /// app_ids that became registerable on the most recent /config read, cleared by reading them.
+    /// Draining rather than peeking keeps a device from re-registering on every subsequent load.
+    func consumeNewlyRegisterablePushAppIds() -> Set<String> {
+        pushLock.withLock { () -> Set<String> in
+            let newlyRegisterable = newlyRegisterablePushAppIds
+            newlyRegisterablePushAppIds = []
+            return newlyRegisterable
         }
     }
 

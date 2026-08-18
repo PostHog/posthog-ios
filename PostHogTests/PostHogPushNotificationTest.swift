@@ -112,6 +112,7 @@
             isConnectedProvider: @escaping () -> Bool = { true },
             isAllowedProvider: @escaping () -> Bool = { true },
             isEnabledProvider: @escaping () -> Bool = { true },
+            pushAppIdsProvider: @escaping () -> [String]? = { nil },
             onEventContextChanged: PostHogMulticastCallback<[String: Any]> = .init(),
             resetStorage: Bool = true
         ) -> (handler: PostHogPushSubscriptionHandler, storage: PostHogStorage, config: PostHogConfig) {
@@ -136,6 +137,7 @@
                 isConnectedProvider: isConnectedProvider,
                 isAllowedProvider: isAllowedProvider,
                 isEnabledProvider: isEnabledProvider,
+                pushAppIdsProvider: pushAppIdsProvider,
                 onEventContextChanged: onEventContextChanged
             )
             return (handler, storage, config)
@@ -1788,6 +1790,78 @@
             // server-side subscription active for the whole opted-out period.
             let sawDelete = await waitFor { deletes() == 1 }
             #expect(sawDelete, "posthog-ios#746: opt-out stranded the unregister DELETE; subscription stays active")
+        }
+
+        @Test("does not send when the app_id is not configured for the project")
+        func skipsUnconfiguredAppId() async {
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["another.app"] })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+
+            #expect(await waitFor { self.record(storage) != nil })
+            #expect(server.pushSubscriptionRequests.isEmpty)
+            // The record is still persisted: onPushAppIdsChanged needs a token to register once the
+            // project configures push, rather than waiting for the app to hand us one again.
+            #expect(record(storage)?["deviceToken"] == "abcdef")
+            #expect(!delivered(storage))
+        }
+
+        @Test("sends when no app_id list has been published")
+        func sendsWhenNoListPublished() async {
+            // A server older than the push config key sends nothing, and an SDK cannot tell that apart
+            // from a project with push disabled. Failing closed here would silently disable push
+            // against every deployment that predates the key.
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { nil })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("sends when the app_id is configured for the project")
+        func sendsWhenAppIdConfigured() async {
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("an app_id becoming registerable clears the delivered marker and re-registers")
+        func reregistersWhenAppIdBecomesRegisterable() async {
+            // The device registered while the project had no integration: the server answered 200 and
+            // discarded the token, but the SDK recorded a delivery and stopped asking. Clearing that
+            // marker is the only thing that reaches the device once the project configures push.
+            var appIds: [String]? = []
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { appIds })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.record(storage) != nil })
+            #expect(server.pushSubscriptionRequests.isEmpty)
+
+            appIds = ["com.example.app"]
+            handler.onPushAppIdsChanged(["com.example.app"])
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("an unrelated app_id becoming registerable does not re-register")
+        func doesNotReregisterForUnrelatedAppId() async {
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+
+            // Firing on every config load would put the request back on every launch, which is exactly
+            // what the delivered marker exists to prevent.
+            handler.onPushAppIdsChanged(["some.other.app"])
+
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.count == 1)
         }
     }
 

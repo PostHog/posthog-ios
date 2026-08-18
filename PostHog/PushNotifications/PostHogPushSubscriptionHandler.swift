@@ -63,6 +63,7 @@ final class PostHogPushSubscriptionHandler {
     /// `isAllowedProvider` this ignores opt-out, because a DELETE removes data rather than collecting
     /// it, so opt-out must not strand it (posthog-ios#746).
     private let isEnabledProvider: () -> Bool
+    private let pushAppIdsProvider: () -> [String]?
 
     /// Guards `retryCount`, `pausedUntil`, `isSending`, `pendingResend`, `halted`,
     /// `cachedIdentityToken`, and `didAuthRetry`.
@@ -121,6 +122,9 @@ final class PostHogPushSubscriptionHandler {
         isConnectedProvider: @escaping () -> Bool,
         isAllowedProvider: @escaping () -> Bool,
         isEnabledProvider: @escaping () -> Bool,
+        // The app_ids the project accepts registrations for, or nil when no server has said.
+        // Nil means attempt: a server older than the key must not stop a device registering.
+        pushAppIdsProvider: @escaping () -> [String]? = { nil },
         onEventContextChanged: PostHogMulticastCallback<[String: Any]>
     ) {
         self.api = api
@@ -130,6 +134,7 @@ final class PostHogPushSubscriptionHandler {
         self.isConnectedProvider = isConnectedProvider
         self.isAllowedProvider = isAllowedProvider
         self.isEnabledProvider = isEnabledProvider
+        self.pushAppIdsProvider = pushAppIdsProvider
 
         contextChangedToken = onEventContextChanged.subscribe { [weak self] context in
             guard let self, let distinctId = context["distinct_id"] as? String, !distinctId.isEmpty else { return }
@@ -388,6 +393,36 @@ final class PostHogPushSubscriptionHandler {
         attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
     }
 
+    /// Called when remote config resolves. `newlyRegisterable` are the app_ids that were not
+    /// registerable the last time we looked and are now.
+    ///
+    /// A device that registered while its project had no push integration was answered 200 and had its
+    /// token discarded, but still recorded the send as delivered and stopped asking. Clearing that
+    /// marker for an app_id that just became registerable is the only thing that reaches it.
+    func onPushAppIdsChanged(_ newlyRegisterable: Set<String>) {
+        workQueue.async { [weak self] in
+            guard let self else { return }
+
+            let record = recordLock.withLock { loadRecordLocked() }
+            guard let record, newlyRegisterable.contains(record.appId) else {
+                // Either nothing changed for this device, or the app_id was already registerable and
+                // the existing delivered marker is honest. Re-sending here would put the request back
+                // on every launch, which is what the marker exists to prevent.
+                return
+            }
+
+            if record.deliveredForDistinctId != nil {
+                recordLock.withLock {
+                    writeRecord(deviceToken: record.deviceToken, appId: record.appId)
+                }
+            }
+
+            resetRetryState()
+            hedgeLog("Push app_id \(record.appId) became registerable; re-registering.")
+            attemptIfAllowed(deviceToken: record.deviceToken, appId: record.appId)
+        }
+    }
+
     private func resetRetryState() {
         stateLock.withLock {
             retryCount = 0
@@ -397,9 +432,23 @@ final class PostHogPushSubscriptionHandler {
         }
     }
 
+    /// Nil means no server has published the list, so we cannot rule the app_id out and must try.
+    private func isRegisterable(_ appId: String) -> Bool {
+        guard let appIds = pushAppIdsProvider() else { return true }
+        return appIds.contains(appId)
+    }
+
     private func attemptIfAllowed(deviceToken: String, appId: String) {
         if !isAllowedProvider() {
             hedgeLog("Push subscription not sent: SDK is disabled or opted out.")
+            return
+        }
+
+        if !isRegisterable(appId) {
+            // The project publishes no push integration for this app_id, so the server would accept
+            // the request and throw the token away. The record stays on disk, so onPushAppIdsChanged
+            // has a token to register once the project does configure push.
+            hedgeLog("Push subscription skipped: app_id \(appId) is not configured for this project.")
             return
         }
 

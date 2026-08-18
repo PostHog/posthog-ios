@@ -22,6 +22,9 @@ concurrency:
 
 jobs:
   compliance-tests:
+    # Fork pull requests receive a read-only token and cannot publish the report comment.
+    # Skip the entire job instead of spending macOS runner time on a check that will fail at the end.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # NOTE: Using macos-15-intel (Intel) instead of macos-26 (Apple Silicon)
     # Reason: Apple Silicon runners don't support nested virtualization needed for Docker
     # See: https://github.com/actions/runner-images/issues/9460
@@ -33,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0

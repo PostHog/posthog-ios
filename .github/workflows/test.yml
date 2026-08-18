@@ -24,7 +24,7 @@ jobs:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
         run: echo "Only Markdown files changed; no additional work is required for this check."
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
@@ -54,7 +54,7 @@ jobs:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
         run: echo "Only Markdown files changed; no additional work is required for this check."
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
@@ -87,6 +87,100 @@ jobs:
             echo "No flaky (retried) tests detected." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # Golden-image masking regression. Any iPhone on the Makefile-pinned OS runtime renders
+  # identically; on failure the heatmap PNGs upload as an artifact.
+  # Golden verification runs read-only: it never touches the PR. It only exposes the diff
+  # artifact id so the follow-up comment job (which holds the write scope) can link it.
+  mask-snapshots:
+    name: Session replay masking snapshots
+    needs: detect-markdown-only
+    runs-on: macos-15
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.diff-upload.outputs.artifact-id }}
+    steps:
+      - name: Complete markdown-only PR check
+        if: needs.detect-markdown-only.outputs.markdown_only == 'true'
+        run: echo "Only Markdown files changed; no additional work is required for this check."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        with:
+          # Pinned, not latest-stable: the goldens are byte-sensitive to the compiler/SDK,
+          # so the Xcode is pinned alongside MASK_SNAPSHOT_OS. Keep in sync with the Makefile.
+          xcode-version: "26.3"
+      - name: Verify masking goldens
+        if: needs.detect-markdown-only.outputs.markdown_only != 'true'
+        run: make maskSnapshots
+      - name: Upload diff images on failure
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: diff-upload
+        if: failure() && needs.detect-markdown-only.outputs.markdown_only != 'true'
+        with:
+          name: mask-snapshot-diffs
+          path: PostHogTests/__MaskSnapshotFailures__/*.png
+          if-no-files-found: ignore
+
+  # GitHub never renders artifacts on the PR page, so surface a download link there. This is
+  # the only job with pull-requests: write, and it checks out nothing, so the write scope is
+  # kept away from the code-running mask-snapshots job. Skipped on fork PRs: their tokens are
+  # read-only, so the comment write would fail.
+  mask-snapshots-comment:
+    needs: [detect-markdown-only, mask-snapshots]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.detect-markdown-only.outputs.markdown_only != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Find existing mask-diff comment
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
+        id: find-mask-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: "<!-- mask-snapshot-diffs -->"
+      # Snapshot mismatch: diff PNGs exist, so link the artifact.
+      - name: Post mask-diff artifact link
+        if: ${{ needs.mask-snapshots.result == 'failure' && needs.mask-snapshots.outputs.artifact_id != '' }}
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- mask-snapshot-diffs -->
+            ### ⚠️ Session replay mask snapshots
+
+            The rendered masking output no longer matches the committed goldens, so a mask has moved, grown, shrunk, or disappeared. That's either a real regression or an intended masking change that needs the goldens refreshed.
+
+            **[Download the diff artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ needs.mask-snapshots.outputs.artifact_id }})** — per failing case: `expected` (committed golden), `actual` (this run), `diff` (heatmap of changed pixels).
+
+            If the change is intended, refresh with `make recordMaskSnapshots` and commit the updated PNGs.
+          edit-mode: replace
+      # Job failed before rendering snapshots (build/simulator/infra): no artifact to link,
+      # but still flag the red on the PR rather than going silent.
+      - name: Post mask-diff build failure notice
+        if: ${{ needs.mask-snapshots.result == 'failure' && needs.mask-snapshots.outputs.artifact_id == '' }}
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ steps.find-mask-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- mask-snapshot-diffs -->
+            ### ⚠️ Session replay mask snapshots
+
+            The masking snapshot job failed before rendering any snapshots (build, simulator, or infrastructure failure), so there are no diff images to compare. See the [run logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the failure.
+          edit-mode: replace
+      # Goldens match again: drop the stale divergence comment so a green PR reads clean.
+      - name: Clear mask-diff comment on success
+        if: ${{ needs.mask-snapshots.result == 'success' && steps.find-mask-comment.outputs.comment-id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ steps.find-mask-comment.outputs.comment-id }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/comments/$COMMENT_ID"
+
   downgrade-compatibility:
     needs: detect-markdown-only
     runs-on: macos-15
@@ -106,7 +200,7 @@ jobs:
       - name: Complete markdown-only PR check
         if: needs.detect-markdown-only.outputs.markdown_only == 'true'
         run: echo "Only Markdown files changed; no additional work is required for this check."
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         if: needs.detect-markdown-only.outputs.markdown_only != 'true'

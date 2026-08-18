@@ -50,6 +50,12 @@ class RRWireframe {
             guard hasMaskableWidgets(), let image else {
                 return nil
             }
+            return RRWireframe.maskImage(image, maskableWidgets: maskableWidgets ?? [])
+        }
+
+        // Shared so tests can redact through the exact production path instead of reimplementing it.
+        static func maskImage(_ image: UIImage, maskableWidgets: [CGRect]) -> UIImage? {
+            guard !maskableWidgets.isEmpty else { return nil }
 
             return autoreleasepool {
                 // Use scale=1 to preserve the existing masked screenshot payload size.
@@ -58,12 +64,9 @@ class RRWireframe {
                     context.interpolationQuality = .none
                     image.draw(at: .zero)
 
-                    if let maskableWidgets = maskableWidgets {
-                        for rect in maskableWidgets {
-                            let path = UIBezierPath(roundedRect: rect, cornerRadius: 10)
-                            UIColor.black.setFill()
-                            path.fill()
-                        }
+                    for rect in maskableWidgets {
+                        UIColor.black.setFill()
+                        UIBezierPath(roundedRect: rect, cornerRadius: 10).fill()
                     }
                 }
             }

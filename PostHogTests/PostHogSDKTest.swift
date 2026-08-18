@@ -280,6 +280,70 @@ class PostHogSDKTest: QuickSpec {
             expect(config.storageManager?.isIdentified()) == false
         }
 
+        it("identifies an anonymous user via identify() when the id already matches the persisted distinct id") {
+            // Anonymous user whose persisted id already equals the id being identified with
+            // (e.g. a non-identified bootstrap seeded the same id).
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 1
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123")
+
+            // No $identify (nothing to merge); a single person-processed $set marks the transition.
+            let events = getBatchedEvents(server)
+            expect(events.count) == 1
+            expect(events.first?.event) == "$set"
+            expect(events.first?.properties["$process_person_profile"] as? Bool) == true
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
+        it("does not emit a second $set on a repeated matching-id identify") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 2
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123") // transition: one $set
+            sut.identify("user-123") // already identified: no event
+            sut.capture("event") // flushes the batch (flushAt 2)
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 2
+            expect(events[0].event) == "$set"
+            expect(events[1].event) == "event"
+        }
+
+        it("forwards userProperties and userPropertiesSetOnce on a matching-id identify") {
+            let config = bootstrapReconcileConfig(existing: (anon: "user-123", distinct: nil, identified: false))
+            config.captureApplicationLifecycleEvents = false
+            config.flushAt = 1
+
+            let sut = PostHogSDK.with(config)
+            self.trackedSuts.append(sut)
+
+            sut.identify("user-123", userProperties: ["foo": "bar"], userPropertiesSetOnce: ["baz": "qux"])
+
+            let events = getBatchedEvents(server)
+            expect(events.count) == 1
+
+            let event = events.first!
+            expect(event.event) == "$set"
+            expect(event.properties["$process_person_profile"] as? Bool) == true
+
+            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            expect(set["foo"] as? String) == "bar"
+
+            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            expect(setOnce["baz"] as? String) == "qux"
+
+            expect(config.storageManager?.isIdentified()) == true
+        }
+
         it("captures the capture event") {
             let sut = self.getSut()
 
@@ -1011,9 +1075,19 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
-        it("captures an event with a custom timestamp") {
+        it("captures an event with a custom timestamp as the equivalent UTC instant") {
             let sut = self.getSut()
-            let eventDate = Date().addingTimeInterval(-60 * 30)
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(secondsFromGMT: 5 * 60 * 60 + 30 * 60)!
+            let eventDate = calendar.date(from: DateComponents(
+                year: 2024,
+                month: 12,
+                day: 17,
+                hour: 22,
+                minute: 21,
+                second: 6,
+                nanosecond: 952_000_000
+            ))!
 
             sut.capture("test event",
                         properties: ["foo": "bar"],
@@ -1023,24 +1097,25 @@ class PostHogSDKTest: QuickSpec {
                         timestamp: eventDate)
 
             let events = getBatchedEvents(server)
-
             expect(events.count) == 1
 
-            let event = events.first!
-            expect(event.event) == "test event"
+            let requestBody = server.parseRequest(server.batchRequests.first!)
+            let event = (requestBody?["batch"] as? [[String: Any]])?.first
 
-            expect(event.properties["foo"] as? String) == "bar"
+            expect(event?["event"] as? String) == "test event"
+            expect(event?["timestamp"] as? String) == "2024-12-17T16:51:06.952Z"
 
-            let set = event.properties["$set"] as? [String: Any] ?? [:]
+            let properties = event?["properties"] as? [String: Any] ?? [:]
+            expect(properties["foo"] as? String) == "bar"
+
+            let set = properties["$set"] as? [String: Any] ?? [:]
             expect(set["userProp"] as? String) == "value"
 
-            let setOnce = event.properties["$set_once"] as? [String: Any] ?? [:]
+            let setOnce = properties["$set_once"] as? [String: Any] ?? [:]
             expect(setOnce["userPropOnce"] as? String) == "value"
 
-            let groupProps = event.properties["$groups"] as? [String: String] ?? [:]
+            let groupProps = properties["$groups"] as? [String: String] ?? [:]
             expect(groupProps["groupProp"]) == "value"
-
-            expect(toISO8601String(event.timestamp)).to(equal(toISO8601String(eventDate)))
 
             sut.reset()
             sut.close()

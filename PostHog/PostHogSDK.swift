@@ -17,6 +17,10 @@ import Foundation
     import WatchKit
 #endif
 
+#if os(iOS) || os(macOS)
+    import UserNotifications
+#endif
+
 // SDK compliance harness 0.9.0 validates retry timing against this base cadence.
 let retryDelay = 1.0
 let maxRetryDelay = 30.0
@@ -40,6 +44,7 @@ let maxRetryDelay = 30.0
     private let flagCallReportedLock = NSLock()
     private let personPropsLock = NSLock()
     private let cachedPersonPropertiesLock = NSLock()
+    private let identifyLock = NSLock()
     private var cachedPersonPropertiesHash: String?
 
     private let lastScreenLock = NSLock()
@@ -48,6 +53,7 @@ let maxRetryDelay = 30.0
         lastScreenLock.withLock { _lastScreenName }
     }
 
+    private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
     private var queue: PostHogQueue<PostHogEvent>?
     private let exceptionStepsBufferLock = NSLock()
     private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
@@ -175,6 +181,19 @@ let maxRetryDelay = 30.0
                 context = PostHogContext()
             #endif
 
+            pushSubscriptionHandler = PostHogPushSubscriptionHandler(
+                api,
+                theStorage,
+                config,
+                distinctIdProvider: { [weak self] in self?.getDistinctId() ?? "" },
+                isConnectedProvider: { [weak self] in self?.isNetworkReachable() ?? true },
+                isAllowedProvider: { [weak self] in
+                    self.map { $0.isEnabled() && !$0.isOptOutState() } ?? false
+                },
+                isEnabledProvider: { [weak self] in self?.isEnabled() ?? false },
+                onEventContextChanged: onEventContextChanged
+            )
+
             optOutLock.withLock {
                 let optOut = theStorage.getBool(forKey: .optOut)
                 config.optOut = optOut ?? config.optOut
@@ -238,6 +257,10 @@ let maxRetryDelay = 30.0
                 notifyContextDidChange()
                 notifyExceptionStepsDidChange()
             }
+
+            // Next-launch retry for a persisted, not-yet-delivered push subscription
+            // (no-ops while opted out, offline, or when the record was already delivered).
+            pushSubscriptionHandler?.retryIfNeeded()
 
             // Flush the queue when the app enters background to ensure
             // pending events are sent before the app is suspended
@@ -612,15 +635,26 @@ let maxRetryDelay = 30.0
         queue?.flush()
         replayQueue?.flush()
         logsQueue?.flush()
+        pushSubscriptionHandler?.retryIfNeeded()
     }
 
     /// Resets local identity, super properties, feature flag cache, and session state.
     ///
     /// Call this when a user logs out. The next captured event will use a new anonymous identity
-    /// unless `PostHogConfig.reuseAnonymousId` is enabled.
+    /// unless `PostHogConfig.reuseAnonymousId` is enabled. If a push token is registered, it is
+    /// unregistered for the logged-out identity and re-registered under the new anonymous id.
     @objc public func reset() {
         if !isEnabled() {
             return
+        }
+
+        // Snapshot the push token + old identity BEFORE storage is cleared, so it can be unregistered
+        // for the logged-out user and re-registered under the new anonymous id (decision 5/6).
+        let pushResetContext: (oldDistinctId: String, deviceToken: String, appId: String)?
+        if let record = pushSubscriptionHandler?.recordForReset() {
+            pushResetContext = (getDistinctId(), record.deviceToken, record.appId)
+        } else {
+            pushResetContext = nil
         }
 
         // storage also removes all feature flags
@@ -641,6 +675,16 @@ let maxRetryDelay = 30.0
 
         // Notify integrations of context change (e.g., for crash reporting)
         notifyContextDidChange()
+
+        if let ctx = pushResetContext {
+            // Only unregister the old identity when it actually changed. When reset() keeps the same id
+            // (reuseAnonymousId on an anonymous user), the DELETE would unregister the very id we
+            // re-register under — and race the re-register on the same person.
+            if ctx.oldDistinctId != getDistinctId() {
+                pushSubscriptionHandler?.unregister(distinctId: ctx.oldDistinctId, deviceToken: ctx.deviceToken, appId: ctx.appId)
+            }
+            pushSubscriptionHandler?.reregisterAfterReset(deviceToken: ctx.deviceToken, appId: ctx.appId)
+        }
     }
 
     private func getGroups() -> [String: String] {
@@ -760,21 +804,36 @@ let maxRetryDelay = 30.0
         }
         let oldDistinctId = getDistinctId()
 
-        let isIdentified = storageManager.isIdentified()
+        var isIdentified = false
+        var hasDifferentDistinctId = false
+        var shouldTransitionToIdentified = false
 
-        let hasDifferentDistinctId = distinctId != oldDistinctId
+        // Read isIdentified, decide the transition, and persist it atomically so two
+        // concurrent identify() calls on an anonymous user can't both see isIdentified
+        // == false and each emit a person-processed event for the same transition.
+        identifyLock.withLock {
+            isIdentified = storageManager.isIdentified()
+            hasDifferentDistinctId = distinctId != oldDistinctId
+            shouldTransitionToIdentified = !hasDifferentDistinctId && !isIdentified
+
+            if hasDifferentDistinctId, !isIdentified {
+                if !config.reuseAnonymousId {
+                    // We keep the AnonymousId to be used by flags calls and identify to link the previousId
+                    storageManager.setAnonymousId(oldDistinctId)
+                }
+                storageManager.setDistinctId(distinctId)
+                storageManager.setIdentified(true)
+            } else if shouldTransitionToIdentified {
+                storageManager.setIdentified(true)
+            }
+        }
 
         if hasDifferentDistinctId, !isIdentified {
             var props: [String: Any] = ["distinct_id": distinctId]
 
             if !config.reuseAnonymousId {
-                // We keep the AnonymousId to be used by flags calls and identify to link the previousId
-                storageManager.setAnonymousId(oldDistinctId)
                 props["$anon_distinct_id"] = oldDistinctId
             }
-
-            storageManager.setDistinctId(distinctId)
-            storageManager.setIdentified(true)
 
             let properties = buildProperties(
                 distinctId: distinctId,
@@ -799,6 +858,37 @@ let maxRetryDelay = 30.0
 
             // we need to make sure the user props update is for the same user
             // otherwise they have to reset and identify again
+        } else if shouldTransitionToIdentified {
+            // Matching id while still anonymous (e.g. a non-identified bootstrap seeded the same
+            // id): upgrade to identified and emit one person-processed $set — there is no
+            // anonymous id to merge, so no $identify (matches posthog-js).
+            // setIdentified(true) already performed above under identifyLock.
+
+            setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
+
+            capture("$set",
+                    distinctId: distinctId,
+                    userProperties: userProperties,
+                    userPropertiesSetOnce: userPropertiesSetOnce)
+
+            // The transition event must fire even when an identical property call was cached
+            // earlier; cache only after capture so deduplication cannot suppress it.
+            let hash = getPersonPropertiesHash(
+                distinctId: distinctId,
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
+            )
+            cachedPersonPropertiesLock.withLock {
+                cachedPersonPropertiesHash = hash
+            }
+
+            // The identified state itself is not part of the flags request; reload only when the
+            // caller supplied properties that can affect flag evaluation.
+            if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+                remoteConfig?.reloadFeatureFlags()
+            }
+
+            notifyContextDidChange()
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
             if !shouldCapturePersonPropertiesEvent(
                 distinctId: distinctId,
@@ -958,6 +1048,23 @@ let maxRetryDelay = 30.0
         return false
     }
 
+    /// Best-effort connectivity check for deferring push registration while offline.
+    /// Defaults to `true` when reachability isn't available (watchOS or disabled for testing).
+    private func isNetworkReachable() -> Bool {
+        #if !os(watchOS)
+            if config.disableReachabilityForTesting {
+                return true
+            }
+            guard let reachability else { return true }
+            if case .unavailable = reachability.connection {
+                return false
+            }
+            return true
+        #else
+            return true
+        #endif
+    }
+
     private func setPersonPropertiesForFlagsIfNeeded(
         _ userProperties: [String: Any]?,
         userPropertiesSetOnce: [String: Any]? = nil
@@ -1100,7 +1207,8 @@ let maxRetryDelay = 30.0
     ///   - userProperties: Person properties to set. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
     ///   - groups: Group type/key pairs to attach to this event.
-    ///   - timestamp: Optional event timestamp. Defaults to the current time.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time. The absolute instant
+    ///     is serialized in UTC, regardless of the calendar or time zone used to create it.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
     public func capture(_ event: String,
                         distinctId: String? = nil,
@@ -2395,6 +2503,18 @@ let maxRetryDelay = 30.0
             notifyContextDidChange()
             notifyExceptionStepsDidChange()
         }
+
+        #if os(iOS)
+            // A prior logout unregister cleared the push token; opt-in re-installs the subscription
+            // integration above but that alone doesn't refetch the token. Re-request it so the
+            // redelivered token re-registers this device, re-arming push without an app restart (#746).
+            // Gate on the same conditions that install the subscription integration: auto-capture and
+            // swizzling. Without swizzling the integration is skipped, so refetching would fire the host's
+            // APNs lifecycle with no observer to forward the token.
+            if #available(iOS 14.0, *), config.capturePushNotificationSubscriptions, config.enableSwizzling {
+                PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh()
+            }
+        #endif
     }
 
     /// Opts the current user out of data capture.
@@ -2413,6 +2533,8 @@ let maxRetryDelay = 30.0
             config.optOut = true
             storage?.setBool(forKey: .optOut, contents: true)
         }
+
+        pushSubscriptionHandler?.onOptOut()
 
         setupLock.withLock {
             uninstallIntegrations()
@@ -2449,6 +2571,7 @@ let maxRetryDelay = 30.0
             queue = nil
             replayQueue = nil
             logsQueue = nil
+            pushSubscriptionHandler = nil
             // Closing ends the run: clear the buffer, which publishes empty steps so the integration
             // drops them from customData. Nil the reference so later adds no-op. (reset()/identify keep it.)
             let bufferToClear = exceptionStepsBuffer
@@ -2975,6 +3098,172 @@ let maxRetryDelay = 30.0
             onExceptionStepsChanged.invoke(steps)
         }
     }
+
+    // MARK: - Push Notifications
+
+    #if os(iOS)
+        /// Sends a device push token to PostHog so Workflows can deliver push notifications to this device.
+        ///
+        /// Call this from `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` when you don't
+        /// rely on automatic swizzling (for example when `enableSwizzling` is `false`).
+        ///
+        /// The token is linked to the current distinct id, so it follows the user across `identify(_:)`.
+        ///
+        /// - Note: Push registration is available on iOS only in this version.
+        ///
+        /// - Parameter deviceToken: The APNs token as a lowercase-hex string. Convert a `Data` token via
+        ///   `token.map { String(format: "%02x", $0) }.joined()`.
+        @objc public func registerPushNotificationToken(_ deviceToken: String) {
+            registerPushNotificationToken(deviceToken, appId: nil)
+        }
+
+        /// Sends a device push token to PostHog under an explicit app id.
+        ///
+        /// Use the `appId` overload when relaying a token obtained through another provider (for example a
+        /// Firebase `project_id`). When `appId` is `nil` the app's bundle identifier is used.
+        ///
+        /// - Note: Push registration is available on iOS only in this version.
+        ///
+        /// - Parameters:
+        ///   - deviceToken: The push token string (APNs lowercase-hex, or an FCM token verbatim).
+        ///   - appId: The app identifier the token belongs to, or `nil` to use the bundle identifier.
+        @objc public func registerPushNotificationToken(_ deviceToken: String, appId: String?) {
+            if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                return
+            }
+
+            pushSubscriptionHandler?.send(deviceToken: deviceToken, appId: appId)
+        }
+
+        /// Unregisters this device's push token from PostHog so Workflows stop targeting it — for example
+        /// from your logout flow.
+        ///
+        /// Sends a `DELETE /api/push_subscriptions/` for the current distinct id (the backend unsets the
+        /// subscription property) and forgets the locally stored token. The delete intent is durable: an
+        /// offline or failed attempt is retried on `flush()`/next launch until it succeeds or hits a
+        /// terminal 4xx. Call it directly if you manage push subscriptions yourself. On `reset()` the SDK
+        /// already moves any registered token to the new anonymous identity (unregister then re-register),
+        /// independently of `capturePushNotificationSubscriptions` — that flag only gates automatic token
+        /// subscription at startup.
+        @objc public func unregisterPushNotificationToken() {
+            if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                return
+            }
+
+            pushSubscriptionHandler?.unregisterCurrentToken()
+        }
+    #endif
+
+    #if os(iOS) || os(macOS)
+        /// Manually captures a `$push_notification_opened` event for a notification the user tapped.
+        ///
+        /// Use this when you're not relying on the automatic swizzling installed by
+        /// `capturePushNotificationOpened`, for example when `enableSwizzling` is `false` or when you
+        /// manage your own `UNUserNotificationCenterDelegate`. Call it from your
+        /// `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
+        ///
+        /// The notification's title/subtitle/body are included only when the push is attributed to
+        /// PostHog (a `posthog` key in its `userInfo`); unattributed pushes capture the open event
+        /// without content. Use the field-based overload to capture content explicitly.
+        ///
+        /// - Parameter response: The `UNNotificationResponse` received from the system.
+        @available(iOS 14.0, macOS 11.0, *)
+        @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
+            let content = response.notification.request.content
+            // Free-text content is captured only for PostHog-attributed pushes: forwarding the
+            // title/body of arbitrary third-party notifications (OTPs, chat previews) would ship
+            // sensitive text to analytics by default. The field-based overload stays ungated —
+            // there the developer passes content explicitly.
+            let isPostHogNotification = content.userInfo["posthog"] != nil
+            capturePushNotificationOpened(
+                title: isPostHogNotification ? content.title : nil,
+                subtitle: isPostHogNotification ? content.subtitle : nil,
+                body: isPostHogNotification ? content.body : nil,
+                payload: content.userInfo,
+                action: response.actionIdentifier
+            )
+        }
+
+        /// Manually captures a `$push_notification_opened` event from raw notification fields.
+        ///
+        /// Use this when no `UNNotificationResponse` is available — for example when you handle a push
+        /// yourself in `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` or relay it
+        /// from a cross-platform layer.
+        ///
+        /// - Parameters:
+        ///   - title: The notification title; omitted from the event when `nil` or empty.
+        ///   - subtitle: The notification subtitle; omitted when `nil` or empty.
+        ///   - body: The notification body; omitted when `nil` or empty.
+        ///   - payload: The notification payload (`userInfo`). The keys of its `posthog` entry — a
+        ///     dictionary, or a JSON string when relayed through FCM — become `$notification_<key>`
+        ///     properties.
+        ///   - action: The action identifier for an action-button tap; leave `nil` for a plain tap
+        ///     (the default action is omitted from the event).
+        @objc public func capturePushNotificationOpened(
+            title: String? = nil,
+            subtitle: String? = nil,
+            body: String? = nil,
+            payload: [AnyHashable: Any]? = nil,
+            action: String? = nil
+        ) {
+            if !isEnabled() {
+                return
+            }
+
+            if isOptOutState() {
+                return
+            }
+
+            var properties: [String: Any] = [:]
+
+            if let title, !title.isEmpty {
+                properties["$notification_title"] = title
+            }
+
+            if let subtitle, !subtitle.isEmpty {
+                properties["$notification_subtitle"] = subtitle
+            }
+
+            if let body, !body.isEmpty {
+                properties["$notification_body"] = body
+            }
+
+            if let posthogData = posthogPayload(from: payload?["posthog"]) {
+                for (key, value) in posthogData {
+                    properties["$notification_\(key)"] = value
+                }
+            }
+
+            if let action, !action.isEmpty, action != UNNotificationDefaultActionIdentifier {
+                properties["$notification_action"] = action
+            }
+
+            capture("$push_notification_opened", properties: properties)
+        }
+
+        /// The `posthog` attribution payload arrives as a dictionary when delivered through APNs
+        /// directly, but as a JSON string when relayed through FCM (`message.data` is string→string).
+        private func posthogPayload(from value: Any?) -> [String: Any]? {
+            if let dict = value as? [String: Any] {
+                return dict
+            }
+            if let string = value as? String {
+                if let data = string.data(using: .utf8), let dict = fromJSONData(data) {
+                    return dict
+                }
+                hedgeLog("Push notification 'posthog' payload is not a JSON object; ignoring.")
+            }
+            return nil
+        }
+    #endif
 }
 
 #if TESTING
@@ -2997,6 +3286,21 @@ let maxRetryDelay = 30.0
 
         #if os(iOS) || os(macOS) || os(tvOS)
             func getErrorTrackingIntegration() -> PostHogErrorTrackingAutoCaptureIntegration? {
+                getIntegration()
+            }
+        #endif
+
+        #if os(iOS) || os(macOS)
+            @available(iOS 14.0, macOS 11.0, *)
+            func getPushNotificationIntegration() -> PostHogPushNotificationOpenIntegration? {
+                getIntegration()
+            }
+
+        #endif
+
+        #if os(iOS)
+            @available(iOS 14.0, *)
+            func getPushNotificationSubscriptionIntegration() -> PostHogPushNotificationSubscriptionIntegration? {
                 getIntegration()
             }
         #endif

@@ -334,6 +334,24 @@ enum PostHogRemoteConfigTest {
             #expect(server.flagsRequests.count == 2)
         }
 
+        @Test("survey refresh coalesces with a matching in-flight request")
+        func surveyRefreshCoalescesWithMatchingRequest() async {
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.storageManager = PostHogStorageManager(config)
+            let sut = getSut(config: config)
+            sut.canReloadFlagsForTesting = true
+
+            server.flagsResponseDelay = 0.1
+            let bothDone = AsyncLatch(count: 2)
+
+            sut.reloadFeatureFlags { _ in bothDone.signal() }
+            sut.reloadFeatureFlagsForSurvey { _ in bothDone.signal() }
+            await bothDone.wait()
+
+            #expect(server.flagsRequests.count == 1)
+        }
+
         @Test("pending request uses correct identity after identify")
         func pendingRequestUsesCorrectIdentity() async {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")

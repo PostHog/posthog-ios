@@ -1,5 +1,62 @@
 ## Next
 
+## 3.69.6
+
+### Patch Changes
+
+- 001ced2: Document and verify that custom event timestamps are serialized as equivalent UTC instants.
+- aca4f86: Refresh survey definitions when a new remote config loads.
+
+## 3.69.5
+
+### Patch Changes
+
+- a164d38: Fix: opting back in now re-arms push notifications without an app restart. After a logout unregister clears the device token, `optIn()` re-requests the APNs token and re-registers the device (when `capturePushNotificationSubscriptions` is enabled) instead of only restoring consent (#746).
+
+## 3.69.4
+
+### Patch Changes
+
+- ad199d2: Fix: opting out no longer strands an in-flight push unregister. A `DELETE /push_subscriptions` is data removal, so it now goes out even after `optOut()` instead of leaving the server-side subscription active for the whole opted-out period (#746).
+
+## 3.69.3
+
+### Patch Changes
+
+- 057f4d6: Fix push notification open forwarding for Objective-C delegates.
+
+## 3.69.2
+
+### Patch Changes
+
+- 6623953: Fix CocoaPods static-library builds on older Xcode versions by disabling emitted module interface verification with the Swift compiler flag.
+
+## 3.69.1
+
+### Patch Changes
+
+- 9a7f442: Fix CocoaPods static-library archives by skipping emitted module interface verification for source pod builds.
+
+## 3.69.0
+
+### Minor Changes
+
+- c37aea6: Add push notification support for PostHog Workflows. The SDK now registers the device's APNs token (iOS) so Workflows can deliver push notifications, and captures a `$push_notification_opened` event when a notification is tapped. Both are on by default and can be turned off with the new `capturePushNotificationSubscriptions` and `capturePushNotificationOpened` config flags. For setups that don't use swizzling, use `registerPushNotificationToken(_:appId:)` and `capturePushNotificationOpened(response:)` to feed these manually, or `capturePushNotificationOpened(title:subtitle:body:payload:action:)` when no `UNNotificationResponse` is available. On `reset()` the token is unregistered for the logged-out user and re-registered under the new anonymous id, and `unregisterPushNotificationToken()` lets you unregister manually.
+
+- fix: `identify()` no longer leaves a user anonymous when the supplied ID already matches the persisted distinct ID (for example after a non-identified bootstrap seeded the same ID); the SDK now marks the user identified and captures a person-processed `$set` event. The identity transition is now atomic, so concurrent `identify()` calls can no longer emit duplicate person events for the same transition
+
+## 3.68.4
+
+### Patch Changes
+
+- 21151d8: Use Swift 6 access-controlled imports for vendored implementation modules and enable library evolution for framework builds, removing implementation-only import warnings without exposing private module dependencies to SDK consumers.
+
+## 3.68.3
+
+### Patch Changes
+
+- 910b82c: Fix `postHogMask()` causing severe launch and scroll hangs on iOS 26 in lazy SwiftUI containers (`ScrollView` + `LazyVStack`). The modifier now reports its region through a single passive overlay view whose frame is read live at snapshot time, replacing the per-mask tag-view traversal and KVO ancestor observers that degenerated to O(N²) work on the shared hosting view. Behavior notes: a masked view is now redacted across its full extent (previously only its resolved backing subviews), and screenshot snapshots are skipped while a masked view awaits its first layout, so a frame can never be captured under-masked. Also fixes overlapping masks unmasking each other's targets on teardown, flag claims outliving their owner view, and bounds the iOS 26 layer scan to the masked view's own extent.
+
 ## 3.68.2
 
 ### Patch Changes

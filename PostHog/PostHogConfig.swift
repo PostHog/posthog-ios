@@ -37,7 +37,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     }
 
     /// Network connectivity mode required before queued data may be flushed.
-    @objc(PostHogDataMode) public enum PostHogDataMode: Int {
+    @frozen @objc(PostHogDataMode) public enum PostHogDataMode: Int {
         /// Flush only while the device is connected to Wi-Fi.
         case wifi
         /// Legacy cellular mode.
@@ -167,6 +167,52 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// Default: true
     @objc public var enableSwizzling: Bool = true
+
+    #if os(iOS) || os(macOS)
+        /// Automatically register the device's APNs token with PostHog by swizzling
+        /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, so Workflows can
+        /// deliver push notifications.
+        ///
+        /// - Note: Requires `enableSwizzling` to be `true`. To register tokens without swizzling, call
+        ///   `PostHogSDK.registerPushNotificationToken(_:)` from your own
+        ///   `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` implementation.
+        ///   Registration is iOS-only in this version.
+        ///
+        /// Default: true. Set to `false` to opt out.
+        @objc public var capturePushNotificationSubscriptions: Bool = true
+
+        /// Automatically capture a `$push_notification_opened` event when the user taps a **remote** push
+        /// notification, by swizzling `UNUserNotificationCenterDelegate`. Locally-scheduled notifications
+        /// are ignored — call `capturePushNotificationOpened(response:)` yourself to capture those.
+        ///
+        /// - Note: Requires `enableSwizzling` to be `true`. To capture opens without swizzling, call
+        ///   `PostHogSDK.capturePushNotificationOpened(response:)` from your own
+        ///   `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
+        ///
+        /// Default: true. Set to `false` to opt out.
+        @objc public var capturePushNotificationOpened: Bool = true
+    #endif
+
+    /// Supplies a signed identity token to attach (as `identity_token`) to push subscription
+    /// register/unregister requests, for projects that enable identity verification on their push
+    /// integration. Invoked with the `distinct_id` and `app_id` the request carries; call `completion`
+    /// **exactly once**, from any thread, with a token minted by your backend — or `nil` to send the
+    /// request without one. The SDK never mints tokens itself: your backend signs an HS256 JWT with
+    /// the project's **secret** API key, claims `sub` = distinct id, `app_id`,
+    /// `aud` = "posthog:push_identity", and an `exp`.
+    ///
+    /// The token is cached in memory per `(distinctId, appId)` and re-requested on identity change, on
+    /// the next launch, and once after a 401 rejection. If `completion` isn't called within ~10s the
+    /// SDK stops waiting and sends the request without an identity token; where your project requires
+    /// identity verification the backend will likely reject it, so make sure your provider always
+    /// completes.
+    ///
+    /// The hook is invoked on a background queue that serializes push-registration work — never on the
+    /// calling thread — and `completion` may be called from any thread. Still return promptly: blocking
+    /// here stalls the SDK's push retry/offline-resume flow (though not your app's main thread).
+    ///
+    /// Default: `nil` (requests carry no identity token).
+    @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
 
     #if os(iOS) || targetEnvironment(macCatalyst)
         /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
@@ -502,6 +548,21 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
             if rageClickConfig.enabled {
                 integrations.append(PostHogRageClickIntegration())
+            }
+        #endif
+
+        #if os(iOS) || os(macOS)
+            if #available(iOS 14.0, macOS 11.0, *) {
+                // Token registration is iOS-only in v1 (the backend rejects `macos`); opened-capture
+                // works on both platforms.
+                #if os(iOS)
+                    if capturePushNotificationSubscriptions {
+                        integrations.append(PostHogPushNotificationSubscriptionIntegration())
+                    }
+                #endif
+                if capturePushNotificationOpened {
+                    integrations.append(PostHogPushNotificationOpenIntegration())
+                }
             }
         #endif
 

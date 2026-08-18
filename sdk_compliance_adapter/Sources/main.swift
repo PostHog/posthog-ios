@@ -122,7 +122,6 @@ app.post("init") { req async throws -> Response in
     config.captureScreenViews = false
     config.preloadFeatureFlags = false
     config.sendFeatureFlagEvent = false
-    config.remoteConfig = false
     config.enableSwizzling = false
 
     #if os(iOS)

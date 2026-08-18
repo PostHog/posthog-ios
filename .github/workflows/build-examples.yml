@@ -37,7 +37,7 @@ jobs:
             command: set -o pipefail && xcrun xcodebuild clean build -scheme PostHogExampleWithSPM -destination generic/platform=ios | xcpretty
     name: Example (${{ matrix.name }})
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
@@ -48,7 +48,7 @@ jobs:
     runs-on: macos-15
     name: Example (XCFramework)
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
@@ -56,22 +56,32 @@ jobs:
         run: make buildExampleXCFramework
 
   build-pods:
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: Static Lib
             target: buildExamplePodsStaticLib
+            runner: macos-15
+            xcode-version: latest-stable
+          - name: Static Lib (Xcode 16.2)
+            target: buildExamplePodsStaticLib
+            runner: macos-14-xlarge
+            xcode-version: '16.2'
           - name: Static Framework
             target: buildExamplePodsStaticFramework
+            runner: macos-15
+            xcode-version: latest-stable
           - name: Dynamic Framework
             target: buildExamplePodsDynamicFramework
+            runner: macos-15
+            xcode-version: latest-stable
     name: Example Pods (${{ matrix.name }})
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          xcode-version: latest-stable
+          xcode-version: ${{ matrix.xcode-version }}
       - name: Build Pods Example (${{ matrix.name }})
         run: make ${{ matrix.target }}

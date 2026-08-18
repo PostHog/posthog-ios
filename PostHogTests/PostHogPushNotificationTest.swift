@@ -1866,7 +1866,7 @@
             appIds = []
             parked.release("jwt")
             #expect(await waitFor { self.record(storage) != nil })
-            #expect(!self.delivered(storage))
+            #expect(!delivered(storage))
             #expect(server.pushSubscriptionRequests.isEmpty)
 
             // The record survives, so configuring push later still reaches the device with one POST.

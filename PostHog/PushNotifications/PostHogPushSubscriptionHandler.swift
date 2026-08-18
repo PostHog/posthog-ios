@@ -403,7 +403,7 @@ final class PostHogPushSubscriptionHandler {
         workQueue.async { [weak self] in
             guard let self else { return }
 
-            let record = recordLock.withLock { loadRecordLocked() }
+            let record = recordLock.withLock { self.loadRecordLocked() }
             guard let record, newlyRegisterable.contains(record.appId) else {
                 // Either nothing changed for this device, or the app_id was already registerable and
                 // the existing delivered marker is honest. Re-sending here would put the request back
@@ -413,7 +413,7 @@ final class PostHogPushSubscriptionHandler {
 
             if record.deliveredForDistinctId != nil {
                 recordLock.withLock {
-                    writeRecord(deviceToken: record.deviceToken, appId: record.appId)
+                    self.writeRecord(deviceToken: record.deviceToken, appId: record.appId)
                 }
             }
 

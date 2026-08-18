@@ -1499,10 +1499,7 @@ enum PostHogFeatureFlagsTest {
             let sut = getSut()
             stubFlagsRequiringOverride(delay: 0.3)
 
-            // 1. A request goes out before the app sets its overrides (the automatic preload).
             sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
-
-            // 2. The app sets its overrides. The next reload lands in the pending slot.
             sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
 
             let flags = await withCheckedContinuation { (continuation: CheckedContinuation<[String: Any]?, Never>) in
@@ -1510,8 +1507,7 @@ enum PostHogFeatureFlagsTest {
                     continuation.resume(returning: flags)
                 })
 
-                // 3. A third reload displaces the second one from the pending slot. The displaced
-                // caller must still be resolved against the coalesced request, not the disk cache.
+                // displaces the reload above out of the pending slot
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
             }
 
@@ -1538,7 +1534,6 @@ enum PostHogFeatureFlagsTest {
             let sut = track(PostHogSDK.with(config))
 
             await withCheckedContinuation { continuation in
-                // setup -> set properties -> identify -> reload
                 sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
                 sut.identify("test_user")
                 sut.reloadFeatureFlags {
@@ -1564,10 +1559,8 @@ enum PostHogFeatureFlagsTest {
 
         @Test("a queued reload carries person properties set while it waits")
         func queuedReloadCarriesLatePersonProperties() async {
-            let config = makeIsolatedConfig()
-            let sut = track(PostHogSDK.with(config))
+            let sut = track(PostHogSDK.with(makeIsolatedConfig()))
             stubFlagsRequiringOverride(delay: 0.2)
-            server.flagsRequests = []
 
             await withCheckedContinuation { continuation in
                 sut.reloadFeatureFlags()
@@ -1586,16 +1579,11 @@ enum PostHogFeatureFlagsTest {
                 HTTPStubsResponse(jsonObject: ["error": "nope"], statusCode: 400, headers: nil)
             }
 
-            var resolved = false
             await withCheckedContinuation { continuation in
                 sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
-                sut.reloadFeatureFlags {
-                    resolved = true
-                    continuation.resume()
-                }
+                sut.reloadFeatureFlags { continuation.resume() }
             }
 
-            #expect(resolved)
             #expect(sut.getFeatureFlag("override-flag") == nil)
         }
 

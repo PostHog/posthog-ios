@@ -273,7 +273,6 @@ class PostHogRemoteConfig {
         surveyCompletion: (([String: Any]?) -> Void)?
     ) {
         guard canReloadFlagsForTesting else {
-            callback?(nil) // resolve both callers so no completion handler is dropped
             surveyCompletion?(nil)
             return
         }
@@ -401,13 +400,11 @@ class PostHogRemoteConfig {
                        NSDictionary(dictionary: $0).isEqual(to: requestContext)
                    }) == true
                 {
-                    // Survey waiter only; resolved from `surveyFeatureFlagsWaiters`. `callback`
-                    // here is this path's placeholder, so there is nothing to carry over.
+                    // Survey waiter only; `callback` here is this path's placeholder.
                     return false
                 }
-                // Coalesce into the single pending slot: the newest parameters win, but every
-                // displaced caller's handler is carried over so it resolves against a request that
-                // actually goes out, not against pre-override values from `getCachedFeatureFlags()`.
+                // Newest parameters win, but every displaced caller's handler is carried over so it
+                // resolves against a request that goes out, not against `getCachedFeatureFlags()`.
                 let callbacks = (self.pendingFeatureFlagsRequest?.callbacks ?? []) + [callback]
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
@@ -1167,8 +1164,7 @@ class PostHogRemoteConfig {
     }
 }
 
-/// The single coalesced `/flags` request waiting behind the one in flight. Later callers overwrite
-/// the parameters but append to `callbacks`, so no caller resolves against a request that never went out.
+/// The single coalesced `/flags` request waiting behind the one in flight.
 private struct PendingFeatureFlagsRequest {
     let distinctId: String
     let anonymousId: String?

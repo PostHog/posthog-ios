@@ -483,7 +483,10 @@
                             name: "Bonjour",
                             thankYouMessageHeader: nil,
                             thankYouMessageDescription: nil,
-                            thankYouMessageCloseButtonText: nil
+                            thankYouMessageCloseButtonText: nil,
+                            introScreenHeader: nil,
+                            introScreenDescription: nil,
+                            introScreenButtonText: nil
                         )]
                     )
                 }

@@ -138,7 +138,7 @@ PostHog | PostHogDisplaySurveyAppearance.inputBackground | property | let inputB
 PostHog | PostHogDisplaySurveyAppearance.inputTextColor | property | let inputTextColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC14inputTextColorSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.introScreenButtonText | property | let introScreenButtonText: String? | s:7PostHog0aB23DisplaySurveyAppearanceC21introScreenButtonTextSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.introScreenDescription | property | let introScreenDescription: String? | s:7PostHog0aB23DisplaySurveyAppearanceC22introScreenDescriptionSSSgvp
-PostHog | PostHogDisplaySurveyAppearance.introScreenDescriptionContentType | property | let introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? | s:7PostHog0aB23DisplaySurveyAppearanceC33introScreenDescriptionContentType0abcd4TextiJ0OSgvp
+PostHog | PostHogDisplaySurveyAppearance.introScreenDescriptionContentType | property | let introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? | s:7PostHog0aB23DisplaySurveyAppearanceC33introScreenDescriptionContentTypeAA0abcd4TextiJ0OSgvp
 PostHog | PostHogDisplaySurveyAppearance.introScreenHeader | property | let introScreenHeader: String? | s:7PostHog0aB23DisplaySurveyAppearanceC17introScreenHeaderSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.placeholder | property | let placeholder: String? | s:7PostHog0aB23DisplaySurveyAppearanceC11placeholderSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.ratingButtonActiveColor | property | let ratingButtonActiveColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC23ratingButtonActiveColorSSSgvp

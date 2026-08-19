@@ -111,6 +111,8 @@
             distinctIdProvider: @escaping () -> String = { "user-1" },
             isConnectedProvider: @escaping () -> Bool = { true },
             isAllowedProvider: @escaping () -> Bool = { true },
+            isEnabledProvider: @escaping () -> Bool = { true },
+            pushAppIdsProvider: @escaping () -> [String]? = { nil },
             onEventContextChanged: PostHogMulticastCallback<[String: Any]> = .init(),
             resetStorage: Bool = true
         ) -> (handler: PostHogPushSubscriptionHandler, storage: PostHogStorage, config: PostHogConfig) {
@@ -134,6 +136,8 @@
                 distinctIdProvider: distinctIdProvider,
                 isConnectedProvider: isConnectedProvider,
                 isAllowedProvider: isAllowedProvider,
+                isEnabledProvider: isEnabledProvider,
+                pushAppIdsProvider: pushAppIdsProvider,
                 onEventContextChanged: onEventContextChanged
             )
             return (handler, storage, config)
@@ -143,6 +147,7 @@
             optOut: Bool = false,
             enableSwizzling: Bool = true,
             capturePushNotificationOpened: Bool = false,
+            capturePushNotificationSubscriptions: Bool = false,
             reuseAnonymousId: Bool = false,
             pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? = nil
         ) -> PostHogSDK {
@@ -154,7 +159,7 @@
             config.pushIdentityProvider = pushIdentityProvider
             config.captureApplicationLifecycleEvents = false
             config.captureScreenViews = false
-            config.capturePushNotificationSubscriptions = false
+            config.capturePushNotificationSubscriptions = capturePushNotificationSubscriptions
             config.capturePushNotificationOpened = capturePushNotificationOpened
             config.disableReachabilityForTesting = true
             config.disableQueueTimerForTesting = true
@@ -325,12 +330,20 @@
             #expect(record(storage) == nil)
         }
 
-        @Test("unregister is a no-op when the SDK is disabled or opted out (vector 7)")
-        func unregisterGuarded() async {
-            let (handler, _, _) = makeHandler(isAllowedProvider: { false })
+        @Test("unregister is a no-op while the SDK is disabled (vector 7)")
+        func unregisterGuardedWhenDisabled() async {
+            let (handler, _, _) = makeHandler(isEnabledProvider: { false })
             handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
             try? await Task.sleep(nanoseconds: 150_000_000)
             #expect(server.pushSubscriptionRequests.isEmpty)
+        }
+
+        @Test("unregister still sends the DELETE while opted out (cleanup is not gated by opt-out, posthog-ios#746)")
+        func unregisterSendsWhileOptedOut() async {
+            // Opted out means don't register or send, but a DELETE removes data, so it must still go out.
+            let (handler, _, _) = makeHandler(isAllowedProvider: { false }, isEnabledProvider: { true })
+            handler.unregister(distinctId: "user-1", deviceToken: "tok", appId: "app")
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
         }
 
         #if os(iOS)
@@ -748,6 +761,7 @@
                 distinctIdProvider: { "user-1" },
                 isConnectedProvider: { true },
                 isAllowedProvider: { true },
+                isEnabledProvider: { true },
                 onEventContextChanged: .init()
             )
             relaunched.retryIfNeeded()
@@ -1674,6 +1688,222 @@
             let event = try #require(events.first)
             #expect(event.event == "$push_notification_opened")
             #expect(event.properties["$notification_title"] as? String == "Hello")
+        }
+
+        // MARK: - Opt-in re-registration (posthog-ios#746)
+
+        #if os(iOS)
+            @Test("opting back in re-requests the push token so push re-arms without an app restart")
+            func optInReRequestsPushToken() {
+                if #available(iOS 14.0, *) {
+                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                    var refetchCount = 0
+                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+
+                    let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: true)
+                    defer { sut.close() }
+
+                    #expect(sut.isOptOut())
+                    sut.optIn()
+                    #expect(refetchCount == 1, "opt-in should re-request the APNs token, not just restore consent")
+                }
+            }
+
+            @Test("opt-in does not re-request the token when auto-capture is disabled")
+            func optInSkipsReRequestWhenAutoCaptureDisabled() {
+                if #available(iOS 14.0, *) {
+                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                    var refetchCount = 0
+                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+
+                    let sut = getSDK(optOut: true, capturePushNotificationSubscriptions: false)
+                    defer { sut.close() }
+
+                    sut.optIn()
+                    #expect(refetchCount == 0, "manual push mode leaves the token lifecycle to the host")
+                }
+            }
+
+            @Test("opt-in does not re-request the token when swizzling is disabled")
+            func optInSkipsReRequestWhenSwizzlingDisabled() {
+                if #available(iOS 14.0, *) {
+                    let original = PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh
+                    defer { PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = original }
+                    var refetchCount = 0
+                    PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh = { refetchCount += 1 }
+
+                    // Auto-capture on, but swizzling off: the subscription integration is not installed,
+                    // so refetching would fire the host's APNs lifecycle with no observer to catch it.
+                    let sut = getSDK(optOut: true, enableSwizzling: false, capturePushNotificationSubscriptions: true)
+                    defer { sut.close() }
+
+                    sut.optIn()
+                    #expect(refetchCount == 0, "no observer is installed without swizzling, so opt-in must not refetch")
+                }
+            }
+        #endif
+
+        // MARK: - Opt-out / unregister race (posthog-ios#746)
+
+        @available(iOS 14.0, macOS 11.0, *)
+        @Test("posthog-ios#746: opt-out during an in-flight unregister must still send the DELETE")
+        func optOutDuringUnregisterStrandsDelete() async throws {
+            let parked = ParkedMint()
+            let lock = NSLock()
+            var allowed = true
+            func isAllowed() -> Bool {
+                lock.withLock { allowed }
+            }
+
+            let (handler, storage, config) = makeHandler(isAllowedProvider: { isAllowed() })
+            handler.identityTokenMintTimeout = 60 // keep the watchdog from firing before we release
+
+            func posts() -> Int {
+                server.pushSubscriptionRequests.filter { $0.httpMethod == "POST" }.count
+            }
+            func deletes() -> Int {
+                server.pushSubscriptionRequests.filter { $0.httpMethod == "DELETE" }.count
+            }
+
+            // 1) Register the device token while allowed. No provider set yet, so no identity mint.
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(posts() == 1)
+            #expect(deletes() == 0)
+
+            // 2) The wrapper's opt-out flow: unregister, then opt out. A provider that parks the
+            //    unregister's mint lets opt-out land while the DELETE is in flight (the reported race).
+            config.pushIdentityProvider = { _, _, completion in
+                if !parked.parkFirst(completion) { completion(nil) }
+            }
+            // unregisterCurrentToken() is the logout path: it clears the stored record first, so the
+            // post-mint supersede rule can't cancel the DELETE, isolating the opt-out gate.
+            handler.unregisterCurrentToken()
+            #expect(await waitFor { parked.isParked }, "unregister should reach the identity mint")
+            lock.withLock { allowed = false } // opt-out flips the consent gate mid-flight
+            parked.release("identity-token") // let the mint complete
+
+            // A DELETE is data removal, so opt-out must not block it. Pre-fix, the post-mint
+            // isAllowedProvider() gate returned early and the DELETE never went out, leaving the
+            // server-side subscription active for the whole opted-out period.
+            let sawDelete = await waitFor { deletes() == 1 }
+            #expect(sawDelete, "posthog-ios#746: opt-out stranded the unregister DELETE; subscription stays active")
+        }
+
+        @Test("does not send when the app_id is not configured for the project")
+        func skipsUnconfiguredAppId() async {
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["another.app"] })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+
+            #expect(await waitFor { self.record(storage) != nil })
+            #expect(server.pushSubscriptionRequests.isEmpty)
+            // The record is still persisted: onPushAppIdsChanged needs a token to register once the
+            // project configures push, rather than waiting for the app to hand us one again.
+            #expect(record(storage)?["deviceToken"] == "abcdef")
+            #expect(!delivered(storage))
+        }
+
+        @Test("sends when no app_id list has been published")
+        func sendsWhenNoListPublished() async {
+            // A server older than the push config key sends nothing, and an SDK cannot tell that apart
+            // from a project with push disabled. Failing closed here would silently disable push
+            // against every deployment that predates the key.
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { nil })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("sends when the app_id is configured for the project")
+        func sendsWhenAppIdConfigured() async {
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("an app_id becoming registerable clears the delivered marker and re-registers")
+        func reregistersWhenAppIdBecomesRegisterable() async {
+            // The device registered while the project had no integration: the server answered 200 and
+            // discarded the token, but the SDK recorded a delivery and stopped asking. Clearing that
+            // marker is the only thing that reaches the device once the project configures push.
+            var appIds: [String]? = []
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { appIds })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.record(storage) != nil })
+            #expect(server.pushSubscriptionRequests.isEmpty)
+
+            appIds = ["com.example.app"]
+            handler.onPushAppIdsChanged(["com.example.app"])
+
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("onPushAppIdsChanged runs its completion even when there is nothing to recover")
+        func onPushAppIdsChangedRunsCompletionOnEarlyReturn() async {
+            // The completion advances the durable one-time upgrade-recovery flag. It must run on every
+            // path, including this one where no record exists, so the flag never stalls unset (which
+            // would force recovery on every launch) nor advances ahead of a marker clear.
+            let (handler, _, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })
+            let lock = NSLock()
+            var completions = 0
+
+            handler.onPushAppIdsChanged(["com.example.app"]) { lock.withLock { completions += 1 } }
+
+            #expect(await waitFor { lock.withLock { completions } == 1 })
+        }
+
+        @Test("eligibility revoked during the identity token mint skips the send")
+        func skipsSendWhenEligibilityRevokedDuringMint() async {
+            // Registerable at send() time; remote config drops the app_id while the identity-token mint
+            // is still outstanding. Without a post-mint re-check the token would POST, get discarded,
+            // and be marked delivered, suppressing retries.
+            var appIds: [String]? = ["com.example.app"]
+            let (handler, storage, config) = makeHandler(pushAppIdsProvider: { appIds })
+            let parked = ParkedMint()
+            config.pushIdentityProvider = { _, _, completion in
+                if !parked.parkFirst(completion) { completion("jwt") }
+            }
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { parked.isParked })
+
+            appIds = []
+            parked.release("jwt")
+            #expect(await waitFor { self.record(storage) != nil })
+            #expect(!delivered(storage))
+            #expect(server.pushSubscriptionRequests.isEmpty)
+
+            // The record survives, so configuring push later still reaches the device with one POST.
+            appIds = ["com.example.app"]
+            handler.onPushAppIdsChanged(["com.example.app"])
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+        }
+
+        @Test("an unrelated app_id becoming registerable does not re-register")
+        func doesNotReregisterForUnrelatedAppId() async {
+            let (handler, storage, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+            #expect(server.pushSubscriptionRequests.count == 1)
+
+            // Firing on every config load would put the request back on every launch, which is exactly
+            // what the delivered marker exists to prevent.
+            handler.onPushAppIdsChanged(["some.other.app"])
+
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            #expect(server.pushSubscriptionRequests.count == 1)
         }
     }
 

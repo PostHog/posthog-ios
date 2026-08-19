@@ -1,0 +1,43 @@
+{
+  "body" : [
+    {
+      "api_key" : "snapshot-project-token",
+      "distinct_id" : "user-123",
+      "event" : "$snapshot",
+      "properties" : {
+        "$lib" : "posthog-ios",
+        "$lib_version" : "<sdk-version>",
+        "$session_id" : "00000000-0000-7000-8000-000000000002",
+        "$snapshot_data" : {
+          "data" : {
+            "href" : "https:\/\/example.com\/checkout",
+            "source" : 0
+          },
+          "timestamp" : 1704164645000,
+          "type" : 3
+        },
+        "$snapshot_source" : "mobile",
+        "distinct_id" : "user-123"
+      },
+      "timestamp" : "<iso8601-timestamp>",
+      "uuid" : "<uuid-v7>"
+    }
+  ],
+  "headers" : {
+    "accept-encoding" : "gzip",
+    "content-encoding" : "gzip",
+    "content-length" : "<content-length>",
+    "content-type" : "application\/json; charset=utf-8",
+    "user-agent" : "posthog-ios\/<sdk-version>"
+  },
+  "method" : "POST",
+  "url" : {
+    "host" : "localhost",
+    "path" : "\/s\/",
+    "port" : 9001,
+    "query" : [
+
+    ],
+    "scheme" : "http"
+  }
+}

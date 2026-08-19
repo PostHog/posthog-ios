@@ -84,6 +84,7 @@ let maxRetryDelay = 30.0
     let onEventContextChanged = PostHogMulticastCallback<[String: Any]>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
+    private var pushRemoteConfigToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
     /// `nil` before `setup(_:)` is called.
@@ -190,8 +191,25 @@ let maxRetryDelay = 30.0
                 isAllowedProvider: { [weak self] in
                     self.map { $0.isEnabled() && !$0.isOptOutState() } ?? false
                 },
+                isEnabledProvider: { [weak self] in self?.isEnabled() ?? false },
+                pushAppIdsProvider: { [weak self] in self?.remoteConfig?.getPushAppIds() },
                 onEventContextChanged: onEventContextChanged
             )
+
+            // A device whose project had no push integration was answered 200 and stopped asking.
+            // Draining the transition here is the only signal that reaches it.
+            pushRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
+                guard let self, let newlyRegisterable = self.remoteConfig?.consumeNewlyRegisterablePushAppIds(),
+                      !newlyRegisterable.isEmpty
+                else {
+                    return
+                }
+                // Mark the one-time upgrade recovery done only after the handler has durably cleared
+                // any delivered marker, so a crash in between re-runs recovery instead of stranding.
+                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self] in
+                    self?.remoteConfig?.markPushAppIdsMigrated()
+                }
+            }
 
             optOutLock.withLock {
                 let optOut = theStorage.getBool(forKey: .optOut)
@@ -1206,7 +1224,8 @@ let maxRetryDelay = 30.0
     ///   - userProperties: Person properties to set. Existing values are overwritten.
     ///   - userPropertiesSetOnce: Person properties to set only if they do not already exist.
     ///   - groups: Group type/key pairs to attach to this event.
-    ///   - timestamp: Optional event timestamp. Defaults to the current time.
+    ///   - timestamp: Optional event timestamp. Defaults to the current time. The absolute instant
+    ///     is serialized in UTC, regardless of the calendar or time zone used to create it.
     @objc(captureWithEvent:distinctId:properties:userProperties:userPropertiesSetOnce:groups:timestamp:)
     public func capture(_ event: String,
                         distinctId: String? = nil,
@@ -2427,6 +2446,18 @@ let maxRetryDelay = 30.0
             notifyContextDidChange()
             notifyExceptionStepsDidChange()
         }
+
+        #if os(iOS)
+            // A prior logout unregister cleared the push token; opt-in re-installs the subscription
+            // integration above but that alone doesn't refetch the token. Re-request it so the
+            // redelivered token re-registers this device, re-arming push without an app restart (#746).
+            // Gate on the same conditions that install the subscription integration: auto-capture and
+            // swizzling. Without swizzling the integration is skipped, so refetching would fire the host's
+            // APNs lifecycle with no observer to forward the token.
+            if #available(iOS 14.0, *), config.capturePushNotificationSubscriptions, config.enableSwizzling {
+                PostHogPushNotificationSubscriptionIntegration.requestTokenRefresh()
+            }
+        #endif
     }
 
     /// Opts the current user out of data capture.

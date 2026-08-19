@@ -43,6 +43,11 @@ let package = Package(
             publicHeadersPath: "."
         ),
         .target(
+            name: "PostHogTestsObjC",
+            path: "PostHogTestsObjC",
+            publicHeadersPath: "."
+        ),
+        .target(
             name: "phlibwebp",
             path: "vendor/libwebp",
             publicHeadersPath: ".",
@@ -88,6 +93,7 @@ let package = Package(
             name: "PostHogTests",
             dependencies: [
                 "PostHog",
+                "PostHogTestsObjC",
                 "Quick",
                 "Nimble",
                 "OHHTTPStubs",

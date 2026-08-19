@@ -1,13 +1,35 @@
 version: 2
 updates:
+  - package-ecosystem: "swift"
+    directories:
+      - "/"
+      - "/sdk_compliance_adapter"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      swift-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      release-tooling:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
-    reviewers:
-      - "PostHog/team-client-libraries"
     groups:
       codeql-action:
         patterns:

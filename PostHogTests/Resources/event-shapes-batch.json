@@ -1,0 +1,273 @@
+{
+  "body" : {
+    "api_key" : "snapshot-project-token",
+    "batch" : [
+      {
+        "distinct_id" : "anonymous-123",
+        "event" : "order completed",
+        "properties" : {
+          "$active_feature_flags" : [
+            "beta",
+            "checkout-redesign"
+          ],
+          "$app_namespace" : "<environment-string>",
+          "$device_manufacturer" : "Apple",
+          "$device_model" : "<environment-string>",
+          "$device_name" : "<environment-string>",
+          "$device_type" : "<environment-string>",
+          "$feature\/beta" : true,
+          "$feature\/checkout-redesign" : "test",
+          "$groups" : {
+            "workspace" : "workspace-1"
+          },
+          "$is_emulator" : "<environment-bool>",
+          "$is_identified" : false,
+          "$is_ios_running_on_mac" : "<environment-bool>",
+          "$is_mac_catalyst_app" : "<environment-bool>",
+          "$is_sideloaded" : "<environment-bool>",
+          "$is_testflight" : "<environment-bool>",
+          "$lib" : "posthog-ios",
+          "$lib_version" : "<sdk-version>",
+          "$locale" : "<environment-string>",
+          "$network_cellular" : "<environment-bool>",
+          "$network_wifi" : "<environment-bool>",
+          "$os_name" : "<environment-string>",
+          "$os_version" : "<environment-string>",
+          "$process_person_profile" : true,
+          "$session_id" : "00000000-0000-7000-8000-000000000001",
+          "$set" : {
+            "plan" : "pro"
+          },
+          "$set_once" : {
+            "first_order" : true
+          },
+          "$timezone" : "<environment-string>",
+          "amount" : 42.5,
+          "items" : [
+            "coffee",
+            "cake"
+          ],
+          "nested" : {
+            "coupon" : "WELCOME"
+          },
+          "registered_property" : "registered-value"
+        },
+        "timestamp" : "<iso8601-timestamp>",
+        "uuid" : "<uuid-v7>"
+      },
+      {
+        "distinct_id" : "user-123",
+        "event" : "$identify",
+        "properties" : {
+          "$active_feature_flags" : [
+            "beta",
+            "checkout-redesign"
+          ],
+          "$anon_distinct_id" : "anonymous-123",
+          "$app_namespace" : "<environment-string>",
+          "$device_manufacturer" : "Apple",
+          "$device_model" : "<environment-string>",
+          "$device_name" : "<environment-string>",
+          "$device_type" : "<environment-string>",
+          "$feature\/beta" : true,
+          "$feature\/checkout-redesign" : "test",
+          "$is_emulator" : "<environment-bool>",
+          "$is_identified" : true,
+          "$is_ios_running_on_mac" : "<environment-bool>",
+          "$is_mac_catalyst_app" : "<environment-bool>",
+          "$is_sideloaded" : "<environment-bool>",
+          "$is_testflight" : "<environment-bool>",
+          "$lib" : "posthog-ios",
+          "$lib_version" : "<sdk-version>",
+          "$locale" : "<environment-string>",
+          "$network_cellular" : "<environment-bool>",
+          "$network_wifi" : "<environment-bool>",
+          "$os_name" : "<environment-string>",
+          "$os_version" : "<environment-string>",
+          "$process_person_profile" : true,
+          "$session_id" : "00000000-0000-7000-8000-000000000001",
+          "$set" : {
+            "email" : "person@example.com"
+          },
+          "$set_once" : {
+            "created_at" : "2024-01-01"
+          },
+          "$timezone" : "<environment-string>",
+          "distinct_id" : "user-123",
+          "registered_property" : "registered-value"
+        },
+        "timestamp" : "<iso8601-timestamp>",
+        "uuid" : "<uuid-v7>"
+      },
+      {
+        "distinct_id" : "user-123",
+        "event" : "$groupidentify",
+        "properties" : {
+          "$active_feature_flags" : [
+            "beta",
+            "checkout-redesign"
+          ],
+          "$app_namespace" : "<environment-string>",
+          "$device_manufacturer" : "Apple",
+          "$device_model" : "<environment-string>",
+          "$device_name" : "<environment-string>",
+          "$device_type" : "<environment-string>",
+          "$feature\/beta" : true,
+          "$feature\/checkout-redesign" : "test",
+          "$group_key" : "posthog",
+          "$group_set" : {
+            "employees" : 120,
+            "industry" : "analytics"
+          },
+          "$group_type" : "company",
+          "$groups" : {
+            "company" : "posthog"
+          },
+          "$is_emulator" : "<environment-bool>",
+          "$is_identified" : true,
+          "$is_ios_running_on_mac" : "<environment-bool>",
+          "$is_mac_catalyst_app" : "<environment-bool>",
+          "$is_sideloaded" : "<environment-bool>",
+          "$is_testflight" : "<environment-bool>",
+          "$lib" : "posthog-ios",
+          "$lib_version" : "<sdk-version>",
+          "$locale" : "<environment-string>",
+          "$network_cellular" : "<environment-bool>",
+          "$network_wifi" : "<environment-bool>",
+          "$os_name" : "<environment-string>",
+          "$os_version" : "<environment-string>",
+          "$process_person_profile" : true,
+          "$session_id" : "00000000-0000-7000-8000-000000000001",
+          "$timezone" : "<environment-string>",
+          "registered_property" : "registered-value"
+        },
+        "timestamp" : "<iso8601-timestamp>",
+        "uuid" : "<uuid-v7>"
+      },
+      {
+        "distinct_id" : "user-123",
+        "event" : "$feature_interaction",
+        "properties" : {
+          "$active_feature_flags" : [
+            "beta",
+            "checkout-redesign"
+          ],
+          "$app_namespace" : "<environment-string>",
+          "$device_manufacturer" : "Apple",
+          "$device_model" : "<environment-string>",
+          "$device_name" : "<environment-string>",
+          "$device_type" : "<environment-string>",
+          "$feature\/beta" : true,
+          "$feature\/checkout-redesign" : "test",
+          "$groups" : {
+            "company" : "posthog"
+          },
+          "$is_emulator" : "<environment-bool>",
+          "$is_identified" : true,
+          "$is_ios_running_on_mac" : "<environment-bool>",
+          "$is_mac_catalyst_app" : "<environment-bool>",
+          "$is_sideloaded" : "<environment-bool>",
+          "$is_testflight" : "<environment-bool>",
+          "$lib" : "posthog-ios",
+          "$lib_version" : "<sdk-version>",
+          "$locale" : "<environment-string>",
+          "$network_cellular" : "<environment-bool>",
+          "$network_wifi" : "<environment-bool>",
+          "$os_name" : "<environment-string>",
+          "$os_version" : "<environment-string>",
+          "$process_person_profile" : true,
+          "$session_id" : "00000000-0000-7000-8000-000000000001",
+          "$set" : {
+            "$feature_interaction\/checkout-redesign" : "test"
+          },
+          "$timezone" : "<environment-string>",
+          "feature_flag" : "checkout-redesign",
+          "feature_flag_variant" : "test",
+          "registered_property" : "registered-value"
+        },
+        "timestamp" : "<iso8601-timestamp>",
+        "uuid" : "<uuid-v7>"
+      },
+      {
+        "distinct_id" : "user-123",
+        "event" : "$exception",
+        "properties" : {
+          "$active_feature_flags" : [
+            "beta",
+            "checkout-redesign"
+          ],
+          "$app_namespace" : "<environment-string>",
+          "$debug_images" : [
+            "<debug-image>"
+          ],
+          "$device_manufacturer" : "Apple",
+          "$device_model" : "<environment-string>",
+          "$device_name" : "<environment-string>",
+          "$device_type" : "<environment-string>",
+          "$exception_level" : "error",
+          "$exception_list" : [
+            {
+              "mechanism" : {
+                "handled" : true,
+                "synthetic" : true,
+                "type" : "generic"
+              },
+              "stacktrace" : {
+                "frames" : [
+                  "<stack-frame>"
+                ],
+                "type" : "raw"
+              },
+              "thread_id" : "<thread-id>",
+              "type" : "SnapshotError",
+              "value" : "Golden failure (Code: 7)"
+            }
+          ],
+          "$feature\/beta" : true,
+          "$feature\/checkout-redesign" : "test",
+          "$groups" : {
+            "company" : "posthog"
+          },
+          "$is_emulator" : "<environment-bool>",
+          "$is_identified" : true,
+          "$is_ios_running_on_mac" : "<environment-bool>",
+          "$is_mac_catalyst_app" : "<environment-bool>",
+          "$is_sideloaded" : "<environment-bool>",
+          "$is_testflight" : "<environment-bool>",
+          "$lib" : "posthog-ios",
+          "$lib_version" : "<sdk-version>",
+          "$locale" : "<environment-string>",
+          "$network_cellular" : "<environment-bool>",
+          "$network_wifi" : "<environment-bool>",
+          "$os_name" : "<environment-string>",
+          "$os_version" : "<environment-string>",
+          "$process_person_profile" : true,
+          "$session_id" : "00000000-0000-7000-8000-000000000001",
+          "$timezone" : "<environment-string>",
+          "handled_by" : "snapshot-test",
+          "registered_property" : "registered-value"
+        },
+        "timestamp" : "<iso8601-timestamp>",
+        "uuid" : "<uuid-v7>"
+      }
+    ],
+    "sent_at" : "<iso8601-timestamp>"
+  },
+  "headers" : {
+    "accept-encoding" : "gzip",
+    "content-encoding" : "gzip",
+    "content-length" : "<content-length>",
+    "content-type" : "application\/json; charset=utf-8",
+    "user-agent" : "posthog-ios\/<sdk-version>"
+  },
+  "method" : "POST",
+  "url" : {
+    "host" : "localhost",
+    "path" : "\/batch",
+    "port" : 9001,
+    "query" : [
+
+    ],
+    "scheme" : "http"
+  }
+}

@@ -1,5 +1,42 @@
 ## Next
 
+## 3.69.8
+
+### Patch Changes
+
+- 35f27d3: Skip push token registration when the project has no push integration for the app_id, using the `push.appIds` list published in remote config. A device whose project configures push later re-registers on the next config load rather than staying unreachable.
+
+## 3.69.7
+
+### Patch Changes
+
+- 6f44883: Fix APNs registration callbacks being swallowed in SwiftUI apps that use `@UIApplicationDelegateAdaptor` (#768).
+
+## 3.69.6
+
+### Patch Changes
+
+- 001ced2: Document and verify that custom event timestamps are serialized as equivalent UTC instants.
+- aca4f86: Refresh survey definitions when a new remote config loads.
+
+## 3.69.5
+
+### Patch Changes
+
+- a164d38: Fix: opting back in now re-arms push notifications without an app restart. After a logout unregister clears the device token, `optIn()` re-requests the APNs token and re-registers the device (when `capturePushNotificationSubscriptions` is enabled) instead of only restoring consent (#746).
+
+## 3.69.4
+
+### Patch Changes
+
+- ad199d2: Fix: opting out no longer strands an in-flight push unregister. A `DELETE /push_subscriptions` is data removal, so it now goes out even after `optOut()` instead of leaving the server-side subscription active for the whole opted-out period (#746).
+
+## 3.69.3
+
+### Patch Changes
+
+- 057f4d6: Fix push notification open forwarding for Objective-C delegates.
+
 ## 3.69.2
 
 ### Patch Changes

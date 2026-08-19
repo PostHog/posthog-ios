@@ -6,11 +6,42 @@
     #endif
     import Testing
     import UserNotifications
+    #if os(iOS)
+        import UIKit
+    #endif
 
     private final class TestPushNotificationPublisher: PushNotificationPublishing {
         let onNotificationResponse = PostHogMulticastCallback<UNNotificationResponse>()
         let onDeviceToken = PostHogMulticastCallback<String>()
     }
+
+    #if os(iOS)
+        private final class ForwardedApplicationDelegate: NSObject, UIApplicationDelegate {
+            var deviceToken: Data?
+            var registrationError: Error?
+
+            func application(_: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+                self.deviceToken = deviceToken
+            }
+
+            func application(_: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+                registrationError = error
+            }
+        }
+
+        private final class ForwardingApplicationDelegate: NSObject, UIApplicationDelegate {
+            let forwardedDelegate = ForwardedApplicationDelegate()
+
+            override func forwardingTarget(for selector: Selector!) -> Any? {
+                if selector == #selector(UIApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)) ||
+                    selector == #selector(UIApplicationDelegate.application(_:didFailToRegisterForRemoteNotificationsWithError:))
+                {
+                    return forwardedDelegate
+                }
+                return nil
+            }
+        }
+    #endif
 
     @Suite("Push Notification Swizzling Tests", .serialized)
     final class PostHogPushNotificationSwizzlingTest {
@@ -31,6 +62,29 @@
         private var selector: Selector {
             #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:))
         }
+
+        #if os(iOS)
+            @Test("forwards app delegate callbacks to a UIApplicationDelegateAdaptor-style target")
+            @MainActor
+            func forwardsApplicationDelegateCallbacks() {
+                let delegate = ForwardingApplicationDelegate()
+                PushNotificationPublisher.shared.swizzleAppDelegateMethods(on: type(of: delegate))
+
+                let appDelegate: UIApplicationDelegate = delegate
+                let deviceToken = Data([0x01, 0x23, 0xFF])
+                var capturedToken: String?
+                let token = publisher.onDeviceToken.subscribe { capturedToken = $0 }
+                appDelegate.application?(UIApplication.shared, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+
+                let error = NSError(domain: "PostHogPushNotificationSwizzlingTest", code: 1)
+                appDelegate.application?(UIApplication.shared, didFailToRegisterForRemoteNotificationsWithError: error)
+                withExtendedLifetime(token) {}
+
+                #expect(capturedToken == "0123ff")
+                #expect(delegate.forwardedDelegate.deviceToken == deviceToken)
+                #expect(delegate.forwardedDelegate.registrationError as? NSError == error)
+            }
+        #endif
 
         @Test("captures and calls an Objective-C delegate with the original selector")
         func callsObjectiveCDelegate() {

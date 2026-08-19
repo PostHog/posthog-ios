@@ -197,9 +197,28 @@
                 }
             #endif
 
+            swizzleAppDelegateMethods(on: appDelegateClass)
+        }
+
+        func swizzleAppDelegateMethods(on appDelegateClass: AnyClass) {
             swizzledAppDelegateClass = appDelegateClass
-            swizzleAddingIfNeeded(on: appDelegateClass, original: Self.didRegisterSelector, swizzled: Self.swizzledDidRegisterSelector)
-            swizzleAddingIfNeeded(on: appDelegateClass, original: Self.didFailSelector, swizzled: Self.swizzledDidFailSelector)
+            #if os(iOS)
+                swizzleAddingIfNeeded(
+                    on: appDelegateClass,
+                    original: Self.didRegisterSelector,
+                    swizzled: Self.swizzledDidRegisterSelector,
+                    noop: Self.forwardedDidRegisterSelector
+                )
+                swizzleAddingIfNeeded(
+                    on: appDelegateClass,
+                    original: Self.didFailSelector,
+                    swizzled: Self.swizzledDidFailSelector,
+                    noop: Self.forwardedDidFailSelector
+                )
+            #elseif os(macOS)
+                swizzleAddingIfNeeded(on: appDelegateClass, original: Self.didRegisterSelector, swizzled: Self.swizzledDidRegisterSelector)
+                swizzleAddingIfNeeded(on: appDelegateClass, original: Self.didFailSelector, swizzled: Self.swizzledDidFailSelector)
+            #endif
         }
 
         private func unswizzleAppDelegateMethods() {
@@ -224,11 +243,17 @@
             private static let swizzledDidRegisterSelector = #selector(
                 NSObject.ph_swizzled_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
             )
+            private static let forwardedDidRegisterSelector = #selector(
+                NSObject.ph_forwarded_application(_:didRegisterForRemoteNotificationsWithDeviceToken:)
+            )
             private static let didFailSelector = #selector(
                 UIApplicationDelegate.application(_:didFailToRegisterForRemoteNotificationsWithError:)
             )
             private static let swizzledDidFailSelector = #selector(
                 NSObject.ph_swizzled_application(_:didFailToRegisterForRemoteNotificationsWithError:)
+            )
+            private static let forwardedDidFailSelector = #selector(
+                NSObject.ph_forwarded_application(_:didFailToRegisterForRemoteNotificationsWithError:)
             )
         #elseif os(macOS)
             private static let didRegisterSelector = #selector(
@@ -275,6 +300,24 @@
             ) {
                 hedgeLog("Failed to register for remote notifications: \(error.localizedDescription)")
                 ph_swizzled_application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+            }
+
+            @objc func ph_forwarded_application(
+                _ application: UIApplication,
+                didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+            ) {
+                let selector = #selector(UIApplicationDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:))
+                let target = forwardingTarget(for: selector) as? UIApplicationDelegate
+                target?.application?(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+            }
+
+            @objc func ph_forwarded_application(
+                _ application: UIApplication,
+                didFailToRegisterForRemoteNotificationsWithError error: Error
+            ) {
+                let selector = #selector(UIApplicationDelegate.application(_:didFailToRegisterForRemoteNotificationsWithError:))
+                let target = forwardingTarget(for: selector) as? UIApplicationDelegate
+                target?.application?(application, didFailToRegisterForRemoteNotificationsWithError: error)
             }
         #elseif os(macOS)
             @objc func ph_swizzled_application(

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.7
+
+### Patch Changes
+
+- 6f44883: Fix APNs registration callbacks being swallowed in SwiftUI apps that use `@UIApplicationDelegateAdaptor` (#768).
+
 ## 3.69.6
 
 ### Patch Changes

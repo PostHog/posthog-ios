@@ -11,6 +11,11 @@ import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        if ReplayMaskReproducerEnvironment.isEnabled {
+            configureReplayMaskReproducer()
+            return true
+        }
+
         let config = PostHogConfig(
             projectToken: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
         )
@@ -64,6 +69,44 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #endif
 
         return true
+    }
+
+    private func configureReplayMaskReproducer() {
+        guard let projectToken = ReplayMaskReproducerEnvironment.projectToken,
+              let runID = ReplayMaskReproducerEnvironment.runID
+        else {
+            fatalError("Set POSTHOG_TEST_PROJECT_TOKEN and POSTHOG_TEST_RUN_ID to run the replay mask reproduction")
+        }
+
+        let config = PostHogConfig(
+            projectToken: projectToken,
+            host: ReplayMaskReproducerEnvironment.host
+        )
+        config.captureScreenViews = false
+        config.captureApplicationLifecycleEvents = false
+        config.personProfiles = .never
+        config.debug = true
+        config.flushAt = 1
+        config.flushIntervalSeconds = 1
+        config.sendFeatureFlagEvent = false
+        config.surveys = false
+        config.errorTrackingConfig.autoCapture = false
+        config.sessionReplay = true
+        config.sessionReplayConfig.screenshotMode = true
+        config.sessionReplayConfig.screenshotModeBackgroundCapture = false
+        config.sessionReplayConfig.maskAllTextInputs = false
+        config.sessionReplayConfig.maskAllImages = false
+        config.sessionReplayConfig.captureNetworkTelemetry = false
+        config.sessionReplayConfig.captureLogs = false
+        config.sessionReplayConfig.sampleRate = 1
+        config.sessionReplayConfig.throttleDelay = 0.5
+
+        PostHogSDK.shared.setup(config)
+        PostHogSDK.shared.capture("replay_mask_scroll_repro_started", properties: [
+            "test_run_id": runID,
+            "synthetic": true,
+            "$process_person_profile": false,
+        ])
     }
 
     @objc func receiveFeatureFlags() {

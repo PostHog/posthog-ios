@@ -401,7 +401,10 @@ final class PostHogPushSubscriptionHandler {
     /// marker for an app_id that just became registerable is the only thing that reaches it.
     func onPushAppIdsChanged(_ newlyRegisterable: Set<String>, onComplete: @escaping () -> Void = {}) {
         workQueue.async { [weak self] in
-            guard let self else { onComplete(); return }
+            guard let self else {
+                onComplete()
+                return
+            }
 
             // onComplete advances the durable one-time migration flag. It must run only after any
             // delivered-marker clear below is persisted, and on every path (including the early

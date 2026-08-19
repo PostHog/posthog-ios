@@ -84,6 +84,7 @@ let maxRetryDelay = 30.0
     let onEventContextChanged = PostHogMulticastCallback<[String: Any]>()
     private var sessionIdChangedToken: RegistrationToken?
     private var didEnterBackgroundToken: RegistrationToken?
+    private var pushRemoteConfigToken: RegistrationToken?
 
     /// Logger facade exposing `trace/debug/info/warn/error/fatal(_:attributes:)`.
     /// `nil` before `setup(_:)` is called.
@@ -191,8 +192,24 @@ let maxRetryDelay = 30.0
                     self.map { $0.isEnabled() && !$0.isOptOutState() } ?? false
                 },
                 isEnabledProvider: { [weak self] in self?.isEnabled() ?? false },
+                pushAppIdsProvider: { [weak self] in self?.remoteConfig?.getPushAppIds() },
                 onEventContextChanged: onEventContextChanged
             )
+
+            // A device whose project had no push integration was answered 200 and stopped asking.
+            // Draining the transition here is the only signal that reaches it.
+            pushRemoteConfigToken = remoteConfig?.onRemoteConfigLoaded.subscribe { [weak self] _ in
+                guard let self, let newlyRegisterable = self.remoteConfig?.consumeNewlyRegisterablePushAppIds(),
+                      !newlyRegisterable.isEmpty
+                else {
+                    return
+                }
+                // Mark the one-time upgrade recovery done only after the handler has durably cleared
+                // any delivered marker, so a crash in between re-runs recovery instead of stranding.
+                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self] in
+                    self?.remoteConfig?.markPushAppIdsMigrated()
+                }
+            }
 
             optOutLock.withLock {
                 let optOut = theStorage.getBool(forKey: .optOut)

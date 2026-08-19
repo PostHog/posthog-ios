@@ -399,23 +399,33 @@ final class PostHogPushSubscriptionHandler {
     /// A device that registered while its project had no push integration was answered 200 and had its
     /// token discarded, but still recorded the send as delivered and stopped asking. Clearing that
     /// marker for an app_id that just became registerable is the only thing that reaches it.
-    func onPushAppIdsChanged(_ newlyRegisterable: Set<String>) {
+    func onPushAppIdsChanged(_ newlyRegisterable: Set<String>, onComplete: @escaping () -> Void = {}) {
         workQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self else { onComplete(); return }
 
-            let record = recordLock.withLock { self.loadRecordLocked() }
-            guard let record, newlyRegisterable.contains(record.appId) else {
-                // Either nothing changed for this device, or the app_id was already registerable and
-                // the existing delivered marker is honest. Re-sending here would put the request back
-                // on every launch, which is what the marker exists to prevent.
-                return
-            }
+            // onComplete advances the durable one-time migration flag. It must run only after any
+            // delivered-marker clear below is persisted, and on every path (including the early
+            // returns), so the flag never advances ahead of the recovery.
+            defer { onComplete() }
 
-            if record.deliveredForDistinctId != nil {
-                recordLock.withLock {
-                    self.writeRecord(deviceToken: record.deviceToken, appId: record.appId)
+            // Read, verify, and clear the delivered marker in a single lock acquisition. A separate
+            // read then write would let a newer token stored by send() in between be overwritten with
+            // the stale snapshot, losing the latest token.
+            let record: PendingRecord? = recordLock.withLock {
+                guard let current = self.loadRecordLocked(),
+                      newlyRegisterable.contains(current.appId)
+                else {
+                    // Either nothing changed for this device, or the app_id was already registerable
+                    // and the existing delivered marker is honest. Re-sending here would put the
+                    // request back on every launch, which is what the marker exists to prevent.
+                    return nil
                 }
+                if current.deliveredForDistinctId != nil {
+                    self.writeRecord(deviceToken: current.deviceToken, appId: current.appId)
+                }
+                return current
             }
+            guard let record else { return }
 
             resetRetryState()
             hedgeLog("Push app_id \(record.appId) became registerable; re-registering.")

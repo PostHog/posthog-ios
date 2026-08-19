@@ -1848,6 +1848,20 @@
             #expect(server.pushSubscriptionRequests.count == 1)
         }
 
+        @Test("onPushAppIdsChanged runs its completion even when there is nothing to recover")
+        func onPushAppIdsChangedRunsCompletionOnEarlyReturn() async {
+            // The completion advances the durable one-time upgrade-recovery flag. It must run on every
+            // path, including this one where no record exists, so the flag never stalls unset (which
+            // would force recovery on every launch) nor advances ahead of a marker clear.
+            let (handler, _, _) = makeHandler(pushAppIdsProvider: { ["com.example.app"] })
+            let lock = NSLock()
+            var completions = 0
+
+            handler.onPushAppIdsChanged(["com.example.app"]) { lock.withLock { completions += 1 } }
+
+            #expect(await waitFor { lock.withLock { completions } == 1 })
+        }
+
         @Test("eligibility revoked during the identity token mint skips the send")
         func skipsSendWhenEligibilityRevokedDuringMint() async {
             // Registerable at send() time; remote config drops the app_id while the identity-token mint

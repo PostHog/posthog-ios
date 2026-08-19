@@ -683,8 +683,26 @@ class PostHogRemoteConfig {
             // configured before it updated to a version that reads this key.
             let previous = Set(pushAppIds ?? [])
             pushAppIds = appIds
-            newlyRegisterablePushAppIds = Set(appIds ?? []).subtracting(previous)
+            let live = Set(appIds ?? [])
+            var newly = live.subtracting(previous)
+            // Upgrade recovery: an older SDK cached the whole remote-config blob including push.appIds,
+            // so preloadPushConfig seeds pushAppIds and the live response shows no transition. A device
+            // stranded by that older SDK would keep its delivered marker forever. The first load after
+            // this gate ships treats every currently-registerable app_id as newly registerable so the
+            // recovery runs once. The migrated flag is persisted only after the marker clear is durable
+            // (see markPushAppIdsMigrated), so a crash in that window re-runs recovery rather than
+            // stranding the device.
+            if storage.getBool(forKey: .pushAppIdsMigrated) != true {
+                newly.formUnion(live)
+            }
+            newlyRegisterablePushAppIds = newly
         }
+    }
+
+    /// Records that the one-time upgrade recovery has run. Called by the push handler once it has
+    /// durably cleared any delivered marker, so the flag never advances ahead of the recovery.
+    func markPushAppIdsMigrated() {
+        storage.setBool(forKey: .pushAppIdsMigrated, contents: true)
     }
 
     private func preloadPushConfig() {

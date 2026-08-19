@@ -204,7 +204,11 @@ let maxRetryDelay = 30.0
                 else {
                     return
                 }
-                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable)
+                // Mark the one-time upgrade recovery done only after the handler has durably cleared
+                // any delivered marker, so a crash in between re-runs recovery instead of stranding.
+                self.pushSubscriptionHandler?.onPushAppIdsChanged(newlyRegisterable) { [weak self] in
+                    self?.remoteConfig?.markPushAppIdsMigrated()
+                }
             }
 
             optOutLock.withLock {

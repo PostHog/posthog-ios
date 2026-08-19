@@ -1469,14 +1469,24 @@ enum PostHogFeatureFlagsTest {
         }
     }
 
-    @Suite("Test concurrent flag reload coalescing")
+    @Suite("Test concurrent flag reload coalescing", .timeLimit(.minutes(1)))
     class TestConcurrentFlagReloads: BaseTestClass {
+        /// Held by the first `/flags` response until the test has issued the reloads that must
+        /// coalesce behind it. Wall-clock delays leave that window to chance; this makes it certain.
+        private let firstResponseGate = DispatchSemaphore(value: 0)
+
         /// Stubs `/flags` so that `override-flag` is only enabled when the request body actually
         /// carried `app_version_semver`. That makes a callback resolved against a real response
         /// distinguishable from one resolved against disk-cached, pre-override values.
-        private func stubFlagsRequiringOverride(delay: TimeInterval) {
+        private func stubFlagsRequiringOverride(delay: TimeInterval, gateFirstResponse: Bool = false) {
             server.flagsResponseDelay = delay
+            let gate = firstResponseGate
+            nonisolated(unsafe) var gated = gateFirstResponse
             server.flagsResponseHandler = { request in
+                if gated {
+                    gated = false
+                    gate.wait()
+                }
                 var personProperties: [String: Any]?
                 if let data = request.body(),
                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -1497,7 +1507,7 @@ enum PostHogFeatureFlagsTest {
         @Test("a reload displaced from the pending slot resolves against a request that went out")
         func displacedReloadResolvesAgainstRealResponse() async {
             let sut = getSut()
-            stubFlagsRequiringOverride(delay: 0.3)
+            stubFlagsRequiringOverride(delay: 0, gateFirstResponse: true)
 
             sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
             sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
@@ -1509,10 +1519,14 @@ enum PostHogFeatureFlagsTest {
 
                 // displaces the reload above out of the pending slot
                 sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
+                firstResponseGate.signal()
             }
 
             #expect(flags?["override-flag"] as? Bool == true)
-            #expect(server.flagsRequests.count == 2, "Expected the two later reloads to coalesce into one request")
+            let sent = server.flagsRequests.compactMap { server.parseRequest($0, gzip: false) }
+            #expect(sent.count == 2, "the two displaced reloads should coalesce into one request")
+            let lastOverride = (sent.last?["person_properties"] as? [String: Any])?["app_version_semver"] as? String
+            #expect(lastOverride == "3.09.0", "the coalesced request must carry the override")
         }
 
         @Test("setup -> set properties -> identify -> reload reads flags evaluated with the overrides")
@@ -1557,6 +1571,8 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
         }
 
+        /// Guards the snapshot-at-enqueue approach that 1618c83 tried and b2023fe reverted: this
+        /// passes on main, and fails if a queued reload ever pins properties at enqueue time again.
         @Test("a queued reload carries person properties set while it waits")
         func queuedReloadCarriesLatePersonProperties() async {
             let sut = track(PostHogSDK.with(makeIsolatedConfig()))
@@ -1569,22 +1585,30 @@ enum PostHogFeatureFlagsTest {
             }
 
             #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
-            #expect(server.flagsRequests.count == 2)
+            let lastOverride = server.flagsRequests.last
+                .flatMap { server.parseRequest($0, gzip: false) }
+                .flatMap { $0["person_properties"] as? [String: Any] }?["app_version_semver"] as? String
+            #expect(lastOverride == "3.09.0", "the queued reload must send properties set while it waited")
         }
 
-        @Test("reloadFeatureFlags completion still resolves when the request fails")
+        @Test("a failed reload resolves the completion and keeps the cached flags")
         func completionResolvesOnFailedReload() async {
             let sut = track(PostHogSDK.with(makeIsolatedConfig()))
-            server.flagsResponseHandler = { _ in
-                HTTPStubsResponse(jsonObject: ["error": "nope"], statusCode: 400, headers: nil)
-            }
-
+            stubFlagsRequiringOverride(delay: 0)
             await withCheckedContinuation { continuation in
                 sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
                 sut.reloadFeatureFlags { continuation.resume() }
             }
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
 
-            #expect(sut.getFeatureFlag("override-flag") == nil)
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: ["error": "nope"], statusCode: 400, headers: nil)
+            }
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true, "a failed reload must not clear cached flags")
         }
 
         private func makeIsolatedConfig() -> PostHogConfig {

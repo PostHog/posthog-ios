@@ -1863,15 +1863,15 @@ let maxRetryDelay = 30.0
     /// ## Startup ordering
     /// Several code paths can each start a `/flags` request at launch, and none of them is ordered
     /// against this call:
-    /// - the automatic preload started off the `/config` response when `PostHogConfig.preloadFeatureFlags`
-    ///   is `true` (the default) — it can go out before your properties are set, so an early flag read
+    /// - the automatic preload started during `setup()` when `PostHogConfig.preloadFeatureFlags` is
+    ///   `true` (the default) — it can go out before your properties are set, so an early flag read
     ///   may see values evaluated without them,
     /// - `identify(...)`, which reloads flags itself,
     /// - any explicit `reloadFeatureFlags()` your app makes.
     ///
     /// Requests are coalesced rather than run concurrently, so your properties always reach the server
-    /// eventually. To read a flag that is guaranteed to reflect them, set them without reloading and
-    /// wait for an explicit reload rather than reading immediately after setup:
+    /// eventually. To read a flag that reflects them, set them without reloading and wait for an
+    /// explicit reload rather than reading immediately after setup:
     ///
     /// ```swift
     /// PostHogSDK.shared.setPersonPropertiesForFlags(["plan": "premium"], reloadFeatureFlags: false)

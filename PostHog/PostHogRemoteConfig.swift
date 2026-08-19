@@ -294,7 +294,7 @@ class PostHogRemoteConfig {
             anonymousId: anonymousId,
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
-            callback: callback ?? { _ in },
+            callback: callback,
             surveyCompletion: surveyCompletion,
             coalesceWithCurrentRequest: surveyCompletion != nil && callback == nil
         )
@@ -378,7 +378,7 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
-        callback: @escaping ([String: Any]?) -> Void,
+        callback: (([String: Any]?) -> Void)? = nil,
         surveyCompletion: (([String: Any]?) -> Void)? = nil,
         coalesceWithCurrentRequest: Bool = false
     ) {
@@ -400,12 +400,12 @@ class PostHogRemoteConfig {
                        NSDictionary(dictionary: $0).isEqual(to: requestContext)
                    }) == true
                 {
-                    // Survey waiter only; `callback` here is this path's placeholder.
+                    // Satisfied by the request already in flight; resolved via surveyFeatureFlagsWaiters.
                     return false
                 }
                 // Newest parameters win, but every displaced caller's handler is carried over so it
                 // resolves against a request that goes out, not against `getCachedFeatureFlags()`.
-                let callbacks = (self.pendingFeatureFlagsRequest?.callbacks ?? []) + [callback]
+                let callbacks = (self.pendingFeatureFlagsRequest?.callbacks ?? []) + [callback].compactMap { $0 }
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
@@ -450,14 +450,16 @@ class PostHogRemoteConfig {
                     self.processErrorTrackingConfig(nil)
 
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
-                    return callback(cachedFeatureFlags)
+                    callback?(cachedFeatureFlags)
+                    return
                 }
 
                 // Safely handle optional data
                 guard var data = data else {
                     hedgeLog("Error: Flags response data is nil")
                     self.notifyFeatureFlagsAndRelease(nil)
-                    return callback(nil)
+                    callback?(nil)
+                    return
                 }
 
                 self.normalizeResponse(&data)
@@ -469,7 +471,8 @@ class PostHogRemoteConfig {
                 else {
                     hedgeLog("Error: Flags response missing correct featureFlags format")
                     self.notifyFeatureFlagsAndRelease(nil)
-                    return callback(nil)
+                    callback?(nil)
+                    return
                 }
 
                 // /flags carries no config; re-arm from the cached remote config
@@ -531,7 +534,7 @@ class PostHogRemoteConfig {
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
-                return callback(loadedFeatureFlags)
+                callback?(loadedFeatureFlags)
             }
         }
     }
@@ -880,9 +883,9 @@ class PostHogRemoteConfig {
 
     func getPersonPropertiesForFlags() -> [String: Any] {
         let properties = personPropertiesForFlagsLock.withLock { personPropertiesForFlags }
-        // Resolve defaults only after releasing the lock: `getDefaultPersonProperties` reaches
-        // `setupLock` via `isEnabled()`, while `setup()` holds `setupLock` and reaches this lock
-        // through the initializer's `loadCachedPropertiesForFlags()` — a lock-order inversion.
+        // Defensive: `getDefaultPersonProperties` calls back into PostHogSDK and reaches `setupLock`
+        // via `isEnabled()`, so it must not run while this lock is held. No reachable cycle is known
+        // today; the guard below also keeps the common path from taking `setupLock` at all.
         guard config.setDefaultPersonProperties else { return properties }
         // User-set properties override default properties
         return getDefaultPersonProperties().merging(properties) { _, userValue in userValue }

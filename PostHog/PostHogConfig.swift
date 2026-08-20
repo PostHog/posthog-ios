@@ -605,7 +605,9 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// - Parameter blocks: Ordered Objective-C callback boxes.
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: BeforeSendBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendBlock]) {
-        setBeforeSend(blocks.map(\.block))
+        setBeforeSend(blocks.map { box in
+            { event in box.invokeSafely(with: event) }
+        })
     }
 
     func runBeforeSend(_ event: PostHogEvent) -> PostHogEvent? {

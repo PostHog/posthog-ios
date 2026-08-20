@@ -8,6 +8,9 @@
 import Foundation
 import Nimble
 @testable import PostHog
+#if SWIFT_PACKAGE
+    import PostHogTestsObjC
+#endif
 import Quick
 
 class PostHogSDKTest: QuickSpec {
@@ -1328,6 +1331,35 @@ class PostHogSDKTest: QuickSpec {
                 let events = getBatchedEvents(server)
                 expect(events.count).to(equal(1))
                 expect(events[0].event).to(equal("other_test"))
+            }
+
+            it("contains Objective-C exceptions from boxed callbacks") {
+                sut = self.getSut(flushAt: 1)
+                var laterCallbackInvoked = false
+                let throwingBox = PHBeforeSendExceptionTestFixture.makeThrowingBox(BoxedBeforeSendBlock.self)
+                let boxes: [NSObject] = [
+                    throwingBox,
+                    BoxedBeforeSendBlock { event in
+                        laterCallbackInvoked = true
+                        return event
+                    },
+                ]
+                PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sut.config)
+
+                let returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
+                    sut.capture("objc_exception_event")
+                }
+                sut.flush()
+
+                guard let storage = sut.storage else {
+                    fail("Expected analytics storage to be configured")
+                    return
+                }
+                let persistedQueue = PostHogFileBackedQueue(queue: storage.url(forKey: .queue))
+                expect(returnedNormally).to(beTrue())
+                expect(laterCallbackInvoked).to(beFalse())
+                expect(persistedQueue.depth).to(equal(0))
+                expect(server.batchRequests).to(beEmpty())
             }
 
             describe("array edge cases") {

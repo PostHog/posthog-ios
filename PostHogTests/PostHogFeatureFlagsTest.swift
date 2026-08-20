@@ -1571,8 +1571,6 @@ enum PostHogFeatureFlagsTest {
             #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
         }
 
-        /// Guards the snapshot-at-enqueue approach that 1618c83 tried and b2023fe reverted: this
-        /// passes on main, and fails if a queued reload ever pins properties at enqueue time again.
         @Test("a queued reload carries person properties set while it waits")
         func queuedReloadCarriesLatePersonProperties() async {
             let sut = track(PostHogSDK.with(makeIsolatedConfig()))

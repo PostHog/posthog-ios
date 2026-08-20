@@ -403,8 +403,6 @@ class PostHogRemoteConfig {
                     // Satisfied by the request already in flight; resolved via surveyFeatureFlagsWaiters.
                     return false
                 }
-                // Newest parameters win, but every displaced caller's handler is carried over so it
-                // resolves against a request that goes out, not against `getCachedFeatureFlags()`.
                 let callbacks = (self.pendingFeatureFlagsRequest?.callbacks ?? []) + [callback].compactMap { $0 }
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
@@ -883,9 +881,8 @@ class PostHogRemoteConfig {
 
     func getPersonPropertiesForFlags() -> [String: Any] {
         let properties = personPropertiesForFlagsLock.withLock { personPropertiesForFlags }
-        // Defensive: `getDefaultPersonProperties` calls back into PostHogSDK and reaches `setupLock`
-        // via `isEnabled()`, so it must not run while this lock is held. No reachable cycle is known
-        // today; the guard below also keeps the common path from taking `setupLock` at all.
+        // `getDefaultPersonProperties()` reaches `setupLock` via `isEnabled()`, so it must not run
+        // while `personPropertiesForFlagsLock` is held.
         guard config.setDefaultPersonProperties else { return properties }
         // User-set properties override default properties
         return getDefaultPersonProperties().merging(properties) { _, userValue in userValue }
@@ -1167,7 +1164,6 @@ class PostHogRemoteConfig {
     }
 }
 
-/// The single coalesced `/flags` request waiting behind the one in flight.
 private struct PendingFeatureFlagsRequest {
     let distinctId: String
     let anonymousId: String?

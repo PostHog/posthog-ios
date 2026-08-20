@@ -5,6 +5,7 @@
 //  Created by Yiannis Josephides on 20/01/2025.
 //
 
+import OHHTTPStubs
 @testable import PostHog
 import Testing
 import XCTest
@@ -1465,6 +1466,160 @@ enum PostHogFeatureFlagsTest {
             #expect(event?.properties["$feature_flag_bootstrapped_response"] as? Bool == true)
 
             sut.close()
+        }
+    }
+
+    @Suite("Test concurrent flag reload coalescing", .timeLimit(.minutes(1)))
+    class TestConcurrentFlagReloads: BaseTestClass {
+        /// Held by the first `/flags` response until the test has issued the reloads that must
+        /// coalesce behind it. Wall-clock delays leave that window to chance; this makes it certain.
+        private let firstResponseGate = DispatchSemaphore(value: 0)
+
+        /// Stubs `/flags` so that `override-flag` is only enabled when the request body actually
+        /// carried `app_version_semver`. That makes a callback resolved against a real response
+        /// distinguishable from one resolved against disk-cached, pre-override values.
+        private func stubFlagsRequiringOverride(delay: TimeInterval, gateFirstResponse: Bool = false) {
+            server.flagsResponseDelay = delay
+            let gate = firstResponseGate
+            nonisolated(unsafe) var gated = gateFirstResponse
+            server.flagsResponseHandler = { request in
+                if gated {
+                    gated = false
+                    gate.wait()
+                }
+                var personProperties: [String: Any]?
+                if let data = request.body(),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                {
+                    personProperties = json["person_properties"] as? [String: Any]
+                }
+                let carriedOverride = personProperties?["app_version_semver"] as? String == "3.09.0"
+
+                let body: [String: Any] = [
+                    "featureFlags": ["override-flag": carriedOverride],
+                    "featureFlagPayloads": [String: Any](),
+                    "errorsWhileComputingFlags": false,
+                ]
+                return HTTPStubsResponse(jsonObject: body, statusCode: 200, headers: nil)
+            }
+        }
+
+        @Test("a reload displaced from the pending slot resolves against a request that went out")
+        func displacedReloadResolvesAgainstRealResponse() async {
+            let sut = getSut()
+            stubFlagsRequiringOverride(delay: 0, gateFirstResponse: true)
+
+            sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
+            sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
+
+            let flags = await withCheckedContinuation { (continuation: CheckedContinuation<[String: Any]?, Never>) in
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { flags in
+                    continuation.resume(returning: flags)
+                })
+
+                // displaces the reload above out of the pending slot
+                sut.loadFeatureFlags(distinctId: "distinctId", anonymousId: nil, groups: [:], callback: { _ in })
+                firstResponseGate.signal()
+            }
+
+            #expect(flags?["override-flag"] as? Bool == true)
+            let sent = server.flagsRequests.compactMap { server.parseRequest($0, gzip: false) }
+            #expect(sent.count == 2, "the two displaced reloads should coalesce into one request")
+            let lastOverride = (sent.last?["person_properties"] as? [String: Any])?["app_version_semver"] as? String
+            #expect(lastOverride == "3.09.0", "the coalesced request must carry the override")
+        }
+
+        @Test("setup -> set properties -> identify -> reload reads flags evaluated with the overrides")
+        func startupSequenceReadsFlagsWithOverrides() async {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            config.preloadFeatureFlags = true
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.sendFeatureFlagEvent = false
+
+            // /config resolves while the first /flags request is still in flight, so the automatic
+            // preload it kicks off competes with the app's own reloads.
+            stubFlagsRequiringOverride(delay: 0.3)
+            server.configResponseDelay = 0.15
+
+            let sut = track(PostHogSDK.with(config))
+
+            await withCheckedContinuation { continuation in
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"])
+                sut.identify("test_user")
+                sut.reloadFeatureFlags {
+                    continuation.resume()
+                }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+        }
+
+        @Test("setting properties then reloading resolves after a response carrying them")
+        func setPropertiesThenReloadResolvesWithProperties() async {
+            let sut = track(PostHogSDK.with(makeIsolatedConfig()))
+            stubFlagsRequiringOverride(delay: 0)
+
+            await withCheckedContinuation { continuation in
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+        }
+
+        @Test("a queued reload carries person properties set while it waits")
+        func queuedReloadCarriesLatePersonProperties() async {
+            let sut = track(PostHogSDK.with(makeIsolatedConfig()))
+            stubFlagsRequiringOverride(delay: 0.2)
+
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags()
+                sut.reloadFeatureFlags { continuation.resume() }
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+            let lastOverride = server.flagsRequests.last
+                .flatMap { server.parseRequest($0, gzip: false) }
+                .flatMap { $0["person_properties"] as? [String: Any] }?["app_version_semver"] as? String
+            #expect(lastOverride == "3.09.0", "the queued reload must send properties set while it waited")
+        }
+
+        @Test("a failed reload resolves the completion and keeps the cached flags")
+        func completionResolvesOnFailedReload() async {
+            let sut = track(PostHogSDK.with(makeIsolatedConfig()))
+            stubFlagsRequiringOverride(delay: 0)
+            await withCheckedContinuation { continuation in
+                sut.setPersonPropertiesForFlags(["app_version_semver": "3.09.0"], reloadFeatureFlags: false)
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true)
+
+            server.flagsResponseHandler = { _ in
+                HTTPStubsResponse(jsonObject: ["error": "nope"], statusCode: 400, headers: nil)
+            }
+            await withCheckedContinuation { continuation in
+                sut.reloadFeatureFlags { continuation.resume() }
+            }
+
+            #expect(sut.getFeatureFlag("override-flag") as? Bool == true, "a failed reload must not clear cached flags")
+        }
+
+        private func makeIsolatedConfig() -> PostHogConfig {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            config.preloadFeatureFlags = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableRemoteConfigForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.sendFeatureFlagEvent = false
+            return config
         }
     }
 }

@@ -308,7 +308,7 @@ class PostHogRemoteConfig {
             anonymousId: anonymousId,
             deviceId: deviceId.isEmpty ? nil : deviceId,
             groups: groups,
-            callback: callback ?? { _ in },
+            callback: callback,
             surveyCompletion: surveyCompletion,
             coalesceWithCurrentRequest: surveyCompletion != nil && callback == nil
         )
@@ -392,11 +392,11 @@ class PostHogRemoteConfig {
         anonymousId: String?,
         deviceId: String? = nil,
         groups: [String: String],
-        callback: @escaping ([String: Any]?) -> Void,
+        callback: (([String: Any]?) -> Void)? = nil,
         surveyCompletion: (([String: Any]?) -> Void)? = nil,
         coalesceWithCurrentRequest: Bool = false
     ) {
-        let (alreadyLoading, previousCallback): (Bool, (([String: Any]?) -> Void)?) = loadingFeatureFlagsLock.withLock {
+        let shouldStart: Bool = loadingFeatureFlagsLock.withLock {
             let requestContext: [String: Any] = [
                 "distinctId": distinctId,
                 "anonymousId": anonymousId ?? NSNull(),
@@ -414,27 +414,24 @@ class PostHogRemoteConfig {
                        NSDictionary(dictionary: $0).isEqual(to: requestContext)
                    }) == true
                 {
-                    return (true, nil)
+                    // Satisfied by the request already in flight; resolved via surveyFeatureFlagsWaiters.
+                    return false
                 }
-                let prev = self.pendingFeatureFlagsRequest?.callback
+                let callbacks = (self.pendingFeatureFlagsRequest?.callbacks ?? []) + [callback].compactMap { $0 }
                 self.pendingFeatureFlagsRequest = PendingFeatureFlagsRequest(
                     distinctId: distinctId,
                     anonymousId: anonymousId,
                     deviceId: deviceId,
                     groups: groups,
-                    callback: callback
+                    callbacks: callbacks
                 )
-                return (true, prev)
+                return false
             }
             self.loadingFeatureFlags = true
             self.activeFeatureFlagsRequestContext = requestContext
-            return (false, nil)
+            return true
         }
-        if alreadyLoading {
-            let cached = featureFlagsLock.withLock { getCachedFeatureFlags() }
-            previousCallback?(cached)
-            return
-        }
+        guard shouldStart else { return }
 
         let personProperties = getPersonPropertiesForFlags()
         let groupProperties = getGroupPropertiesForFlags()
@@ -465,14 +462,16 @@ class PostHogRemoteConfig {
                     self.processErrorTrackingConfig(nil)
 
                     self.notifyFeatureFlagsAndRelease(cachedFeatureFlags)
-                    return callback(cachedFeatureFlags)
+                    callback?(cachedFeatureFlags)
+                    return
                 }
 
                 // Safely handle optional data
                 guard var data = data else {
                     hedgeLog("Error: Flags response data is nil")
                     self.notifyFeatureFlagsAndRelease(nil)
-                    return callback(nil)
+                    callback?(nil)
+                    return
                 }
 
                 self.normalizeResponse(&data)
@@ -484,7 +483,8 @@ class PostHogRemoteConfig {
                 else {
                     hedgeLog("Error: Flags response missing correct featureFlags format")
                     self.notifyFeatureFlagsAndRelease(nil)
-                    return callback(nil)
+                    callback?(nil)
+                    return
                 }
 
                 // /flags carries no config; re-arm from the cached remote config
@@ -546,7 +546,7 @@ class PostHogRemoteConfig {
                 }
 
                 self.notifyFeatureFlagsAndRelease(loadedFeatureFlags)
-                return callback(loadedFeatureFlags)
+                callback?(loadedFeatureFlags)
             }
         }
     }
@@ -762,7 +762,7 @@ class PostHogRemoteConfig {
                 anonymousId: pending.anonymousId,
                 deviceId: pending.deviceId,
                 groups: pending.groups,
-                callback: pending.callback
+                callback: { flags in pending.callbacks.forEach { $0(flags) } }
             )
         } else {
             for waiter in surveyWaiters {
@@ -959,18 +959,12 @@ class PostHogRemoteConfig {
     }
 
     func getPersonPropertiesForFlags() -> [String: Any] {
-        personPropertiesForFlagsLock.withLock {
-            var properties = personPropertiesForFlags
-
-            // Always include fresh default properties if enabled
-            if config.setDefaultPersonProperties {
-                let defaultProperties = getDefaultPersonProperties()
-                // User-set properties override default properties
-                properties = defaultProperties.merging(properties) { _, userValue in userValue }
-            }
-
-            return properties
-        }
+        let properties = personPropertiesForFlagsLock.withLock { personPropertiesForFlags }
+        // `getDefaultPersonProperties()` reaches `setupLock` via `isEnabled()`, so it must not run
+        // while `personPropertiesForFlagsLock` is held.
+        guard config.setDefaultPersonProperties else { return properties }
+        // User-set properties override default properties
+        return getDefaultPersonProperties().merging(properties) { _, userValue in userValue }
     }
 
     private func loadCachedPropertiesForFlags() {
@@ -1254,7 +1248,7 @@ private struct PendingFeatureFlagsRequest {
     let anonymousId: String?
     let deviceId: String?
     let groups: [String: String]
-    let callback: ([String: Any]?) -> Void
+    let callbacks: [([String: Any]?) -> Void]
 }
 
 #if TESTING

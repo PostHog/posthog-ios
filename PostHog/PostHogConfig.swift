@@ -112,6 +112,13 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Whether feature flags are loaded automatically during SDK setup.
     ///
+    /// The preload is started automatically during `setup()` and is **not** ordered against
+    /// anything your app does after `setup()`. In particular it can go out before a
+    /// `setPersonPropertiesForFlags(...)` call, in which case the first `/flags` response is evaluated
+    /// without those overrides and an early flag read can see the pre-override value until the reload
+    /// triggered by that call lands. See ``PostHogSDK/setPersonPropertiesForFlags(_:reloadFeatureFlags:)``
+    /// for the ordering contract and how to wait for flags evaluated with your overrides.
+    ///
     /// Default: `true`.
     @objc public var preloadFeatureFlags: Bool = true
 

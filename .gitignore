@@ -135,3 +135,5 @@ sdk_compliance_adapter/adapter*.log
 PostHogTests/__MaskSnapshotFailures__/
 # Raw xcodebuild log the maskSnapshots target tees to assert the test actually ran
 mask-snapshots.log
+# Raw xcodebuild log the testOniOSSimulator target tees for the CI retry check
+xcodebuild-ios.log

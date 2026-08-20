@@ -48,6 +48,7 @@ Pod::Spec.new do |s|
   # Only PostHog's umbrella header should be public; vendored implementation headers stay private.
   s.public_header_files = 'PostHog/PostHog.h'
   s.private_header_files = [
+    'PostHog/ObjCExceptionSupport/PHObjCExceptionCatcher.h',
     'PostHog/ObjCExceptionSupport/PHURLSessionTaskSafeAccess.h',
     'vendor/libwebp/**/*.h',
     'vendor/PHPLCrashReporter/Source/**/*.{h,hpp}'

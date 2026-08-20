@@ -4,6 +4,11 @@
 //
 
 import Foundation
+#if compiler(>=6.0)
+    internal import PostHogObjCExceptionSupport
+#else
+    @_implementationOnly import PostHogObjCExceptionSupport
+#endif
 
 /// ObjC wrappers for the Swift function-typed `beforeSend` chains: Swift
 /// function types aren't `@objc`-bridgeable, and `@objc` classes can't be
@@ -23,6 +28,13 @@ import Foundation
     public init(block: @escaping BeforeSendBlock) {
         self.block = block
     }
+
+    func invokeSafely(with event: PostHogEvent) -> PostHogEvent? {
+        PHObjCExceptionCatcher.invokeBlock(from: self, with: event) { exception in
+            let reason = exception.reason ?? "No reason provided"
+            hedgeLog("Objective-C beforeSend callback raised \(exception.name.rawValue): \(reason). The event was dropped.")
+        } as? PostHogEvent
+    }
 }
 
 /// ObjC wrapper for the logs `beforeSend` block. Use with
@@ -37,5 +49,12 @@ import Foundation
     @objc(block:)
     public init(block: @escaping PostHogBeforeSendLogBlock) {
         self.block = block
+    }
+
+    func invokeSafely(with record: PostHogLogRecord) -> PostHogLogRecord? {
+        PHObjCExceptionCatcher.invokeBlock(from: self, with: record) { exception in
+            let reason = exception.reason ?? "No reason provided"
+            hedgeLog("Objective-C log beforeSend callback raised \(exception.name.rawValue): \(reason). The log was dropped.")
+        } as? PostHogLogRecord
     }
 }

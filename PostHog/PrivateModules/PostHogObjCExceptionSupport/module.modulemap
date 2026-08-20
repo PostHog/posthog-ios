@@ -1,4 +1,5 @@
 module PostHogObjCExceptionSupport {
+  header "../../ObjCExceptionSupport/PHObjCExceptionCatcher.h"
   header "../../ObjCExceptionSupport/PHURLSessionTaskSafeAccess.h"
   export *
 }

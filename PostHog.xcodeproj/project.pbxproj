@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */; };
 		B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */; };
+		BF5E00000000000000000001 /* PHBeforeSendExceptionTestFixture.m in Sources */ = {isa = PBXBuildFile; fileRef = BF5E00000000000000000005 /* PHBeforeSendExceptionTestFixture.m */; };
+		BF5E00000000000000000002 /* PHObjCExceptionCatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = BF5E00000000000000000006 /* PHObjCExceptionCatcher.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BF5E00000000000000000003 /* PHObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = BF5E00000000000000000007 /* PHObjCExceptionCatcher.m */; };
 		D0E500012FA0000100000002 /* PostHogEventSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */; };
 		D0E500012FA0000100000021 /* event-shapes-batch.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000011 /* event-shapes-batch.json */; };
 		D0E500012FA0000100000022 /* feature-flags-request.json in Resources */ = {isa = PBXBuildFile; fileRef = D0E500012FA0000100000012 /* feature-flags-request.json */; };
@@ -774,6 +777,10 @@
 		B74800000000000000000004 /* PostHogTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		B74800000000000000000005 /* PHNotificationDelegateTestFixture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHNotificationDelegateTestFixture.h; sourceTree = "<group>"; };
 		B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHNotificationDelegateTestFixture.m; sourceTree = "<group>"; };
+		BF5E00000000000000000004 /* PHBeforeSendExceptionTestFixture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHBeforeSendExceptionTestFixture.h; sourceTree = "<group>"; };
+		BF5E00000000000000000005 /* PHBeforeSendExceptionTestFixture.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHBeforeSendExceptionTestFixture.m; sourceTree = "<group>"; };
+		BF5E00000000000000000006 /* PHObjCExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHObjCExceptionCatcher.h; sourceTree = "<group>"; };
+		BF5E00000000000000000007 /* PHObjCExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PHObjCExceptionCatcher.m; sourceTree = "<group>"; };
 		D0E500012FA0000100000001 /* PostHogEventSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogEventSnapshotTests.swift; sourceTree = "<group>"; };
 		D0E500012FA0000100000011 /* event-shapes-batch.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "event-shapes-batch.json"; sourceTree = "<group>"; };
 		D0E500012FA0000100000012 /* feature-flags-request.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = "feature-flags-request.json"; sourceTree = "<group>"; };
@@ -1581,6 +1588,8 @@
 		B74800000000000000000007 /* PostHogTestsObjC */ = {
 			isa = PBXGroup;
 			children = (
+				BF5E00000000000000000004 /* PHBeforeSendExceptionTestFixture.h */,
+				BF5E00000000000000000005 /* PHBeforeSendExceptionTestFixture.m */,
 				B74800000000000000000005 /* PHNotificationDelegateTestFixture.h */,
 				B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */,
 			);
@@ -1676,6 +1685,8 @@
 		E1A0B0053A0B000100000001 /* ObjCExceptionSupport */ = {
 			isa = PBXGroup;
 			children = (
+				BF5E00000000000000000006 /* PHObjCExceptionCatcher.h */,
+				BF5E00000000000000000007 /* PHObjCExceptionCatcher.m */,
 				E1A0B0023A0B000100000001 /* PHURLSessionTaskSafeAccess.h */,
 				E1A0B0033A0B000100000001 /* PHURLSessionTaskSafeAccess.m */,
 			);
@@ -2606,6 +2617,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3AC745C6296D6FE60025C109 /* PostHog.h in Headers */,
+				BF5E00000000000000000002 /* PHObjCExceptionCatcher.h in Headers */,
 				E1A0B0063A0B000100000001 /* PHURLSessionTaskSafeAccess.h in Headers */,
 				DA0B66A52D64EC00006F5FF3 /* ph_sharpyuv_csp.h in Headers */,
 				DA0B66A62D64EC00006F5FF3 /* ph_sharpyuv_dsp.h in Headers */,
@@ -3163,6 +3175,7 @@
 				DAB9E23D2DE8901D00E62DB9 /* URLSessionExtension.swift in Sources */,
 				DAB9E23E2DE8901D00E62DB9 /* URLSessionSwizzler.swift in Sources */,
 				DAB9E23F2DE8901D00E62DB9 /* URLSessionInterceptor.swift in Sources */,
+				BF5E00000000000000000003 /* PHObjCExceptionCatcher.m in Sources */,
 				E1A0B0013A0B000100000001 /* PHURLSessionTaskSafeAccess.m in Sources */,
 				DA5175B32F6C4CEA00F0E00A /* PostHogReplayBufferDelegate.swift in Sources */,
 				DA5175B42F6C4CEA00F0E00A /* PostHogReplayBufferQueue.swift in Sources */,
@@ -3456,6 +3469,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */,
+				BF5E00000000000000000001 /* PHBeforeSendExceptionTestFixture.m in Sources */,
 				B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */,
 				D0E500012FA0000100000002 /* PostHogEventSnapshotTests.swift in Sources */,
 				DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */,

@@ -2,4 +2,4 @@
 'posthog-ios': patch
 ---
 
-Drop events when Objective-C beforeSend callbacks raise exceptions.
+Drop events and logs when Objective-C beforeSend callbacks raise exceptions.

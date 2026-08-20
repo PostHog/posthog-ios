@@ -50,4 +50,11 @@ import Foundation
     public init(block: @escaping PostHogBeforeSendLogBlock) {
         self.block = block
     }
+
+    func invokeSafely(with record: PostHogLogRecord) -> PostHogLogRecord? {
+        PHObjCExceptionCatcher.invokeBlock(from: self, with: record) { exception in
+            let reason = exception.reason ?? "No reason provided"
+            hedgeLog("Objective-C log beforeSend callback raised \(exception.name.rawValue): \(reason). The log was dropped.")
+        } as? PostHogLogRecord
+    }
 }

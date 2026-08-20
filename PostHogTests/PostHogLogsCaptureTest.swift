@@ -7,6 +7,9 @@ import Foundation
 import OHHTTPStubs
 import OHHTTPStubsSwift
 @testable import PostHog
+#if SWIFT_PACKAGE
+    import PostHogTestsObjC
+#endif
 import Testing
 import XCTest
 
@@ -339,6 +342,34 @@ final class PostHogLogsCaptureTests {
 
         waitForLogsRequests(count: 1)
         #expect(server.logsRequests.count == 1)
+    }
+
+    // MARK: - beforeSend
+
+    @Test("Objective-C beforeSend exceptions drop logs and stop the chain")
+    func objcBeforeSendExceptionDropsLog() {
+        let sdk = setupSdk()
+        defer { sdk.close() }
+        var laterCallbackInvoked = false
+        let throwingBox = PHBeforeSendExceptionTestFixture.makeThrowingBox(BoxedBeforeSendLogBlock.self)
+        let boxes: [NSObject] = [
+            throwingBox,
+            BoxedBeforeSendLogBlock { record in
+                laterCallbackInvoked = true
+                return record
+            },
+        ]
+        PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sdk.config.logs)
+
+        let returnedNormally = PHBeforeSendExceptionTestFixture.invokeWithoutException {
+            sdk.captureLog("objc_exception_log")
+        }
+        sdk.flush()
+
+        #expect(returnedNormally)
+        #expect(!laterCallbackInvoked)
+        #expect(sdk.logsQueue?.depth == 0)
+        #expect(server.logsRequests.isEmpty)
     }
 
     // MARK: - Trace context

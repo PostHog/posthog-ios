@@ -104,7 +104,9 @@ public typealias PostHogBeforeSendLogBlock = (PostHogLogRecord) -> PostHogLogRec
     /// - Parameter blocks: Ordered Objective-C callback boxes.
     @available(swift, obsoleted: 1.0, message: "Use setBeforeSend(_ blocks: PostHogBeforeSendLogBlock...) instead")
     @objc public func setBeforeSend(_ blocks: [BoxedBeforeSendLogBlock]) {
-        setBeforeSend(blocks.map(\.block))
+        setBeforeSend(blocks.map { box in
+            { record in box.invokeSafely(with: record) }
+        })
     }
 
     func runBeforeSend(_ record: PostHogLogRecord) -> PostHogLogRecord? {

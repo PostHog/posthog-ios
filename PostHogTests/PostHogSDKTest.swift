@@ -1333,6 +1333,23 @@ class PostHogSDKTest: QuickSpec {
                 expect(events[0].event).to(equal("other_test"))
             }
 
+            it("runs boxed Objective-C callbacks through the exception boundary") {
+                sut = self.getSut(flushAt: 1)
+                let boxes: [NSObject] = [
+                    BoxedBeforeSendBlock { event in
+                        event.event = "boxed_modified_event"
+                        return event
+                    },
+                ]
+                PHBeforeSendExceptionTestFixture.setBeforeSend(boxes, on: sut.config)
+
+                sut.capture("original_event")
+
+                let events = getBatchedEvents(server)
+                expect(events.count).to(equal(1))
+                expect(events[0].event).to(equal("boxed_modified_event"))
+            }
+
             it("contains Objective-C exceptions from boxed callbacks") {
                 sut = self.getSut(flushAt: 1)
                 var laterCallbackInvoked = false

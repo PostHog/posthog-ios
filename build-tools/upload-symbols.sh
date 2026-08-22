@@ -40,6 +40,38 @@ if [ -n "${CONFIGURATION}" ] && [ "${CONFIGURATION}" != "Release" ]; then
     exit 0
 fi
 
+# Xcode can start this phase before dsymutil finishes. Declaring the dSYM as an input can create
+# dependency cycles for apps with embedded extensions, so wait until the dSYM belongs to the current
+# executable instead. If it never becomes ready, skip the upload rather than sending stale symbols.
+if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && [ -n "${DWARF_DSYM_FOLDER_PATH:-}" ] && [ -n "${DWARF_DSYM_FILE_NAME:-}" ] && [ -n "${EXECUTABLE_NAME:-}" ] && [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${EXECUTABLE_PATH:-}" ]; then
+    POSTHOG_MAIN_DWARF="${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${EXECUTABLE_NAME}"
+    POSTHOG_APP_EXECUTABLE="${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
+    POSTHOG_DSYM_ATTEMPT=1
+    POSTHOG_DSYM_MAX_ATTEMPTS=60
+    POSTHOG_DSYM_READY=0
+
+    while [ "$POSTHOG_DSYM_ATTEMPT" -le "$POSTHOG_DSYM_MAX_ATTEMPTS" ]; do
+        if [ -s "$POSTHOG_MAIN_DWARF" ] && [ -s "$POSTHOG_APP_EXECUTABLE" ]; then
+            POSTHOG_DSYM_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_MAIN_DWARF" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
+            POSTHOG_APP_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_APP_EXECUTABLE" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
+            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ]; then
+                POSTHOG_DSYM_READY=1
+                break
+            fi
+        fi
+
+        if [ "$POSTHOG_DSYM_ATTEMPT" -lt "$POSTHOG_DSYM_MAX_ATTEMPTS" ]; then
+            sleep 1
+        fi
+        POSTHOG_DSYM_ATTEMPT=$((POSTHOG_DSYM_ATTEMPT + 1))
+    done
+
+    if [ "$POSTHOG_DSYM_READY" -ne 1 ]; then
+        echo "warning: Main app dSYM was not ready after ${POSTHOG_DSYM_MAX_ATTEMPTS} attempts; skipping upload: $POSTHOG_MAIN_DWARF"
+        exit 0
+    fi
+fi
+
 # Validate environment
 if [ -z "${DWARF_DSYM_FOLDER_PATH}" ]; then
     echo "warning: DWARF_DSYM_FOLDER_PATH not set"
@@ -110,6 +142,34 @@ if [ "$LOWEST" != "$MIN_POSTHOG_CLI_VERSION" ]; then
     exit 1
 fi
 
+resolve_source_plist_value() {
+    local key="$1"
+    local plist_path="${INFOPLIST_FILE:-}"
+    local value
+
+    if [ -z "$plist_path" ]; then
+        return
+    fi
+    if [[ "$plist_path" != /* ]]; then
+        if [ -z "${SRCROOT:-}" ]; then
+            return
+        fi
+        plist_path="${SRCROOT}/${plist_path}"
+    fi
+    if [ ! -f "$plist_path" ]; then
+        return
+    fi
+
+    value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$plist_path" 2>/dev/null) || return
+    if [ -z "$value" ] || [[ "$value" == *"\$("* ]] || [[ "$value" == *"\${"* ]]; then
+        return
+    fi
+    printf '%s' "$value"
+}
+
+POSTHOG_RELEASE_VERSION=$(resolve_source_plist_value "CFBundleShortVersionString")
+POSTHOG_BUILD_VERSION=$(resolve_source_plist_value "CFBundleVersion")
+
 # Build CLI arguments as an array so paths with spaces are preserved.
 CLI_ARGS=(--directory "${DWARF_DSYM_FOLDER_PATH}")
 
@@ -118,14 +178,19 @@ if [ -n "${DWARF_DSYM_FILE_NAME}" ]; then
     CLI_ARGS+=(--main-dsym "${DWARF_DSYM_FILE_NAME}")
 fi
 
-# Pass version info from Xcode build settings (overrides plist extraction)
+# Prefer literal values from the source Info.plist. EAS remote versioning can update these values
+# without changing MARKETING_VERSION or CURRENT_PROJECT_VERSION.
 if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
     CLI_ARGS+=(--release-name "${PRODUCT_BUNDLE_IDENTIFIER}")
 fi
-if [ -n "${MARKETING_VERSION}" ]; then
+if [ -n "$POSTHOG_RELEASE_VERSION" ]; then
+    CLI_ARGS+=(--release-version "$POSTHOG_RELEASE_VERSION")
+elif [ -n "${MARKETING_VERSION}" ]; then
     CLI_ARGS+=(--release-version "${MARKETING_VERSION}")
 fi
-if [ -n "${CURRENT_PROJECT_VERSION}" ]; then
+if [ -n "$POSTHOG_BUILD_VERSION" ]; then
+    CLI_ARGS+=(--build "$POSTHOG_BUILD_VERSION")
+elif [ -n "${CURRENT_PROJECT_VERSION}" ]; then
     CLI_ARGS+=(--build "${CURRENT_PROJECT_VERSION}")
 fi
 # Include source if requested via env var

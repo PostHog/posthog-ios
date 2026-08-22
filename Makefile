@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -154,7 +154,10 @@ recordMaskSnapshots: checkMaskSnapshotRuntime
 # Examples:
 #   make test                              						# Run all tests
 #   make test filter=PostHogPropertiesSerializationTests        # Run specific test suite, class or method
-test:
+testUploadSymbols:
+	build-tools/upload-symbols.test.sh
+
+test: testUploadSymbols
 	set -o pipefail && swift test --no-parallel -Xswiftc -DTESTING $(if $(filter),--filter $(filter))
 
 recordEventShapeSnapshots:

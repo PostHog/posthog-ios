@@ -136,6 +136,11 @@
 
         private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
         private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
+        // React Native New Architecture (Fabric) renders text and images with these component views
+        // instead of RCTTextView/RCTImageView; react-native-svg draws into RNSVGSvgView
+        private let reactNativeParagraphView: AnyClass? = NSClassFromString("RCTParagraphComponentView")
+        private let reactNativeImageComponentView: AnyClass? = NSClassFromString("RCTImageComponentView")
+        private let reactNativeSvgView: AnyClass? = NSClassFromString("RNSVGSvgView")
         // These are usually views that don't belong to the current process and are most likely sensitive
         private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
 
@@ -857,6 +862,13 @@
                 }
             }
 
+            if let reactNativeParagraphView = reactNativeParagraphView {
+                if view.isKind(of: reactNativeParagraphView), config?.sessionReplayConfig.maskAllTextInputs == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
             /// SwiftUI: Some control images like the ones in `Picker` view may land here
             if let image = view as? UIImageView {
                 if isImageViewSensitive(image) {
@@ -867,6 +879,20 @@
 
             if let reactNativeImageView = reactNativeImageView {
                 if view.isKind(of: reactNativeImageView), config?.sessionReplayConfig.maskAllImages == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let reactNativeImageComponentView = reactNativeImageComponentView {
+                if view.isKind(of: reactNativeImageComponentView), config?.sessionReplayConfig.maskAllImages == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let reactNativeSvgView = reactNativeSvgView {
+                if view.isKind(of: reactNativeSvgView), config?.sessionReplayConfig.maskAllImages == true {
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }

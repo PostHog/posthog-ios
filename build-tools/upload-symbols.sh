@@ -85,6 +85,7 @@ if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && [ -n "${DWARF_DSYM
     POSTHOG_MAIN_DWARF="${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${EXECUTABLE_NAME}"
     POSTHOG_APP_EXECUTABLE="${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
     POSTHOG_DSYM_TIMEOUT="${POSTHOG_DSYM_TIMEOUT:-60}"
+    POSTHOG_LSOF_PATH="${POSTHOG_LSOF_PATH:-/usr/sbin/lsof}"
     POSTHOG_DSYM_WAITED=0
     POSTHOG_DSYM_READY=0
 
@@ -99,7 +100,7 @@ if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && [ -n "${DWARF_DSYM
         if [ -s "$POSTHOG_MAIN_DWARF" ] && [ -s "$POSTHOG_APP_EXECUTABLE" ]; then
             POSTHOG_DSYM_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_MAIN_DWARF" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
             POSTHOG_APP_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_APP_EXECUTABLE" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
-            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ]; then
+            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ] && ! "$POSTHOG_LSOF_PATH" -a -d 0-9 -F a -- "$POSTHOG_MAIN_DWARF" 2>/dev/null | grep -Eq '^a[uw]$'; then
                 POSTHOG_DSYM_READY=1
                 break
             fi

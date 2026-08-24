@@ -33,6 +33,7 @@ create_fixture() {
     APP_EXECUTABLE="${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
     CLI_ARGS_FILE="${FIXTURE_DIR}/cli-args"
     DWARFDUMP_ATTEMPTS="${FIXTURE_DIR}/dwarfdump-attempts"
+    LSOF_ATTEMPTS="${FIXTURE_DIR}/lsof-attempts"
     XCRUN_MARKER="${FIXTURE_DIR}/xcrun-ran"
     TEST_CONFIGURATION="Release"
     TEST_DEBUG_INFORMATION_FORMAT="dwarf-with-dsym"
@@ -59,6 +60,12 @@ EOF
 exit 0
 EOF
     chmod +x "$FAKE_BIN/sleep"
+
+    cat > "$FAKE_BIN/lsof" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "$FAKE_BIN/lsof"
 }
 
 write_plist() {
@@ -87,6 +94,7 @@ run_upload() {
         CONFIGURATION="$TEST_CONFIGURATION" \
         DEBUG_INFORMATION_FORMAT="$TEST_DEBUG_INFORMATION_FORMAT" \
         POSTHOG_DSYM_TIMEOUT="$TEST_DSYM_TIMEOUT" \
+        POSTHOG_LSOF_PATH="$FAKE_BIN/lsof" \
         DWARF_DSYM_FOLDER_PATH="$DSYM_FOLDER" \
         DWARF_DSYM_FILE_NAME="$DSYM_NAME" \
         EXECUTABLE_NAME="$EXECUTABLE_NAME" \
@@ -101,6 +109,7 @@ run_upload() {
         BUILD_NUMBER="$TEST_BUILD_NUMBER" \
         TEST_CLI_ARGS_FILE="$CLI_ARGS_FILE" \
         TEST_DWARFDUMP_ATTEMPTS="$DWARFDUMP_ATTEMPTS" \
+        TEST_LSOF_ATTEMPTS="$LSOF_ATTEMPTS" \
         TEST_XCRUN_MARKER="$XCRUN_MARKER" \
         bash "$UPLOAD_SCRIPT" 2>&1)
     STATUS=$?
@@ -139,6 +148,37 @@ EOF
     assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
     assert_file_contains_line "$CLI_ARGS_FILE" "--build"
     assert_file_contains_line "$CLI_ARGS_FILE" "154"
+}
+
+test_waits_until_matching_dsym_is_closed_for_writing() {
+    create_fixture "still-writing"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    cat > "$FAKE_BIN/xcrun" <<'EOF'
+#!/bin/sh
+printf 'UUID: CURRENT-UUID (arm64) %s\n' "$3"
+EOF
+    chmod +x "$FAKE_BIN/xcrun"
+
+    cat > "$FAKE_BIN/lsof" <<'EOF'
+#!/bin/sh
+attempts=$(cat "$TEST_LSOF_ATTEMPTS" 2>/dev/null || printf 0)
+attempts=$((attempts + 1))
+printf '%s' "$attempts" > "$TEST_LSOF_ATTEMPTS"
+if [ "$attempts" -lt 3 ]; then
+    printf 'p123\nf4\naw\n'
+    exit 0
+fi
+exit 1
+EOF
+    chmod +x "$FAKE_BIN/lsof"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to wait for the dSYM writer: $OUTPUT"
+    [ "$(cat "$LSOF_ATTEMPTS")" = "3" ] || fail "Expected three checks for an active dSYM writer"
+    [ -f "$CLI_ARGS_FILE" ] || fail "Expected posthog-cli to run after the writer closed"
 }
 
 test_fails_when_dsym_never_matches() {
@@ -215,6 +255,7 @@ test_falls_back_for_unresolved_source_plist_versions() {
 
 bash -n "$UPLOAD_SCRIPT"
 test_waits_for_current_dsym_and_uses_source_plist_versions
+test_waits_until_matching_dsym_is_closed_for_writing
 test_fails_when_dsym_never_matches
 test_checks_for_cli_before_waiting_for_dsym
 test_resolves_custom_build_setting_references

@@ -27,6 +27,7 @@
 		1E875F8082365A917419B1B4 /* PLCrashSignalHandler.mm in Sources */ = {isa = PBXBuildFile; fileRef = 6423E3B086633C68584B5558 /* PLCrashSignalHandler.mm */; };
 		1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */; };
 		A1A1A1A1A1A1A1A1A1A10002 /* PostHogMaskScenarioTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10001 /* PostHogMaskScenarioTest.swift */; };
+		B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */; };
 		A1A1A1A1A1A1A1A1A1A10004 /* PostHogMaskSnapshotTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10003 /* PostHogMaskSnapshotTest.swift */; };
 		236B94DD004B67F9EAA98C2B /* PLCrashFrameCompactUnwind.c in Sources */ = {isa = PBXBuildFile; fileRef = 61CBAB800ACCB63AB4491646 /* PLCrashFrameCompactUnwind.c */; };
 		238D24DE5A56F04CE3FF0928 /* PLCrashReportExceptionInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = F9BB47DFE51AFE8F516B8550 /* PLCrashReportExceptionInfo.m */; };
@@ -799,6 +800,7 @@
 		1E41CC6ED20D266FB2357B81 /* PostHogSurveyTranslation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PostHogSurveyTranslation.swift; sourceTree = "<group>"; };
 		1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogStorageMergeTest.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A1A1A1A10001 /* PostHogMaskScenarioTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskScenarioTest.swift; sourceTree = "<group>"; };
+		B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogReactNativeMaskingTest.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A1A1A1A10003 /* PostHogMaskSnapshotTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogMaskSnapshotTest.swift; sourceTree = "<group>"; };
 		20C01091B0ACF69D36D3B7AE /* PLCrashAsyncMachExceptionInfo.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsyncMachExceptionInfo.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsyncMachExceptionInfo.c; sourceTree = "<group>"; };
 		26E974D4AD3C438FAE6FE0C5 /* RageClickDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RageClickDetector.swift; sourceTree = "<group>"; };
@@ -1705,6 +1707,7 @@
 				DB72000A2F80000100000001 /* PostHogSessionReplayRemoteConfigBufferTest.swift */,
 				1F55581F2DFC47E8007643C0 /* PostHogStorageMergeTest.swift */,
 				A1A1A1A1A1A1A1A1A1A10001 /* PostHogMaskScenarioTest.swift */,
+				B2B2B2B2B2B2B2B2B2B20001 /* PostHogReactNativeMaskingTest.swift */,
 				A1A1A1A1A1A1A1A1A1A10003 /* PostHogMaskSnapshotTest.swift */,
 				DA4FFBB42DAD5AF9006BAEEA /* PostHogIdentityTests.swift */,
 				DA0F98A12D940E7D009AB6F5 /* ApplicationViewLayoutPublisherTest.swift */,
@@ -3507,6 +3510,7 @@
 				693E977D2C6257F9004B1030 /* ExampleSanitizer.swift in Sources */,
 				1F5558262DFC4802007643C0 /* PostHogStorageMergeTest.swift in Sources */,
 				A1A1A1A1A1A1A1A1A1A10002 /* PostHogMaskScenarioTest.swift in Sources */,
+				B2B2B2B2B2B2B2B2B2B20002 /* PostHogReactNativeMaskingTest.swift in Sources */,
 				A1A1A1A1A1A1A1A1A1A10004 /* PostHogMaskSnapshotTest.swift in Sources */,
 				DA4FFB152DA93C78006BAEEA /* PostHogSessionReplayTest.swift in Sources */,
 				DA4FFB192DA93C78006BAEEA /* PostHogReplayScreenshotDedupTest.swift in Sources */,

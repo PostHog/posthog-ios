@@ -136,6 +136,14 @@
 
         private let reactNativeTextView: AnyClass? = NSClassFromString("RCTTextView")
         private let reactNativeImageView: AnyClass? = NSClassFromString("RCTImageView")
+        // React Native New Architecture (Fabric) renders text and images with these component views
+        // instead of RCTTextView/RCTImageView; react-native-svg draws its node hierarchy into RNSVGSvgView
+        private let reactNativeParagraphView: AnyClass? = NSClassFromString("RCTParagraphComponentView")
+        private let reactNativeImageComponentView: AnyClass? = NSClassFromString("RCTImageComponentView")
+        private let reactNativeSvgView: AnyClass? = NSClassFromString("RNSVGSvgView")
+        private let reactNativeSvgRenderableView: AnyClass? = NSClassFromString("RNSVGRenderable")
+        private let reactNativeSvgGroupView: AnyClass? = NSClassFromString("RNSVGGroup")
+        private let reactNativeSvgTextView: AnyClass? = NSClassFromString("RNSVGText")
         // These are usually views that don't belong to the current process and are most likely sensitive
         private let systemSandboxedView: AnyClass? = NSClassFromString("_UIRemoteView")
 
@@ -829,6 +837,31 @@
             return wireframe
         }
 
+        private func reactNativeSvgContent(in view: UIView) -> (hasText: Bool, hasGraphic: Bool) {
+            var hasText = false
+            var hasGraphic = false
+
+            for subview in view.subviews {
+                if let reactNativeSvgTextView, subview.isKind(of: reactNativeSvgTextView) {
+                    hasText = true
+                    continue
+                }
+
+                if let reactNativeSvgRenderableView, subview.isKind(of: reactNativeSvgRenderableView) {
+                    let isGroup = reactNativeSvgGroupView.map { subview.isKind(of: $0) } ?? false
+                    if !isGroup {
+                        hasGraphic = true
+                    }
+                }
+
+                let nestedContent = reactNativeSvgContent(in: subview)
+                hasText = hasText || nestedContent.hasText
+                hasGraphic = hasGraphic || nestedContent.hasGraphic
+            }
+
+            return (hasText, hasGraphic)
+        }
+
         private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [CGRect], _ maskChildren: inout Bool) {
             // User explicitly marked this view (and its subviews) as non-maskable through `.postHogNoMask()` view modifier
             if view.postHogNoMask {
@@ -857,6 +890,13 @@
                 }
             }
 
+            if let reactNativeParagraphView = reactNativeParagraphView {
+                if view.isKind(of: reactNativeParagraphView), config?.sessionReplayConfig.maskAllTextInputs == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
             /// SwiftUI: Some control images like the ones in `Picker` view may land here
             if let image = view as? UIImageView {
                 if isImageViewSensitive(image) {
@@ -867,6 +907,24 @@
 
             if let reactNativeImageView = reactNativeImageView {
                 if view.isKind(of: reactNativeImageView), config?.sessionReplayConfig.maskAllImages == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let reactNativeImageComponentView = reactNativeImageComponentView {
+                if view.isKind(of: reactNativeImageComponentView), config?.sessionReplayConfig.maskAllImages == true {
+                    maskableWidgets.append(view.toAbsoluteRect(window))
+                    return
+                }
+            }
+
+            if let reactNativeSvgView, view.isKind(of: reactNativeSvgView) {
+                let content = reactNativeSvgContent(in: view)
+                let shouldMaskText = content.hasText && config?.sessionReplayConfig.maskAllTextInputs == true
+                let shouldMaskGraphics = content.hasGraphic && config?.sessionReplayConfig.maskAllImages == true
+                if shouldMaskText || shouldMaskGraphics {
+                    // SVG nodes share a drawing surface, so mask the root when enabled content is present.
                     maskableWidgets.append(view.toAbsoluteRect(window))
                     return
                 }

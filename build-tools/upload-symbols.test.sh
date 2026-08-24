@@ -40,6 +40,8 @@ create_fixture() {
     TEST_DSYM_TIMEOUT="60"
     TEST_APP_VERSION=""
     TEST_BUILD_NUMBER=""
+    TEST_INFOPLIST_PREPROCESS="NO"
+    TEST_INFOPLIST_PATH=""
 
     mkdir -p "$HOME_DIR/.posthog" "$FAKE_BIN" "$SRC_ROOT/Config" "$(dirname "$MAIN_DWARF")" "$(dirname "$APP_EXECUTABLE")"
     printf 'dwarf' > "$MAIN_DWARF"
@@ -66,6 +68,12 @@ EOF
 exit 1
 EOF
     chmod +x "$FAKE_BIN/lsof"
+
+    cat > "$FAKE_BIN/xcrun" <<'EOF'
+#!/bin/sh
+printf 'UUID: CURRENT-UUID (arm64) %s\n' "$3"
+EOF
+    chmod +x "$FAKE_BIN/xcrun"
 }
 
 write_plist() {
@@ -102,6 +110,8 @@ run_upload() {
         EXECUTABLE_PATH="$EXECUTABLE_PATH" \
         SRCROOT="$SRC_ROOT" \
         INFOPLIST_FILE="$TEST_INFOPLIST_FILE" \
+        INFOPLIST_PREPROCESS="$TEST_INFOPLIST_PREPROCESS" \
+        INFOPLIST_PATH="$TEST_INFOPLIST_PATH" \
         PRODUCT_BUNDLE_IDENTIFIER="com.example.app" \
         MARKETING_VERSION="1.0" \
         CURRENT_PROJECT_VERSION="1" \
@@ -227,7 +237,6 @@ test_resolves_custom_build_setting_references() {
     create_fixture "custom-build-settings"
     write_plist "$SRC_ROOT/Config/Info.plist" "\$(APP_VERSION)" "\${BUILD_NUMBER}"
     TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
-    TEST_DEBUG_INFORMATION_FORMAT="dwarf"
     TEST_APP_VERSION="9.9.9"
     TEST_BUILD_NUMBER="321"
 
@@ -238,11 +247,38 @@ test_resolves_custom_build_setting_references() {
     assert_file_contains_line "$CLI_ARGS_FILE" "321"
 }
 
+test_prefers_processed_plist_when_preprocessing_is_enabled() {
+    create_fixture "preprocessed"
+    write_plist "$SRC_ROOT/Config/Info.plist" "APP_VERSION" "APP_BUILD"
+    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+    TEST_INFOPLIST_PREPROCESS="YES"
+    TEST_INFOPLIST_PATH="ExampleApp.app/Info.plist"
+    write_plist "$TARGET_BUILD_DIR/$TEST_INFOPLIST_PATH" "2.10.0" "154"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected preprocessed versions to resolve: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
+    assert_file_contains_line "$CLI_ARGS_FILE" "154"
+}
+
+test_skips_cli_lookup_when_build_does_not_emit_dsyms() {
+    create_fixture "dwarf-only"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+    TEST_DEBUG_INFORMATION_FORMAT="dwarf"
+    rm "$HOME_DIR/.posthog/posthog-cli"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected a DWARF-only build to skip symbol upload"
+    [[ "$OUTPUT" == *"Skipping dSYM upload for debug information format 'dwarf'"* ]] || fail "Expected the DWARF-only skip message"
+}
+
 test_falls_back_for_unresolved_source_plist_versions() {
     create_fixture "fallback"
     write_plist "$SRC_ROOT/Config/Info.plist" "\$(MISSING_VERSION)" "\$(A)-\$(B)"
     TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
-    TEST_DEBUG_INFORMATION_FORMAT="dwarf"
 
     run_upload
 
@@ -259,6 +295,8 @@ test_waits_until_matching_dsym_is_closed_for_writing
 test_fails_when_dsym_never_matches
 test_checks_for_cli_before_waiting_for_dsym
 test_resolves_custom_build_setting_references
+test_prefers_processed_plist_when_preprocessing_is_enabled
+test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
 
 echo "upload-symbols tests passed"

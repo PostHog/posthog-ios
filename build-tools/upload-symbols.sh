@@ -47,6 +47,13 @@ if [ -z "${DWARF_DSYM_FOLDER_PATH}" ]; then
     exit 0
 fi
 
+# A configured Xcode build that only emits DWARF has no dSYM to upload. Keep this check before CLI
+# discovery so builds without symbols do not require posthog-cli.
+if [ -n "${DEBUG_INFORMATION_FORMAT:-}" ] && [ "${DEBUG_INFORMATION_FORMAT}" != "dwarf-with-dsym" ]; then
+    echo "info: Skipping dSYM upload for debug information format '${DEBUG_INFORMATION_FORMAT}'."
+    exit 0
+fi
+
 # Find posthog-cli (Xcode doesn't load shell profiles)
 # Priority: env var override > well-known location > npm global > PATH fallback
 if [ -f "$HOME/.posthog/posthog-cli" ]; then
@@ -154,20 +161,32 @@ fi
 
 resolve_source_plist_value() {
     local key="$1"
-    local plist_path="${INFOPLIST_FILE:-}"
+    local source_plist_path="${INFOPLIST_FILE:-}"
+    local processed_plist_path=""
+    local plist_path=""
     local name
     local value
 
-    if [ -z "$plist_path" ]; then
-        return
-    fi
-    if [[ "$plist_path" != /* ]]; then
-        if [ -z "${SRCROOT:-}" ]; then
-            return
+    if [ -n "$source_plist_path" ] && [[ "$source_plist_path" != /* ]]; then
+        if [ -n "${SRCROOT:-}" ]; then
+            source_plist_path="${SRCROOT}/${source_plist_path}"
+        else
+            source_plist_path=""
         fi
-        plist_path="${SRCROOT}/${plist_path}"
     fi
-    if [ ! -f "$plist_path" ]; then
+    if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${INFOPLIST_PATH:-}" ]; then
+        processed_plist_path="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
+    fi
+
+    # Plist preprocessing can replace bare macros that cannot be resolved from the shell environment.
+    # Otherwise prefer the source plist to avoid reading a stale product from a previous build.
+    if [ "${INFOPLIST_PREPROCESS:-}" = "YES" ] && [ -f "$processed_plist_path" ]; then
+        plist_path="$processed_plist_path"
+    elif [ -f "$source_plist_path" ]; then
+        plist_path="$source_plist_path"
+    elif [ -f "$processed_plist_path" ]; then
+        plist_path="$processed_plist_path"
+    else
         return
     fi
 

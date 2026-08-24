@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.10
+
+### Patch Changes
+
+- b2d09aa: Upload symbols under the app version reported by Info.plist, including custom build settings. Wait for the current dSYM and fail after a configurable timeout instead of uploading invalid symbols.
+
 ## 3.69.9
 
 ### Patch Changes

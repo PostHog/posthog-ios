@@ -262,6 +262,20 @@ test_prefers_processed_plist_when_preprocessing_is_enabled() {
     assert_file_contains_line "$CLI_ARGS_FILE" "154"
 }
 
+test_uses_processed_plist_for_compound_build_settings() {
+    create_fixture "compound-build-settings"
+    write_plist "$SRC_ROOT/Config/Info.plist" "\$(VERSION_MAJOR).\$(VERSION_MINOR)" "\$(BUILD_PREFIX)\$(BUILD_NUMBER)"
+    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+    TEST_INFOPLIST_PATH="ExampleApp.app/Info.plist"
+    write_plist "$TARGET_BUILD_DIR/$TEST_INFOPLIST_PATH" "2.10.0" "154"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected processed compound versions to resolve: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
+    assert_file_contains_line "$CLI_ARGS_FILE" "154"
+}
+
 test_skips_cli_lookup_when_build_does_not_emit_dsyms() {
     create_fixture "dwarf-only"
     write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
@@ -296,6 +310,7 @@ test_fails_when_dsym_never_matches
 test_checks_for_cli_before_waiting_for_dsym
 test_resolves_custom_build_setting_references
 test_prefers_processed_plist_when_preprocessing_is_enabled
+test_uses_processed_plist_for_compound_build_settings
 test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
 

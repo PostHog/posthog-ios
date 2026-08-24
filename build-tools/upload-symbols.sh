@@ -194,13 +194,19 @@ resolve_source_plist_value() {
     case "$value" in
         \$\(*\))
             name=${value#\$(}
-            value=$(printenv "${name%)}" 2>/dev/null) || return
+            value=$(printenv "${name%)}" 2>/dev/null) || true
             ;;
         \$\{*\})
             name=${value#\$\{}
-            value=$(printenv "${name%\}}" 2>/dev/null) || return
+            value=$(printenv "${name%\}}" 2>/dev/null) || true
             ;;
     esac
+
+    # Compound substitutions such as $(MAJOR).$(MINOR) are expanded by ProcessInfoPlistFile. Use
+    # that product only when the source value could not be resolved, so stale products never win.
+    if { [ -z "$value" ] || [[ "$value" == *"\$("* ]] || [[ "$value" == *"\${"* ]]; } && [ "$plist_path" != "$processed_plist_path" ] && [ -f "$processed_plist_path" ]; then
+        value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$processed_plist_path" 2>/dev/null) || return
+    fi
     if [ -z "$value" ] || [[ "$value" == *"\$("* ]] || [[ "$value" == *"\${"* ]]; then
         return
     fi

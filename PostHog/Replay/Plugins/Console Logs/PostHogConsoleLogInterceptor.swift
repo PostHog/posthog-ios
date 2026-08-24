@@ -17,9 +17,17 @@
             let level: PostHogLogLevel
         }
 
+        private enum Stream {
+            case stdout
+            case stderr
+        }
+
         static let shared = PostHogConsoleLogInterceptor()
 
         // Pipe redirection properties
+        // Guarded by `fdLock`, which the readability handlers also take, so that a handler
+        // can never be mid-write against a file descriptor that teardown is closing
+        private let fdLock = NSLock()
         private var stdoutPipe: Pipe?
         private var stderrPipe: Pipe?
         private var originalStdout: Int32 = -1
@@ -39,40 +47,94 @@
             setvbuf(stdout, nil, _IONBF, 0)
             setvbuf(stderr, nil, _IONBF, 0)
 
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+
+            fdLock.lock()
+
             // Save original file descriptors
             originalStdout = dup(STDOUT_FILENO)
             originalStderr = dup(STDERR_FILENO)
 
-            stdoutPipe = Pipe()
-            stderrPipe = Pipe()
-
-            guard let stdoutPipe = stdoutPipe, let stderrPipe = stderrPipe else { return }
+            // A broken pipe on a descriptor we own must surface as EPIPE, not as a fatal
+            // SIGPIPE that the host app cannot catch. NOSIGPIPE is a property of the open
+            // file description, so the copies dup2'd onto STDOUT/STDERR inherit it too.
+            setNoSigPipe(originalStdout)
+            setNoSigPipe(originalStderr)
+            setNoSigPipe(stdoutPipe.fileHandleForWriting.fileDescriptor)
+            setNoSigPipe(stderrPipe.fileHandleForWriting.fileDescriptor)
 
             // Redirect stdout and stderr to our pipes
             dup2(stdoutPipe.fileHandleForWriting.fileDescriptor, STDOUT_FILENO)
             dup2(stderrPipe.fileHandleForWriting.fileDescriptor, STDERR_FILENO)
 
+            self.stdoutPipe = stdoutPipe
+            self.stderrPipe = stderrPipe
+
+            fdLock.unlock()
+
             // Setup and handle pipe output
-            setupPipeSource(for: originalStdout, fileHandle: stdoutPipe.fileHandleForReading, config: config, callback: callback)
-            setupPipeSource(for: originalStderr, fileHandle: stderrPipe.fileHandleForReading, config: config, callback: callback)
+            setupPipeSource(for: .stdout, fileHandle: stdoutPipe.fileHandleForReading, config: config, callback: callback)
+            setupPipeSource(for: .stderr, fileHandle: stderrPipe.fileHandleForReading, config: config, callback: callback)
         }
 
-        private func setupPipeSource(for originalFd: Int32, fileHandle: FileHandle, config: PostHogConfig, callback: @escaping (ConsoleOutput) -> Void) {
-            fileHandle.readabilityHandler = { [weak self] handle in
-                let data = handle.availableData
-                guard !data.isEmpty,
-                      let output = String(data: data, encoding: .utf8),
-                      let self = self else { return }
+        private func setNoSigPipe(_ descriptor: Int32) {
+            guard descriptor != -1 else { return }
+            _ = fcntl(descriptor, F_SETNOSIGPIPE, 1)
+        }
 
-                // Write to original file descriptor, so logs appear normally
-                if originalFd != -1 {
-                    if let data = output.data(using: .utf8) {
-                        _ = data.withUnsafeBytes { ptr in
-                            write(originalFd, ptr.baseAddress, ptr.count)
-                        }
-                    }
+        private func setupPipeSource(for stream: Stream, fileHandle: FileHandle, config: PostHogConfig, callback: @escaping (ConsoleOutput) -> Void) {
+            fileHandle.readabilityHandler = { [weak self] handle in
+                guard let self = self else { return }
+
+                // Hold the lock for the read and the echo: `stopCapturing` takes the same lock
+                // before closing these descriptors, so it cannot close one out from under us
+                self.fdLock.lock()
+
+                // Identity, not a sentinel: `stopCapturing` nils the pipes under this same lock, so
+                // this is false exactly when the session that installed this handler is over. A
+                // `-1` descriptor check would instead conflate that with "dup(STDOUT_FILENO)
+                // failed" and skip the read, leaving the pipe to fill until every `print` blocks
+                let pipe = stream == .stdout ? self.stdoutPipe : self.stderrPipe
+                guard pipe?.fileHandleForReading === handle else {
+                    self.fdLock.unlock()
+                    return
                 }
 
+                // The read has to stay inside the lock: `stopCapturing` closes this handle while
+                // holding it, so an unlocked read could hit an already closed descriptor and
+                // raise `NSFileHandleOperationException` on EBADF
+                let data = handle.availableData
+                guard !data.isEmpty else {
+                    self.fdLock.unlock()
+                    return
+                }
+
+                // Duplicate the echo target rather than writing under the lock: the app's real
+                // stdout is not ours, and if its reader has stalled the `write` blocks — holding
+                // `fdLock` through that would hang `stopCapturing` on the main thread as the app
+                // backgrounds. `dup` never blocks, and the copy keeps the open file description
+                // (and its NOSIGPIPE flag) alive even if teardown closes the original
+                let originalFd = stream == .stdout ? self.originalStdout : self.originalStderr
+                let echoFd = originalFd != -1 ? dup(originalFd) : -1
+
+                self.fdLock.unlock()
+
+                // Echo before decoding, so a chunk that is not valid UTF-8 (a multi-byte sequence
+                // split across a pipe buffer boundary) still reaches the console
+                if echoFd != -1 {
+                    _ = data.withUnsafeBytes { ptr in
+                        write(echoFd, ptr.baseAddress, ptr.count)
+                    }
+                    close(echoFd)
+                }
+
+                guard let output = String(data: data, encoding: .utf8) else { return }
+
+                // Deliberately outside the lock: `callback` re-enters SDK code (`handleConsoleLog`
+                // -> `postHog.capture`) that can reach back into the replay lifecycle and take
+                // `fdLock` again. It is non-recursive, so folding the unlock into a `defer`
+                // would deadlock
                 self.processOutput(output, config: config, callback: callback)
             }
         }
@@ -111,6 +173,22 @@
         }
 
         func stopCapturing() {
+            // Snapshot under the lock, because `setupPipeRedirection` writes these properties
+            // under it. Reading a var that holds a strong class reference while another thread
+            // writes it is a data race in Swift, and the failure mode is an over-release, not
+            // just a stale value
+            fdLock.lock()
+            let stdoutReading = stdoutPipe?.fileHandleForReading
+            let stderrReading = stderrPipe?.fileHandleForReading
+            fdLock.unlock()
+
+            // Detach the readability handlers first, and outside the lock, so that a handler
+            // that is already running can finish and release the lock instead of deadlocking
+            stdoutReading?.readabilityHandler = nil
+            stderrReading?.readabilityHandler = nil
+
+            fdLock.lock()
+
             // Restore original file descriptors
             if originalStdout != -1 {
                 dup2(originalStdout, STDOUT_FILENO)
@@ -125,12 +203,12 @@
             }
 
             // remove pipes
-            stdoutPipe?.fileHandleForReading.readabilityHandler = nil
-            stderrPipe?.fileHandleForReading.readabilityHandler = nil
-            stdoutPipe?.fileHandleForReading.closeFile()
-            stderrPipe?.fileHandleForReading.closeFile()
+            stdoutReading?.closeFile()
+            stderrReading?.closeFile()
             stdoutPipe = nil
             stderrPipe = nil
+
+            fdLock.unlock()
         }
     }
 #endif

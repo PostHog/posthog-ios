@@ -20,6 +20,10 @@
     @objc(RCTParagraphComponentView) private final class FabricParagraphViewStub: UIView {}
     @objc(RCTImageComponentView) private final class FabricImageViewStub: UIView {}
     @objc(RNSVGSvgView) private final class SvgViewStub: UIView {}
+    @objc(RNSVGRenderable) private class SvgRenderableViewStub: UIView {}
+    @objc(RNSVGGroup) private class SvgGroupViewStub: SvgRenderableViewStub {}
+    @objc(RNSVGText) private final class SvgTextViewStub: SvgGroupViewStub {}
+    @objc(RNSVGImage) private final class SvgImageViewStub: SvgRenderableViewStub {}
 
     @Suite("Replay masking for React Native (Fabric) component views", .serialized)
     @MainActor
@@ -31,7 +35,7 @@
         /// skips them). Resets the static install flag a prior replay suite may have
         /// left set, so this install binds fresh instead of no-opping onto a stale one.
         private func makeSut(maskText: Bool, maskImages: Bool) -> Sut {
-            let config = PostHogConfig(apiKey: "phc_reactNativeMaskingTest")
+            let config = PostHogConfig(projectToken: "phc_reactNativeMaskingTest")
             config.disableReachabilityForTesting = true
             config.sessionReplayConfig.maskAllTextInputs = maskText
             config.sessionReplayConfig.maskAllImages = maskImages
@@ -78,12 +82,27 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 40, y: 200, width: 160, height: 100)])
         }
 
-        @Test("react-native-svg root view is masked under maskAllImages")
-        func svgViewMasked() {
+        @Test("react-native-svg image content is masked under maskAllImages")
+        func svgImageMasked() {
             let sut = makeSut(maskText: false, maskImages: true)
             defer { teardown(sut) }
 
             let svg = SvgViewStub(frame: CGRect(x: 10, y: 300, width: 300, height: 180))
+            svg.addSubview(SvgImageViewStub())
+            let window = makeWindow(containing: svg)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 10, y: 300, width: 300, height: 180)])
+        }
+
+        @Test("react-native-svg text content is masked under maskAllTextInputs")
+        func svgTextMasked() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let svg = SvgViewStub(frame: CGRect(x: 10, y: 300, width: 300, height: 180))
+            let group = SvgGroupViewStub()
+            group.addSubview(SvgTextViewStub())
+            svg.addSubview(group)
             let window = makeWindow(containing: svg)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 10, y: 300, width: 300, height: 180)])
@@ -94,33 +113,48 @@
             let sut = makeSut(maskText: false, maskImages: false)
             defer { teardown(sut) }
 
+            let svg = SvgViewStub(frame: CGRect(x: 10, y: 340, width: 300, height: 180))
+            svg.addSubview(SvgTextViewStub())
+            svg.addSubview(SvgImageViewStub())
             let window = makeWindow(
                 containing: FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32)),
                 FabricImageViewStub(frame: CGRect(x: 40, y: 200, width: 160, height: 100)),
-                SvgViewStub(frame: CGRect(x: 10, y: 340, width: 300, height: 180))
+                svg
             )
 
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
-        @Test("each class is gated by its matching flag, not the other one")
-        func maskingGatedByMatchingFlag() {
-            // maskAllImages alone must not mask text views...
-            let imagesOnly = makeSut(maskText: false, maskImages: true)
-            let paragraphWindow = makeWindow(
-                containing: FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
-            )
-            #expect(imagesOnly.integration.collectMaskableRects(in: paragraphWindow) == [])
-            teardown(imagesOnly)
+        @Test("text-only React Native views are not masked under maskAllImages")
+        func textViewsNotMaskedByImageSetting() {
+            let sut = makeSut(maskText: false, maskImages: true)
+            defer { teardown(sut) }
 
-            // ...and maskAllTextInputs alone must not mask image or SVG views.
-            let textOnly = makeSut(maskText: true, maskImages: false)
-            let imageWindow = makeWindow(
-                containing: FabricImageViewStub(frame: CGRect(x: 40, y: 200, width: 160, height: 100)),
-                SvgViewStub(frame: CGRect(x: 10, y: 340, width: 300, height: 180))
+            let svg = SvgViewStub(frame: CGRect(x: 10, y: 340, width: 300, height: 180))
+            let group = SvgGroupViewStub()
+            group.addSubview(SvgTextViewStub())
+            svg.addSubview(group)
+            let window = makeWindow(
+                containing: FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32)),
+                svg
             )
-            #expect(textOnly.integration.collectMaskableRects(in: imageWindow) == [])
-            teardown(textOnly)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("image-only React Native views are not masked under maskAllTextInputs")
+        func imageViewsNotMaskedByTextSetting() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let svg = SvgViewStub(frame: CGRect(x: 10, y: 340, width: 300, height: 180))
+            svg.addSubview(SvgImageViewStub())
+            let window = makeWindow(
+                containing: FabricImageViewStub(frame: CGRect(x: 40, y: 200, width: 160, height: 100)),
+                svg
+            )
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
     }
 #endif

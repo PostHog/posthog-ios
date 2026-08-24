@@ -1,5 +1,13 @@
 ## Next
 
+## 3.69.9
+
+### Patch Changes
+
+- 275505d: Mask React Native New Architecture (Fabric) text and image component views (RCTParagraphComponentView, RCTImageComponentView) and react-native-svg root views (RNSVGSvgView) during session replay, matching the existing legacy RCTTextView/RCTImageView handling.
+- 7285d17: Fix `reloadFeatureFlags(_:)` completion handlers resolving with stale cached flags when a reload was displaced from the pending queue. They now resolve against a `/flags` response that actually went out, so they fire later — after a round trip and any retries — but with flags evaluated for the caller's request-time person properties.
+- 856667f: Drop events and logs when Objective-C beforeSend callbacks raise exceptions.
+
 ## 3.69.8
 
 ### Patch Changes

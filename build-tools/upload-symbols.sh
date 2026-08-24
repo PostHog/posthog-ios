@@ -107,7 +107,7 @@ if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && [ -n "${DWARF_DSYM
         if [ -s "$POSTHOG_MAIN_DWARF" ] && [ -s "$POSTHOG_APP_EXECUTABLE" ]; then
             POSTHOG_DSYM_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_MAIN_DWARF" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
             POSTHOG_APP_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_APP_EXECUTABLE" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
-            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ] && ! "$POSTHOG_LSOF_PATH" -a -d 0-9 -F a -- "$POSTHOG_MAIN_DWARF" 2>/dev/null | grep -Eq '^a[uw]$'; then
+            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ] && ! "$POSTHOG_LSOF_PATH" -F a -- "$POSTHOG_MAIN_DWARF" 2>/dev/null | grep -Eq '^a[uw]$'; then
                 POSTHOG_DSYM_READY=1
                 break
             fi
@@ -161,52 +161,38 @@ fi
 
 resolve_source_plist_value() {
     local key="$1"
-    local source_plist_path="${INFOPLIST_FILE:-}"
-    local processed_plist_path=""
-    local plist_path=""
-    local name
+    local plist_path="${INFOPLIST_FILE:-}"
     local value
+    local token
+    local name
+    local replacement
+    local prefix
+    local suffix
 
-    if [ -n "$source_plist_path" ] && [[ "$source_plist_path" != /* ]]; then
-        if [ -n "${SRCROOT:-}" ]; then
-            source_plist_path="${SRCROOT}/${source_plist_path}"
-        else
-            source_plist_path=""
+    # Bare C preprocessor macros cannot be expanded safely here, and the product plist may belong to
+    # a previous build. Preserve the existing Xcode-setting fallback for preprocessed plists.
+    if [ "${INFOPLIST_PREPROCESS:-}" = "YES" ] || [ -z "$plist_path" ]; then
+        return
+    fi
+    if [[ "$plist_path" != /* ]]; then
+        if [ -z "${SRCROOT:-}" ]; then
+            return
         fi
+        plist_path="${SRCROOT}/${plist_path}"
     fi
-    if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${INFOPLIST_PATH:-}" ]; then
-        processed_plist_path="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
-    fi
-
-    # Plist preprocessing can replace bare macros that cannot be resolved from the shell environment.
-    # Otherwise prefer the source plist to avoid reading a stale product from a previous build.
-    if [ "${INFOPLIST_PREPROCESS:-}" = "YES" ] && [ -f "$processed_plist_path" ]; then
-        plist_path="$processed_plist_path"
-    elif [ -f "$source_plist_path" ]; then
-        plist_path="$source_plist_path"
-    elif [ -f "$processed_plist_path" ]; then
-        plist_path="$processed_plist_path"
-    else
+    if [ ! -f "$plist_path" ]; then
         return
     fi
 
     value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$plist_path" 2>/dev/null) || return
-    case "$value" in
-        \$\(*\))
-            name=${value#\$(}
-            value=$(printenv "${name%)}" 2>/dev/null) || true
-            ;;
-        \$\{*\})
-            name=${value#\$\{}
-            value=$(printenv "${name%\}}" 2>/dev/null) || true
-            ;;
-    esac
-
-    # Compound substitutions such as $(MAJOR).$(MINOR) are expanded by ProcessInfoPlistFile. Use
-    # that product only when the source value could not be resolved, so stale products never win.
-    if { [ -z "$value" ] || [[ "$value" == *"\$("* ]] || [[ "$value" == *"\${"* ]]; } && [ "$plist_path" != "$processed_plist_path" ] && [ -f "$processed_plist_path" ]; then
-        value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$processed_plist_path" 2>/dev/null) || return
-    fi
+    while [[ "$value" =~ (\$\(([A-Za-z_][A-Za-z0-9_]*)\)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}) ]]; do
+        token=${BASH_REMATCH[1]}
+        name=${BASH_REMATCH[2]:-${BASH_REMATCH[3]}}
+        replacement=$(printenv "$name" 2>/dev/null) || return
+        prefix=${value%%"$token"*}
+        suffix=${value#*"$token"}
+        value="${prefix}${replacement}${suffix}"
+    done
     if [ -z "$value" ] || [[ "$value" == *"\$("* ]] || [[ "$value" == *"\${"* ]]; then
         return
     fi

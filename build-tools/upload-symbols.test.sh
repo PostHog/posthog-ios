@@ -40,6 +40,9 @@ create_fixture() {
     TEST_DSYM_TIMEOUT="60"
     TEST_APP_VERSION=""
     TEST_BUILD_NUMBER=""
+    TEST_VERSION_MAJOR=""
+    TEST_VERSION_MINOR=""
+    TEST_BUILD_PREFIX=""
     TEST_INFOPLIST_PREPROCESS="NO"
     TEST_INFOPLIST_PATH=""
 
@@ -117,6 +120,9 @@ run_upload() {
         CURRENT_PROJECT_VERSION="1" \
         APP_VERSION="$TEST_APP_VERSION" \
         BUILD_NUMBER="$TEST_BUILD_NUMBER" \
+        VERSION_MAJOR="$TEST_VERSION_MAJOR" \
+        VERSION_MINOR="$TEST_VERSION_MINOR" \
+        BUILD_PREFIX="$TEST_BUILD_PREFIX" \
         TEST_CLI_ARGS_FILE="$CLI_ARGS_FILE" \
         TEST_DWARFDUMP_ATTEMPTS="$DWARFDUMP_ATTEMPTS" \
         TEST_LSOF_ATTEMPTS="$LSOF_ATTEMPTS" \
@@ -247,31 +253,31 @@ test_resolves_custom_build_setting_references() {
     assert_file_contains_line "$CLI_ARGS_FILE" "321"
 }
 
-test_prefers_processed_plist_when_preprocessing_is_enabled() {
+test_falls_back_for_preprocessed_plist_values() {
     create_fixture "preprocessed"
     write_plist "$SRC_ROOT/Config/Info.plist" "APP_VERSION" "APP_BUILD"
     TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
     TEST_INFOPLIST_PREPROCESS="YES"
-    TEST_INFOPLIST_PATH="ExampleApp.app/Info.plist"
-    write_plist "$TARGET_BUILD_DIR/$TEST_INFOPLIST_PATH" "2.10.0" "154"
 
     run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected preprocessed versions to resolve: $OUTPUT"
-    assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
-    assert_file_contains_line "$CLI_ARGS_FILE" "154"
+    [ "$STATUS" -eq 0 ] || fail "Expected preprocessed plist values to use Xcode fallbacks: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "1.0"
+    assert_file_contains_line "$CLI_ARGS_FILE" "1"
 }
 
-test_uses_processed_plist_for_compound_build_settings() {
+test_resolves_compound_build_settings() {
     create_fixture "compound-build-settings"
     write_plist "$SRC_ROOT/Config/Info.plist" "\$(VERSION_MAJOR).\$(VERSION_MINOR)" "\$(BUILD_PREFIX)\$(BUILD_NUMBER)"
     TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
-    TEST_INFOPLIST_PATH="ExampleApp.app/Info.plist"
-    write_plist "$TARGET_BUILD_DIR/$TEST_INFOPLIST_PATH" "2.10.0" "154"
+    TEST_VERSION_MAJOR="2"
+    TEST_VERSION_MINOR="10.0"
+    TEST_BUILD_PREFIX="1"
+    TEST_BUILD_NUMBER="54"
 
     run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected processed compound versions to resolve: $OUTPUT"
+    [ "$STATUS" -eq 0 ] || fail "Expected compound build settings to resolve: $OUTPUT"
     assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
     assert_file_contains_line "$CLI_ARGS_FILE" "154"
 }
@@ -309,8 +315,8 @@ test_waits_until_matching_dsym_is_closed_for_writing
 test_fails_when_dsym_never_matches
 test_checks_for_cli_before_waiting_for_dsym
 test_resolves_custom_build_setting_references
-test_prefers_processed_plist_when_preprocessing_is_enabled
-test_uses_processed_plist_for_compound_build_settings
+test_falls_back_for_preprocessed_plist_values
+test_resolves_compound_build_settings
 test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
 

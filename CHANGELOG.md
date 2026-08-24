@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.11
+
+### Patch Changes
+
+- a8175f1: Fix a fatal SIGPIPE when session replay console log capture is torn down, for example when the app backgrounds with `sessionReplayConfig.captureLogs` enabled. Teardown closed the descriptors the pipe readers were still writing to, which could kill the process.
+
 ## 3.69.10
 
 ### Patch Changes

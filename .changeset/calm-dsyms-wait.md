@@ -2,4 +2,4 @@
 "posthog-ios": patch
 ---
 
-Wait for the current app dSYM and use source Info.plist versions before uploading symbols.
+Upload symbols under the app version reported by Info.plist, including custom build settings. Wait for the current dSYM and fail after a configurable timeout instead of uploading invalid symbols.

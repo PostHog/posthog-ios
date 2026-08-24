@@ -23,6 +23,7 @@
 #   POSTHOG_INCLUDE_SOURCE - Set to "1" to include source files in dSYM upload
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
+#   POSTHOG_DSYM_TIMEOUT - Seconds to wait for the current app dSYM before failing (default: 60)
 #   POSTHOG_NO_RELEASE_BIND - Set to "1" to upload symbol sets without binding them to the created
 #                              release (via `dsym upload --no-release-bind`). The release is still
 #                              created; the server resolves it from the `$app_version` /
@@ -40,52 +41,9 @@ if [ -n "${CONFIGURATION}" ] && [ "${CONFIGURATION}" != "Release" ]; then
     exit 0
 fi
 
-# Xcode can start this phase before dsymutil finishes. Declaring the dSYM as an input can create
-# dependency cycles for apps with embedded extensions, so wait until the dSYM belongs to the current
-# executable instead. If it never becomes ready, skip the upload rather than sending stale symbols.
-if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && [ -n "${DWARF_DSYM_FOLDER_PATH:-}" ] && [ -n "${DWARF_DSYM_FILE_NAME:-}" ] && [ -n "${EXECUTABLE_NAME:-}" ] && [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${EXECUTABLE_PATH:-}" ]; then
-    POSTHOG_MAIN_DWARF="${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${EXECUTABLE_NAME}"
-    POSTHOG_APP_EXECUTABLE="${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
-    POSTHOG_DSYM_ATTEMPT=1
-    POSTHOG_DSYM_MAX_ATTEMPTS=60
-    POSTHOG_DSYM_READY=0
-
-    while [ "$POSTHOG_DSYM_ATTEMPT" -le "$POSTHOG_DSYM_MAX_ATTEMPTS" ]; do
-        if [ -s "$POSTHOG_MAIN_DWARF" ] && [ -s "$POSTHOG_APP_EXECUTABLE" ]; then
-            POSTHOG_DSYM_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_MAIN_DWARF" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
-            POSTHOG_APP_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_APP_EXECUTABLE" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
-            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ]; then
-                POSTHOG_DSYM_READY=1
-                break
-            fi
-        fi
-
-        if [ "$POSTHOG_DSYM_ATTEMPT" -lt "$POSTHOG_DSYM_MAX_ATTEMPTS" ]; then
-            sleep 1
-        fi
-        POSTHOG_DSYM_ATTEMPT=$((POSTHOG_DSYM_ATTEMPT + 1))
-    done
-
-    if [ "$POSTHOG_DSYM_READY" -ne 1 ]; then
-        echo "warning: Main app dSYM was not ready after ${POSTHOG_DSYM_MAX_ATTEMPTS} attempts; skipping upload: $POSTHOG_MAIN_DWARF"
-        exit 0
-    fi
-fi
-
-# Validate environment
+# Validate the path before looking for posthog-cli.
 if [ -z "${DWARF_DSYM_FOLDER_PATH}" ]; then
     echo "warning: DWARF_DSYM_FOLDER_PATH not set"
-    exit 0
-fi
-
-if [ ! -d "${DWARF_DSYM_FOLDER_PATH}" ]; then
-    echo "warning: dSYM folder not found: ${DWARF_DSYM_FOLDER_PATH}"
-    exit 0
-fi
-
-# Check if folder contains any dSYM bundles
-if [ -z "$(find "${DWARF_DSYM_FOLDER_PATH}" -name '*.dSYM' -type d 2>/dev/null)" ]; then
-    echo "info: No dSYM bundles found in ${DWARF_DSYM_FOLDER_PATH}"
     exit 0
 fi
 
@@ -120,6 +78,57 @@ if [ -z "$PH_CLI_PATH" ] || [ ! -x "$PH_CLI_PATH" ]; then
     exit 1
 fi
 
+# Xcode can start this phase before dsymutil finishes. Declaring the dSYM as an input can create
+# dependency cycles for apps with embedded extensions, so wait until the dSYM belongs to the current
+# executable instead. Fail on timeout rather than letting a release ship without its symbols.
+if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && [ -n "${DWARF_DSYM_FILE_NAME:-}" ] && [ -n "${EXECUTABLE_NAME:-}" ] && [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${EXECUTABLE_PATH:-}" ]; then
+    POSTHOG_MAIN_DWARF="${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${EXECUTABLE_NAME}"
+    POSTHOG_APP_EXECUTABLE="${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
+    POSTHOG_DSYM_TIMEOUT="${POSTHOG_DSYM_TIMEOUT:-60}"
+    POSTHOG_DSYM_WAITED=0
+    POSTHOG_DSYM_READY=0
+
+    case "$POSTHOG_DSYM_TIMEOUT" in
+        ''|*[!0-9]*)
+            echo "error: POSTHOG_DSYM_TIMEOUT must be a non-negative integer"
+            exit 1
+            ;;
+    esac
+
+    while [ "$POSTHOG_DSYM_WAITED" -le "$POSTHOG_DSYM_TIMEOUT" ]; do
+        if [ -s "$POSTHOG_MAIN_DWARF" ] && [ -s "$POSTHOG_APP_EXECUTABLE" ]; then
+            POSTHOG_DSYM_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_MAIN_DWARF" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
+            POSTHOG_APP_UUIDS=$(xcrun dwarfdump --uuid "$POSTHOG_APP_EXECUTABLE" 2>/dev/null | awk '/^UUID: / {print $2}' | sort)
+            if [ -n "$POSTHOG_DSYM_UUIDS" ] && [ "$POSTHOG_DSYM_UUIDS" = "$POSTHOG_APP_UUIDS" ]; then
+                POSTHOG_DSYM_READY=1
+                break
+            fi
+        fi
+
+        if [ "$POSTHOG_DSYM_WAITED" -lt "$POSTHOG_DSYM_TIMEOUT" ]; then
+            sleep 1
+        fi
+        POSTHOG_DSYM_WAITED=$((POSTHOG_DSYM_WAITED + 1))
+    done
+
+    if [ "$POSTHOG_DSYM_READY" -ne 1 ]; then
+        echo "error: Main app dSYM was not ready after ${POSTHOG_DSYM_TIMEOUT} seconds: $POSTHOG_MAIN_DWARF"
+        exit 1
+    fi
+fi
+
+if [ ! -d "${DWARF_DSYM_FOLDER_PATH}" ]; then
+    echo "warning: dSYM folder not found: ${DWARF_DSYM_FOLDER_PATH}"
+    exit 0
+fi
+
+# Check if folder contains any dSYM bundles. This must run after the readiness wait because dsymutil
+# may not have created the bundle when the upload phase starts.
+if [ -z "$(find "${DWARF_DSYM_FOLDER_PATH}" -name '*.dSYM' -type d 2>/dev/null)" ]; then
+    echo "info: No dSYM bundles found in ${DWARF_DSYM_FOLDER_PATH}"
+    exit 0
+fi
+
 # Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
 MIN_POSTHOG_CLI_VERSION="0.7.7"
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
@@ -145,6 +154,7 @@ fi
 resolve_source_plist_value() {
     local key="$1"
     local plist_path="${INFOPLIST_FILE:-}"
+    local name
     local value
 
     if [ -z "$plist_path" ]; then
@@ -161,6 +171,16 @@ resolve_source_plist_value() {
     fi
 
     value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$plist_path" 2>/dev/null) || return
+    case "$value" in
+        \$\(*\))
+            name=${value#\$(}
+            value=$(printenv "${name%)}" 2>/dev/null) || return
+            ;;
+        \$\{*\})
+            name=${value#\$\{}
+            value=$(printenv "${name%\}}" 2>/dev/null) || return
+            ;;
+    esac
     if [ -z "$value" ] || [[ "$value" == *"\$("* ]] || [[ "$value" == *"\${"* ]]; then
         return
     fi

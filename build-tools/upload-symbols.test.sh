@@ -33,6 +33,12 @@ create_fixture() {
     APP_EXECUTABLE="${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}"
     CLI_ARGS_FILE="${FIXTURE_DIR}/cli-args"
     DWARFDUMP_ATTEMPTS="${FIXTURE_DIR}/dwarfdump-attempts"
+    XCRUN_MARKER="${FIXTURE_DIR}/xcrun-ran"
+    TEST_CONFIGURATION="Release"
+    TEST_DEBUG_INFORMATION_FORMAT="dwarf-with-dsym"
+    TEST_DSYM_TIMEOUT="60"
+    TEST_APP_VERSION=""
+    TEST_BUILD_NUMBER=""
 
     mkdir -p "$HOME_DIR/.posthog" "$FAKE_BIN" "$SRC_ROOT/Config" "$(dirname "$MAIN_DWARF")" "$(dirname "$APP_EXECUTABLE")"
     printf 'dwarf' > "$MAIN_DWARF"
@@ -77,9 +83,10 @@ run_upload() {
     set +e
     OUTPUT=$(env \
         HOME="$HOME_DIR" \
-        PATH="$FAKE_BIN:$PATH" \
-        CONFIGURATION="${TEST_CONFIGURATION:-Release}" \
-        DEBUG_INFORMATION_FORMAT="${TEST_DEBUG_INFORMATION_FORMAT:-dwarf-with-dsym}" \
+        PATH="$FAKE_BIN:/usr/bin:/bin" \
+        CONFIGURATION="$TEST_CONFIGURATION" \
+        DEBUG_INFORMATION_FORMAT="$TEST_DEBUG_INFORMATION_FORMAT" \
+        POSTHOG_DSYM_TIMEOUT="$TEST_DSYM_TIMEOUT" \
         DWARF_DSYM_FOLDER_PATH="$DSYM_FOLDER" \
         DWARF_DSYM_FILE_NAME="$DSYM_NAME" \
         EXECUTABLE_NAME="$EXECUTABLE_NAME" \
@@ -90,8 +97,11 @@ run_upload() {
         PRODUCT_BUNDLE_IDENTIFIER="com.example.app" \
         MARKETING_VERSION="1.0" \
         CURRENT_PROJECT_VERSION="1" \
+        APP_VERSION="$TEST_APP_VERSION" \
+        BUILD_NUMBER="$TEST_BUILD_NUMBER" \
         TEST_CLI_ARGS_FILE="$CLI_ARGS_FILE" \
         TEST_DWARFDUMP_ATTEMPTS="$DWARFDUMP_ATTEMPTS" \
+        TEST_XCRUN_MARKER="$XCRUN_MARKER" \
         bash "$UPLOAD_SCRIPT" 2>&1)
     STATUS=$?
     set -e
@@ -131,10 +141,11 @@ EOF
     assert_file_contains_line "$CLI_ARGS_FILE" "154"
 }
 
-test_skips_upload_when_dsym_never_matches() {
+test_fails_when_dsym_never_matches() {
     create_fixture "not-ready"
     write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
     TEST_INFOPLIST_FILE="Config/Info.plist"
+    TEST_DSYM_TIMEOUT="2"
 
     cat > "$FAKE_BIN/xcrun" <<'EOF'
 #!/bin/sh
@@ -147,14 +158,49 @@ EOF
 
     run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected an unavailable dSYM to skip without failing the build"
-    [[ "$OUTPUT" == *"skipping upload"* ]] || fail "Expected a warning when the dSYM stays unavailable"
+    [ "$STATUS" -eq 1 ] || fail "Expected an unavailable dSYM to fail the build"
+    [[ "$OUTPUT" == *"was not ready after 2 seconds"* ]] || fail "Expected a timeout error when the dSYM stays unavailable"
     [ ! -f "$CLI_ARGS_FILE" ] || fail "posthog-cli must not run with a stale dSYM"
+}
+
+test_checks_for_cli_before_waiting_for_dsym() {
+    create_fixture "missing-cli"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+    rm "$HOME_DIR/.posthog/posthog-cli"
+
+    cat > "$FAKE_BIN/xcrun" <<'EOF'
+#!/bin/sh
+touch "$TEST_XCRUN_MARKER"
+exit 1
+EOF
+    chmod +x "$FAKE_BIN/xcrun"
+
+    run_upload
+
+    [ "$STATUS" -eq 1 ] || fail "Expected a missing CLI to fail the build"
+    [[ "$OUTPUT" == *"posthog-cli not found"* ]] || fail "Expected the missing CLI error"
+    [ ! -f "$XCRUN_MARKER" ] || fail "dSYM polling must not run before checking for posthog-cli"
+}
+
+test_resolves_custom_build_setting_references() {
+    create_fixture "custom-build-settings"
+    write_plist "$SRC_ROOT/Config/Info.plist" "\$(APP_VERSION)" "\${BUILD_NUMBER}"
+    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+    TEST_DEBUG_INFORMATION_FORMAT="dwarf"
+    TEST_APP_VERSION="9.9.9"
+    TEST_BUILD_NUMBER="321"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected custom build-setting versions to resolve: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "9.9.9"
+    assert_file_contains_line "$CLI_ARGS_FILE" "321"
 }
 
 test_falls_back_for_unresolved_source_plist_versions() {
     create_fixture "fallback"
-    write_plist "$SRC_ROOT/Config/Info.plist" "\${MARKETING_VERSION}" "\$(CURRENT_PROJECT_VERSION)"
+    write_plist "$SRC_ROOT/Config/Info.plist" "\$(MISSING_VERSION)" "\$(A)-\$(B)"
     TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
     TEST_DEBUG_INFORMATION_FORMAT="dwarf"
 
@@ -169,7 +215,9 @@ test_falls_back_for_unresolved_source_plist_versions() {
 
 bash -n "$UPLOAD_SCRIPT"
 test_waits_for_current_dsym_and_uses_source_plist_versions
-test_skips_upload_when_dsym_never_matches
+test_fails_when_dsym_never_matches
+test_checks_for_cli_before_waiting_for_dsym
+test_resolves_custom_build_setting_references
 test_falls_back_for_unresolved_source_plist_versions
 
 echo "upload-symbols tests passed"

@@ -159,9 +159,30 @@ if [ "$LOWEST" != "$MIN_POSTHOG_CLI_VERSION" ]; then
     exit 1
 fi
 
+# --info-plist landed in 0.15.0, but unresolved plist fields were fatal until 0.15.1.
+INFO_PLIST_MIN_POSTHOG_CLI_VERSION="0.15.1"
+LOWEST=$(printf '%s\n%s\n' "$INFO_PLIST_MIN_POSTHOG_CLI_VERSION" "$PH_CLI_VERSION" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)
+POSTHOG_CLI_SUPPORTS_INFO_PLIST=0
+if [ "$LOWEST" = "$INFO_PLIST_MIN_POSTHOG_CLI_VERSION" ]; then
+    POSTHOG_CLI_SUPPORTS_INFO_PLIST=1
+fi
+
+POSTHOG_INFO_PLIST_PATH=""
+# Bare C preprocessor macros cannot be expanded safely, and the product plist may belong to a
+# previous build. Preserve the Xcode-setting fallback for preprocessed plists.
+if [ "${INFOPLIST_PREPROCESS:-}" != "YES" ] && [ -n "${INFOPLIST_FILE:-}" ]; then
+    if [[ "$INFOPLIST_FILE" = /* ]]; then
+        POSTHOG_INFO_PLIST_PATH="$INFOPLIST_FILE"
+    elif [ -n "${SRCROOT:-}" ]; then
+        POSTHOG_INFO_PLIST_PATH="${SRCROOT}/${INFOPLIST_FILE}"
+    fi
+    if [ ! -f "$POSTHOG_INFO_PLIST_PATH" ] || ! /usr/libexec/PlistBuddy -c "Print" "$POSTHOG_INFO_PLIST_PATH" >/dev/null 2>&1; then
+        POSTHOG_INFO_PLIST_PATH=""
+    fi
+fi
+
 resolve_source_plist_value() {
     local key="$1"
-    local plist_path="${INFOPLIST_FILE:-}"
     local value
     local token
     local name
@@ -169,22 +190,8 @@ resolve_source_plist_value() {
     local prefix
     local suffix
 
-    # Bare C preprocessor macros cannot be expanded safely here, and the product plist may belong to
-    # a previous build. Preserve the existing Xcode-setting fallback for preprocessed plists.
-    if [ "${INFOPLIST_PREPROCESS:-}" = "YES" ] || [ -z "$plist_path" ]; then
-        return
-    fi
-    if [[ "$plist_path" != /* ]]; then
-        if [ -z "${SRCROOT:-}" ]; then
-            return
-        fi
-        plist_path="${SRCROOT}/${plist_path}"
-    fi
-    if [ ! -f "$plist_path" ]; then
-        return
-    fi
-
-    value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$plist_path" 2>/dev/null) || return
+    [ -n "$POSTHOG_INFO_PLIST_PATH" ] || return
+    value=$(/usr/libexec/PlistBuddy -c "Print :${key}" "$POSTHOG_INFO_PLIST_PATH" 2>/dev/null) || return
     while [[ "$value" =~ (\$\(([A-Za-z_][A-Za-z0-9_]*)\)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}) ]]; do
         token=${BASH_REMATCH[1]}
         name=${BASH_REMATCH[2]:-${BASH_REMATCH[3]}}
@@ -210,8 +217,13 @@ if [ -n "${DWARF_DSYM_FILE_NAME}" ]; then
     CLI_ARGS+=(--main-dsym "${DWARF_DSYM_FILE_NAME}")
 fi
 
-# Prefer literal values from the source Info.plist. EAS remote versioning can update these values
-# without changing MARKETING_VERSION or CURRENT_PROJECT_VERSION.
+# Prefer values from the source Info.plist. EAS remote versioning can update these values without
+# changing MARKETING_VERSION or CURRENT_PROJECT_VERSION. Explicit values preserve compound Xcode
+# build-setting resolution and the configured bundle identifier; the CLI fills any gaps from the
+# plist when supported.
+if [ "$POSTHOG_CLI_SUPPORTS_INFO_PLIST" -eq 1 ] && [ -n "$POSTHOG_INFO_PLIST_PATH" ]; then
+    CLI_ARGS+=(--info-plist "$POSTHOG_INFO_PLIST_PATH")
+fi
 if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
     CLI_ARGS+=(--release-name "${PRODUCT_BUNDLE_IDENTIFIER}")
 fi

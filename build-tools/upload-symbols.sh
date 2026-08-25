@@ -159,6 +159,7 @@ if [ "$LOWEST" != "$MIN_POSTHOG_CLI_VERSION" ]; then
     exit 1
 fi
 
+# --info-plist landed in 0.15.0, but unresolved plist fields were fatal until 0.15.1.
 INFO_PLIST_MIN_POSTHOG_CLI_VERSION="0.15.1"
 LOWEST=$(printf '%s\n%s\n' "$INFO_PLIST_MIN_POSTHOG_CLI_VERSION" "$PH_CLI_VERSION" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)
 POSTHOG_CLI_SUPPORTS_INFO_PLIST=0
@@ -175,7 +176,7 @@ if [ "${INFOPLIST_PREPROCESS:-}" != "YES" ] && [ -n "${INFOPLIST_FILE:-}" ]; the
     elif [ -n "${SRCROOT:-}" ]; then
         POSTHOG_INFO_PLIST_PATH="${SRCROOT}/${INFOPLIST_FILE}"
     fi
-    if [ ! -f "$POSTHOG_INFO_PLIST_PATH" ]; then
+    if [ ! -f "$POSTHOG_INFO_PLIST_PATH" ] || ! /usr/libexec/PlistBuddy -c "Print" "$POSTHOG_INFO_PLIST_PATH" >/dev/null 2>&1; then
         POSTHOG_INFO_PLIST_PATH=""
     fi
 fi
@@ -205,12 +206,8 @@ resolve_source_plist_value() {
     printf '%s' "$value"
 }
 
-POSTHOG_RELEASE_VERSION=""
-POSTHOG_BUILD_VERSION=""
-if [ "$POSTHOG_CLI_SUPPORTS_INFO_PLIST" -ne 1 ]; then
-    POSTHOG_RELEASE_VERSION=$(resolve_source_plist_value "CFBundleShortVersionString")
-    POSTHOG_BUILD_VERSION=$(resolve_source_plist_value "CFBundleVersion")
-fi
+POSTHOG_RELEASE_VERSION=$(resolve_source_plist_value "CFBundleShortVersionString")
+POSTHOG_BUILD_VERSION=$(resolve_source_plist_value "CFBundleVersion")
 
 # Build CLI arguments as an array so paths with spaces are preserved.
 CLI_ARGS=(--directory "${DWARF_DSYM_FOLDER_PATH}")
@@ -221,24 +218,24 @@ if [ -n "${DWARF_DSYM_FILE_NAME}" ]; then
 fi
 
 # Prefer values from the source Info.plist. EAS remote versioning can update these values without
-# changing MARKETING_VERSION or CURRENT_PROJECT_VERSION. Newer CLIs resolve the plist and its Xcode
-# build-setting references directly; older CLIs retain the script's legacy resolution.
+# changing MARKETING_VERSION or CURRENT_PROJECT_VERSION. Explicit values preserve compound Xcode
+# build-setting resolution and the configured bundle identifier; the CLI fills any gaps from the
+# plist when supported.
 if [ "$POSTHOG_CLI_SUPPORTS_INFO_PLIST" -eq 1 ] && [ -n "$POSTHOG_INFO_PLIST_PATH" ]; then
     CLI_ARGS+=(--info-plist "$POSTHOG_INFO_PLIST_PATH")
-else
-    if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
-        CLI_ARGS+=(--release-name "${PRODUCT_BUNDLE_IDENTIFIER}")
-    fi
-    if [ -n "$POSTHOG_RELEASE_VERSION" ]; then
-        CLI_ARGS+=(--release-version "$POSTHOG_RELEASE_VERSION")
-    elif [ -n "${MARKETING_VERSION}" ]; then
-        CLI_ARGS+=(--release-version "${MARKETING_VERSION}")
-    fi
-    if [ -n "$POSTHOG_BUILD_VERSION" ]; then
-        CLI_ARGS+=(--build "$POSTHOG_BUILD_VERSION")
-    elif [ -n "${CURRENT_PROJECT_VERSION}" ]; then
-        CLI_ARGS+=(--build "${CURRENT_PROJECT_VERSION}")
-    fi
+fi
+if [ -n "${PRODUCT_BUNDLE_IDENTIFIER}" ]; then
+    CLI_ARGS+=(--release-name "${PRODUCT_BUNDLE_IDENTIFIER}")
+fi
+if [ -n "$POSTHOG_RELEASE_VERSION" ]; then
+    CLI_ARGS+=(--release-version "$POSTHOG_RELEASE_VERSION")
+elif [ -n "${MARKETING_VERSION}" ]; then
+    CLI_ARGS+=(--release-version "${MARKETING_VERSION}")
+fi
+if [ -n "$POSTHOG_BUILD_VERSION" ]; then
+    CLI_ARGS+=(--build "$POSTHOG_BUILD_VERSION")
+elif [ -n "${CURRENT_PROJECT_VERSION}" ]; then
+    CLI_ARGS+=(--build "${CURRENT_PROJECT_VERSION}")
 fi
 # Include source if requested via env var
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then

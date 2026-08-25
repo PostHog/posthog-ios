@@ -189,9 +189,12 @@ test_uses_info_plist_with_supported_cli_versions() {
         [ "$STATUS" -eq 0 ] || fail "Expected upload with posthog-cli $version to succeed: $OUTPUT"
         assert_file_contains_line "$CLI_ARGS_FILE" "--info-plist"
         assert_file_contains_line "$CLI_ARGS_FILE" "$SRC_ROOT/Config/Info.plist"
-        assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--release-name"
-        assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--release-version"
-        assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--build"
+        assert_file_contains_line "$CLI_ARGS_FILE" "--release-name"
+        assert_file_contains_line "$CLI_ARGS_FILE" "com.example.app"
+        assert_file_contains_line "$CLI_ARGS_FILE" "--release-version"
+        assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
+        assert_file_contains_line "$CLI_ARGS_FILE" "--build"
+        assert_file_contains_line "$CLI_ARGS_FILE" "154"
     done
 }
 
@@ -269,46 +272,59 @@ EOF
 }
 
 test_resolves_custom_build_setting_references() {
-    create_fixture "custom-build-settings"
-    write_plist "$SRC_ROOT/Config/Info.plist" "\$(APP_VERSION)" "\${BUILD_NUMBER}"
-    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
-    TEST_APP_VERSION="9.9.9"
-    TEST_BUILD_NUMBER="321"
+    local version
+    for version in "0.10.0" "0.15.1"; do
+        create_fixture "custom-build-settings-${version}"
+        write_plist "$SRC_ROOT/Config/Info.plist" "\$(APP_VERSION)" "\${BUILD_NUMBER}"
+        TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+        TEST_APP_VERSION="9.9.9"
+        TEST_BUILD_NUMBER="321"
+        TEST_CLI_VERSION="$version"
 
-    run_upload
+        run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected custom build-setting versions to resolve: $OUTPUT"
-    assert_file_contains_line "$CLI_ARGS_FILE" "9.9.9"
-    assert_file_contains_line "$CLI_ARGS_FILE" "321"
+        [ "$STATUS" -eq 0 ] || fail "Expected custom build-setting versions to resolve with posthog-cli $version: $OUTPUT"
+        assert_file_contains_line "$CLI_ARGS_FILE" "9.9.9"
+        assert_file_contains_line "$CLI_ARGS_FILE" "321"
+    done
 }
 
 test_falls_back_for_preprocessed_plist_values() {
-    create_fixture "preprocessed"
-    write_plist "$SRC_ROOT/Config/Info.plist" "APP_VERSION" "APP_BUILD"
-    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
-    TEST_INFOPLIST_PREPROCESS="YES"
+    local version
+    for version in "0.10.0" "0.15.1"; do
+        create_fixture "preprocessed-${version}"
+        write_plist "$SRC_ROOT/Config/Info.plist" "APP_VERSION" "APP_BUILD"
+        TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+        TEST_INFOPLIST_PREPROCESS="YES"
+        TEST_CLI_VERSION="$version"
 
-    run_upload
+        run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected preprocessed plist values to use Xcode fallbacks: $OUTPUT"
-    assert_file_contains_line "$CLI_ARGS_FILE" "1.0"
-    assert_file_contains_line "$CLI_ARGS_FILE" "1"
+        [ "$STATUS" -eq 0 ] || fail "Expected preprocessed plist values to use Xcode fallbacks with posthog-cli $version: $OUTPUT"
+        assert_file_contains_line "$CLI_ARGS_FILE" "1.0"
+        assert_file_contains_line "$CLI_ARGS_FILE" "1"
+        assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--info-plist"
+    done
 }
 
 test_resolves_compound_build_settings() {
-    create_fixture "compound-build-settings"
-    write_plist "$SRC_ROOT/Config/Info.plist" "\$(VERSION_MAJOR).\$(VERSION_MINOR)" "\$(BUILD_PREFIX)\$(BUILD_NUMBER)"
-    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
-    TEST_VERSION_MAJOR="2"
-    TEST_VERSION_MINOR="10.0"
-    TEST_BUILD_PREFIX="1"
-    TEST_BUILD_NUMBER="54"
+    local version
+    for version in "0.10.0" "0.15.1"; do
+        create_fixture "compound-build-settings-${version}"
+        write_plist "$SRC_ROOT/Config/Info.plist" "\$(VERSION_MAJOR).\$(VERSION_MINOR)" "\$(BUILD_PREFIX)\$(BUILD_NUMBER)"
+        TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+        TEST_VERSION_MAJOR="2"
+        TEST_VERSION_MINOR="10.0"
+        TEST_BUILD_PREFIX="1"
+        TEST_BUILD_NUMBER="54"
+        TEST_CLI_VERSION="$version"
 
-    run_upload
+        run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected compound build settings to resolve: $OUTPUT"
-    assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
-    assert_file_contains_line "$CLI_ARGS_FILE" "154"
+        [ "$STATUS" -eq 0 ] || fail "Expected compound build settings to resolve with posthog-cli $version: $OUTPUT"
+        assert_file_contains_line "$CLI_ARGS_FILE" "2.10.0"
+        assert_file_contains_line "$CLI_ARGS_FILE" "154"
+    done
 }
 
 test_skips_cli_lookup_when_build_does_not_emit_dsyms() {
@@ -325,13 +341,33 @@ test_skips_cli_lookup_when_build_does_not_emit_dsyms() {
 }
 
 test_falls_back_for_unresolved_source_plist_versions() {
-    create_fixture "fallback"
-    write_plist "$SRC_ROOT/Config/Info.plist" "\$(MISSING_VERSION)" "\$(A)-\$(B)"
-    TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+    local version
+    for version in "0.10.0" "0.15.1"; do
+        create_fixture "fallback-${version}"
+        write_plist "$SRC_ROOT/Config/Info.plist" "\$(MISSING_VERSION)" "\$(A)-\$(B)"
+        TEST_INFOPLIST_FILE="$SRC_ROOT/Config/Info.plist"
+        TEST_CLI_VERSION="$version"
+
+        run_upload
+
+        [ "$STATUS" -eq 0 ] || fail "Expected upload with fallback versions and posthog-cli $version to succeed: $OUTPUT"
+        assert_file_contains_line "$CLI_ARGS_FILE" "--release-version"
+        assert_file_contains_line "$CLI_ARGS_FILE" "1.0"
+        assert_file_contains_line "$CLI_ARGS_FILE" "--build"
+        assert_file_contains_line "$CLI_ARGS_FILE" "1"
+    done
+}
+
+test_falls_back_for_malformed_source_plist() {
+    create_fixture "malformed"
+    printf 'not a plist' > "$SRC_ROOT/Config/Info.plist"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+    TEST_CLI_VERSION="0.15.1"
 
     run_upload
 
-    [ "$STATUS" -eq 0 ] || fail "Expected upload with fallback versions to succeed: $OUTPUT"
+    [ "$STATUS" -eq 0 ] || fail "Expected a malformed plist to use Xcode fallbacks: $OUTPUT"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--info-plist"
     assert_file_contains_line "$CLI_ARGS_FILE" "--release-version"
     assert_file_contains_line "$CLI_ARGS_FILE" "1.0"
     assert_file_contains_line "$CLI_ARGS_FILE" "--build"
@@ -349,5 +385,6 @@ test_falls_back_for_preprocessed_plist_values
 test_resolves_compound_build_settings
 test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
+test_falls_back_for_malformed_source_plist
 
 echo "upload-symbols tests passed"

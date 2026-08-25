@@ -1,5 +1,11 @@
 ## Next
 
+## 3.69.12
+
+### Patch Changes
+
+- 2c034db: Use posthog-cli 0.15.1 and newer to read release metadata directly from the app Info.plist when uploading debug symbols.
+
 ## 3.69.11
 
 ### Patch Changes

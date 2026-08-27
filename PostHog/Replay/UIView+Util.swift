@@ -50,7 +50,7 @@
             setPostHogFlag(&AssociatedKeys.phNoRageClick, enabled: enabled, owner: owner)
         }
 
-        func toImage(afterScreenUpdates: Bool = false) -> UIImage? {
+        func toImage(afterScreenUpdates: Bool = false, preferFidelityRenderer: Bool = true) -> UIImage? {
             let bounds = self.bounds
             let size = bounds.size
 
@@ -64,11 +64,28 @@
             let renderer = PostHogGraphicsImageRenderer(size: size, scale: nativeScale)
 
             return autoreleasepool {
-                renderer.image { _ in
-                    /// Note: Default `false` for `afterScreenUpdates` since this will cause the screen to flicker when a sensitive text field is visible on screen
-                    /// This can potentially affect capturing a snapshot during a screen transition but we want the lesser of the two evils here
-                    /// The bridge capture passes `true`: a freshly-presented native VC renders black otherwise.
-                    drawHierarchy(in: bounds, afterScreenUpdates: afterScreenUpdates)
+                renderer.image { context in
+                    if afterScreenUpdates {
+                        /// The bridge capture passes `true`: a freshly-presented native VC renders black otherwise.
+                        drawHierarchy(in: bounds, afterScreenUpdates: true)
+                    } else if preferFidelityRenderer {
+                        // Chosen when the settle check measured little enough movement that the
+                        // displayed frame still matches the current tree, so drawHierarchy's
+                        // full fidelity (blur, video, Metal) is worth lagging the render server.
+                        drawHierarchy(in: bounds, afterScreenUpdates: false)
+                    } else {
+                        // drawHierarchy lags the render server's displayed frame, so mask rects would
+                        // sit ahead of the pixels during scroll or animation. The presentation tree is
+                        // the same source toAbsoluteRect measures, at the same instant — masks and
+                        // pixels can't disagree. Trade-off: blur/video/Metal render flat or empty.
+                        //
+                        // Known limitation: render(in:) skips filters, backgroundFilters and
+                        // layer.mask, so anything relying on a blur or a layer mask to hide content
+                        // draws unhidden here. Whether a blur is redaction or decoration isn't
+                        // knowable from the view, so this isn't detected — content that must never
+                        // appear needs postHogMask().
+                        (layer.presentation() ?? layer).render(in: context)
+                    }
                 }
             }
         }
@@ -77,11 +94,26 @@
         func toAbsoluteRect(_ window: UIWindow?) -> CGRect {
             convert(bounds, to: window)
         }
+
+        /// Mask geometry only. During a CA animation the model layer parks at the destination
+        /// while the presentation layer holds the in-flight position the screenshot renders, so
+        /// mask rects have to come from the presentation tree. Wireframe geometry is a separate
+        /// consumer with no pixels to agree with and stays on `toAbsoluteRect`.
+        func toPresentationRect(_ window: UIWindow?) -> CGRect {
+            guard layer.presentation() != nil else {
+                // UIView's own convert, not the layer's: it resolves a nil window to the view's.
+                return convert(bounds, to: window)
+            }
+            return layer.toPresentationRect(window)
+        }
     }
 
     extension CALayer {
-        func toAbsoluteRect(_ window: UIWindow?) -> CGRect {
-            convert(bounds, to: window?.layer)
+        func toPresentationRect(_ window: UIWindow?) -> CGRect {
+            guard let presentationLayer = presentation() else {
+                return convert(bounds, to: window?.layer)
+            }
+            return presentationLayer.convert(presentationLayer.bounds, to: window?.layer.presentation() ?? window?.layer)
         }
 
         /// Backing flag for the SwiftUI `.postHogNoRageClick()` modifier on layer-backed

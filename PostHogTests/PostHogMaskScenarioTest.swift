@@ -287,4 +287,214 @@
             }
         }
     }
+
+    // Guards the identity pairing in `settleVerdict`: cell recycling and z-order changes
+    // permute traversal order at a fixed count, so pairing rect samples by array index
+    // would compare unrelated rects and settle `.still` fail-open.
+    @Suite("settleVerdict identity pairing")
+    struct PostHogSettleVerdictTest {
+        private typealias MaskedRegion = PostHogReplayIntegration.MaskedRegion
+
+        private func region(_ owner: AnyObject, _ rect: CGRect) -> MaskedRegion {
+            MaskedRegion(owner, rect: rect)
+        }
+
+        @Test("displacement exactly at tolerance settles")
+        func exactlyAtTolerance() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 2, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .still)
+            #expect(verdict.inflatedRects == nil)
+        }
+
+        @Test("just over tolerance drifts")
+        func justOverTolerance() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 2.1, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .drift)
+        }
+
+        @Test("displacement exactly at drift budget drifts")
+        func exactlyAtDriftBudget() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 100, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .drift)
+        }
+
+        @Test("just over drift budget is motion")
+        func justOverDriftBudget() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: 100.1, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .motion)
+            #expect(verdict.inflatedRects == nil)
+        }
+
+        @Test("nil before is motion")
+        func nilBefore() {
+            let a = NSObject()
+            let after = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: nil, after: after)
+            #expect(verdict.band == .motion)
+        }
+
+        @Test("nil after is motion")
+        func nilAfter() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: nil)
+            #expect(verdict.band == .motion)
+        }
+
+        @Test("count mismatch is motion")
+        func countMismatch() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .motion)
+        }
+
+        @Test("same count but a different owner set is motion (index-pairing regression)")
+        func differentOwnerSet() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(b, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .motion)
+        }
+
+        @Test("permuted order with identical per-owner geometry settles")
+        func permutedOrderIdenticalGeometry() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            // Same owners, same rects, but traversal order swapped (e.g. cell recycling).
+            let after = [
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .still)
+        }
+
+        @Test("duplicate owner in a sample is motion, not a trap")
+        func duplicateOwnerFailsClosed() {
+            let a = NSObject()
+            let b = NSObject()
+            // One object can match two maskable heuristics and be collected twice.
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .motion)
+        }
+
+        @Test("duplicate owner in the after sample is motion, not a trap")
+        func duplicateOwnerInAfterFailsClosed() {
+            let a = NSObject()
+            let b = NSObject()
+            // Counts match and every `after` entry resolves to a known owner, but `a`
+            // appears twice — b's disappearance would go unnoticed if this weren't caught.
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .motion)
+        }
+
+        /// Ordering the two thresholds wrong makes `.drift` unreachable, which silently drops the
+        /// swept-region inflation with nothing else failing.
+        @Test("the still tolerance stays below the drift budget")
+        func thresholdsAreOrdered() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let justOverTolerance = [region(a, CGRect(x: 3, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.settleVerdict(before: before, after: justOverTolerance).band == .drift)
+        }
+
+        @Test("only motion drops to the presentation-tree renderer")
+        func bandsPickRenderer() {
+            #expect(PostHogReplayIntegration.SettleBand.still.usesFidelity)
+            #expect(PostHogReplayIntegration.SettleBand.drift.usesFidelity)
+            #expect(!PostHogReplayIntegration.SettleBand.motion.usesFidelity)
+        }
+
+        @Test("empty arrays settle as still")
+        func emptyArraysStill() {
+            let verdict = PostHogReplayIntegration.settleVerdict(before: [], after: [])
+            #expect(verdict.band == .still)
+            #expect(verdict.inflatedRects == nil)
+        }
+
+        @Test("drift inflation covers the swept region and is ordered like after")
+        func driftInflationCoversSweepInAfterOrder() throws {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            // b drifts by 5pt; a is stationary. after is in swapped order vs before, so
+            // ordering must be recovered from `owner`, not index.
+            let after = [
+                region(b, CGRect(x: 0, y: 105, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .drift)
+            let inflated = try #require(verdict.inflatedRects)
+            #expect(inflated.count == 2)
+
+            // inflated[0] pairs with after[0] (b): swept from y=100 through y=105, plus a
+            // sixteenth of the 5pt displacement as lead.
+            let bInflated = inflated[0]
+            #expect(bInflated.minY <= 100)
+            #expect(bInflated.maxY >= 125.31)
+
+            // inflated[1] pairs with after[1] (a): stationary, so it collapses to a's rect.
+            #expect(inflated[1] == CGRect(x: 0, y: 0, width: 100, height: 20))
+        }
+
+        @Test("drift inflation also covers a full settle window behind the older sample")
+        func driftInflationCoversTrailBehindBefore() throws {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 100, width: 100, height: 20))]
+            // a drifts by 5pt.
+            let after = [region(a, CGRect(x: 0, y: 105, width: 100, height: 20))]
+            let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
+            #expect(verdict.band == .drift)
+            let inflated = try #require(verdict.inflatedRects)
+
+            // The displayed pixels can lag `before` by a full settle window if the render
+            // pipeline is deeper than one window — the trail pads a position never sampled.
+            #expect(inflated[0].minY <= 95)
+            #expect(inflated[0].maxY >= 125.31)
+        }
+    }
 #endif

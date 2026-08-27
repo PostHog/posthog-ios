@@ -131,10 +131,15 @@ PostHog | PostHogDisplaySurveyAppearance | class | @objc class PostHogDisplaySur
 PostHog | PostHogDisplaySurveyAppearance.backgroundColor | property | let backgroundColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC15backgroundColorSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.borderColor | property | let borderColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC11borderColorSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.descriptionTextColor | property | let descriptionTextColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC20descriptionTextColorSSSgvp
+PostHog | PostHogDisplaySurveyAppearance.displayIntroScreen | property | let displayIntroScreen: Bool | s:7PostHog0aB23DisplaySurveyAppearanceC18displayIntroScreenSbvp
 PostHog | PostHogDisplaySurveyAppearance.displayThankYouMessage | property | let displayThankYouMessage: Bool | s:7PostHog0aB23DisplaySurveyAppearanceC22displayThankYouMessageSbvp
 PostHog | PostHogDisplaySurveyAppearance.fontFamily | property | let fontFamily: String? | s:7PostHog0aB23DisplaySurveyAppearanceC10fontFamilySSSgvp
 PostHog | PostHogDisplaySurveyAppearance.inputBackground | property | let inputBackground: String? | s:7PostHog0aB23DisplaySurveyAppearanceC15inputBackgroundSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.inputTextColor | property | let inputTextColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC14inputTextColorSSSgvp
+PostHog | PostHogDisplaySurveyAppearance.introScreenButtonText | property | let introScreenButtonText: String? | s:7PostHog0aB23DisplaySurveyAppearanceC21introScreenButtonTextSSSgvp
+PostHog | PostHogDisplaySurveyAppearance.introScreenDescription | property | let introScreenDescription: String? | s:7PostHog0aB23DisplaySurveyAppearanceC22introScreenDescriptionSSSgvp
+PostHog | PostHogDisplaySurveyAppearance.introScreenDescriptionContentType | property | let introScreenDescriptionContentType: PostHogDisplaySurveyTextContentType? | s:7PostHog0aB23DisplaySurveyAppearanceC33introScreenDescriptionContentTypeAA0abcd4TextiJ0OSgvp
+PostHog | PostHogDisplaySurveyAppearance.introScreenHeader | property | let introScreenHeader: String? | s:7PostHog0aB23DisplaySurveyAppearanceC17introScreenHeaderSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.placeholder | property | let placeholder: String? | s:7PostHog0aB23DisplaySurveyAppearanceC11placeholderSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.ratingButtonActiveColor | property | let ratingButtonActiveColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC23ratingButtonActiveColorSSSgvp
 PostHog | PostHogDisplaySurveyAppearance.ratingButtonColor | property | let ratingButtonColor: String? | s:7PostHog0aB23DisplaySurveyAppearanceC17ratingButtonColorSSSgvp

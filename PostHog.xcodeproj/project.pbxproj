@@ -436,6 +436,7 @@
 		DA92C66B2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */; };
 		DA979D7B2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */; };
 		DA9AE8CF2D8357D4002F1B44 /* ConfirmationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */; };
+		AB1234567890ABCD1234AB02 /* IntroMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1234567890ABCD1234AB01 /* IntroMessage.swift */; };
 		DA9AE8D12D835BEA002F1B44 /* QuestionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */; };
 		DA9AE8D32D8377EC002F1B44 /* QuestionTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */; };
 		DA9AE8D52D841994002F1B44 /* Survey+Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */; };
@@ -1276,6 +1277,7 @@
 		DA92C66A2DD208F300C02F3E /* PostHogSessionReplayPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionReplayPlugin.swift; sourceTree = "<group>"; };
 		DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PostHogAutocaptureEventTrackerSpec.swift; sourceTree = "<group>"; };
 		DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationMessage.swift; sourceTree = "<group>"; };
+		AB1234567890ABCD1234AB01 /* IntroMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntroMessage.swift; sourceTree = "<group>"; };
 		DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionHeader.swift; sourceTree = "<group>"; };
 		DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionTypes.swift; sourceTree = "<group>"; };
 		DA9AE8D42D84198E002F1B44 /* Survey+Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Survey+Util.swift"; sourceTree = "<group>"; };
@@ -2001,6 +2003,7 @@
 				DA9AE8D22D8377E6002F1B44 /* QuestionTypes.swift */,
 				DA9AE8D02D835BE6002F1B44 /* QuestionHeader.swift */,
 				DA9AE8CE2D8357D0002F1B44 /* ConfirmationMessage.swift */,
+				AB1234567890ABCD1234AB01 /* IntroMessage.swift */,
 				DAF9E19F2D8231EA00D47263 /* SurveySheet.swift */,
 				DA86D0E22E02D78C00CF3065 /* PostHogSurveysDefaultDelegate.swift */,
 				DAFF026C2D7B2F8D00BD5B1D /* SurveyDisplayController.swift */,
@@ -3358,6 +3361,7 @@
 				942697554951CB83318F9BA9 /* PostHogPushNotificationSubscriptionIntegration.swift in Sources */,
 				AF388D92033943931B5E6FF0 /* PostHogPushSubscriptionHandler.swift in Sources */,
 				DA9AE8CF2D8357D4002F1B44 /* ConfirmationMessage.swift in Sources */,
+				AB1234567890ABCD1234AB02 /* IntroMessage.swift in Sources */,
 				DA263D472D801117004C100D /* NumberRating.swift in Sources */,
 				DA3BB5052EDF15320097A97A /* PostHogStackFrame.swift in Sources */,
 				DACC08BB2D6E3C6D00115E46 /* PostHogIntegration.swift in Sources */,

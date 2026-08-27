@@ -483,7 +483,10 @@
                             name: "Bonjour",
                             thankYouMessageHeader: nil,
                             thankYouMessageDescription: nil,
-                            thankYouMessageCloseButtonText: nil
+                            thankYouMessageCloseButtonText: nil,
+                            introScreenHeader: nil,
+                            introScreenDescription: nil,
+                            introScreenButtonText: nil
                         )]
                     )
                 }
@@ -788,6 +791,78 @@
                 }
             }
 
+            @Suite("Test display controller intro screen")
+            struct TestDisplayControllerIntroScreen {
+                private func displaySurvey(displayIntroScreen: Bool, introScreenHeader: String? = "Welcome!") -> PostHogDisplaySurvey {
+                    PostHogDisplaySurvey(
+                        id: "survey-1",
+                        name: "Survey",
+                        questions: [],
+                        appearance: PostHogDisplaySurveyAppearance(
+                            fontFamily: nil,
+                            backgroundColor: nil,
+                            borderColor: nil,
+                            submitButtonColor: nil,
+                            submitButtonText: nil,
+                            submitButtonTextColor: nil,
+                            textColor: nil,
+                            descriptionTextColor: nil,
+                            ratingButtonColor: nil,
+                            ratingButtonActiveColor: nil,
+                            inputBackground: nil,
+                            inputTextColor: nil,
+                            placeholder: nil,
+                            surveyPopupDelaySeconds: nil,
+                            displayThankYouMessage: true,
+                            thankYouMessageHeader: nil,
+                            thankYouMessageDescription: nil,
+                            thankYouMessageDescriptionContentType: nil,
+                            thankYouMessageCloseButtonText: nil,
+                            displayIntroScreen: displayIntroScreen,
+                            introScreenHeader: introScreenHeader
+                        ),
+                        startDate: nil,
+                        endDate: nil
+                    )
+                }
+
+                @MainActor
+                @Test("showSurvey starts on the intro screen only when enabled")
+                func showSurveyInitializesIntroState() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(displayIntroScreen: true))
+                    #expect(controller.showingIntroScreen == true)
+
+                    let other = SurveyDisplayController()
+                    other.showSurvey(displaySurvey(displayIntroScreen: false))
+                    #expect(other.showingIntroScreen == false)
+                }
+
+                @MainActor
+                @Test("intro screen with no copy at all is skipped")
+                func showSurveySkipsEmptyIntro() {
+                    let controller = SurveyDisplayController()
+                    controller.showSurvey(displaySurvey(displayIntroScreen: true, introScreenHeader: nil))
+                    #expect(controller.showingIntroScreen == false)
+                }
+
+                @MainActor
+                @Test("advancing past the intro screen keeps the survey open and sends no close callback")
+                func dismissIntroScreenIsPureUITransition() {
+                    let controller = SurveyDisplayController()
+                    var closedCount = 0
+                    controller.onSurveyClosed = { _ in closedCount += 1 }
+                    controller.showSurvey(displaySurvey(displayIntroScreen: true))
+
+                    controller.dismissIntroScreen()
+
+                    #expect(controller.showingIntroScreen == false)
+                    #expect(controller.displayedSurvey != nil)
+                    #expect(controller.currentQuestionIndex == 0)
+                    #expect(closedCount == 0)
+                }
+            }
+
             @Suite("Test default delegate delayed display update", .serialized)
             struct TestDefaultDelegateDelayedDisplay {
                 private func displaySurvey(name: String, delaySeconds: TimeInterval) -> PostHogDisplaySurvey {
@@ -872,6 +947,10 @@
                     throw TestError("Expected choice display question")
                 }
                 #expect(display.appearance?.thankYouMessageHeader == "Merci!")
+                #expect(display.appearance?.introScreenHeader == "Bienvenue!")
+                #expect(display.appearance?.introScreenButtonText == "Commencer")
+                // introScreenDescription was not translated — falls back
+                #expect(display.appearance?.introScreenDescription == "Two quick questions.")
             }
 
             @Test("display survey without translations renders original")
@@ -888,6 +967,8 @@
                     #expect(choice.choices == ["One", "Two"])
                 }
                 #expect(display.appearance?.thankYouMessageHeader == "Thanks!")
+                #expect(display.appearance?.displayIntroScreen == true)
+                #expect(display.appearance?.introScreenHeader == "Welcome!")
             }
         }
     }

@@ -16,6 +16,9 @@ struct PostHogSurveyTranslation: Decodable {
     let thankYouMessageHeader: String?
     let thankYouMessageDescription: String?
     let thankYouMessageCloseButtonText: String?
+    let introScreenHeader: String?
+    let introScreenDescription: String?
+    let introScreenButtonText: String?
 }
 
 /// Localized overrides for a survey question.

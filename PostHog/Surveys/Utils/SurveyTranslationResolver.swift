@@ -149,6 +149,12 @@
            description != appearance?.thankYouMessageDescription { return true }
         if let closeText = translation.thankYouMessageCloseButtonText,
            closeText != appearance?.thankYouMessageCloseButtonText { return true }
+        if let header = translation.introScreenHeader,
+           header != appearance?.introScreenHeader { return true }
+        if let description = translation.introScreenDescription,
+           description != appearance?.introScreenDescription { return true }
+        if let buttonText = translation.introScreenButtonText,
+           buttonText != appearance?.introScreenButtonText { return true }
         return false
     }
 

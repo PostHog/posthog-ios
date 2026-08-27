@@ -126,7 +126,12 @@
                 thankYouMessageHeader: translation?.thankYouMessageHeader ?? thankYouMessageHeader,
                 thankYouMessageDescription: translation?.thankYouMessageDescription ?? thankYouMessageDescription,
                 thankYouMessageDescriptionContentType: thankYouMessageDescriptionContentType?.toDisplayContentType(),
-                thankYouMessageCloseButtonText: translation?.thankYouMessageCloseButtonText ?? thankYouMessageCloseButtonText
+                thankYouMessageCloseButtonText: translation?.thankYouMessageCloseButtonText ?? thankYouMessageCloseButtonText,
+                displayIntroScreen: displayIntroScreen ?? false,
+                introScreenHeader: translation?.introScreenHeader ?? introScreenHeader,
+                introScreenDescription: translation?.introScreenDescription ?? introScreenDescription,
+                introScreenDescriptionContentType: introScreenDescriptionContentType?.toDisplayContentType(),
+                introScreenButtonText: translation?.introScreenButtonText ?? introScreenButtonText
             )
         }
     }

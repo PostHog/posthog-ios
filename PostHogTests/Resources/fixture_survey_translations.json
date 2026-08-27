@@ -28,10 +28,14 @@
     "appearance": {
         "thankYouMessageHeader": "Thanks!",
         "thankYouMessageDescription": "We appreciate it",
-        "thankYouMessageCloseButtonText": "Close"
+        "thankYouMessageCloseButtonText": "Close",
+        "displayIntroScreen": true,
+        "introScreenHeader": "Welcome!",
+        "introScreenDescription": "Two quick questions.",
+        "introScreenButtonText": "Get started"
     },
     "translations": {
-        "fr": { "name": "Bonjour", "thankYouMessageHeader": "Merci!" },
+        "fr": { "name": "Bonjour", "thankYouMessageHeader": "Merci!", "introScreenHeader": "Bienvenue!", "introScreenButtonText": "Commencer" },
         "pt": { "thankYouMessageHeader": "Obrigado" }
     },
     "start_date": "2025-01-16T22:23:38.805000Z"

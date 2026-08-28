@@ -13,7 +13,7 @@
     import UIKit
     import WebKit
 
-    class PostHogReplayIntegration: PostHogIntegration { // swiftlint:disable:this type_body_length
+    class PostHogReplayIntegration: PostHogIntegration {
         var requiresSwizzling: Bool { true }
 
         private static let integrationInstallState = PostHogIntegrationInstallState()
@@ -1108,30 +1108,6 @@
             return wireframe
         }
 
-        /// A maskable rect tagged with its view/layer identity, so two samples taken moments
-        /// apart pair by identity rather than array index — traversal order isn't stable across
-        /// cell recycling or z-order changes. `object` is retained because a deallocation would
-        /// otherwise let `owner`'s address be reused by an unrelated view.
-        struct MaskedRegion {
-            let owner: ObjectIdentifier
-            let object: AnyObject
-            let rect: CGRect
-
-            init(_ object: AnyObject, rect: CGRect) {
-                owner = ObjectIdentifier(object)
-                self.object = object
-                self.rect = rect
-            }
-
-            init(_ view: UIView, in window: UIWindow?) {
-                self.init(view, rect: view.toPresentationRect(window))
-            }
-
-            init(_ layer: CALayer, in window: UIWindow?) {
-                self.init(layer, rect: layer.toPresentationRect(window))
-            }
-        }
-
         /// All regions to redact in `window`: heuristic widgets from the hierarchy walk plus the
         /// live regions of `postHogMask()` reporters. Returns nil when a reporter hasn't laid out
         /// yet — the caller must skip the frame rather than capture it under-masked.
@@ -1226,9 +1202,16 @@
         ) -> Bool {
             defer { finishScreenshotRender() }
 
-            // Off-main callers (`screenshotModeBackgroundCapture`) render on their own thread, and the
-            // bridge's first frame needs its own `afterScreenUpdates: true` pass — bouncing either
-            // render onto main here would undo the point of that path.
+            // Ahead of the render, not just after it: collect() now renders the image, so a session
+            // that stopped between the snapshot trigger and here would otherwise pay for a
+            // full-window render and throw it away.
+            guard postHog.isSessionReplayActive() else {
+                return false
+            }
+
+            // The bridge's first frame needs its own `afterScreenUpdates: true` pass, so it renders
+            // later in renderAndEnqueueScreenshot rather than in this tick. Both callers arrive on
+            // main already; the sync below is defensive.
             let rendersInMeasuringTick = Thread.isMainThread && !episodeFirstFrame
             func collect() -> ScreenshotCapture? {
                 collectScreenshotMetadata(
@@ -1539,126 +1522,6 @@
             )
         }
 
-        // Tuning surface for the settle check. Defaults are deliberately conservative: measured on
-        // device, a 25ms window sees ~1.5pt of slow drift, ~4pt of CA animation and 185pt+ of a
-        // scroll fling, so everything except a fling keeps the same renderer session replay has
-        // always used, and only a fling trades fidelity for exactly-aligned masks.
-
-        /// Gap between the two geometry samples, and the unit every threshold below is measured in.
-        /// Raising it delays each capture by that much and holds the render-in-flight slot longer;
-        /// lowering it makes the velocity estimate noisier. Change this and the two point
-        /// thresholds stop meaning what they say — rescale them by the same factor.
-        private static let settleWindowSeconds: TimeInterval = 0.025
-
-        /// At or below this, geometry counts as unmoved and rects are used exactly as sampled.
-        /// Raise only to stop idle screens paying for inflation, and only a little: this much
-        /// displacement then goes uncompensated, so it is the one knob that trades directly
-        /// against coverage.
-        private static let settleTolerancePoints: CGFloat = 2.0
-
-        /// Above this, drop to the presentation-tree renderer, whose masks cannot disagree with its
-        /// pixels but which flattens blur, video and Metal. Raise to keep more motion at full
-        /// fidelity, paying for it in larger inflated masks; lower for tighter masks and more flat
-        /// frames. Sits between animation and fling so ordinary movement never flattens.
-        private static let driftBudgetPoints: CGFloat = 100.0
-
-        /// Lead added past the newer sample, as a fraction of the measured displacement — the union
-        /// of both samples does the real covering, this only pads the direction of travel. On device
-        /// every value from 1 down to 1/64 held without exposing content, so it stays small; raise
-        /// it only if content is ever seen escaping the leading edge, since it grows every mask.
-        private static let driftLeadFraction: CGFloat = 1.0 / 16.0
-
-        /// Displacement between the two rect samples estimates how far the displayed pixels
-        /// trail current geometry — the display pipeline is about one settle window deep.
-        enum SettleBand {
-            case still, drift, motion
-
-            /// Only motion needs the presentation-tree renderer, which is aligned by construction.
-            var usesFidelity: Bool { self != .motion }
-        }
-
-        /// Old rects in `after` order, or nil when the two samples can't be paired one-to-one:
-        /// a nil sample, a count mismatch, a duplicate owner in either, or an owner with no
-        /// counterpart. Index-pairing would fail open into `.still`, so pairing is by identity.
-        private static func pairedOldRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            guard let before, let after, before.count == after.count else {
-                return nil
-            }
-            // Built by hand rather than Dictionary(uniqueKeysWithValues:), which traps on a
-            // duplicate owner — one object can match two maskable heuristics and be collected
-            // twice, and an SDK must not turn that into a host-app crash. Ambiguous pairing
-            // fails closed instead.
-            var beforeByOwner: [ObjectIdentifier: CGRect] = [:]
-            beforeByOwner.reserveCapacity(before.count)
-            for region in before where beforeByOwner.updateValue(region.rect, forKey: region.owner) != nil {
-                return nil
-            }
-            // Ordered to match `after` one-for-one: the result substitutes positionally
-            // for the `after` sample downstream.
-            var oldRects: [CGRect] = []
-            oldRects.reserveCapacity(after.count)
-            var seenAfterOwners: Set<ObjectIdentifier> = []
-            seenAfterOwners.reserveCapacity(after.count)
-            for region in after {
-                // No counterpart in `before` — something appeared/disappeared, fail closed.
-                guard let oldRect = beforeByOwner[region.owner] else {
-                    return nil
-                }
-                // A duplicate here would silently pair two `after` entries with the same old
-                // rect, hiding whatever the repeated owner displaced — fail closed instead.
-                guard seenAfterOwners.insert(region.owner).inserted else {
-                    return nil
-                }
-                oldRects.append(oldRect)
-            }
-            return oldRects
-        }
-
-        /// Per-owner union of two samples taken either side of a render, in `after` order:
-        /// covers wherever the content sat while the render ran. nil when the samples can't be
-        /// paired, so the caller skips the frame rather than masking the wrong places.
-        static func sweptRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
-            guard let oldRects = pairedOldRects(before: before, after: after), let after else {
-                return nil
-            }
-            return zip(oldRects, after).map { $0.union($1.rect) }
-        }
-
-        /// Banded by measured drift:
-        /// - still (≤ tolerance): rects as collected.
-        /// - drift (≤ budget): each mask inflated to the swept region (both sampled positions
-        ///   plus `driftLeadFraction` of it as lead).
-        /// - motion (anything else, or unreadable geometry): fail-closed default.
-        static func settleVerdict(
-            before: [MaskedRegion]?, after: [MaskedRegion]?
-        ) -> (band: SettleBand, inflatedRects: [CGRect]?) {
-            guard let after, let oldRects = pairedOldRects(before: before, after: after) else {
-                return (.motion, nil)
-            }
-            let maxDisplacement = zip(oldRects, after).map { old, new in
-                max(abs(old.minX - new.rect.minX), abs(old.minY - new.rect.minY),
-                    abs(old.width - new.rect.width), abs(old.height - new.rect.height))
-            }.max() ?? 0
-            if maxDisplacement <= settleTolerancePoints {
-                return (.still, nil)
-            }
-            if maxDisplacement <= driftBudgetPoints {
-                let inflated = zip(oldRects, after).map { old, region -> CGRect in
-                    let new = region.rect
-                    let deltaX = new.midX - old.midX
-                    let deltaY = new.midY - old.midY
-                    return old.union(new)
-                        .union(new.offsetBy(dx: deltaX * driftLeadFraction, dy: deltaY * driftLeadFraction))
-                        // Full displacement, not a fraction like the lead: this covers a position
-                        // that was never sampled, since a render pipeline deeper than one settle
-                        // window leaves the displayed pixels behind `before`.
-                        .union(old.offsetBy(dx: -deltaX, dy: -deltaY))
-                }
-                return (.drift, inflated)
-            }
-            return (.motion, nil)
-        }
-
         /// The render sits between two mask samples instead of one: measure geometry, render
         /// off-main, measure again, mask the per-owner union — provably covering wherever the
         /// content sat while the render ran, so no threshold is needed. Always uses
@@ -1677,9 +1540,12 @@
             let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
                 let after = self.collectMaskedRegions(in: window)
                 guard let rects = Self.sweptRects(before: before, after: after) else {
+                    hedgeLog("[Session Replay] Skipping snapshot: mask samples could not be paired")
                     return nil
                 }
-                return self.collectScreenshotMetadata(window, preferFidelityRenderer: true, overrideMaskRects: rects, renderImage: false)
+                // No renderer preference: `renderImage: false` means this call never renders — the
+                // image was already taken off-main above.
+                return self.collectScreenshotMetadata(window, overrideMaskRects: rects, renderImage: false)
             }
 
             guard let capture, let image, postHog.isSessionReplayActive() else {
@@ -1702,6 +1568,14 @@
         /// (blur/video/Metal intact); drift within budget keeps drawHierarchy with masks swept to
         /// cover it, only motion or an unpairable sample drops to render(in:) for alignment.
         private func scheduleSettledCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) {
+            // Same bails prepareScreenshotWireframe applies, hoisted ahead of the two sampling
+            // walks: without this a view controller transition pays for both traversals and then
+            // discards them, where before it walked the hierarchy zero times.
+            guard window.isVisible(), !isAnimatingTransition(window) else {
+                finishScreenshotRender()
+                return
+            }
+
             let sentinelRegions = collectMaskedRegions(in: window)
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleWindowSeconds) { [weak self] in
                 guard let self else { return }

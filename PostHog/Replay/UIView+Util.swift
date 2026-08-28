@@ -76,7 +76,7 @@
                     } else {
                         // drawHierarchy lags the render server, so mask rects could sit ahead of
                         // the pixels during scroll or animation; the presentation tree is the same
-                        // source toAbsoluteRect measures, at the same instant, so the two agree.
+                        // source toPresentationRect measures, at the same instant, so the two agree.
                         // Trade-off: blur, video and Metal render flat, and render(in:) also skips
                         // filters and layer.mask — content that must stay hidden needs postHogMask().
                         (layer.presentation() ?? layer).render(in: context)

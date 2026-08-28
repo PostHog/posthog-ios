@@ -532,8 +532,8 @@
             #expect(PostHogReplayIntegration.sweptRects(before: before, after: nil) == nil)
         }
 
-        @Test("count mismatch makes sweptRects nil")
-        func sweptRectsCountMismatch() {
+        @Test("an owner that appears mid-render is covered, not dropped")
+        func sweptRectsCountMismatch() throws {
             let a = NSObject()
             let b = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
@@ -541,7 +541,13 @@
                 region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
                 region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
             ]
-            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
+            // b appeared mid-render, so it was displayed for part of the window and is covered
+            // rather than costing the whole frame.
+            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
+            #expect(swept == [
+                CGRect(x: 0, y: 0, width: 100, height: 20),
+                CGRect(x: 0, y: 100, width: 100, height: 20),
+            ])
         }
 
         @Test("duplicate owner in before makes sweptRects nil")
@@ -574,13 +580,19 @@
             #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
         }
 
-        @Test("disjoint owner set makes sweptRects nil")
-        func sweptRectsDisjointOwnerSet() {
+        @Test("a fully recycled owner set covers both samples, not nil")
+        func sweptRectsDisjointOwnerSet() throws {
             let a = NSObject()
             let b = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(b, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
+            let after = [region(b, CGRect(x: 0, y: 200, width: 100, height: 20))]
+            // Neither owner can be paired, but both were on screen during the render window:
+            // `after` entries come first, then the ones that went away.
+            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
+            #expect(swept == [
+                CGRect(x: 0, y: 200, width: 100, height: 20),
+                CGRect(x: 0, y: 0, width: 100, height: 20),
+            ])
         }
 
         @Test("a stationary owner's swept rect equals its rect unchanged")

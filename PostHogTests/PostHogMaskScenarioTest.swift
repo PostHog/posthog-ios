@@ -300,7 +300,7 @@
         func exactlyAtTolerance() {
             let a = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 2, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: PostHogReplayIntegration.settleTolerancePoints, y: 0, width: 100, height: 20))]
             let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
             #expect(verdict.band == .still)
             #expect(verdict.inflatedRects == nil)
@@ -310,7 +310,7 @@
         func justOverTolerance() {
             let a = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 2.1, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: PostHogReplayIntegration.settleTolerancePoints + 0.1, y: 0, width: 100, height: 20))]
             let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
             #expect(verdict.band == .drift)
         }
@@ -319,7 +319,7 @@
         func exactlyAtDriftBudget() {
             let a = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 100, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: PostHogReplayIntegration.driftBudgetPoints, y: 0, width: 100, height: 20))]
             let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
             #expect(verdict.band == .drift)
         }
@@ -328,7 +328,7 @@
         func justOverDriftBudget() {
             let a = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let after = [region(a, CGRect(x: 100.1, y: 0, width: 100, height: 20))]
+            let after = [region(a, CGRect(x: PostHogReplayIntegration.driftBudgetPoints + 0.1, y: 0, width: 100, height: 20))]
             let verdict = PostHogReplayIntegration.settleVerdict(before: before, after: after)
             #expect(verdict.band == .motion)
             #expect(verdict.inflatedRects == nil)
@@ -431,7 +431,7 @@
         func thresholdsAreOrdered() {
             let a = NSObject()
             let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
-            let justOverTolerance = [region(a, CGRect(x: 3, y: 0, width: 100, height: 20))]
+            let justOverTolerance = [region(a, CGRect(x: PostHogReplayIntegration.settleTolerancePoints + 0.1, y: 0, width: 100, height: 20))]
             #expect(PostHogReplayIntegration.settleVerdict(before: before, after: justOverTolerance).band == .drift)
         }
 

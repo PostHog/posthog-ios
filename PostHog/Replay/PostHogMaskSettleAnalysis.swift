@@ -44,13 +44,13 @@
         /// Raise only to stop idle screens paying for inflation, and only a little: this much
         /// displacement then goes uncompensated, so it is the one knob that trades directly
         /// against coverage.
-        private static let settleTolerancePoints = 80 * CGFloat(settleWindowSeconds)
+        static let settleTolerancePoints = 80 * CGFloat(settleWindowSeconds)
 
         /// Above 2000pt/s, drop to the presentation-tree renderer, whose masks cannot disagree with
         /// its pixels but which flattens blur, video and Metal. Raise to keep more motion at full
         /// fidelity, paying for it in larger inflated masks; lower for tighter masks and more flat
         /// frames. Sits between animation and fling so ordinary movement never flattens.
-        private static let driftBudgetPoints = 2000 * CGFloat(settleWindowSeconds)
+        static let driftBudgetPoints = 2000 * CGFloat(settleWindowSeconds)
 
         /// Lead added past the newer sample, as a fraction of the measured displacement — the union
         /// of both samples does the real covering, this only pads the direction of travel. On device

@@ -1586,19 +1586,14 @@
             var usesFidelity: Bool { self != .motion }
         }
 
-        /// Banded by measured drift:
-        /// - still (≤ tolerance): rects as collected.
-        /// - drift (≤ budget): each mask inflated to the swept region (both sampled positions
-        ///   plus `driftLeadFraction` of it as lead).
-        /// - motion (anything else, or unreadable geometry): fail-closed default.
+        /// Old rects in `after` order, or nil when the two samples can't be paired one-to-one
+        /// (nil sample, count mismatch, a duplicate owner in either, or an owner with no counterpart).
         /// Pairs by view identity, not array index — traversal order isn't stable across cell
         /// recycling or z-order changes, so index-pairing could compare unrelated rects and
         /// fail open into `.still`.
-        static func settleVerdict(
-            before: [MaskedRegion]?, after: [MaskedRegion]?
-        ) -> (band: SettleBand, inflatedRects: [CGRect]?) {
+        private static func pairedOldRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
             guard let before, let after, before.count == after.count else {
-                return (.motion, nil)
+                return nil
             }
             // Built by hand rather than Dictionary(uniqueKeysWithValues:), which traps on a
             // duplicate owner — one object can match two maskable heuristics and be collected
@@ -1607,9 +1602,9 @@
             var beforeByOwner: [ObjectIdentifier: CGRect] = [:]
             beforeByOwner.reserveCapacity(before.count)
             for region in before where beforeByOwner.updateValue(region.rect, forKey: region.owner) != nil {
-                return (.motion, nil)
+                return nil
             }
-            // Ordered to match `after` one-for-one: inflatedRects substitutes positionally
+            // Ordered to match `after` one-for-one: the result substitutes positionally
             // for the `after` sample downstream.
             var oldRects: [CGRect] = []
             oldRects.reserveCapacity(after.count)
@@ -1618,14 +1613,38 @@
             for region in after {
                 // No counterpart in `before` — something appeared/disappeared, fail closed.
                 guard let oldRect = beforeByOwner[region.owner] else {
-                    return (.motion, nil)
+                    return nil
                 }
                 // A duplicate here would silently pair two `after` entries with the same old
                 // rect, hiding whatever the repeated owner displaced — fail closed instead.
                 guard seenAfterOwners.insert(region.owner).inserted else {
-                    return (.motion, nil)
+                    return nil
                 }
                 oldRects.append(oldRect)
+            }
+            return oldRects
+        }
+
+        /// Per-owner union of two samples taken either side of a render, in `after` order:
+        /// covers wherever the content sat while the render ran. nil when the samples can't be
+        /// paired, so the caller skips the frame rather than masking the wrong places.
+        static func sweptRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
+            guard let oldRects = pairedOldRects(before: before, after: after), let after else {
+                return nil
+            }
+            return zip(oldRects, after).map { $0.union($1.rect) }
+        }
+
+        /// Banded by measured drift:
+        /// - still (≤ tolerance): rects as collected.
+        /// - drift (≤ budget): each mask inflated to the swept region (both sampled positions
+        ///   plus `driftLeadFraction` of it as lead).
+        /// - motion (anything else, or unreadable geometry): fail-closed default.
+        static func settleVerdict(
+            before: [MaskedRegion]?, after: [MaskedRegion]?
+        ) -> (band: SettleBand, inflatedRects: [CGRect]?) {
+            guard let after, let oldRects = pairedOldRects(before: before, after: after) else {
+                return (.motion, nil)
             }
             let maxDisplacement = zip(oldRects, after).map { old, new in
                 max(abs(old.minX - new.rect.minX), abs(old.minY - new.rect.minY),
@@ -1646,6 +1665,46 @@
                 return (.drift, inflated)
             }
             return (.motion, nil)
+        }
+
+        /// Background capture's render sits between two mask samples instead of one: geometry is
+        /// measured, pixels render off-main, geometry is measured again, and the per-owner union of
+        /// both samples is what gets masked — provably covering wherever the content sat while the
+        /// render ran, no threshold needed since the interval is the render itself rather than a
+        /// guess. Always renders with `drawHierarchy` (never the presentation-tree renderer): that
+        /// renderer reads `layer.presentation()`, which is only safe from main, and every other read
+        /// on this path already sits inside `main.sync`.
+        @discardableResult
+        private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
+            defer { finishScreenshotRender() }
+
+            let before = DispatchQueue.main.sync { self.collectMaskedRegions(in: window) }
+            // Off-main on purpose, and the reason this mode exists: drawHierarchy on main was too
+            // slow to keep up. UIKit documents it as main-thread-only, so it stays experimental
+            // behind `screenshotModeBackgroundCapture` — the bracketing above is what keeps masks
+            // aligned with pixels despite the render happening on this thread.
+            let image = window.toImage(preferFidelityRenderer: true)
+            let capture = DispatchQueue.main.sync { () -> ScreenshotCapture? in
+                let after = self.collectMaskedRegions(in: window)
+                guard let rects = Self.sweptRects(before: before, after: after) else {
+                    return nil
+                }
+                return self.collectScreenshotMetadata(window, preferFidelityRenderer: true, overrideMaskRects: rects, renderImage: false)
+            }
+
+            guard let capture, let image, postHog.isSessionReplayActive() else {
+                return false
+            }
+
+            return renderAndEnqueueScreenshot(
+                capture.wireframe,
+                window: window,
+                windowSize: capture.windowSize,
+                screenName: screenName,
+                postHog: postHog,
+                timestampDate: capture.timestampDate,
+                image: image
+            )
         }
 
         /// Settle-then-shoot: after one display-pipeline depth, unchanged mask geometry proves the
@@ -1699,7 +1758,7 @@
 
                 if postHog.config.sessionReplayConfig.screenshotModeBackgroundCapture {
                     PostHogReplayIntegration.dispatchQueue.async { [weak self] in
-                        self?.performScreenshotCapture(window: window, screenName: screenName, postHog: postHog)
+                        self?.performBracketedBackgroundCapture(window: window, screenName: screenName, postHog: postHog)
                     }
                 } else {
                     scheduleSettledCapture(window: window, screenName: screenName, postHog: postHog)

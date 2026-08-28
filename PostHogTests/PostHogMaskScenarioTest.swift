@@ -496,5 +496,104 @@
             #expect(inflated[0].minY <= 95)
             #expect(inflated[0].maxY >= 125.31)
         }
+
+        @Test("swept union covers both sample positions, in after order")
+        func sweptRectsCoversBothSamplesInAfterOrder() throws {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            // b moves; a is stationary. after is in swapped order vs before, so
+            // ordering must be recovered from `owner`, not index.
+            let after = [
+                region(b, CGRect(x: 0, y: 130, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
+            #expect(swept.count == 2)
+
+            // swept[0] pairs with after[0] (b): union of y=100..120 and y=130..150.
+            #expect(swept[0] == CGRect(x: 0, y: 100, width: 100, height: 50))
+
+            // swept[1] pairs with after[1] (a): stationary, so it collapses to a's rect.
+            #expect(swept[1] == CGRect(x: 0, y: 0, width: 100, height: 20))
+        }
+
+        @Test("nil before makes sweptRects nil")
+        func sweptRectsNilBefore() {
+            let a = NSObject()
+            let after = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.sweptRects(before: nil, after: after) == nil)
+        }
+
+        @Test("nil after makes sweptRects nil")
+        func sweptRectsNilAfter() {
+            let a = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.sweptRects(before: before, after: nil) == nil)
+        }
+
+        @Test("count mismatch makes sweptRects nil")
+        func sweptRectsCountMismatch() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
+        }
+
+        @Test("duplicate owner in before makes sweptRects nil")
+        func sweptRectsDuplicateOwnerInBefore() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
+        }
+
+        @Test("duplicate owner in after makes sweptRects nil")
+        func sweptRectsDuplicateOwnerInAfter() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(b, CGRect(x: 0, y: 100, width: 100, height: 20)),
+            ]
+            let after = [
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+                region(a, CGRect(x: 0, y: 0, width: 100, height: 20)),
+            ]
+            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
+        }
+
+        @Test("disjoint owner set makes sweptRects nil")
+        func sweptRectsDisjointOwnerSet() {
+            let a = NSObject()
+            let b = NSObject()
+            let before = [region(a, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            let after = [region(b, CGRect(x: 0, y: 0, width: 100, height: 20))]
+            #expect(PostHogReplayIntegration.sweptRects(before: before, after: after) == nil)
+        }
+
+        @Test("a stationary owner's swept rect equals its rect unchanged")
+        func sweptRectsStationaryOwnerUnchanged() throws {
+            let a = NSObject()
+            let rect = CGRect(x: 10, y: 20, width: 100, height: 20)
+            let before = [region(a, rect)]
+            let after = [region(a, rect)]
+            let swept = try #require(PostHogReplayIntegration.sweptRects(before: before, after: after))
+            #expect(swept == [rect])
+        }
     }
 #endif

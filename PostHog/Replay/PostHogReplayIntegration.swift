@@ -1108,11 +1108,10 @@
             return wireframe
         }
 
-        /// A maskable rect tagged with the identity of the view/layer it came from, so two
-        /// samples taken moments apart can be paired by identity instead of by array index —
-        /// traversal order isn't stable across cell recycling or z-order changes. Retains the
-        /// object so the identity stays valid for the sample's lifetime, otherwise a
-        /// deallocation could hand the same address to an unrelated view.
+        /// A maskable rect tagged with its view/layer identity, so two samples taken moments
+        /// apart pair by identity rather than array index — traversal order isn't stable across
+        /// cell recycling or z-order changes. `object` is retained because a deallocation would
+        /// otherwise let `owner`'s address be reused by an unrelated view.
         struct MaskedRegion {
             let owner: ObjectIdentifier
             let object: AnyObject
@@ -1133,14 +1132,12 @@
             }
         }
 
-        /// All regions to redact in `window`: heuristic widgets from the hierarchy walk
-        /// plus the live regions of `postHogMask()` reporters. Returns nil when a
-        /// reporter hasn't been laid out yet — the caller must skip the frame rather
-        /// than capture it under-masked.
-        ///
-        /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by
-        /// default): pixels render after this collection, so any rect source can go
-        /// stale for content committed in between.
+        /// All regions to redact in `window`: heuristic widgets from the hierarchy walk plus the
+        /// live regions of `postHogMask()` reporters. Returns nil when a reporter hasn't laid out
+        /// yet — the caller must skip the frame rather than capture it under-masked.
+        /// Pre-existing limitation with `screenshotModeBackgroundCapture` (off by default): pixels
+        /// render after this collection, so any rect source can go stale for content committed in
+        /// between.
         private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
             // The cheap registry read can veto the frame; keep it before the walk.
             let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window)
@@ -1571,12 +1568,6 @@
         /// it only if content is ever seen escaping the leading edge, since it grows every mask.
         private static let driftLeadFraction: CGFloat = 1.0 / 16.0
 
-        /// Trail added behind the older sample, as a fraction of the measured displacement. Unlike
-        /// the lead, which pads past a position that WAS sampled, this covers a position that was
-        /// never sampled — if the render pipeline is deeper than one settle window, the displayed
-        /// pixels can sit behind `before` — so it gets a full settle window rather than a fraction.
-        private static let driftTrailFraction: CGFloat = 1.0
-
         /// Displacement between the two rect samples estimates how far the displayed pixels
         /// trail current geometry — the display pipeline is about one settle window deep.
         enum SettleBand {
@@ -1586,11 +1577,9 @@
             var usesFidelity: Bool { self != .motion }
         }
 
-        /// Old rects in `after` order, or nil when the two samples can't be paired one-to-one
-        /// (nil sample, count mismatch, a duplicate owner in either, or an owner with no counterpart).
-        /// Pairs by view identity, not array index — traversal order isn't stable across cell
-        /// recycling or z-order changes, so index-pairing could compare unrelated rects and
-        /// fail open into `.still`.
+        /// Old rects in `after` order, or nil when the two samples can't be paired one-to-one:
+        /// a nil sample, a count mismatch, a duplicate owner in either, or an owner with no
+        /// counterpart. Index-pairing would fail open into `.still`, so pairing is by identity.
         private static func pairedOldRects(before: [MaskedRegion]?, after: [MaskedRegion]?) -> [CGRect]? {
             guard let before, let after, before.count == after.count else {
                 return nil
@@ -1660,20 +1649,21 @@
                     let deltaY = new.midY - old.midY
                     return old.union(new)
                         .union(new.offsetBy(dx: deltaX * driftLeadFraction, dy: deltaY * driftLeadFraction))
-                        .union(old.offsetBy(dx: -deltaX * driftTrailFraction, dy: -deltaY * driftTrailFraction))
+                        // Full displacement, not a fraction like the lead: this covers a position
+                        // that was never sampled, since a render pipeline deeper than one settle
+                        // window leaves the displayed pixels behind `before`.
+                        .union(old.offsetBy(dx: -deltaX, dy: -deltaY))
                 }
                 return (.drift, inflated)
             }
             return (.motion, nil)
         }
 
-        /// Background capture's render sits between two mask samples instead of one: geometry is
-        /// measured, pixels render off-main, geometry is measured again, and the per-owner union of
-        /// both samples is what gets masked — provably covering wherever the content sat while the
-        /// render ran, no threshold needed since the interval is the render itself rather than a
-        /// guess. Always renders with `drawHierarchy` (never the presentation-tree renderer): that
-        /// renderer reads `layer.presentation()`, which is only safe from main, and every other read
-        /// on this path already sits inside `main.sync`.
+        /// The render sits between two mask samples instead of one: measure geometry, render
+        /// off-main, measure again, mask the per-owner union — provably covering wherever the
+        /// content sat while the render ran, so no threshold is needed. Always uses
+        /// `drawHierarchy`, never the presentation-tree renderer: that reads `layer.presentation()`,
+        /// which is main-only, and this path's other reads already sit inside `main.sync`.
         @discardableResult
         private func performBracketedBackgroundCapture(window: UIWindow, screenName: String?, postHog: PostHogSDK) -> Bool {
             defer { finishScreenshotRender() }

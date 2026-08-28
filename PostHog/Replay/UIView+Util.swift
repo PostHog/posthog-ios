@@ -74,16 +74,11 @@
                         // full fidelity (blur, video, Metal) is worth lagging the render server.
                         drawHierarchy(in: bounds, afterScreenUpdates: false)
                     } else {
-                        // drawHierarchy lags the render server's displayed frame, so mask rects would
-                        // sit ahead of the pixels during scroll or animation. The presentation tree is
-                        // the same source toAbsoluteRect measures, at the same instant — masks and
-                        // pixels can't disagree. Trade-off: blur/video/Metal render flat or empty.
-                        //
-                        // Known limitation: render(in:) skips filters, backgroundFilters and
-                        // layer.mask, so anything relying on a blur or a layer mask to hide content
-                        // draws unhidden here. Whether a blur is redaction or decoration isn't
-                        // knowable from the view, so this isn't detected — content that must never
-                        // appear needs postHogMask().
+                        // drawHierarchy lags the render server, so mask rects could sit ahead of
+                        // the pixels during scroll or animation; the presentation tree is the same
+                        // source toAbsoluteRect measures, at the same instant, so the two agree.
+                        // Trade-off: blur, video and Metal render flat, and render(in:) also skips
+                        // filters and layer.mask — content that must stay hidden needs postHogMask().
                         (layer.presentation() ?? layer).render(in: context)
                     }
                 }

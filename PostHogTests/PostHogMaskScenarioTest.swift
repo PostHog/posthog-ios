@@ -288,9 +288,6 @@
         }
     }
 
-    // Guards the identity pairing in `settleVerdict`: cell recycling and z-order changes
-    // permute traversal order at a fixed count, so pairing rect samples by array index
-    // would compare unrelated rects and settle `.still` fail-open.
     @Suite("settleVerdict identity pairing")
     struct PostHogSettleVerdictTest {
         private typealias MaskedRegion = PostHogReplayIntegration.MaskedRegion

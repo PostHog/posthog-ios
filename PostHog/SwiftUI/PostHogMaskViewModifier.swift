@@ -64,10 +64,12 @@
         private var reporters: [ObjectIdentifier: Weak<PostHogMaskReporterUIView>] = [:]
 
         struct MaskedRects {
-            let rects: [CGRect]
+            let regions: [PostHogReplayIntegration.MaskedRegion]
             /// A reporter in this window hasn't been laid out yet, so its region can't
             /// be reported. Callers must skip the frame instead of masking nothing.
             let hasUnsettledReporters: Bool
+
+            var rects: [CGRect] { regions.map(\.rect) }
         }
 
         func register(_ reporter: PostHogMaskReporterUIView) {
@@ -91,7 +93,7 @@
                 return reporters.values.compactMap(\.value)
             }
 
-            var rects: [CGRect] = []
+            var regions: [PostHogReplayIntegration.MaskedRegion] = []
             var hasUnsettledReporters = false
             for reporter in liveReporters {
                 guard reporter.window === window, !reporter.isHidden, reporter.alpha > 0 else { continue }
@@ -99,12 +101,12 @@
                     hasUnsettledReporters = true
                     continue
                 }
-                let rect = reporter.toAbsoluteRect(window)
+                let rect = reporter.toPresentationRect(window)
                 if !rect.isEmpty {
-                    rects.append(rect)
+                    regions.append(.init(reporter, rect: rect))
                 }
             }
-            return MaskedRects(rects: rects, hasUnsettledReporters: hasUnsettledReporters)
+            return MaskedRects(regions: regions, hasUnsettledReporters: hasUnsettledReporters)
         }
 
         #if TESTING

@@ -216,7 +216,13 @@ class PostHogQueue<Record> {
             // can never wipe the buffer.
             if let since, now().timeIntervalSince(since) >= config.maxRetryWindowSeconds {
                 dropAllQueuedRecords(reason: "backend failing for over \(config.maxRetryWindowSeconds)s")
-                payload.completion(true)
+                // Complete with `false`: `dropAllQueuedRecords` already cleared
+                // the batch from disk, and its `onRecordsDropped` callback may
+                // have synchronously enqueued the `$queue_records_dropped`
+                // diagnostic onto the now-empty queue. A `true` here would pop
+                // `items.count` records off the front and delete that fresh
+                // diagnostic (plus any event captured in the same window).
+                payload.completion(false)
                 return
             }
 
@@ -246,7 +252,10 @@ class PostHogQueue<Record> {
                 }
                 if newCount > config.maxRetries {
                     dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
-                    payload.completion(true)
+                    // Complete with `false` — see the window-drop path above:
+                    // the queue was just cleared, so popping would delete the
+                    // diagnostic the drop callback enqueued onto it.
+                    payload.completion(false)
                     return
                 }
                 let actualBatchSize = payload.records.count

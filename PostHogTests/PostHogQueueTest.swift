@@ -587,6 +587,50 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("keeps the diagnostic that onRecordsDropped enqueues during a full drop") {
+            // Regression: dropAllQueuedRecords fires onRecordsDropped, which the
+            // SDK wires to synchronously capture `$queue_records_dropped` back
+            // onto this same queue. The drop-path completion must NOT then pop:
+            // clear() already emptied the batch and `pop` deletes by position,
+            // so a pop would silently delete that fresh diagnostic (and any
+            // event captured in the same window), leaving the drop as invisible
+            // as it was before the feature existed.
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            defer { now = { Date() } }
+
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetryWindowSeconds: 10)
+
+            // Mimic the SDK's synchronous re-capture on drop: enqueue one
+            // diagnostic record onto the same queue from the callback.
+            sut.onRecordsDropped = { [weak sut] _, _ in
+                sut?.add(PostHogEvent(event: "$queue_records_dropped", distinctId: "id"))
+            }
+
+            server.start(batchCount: 2)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            }
+
+            for i in 0 ..< 3 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+
+            // First 500 arms the failure window.
+            sut.flush()
+            expect(sut.currentRetryCountForTesting).toEventually(equal(1))
+            expect(sut.depth) == 3
+
+            // Past the window: the next 500 drops all 3 and the callback
+            // enqueues the diagnostic. It must survive on disk (depth 1), not
+            // be popped away to 0.
+            mockNow.date.addTimeInterval(11)
+            sut.flush()
+            expect(sut.depth).toEventually(equal(1))
+
+            sut.clear()
+        }
+
         it("pops batch on non-retriable 4xx so a poison record cannot block the queue") {
             let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
             server.batchResponseHandler = { _, _ in

@@ -97,6 +97,23 @@ class PostHogFileBackedQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("trims cached files to configured capacity on load") {
+            let baseUrl = applicationSupportDirectoryURL()
+            let newURL = baseUrl.appendingPathComponent("queue")
+            try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
+
+            for value in 0 ..< 3 {
+                try Data("cached-\(value)".utf8).write(to: newURL.appendingPathComponent("cached-\(value)"))
+            }
+
+            let sut = PostHogFileBackedQueue(queue: newURL, maxSize: 2)
+
+            expect(sut.depth) == 2
+            expect(try? FileManager.default.contentsOfDirectory(atPath: newURL.path).count) == 2
+
+            sut.clear()
+        }
+
         it("delete from queue and disk") {
             let baseUrl = applicationSupportDirectoryURL()
             let newURL = baseUrl.appendingPathComponent("queue")
@@ -135,6 +152,51 @@ class PostHogFileBackedQueueTest: QuickSpec {
 
             expect(sut.depth) == 0
             expect(FileManager.default.fileExists(atPath: eventURL.path)) == false
+
+            sut.clear()
+        }
+
+        it("removes exact stable entry identities") {
+            let sut = self.getSut()
+            let identicalData = self.eventJson.data(using: .utf8)!
+
+            sut.add(identicalData)
+            sut.add(identicalData)
+            sut.add(identicalData)
+
+            let entries = sut.peekEntries(3)
+            expect(Set(entries.map(\.id)).count) == 3
+            expect(entries.map(\.data)) == [identicalData, identicalData, identicalData]
+
+            sut.remove(ids: [entries[0].id, entries[2].id, "missing-entry"])
+
+            let remaining = sut.peekEntries(3)
+            expect(remaining.map(\.id)) == [entries[1].id]
+            expect(sut.depth) == 1
+            expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[0].id).path)) == false
+            expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[1].id).path)) == true
+            expect(FileManager.default.fileExists(atPath: sut.queue.appendingPathComponent(entries[2].id).path)) == false
+
+            sut.clear()
+        }
+
+        it("enforces capacity atomically across concurrent adds") {
+            let sut = self.getSut()
+            let capacity = 3
+            let group = DispatchGroup()
+            let producers = DispatchQueue(label: "com.posthog.file-queue-capacity-test", attributes: .concurrent)
+
+            for value in 0 ..< 100 {
+                group.enter()
+                producers.async {
+                    sut.add(Data("event-\(value)".utf8), maxSize: capacity)
+                    group.leave()
+                }
+            }
+
+            expect(group.wait(timeout: .now() + 5)) == .success
+            expect(sut.depth) == capacity
+            expect(try? FileManager.default.contentsOfDirectory(atPath: sut.queue.path).count) == capacity
 
             sut.clear()
         }

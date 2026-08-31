@@ -56,47 +56,15 @@ class PostHogQueue<Record> {
     private let configuredMaxQueueSize: Int
     private let timerInterval: TimeInterval
 
-    /// Guards `paused`, `pausedUntil`, `retryCount`, `payloadTooLargeCount`, and
-    /// `failingSince`. These are touched from the URLSession completion queue
-    /// (handleResult), the timer's main-thread callback (canFlush), and the
-    /// reachability callbacks (onReachable / onUnreachable) — all without
-    /// coordination — so a single state lock keeps them consistent against
-    /// ThreadSanitizer.
+    /// Guards `paused`, `pausedUntil`, and `retryCount`. These are touched from
+    /// the URLSession completion queue (handleResult), the timer's main-thread
+    /// callback (canFlush), and the reachability callbacks (onReachable /
+    /// onUnreachable) — all without coordination — so a single state lock keeps
+    /// the trio consistent against ThreadSanitizer.
     private let stateLock = NSLock()
     private var paused: Bool = false
     private var pausedUntil: Date?
-    /// Consecutive retriable failures (transport `-1` and server 5xx/429/…),
-    /// used only to ramp the backoff delay. Reset on any success or full drop.
-    /// It deliberately does *not* gate the HTTP 413 halving budget — see
-    /// `payloadTooLargeCount`.
     private var retryCount: Int = 0
-    /// Consecutive HTTP 413 batch-halving attempts, compared against
-    /// `config.maxRetries`. Kept separate from `retryCount` so transport and
-    /// 5xx failures — which must never drop the queue — can't consume the 413
-    /// halving budget and let the first 413 wipe every buffered record.
-    /// Incremented only when a 413 halves the cap; reset on success, on the
-    /// 413 poison drop, and on a full queue drop.
-    private var payloadTooLargeCount: Int = 0
-    /// Wall clock of the first failure in the current unhealthy-backend streak,
-    /// or `nil` while healthy. Only server-side retriable failures (5xx, 429,
-    /// …) arm it; a transport failure clears it instead, so an offline stretch
-    /// can't count toward the drop window. Also cleared on any success.
-    ///
-    /// In-memory only — not persisted with the on-disk queue, so the streak and
-    /// therefore the `maxRetryWindowSeconds` drop window are measured within a
-    /// single process lifetime and restart from zero on every app launch. On
-    /// platforms that terminate processes frequently (iOS) the window-based
-    /// drop rarely fires; `maxQueueSize` remains the effective bound on the
-    /// buffer. Kept in memory deliberately: persisting it would add a storage
-    /// key and a disk write on each first failure for a safeguard that never
-    /// causes data loss or unbounded growth on its own.
-    private var failingSince: Date?
-
-    /// Invoked from `dropAllQueuedRecords` with the number of records wiped and
-    /// the reason. The SDK wires this to emit a diagnostic event so a full
-    /// queue drop — the last remaining silent, total data-loss path — becomes
-    /// measurable.
-    var onRecordsDropped: ((Int, String) -> Void)?
     #if !os(watchOS)
         private let reachability: Reachability?
         private var reachableToken: RegistrationToken?
@@ -150,7 +118,8 @@ class PostHogQueue<Record> {
             rateCapWindowSeconds = endpoint.rateCapWindowSeconds(config)
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
-                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
+                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
+                maxSize: configuredMaxQueueSize
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -165,7 +134,8 @@ class PostHogQueue<Record> {
             rateCapWindowSeconds = endpoint.rateCapWindowSeconds(config)
             fileQueue = PostHogFileBackedQueue(
                 queue: storage.url(forKey: endpoint.storageKey),
-                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) }
+                oldQueues: endpoint.oldStorageKeys.map { storage.url(forKey: $0) },
+                maxSize: configuredMaxQueueSize
             )
             dispatchQueue = DispatchQueue(label: endpoint.dispatchQueueLabel, target: .global(qos: .utility))
         }
@@ -179,53 +149,13 @@ class PostHogQueue<Record> {
     }
 
     private func handleResult(_ result: PostHogUploadInfo, _ payload: PostHogConsumerPayload<Record>) {
-        // -1 means its not anything related to the API but rather network or something else, so we try again
+        // A missing response means no terminal delivery outcome is known, so
+        // the exact durable entries must remain eligible for a later flush.
         let statusCode = result.statusCode ?? -1
-
-        // A transport failure (-1: lost connectivity, timeout, no route) means
-        // we could not reach the backend — not that it rejected our data. It is
-        // universally retriable and must never drop the queue. Everything else
-        // is up to the endpoint's retry policy.
-        let isTransportFailure = statusCode == -1
-        let isRetriable = isTransportFailure || endpoint.isRetriableStatusCode(statusCode)
+        let isRetriable = statusCode == -1 || endpoint.isRetriableStatusCode(statusCode)
 
         if isRetriable {
-            // `since` is the start of the current server-failure streak, or
-            // `nil` when the streak isn't armed. A transport failure *resets*
-            // the clock — the backend just went unreachable, so this is no
-            // longer a responsive-but-unhealthy streak — while a server-side
-            // failure arms it if it wasn't already. Clearing (not merely
-            // ignoring) `failingSince` on a transport failure is what keeps an
-            // offline stretch from counting toward the drop window: otherwise a
-            // 500, then hours offline, then one more 500 would see the whole
-            // gap as sustained backend failure and wipe the queue.
-            let (newCount, since): (Int, Date?) = stateLock.withLock {
-                retryCount += 1
-                if isTransportFailure {
-                    failingSince = nil
-                } else if failingSince == nil {
-                    failingSince = now()
-                }
-                return (retryCount, failingSince)
-            }
-
-            // Drop the queue only when a responsive-but-unhealthy backend has
-            // kept rejecting our batches for a sustained window. Transport
-            // failures are excluded: the events wait on disk for connectivity
-            // to return and `maxQueueSize` bounds growth, so a flaky network
-            // can never wipe the buffer.
-            if let since, now().timeIntervalSince(since) >= config.maxRetryWindowSeconds {
-                dropAllQueuedRecords(reason: "backend failing for over \(config.maxRetryWindowSeconds)s")
-                // Complete with `false`: `dropAllQueuedRecords` already cleared
-                // the batch from disk, and its `onRecordsDropped` callback may
-                // have synchronously enqueued the `$queue_records_dropped`
-                // diagnostic onto the now-empty queue. A `true` here would pop
-                // `items.count` records off the front and delete that fresh
-                // diagnostic (plus any event captured in the same window).
-                payload.completion(false)
-                return
-            }
-
+            let newCount = nextRetryCount()
             let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
             let delay = max(backoffDelay, result.retryAfter ?? 0)
             pauseFor(seconds: delay)
@@ -234,30 +164,13 @@ class PostHogQueue<Record> {
             return
         }
 
-        // 413 Payload Too Large. Two paths:
-        //  - cap > 1: this is a retry. Increment the 413 halving count, drop
-        //    all if `maxRetries` exceeded, otherwise halve cap and retry the
-        //    same records.
-        //  - cap == 1: poison drop. The offending record can't shrink any
-        //    further, so we drop the batch and apply the endpoint's poison
-        //    cap policy. Don't count it as a retry — the drop *is* the
-        //    resolution, not another attempt.
+        // A multi-record 413 is resolved by progressively shrinking the batch.
+        // Once a singleton still receives 413, only that poison entry is
+        // acknowledged for removal. Neither path clears unrelated records.
         if statusCode == 413 {
             let canHalve = batchLimitsLock.withLock { batchLimits.cap > 1 && payload.records.count > 1 }
 
             if canHalve {
-                let newCount = stateLock.withLock { () -> Int in
-                    payloadTooLargeCount += 1
-                    return payloadTooLargeCount
-                }
-                if newCount > config.maxRetries {
-                    dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
-                    // Complete with `false` — see the window-drop path above:
-                    // the queue was just cleared, so popping would delete the
-                    // diagnostic the drop callback enqueued onto it.
-                    payload.completion(false)
-                    return
-                }
                 let actualBatchSize = payload.records.count
                 let halvedCap = batchLimitsLock.withLock {
                     batchLimits.halve(actualBatchSize: actualBatchSize)
@@ -267,47 +180,32 @@ class PostHogQueue<Record> {
                 return
             }
 
-            // Cap stays at 1 — the offender is gone but we keep being
-            // cautious until a successful send.
-            hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
-            stateLock.withLock {
-                retryCount = 0
-                payloadTooLargeCount = 0
-                failingSince = nil
-            }
+            hedgeLog("Queue: dropping singleton batch after HTTP 413")
+            resetRetryState()
             payload.completion(true)
             return
         }
 
-        // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
-        // batch. Cap stays where it is — no ramp on success.
-        stateLock.withLock {
-            retryCount = 0
-            payloadTooLargeCount = 0
-            failingSince = nil
-        }
+        // 2xx success or a terminal response removes the exact snapshotted
+        // entries. The adaptive cap stays where it is.
+        resetRetryState()
         payload.completion(true)
     }
 
-    /// Drops every queued record from disk and resets the retry / pause state.
-    /// Reserved for a backend that keeps rejecting our batches past
-    /// `maxRetryWindowSeconds`, or repeated HTTP 413 halving — never a network
-    /// blip. Reports the number of dropped records through `onRecordsDropped`
-    /// so the loss is measurable. Cap is left where it is — new records
-    /// starting against a known-bad backend benefit from the conservative cap
-    /// until proven otherwise.
-    private func dropAllQueuedRecords(reason: String) {
-        let dropped = fileQueue.depth
-        hedgeLog("Queue: dropping all queued records — \(reason)")
-        fileQueue.clear()
+    private func nextRetryCount() -> Int {
+        stateLock.withLock {
+            let maximumBackoffStep = max(1, Int(maxRetryDelay / retryDelay))
+            if retryCount < maximumBackoffStep {
+                retryCount += 1
+            }
+            return retryCount
+        }
+    }
+
+    private func resetRetryState() {
         stateLock.withLock {
             retryCount = 0
-            payloadTooLargeCount = 0
-            failingSince = nil
             pausedUntil = nil
-        }
-        if dropped > 0 {
-            onRecordsDropped?(dropped, reason)
         }
     }
 
@@ -320,16 +218,7 @@ class PostHogQueue<Record> {
                 // can all receive notifications without overwriting each other.
                 reachableToken = reachability?.onReachable.subscribe { [weak self] reachability in
                     guard let self else { return }
-                    self.stateLock.withLock {
-                        if self.config.dataMode == .wifi, reachability.connection != .wifi {
-                            hedgeLog("Queue is paused because its not in WiFi mode")
-                            self.paused = true
-                        } else {
-                            self.paused = false
-                        }
-                    }
-
-                    if reachability.connection == .wifi {
+                    if self.updatePauseState(for: reachability) {
                         self.flush()
                     }
                 }
@@ -340,6 +229,13 @@ class PostHogQueue<Record> {
                         hedgeLog("Queue is paused because network is unreachable")
                         self.paused = true
                     }
+                }
+
+                if let reachability {
+                    // A shared notifier may already be running, so late queue
+                    // subscribers must synchronously adopt its current state
+                    // rather than waiting for a transition that may never come.
+                    _ = updatePauseState(for: reachability)
                 }
 
                 do {
@@ -451,18 +347,14 @@ class PostHogQueue<Record> {
             return
         }
 
-        if fileQueue.depth >= configuredMaxQueueSize {
-            hedgeLog("Queue is full, dropping oldest record")
-            // first is always oldest
-            fileQueue.delete(index: 0)
-        }
-
         guard let data = endpoint.encode(record) else {
             hedgeLog("Tried to queue unserialisable record")
             return
         }
 
-        fileQueue.add(data)
+        if fileQueue.add(data, maxSize: configuredMaxQueueSize) != nil {
+            hedgeLog("Queue is full, dropping oldest record")
+        }
         hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
     }
@@ -534,12 +426,12 @@ class PostHogQueue<Record> {
                 return
             }
 
-            let items = self.fileQueue.peek(count)
+            let entries = self.fileQueue.peekEntries(count)
 
             var processing: [Record] = []
 
-            for item in items {
-                guard let record = self.endpoint.decode(item) else {
+            for entry in entries {
+                guard let record = self.endpoint.decode(entry.data) else {
                     continue
                 }
                 processing.append(record)
@@ -547,8 +439,8 @@ class PostHogQueue<Record> {
 
             completion(PostHogConsumerPayload(records: processing) { [weak self] success in
                 guard let self else { return }
-                if success, items.count > 0 {
-                    self.fileQueue.pop(items.count)
+                if success, !entries.isEmpty {
+                    self.fileQueue.remove(ids: entries.map(\.id))
                     hedgeLog("Completed!")
                 }
 
@@ -558,6 +450,26 @@ class PostHogQueue<Record> {
             })
         }
     }
+
+    #if !os(watchOS)
+        /// Applies the latest shared reachability snapshot and returns whether
+        /// this queue may send under its configured data mode.
+        private func updatePauseState(for reachability: Reachability) -> Bool {
+            let connection = reachability.connection
+            return stateLock.withLock {
+                if connection == .unavailable {
+                    hedgeLog("Queue is paused because network is unreachable")
+                    paused = true
+                } else if config.dataMode == .wifi, connection != .wifi {
+                    hedgeLog("Queue is paused because its not in WiFi mode")
+                    paused = true
+                } else {
+                    paused = false
+                }
+                return !paused
+            }
+        }
+    #endif
 
     private func pauseFor(seconds: TimeInterval) {
         let until = now().addingTimeInterval(seconds)

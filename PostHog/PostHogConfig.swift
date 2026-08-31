@@ -33,7 +33,6 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
         static let maxRetries: Int = 3
-        static let maxRetryWindowSeconds: TimeInterval = 24 * 60 * 60
         static let featureFlagRequestMaxRetries: Int = 1
     }
 
@@ -90,35 +89,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `30`.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
-    /// Maximum number of HTTP 413 batch-halving attempts before the oversized
-    /// batch is dropped. Increments on every 413 that halves the batch cap;
-    /// resets on a successful 2xx response. Default 3.
-    ///
-    /// For the on-disk event, session-replay, and log queues this no longer
-    /// governs network or 5xx retries — those keep the queue and are bounded by
-    /// `maxRetryWindowSeconds` and `maxQueueSize` instead.
-    ///
-    /// It does still bound push-subscription registration retries: a transport
-    /// error, 429, or 5xx there is retried up to `maxRetries` times before the
-    /// device token is kept for the next app launch. Lowering this value to
-    /// tune 413 halving therefore also shortens push registration patience.
+    /// Maximum number of retries for push-subscription registration failures.
+    /// Durable event, replay, and log queues retain retryable records and use
+    /// their configured capacity as the storage bound. Default: `3`.
     @objc public var maxRetries: Int = Defaults.maxRetries
-
-    /// Sustained duration, in seconds, that flushes must keep failing against a
-    /// responsive-but-unhealthy backend (for example repeated HTTP 5xx) before
-    /// the on-disk queue is dropped to stop retrying forever.
-    ///
-    /// A network-level failure (lost connectivity, timeout, no route) never
-    /// triggers this drop: the queue is kept and bounded only by
-    /// `maxQueueSize`, so a brief connectivity blip cannot destroy buffered
-    /// events. The timer resets on any successful send. Default: 24 hours.
-    ///
-    /// The failure streak is tracked in memory and is not persisted across app
-    /// launches, so this window is measured within a single process lifetime
-    /// and restarts on every relaunch. On platforms that terminate processes
-    /// frequently (iOS) this drop rarely fires in practice, and `maxQueueSize`
-    /// stays the effective bound on buffered events.
-    @objc public var maxRetryWindowSeconds: TimeInterval = Defaults.maxRetryWindowSeconds
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.

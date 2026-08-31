@@ -102,14 +102,30 @@ class PostHogFileBackedQueueTest: QuickSpec {
             let newURL = baseUrl.appendingPathComponent("queue")
             try FileManager.default.createDirectory(atPath: newURL.path, withIntermediateDirectories: true)
 
-            for value in 0 ..< 3 {
-                try Data("cached-\(value)".utf8).write(to: newURL.appendingPathComponent("cached-\(value)"))
+            let oldestURL = newURL.appendingPathComponent("cached-oldest")
+            let middleURL = newURL.appendingPathComponent("cached-middle")
+            let newestURL = newURL.appendingPathComponent("cached-newest")
+            let oldestData = Data("cached-0".utf8)
+            let middleData = Data("cached-1".utf8)
+            let newestData = Data("cached-2".utf8)
+
+            for (url, data, creationDate, modificationDate) in [
+                (newestURL, newestData, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)),
+                (oldestURL, oldestData, Date(timeIntervalSince1970: 100), Date(timeIntervalSince1970: 300)),
+                (middleURL, middleData, Date(timeIntervalSince1970: 200), Date(timeIntervalSince1970: 200)),
+            ] {
+                try data.write(to: url)
+                try FileManager.default.setAttributes([.modificationDate: modificationDate], ofItemAtPath: url.path)
+                try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path)
             }
 
             let sut = PostHogFileBackedQueue(queue: newURL, maxSize: 2)
 
             expect(sut.depth) == 2
-            expect(try? FileManager.default.contentsOfDirectory(atPath: newURL.path).count) == 2
+            expect(sut.peek(2)) == [middleData, newestData]
+            expect(FileManager.default.fileExists(atPath: oldestURL.path)) == false
+            expect(FileManager.default.fileExists(atPath: middleURL.path)) == true
+            expect(FileManager.default.fileExists(atPath: newestURL.path)) == true
 
             sut.clear()
         }

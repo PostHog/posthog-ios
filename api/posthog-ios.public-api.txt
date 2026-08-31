@@ -78,6 +78,7 @@ PostHog | PostHogConfig.logs | property | @objc let logs: PostHogLogsConfig | c:
 PostHog | PostHogConfig.maxBatchSize | property | @objc var maxBatchSize: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)maxBatchSize
 PostHog | PostHogConfig.maxQueueSize | property | @objc var maxQueueSize: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)maxQueueSize
 PostHog | PostHogConfig.maxRetries | property | @objc var maxRetries: Int | c:@M@PostHog@objc(cs)PostHogConfig(py)maxRetries
+PostHog | PostHogConfig.maxRetryWindowSeconds | property | @objc var maxRetryWindowSeconds: TimeInterval | c:@M@PostHog@objc(cs)PostHogConfig(py)maxRetryWindowSeconds
 PostHog | PostHogConfig.optOut | property | @objc var optOut: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)optOut
 PostHog | PostHogConfig.personProfiles | property | @objc var personProfiles: PostHogPersonProfiles | c:@M@PostHog@objc(cs)PostHogConfig(py)personProfiles
 PostHog | PostHogConfig.preloadFeatureFlags | property | @objc var preloadFeatureFlags: Bool | c:@M@PostHog@objc(cs)PostHogConfig(py)preloadFeatureFlags

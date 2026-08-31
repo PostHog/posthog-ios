@@ -79,7 +79,8 @@ class PostHogQueue<Record> {
     private var payloadTooLargeCount: Int = 0
     /// Wall clock of the first failure in the current unhealthy-backend streak,
     /// or `nil` while healthy. Only server-side retriable failures (5xx, 429,
-    /// …) set it; transport failures never do. Cleared on any success.
+    /// …) arm it; a transport failure clears it instead, so an offline stretch
+    /// can't count toward the drop window. Also cleared on any success.
     ///
     /// In-memory only — not persisted with the on-disk queue, so the streak and
     /// therefore the `maxRetryWindowSeconds` drop window are measured within a
@@ -190,14 +191,22 @@ class PostHogQueue<Record> {
 
         if isRetriable {
             // `since` is the start of the current server-failure streak, or
-            // `nil` for a transport failure. Only server-side failures arm the
-            // clock, so an offline stretch never counts toward the drop window.
+            // `nil` when the streak isn't armed. A transport failure *resets*
+            // the clock — the backend just went unreachable, so this is no
+            // longer a responsive-but-unhealthy streak — while a server-side
+            // failure arms it if it wasn't already. Clearing (not merely
+            // ignoring) `failingSince` on a transport failure is what keeps an
+            // offline stretch from counting toward the drop window: otherwise a
+            // 500, then hours offline, then one more 500 would see the whole
+            // gap as sustained backend failure and wipe the queue.
             let (newCount, since): (Int, Date?) = stateLock.withLock {
                 retryCount += 1
-                if !isTransportFailure, failingSince == nil {
+                if isTransportFailure {
+                    failingSince = nil
+                } else if failingSince == nil {
                     failingSince = now()
                 }
-                return (retryCount, isTransportFailure ? nil : failingSince)
+                return (retryCount, failingSince)
             }
 
             // Drop the queue only when a responsive-but-unhealthy backend has

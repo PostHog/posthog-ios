@@ -530,6 +530,63 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
+        it("a transport failure resets the backend failure window so an offline gap can't trigger a drop") {
+            // Regression: an initial 500 armed the failure clock, then a long
+            // offline stretch (transport failures) elapsed without clearing it,
+            // so the next 500 saw the whole offline gap as sustained backend
+            // failure and wiped the queue on only two error responses. A
+            // transport failure must reset the window; offline time must not
+            // count toward it.
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            defer { now = { Date() } }
+
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetryWindowSeconds: 10)
+            var dropped = false
+            sut.onRecordsDropped = { _, _ in dropped = true }
+
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            var attempt = 0
+            server.start(batchCount: 3)
+            server.batchResponseHandler = { _, _ in
+                attempt += 1
+                switch attempt {
+                case 1: return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil) // arms the window
+                case 2: return HTTPStubsResponse(error: networkError) // offline: must reset the window
+                default: return HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil) // fresh window, no drop
+                }
+            }
+
+            for i in 0 ..< 3 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+
+            // First 500 arms the failure streak.
+            sut.flush()
+            expect(sut.currentRetryCountForTesting).toEventually(equal(1))
+            expect(sut.depth) == 3
+
+            // A long offline gap elapses, then a transport failure lands. Even
+            // though more than the window has passed since the first 500, the
+            // transport failure resets the clock and the queue is kept.
+            mockNow.date.addTimeInterval(11)
+            sut.flush()
+            expect(sut.currentRetryCountForTesting).toEventually(equal(2))
+            expect(sut.depth) == 3
+
+            // A second 500 now, still past where the *original* window would
+            // have elapsed. Because the transport failure reset the clock, the
+            // offline time doesn't count: the queue survives instead of being
+            // wiped on two error responses.
+            mockNow.date.addTimeInterval(5)
+            sut.flush()
+            expect(sut.currentRetryCountForTesting).toEventually(equal(3))
+            expect(sut.depth) == 3
+            expect(dropped) == false
+
+            sut.clear()
+        }
+
         it("pops batch on non-retriable 4xx so a poison record cannot block the queue") {
             let sut = self.getSut(flushAt: 2, maxBatchSize: 4)
             server.batchResponseHandler = { _, _ in

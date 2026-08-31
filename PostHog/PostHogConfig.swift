@@ -106,6 +106,12 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// triggers this drop: the queue is kept and bounded only by
     /// `maxQueueSize`, so a brief connectivity blip cannot destroy buffered
     /// events. The timer resets on any successful send. Default: 24 hours.
+    ///
+    /// The failure streak is tracked in memory and is not persisted across app
+    /// launches, so this window is measured within a single process lifetime
+    /// and restarts on every relaunch. On platforms that terminate processes
+    /// frequently (iOS) this drop rarely fires in practice, and `maxQueueSize`
+    /// stays the effective bound on buffered events.
     @objc public var maxRetryWindowSeconds: TimeInterval = Defaults.maxRetryWindowSeconds
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.

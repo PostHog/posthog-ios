@@ -10,19 +10,21 @@ import Foundation
 /// Common URLSession upload-response handler shared by `/batch`, `/snapshot`,
 /// and `/i/v1/logs`. Routes through `as?` so a missing HTTP response can't
 /// crash inside a customer process.
-private func processUploadResponse(
+func processUploadResponse(
     endpointName: String,
     data: Data?,
     response: URLResponse?,
     error: Error?,
     completion: @escaping (PostHogUploadInfo) -> Void
 ) {
+    let httpResponse = response as? HTTPURLResponse
+
     if let error {
         hedgeLog("Error calling the \(endpointName) API: \(error).")
-        return completion(PostHogUploadInfo(statusCode: nil, error: error))
+        return completion(PostHogUploadInfo(statusCode: httpResponse?.statusCode, error: error))
     }
 
-    guard let httpResponse = response as? HTTPURLResponse else {
+    guard let httpResponse else {
         hedgeLog("\(endpointName) API returned no HTTP response")
         return completion(PostHogUploadInfo(statusCode: nil, error: nil))
     }

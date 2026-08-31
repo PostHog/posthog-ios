@@ -54,6 +54,7 @@ create_fixture() {
     TEST_INFOPLIST_PREPROCESS="NO"
     TEST_INFOPLIST_PATH=""
     TEST_CLI_VERSION="0.10.0"
+    TEST_NO_RELEASE_BIND=""
 
     mkdir -p "$HOME_DIR/.posthog" "$FAKE_BIN" "$SRC_ROOT/Config" "$(dirname "$MAIN_DWARF")" "$(dirname "$APP_EXECUTABLE")"
     printf 'dwarf' > "$MAIN_DWARF"
@@ -137,6 +138,7 @@ run_upload() {
         TEST_LSOF_ATTEMPTS="$LSOF_ATTEMPTS" \
         TEST_XCRUN_MARKER="$XCRUN_MARKER" \
         TEST_CLI_VERSION="$TEST_CLI_VERSION" \
+        POSTHOG_NO_RELEASE_BIND="$TEST_NO_RELEASE_BIND" \
         bash "$UPLOAD_SCRIPT" 2>&1)
     STATUS=$?
     set -e
@@ -374,6 +376,46 @@ test_falls_back_for_malformed_source_plist() {
     assert_file_contains_line "$CLI_ARGS_FILE" "1"
 }
 
+test_uploads_release_independent_by_default() {
+    create_fixture "no-release-bind-default"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    assert_file_contains_line "$CLI_ARGS_FILE" "--no-release-bind"
+}
+
+test_binds_the_release_when_opted_out() {
+    create_fixture "no-release-bind-opt-out"
+    TEST_NO_RELEASE_BIND="0"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--no-release-bind"
+}
+
+test_requires_a_newer_cli_for_the_default() {
+    create_fixture "no-release-bind-floor"
+    TEST_CLI_VERSION="0.9.0"
+
+    run_upload
+
+    [ "$STATUS" -ne 0 ] || fail "Expected the version floor to stop the upload: $OUTPUT"
+    [ ! -f "$CLI_ARGS_FILE" ] || fail "Expected posthog-cli not to upload anything"
+}
+
+test_keeps_the_old_floor_when_opted_out() {
+    create_fixture "no-release-bind-floor-opt-out"
+    TEST_CLI_VERSION="0.9.0"
+    TEST_NO_RELEASE_BIND="0"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--no-release-bind"
+}
+
 bash -n "$UPLOAD_SCRIPT"
 test_waits_for_current_dsym_and_uses_source_plist_versions
 test_uses_info_plist_with_supported_cli_versions
@@ -386,5 +428,9 @@ test_resolves_compound_build_settings
 test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
 test_falls_back_for_malformed_source_plist
+test_uploads_release_independent_by_default
+test_binds_the_release_when_opted_out
+test_requires_a_newer_cli_for_the_default
+test_keeps_the_old_floor_when_opted_out
 
 echo "upload-symbols tests passed"

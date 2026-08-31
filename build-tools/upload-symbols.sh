@@ -12,7 +12,7 @@
 #   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   No release bind: POSTHOG_NO_RELEASE_BIND=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
+#   Bind to release: POSTHOG_NO_RELEASE_BIND=0 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
@@ -24,12 +24,13 @@
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
 #   POSTHOG_DSYM_TIMEOUT - Seconds to wait for the current app dSYM before failing (default: 60)
-#   POSTHOG_NO_RELEASE_BIND - Set to "1" to upload symbol sets without binding them to the created
-#                              release (via `dsym upload --no-release-bind`). The release is still
-#                              created; the server resolves it from the `$app_version` /
-#                              `$app_namespace` / `$app_build` the SDK sends on every event, so the
-#                              uploaded chunks stay content-addressed and release-independent.
-#                              Requires posthog-cli >= 0.10.0.
+#   POSTHOG_NO_RELEASE_BIND - Set to "0" to bind the uploaded symbol sets to the created release.
+#                              On by default: symbol sets upload release-independent (via
+#                              `dsym upload --no-release-bind`). The release is still created; the
+#                              server resolves it from the `$app_version` / `$app_namespace` /
+#                              `$app_build` the SDK sends on every event, so the uploaded chunks
+#                              stay content-addressed and two releases that ship the same dSYM keep
+#                              one symbol set. On by default requires posthog-cli >= 0.10.0.
 #
 
 # Skip non-Release builds.
@@ -137,12 +138,20 @@ if [ -z "$(find "${DWARF_DSYM_FOLDER_PATH}" -name '*.dSYM' -type d 2>/dev/null)"
     exit 0
 fi
 
+# Whether to upload the symbol sets without binding them to the created release. On unless the
+# build opts out, so a dSYM shared by two releases is not stamped with whichever one uploaded it
+# first. Values other than the recognized opt-outs keep the default rather than silently binding.
+POSTHOG_NO_RELEASE_BIND_ENABLED=1
+case "${POSTHOG_NO_RELEASE_BIND:-}" in
+    0|false|no|NO|FALSE) POSTHOG_NO_RELEASE_BIND_ENABLED=0 ;;
+esac
+
 # Enforce minimum posthog-cli version (required for --release-name / --release-version flags)
 MIN_POSTHOG_CLI_VERSION="0.7.7"
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
 fi
-if [ "${POSTHOG_NO_RELEASE_BIND}" = "1" ]; then
+if [ "${POSTHOG_NO_RELEASE_BIND_ENABLED}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.10.0"
 fi
 PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
@@ -245,10 +254,10 @@ if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     CLI_ARGS+=(--skip-on-conflict)
 fi
 
-# Optionally upload the symbol sets without binding them to the release. The release is still
-# created, and the server resolves it from the $app_version / $app_namespace / $app_build the SDK
-# sends on every event, so nothing is written into the built bundle.
-if [ "${POSTHOG_NO_RELEASE_BIND}" = "1" ]; then
+# Upload the symbol sets without binding them to the release. The release is still created, and
+# the server resolves it from the $app_version / $app_namespace / $app_build the SDK sends on every
+# event, so nothing is written into the built bundle.
+if [ "${POSTHOG_NO_RELEASE_BIND_ENABLED}" = "1" ]; then
     CLI_ARGS+=(--no-release-bind)
 fi
 

@@ -65,6 +65,16 @@ class PostHogQueue<Record> {
     private var paused: Bool = false
     private var pausedUntil: Date?
     private var retryCount: Int = 0
+    /// Wall clock of the first failure in the current unhealthy-backend streak,
+    /// or `nil` while healthy. Only server-side retriable failures (5xx, 429,
+    /// …) set it; transport failures never do. Cleared on any success.
+    private var failingSince: Date?
+
+    /// Invoked from `dropAllQueuedRecords` with the number of records wiped and
+    /// the reason. The SDK wires this to emit a diagnostic event so a full
+    /// queue drop — the last remaining silent, total data-loss path — becomes
+    /// measurable.
+    var onRecordsDropped: ((Int, String) -> Void)?
     #if !os(watchOS)
         private let reachability: Reachability?
         private var reachableToken: RegistrationToken?
@@ -150,22 +160,36 @@ class PostHogQueue<Record> {
         // -1 means its not anything related to the API but rather network or something else, so we try again
         let statusCode = result.statusCode ?? -1
 
-        // Network error (-1) is universally retriable; everything else is
-        // up to the endpoint's retry policy.
-        let isRetriable = statusCode == -1 || endpoint.isRetriableStatusCode(statusCode)
+        // A transport failure (-1: lost connectivity, timeout, no route) means
+        // we could not reach the backend — not that it rejected our data. It is
+        // universally retriable and must never drop the queue. Everything else
+        // is up to the endpoint's retry policy.
+        let isTransportFailure = statusCode == -1
+        let isRetriable = isTransportFailure || endpoint.isRetriableStatusCode(statusCode)
 
         if isRetriable {
-            let newCount = stateLock.withLock { () -> Int in
+            // `since` is the start of the current server-failure streak, or
+            // `nil` for a transport failure. Only server-side failures arm the
+            // clock, so an offline stretch never counts toward the drop window.
+            let (newCount, since): (Int, Date?) = stateLock.withLock {
                 retryCount += 1
-                return retryCount
+                if !isTransportFailure, failingSince == nil {
+                    failingSince = now()
+                }
+                return (retryCount, isTransportFailure ? nil : failingSince)
             }
-            // `>` not `>=`: maxRetries is the count of retries allowed before
-            // dropping — default 3 retries attempts 1-3, drops on attempt 4.
-            if newCount > config.maxRetries {
-                dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded")
+
+            // Drop the queue only when a responsive-but-unhealthy backend has
+            // kept rejecting our batches for a sustained window. Transport
+            // failures are excluded: the events wait on disk for connectivity
+            // to return and `maxQueueSize` bounds growth, so a flaky network
+            // can never wipe the buffer.
+            if let since, now().timeIntervalSince(since) >= config.maxRetryWindowSeconds {
+                dropAllQueuedRecords(reason: "backend failing for over \(config.maxRetryWindowSeconds)s")
                 payload.completion(true)
                 return
             }
+
             let backoffDelay = min(TimeInterval(newCount) * retryDelay, maxRetryDelay)
             let delay = max(backoffDelay, result.retryAfter ?? 0)
             pauseFor(seconds: delay)
@@ -207,28 +231,41 @@ class PostHogQueue<Record> {
             // Cap stays at 1 — the offender is gone but we keep being
             // cautious until a successful send.
             hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
-            stateLock.withLock { retryCount = 0 }
+            stateLock.withLock {
+                retryCount = 0
+                failingSince = nil
+            }
             payload.completion(true)
             return
         }
 
         // 2xx success or non-retriable 4xx (auth, malformed, etc.): pop the
         // batch. Cap stays where it is — no ramp on success.
-        stateLock.withLock { retryCount = 0 }
+        stateLock.withLock {
+            retryCount = 0
+            failingSince = nil
+        }
         payload.completion(true)
     }
 
     /// Drops every queued record from disk and resets the retry / pause state.
-    /// Called when `retryCount` exceeds `config.maxRetries` to avoid retrying
-    /// forever against a permanently-broken backend. Cap is left where it is
-    /// — new records starting against a known-bad backend benefit from the
-    /// conservative cap until proven otherwise.
+    /// Reserved for a backend that keeps rejecting our batches past
+    /// `maxRetryWindowSeconds`, or repeated HTTP 413 halving — never a network
+    /// blip. Reports the number of dropped records through `onRecordsDropped`
+    /// so the loss is measurable. Cap is left where it is — new records
+    /// starting against a known-bad backend benefit from the conservative cap
+    /// until proven otherwise.
     private func dropAllQueuedRecords(reason: String) {
+        let dropped = fileQueue.depth
         hedgeLog("Queue: dropping all queued records — \(reason)")
         fileQueue.clear()
         stateLock.withLock {
             retryCount = 0
+            failingSince = nil
             pausedUntil = nil
+        }
+        if dropped > 0 {
+            onRecordsDropped?(dropped, reason)
         }
     }
 
@@ -481,7 +518,7 @@ class PostHogQueue<Record> {
     }
 
     private func pauseFor(seconds: TimeInterval) {
-        let until = Date().addingTimeInterval(seconds)
+        let until = now().addingTimeInterval(seconds)
         stateLock.withLock { pausedUntil = until }
     }
 
@@ -491,7 +528,7 @@ class PostHogQueue<Record> {
     private func pauseReason() -> String? {
         let (isPaused, until) = stateLock.withLock { (paused, pausedUntil) }
         if isPaused { return "paused due to the reachability check" }
-        if let until, until > Date() { return "paused until `\(until)`" }
+        if let until, until > now() { return "paused until `\(until)`" }
         return nil
     }
 
@@ -512,6 +549,10 @@ class PostHogQueue<Record> {
 
         var currentFlushAtForTesting: Int {
             batchLimitsLock.withLock { batchLimits.flushAt }
+        }
+
+        var currentRetryCountForTesting: Int {
+            stateLock.withLock { retryCount }
         }
     }
 #endif

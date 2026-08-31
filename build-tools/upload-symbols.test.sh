@@ -374,6 +374,23 @@ test_falls_back_for_malformed_source_plist() {
     assert_file_contains_line "$CLI_ARGS_FILE" "1"
 }
 
+test_warns_on_deprecated_no_release_bind_and_uploads_bound() {
+    create_fixture "no-release-bind"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "154"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    export POSTHOG_NO_RELEASE_BIND=1
+    run_upload
+    unset POSTHOG_NO_RELEASE_BIND
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    case "$OUTPUT" in
+        *"POSTHOG_NO_RELEASE_BIND is deprecated"*) ;;
+        *) fail "Expected a deprecation warning, got: $OUTPUT" ;;
+    esac
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--no-release-bind"
+}
+
 bash -n "$UPLOAD_SCRIPT"
 test_waits_for_current_dsym_and_uses_source_plist_versions
 test_uses_info_plist_with_supported_cli_versions
@@ -386,5 +403,6 @@ test_resolves_compound_build_settings
 test_skips_cli_lookup_when_build_does_not_emit_dsyms
 test_falls_back_for_unresolved_source_plist_versions
 test_falls_back_for_malformed_source_plist
+test_warns_on_deprecated_no_release_bind_and_uploads_bound
 
 echo "upload-symbols tests passed"

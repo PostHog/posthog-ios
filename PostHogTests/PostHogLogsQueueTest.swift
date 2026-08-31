@@ -323,22 +323,11 @@ final class PostHogLogsQueueTests {
         #expect(queue.depth == 2)
     }
 
-    @Test("413 poison-drop does not consume the maxRetries budget — queue drains record-by-record")
+    @Test("413 halving reaches singleton poison drops and drains record-by-record")
     func handle413PoisonDropIsNotARetry() async throws {
-        // Pin down: cap=1 + 413 (poison drop) is a *resolution*, not a retry.
-        // It must not increment retryCount.
-        //
-        // Scenario: maxBatchSize=8 + 8 oversized records + default maxRetries=3.
-        // The cap halves 3 times (8→4→2→1, retryCount accumulating to 3) before
-        // reaching cap=1. If poison-drop counted as a retry, the next flush would
-        // push retryCount to 4 > 3 and fire dropAll — wiping ALL 8 records together.
-        // The correct behaviour treats poison-drop as a clean resolution: the
-        // offending record is popped, retryCount resets to 0, cap stays at 1,
-        // and the queue continues draining.
-        //
-        // Observable difference: the buggy path makes ~4 HTTP requests (3
-        // halvings + 1 dropAll). The correct path makes far more — each record
-        // costs at least one halve cycle + one poison drop.
+        // Multi-record batches are retained while the cap halves to one. At
+        // cap one, each 413 removes only that singleton and leaves unrelated
+        // durable records for subsequent flushes.
         let (queue, _) = makeQueue(maxBufferSize: 100, maxBatchSize: 8, flushAt: 8)
         defer { queue.clear()
             queue.stop()
@@ -363,43 +352,6 @@ final class PostHogLogsQueueTests {
         // Record-by-record drain produces > 8 — at minimum one request per
         // record dropped, plus the halve cycles in between.
         #expect(server.logsRequests.count > 8)
-    }
-
-    @Test("drops the entire queue once retryCount exceeds maxRetries on repeated 413")
-    func handle413MaxRetriesDropsAll() async throws {
-        // Mirrors PostHogQueue's safeguard: a permanently-broken backend that
-        // keeps returning 413 should not leave the logs queue retrying forever.
-        // After config.maxRetries failed attempts, the queue drops everything
-        // and resets the retry / cap state.
-        let (queue, config) = makeQueue(maxBufferSize: 100, maxBatchSize: 64)
-        config.maxRetries = 1
-        defer { queue.clear()
-            queue.stop()
-        }
-
-        server.logsResponseHandler = { _, _ in
-            HTTPStubsResponse(jsonObject: ["error": "too large"], statusCode: 413, headers: nil)
-        }
-
-        // Enough records that cap-halving alone won't drain the queue before
-        // retryCount exceeds maxRetries.
-        for i in 0 ..< 32 {
-            queue.add(makeRecord(body: "log-\(i)"))
-        }
-        await waitUntil { queue.depth == 32 }
-
-        // Drive flushes until the queue drops everything via the maxRetries path.
-        // First flush: batchSize=32 → 413 → retryCount=1 (not > 1) → halve cap.
-        // Second flush: batchSize=16 → 413 → retryCount=2 (> 1) → drop ALL records.
-        queue.flush()
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        queue.flush()
-        await waitUntil { queue.depth == 0 }
-        #expect(queue.depth == 0)
-        // Cap stays where it was when dropAll fired — no reset. Matches
-        // events / posthog-android behaviour: new records start at the
-        // halved cap until a successful send proves the backend is healthy.
-        #expect(queue.currentBatchCapForTesting == 16)
     }
 
     @Test("halves cap from min(cap, actualBatchSize) when queue depth was below cap")
@@ -430,11 +382,6 @@ final class PostHogLogsQueueTests {
         #expect(queue.currentBatchCapForTesting == 2)
         #expect(queue.depth == 4)
     }
-
-    // Note: the 5xx path also goes through the maxRetries check → dropAllQueuedRecords,
-    // but testing it directly would require waiting out the 5+10+15s exponential backoff
-    // between attempts (`pausedUntil` blocks the next flush). The 413 maxRetries test
-    // above covers the shared drop logic without that latency since 413 doesn't pause.
 
     @Test("non-413 4xx drops the batch (poison-pill)")
     func handleNon413_4xxDrops() async throws {
@@ -743,10 +690,13 @@ final class PostHogLogsQueueTests {
         reachability.onUnreachable.invoke(reachability)
 
         queue.add(makeRecord(body: "while-offline"))
-        queue.flush()
+        for _ in 0 ..< 3 {
+            queue.flush()
+        }
         try? await Task.sleep(nanoseconds: 300_000_000)
         #expect(server.logsRequests.isEmpty)
         #expect(queue.depth == 1)
+        #expect(queue.currentRetryCountForTesting == 0)
 
         // Simulate WiFi back. The reachable callback unpauses and proactively
         // triggers a flush.

@@ -1,5 +1,37 @@
 ## Next
 
+## 3.71.4
+
+### Patch Changes
+
+- 430b841: Prevent survey appearance colors with unexpected hex lengths from crashing the SDK.
+
+## 3.71.3
+
+### Patch Changes
+
+- ee9e176: Declare the system boot time and file timestamp APIs used by the SDK in its privacy manifest.
+
+## 3.71.2
+
+### Patch Changes
+
+- 4656dd2: Surveys: show the selected face on emoji rating questions. The selected face took a color that contrasts against `ratingButtonActiveColor`, but the face is tinted rather than drawn on a filled button, so nothing painted that color behind it. PostHog pairs `ratingButtonActiveColor` with an opposing background, so the face blended into the card and disappeared on tap. This affected the default appearance and every built-in theme. The face now takes `ratingButtonActiveColor` directly, which matches the Android SDK.
+
+## 3.71.1
+
+### Patch Changes
+
+- af21b99: Deprecate `POSTHOG_NO_RELEASE_BIND` in the dSYM upload build phase. The script ignores it, prints a warning when it is set, and uploads symbol sets bound to the release it creates, which is what it did before the variable existed. `dsym upload` no longer receives `--no-release-bind`.
+  
+  Event mode only helps when two releases ship a byte-identical binary, because the symbol id is the Mach-O `LC_UUID`. It also cost release attribution for embedded targets: the upload covers every extension dSYM but creates one release, so an extension crash resolved no release once the binding was gone.
+
+## 3.71.0
+
+### Minor Changes
+
+- 27b6b36: Session replay: honor a `ph-no-mask` token on `accessibilityIdentifier` or `accessibilityLabel` to exclude a view (and its subviews) from masking. This gives platforms that cannot reach the `.postHogNoMask()` modifier, such as React Native (where `testID` maps to `accessibilityIdentifier`), a way to selectively unmask known-safe views while keeping `maskAllTextInputs` on.
+
 ## 3.70.1
 
 ### Patch Changes

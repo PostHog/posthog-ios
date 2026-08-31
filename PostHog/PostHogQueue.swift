@@ -68,6 +68,15 @@ class PostHogQueue<Record> {
     /// Wall clock of the first failure in the current unhealthy-backend streak,
     /// or `nil` while healthy. Only server-side retriable failures (5xx, 429,
     /// …) set it; transport failures never do. Cleared on any success.
+    ///
+    /// In-memory only — not persisted with the on-disk queue, so the streak and
+    /// therefore the `maxRetryWindowSeconds` drop window are measured within a
+    /// single process lifetime and restart from zero on every app launch. On
+    /// platforms that terminate processes frequently (iOS) the window-based
+    /// drop rarely fires; `maxQueueSize` remains the effective bound on the
+    /// buffer. Kept in memory deliberately: persisting it would add a storage
+    /// key and a disk write on each first failure for a safeguard that never
+    /// causes data loss or unbounded growth on its own.
     private var failingSince: Date?
 
     /// Invoked from `dropAllQueuedRecords` with the number of records wiped and

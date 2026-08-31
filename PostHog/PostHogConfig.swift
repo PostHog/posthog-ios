@@ -94,8 +94,14 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// batch is dropped. Increments on every 413 that halves the batch cap;
     /// resets on a successful 2xx response. Default 3.
     ///
-    /// This no longer governs network or 5xx retries — those keep the queue
-    /// and are bounded by `maxRetryWindowSeconds` and `maxQueueSize` instead.
+    /// For the on-disk event, session-replay, and log queues this no longer
+    /// governs network or 5xx retries — those keep the queue and are bounded by
+    /// `maxRetryWindowSeconds` and `maxQueueSize` instead.
+    ///
+    /// It does still bound push-subscription registration retries: a transport
+    /// error, 429, or 5xx there is retried up to `maxRetries` times before the
+    /// device token is kept for the next app launch. Lowering this value to
+    /// tune 413 halving therefore also shortens push registration patience.
     @objc public var maxRetries: Int = Defaults.maxRetries
 
     /// Sustained duration, in seconds, that flushes must keep failing against a

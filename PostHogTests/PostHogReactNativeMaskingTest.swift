@@ -108,6 +108,73 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 10, y: 300, width: 300, height: 180)])
         }
 
+        @Test("A ph-no-mask accessibilityIdentifier token unmasks a Fabric paragraph view")
+        func noMaskIdentifierTokenUnmasksParagraph() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let paragraph = FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            // Compound identifier pins the substring match (React Native example:
+            // testID="screen-title-ph-no-mask").
+            paragraph.accessibilityIdentifier = "screen-title ph-no-mask"
+            let window = makeWindow(containing: paragraph)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A sensitive UITextField nested under a ph-no-mask ancestor is not collected")
+        func noMaskAncestorSkipsSensitiveSubtree() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let container = UIView(frame: CGRect(x: 0, y: 80, width: 320, height: 200))
+            container.accessibilityIdentifier = "safe-chrome ph-no-mask"
+            container.addSubview(UITextField(frame: CGRect(x: 12, y: 12, width: 160, height: 40)))
+            container.addSubview(FabricParagraphViewStub(frame: CGRect(x: 12, y: 64, width: 160, height: 32)))
+            let window = makeWindow(containing: container)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A ph-no-mask accessibilityLabel token unmasks Fabric paragraph view")
+        func noMaskLabelTokenUnmasksParagraph() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let paragraph = FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            paragraph.accessibilityLabel = "ph-no-mask"
+            let window = makeWindow(containing: paragraph)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A ph-no-mask token is matched case-insensitively")
+        func noMaskTokenIsCaseInsensitive() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let paragraph = FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            paragraph.accessibilityIdentifier = "Screen-Title PH-NO-MASK"
+            let window = makeWindow(containing: paragraph)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A ph-no-mask ancestor takes precedence over a ph-no-capture descendant")
+        func noMaskAncestorOutranksNoCaptureDescendant() {
+            let sut = makeSut(maskText: false, maskImages: false)
+            defer { teardown(sut) }
+
+            let container = UIView(frame: CGRect(x: 0, y: 80, width: 320, height: 200))
+            container.accessibilityIdentifier = "safe-chrome ph-no-mask"
+            let tagged = FabricParagraphViewStub(frame: CGRect(x: 12, y: 12, width: 160, height: 32))
+            tagged.accessibilityIdentifier = "ph-no-capture"
+            container.addSubview(tagged)
+            let window = makeWindow(containing: container)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
         @Test("nothing is masked with both flags off")
         func nothingMaskedWithFlagsOff() {
             let sut = makeSut(maskText: false, maskImages: false)
@@ -157,4 +224,55 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
     }
+    /// Pins that reading the label carrier via `super.accessibilityLabel` sees only an
+    /// explicitly assigned label, never one UIKit or React Native derives from content.
+    /// Load-bearing for `ph-no-mask`: a derived label would let user or server copy
+    /// containing the token unmask a subtree.
+    @Suite("Accessibility token carriers", .serialized)
+    @MainActor
+    struct PostHogAccessibilityTokenCarrierTest {
+        /// Overrides the getter the way RCTView and UILabel do.
+        private final class OverridingLabelView: UIView {
+            override var accessibilityLabel: String? {
+                get { "ph-no-mask" }
+                set { _ = newValue }
+            }
+        }
+
+        @Test("An explicitly assigned accessibilityLabel carries the token")
+        func explicitLabelIsRead() {
+            let view = UIView()
+            view.accessibilityLabel = "ph-no-mask"
+
+            #expect(view.isNoMask())
+        }
+
+        @Test("A UILabel's text-derived accessibilityLabel does not carry the token")
+        func textDerivedLabelIsNotRead() {
+            let label = UILabel()
+            label.text = "ph-no-mask"
+
+            // UIKit does not populate `accessibilityLabel` from `text` at the property level
+            // outside an active accessibility context, so the token never reaches the match.
+            #expect(label.accessibilityLabel == nil)
+            #expect(label.isNoMask() == false)
+        }
+
+        @Test("A subclass override of accessibilityLabel does not carry the token")
+        func overriddenLabelIsNotRead() {
+            let view = OverridingLabelView()
+
+            #expect(view.accessibilityLabel == "ph-no-mask")
+            #expect(view.isNoMask() == false)
+        }
+
+        @Test("The same carriers apply to ph-no-capture")
+        func noCaptureUsesSameCarriers() {
+            let label = UILabel()
+            label.text = "ph-no-capture"
+
+            #expect(label.isNoCapture() == false)
+        }
+    }
+
 #endif

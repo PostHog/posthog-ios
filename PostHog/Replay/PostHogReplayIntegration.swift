@@ -863,8 +863,9 @@
         }
 
         private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: inout Bool) {
-            // User explicitly marked this view (and its subviews) as non-maskable through `.postHogNoMask()` view modifier
-            if view.postHogNoMask {
+            // Checked first so an explicit unmask wins over the sensitive-type early-returns
+            // below, matching the modifier's precedence.
+            if view.isNoMask() {
                 return
             }
 

@@ -21,6 +21,14 @@
             containsAccessibilityToken("ph-no-capture")
         }
 
+        /// Whether this view (and its subviews) is explicitly marked as non-maskable, via the
+        /// `.postHogNoMask()` modifier or a `ph-no-mask` token on its `accessibilityIdentifier`
+        /// or `accessibilityLabel` — the carriers React Native can reach, since it cannot apply
+        /// the modifier. Unlike the sibling tokens, this one reduces masking rather than adding it.
+        func isNoMask() -> Bool {
+            postHogNoMask || containsAccessibilityToken("ph-no-mask")
+        }
+
         /// Whether this view is explicitly marked to be excluded from rage click detection,
         /// via the `ph-no-rageclick` token on its `accessibilityIdentifier` or `accessibilityLabel`.
         func isNoRageClick() -> Bool {

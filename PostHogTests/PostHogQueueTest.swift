@@ -186,13 +186,14 @@ class PostHogQueueTest: QuickSpec {
             sut.clear()
         }
 
-        it("drops the entire queue once retryCount exceeds maxRetries on repeated 413") {
-            // 413 with cap > 1 increments retryCount the same way 5xx /
-            // network errors do — both paths use the same
-            // `newCount > config.maxRetries` check — so this test covers
-            // both paths' drop logic. We use 413 here because it doesn't
-            // set `pausedUntil`, letting the test drive multiple retries
-            // without waiting out the exponential backoff.
+        it("drops the entire queue once the 413 halving count exceeds maxRetries") {
+            // A 413 with cap > 1 increments the dedicated 413 halving count
+            // and drops via the `newCount > config.maxRetries` check. Only the
+            // 413 path is bounded by `maxRetries`; transport and 5xx failures
+            // use a separate counter and the time window. We use 413 here
+            // because it doesn't set `pausedUntil`, letting the test drive
+            // multiple halving attempts without waiting out the exponential
+            // backoff.
             //
             // 20 events with maxBatchSize=20 so halving sequence is 10 → 5
             // → drop — cap doesn't reach 1 before maxRetries=2 is exceeded
@@ -440,6 +441,54 @@ class PostHogQueueTest: QuickSpec {
             }
 
             expect(sut.depth) == 3
+
+            sut.clear()
+        }
+
+        it("a 413 after transport failures still halves instead of wiping the queue") {
+            // Regression: transport failures used to feed the same counter the
+            // 413 halving budget reads, so a burst of network flapping could
+            // push `retryCount` past `maxRetries` and make the very first 413
+            // drop every buffered record without one halving attempt. Transport
+            // failures must not consume the 413 budget.
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            defer { now = { Date() } }
+
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 20, maxRetries: 2)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            var attempt = 0
+            server.start(batchCount: 4)
+            server.batchResponseHandler = { _, _ in
+                attempt += 1
+                // First three attempts are transport failures (flaky network);
+                // afterwards the backend responds 413.
+                return attempt <= 3
+                    ? HTTPStubsResponse(error: networkError)
+                    : HTTPStubsResponse(jsonObject: [], statusCode: 413, headers: nil)
+            }
+
+            for i in 0 ..< 20 {
+                sut.add(PostHogEvent(event: "evt\(i)", distinctId: "id"))
+            }
+
+            // Three transport failures push retryCount to 3 (> maxRetries=2)
+            // without ever dropping the queue or touching the batch cap.
+            for attemptCount in 1 ... 3 {
+                sut.flush()
+                expect(sut.currentRetryCountForTesting).toEventually(equal(attemptCount))
+                expect(sut.depth) == 20
+                expect(sut.currentBatchCapForTesting) == 20
+                // Step past the backoff pause before the next attempt.
+                mockNow.date.addTimeInterval(60)
+            }
+
+            // The first 413 now arrives. Despite retryCount already exceeding
+            // maxRetries, the 413 budget is separate and starts fresh, so the
+            // cap halves and the batch is retained rather than wiped.
+            sut.flush()
+            expect(sut.currentBatchCapForTesting).toEventually(equal(10))
+            expect(sut.depth) == 20
 
             sut.clear()
         }

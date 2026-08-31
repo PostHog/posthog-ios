@@ -56,15 +56,27 @@ class PostHogQueue<Record> {
     private let configuredMaxQueueSize: Int
     private let timerInterval: TimeInterval
 
-    /// Guards `paused`, `pausedUntil`, and `retryCount`. These are touched from
-    /// the URLSession completion queue (handleResult), the timer's main-thread
-    /// callback (canFlush), and the reachability callbacks (onReachable /
-    /// onUnreachable) — all without coordination — so a single state lock keeps
-    /// the trio consistent against ThreadSanitizer.
+    /// Guards `paused`, `pausedUntil`, `retryCount`, `payloadTooLargeCount`, and
+    /// `failingSince`. These are touched from the URLSession completion queue
+    /// (handleResult), the timer's main-thread callback (canFlush), and the
+    /// reachability callbacks (onReachable / onUnreachable) — all without
+    /// coordination — so a single state lock keeps them consistent against
+    /// ThreadSanitizer.
     private let stateLock = NSLock()
     private var paused: Bool = false
     private var pausedUntil: Date?
+    /// Consecutive retriable failures (transport `-1` and server 5xx/429/…),
+    /// used only to ramp the backoff delay. Reset on any success or full drop.
+    /// It deliberately does *not* gate the HTTP 413 halving budget — see
+    /// `payloadTooLargeCount`.
     private var retryCount: Int = 0
+    /// Consecutive HTTP 413 batch-halving attempts, compared against
+    /// `config.maxRetries`. Kept separate from `retryCount` so transport and
+    /// 5xx failures — which must never drop the queue — can't consume the 413
+    /// halving budget and let the first 413 wipe every buffered record.
+    /// Incremented only when a 413 halves the cap; reset on success, on the
+    /// 413 poison drop, and on a full queue drop.
+    private var payloadTooLargeCount: Int = 0
     /// Wall clock of the first failure in the current unhealthy-backend streak,
     /// or `nil` while healthy. Only server-side retriable failures (5xx, 429,
     /// …) set it; transport failures never do. Cleared on any success.
@@ -208,9 +220,9 @@ class PostHogQueue<Record> {
         }
 
         // 413 Payload Too Large. Two paths:
-        //  - cap > 1: this is a retry. Increment retryCount, drop all if
-        //    `maxRetries` exceeded, otherwise halve cap and retry the same
-        //    records.
+        //  - cap > 1: this is a retry. Increment the 413 halving count, drop
+        //    all if `maxRetries` exceeded, otherwise halve cap and retry the
+        //    same records.
         //  - cap == 1: poison drop. The offending record can't shrink any
         //    further, so we drop the batch and apply the endpoint's poison
         //    cap policy. Don't count it as a retry — the drop *is* the
@@ -220,8 +232,8 @@ class PostHogQueue<Record> {
 
             if canHalve {
                 let newCount = stateLock.withLock { () -> Int in
-                    retryCount += 1
-                    return retryCount
+                    payloadTooLargeCount += 1
+                    return payloadTooLargeCount
                 }
                 if newCount > config.maxRetries {
                     dropAllQueuedRecords(reason: "max retries (\(config.maxRetries)) exceeded after repeated HTTP 413")
@@ -242,6 +254,7 @@ class PostHogQueue<Record> {
             hedgeLog("Queue: dropping batch after HTTP 413 (cap == 1)")
             stateLock.withLock {
                 retryCount = 0
+                payloadTooLargeCount = 0
                 failingSince = nil
             }
             payload.completion(true)
@@ -252,6 +265,7 @@ class PostHogQueue<Record> {
         // batch. Cap stays where it is — no ramp on success.
         stateLock.withLock {
             retryCount = 0
+            payloadTooLargeCount = 0
             failingSince = nil
         }
         payload.completion(true)
@@ -270,6 +284,7 @@ class PostHogQueue<Record> {
         fileQueue.clear()
         stateLock.withLock {
             retryCount = 0
+            payloadTooLargeCount = 0
             failingSince = nil
             pausedUntil = nil
         }

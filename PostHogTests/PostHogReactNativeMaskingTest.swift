@@ -136,8 +136,8 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
-        @Test("A ph-no-mask accessibilityLabel does NOT unmask (labels are content-derived)")
-        func noMaskLabelTokenIsIgnored() {
+        @Test("A ph-no-mask accessibilityLabel token unmasks Fabric paragraph view")
+        func noMaskLabelTokenUnmasksParagraph() {
             let sut = makeSut(maskText: true, maskImages: false)
             defer { teardown(sut) }
 
@@ -145,7 +145,7 @@
             paragraph.accessibilityLabel = "ph-no-mask"
             let window = makeWindow(containing: paragraph)
 
-            #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 24, y: 120, width: 200, height: 32)])
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
         @Test("A ph-no-mask token is matched case-insensitively")
@@ -224,4 +224,55 @@
             #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
     }
+    /// Pins that reading the label carrier via `super.accessibilityLabel` sees only an
+    /// explicitly assigned label, never one UIKit or React Native derives from content.
+    /// Load-bearing for `ph-no-mask`: a derived label would let user or server copy
+    /// containing the token unmask a subtree.
+    @Suite("Accessibility token carriers", .serialized)
+    @MainActor
+    struct PostHogAccessibilityTokenCarrierTest {
+        /// Overrides the getter the way RCTView and UILabel do.
+        private final class OverridingLabelView: UIView {
+            override var accessibilityLabel: String? {
+                get { "ph-no-mask" }
+                set { _ = newValue }
+            }
+        }
+
+        @Test("An explicitly assigned accessibilityLabel carries the token")
+        func explicitLabelIsRead() {
+            let view = UIView()
+            view.accessibilityLabel = "ph-no-mask"
+
+            #expect(view.isNoMask())
+        }
+
+        @Test("A UILabel's text-derived accessibilityLabel does not carry the token")
+        func textDerivedLabelIsNotRead() {
+            let label = UILabel()
+            label.text = "ph-no-mask"
+
+            // UIKit does not populate `accessibilityLabel` from `text` at the property level
+            // outside an active accessibility context, so the token never reaches the match.
+            #expect(label.accessibilityLabel == nil)
+            #expect(label.isNoMask() == false)
+        }
+
+        @Test("A subclass override of accessibilityLabel does not carry the token")
+        func overriddenLabelIsNotRead() {
+            let view = OverridingLabelView()
+
+            #expect(view.accessibilityLabel == "ph-no-mask")
+            #expect(view.isNoMask() == false)
+        }
+
+        @Test("The same carriers apply to ph-no-capture")
+        func noCaptureUsesSameCarriers() {
+            let label = UILabel()
+            label.text = "ph-no-capture"
+
+            #expect(label.isNoCapture() == false)
+        }
+    }
+
 #endif

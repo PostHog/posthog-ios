@@ -21,27 +21,12 @@
             containsAccessibilityToken("ph-no-capture")
         }
 
-        /// Whether this view (and its subviews) is explicitly marked as non-maskable,
-        /// via the `.postHogNoMask()` modifier or a `ph-no-mask` token on its
-        /// `accessibilityIdentifier`. This lets platforms that cannot reach the
-        /// modifier (e.g. React Native, whose `testID` maps to
-        /// `accessibilityIdentifier`) unmask known-safe views while keeping
-        /// conservative masking defaults.
-        ///
-        /// Unlike `ph-no-capture`, this marker REDUCES privacy protection, so it is
-        /// deliberately NOT honored on `accessibilityLabel`: labels carry localized,
-        /// server-provided, or user-derived content, and unmasking must only be
-        /// reachable through a developer-controlled channel.
+        /// Whether this view (and its subviews) is explicitly marked as non-maskable, via the
+        /// `.postHogNoMask()` modifier or a `ph-no-mask` token on its `accessibilityIdentifier`
+        /// or `accessibilityLabel` — the carriers React Native can reach, since it cannot apply
+        /// the modifier. Unlike the sibling tokens, this one reduces masking rather than adding it.
         func isNoMask() -> Bool {
-            if postHogNoMask {
-                return true
-            }
-            if let identifier = accessibilityIdentifier,
-               identifier.range(of: "ph-no-mask", options: .caseInsensitive) != nil
-            {
-                return true
-            }
-            return false
+            postHogNoMask || containsAccessibilityToken("ph-no-mask")
         }
 
         /// Whether this view is explicitly marked to be excluded from rage click detection,

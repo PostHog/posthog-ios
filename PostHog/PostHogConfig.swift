@@ -33,6 +33,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         static let maxBatchSize: Int = 50
         static let flushIntervalSeconds: TimeInterval = 30
         static let maxRetries: Int = 3
+        static let maxRetryWindowSeconds: TimeInterval = 24 * 60 * 60
         static let featureFlagRequestMaxRetries: Int = 1
     }
 
@@ -89,11 +90,23 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `30`.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
-    /// Maximum number of consecutive flush attempts before the entire queue is
-    /// dropped to avoid infinite retries against a permanently-broken backend.
-    /// Increments on every retriable failure including HTTP 413 cap halving;
+    /// Maximum number of HTTP 413 batch-halving attempts before the oversized
+    /// batch is dropped. Increments on every 413 that halves the batch cap;
     /// resets on a successful 2xx response. Default 3.
+    ///
+    /// This no longer governs network or 5xx retries — those keep the queue
+    /// and are bounded by `maxRetryWindowSeconds` and `maxQueueSize` instead.
     @objc public var maxRetries: Int = Defaults.maxRetries
+
+    /// Sustained duration, in seconds, that flushes must keep failing against a
+    /// responsive-but-unhealthy backend (for example repeated HTTP 5xx) before
+    /// the on-disk queue is dropped to stop retrying forever.
+    ///
+    /// A network-level failure (lost connectivity, timeout, no route) never
+    /// triggers this drop: the queue is kept and bounded only by
+    /// `maxQueueSize`, so a brief connectivity blip cannot destroy buffered
+    /// events. The timer resets on any successful send. Default: 24 hours.
+    @objc public var maxRetryWindowSeconds: TimeInterval = Defaults.maxRetryWindowSeconds
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
     /// Defaults to 1. Set to 0 to disable feature flag request retries.

@@ -235,6 +235,16 @@ let maxRetryDelay = 30.0
                 logsQueue = PostHogQueue(config, theStorage, logsEndpoint)
             #endif
 
+            // Make a full queue drop measurable: emit a diagnostic event so
+            // the SDK stops discarding events silently. It queues like any
+            // other event and reaches PostHog once connectivity returns.
+            queue?.onRecordsDropped = { [weak self] count, reason in
+                self?.capture("$queue_records_dropped", properties: [
+                    "dropped_count": count,
+                    "reason": reason,
+                ])
+            }
+
             queue?.start(disableReachabilityForTesting: config.disableReachabilityForTesting,
                          disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 

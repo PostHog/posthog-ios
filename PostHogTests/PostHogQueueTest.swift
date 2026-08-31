@@ -14,12 +14,13 @@ import Quick
 import XCTest
 
 class PostHogQueueTest: QuickSpec {
-    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3) -> PostHogQueue<PostHogEvent> {
+    func getSut(flushAt: Int = 1, maxQueueSize: Int = 1000, maxBatchSize: Int = 50, maxRetries: Int = 3, maxRetryWindowSeconds: TimeInterval = 24 * 60 * 60) -> PostHogQueue<PostHogEvent> {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
         config.flushAt = flushAt
         config.maxQueueSize = maxQueueSize
         config.maxBatchSize = maxBatchSize
         config.maxRetries = maxRetries
+        config.maxRetryWindowSeconds = maxRetryWindowSeconds
         config.sendFeatureFlagEvent = false
         let storage = PostHogStorage(config)
         let api = PostHogApi(config)
@@ -405,6 +406,77 @@ class PostHogQueueTest: QuickSpec {
 
             expect(sut.depth).toEventually(equal(2))
             expect(sut.currentBatchCapForTesting).toEventually(equal(4))
+
+            sut.clear()
+        }
+
+        it("never drops the queue on repeated network failures, even past the retry window") {
+            // The reported bug: ~6s of flaky connectivity used to wipe every
+            // buffered event. Transport failures (-1) must keep the queue no
+            // matter how many happen or how long they last — the window here
+            // is tiny to prove elapsed time alone can't trigger a drop.
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            defer { now = { Date() } }
+
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 3, maxRetryWindowSeconds: 1)
+            let networkError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            server.start(batchCount: 6)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(error: networkError)
+            }
+
+            for i in 0 ..< 3 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+
+            for attempt in 1 ... 6 {
+                sut.flush()
+                // Wait for the failure to land, then step past the backoff pause
+                // and the retry window before the next attempt.
+                expect(sut.currentRetryCountForTesting).toEventually(equal(attempt))
+                expect(sut.depth) == 3
+                mockNow.date.addTimeInterval(60)
+            }
+
+            expect(sut.depth) == 3
+
+            sut.clear()
+        }
+
+        it("drops the queue after sustained server failures and reports the dropped count") {
+            let mockNow = MockDate()
+            now = { mockNow.date }
+            defer { now = { Date() } }
+
+            let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetryWindowSeconds: 10)
+            var droppedCount = 0
+            var droppedReason = ""
+            sut.onRecordsDropped = { count, reason in
+                droppedCount = count
+                droppedReason = reason
+            }
+            server.start(batchCount: 2)
+            server.batchResponseHandler = { _, _ in
+                HTTPStubsResponse(jsonObject: [], statusCode: 500, headers: nil)
+            }
+
+            for i in 0 ..< 3 {
+                sut.add(PostHogEvent(event: "event\(i)", distinctId: "id\(i)"))
+            }
+
+            // First failure starts the failure streak; the queue is retained.
+            sut.flush()
+            expect(sut.currentRetryCountForTesting).toEventually(equal(1))
+            expect(sut.depth) == 3
+
+            // Past the window, the next server failure drops the whole queue and
+            // reports it so the loss is measurable.
+            mockNow.date.addTimeInterval(11)
+            sut.flush()
+            expect(sut.depth).toEventually(equal(0))
+            expect(droppedCount) == 3
+            expect(droppedReason).to(contain("backend failing"))
 
             sut.clear()
         }

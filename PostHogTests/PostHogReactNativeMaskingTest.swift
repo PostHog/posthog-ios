@@ -119,7 +119,7 @@
             paragraph.accessibilityIdentifier = "screen-title ph-no-mask"
             let window = makeWindow(containing: paragraph)
 
-            #expect(sut.integration.collectMaskableRects(in: window).isEmpty)
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
         @Test("A sensitive UITextField nested under a ph-no-mask ancestor is not collected")
@@ -133,7 +133,7 @@
             container.addSubview(FabricParagraphViewStub(frame: CGRect(x: 12, y: 64, width: 160, height: 32)))
             let window = makeWindow(containing: container)
 
-            #expect(sut.integration.collectMaskableRects(in: window).isEmpty)
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
         @Test("A ph-no-mask accessibilityLabel does NOT unmask (labels are content-derived)")
@@ -146,6 +146,33 @@
             let window = makeWindow(containing: paragraph)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [CGRect(x: 24, y: 120, width: 200, height: 32)])
+        }
+
+        @Test("A ph-no-mask token is matched case-insensitively")
+        func noMaskTokenIsCaseInsensitive() {
+            let sut = makeSut(maskText: true, maskImages: false)
+            defer { teardown(sut) }
+
+            let paragraph = FabricParagraphViewStub(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            paragraph.accessibilityIdentifier = "Screen-Title PH-NO-MASK"
+            let window = makeWindow(containing: paragraph)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("A ph-no-mask ancestor takes precedence over a ph-no-capture descendant")
+        func noMaskAncestorOutranksNoCaptureDescendant() {
+            let sut = makeSut(maskText: false, maskImages: false)
+            defer { teardown(sut) }
+
+            let container = UIView(frame: CGRect(x: 0, y: 80, width: 320, height: 200))
+            container.accessibilityIdentifier = "safe-chrome ph-no-mask"
+            let tagged = FabricParagraphViewStub(frame: CGRect(x: 12, y: 12, width: 160, height: 32))
+            tagged.accessibilityIdentifier = "ph-no-capture"
+            container.addSubview(tagged)
+            let window = makeWindow(containing: container)
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [])
         }
 
         @Test("nothing is masked with both flags off")

@@ -23,6 +23,8 @@
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
 #   POSTHOG_DSYM_TIMEOUT - Seconds to wait for the current app dSYM before failing (default: 60)
+#   POSTHOG_NO_RELEASE_BIND - Deprecated and ignored. dSYMs always upload bound to the release
+#                              this build creates. The script warns when the variable is set.
 #
 
 # Skip non-Release builds.
@@ -32,6 +34,11 @@
 if [ -n "${CONFIGURATION}" ] && [ "${CONFIGURATION}" != "Release" ]; then
     echo "info: Skipping dSYM upload for configuration '${CONFIGURATION}' (not Release)."
     exit 0
+fi
+
+# The unbind behavior is removed, but a phase written for it may still export the variable.
+if [ -n "${POSTHOG_NO_RELEASE_BIND:-}" ]; then
+    echo "warning: POSTHOG_NO_RELEASE_BIND is deprecated and ignored. dSYMs upload bound to the release this build creates. Remove the variable."
 fi
 
 # Validate the path before looking for posthog-cli.

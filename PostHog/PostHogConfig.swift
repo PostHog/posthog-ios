@@ -559,7 +559,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
                         integrations.append(PostHogPushNotificationSubscriptionIntegration())
                     }
                 #endif
-                if capturePushNotificationOpened {
+                if installsPushNotificationOpenIntegration {
                     integrations.append(PostHogPushNotificationOpenIntegration())
                 }
             }
@@ -567,6 +567,17 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         return integrations
     }
+
+    #if os(iOS) || os(macOS)
+        /// Whether `PostHogPushNotificationOpenIntegration` will be installed by this config.
+        ///
+        /// `setup()`'s prewarm-discard gate is the negation of this, and the discard is the only thing
+        /// that releases a prewarm the config did not want. Both read this property so a new reason
+        /// not to install cannot be added on one side only.
+        var installsPushNotificationOpenIntegration: Bool {
+            capturePushNotificationOpened && enableSwizzling && !optOut
+        }
+    #endif
 
     var _surveys: Bool = true // swiftlint:disable:this identifier_name
     private func setSurveys(_ value: Bool) {

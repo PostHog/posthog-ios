@@ -320,6 +320,7 @@ PostHog | PostHogSDK.isSessionReplayActive() | method | @objc func isSessionRepl
 PostHog | PostHogSDK.logger | property | @objc var logger: PostHogLogger? { get } | c:@M@PostHog@objc(cs)PostHogSDK(py)logger
 PostHog | PostHogSDK.optIn() | method | @objc func optIn() | c:@M@PostHog@objc(cs)PostHogSDK(im)optIn
 PostHog | PostHogSDK.optOut() | method | @objc func optOut() | c:@M@PostHog@objc(cs)PostHogSDK(im)optOut
+PostHog | PostHogSDK.prewarmPushNotificationOpenCapture() | type.method | @objc static func prewarmPushNotificationOpenCapture() | c:@M@PostHog@objc(cs)PostHogSDK(cm)prewarmPushNotificationOpenCapture
 PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func register(_ properties: [String : Any]) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerProperties:
 PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
 PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:

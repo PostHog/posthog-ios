@@ -13,6 +13,34 @@
     private final class TestPushNotificationPublisher: PushNotificationPublishing {
         let onNotificationResponse = PostHogMulticastCallback<UNNotificationResponse>()
         let onDeviceToken = PostHogMulticastCallback<String>()
+        private(set) var prewarmCount = 0
+        private(set) var discardCount = 0
+        private var isPrewarmed = false
+        private var pendingResponse: UNNotificationResponse?
+
+        func prewarmNotificationResponseCapture() {
+            prewarmCount += 1
+            isPrewarmed = true
+        }
+
+        func deliver(notificationResponse response: UNNotificationResponse) {
+            guard onNotificationResponse.subscriberCount > 0 else {
+                if isPrewarmed { pendingResponse = response }
+                return
+            }
+            onNotificationResponse.invoke(response)
+        }
+
+        func consumePendingNotificationResponse() -> UNNotificationResponse? {
+            defer { pendingResponse = nil }
+            return pendingResponse
+        }
+
+        func discardPrewarmedNotificationResponseCapture() {
+            discardCount += 1
+            isPrewarmed = false
+            pendingResponse = nil
+        }
     }
 
     #if os(iOS)
@@ -53,9 +81,12 @@
             let container = DI.Container()
             container.pushNotificationPublisher = publisher
             DI.main = container
+            // `PushNotificationPublisher.shared` is process-wide, so prewarm state leaks between tests.
+            PushNotificationPublisher.reset()
         }
 
         deinit {
+            PushNotificationPublisher.reset()
             DI.main = previousContainer
         }
 
@@ -85,6 +116,147 @@
                 #expect(delegate.forwardedDelegate.registrationError as? NSError == error)
             }
         #endif
+
+        /// The placeholder stands in for a `UNNotificationResponse`, which has no public initializer.
+        /// It is only ever compared by identity here — never dereferenced.
+        private func withPlaceholderResponse(_ body: (UNNotificationResponse) -> Void) {
+            let placeholder = NSObject()
+            body(unsafeBitCast(placeholder, to: UNNotificationResponse.self))
+            withExtendedLifetime(placeholder) {}
+        }
+
+        @Test("buffers a response delivered after prewarm but before any subscriber, and drains it once")
+        func buffersResponseDeliveredBeforeSubscriber() {
+            let publisher = PushNotificationPublisher.shared
+            publisher.prewarmNotificationResponseCapture()
+
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+
+                #expect(publisher.consumePendingNotificationResponse() === response)
+                #expect(publisher.consumePendingNotificationResponse() == nil)
+            }
+        }
+
+        @Test("drops a response delivered with no subscriber when not prewarmed")
+        func dropsResponseWhenNotPrewarmed() {
+            let publisher = PushNotificationPublisher.shared
+
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+                #expect(publisher.consumePendingNotificationResponse() == nil)
+            }
+        }
+
+        @Test("prewarming twice leaves the buffer window open exactly once")
+        func prewarmIsIdempotent() {
+            let publisher = PushNotificationPublisher.shared
+            publisher.prewarmNotificationResponseCapture()
+            publisher.prewarmNotificationResponseCapture()
+
+            // Still buffering means the second call did not tear the prewarm window down.
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+                #expect(publisher.consumePendingNotificationResponse() === response)
+            }
+        }
+
+        @Test("discarding a prewarm clears the buffer and ends the prewarm window")
+        func discardEndsPrewarmWindow() {
+            let publisher = PushNotificationPublisher.shared
+            publisher.prewarmNotificationResponseCapture()
+
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+                publisher.discardPrewarmedNotificationResponseCapture()
+                #expect(publisher.consumePendingNotificationResponse() == nil)
+
+                publisher.deliver(notificationResponse: response)
+                #expect(publisher.consumePendingNotificationResponse() == nil)
+            }
+        }
+
+        @Test("prewarming while a subscriber is attached does not re-open the buffer window")
+        func prewarmWithLiveSubscriberIsIgnored() {
+            let publisher = PushNotificationPublisher.shared
+            var token: RegistrationToken? = publisher.onNotificationResponse.subscribe { _ in }
+
+            publisher.prewarmNotificationResponseCapture()
+            token = nil
+
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+                #expect(publisher.consumePendingNotificationResponse() == nil)
+            }
+        }
+
+        @Test("the public prewarm API reaches the publisher")
+        @available(iOS 14.0, macOS 11.0, *)
+        func publicPrewarmApiReachesPublisher() {
+            #expect(publisher.prewarmCount == 0)
+            PostHogSDK.prewarmPushNotificationOpenCapture()
+            #expect(publisher.prewarmCount == 1)
+        }
+
+        /// Mirrors `PostHogIntegrationInstallationTest.getSut`, trimmed to what the discard gate reads.
+        @available(iOS 14.0, macOS 11.0, *)
+        private func makeSut(
+            optOut: Bool = false,
+            capturePushNotificationOpened: Bool = true,
+            enableSwizzling: Bool = true
+        ) -> PostHogSDK {
+            let config = PostHogConfig(projectToken: "test_project_token", host: "http://localhost:9001")
+            config.disableRemoteConfigForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.disableReachabilityForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.captureScreenViews = false
+            config.errorTrackingConfig.autoCapture = false
+            #if os(iOS)
+                config.sessionReplay = false
+            #endif
+            config.optOut = optOut
+            config.enableSwizzling = enableSwizzling
+            config.capturePushNotificationOpened = capturePushNotificationOpened
+            config.capturePushNotificationSubscriptions = false
+
+            let storage = PostHogStorage(config)
+            storage.reset()
+
+            PostHogPushNotificationOpenIntegration.clearInstalls()
+            return PostHogSDK.with(config)
+        }
+
+        @Test("setup() releases a prewarm when push-open capture is disabled")
+        @available(iOS 14.0, macOS 11.0, *)
+        func setupDiscardsPrewarmWhenCaptureDisabled() {
+            let sut = makeSut(capturePushNotificationOpened: false)
+            defer { sut.close() }
+
+            #expect(publisher.discardCount == 1)
+        }
+
+        /// `setup()` skips `installIntegrations()` entirely while opted out, so the discard cannot
+        /// live there without leaving an opted-out app swizzled for the process lifetime.
+        @Test("setup() releases a prewarm while opted out, even with push-open capture enabled")
+        @available(iOS 14.0, macOS 11.0, *)
+        func setupDiscardsPrewarmWhileOptedOut() {
+            let sut = makeSut(optOut: true, capturePushNotificationOpened: true)
+            defer { sut.close() }
+
+            #expect(publisher.discardCount == 1)
+        }
+
+        @Test("setup() with push-open capture enabled does not discard the prewarm")
+        @available(iOS 14.0, macOS 11.0, *)
+        func setupKeepsPrewarmWhenCaptureEnabled() {
+            publisher.prewarmNotificationResponseCapture()
+
+            let sut = makeSut(capturePushNotificationOpened: true)
+            defer { sut.close() }
+
+            #expect(publisher.discardCount == 0)
+        }
 
         @Test("captures and calls an Objective-C delegate with the original selector")
         func callsObjectiveCDelegate() {

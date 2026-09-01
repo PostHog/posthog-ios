@@ -12,7 +12,6 @@
 #   Basic:          "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   With source:    POSTHOG_INCLUDE_SOURCE=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #   Skip conflicts: POSTHOG_SKIP_ON_CONFLICT=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
-#   No release bind: POSTHOG_NO_RELEASE_BIND=1 "${PODS_ROOT}/PostHog/build-tools/upload-symbols.sh"
 #
 # Build Settings (required):
 #   DEBUG_INFORMATION_FORMAT = DWARF with dSYM File
@@ -24,12 +23,6 @@
 #   POSTHOG_SKIP_ON_CONFLICT - Set to "1" to skip symbol sets that already exist
 #                              with different content instead of failing the build
 #   POSTHOG_DSYM_TIMEOUT - Seconds to wait for the current app dSYM before failing (default: 60)
-#   POSTHOG_NO_RELEASE_BIND - Set to "1" to upload symbol sets without binding them to the created
-#                              release (via `dsym upload --no-release-bind`). The release is still
-#                              created; the server resolves it from the `$app_version` /
-#                              `$app_namespace` / `$app_build` the SDK sends on every event, so the
-#                              uploaded chunks stay content-addressed and release-independent.
-#                              Requires posthog-cli >= 0.10.0.
 #
 
 # Skip non-Release builds.
@@ -142,9 +135,6 @@ MIN_POSTHOG_CLI_VERSION="0.7.7"
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     MIN_POSTHOG_CLI_VERSION="0.7.12"
 fi
-if [ "${POSTHOG_NO_RELEASE_BIND}" = "1" ]; then
-    MIN_POSTHOG_CLI_VERSION="0.10.0"
-fi
 PH_CLI_VERSION=$("$PH_CLI_PATH" --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
 
 if [ -z "$PH_CLI_VERSION" ]; then
@@ -243,13 +233,6 @@ if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then
 fi
 if [ "${POSTHOG_SKIP_ON_CONFLICT}" = "1" ]; then
     CLI_ARGS+=(--skip-on-conflict)
-fi
-
-# Optionally upload the symbol sets without binding them to the release. The release is still
-# created, and the server resolves it from the $app_version / $app_namespace / $app_build the SDK
-# sends on every event, so nothing is written into the built bundle.
-if [ "${POSTHOG_NO_RELEASE_BIND}" = "1" ]; then
-    CLI_ARGS+=(--no-release-bind)
 fi
 
 "${PH_CLI_PATH}" dsym upload "${CLI_ARGS[@]}" || exit 1

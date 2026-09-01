@@ -65,11 +65,8 @@
         }
 
         private func foregroundTextColor(selected: Bool) -> Color {
-            surveyRatingForegroundColor(
-                selected: selected,
-                activeColor: ratingButtonActiveColor,
-                inputTextColor: inputTextColor
-            )
+            // The number sits on a rectangle filled with the active color, so contrast against it.
+            selected ? ratingButtonActiveColor.getContrastingTextColor() : inputTextColor.opacity(0.5)
         }
 
         private var ratingButtonColor: Color {

@@ -41,19 +41,6 @@
         }
     }
 
-    /// Foreground color for a rating control that paints `activeColor` behind its content when selected.
-    ///
-    /// The selected color contrasts *against* `activeColor`, so a control that tints its content with
-    /// `activeColor` instead of filling a button with it must not use this.
-    @available(iOS 15.0, *)
-    func surveyRatingForegroundColor(selected: Bool, activeColor: Color, inputTextColor: Color) -> Color {
-        if selected {
-            return activeColor.getContrastingTextColor()
-        } else {
-            return inputTextColor.opacity(0.5)
-        }
-    }
-
     @available(iOS 14.0, *)
     private struct ReadFrameModifier: ViewModifier {
         /// Helper for notifying parents for child view frame changes

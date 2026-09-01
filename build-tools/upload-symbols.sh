@@ -216,7 +216,23 @@ resolve_source_plist_value() {
 }
 
 POSTHOG_RELEASE_VERSION=$(resolve_source_plist_value "CFBundleShortVersionString")
-POSTHOG_BUILD_VERSION=$(resolve_source_plist_value "CFBundleVersion")
+# The SDK sends $app_build through `Int(value) ?? value`, so a zero-padded numeric build reaches
+# PostHog without its padding. Drop the padding here too. Otherwise the upload creates a release
+# under a version that no event carries, and an unbound symbol set has no binding to fall back on.
+# A build that is not all digits, such as "1.2.3", stays as written, which is what the SDK does.
+normalize_build_version() {
+    case "$1" in
+        ''|*[!0-9]*)
+            printf '%s' "$1"
+            ;;
+        *)
+            local stripped="${1#"${1%%[!0]*}"}"
+            printf '%s' "${stripped:-0}"
+            ;;
+    esac
+}
+
+POSTHOG_BUILD_VERSION=$(normalize_build_version "$(resolve_source_plist_value "CFBundleVersion")")
 
 # Build CLI arguments as an array so paths with spaces are preserved.
 CLI_ARGS=(--directory "${DWARF_DSYM_FOLDER_PATH}")
@@ -244,7 +260,7 @@ fi
 if [ -n "$POSTHOG_BUILD_VERSION" ]; then
     CLI_ARGS+=(--build "$POSTHOG_BUILD_VERSION")
 elif [ -n "${CURRENT_PROJECT_VERSION}" ]; then
-    CLI_ARGS+=(--build "${CURRENT_PROJECT_VERSION}")
+    CLI_ARGS+=(--build "$(normalize_build_version "${CURRENT_PROJECT_VERSION}")")
 fi
 # Include source if requested via env var
 if [ "${POSTHOG_INCLUDE_SOURCE}" = "1" ]; then

@@ -416,6 +416,32 @@ test_keeps_the_old_floor_when_opted_out() {
     assert_file_does_not_contain_line "$CLI_ARGS_FILE" "--no-release-bind"
 }
 
+test_strips_padding_from_a_numeric_build() {
+    create_fixture "padded-build"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "001"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    # The SDK reports 1 for CFBundleVersion 001, so the release this upload creates must use 1.
+    assert_file_contains_line "$CLI_ARGS_FILE" "--build"
+    assert_file_contains_line "$CLI_ARGS_FILE" "1"
+    assert_file_does_not_contain_line "$CLI_ARGS_FILE" "001"
+}
+
+test_keeps_a_dotted_build_as_written() {
+    create_fixture "dotted-build"
+    write_plist "$SRC_ROOT/Config/Info.plist" "2.10.0" "1.2.3"
+    TEST_INFOPLIST_FILE="Config/Info.plist"
+
+    run_upload
+
+    [ "$STATUS" -eq 0 ] || fail "Expected upload to succeed, got status $STATUS: $OUTPUT"
+    # The SDK keeps a dotted build as a string, so this one passes through unchanged.
+    assert_file_contains_line "$CLI_ARGS_FILE" "1.2.3"
+}
+
 bash -n "$UPLOAD_SCRIPT"
 test_waits_for_current_dsym_and_uses_source_plist_versions
 test_uses_info_plist_with_supported_cli_versions
@@ -432,5 +458,7 @@ test_uploads_release_independent_by_default
 test_binds_the_release_when_opted_out
 test_requires_a_newer_cli_for_the_default
 test_keeps_the_old_floor_when_opted_out
+test_strips_padding_from_a_numeric_build
+test_keeps_a_dotted_build_as_written
 
 echo "upload-symbols tests passed"

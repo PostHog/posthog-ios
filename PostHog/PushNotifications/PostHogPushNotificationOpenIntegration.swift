@@ -46,10 +46,7 @@
                 self?.capture(response)
             }
 
-            // A response delivered before setup() — a cold launch from a notification tap in a
-            // Flutter/React Native app, where setup() runs once the JS/Dart isolate is up — is buffered
-            // by a prewarmed publisher and replayed here. Draining after subscribing means a response
-            // racing this call is never dropped.
+            // Draining after subscribing, so a response racing this call is never dropped.
             if let pending = DI.main.pushNotificationPublisher.consumePendingNotificationResponse() {
                 capture(pending)
             }

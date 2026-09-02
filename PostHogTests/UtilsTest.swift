@@ -99,20 +99,26 @@ struct UtilsTest {
     #if os(iOS)
         @Suite("Survey color tests")
         struct SurveyColorTests {
-            @Test("seven-or-more hex digits are normalized to eight digits")
-            func normalizesSevenOrMoreHexDigits() {
-                let testCases = [
+            @Test(
+                "hex colors are normalized by length",
+                arguments: [
+                    (hex: "#", expected: "000000ff"),
+                    (hex: "#1", expected: "000001ff"),
+                    (hex: "#12", expected: "000012ff"),
+                    (hex: "#123", expected: "112233ff"),
+                    (hex: "#1234", expected: "11223344"),
+                    (hex: "#12345", expected: "012345ff"),
+                    (hex: "#123456", expected: "123456ff"),
                     (hex: "#1234567", expected: "12345670"),
                     (hex: "#12345678", expected: "12345678"),
                     (hex: "#123456789", expected: "12345678"),
                     (hex: "#123456789abcdef", expected: "12345678"),
                 ]
+            )
+            func normalizesHexColorsByLength(hex: String, expected: String) {
+                let color = UIColor(hex: hex)
 
-                for testCase in testCases {
-                    let color = UIColor(hex: testCase.hex)
-
-                    #expect(color.hexDescription(true) == testCase.expected)
-                }
+                #expect(color.hexDescription(true) == expected)
             }
         }
     #endif

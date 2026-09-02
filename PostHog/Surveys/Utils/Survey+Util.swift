@@ -120,14 +120,16 @@
             if hexString.count == 3 || hexString.count == 4 {
                 hexString = hexString.map { "\($0)\($0)" }.joined()
             }
-            if hexString.count == 7 {
-                hexString += "0"
-            } else if hexString.count > 8 {
-                hexString = String(hexString.prefix(8))
-            } else if hexString.count < 7 {
-                hexString += "ff"
+            switch hexString.count {
+            case 0 ... 6:
+                return hexString + "ff"
+            case 7:
+                return hexString + "0"
+            case 8:
+                return hexString
+            default:
+                return String(hexString.prefix(8))
             }
-            return hexString
         }
 
         /**

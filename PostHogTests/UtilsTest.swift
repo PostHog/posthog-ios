@@ -9,6 +9,10 @@ import Foundation
 @testable import PostHog
 import Testing
 
+#if os(iOS)
+    import UIKit
+#endif
+
 @Suite("UtilsTest")
 struct UtilsTest {
     @Suite("CGFloat Tests")
@@ -91,6 +95,27 @@ struct UtilsTest {
             #expect(frNumber.toInt() == 123457)
         }
     }
+
+    #if os(iOS)
+        @Suite("Survey color tests")
+        struct SurveyColorTests {
+            @Test("seven-or-more hex digits are normalized to eight digits")
+            func normalizesSevenOrMoreHexDigits() {
+                let testCases = [
+                    (hex: "#1234567", expected: "12345670"),
+                    (hex: "#12345678", expected: "12345678"),
+                    (hex: "#123456789", expected: "12345678"),
+                    (hex: "#123456789abcdef", expected: "12345678"),
+                ]
+
+                for testCase in testCases {
+                    let color = UIColor(hex: testCase.hex)
+
+                    #expect(color.hexDescription(true) == testCase.expected)
+                }
+            }
+        }
+    #endif
 
     @Suite("Date format tests")
     struct DateTests {

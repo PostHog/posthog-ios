@@ -120,8 +120,11 @@
             if hexString.count == 3 || hexString.count == 4 {
                 hexString = hexString.map { "\($0)\($0)" }.joined()
             }
-            let hasAlpha = hexString.count > 7
-            if !hasAlpha {
+            if hexString.count == 7 {
+                hexString += "0"
+            } else if hexString.count > 8 {
+                hexString = String(hexString.prefix(8))
+            } else if hexString.count < 7 {
                 hexString += "ff"
             }
             return hexString

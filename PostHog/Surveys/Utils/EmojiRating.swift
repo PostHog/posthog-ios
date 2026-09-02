@@ -86,11 +86,8 @@
         }
 
         private func foregroundColor(selected: Bool) -> Color {
-            surveyRatingForegroundColor(
-                selected: selected,
-                activeColor: ratingButtonActiveColor,
-                inputTextColor: inputTextColor
-            )
+            // The glyph is tinted, not drawn on a filled button, so the active color is the glyph color.
+            selected ? ratingButtonActiveColor : inputTextColor.opacity(0.5)
         }
 
         private var ratingButtonActiveColor: Color {

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.71.3
+
+### Patch Changes
+
+- ee9e176: Declare the system boot time and file timestamp APIs used by the SDK in its privacy manifest.
+
 ## 3.71.2
 
 ### Patch Changes

@@ -15,6 +15,18 @@
         var onNotificationResponse: PostHogMulticastCallback<UNNotificationResponse> { get }
         /// Fires when APNs delivers a device token (already converted to a lowercase-hex string).
         var onDeviceToken: PostHogMulticastCallback<String> { get }
+        /// Installs the notification-delegate swizzles before the SDK is configured, so a response
+        /// delivered during launch is held until an integration subscribes. A no-op once a subscriber
+        /// exists — setup() has already run, so there is nothing to hold for it.
+        func prewarmNotificationResponseCapture()
+        /// Publishes a response to subscribers. With no subscriber it is held only while prewarmed,
+        /// and otherwise dropped.
+        func deliver(notificationResponse: UNNotificationResponse)
+        /// Returns and clears a response buffered before any subscriber attached.
+        func consumePendingNotificationResponse() -> UNNotificationResponse?
+        /// Undoes a prewarm that setup() turned out not to want, so an app that disabled push-open
+        /// capture is not left permanently swizzled.
+        func discardPrewarmedNotificationResponseCapture()
     }
 
     // MARK: - Publisher
@@ -44,18 +56,30 @@
         private let delegateClassesLock = NSLock()
         private var swizzledDelegateClasses = Set<ObjectIdentifier>()
 
+        /// Guards the setter-swizzle install state and the pre-subscriber response buffer.
+        private let stateLock = NSLock()
+        private var isDelegateSetterSwizzled = false
+        private var isPrewarmed = false
+        private var pendingResponse: (response: UNNotificationResponse, capturedAt: Date)?
+
+        /// A buffered response stands for the launch that is happening now. Anything older than this
+        /// belongs to a launch the app never configured the SDK for, and would be reported with a
+        /// misleading timestamp.
+        private static let pendingResponseTTL: TimeInterval = 30
+
         private init() {
             // weakSelf avoids capturing self in the subscriber-count closures before init completes.
             weak var weakSelf: PushNotificationPublisher?
             onNotificationResponse = PostHogMulticastCallback(onSubscriberCountChanged: { count in
                 guard let self = weakSelf else { return }
                 if count == 1 {
-                    self.swizzleNotificationCenterDelegateSetter()
-                    if let existing = UNUserNotificationCenter.current().delegate {
-                        self.swizzleNotificationDelegateMethods(on: type(of: existing))
-                    }
+                    // The prewarm window ends at the first subscriber: from here the publisher tears
+                    // down normally on the way out, and a response arriving with no subscriber is
+                    // dropped rather than buffered for a later setup().
+                    self.stateLock.withLock { self.isPrewarmed = false }
+                    self.installNotificationDelegateSwizzles()
                 } else if count == 0 {
-                    self.unswizzleNotificationCenterDelegateSetter()
+                    self.uninstallNotificationDelegateSwizzles()
                 }
             })
             onDeviceToken = PostHogMulticastCallback(onSubscriberCountChanged: { count in
@@ -77,16 +101,107 @@
             UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)
         )
 
-        private func swizzleNotificationCenterDelegateSetter() {
+        /// Installs the setter swizzle and covers a delegate that is already set.
+        ///
+        /// `isDelegateSetterSwizzled` is what makes this idempotent, and it is load-bearing: the
+        /// swizzle is a method exchange, so an unguarded second call would reverse the first.
+        private func installNotificationDelegateSwizzles() {
+            // Reachable from public API, so it can run outside an app.
+            guard Self.isRunningInAppContext else { return }
+
+            let shouldInstall = stateLock.withLock {
+                guard !isDelegateSetterSwizzled else { return false }
+                isDelegateSetterSwizzled = true
+                return true
+            }
+            guard shouldInstall else { return }
+
             swizzle(forClass: UNUserNotificationCenter.self, original: Self.delegateSetterOriginal, new: Self.delegateSetterSwizzled)
+            if let existing = UNUserNotificationCenter.current().delegate {
+                swizzleNotificationDelegateMethods(on: type(of: existing))
+            }
         }
 
-        private func unswizzleNotificationCenterDelegateSetter() {
+        private func uninstallNotificationDelegateSwizzles() {
+            let shouldUninstall = stateLock.withLock {
+                guard isDelegateSetterSwizzled else { return false }
+                isDelegateSetterSwizzled = false
+                return true
+            }
+            guard shouldUninstall else { return }
+
             // Calling swizzle() again reverses the setter exchange. `swizzledDelegateClasses` is
             // deliberately NOT cleared: the per-class `didReceive` replacements stay in place for the
             // process lifetime (invoking an empty multicast is a no-op), and clearing the set would wrap
             // an already-replaced method on re-install.
             swizzle(forClass: UNUserNotificationCenter.self, original: Self.delegateSetterOriginal, new: Self.delegateSetterSwizzled)
+        }
+
+        func prewarmNotificationResponseCapture() {
+            // A live subscriber means setup() already ran, so there is nothing to hold for it.
+            // Read outside `stateLock` — `subscriberCount` takes the multicast's own lock. A prewarm
+            // racing the very first subscribe can still set the flag; the TTL bounds that.
+            guard onNotificationResponse.subscriberCount == 0 else { return }
+
+            let alreadyPrewarmed = stateLock.withLock {
+                let wasPrewarmed = isPrewarmed
+                isPrewarmed = true
+                return wasPrewarmed
+            }
+            guard !alreadyPrewarmed else { return }
+            installNotificationDelegateSwizzles()
+        }
+
+        func deliver(notificationResponse response: UNNotificationResponse) {
+            if onNotificationResponse.subscriberCount == 0 {
+                let buffered = stateLock.withLock { () -> Bool in
+                    guard isPrewarmed else { return false }
+                    pendingResponse = (response, Date())
+                    return true
+                }
+                if buffered {
+                    // A subscriber that arrived while this ran already drained an empty buffer, so
+                    // hand the response over here instead of stranding it. `consume` clears under
+                    // the lock, so it cannot be delivered twice.
+                    if onNotificationResponse.subscriberCount > 0,
+                       let pending = consumePendingNotificationResponse()
+                    {
+                        onNotificationResponse.invoke(pending)
+                    }
+                    return
+                }
+                // The count read above can already be stale, and invoking an empty multicast is a
+                // no-op, so falling through cannot drop a response that a subscriber arriving
+                // mid-call should have seen.
+            }
+            onNotificationResponse.invoke(response)
+        }
+
+        func consumePendingNotificationResponse() -> UNNotificationResponse? {
+            stateLock.withLock {
+                guard let pending = pendingResponse else { return nil }
+                pendingResponse = nil
+                guard Date().timeIntervalSince(pending.capturedAt) <= Self.pendingResponseTTL else {
+                    return nil
+                }
+                return pending.response
+            }
+        }
+
+        func discardPrewarmedNotificationResponseCapture() {
+            stateLock.withLock {
+                pendingResponse = nil
+                isPrewarmed = false
+            }
+            // A live subscriber means another PostHogSDK instance still needs these swizzles.
+            guard onNotificationResponse.subscriberCount == 0 else { return }
+            uninstallNotificationDelegateSwizzles()
+        }
+
+        /// `UNUserNotificationCenter` needs a real app bundle; it traps in test runners and CLI tools.
+        private static var isRunningInAppContext: Bool {
+            let bundleExtension = Bundle.main.bundleURL.pathExtension
+            return bundleExtension == "app" || bundleExtension == "appex"
         }
 
         func swizzleNotificationDelegateMethods(on delegateClass: AnyClass) {
@@ -145,7 +260,7 @@
 
                 let implementationHolder = OriginalDelegateIMP(originalImplementation)
                 let replacement: ReplacementBlock = { delegate, center, response, completionHandler in
-                    DI.main.pushNotificationPublisher.onNotificationResponse.invoke(response)
+                    DI.main.pushNotificationPublisher.deliver(notificationResponse: response)
                     guard let originalImplementation = implementationHolder.lock.withLock({ implementationHolder.value }) else {
                         completionHandler()
                         return
@@ -353,6 +468,18 @@
                 shared.swizzledAppDelegateClass = nil
                 shared.delegateClassesLock.withLock {
                     shared.swizzledDelegateClasses.removeAll()
+                }
+                let wasSwizzled = shared.stateLock.withLock {
+                    let wasSwizzled = shared.isDelegateSetterSwizzled
+                    shared.isDelegateSetterSwizzled = false
+                    shared.isPrewarmed = false
+                    shared.pendingResponse = nil
+                    return wasSwizzled
+                }
+                // Clearing the flag without reversing the exchange would leave the next install
+                // un-swizzling a setter it never swizzled.
+                if wasSwizzled {
+                    swizzle(forClass: UNUserNotificationCenter.self, original: delegateSetterOriginal, new: delegateSetterSwizzled)
                 }
             }
         }

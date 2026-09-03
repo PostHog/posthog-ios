@@ -275,6 +275,18 @@ let maxRetryDelay = 30.0
                 notifyExceptionStepsDidChange()
             }
 
+            #if os(iOS) || os(macOS)
+                // A host may prewarm push-open capture before it knows the config (see
+                // `prewarmPushNotificationOpenCapture`). Release the swizzles when this setup turns
+                // out not to want them — including while opted out, where the integrations above
+                // were never installed and so could never release them.
+                if #available(iOS 14.0, macOS 11.0, *) {
+                    if !config.installsPushNotificationOpenIntegration {
+                        DI.main.pushNotificationPublisher.discardPrewarmedNotificationResponseCapture()
+                    }
+                }
+            #endif
+
             // Next-launch retry for a persisted, not-yet-delivered push subscription
             // (no-ops while opted out, offline, or when the record was already delivered).
             pushSubscriptionHandler?.retryIfNeeded()
@@ -3139,6 +3151,27 @@ let maxRetryDelay = 30.0
     #endif
 
     #if os(iOS) || os(macOS)
+        /// Installs the notification-open swizzles before `setup()` is called.
+        ///
+        /// A cold launch from a notification tap delivers the response to the app within a few hundred
+        /// milliseconds — sooner than a cross-platform host (Flutter, React Native) can reach its own
+        /// `setup()` call from the Dart/JS runtime, so the swizzles are not yet in place and the open is
+        /// lost. Call this from `application(_:didFinishLaunchingWithOptions:)`, or from a plugin
+        /// registration that runs inside it, and the response is held until `setup()` installs the
+        /// integration, which then captures it.
+        ///
+        /// Holds at most one response, and only replays it when `setup()` follows within 30 seconds.
+        /// Native iOS apps that call `setup()` from `didFinishLaunchingWithOptions` do not need this.
+        ///
+        /// The swizzles are installed immediately and released again when the last subscriber detaches
+        /// (`close()`), or at `setup()` when the config disables push-open capture or the app is
+        /// opted out. If `setup()` is never called they stay for the process lifetime. The per-class
+        /// delegate wrapper, as elsewhere in this SDK, stays for the process lifetime regardless.
+        @available(iOS 14.0, macOS 11.0, *)
+        @objc public static func prewarmPushNotificationOpenCapture() {
+            DI.main.pushNotificationPublisher.prewarmNotificationResponseCapture()
+        }
+
         /// Manually captures a `$push_notification_opened` event for a notification the user tapped.
         ///
         /// Use this when you're not relying on the automatic swizzling installed by

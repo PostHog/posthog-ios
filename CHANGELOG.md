@@ -1,5 +1,11 @@
 ## Next
 
+## 3.71.4
+
+### Patch Changes
+
+- 430b841: Prevent survey appearance colors with unexpected hex lengths from crashing the SDK.
+
 ## 3.71.3
 
 ### Patch Changes

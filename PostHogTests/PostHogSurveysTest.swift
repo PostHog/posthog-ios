@@ -1546,11 +1546,21 @@ enum PostHogSurveysTest {
         }
 
         @Test("returns only surveys with enabled feature flags")
-        func returnsOnlySurveysWithEnabledFeatureFlags() async {
+        func returnsOnlySurveysWithEnabledFeatureFlags() async throws {
             let sut = getSut(surveys: [surveysWithFeatureFlags])
+            // Seed surveys separately so this matching test does not race the remote-config listener's own flag refresh.
+            let surveys = sut.decodeSurveys(from: [
+                "surveys": try parseSurveys(surveysWithFeatureFlags),
+            ])
+            sut.updateSurveyCache(surveys, events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in
+                    continuation.resume()
+                }
+            }
 
             let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
+                sut.getActiveMatchingSurveys {
                     continuation.resume(with: .success($0))
                 }
             }

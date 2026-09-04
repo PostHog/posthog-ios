@@ -18,10 +18,13 @@ func processUploadResponse(
     completion: @escaping (PostHogUploadInfo) -> Void
 ) {
     let httpResponse = response as? HTTPURLResponse
+    // Parsed before the error branch: URLSession can deliver headers and then fail the
+    // transfer, and a rate-limited response still carries the delay the server asked for.
+    let retryAfter = httpResponse.flatMap { $0.value(forHTTPHeaderField: "Retry-After") }.flatMap(parseRetryAfter)
 
     if let error {
         hedgeLog("Error calling the \(endpointName) API: \(error).")
-        return completion(PostHogUploadInfo(statusCode: httpResponse?.statusCode, error: error))
+        return completion(PostHogUploadInfo(statusCode: httpResponse?.statusCode, error: error, retryAfter: retryAfter))
     }
 
     guard let httpResponse else {
@@ -36,7 +39,6 @@ func processUploadResponse(
         hedgeLog("\(endpointName) sent successfully.")
     }
 
-    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(parseRetryAfter)
     completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil, retryAfter: retryAfter))
 }
 

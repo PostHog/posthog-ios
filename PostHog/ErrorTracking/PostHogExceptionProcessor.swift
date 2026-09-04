@@ -100,8 +100,9 @@ enum PostHogExceptionProcessor {
     // MARK: - Internal Exception Building
 
     private static func buildProperties(exceptions: [[String: Any]]) -> [String: Any] {
+        let exceptions = canonicalizeExceptions(exceptions)
         var properties: [String: Any] = [
-            "$exception_level": "error", // TODO: figure this out from error wrapped type
+            "$exception_level": "error",
         ]
         attachExceptionsAndDebugImages(exceptions, to: &properties)
         return properties
@@ -133,7 +134,9 @@ enum PostHogExceptionProcessor {
 
         var current = exception
         var seen = Set<ObjectIdentifier>([ObjectIdentifier(exception)])
-        while let underlying = current.userInfo?[NSUnderlyingErrorKey] as? NSException {
+        while nsExceptions.count < 50,
+              let underlying = current.userInfo?[NSUnderlyingErrorKey] as? NSException
+        {
             let id = ObjectIdentifier(underlying)
             guard seen.insert(id).inserted else { break } // avoid circular references
             nsExceptions.append(underlying)
@@ -183,7 +186,9 @@ enum PostHogExceptionProcessor {
 
         var current = nsError
         var seen = Set<ObjectIdentifier>([ObjectIdentifier(nsError)])
-        while let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError {
+        while errors.count < 50,
+              let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError
+        {
             let id = ObjectIdentifier(underlying)
             guard seen.insert(id).inserted else { break } // avoid circular references
             errors.append(underlying)
@@ -257,9 +262,7 @@ enum PostHogExceptionProcessor {
             exceptionDict["type"] = typeName
         }
 
-        if let reason = exception.reason, !reason.isEmpty {
-            exceptionDict["value"] = reason
-        }
+        exceptionDict["value"] = exception.reason ?? ""
 
         // Use exception's real stack if available, otherwise capture current (synthetic)
         let exceptionAddresses = exception.callStackReturnAddresses
@@ -362,6 +365,28 @@ enum PostHogExceptionProcessor {
         let debugImages = PostHogDebugImageProvider.getDebugImages(fromExceptions: exceptions)
         if !debugImages.isEmpty {
             properties["$debug_images"] = debugImages
+        }
+    }
+
+    /// Final event assembly owns deterministic flattened-tree linkage. The first entry preserves
+    /// capture-boundary metadata; underlying entries are linked as `inner` relationships and do
+    /// not inherit the outer handled state.
+    private static func canonicalizeExceptions(_ exceptions: [[String: Any]]) -> [[String: Any]] {
+        Array(exceptions.prefix(50)).enumerated().map { index, original in
+            var exception = original
+            var mechanism = exception["mechanism"] as? [String: Any] ?? [:]
+            mechanism["exception_id"] = index
+            if index == 0 {
+                mechanism.removeValue(forKey: "parent_id")
+                mechanism.removeValue(forKey: "source")
+            } else {
+                mechanism["type"] = "chained"
+                mechanism["source"] = "inner"
+                mechanism["parent_id"] = index - 1
+                mechanism.removeValue(forKey: "handled")
+            }
+            exception["mechanism"] = mechanism
+            return exception
         }
     }
 

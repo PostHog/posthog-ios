@@ -47,6 +47,8 @@ struct PostHogExceptionProcessorTest {
             #expect(mechHandled == true)
             let mechSynthetic = mechanism?["synthetic"] as? Bool
             #expect(mechSynthetic == true)
+            #expect(mechanism?["exception_id"] as? Int == 0)
+            #expect(mechanism?["parent_id"] == nil)
 
             let stacktrace = exception?["stacktrace"] as? [String: Any]
             #expect(stacktrace != nil)
@@ -110,6 +112,14 @@ struct PostHogExceptionProcessorTest {
             #expect(type0 == "WrapperDomain")
             let type1 = exceptionList?[1]["type"] as? String
             #expect(type1 == "RootDomain")
+            let rootMechanism = exceptionList?[0]["mechanism"] as? [String: Any]
+            let innerMechanism = exceptionList?[1]["mechanism"] as? [String: Any]
+            #expect(rootMechanism?["exception_id"] as? Int == 0)
+            #expect(innerMechanism?["exception_id"] as? Int == 1)
+            #expect(innerMechanism?["parent_id"] as? Int == 0)
+            #expect(innerMechanism?["type"] as? String == "chained")
+            #expect(innerMechanism?["source"] as? String == "inner")
+            #expect(innerMechanism?["handled"] == nil)
         }
 
         @Test("handles circular error references")
@@ -211,7 +221,7 @@ struct PostHogExceptionProcessorTest {
             let exc = exceptionList?.first
             let excType = exc?["type"] as? String
             #expect(excType == "NoReasonException")
-            #expect(exc?["value"] == nil)
+            #expect(exc?["value"] as? String == "")
         }
 
         @Test("marks exception as unhandled")

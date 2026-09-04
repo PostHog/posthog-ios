@@ -208,6 +208,7 @@
           "$exception_list" : [
             {
               "mechanism" : {
+                "exception_id" : 0,
                 "handled" : true,
                 "synthetic" : true,
                 "type" : "generic"

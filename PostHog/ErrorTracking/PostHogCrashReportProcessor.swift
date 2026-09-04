@@ -27,6 +27,7 @@ import Foundation
 
             // Fatal crash
             properties["$exception_level"] = "fatal"
+            properties["$exception_source"] = "ios.crash_reporter"
 
             // Build stack frames once, reuse for both exception info and debug images
             let stackFrames = buildStackFrames(from: report, config: config)
@@ -140,6 +141,10 @@ import Foundation
             if let crashedThread = findCrashedThread(in: report) {
                 exception["thread_id"] = crashedThread.threadNumber
             }
+
+            var mechanism = exception["mechanism"] as? [String: Any] ?? [:]
+            mechanism["exception_id"] = 0
+            exception["mechanism"] = mechanism
 
             // cleanup nil values
             exception = exception.compactMapValues { $0 }

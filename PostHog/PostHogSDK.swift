@@ -2930,7 +2930,17 @@ let maxRetryDelay = 30.0
         additionalProperties: [String: Any]?
     ) {
         var mergedProperties = exceptionProperties
-        additionalProperties?.forEach { mergedProperties[$0.key] = $0.value }
+        let reservedExceptionProperties: Set<String> = [
+            "$exception_list", "$exception_level", "$exception_source", "$debug_images",
+            "$exception_handled", "$exception_types", "$exception_values", "$exception_sources",
+            "$exception_functions", "$exception_fingerprint_version", "$exception_fingerprint_record",
+            "$exception_issue_id", "$exception_release", "$cymbal_errors",
+        ]
+        additionalProperties?.forEach {
+            if !reservedExceptionProperties.contains($0.key) {
+                mergedProperties[$0.key] = $0.value
+            }
+        }
 
         // ignoredExceptionTypes is enforced in captureInternal, the chokepoint for every $exception path
         capture("$exception", properties: mergedProperties)

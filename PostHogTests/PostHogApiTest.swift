@@ -701,6 +701,41 @@ enum PostHogApiTests {
         }
     }
 
+    @Suite("Upload response handling", .serialized)
+    final class TestUploadResponseHandling {
+        @Test("preserves an HTTP status when URLSession also returns an error")
+        func preservesHTTPStatusAlongsideError() throws {
+            let url = try #require(URL(string: "http://localhost/batch"))
+            let httpResponse = try #require(HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: nil))
+            let error = URLError(.timedOut)
+            var uploadInfo: PostHogUploadInfo?
+
+            processUploadResponse(endpointName: "batch", data: nil, response: httpResponse, error: error) {
+                uploadInfo = $0
+            }
+
+            let result = try #require(uploadInfo)
+            #expect(result.statusCode == 503)
+            #expect((result.error as? URLError)?.code == .timedOut)
+        }
+
+        @Test("preserves Retry-After when URLSession also returns an error")
+        func preservesRetryAfterAlongsideError() throws {
+            let url = try #require(URL(string: "http://localhost/batch"))
+            let httpResponse = try #require(HTTPURLResponse(url: url, statusCode: 429, httpVersion: nil, headerFields: ["Retry-After": "120"]))
+            let error = URLError(.networkConnectionLost)
+            var uploadInfo: PostHogUploadInfo?
+
+            processUploadResponse(endpointName: "batch", data: nil, response: httpResponse, error: error) {
+                uploadInfo = $0
+            }
+
+            let result = try #require(uploadInfo)
+            #expect(result.statusCode == 429)
+            #expect(result.retryAfter == 120)
+        }
+    }
+
     @Suite("Non-HTTPURLResponse handling", .serialized)
     final class TestNonHTTPResponseHandling {
         private func getSut() -> PostHogApi {

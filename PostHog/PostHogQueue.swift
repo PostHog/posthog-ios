@@ -241,7 +241,11 @@ class PostHogQueue<Record> {
                 do {
                     try reachability?.startNotifier()
                 } catch {
+                    // Without a running notifier no callback can ever clear a
+                    // reachability pause, so it must not outlive the failure.
+                    // URLSession errors and the retry backoff cover connectivity.
                     hedgeLog("Error: Unable to monitor network reachability: \(error)")
+                    stateLock.withLock { paused = false }
                 }
             #endif
         }

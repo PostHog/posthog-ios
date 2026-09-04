@@ -49,9 +49,7 @@ class PostHogFileBackedQueue {
         }
 
         do {
-            // when copying over buffered snapshots, content modification date will change, so we work off creation date instead.
-            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
-            replaceItemsWithBounded(sortedItems)
+            try reindexFromDisk()
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
@@ -133,23 +131,30 @@ class PostHogFileBackedQueue {
     /// Use after externally adding files to the queue directory.
     func reloadFromDisk() {
         do {
-            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
-            replaceItemsWithBounded(sortedItems)
+            try reindexFromDisk()
         } catch {
             hedgeLog("Failed to reload files for queue \(error)")
         }
     }
 
-    private func replaceItemsWithBounded(_ sortedItems: [String]) {
-        let overflow = maxSize.map { max(0, sortedItems.count - $0) } ?? 0
-        let dropped = sortedItems.prefix(overflow)
-        itemsLock.withLock { items = Array(sortedItems.dropFirst(overflow)) }
+    /// Re-reads the queue directory and replaces the in-memory index with it,
+    /// enforcing the FIFO capacity. The enumeration runs inside `itemsLock` so a
+    /// filename appended by a concurrent `add` can't be dropped from the index by
+    /// the replacement while its file stays on disk.
+    private func reindexFromDisk() throws {
+        let dropped: [String] = try itemsLock.withLock {
+            // when copying over buffered snapshots, content modification date will change, so we work off creation date instead.
+            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
+            let overflow = maxSize.map { max(0, sortedItems.count - $0) } ?? 0
+            items = Array(sortedItems.dropFirst(overflow))
+            return Array(sortedItems.prefix(overflow))
+        }
 
         for item in dropped {
             deleteSafely(queue.appendingPathComponent(item))
         }
-        if overflow > 0 {
-            hedgeLog("Dropped \(overflow) oldest cached records to enforce queue capacity")
+        if !dropped.isEmpty {
+            hedgeLog("Dropped \(dropped.count) oldest cached records to enforce queue capacity")
         }
     }
 

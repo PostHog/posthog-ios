@@ -191,3 +191,74 @@ class PostHogStorageTest {
         sut.reset()
     }
 }
+
+@Suite("PostHogStorage backup exclusion", .serialized)
+struct PostHogStorageBackupTest {
+    @Test("excludes new and existing project folders from backup", arguments: [false, true], [false, true])
+    func excludesProjectFolderFromBackup(existingFolder: Bool, appGroup: Bool) throws {
+        let config = PostHogConfig(projectToken: "backup-test-\(UUID().uuidString)")
+        if appGroup {
+            config.appGroupIdentifier = testAppGroupIdentifier
+        }
+        // Allow local test runs to prove filesystem isolation before creating storage.
+        if let isolatedHome = ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] {
+            try #require(applicationSupportDirectoryURL().path.hasPrefix(isolatedHome + "/"))
+            print("Backup test Application Support: \(applicationSupportDirectoryURL().path)")
+        }
+        let baseURL = try appGroup ? #require(appGroupContainerUrl(config: config)) : applicationSupportDirectoryURL()
+        let projectURL = baseURL.appendingPathComponent(config.projectToken, isDirectory: true)
+        defer { deleteSafely(projectURL) }
+        let queueKeys: [PostHogStorage.StorageKey] = [.queue, .replayQeueue, .replayBufferQueue, .logsQueue]
+        let payload = Data("queued telemetry".utf8)
+        let filename = UUID.v7String()
+        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
+        let baseExcluded = try baseURL.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup
+
+        if existingFolder {
+            for key in queueKeys {
+                let queueURL = projectURL.appendingPathComponent(key.rawValue)
+                try FileManager.default.createDirectory(at: queueURL, withIntermediateDirectories: true)
+                try payload.write(to: queueURL.appendingPathComponent(filename))
+            }
+            var url = projectURL
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = false
+            try url.setResourceValues(values)
+        }
+
+        let storage = PostHogStorage(config)
+        #expect(storage.appFolderUrl.path == projectURL.path)
+        #expect(try projectURL.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+        // The bundle/app-group folder may also hold unrelated application data.
+        #expect(try baseURL.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == baseExcluded)
+
+        for key in queueKeys {
+            let queueURL = storage.url(forKey: key)
+            #expect(queueURL.deletingLastPathComponent() == projectURL)
+            if existingFolder {
+                #expect(try Data(contentsOf: queueURL.appendingPathComponent(filename)) == payload)
+            }
+            if key == .replayBufferQueue {
+                let buffer = PostHogReplayBufferQueue(queue: queueURL)
+                buffer.add(payload)
+                #expect(buffer.depth == 1)
+                buffer.clear()
+                buffer.add(payload)
+                #expect(buffer.depth == 1)
+            } else {
+                let queue = PostHogFileBackedQueue(queue: queueURL)
+                if existingFolder {
+                    #expect(queue.peek(1) == [payload])
+                }
+                queue.clear()
+                queue.add(payload)
+                #expect(queue.peek(1) == [payload])
+            }
+            // Recreating a child queue must not remove the ancestor's exclusion.
+            #expect(try projectURL.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+        }
+
+        let reopenedStorage = PostHogStorage(config)
+        #expect(try reopenedStorage.appFolderUrl.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true)
+    }
+}

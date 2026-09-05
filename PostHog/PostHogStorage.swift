@@ -386,10 +386,20 @@ class PostHogStorage {
     }
 
     private static func getAppFolderUrl(from configuration: PostHogConfig) -> URL {
-        let apiDir = getBaseAppFolderUrl(from: configuration)
+        var apiDir = getBaseAppFolderUrl(from: configuration)
             .appendingPathComponent(configuration.projectToken)
 
         createDirectoryAtURLIfNeeded(url: apiDir)
+
+        // Exclude the entire SDK subtree, including queues and existing installations.
+        // The parent bundle/app-group folder may also contain unrelated application data.
+        do {
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            try apiDir.setResourceValues(resourceValues)
+        } catch {
+            hedgeLog("Failed to exclude storage directory from backup: \(error)")
+        }
 
         return apiDir
     }

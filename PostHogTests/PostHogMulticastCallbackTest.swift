@@ -363,3 +363,217 @@ class PostHogThrottledMulticastCallbackTests {
         _ = token
     }
 }
+
+@MainActor
+@Suite("PostHog trailing throttle tests", .resetsGlobalState)
+struct PostHogTrailingThrottleTests {
+    private func waitUntil(_ condition: () -> Bool) async {
+        let deadline = DispatchTime.now().uptimeNanoseconds + 2 * NSEC_PER_SEC
+        while !condition(), DispatchTime.now().uptimeNanoseconds < deadline {
+            try? await Task.sleep(nanoseconds: 5 * NSEC_PER_MSEC)
+        }
+        #expect(condition())
+    }
+
+    @Test("A burst delivers only the latest pending value without another invoke")
+    func latestPendingValue() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        let token = callback.subscribe(throttle: 0.2, trailing: true) { values.append($0) }
+        callback.invoke(0)
+        await waitUntil { values == [0] }
+        for value in 1 ... 100 {
+            callback.invoke(value)
+        }
+        #expect(values == [0])
+        await waitUntil { values == [0, 100] }
+        try? await Task.sleep(nanoseconds: 300 * NSEC_PER_MSEC)
+        #expect(values == [0, 100], "No recurring snapshots once the screen is quiet")
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Trailing delivery starts the next throttle window and stays on main")
+    func trailingStartsNextWindow() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        var times: [TimeInterval] = []
+        let token = callback.subscribe(throttle: 0.2, trailing: true) { value in
+            #expect(Thread.isMainThread)
+            values.append(value)
+            times.append(ProcessInfo.processInfo.systemUptime)
+            if value < 2 {
+                callback.invoke(value + 1)
+            }
+        }
+        callback.invoke(0)
+        await waitUntil { values == [0, 1, 2] }
+        #expect(times.count == 3)
+        if times.count == 3 {
+            #expect(times[2] - times[1] >= 0.18)
+        }
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("A pending optional nil is delivered")
+    func optionalPendingValue() async {
+        let callback = PostHogThrottledMulticastCallback<Int?>()
+        var values: [Int?] = []
+        let token = callback.subscribe(throttle: 0.2, trailing: true) { values.append($0) }
+        callback.invoke(1)
+        await waitUntil { values.count == 1 }
+        callback.invoke(nil)
+        await waitUntil { values.count == 2 }
+        #expect(values == [1, nil])
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Default subscribers still drop while trailing subscribers recapture")
+    func defaultStillDrops() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var leading: [Int] = []
+        var trailing: [Int] = []
+        let leadingToken = callback.subscribe(throttle: 0.2) { leading.append($0) }
+        let trailingToken = callback.subscribe(throttle: 0.2, trailing: true) { trailing.append($0) }
+        callback.invoke(1)
+        await waitUntil { leading == [1] && trailing == [1] }
+        callback.invoke(2)
+        await waitUntil { trailing == [1, 2] }
+        #expect(leading == [1])
+        withExtendedLifetime((leadingToken, trailingToken)) {}
+    }
+
+    @Test("An isolated invocation does not schedule an extra capture")
+    func noUnnecessaryTrailingCapture() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        let token = callback.subscribe(throttle: 0.1, trailing: true) { values.append($0) }
+        callback.invoke(1)
+        await waitUntil { values == [1] }
+        try? await Task.sleep(nanoseconds: 250 * NSEC_PER_MSEC)
+        #expect(values == [1])
+        callback.invoke(2)
+        await waitUntil { values == [1, 2] }
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Unsubscribing cancels pending work and resubscribing starts fresh")
+    func unsubscribeAndResubscribe() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        var token: RegistrationToken? = callback.subscribe(throttle: 0.2, trailing: true) { values.append($0) }
+        callback.invoke(1)
+        await waitUntil { values == [1] }
+        callback.invoke(2)
+        token = nil
+        #expect(callback.subscriberCount == 0)
+        token = callback.subscribe(throttle: 0.2, trailing: true) { values.append($0) }
+        callback.invoke(3)
+        await waitUntil { values == [1, 3] }
+        try? await Task.sleep(nanoseconds: 300 * NSEC_PER_MSEC)
+        #expect(values == [1, 3])
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Queued leading delivery is cancelled before main can run it")
+    func cancelQueuedLeadingDelivery() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        var token: RegistrationToken? = callback.subscribe(throttle: 0.2, trailing: true) { values.append($0) }
+        callback.invoke(1)
+        token = nil
+        try? await Task.sleep(nanoseconds: 100 * NSEC_PER_MSEC)
+        #expect(values.isEmpty)
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Pending work retains neither the publisher nor the subscriber")
+    func pendingWorkDoesNotRetainOwner() async {
+        final class Owner {}
+        var owner: Owner? = Owner()
+        weak var weakOwner = owner
+        var callback: PostHogThrottledMulticastCallback<Int>? = PostHogThrottledMulticastCallback<Int>()
+        weak var weakCallback = callback
+        var values: [Int] = []
+        let token = callback?.subscribe(throttle: 0.2, trailing: true) { [owner] value in
+            withExtendedLifetime(owner) { values.append(value) }
+        }
+        owner = nil
+        callback?.invoke(1)
+        await waitUntil { values == [1] }
+        callback?.invoke(2)
+        callback = nil
+        #expect(weakCallback == nil)
+        #expect(weakOwner == nil)
+        try? await Task.sleep(nanoseconds: 300 * NSEC_PER_MSEC)
+        #expect(values == [1])
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("A busy main thread coalesces overdue captures instead of queueing snapshots")
+    func busyMainThread() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        let token = callback.subscribe(throttle: 0.1, trailing: true) { values.append($0) }
+        // Deliberately hold main across multiple windows without yielding to delivery.
+        // A synchronous helper keeps Thread.sleep out of the async context.
+        func holdMain() {
+            callback.invoke(1)
+            Thread.sleep(forTimeInterval: 0.15)
+            callback.invoke(2)
+            Thread.sleep(forTimeInterval: 0.15)
+            callback.invoke(3)
+        }
+        holdMain()
+        await waitUntil { !values.isEmpty }
+        try? await Task.sleep(nanoseconds: 150 * NSEC_PER_MSEC)
+        #expect(values == [3])
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Concurrent layouts schedule one trailing capture")
+    func concurrentInvocations() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        let token = callback.subscribe(throttle: 0.2, trailing: true) { values.append($0) }
+        callback.invoke(0)
+        await waitUntil { values == [0] }
+        DispatchQueue.concurrentPerform(iterations: 100) { callback.invoke($0) }
+        callback.invoke(100)
+        await waitUntil { values == [0, 100] }
+        try? await Task.sleep(nanoseconds: 250 * NSEC_PER_MSEC)
+        #expect(values == [0, 100])
+        withExtendedLifetime(token) {}
+    }
+
+    @Test("Trailing subscribers have independent windows and new subscribers fire immediately")
+    func independentWindows() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var slow: [Int] = []
+        var fast: [Int] = []
+        let slowToken = callback.subscribe(throttle: 0.8, trailing: true) { slow.append($0) }
+        callback.invoke(1)
+        await waitUntil { slow == [1] }
+        let fastToken = callback.subscribe(throttle: 0.1, trailing: true) { fast.append($0) }
+        callback.invoke(2)
+        await waitUntil { fast == [2] }
+        #expect(slow == [1])
+        callback.invoke(3)
+        await waitUntil { fast == [2, 3] }
+        #expect(slow == [1])
+        await waitUntil { slow == [1, 3] }
+        withExtendedLifetime((slowToken, fastToken)) {}
+    }
+
+    @Test("Zero interval preserves every invocation")
+    func zeroInterval() async {
+        let callback = PostHogThrottledMulticastCallback<Int>()
+        var values: [Int] = []
+        let token = callback.subscribe(throttle: 0, trailing: true) { values.append($0) }
+        for value in 0 ..< 10 {
+            callback.invoke(value)
+        }
+        await waitUntil { values.count == 10 }
+        #expect(values == Array(0 ..< 10))
+        withExtendedLifetime(token) {}
+    }
+}

@@ -374,21 +374,6 @@
         }
     }
 
-    extension UIViewController {
-        class func ph_topViewController(base: UIViewController? = UIApplication.getCurrentWindow()?.rootViewController) -> UIViewController? {
-            if let nav = base as? UINavigationController {
-                return ph_topViewController(base: nav.visibleViewController)
-
-            } else if let tab = base as? UITabBarController, let selected = tab.selectedViewController {
-                return ph_topViewController(base: selected)
-
-            } else if let presented = base?.presentedViewController {
-                return ph_topViewController(base: presented)
-            }
-            return base
-        }
-    }
-
     extension UIResponder {
         var nearestViewController: UIViewController? {
             self as? UIViewController ?? next?.nearestViewController

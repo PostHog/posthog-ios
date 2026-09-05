@@ -37,20 +37,34 @@
                     return false
                 }
 
-                // A child's view may be inside a hidden or transparent wrapper.
-                var view: UIView? = childView
-                while let current = view, current !== containerView {
-                    if current.isHidden || current.alpha <= 0 {
-                        return false
-                    }
-                    view = current.superview
-                }
-                return true
+                return isViewVisible(childView, in: window)
             }
             if visibleChildren.count == 1 {
                 return ph_topViewController(base: visibleChildren[0])
             }
             return base
+        }
+
+        private static func isViewVisible(_ childView: UIView, in window: UIWindow) -> Bool {
+            guard !childView.bounds.isEmpty else { return false }
+            var visibleRect = childView.convert(childView.bounds, to: window).intersection(window.bounds)
+            guard !visibleRect.isEmpty else { return false }
+
+            // Check the whole ancestor chain: attached paging views can be
+            // offscreen or clipped, even when they are not hidden/transparent.
+            var view: UIView? = childView
+            while let current = view {
+                if current.isHidden || current.alpha <= 0 {
+                    return false
+                }
+                if current.clipsToBounds {
+                    visibleRect = visibleRect.intersection(current.convert(current.bounds, to: window))
+                    if visibleRect.isEmpty { return false }
+                }
+                if current === window { break }
+                view = current.superview
+            }
+            return true
         }
 
         static func getViewControllerName(_ viewController: UIViewController) -> String? {

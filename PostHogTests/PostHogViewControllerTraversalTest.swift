@@ -152,6 +152,73 @@
             }
         }
 
+        @Test("Offscreen, empty, and clipped children are ignored", arguments: ["offscreen", "zero width", "zero height", "clipped ancestor"])
+        func ignoresInvisibleGeometry(state: String) {
+            let root = InitialViewController()
+            withWindow(root: root) { window in
+                let inactive = TwoViewController()
+                add(inactive, to: root)
+                switch state {
+                case "offscreen":
+                    inactive.view.frame = root.view.bounds.offsetBy(dx: window.bounds.width, dy: 0)
+                case "zero width":
+                    inactive.view.frame = CGRect(x: 0, y: 0, width: 0, height: 50)
+                case "zero height":
+                    inactive.view.frame = CGRect(x: 0, y: 0, width: 50, height: 0)
+                case "clipped ancestor":
+                    let wrapper = UIView(frame: CGRect(x: 20, y: 20, width: 50, height: 50))
+                    wrapper.clipsToBounds = true
+                    root.view.addSubview(wrapper)
+                    wrapper.addSubview(inactive.view)
+                    // Still inside the window, but outside the clipping wrapper.
+                    inactive.view.frame = CGRect(x: 80, y: 0, width: 20, height: 20)
+                default: break
+                }
+                #expect(inactive.view.window === window)
+                #expect(UIViewController.ph_topViewController(base: root) === root)
+
+                let visible = OneViewController()
+                add(visible, to: root)
+                #expect(UIViewController.ph_topViewController(base: root) === visible)
+            }
+        }
+
+        @Test("Partially visible children remain eligible", arguments: [false, true])
+        func partiallyVisibleChild(clippedByWrapper: Bool) {
+            let root = InitialViewController()
+            withWindow(root: root) { window in
+                let child = OneViewController()
+                add(child, to: root)
+                if clippedByWrapper {
+                    let wrapper = UIView(frame: CGRect(x: 20, y: 20, width: 50, height: 50))
+                    wrapper.clipsToBounds = true
+                    root.view.addSubview(wrapper)
+                    wrapper.addSubview(child.view)
+                    child.view.frame = CGRect(x: 40, y: 0, width: 20, height: 20)
+                } else {
+                    child.view.frame = CGRect(x: window.bounds.width - 10, y: 0, width: 20, height: 20)
+                }
+                #expect(UIViewController.ph_topViewController(base: root) === child)
+            }
+        }
+
+        @Test("Overflow is visible only when its ancestor does not clip", arguments: [false, true])
+        func respectsAncestorClipping(clips: Bool) {
+            let root = InitialViewController()
+            withWindow(root: root) { _ in
+                let child = OneViewController()
+                add(child, to: root)
+                let wrapper = UIView(frame: CGRect(x: 20, y: 20, width: 50, height: 50))
+                wrapper.clipsToBounds = clips
+                // Exercise bounds conversion as used by scrolling containers.
+                wrapper.bounds.origin.x = 30
+                root.view.addSubview(wrapper)
+                wrapper.addSubview(child.view)
+                child.view.frame = CGRect(x: 90, y: 0, width: 20, height: 20)
+                #expect(UIViewController.ph_topViewController(base: root) === (clips ? root : child))
+            }
+        }
+
         @Test("Presented controllers still take precedence over custom children")
         func presentedController() {
             let root = InitialViewController()

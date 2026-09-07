@@ -703,10 +703,10 @@ enum PostHogApiTests {
 
     @Suite("Upload response handling", .serialized)
     final class TestUploadResponseHandling {
-        @Test("preserves an HTTP status when URLSession also returns an error")
-        func preservesHTTPStatusAlongsideError() throws {
+        @Test("preserves an HTTP status when URLSession also returns an error", arguments: [200, 400, 408, 429, 503])
+        func preservesHTTPStatusAlongsideError(statusCode: Int) throws {
             let url = try #require(URL(string: "http://localhost/batch"))
-            let httpResponse = try #require(HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: nil))
+            let httpResponse = try #require(HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: nil, headerFields: nil))
             let error = URLError(.timedOut)
             var uploadInfo: PostHogUploadInfo?
 
@@ -715,7 +715,7 @@ enum PostHogApiTests {
             }
 
             let result = try #require(uploadInfo)
-            #expect(result.statusCode == 503)
+            #expect(result.statusCode == statusCode)
             #expect((result.error as? URLError)?.code == .timedOut)
         }
 

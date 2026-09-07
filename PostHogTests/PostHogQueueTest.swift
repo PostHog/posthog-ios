@@ -11,6 +11,7 @@ import OHHTTPStubs
 import OHHTTPStubsSwift
 @testable import PostHog
 import Quick
+import Testing
 import XCTest
 
 private final class ControlledBatchSender {
@@ -260,9 +261,9 @@ class PostHogQueueTest: QuickSpec {
             defer { now = { Date() } }
 
             let sut = self.getSut(flushAt: 100, maxBatchSize: 4, maxRetries: 1)
-            server.start(batchCount: 4)
+            server.start(batchCount: 6)
             server.batchResponseHandler = { _, requestNumber in
-                requestNumber <= 3
+                requestNumber <= 3 || requestNumber == 5
                     ? HTTPStubsResponse(jsonObject: [], statusCode: 503, headers: nil)
                     : HTTPStubsResponse(jsonObject: ["status": "ok"], statusCode: 200, headers: nil)
             }
@@ -280,6 +281,19 @@ class PostHogQueueTest: QuickSpec {
 
             sut.flush()
             expect(server.batchRequests.count).toEventually(equal(4))
+            expect(sut.depth).toEventually(equal(0))
+            expect(sut.currentRetryCountForTesting).toEventually(equal(0))
+
+            sut.add(PostHogEvent(event: "fresh", distinctId: "id3"))
+            sut.flush()
+            expect(server.batchRequests.count).toEventually(equal(5))
+            expect(sut.currentRetryCountForTesting).toEventually(equal(1))
+            expect(sut.depth) == 1
+            sut.flush()
+            expect(server.batchRequests.count) == 5
+            mockNow.date.addTimeInterval(1)
+            sut.flush()
+            expect(server.batchRequests.count).toEventually(equal(6))
             expect(sut.depth).toEventually(equal(0))
             expect(sut.currentRetryCountForTesting).toEventually(equal(0))
 
@@ -352,16 +366,16 @@ class PostHogQueueTest: QuickSpec {
             sut.flush()
             expect(sender.requestCount).toEventually(equal(1))
 
-            // Adding while full evicts the first in-flight entry and appends a
-            // byte-identical replacement with a new durable identity.
+            // Replace the entire in-flight batch with byte-identical payloads.
             sut.add(identicalEvent)
-            let replacementId = sut.fileQueue.peekEntries(2).last!.id
-            expect(inFlightIds).notTo(contain(replacementId))
+            sut.add(identicalEvent)
+            let replacementIds = sut.fileQueue.peekEntries(2).map(\.id)
+            expect(Set(inFlightIds).isDisjoint(with: replacementIds)) == true
 
             sender.completeRequest(at: 0, with: PostHogUploadInfo(statusCode: 200, error: nil))
 
-            expect(sut.depth).toEventually(equal(1))
-            expect(sut.fileQueue.peekEntries(2).map(\.id)) == [replacementId]
+            expect(sut.depth).toEventually(equal(2))
+            expect(sut.fileQueue.peekEntries(2).map(\.id)) == replacementIds
 
             sut.flush()
             expect(sender.requestCount).toEventually(equal(2))
@@ -470,5 +484,105 @@ class PostHogQueueTest: QuickSpec {
 
             sut.clear()
         }
+    }
+}
+
+@Suite("PostHog queue upload disposition", .serialized, .resetsGlobalState)
+struct PostHogQueueUploadDispositionTest {
+    private func makeQueue(snapshot: Bool, sender: ControlledBatchSender) -> PostHogQueue<PostHogEvent> {
+        let config = PostHogConfig(projectToken: "queue_disposition_\(UUID().uuidString)", host: "http://localhost:9001")
+        config.flushAt = 100
+        config.maxBatchSize = 4
+        config.maxRetries = 0
+        let api = PostHogApi(config)
+        let base: QueueEndpoint<PostHogEvent> = snapshot ? .snapshot(api: api) : .batch(api: api)
+        let endpoint = QueueEndpoint<PostHogEvent>(
+            storageKey: base.storageKey,
+            oldStorageKeys: [],
+            dispatchQueueLabel: base.dispatchQueueLabel,
+            initialCap: base.initialCap,
+            initialFlushAt: base.initialFlushAt,
+            maxQueueSize: base.maxQueueSize,
+            flushIntervalSeconds: base.flushIntervalSeconds,
+            rateCapMax: base.rateCapMax,
+            rateCapWindowSeconds: base.rateCapWindowSeconds,
+            encode: base.encode,
+            decode: base.decode,
+            describe: base.describe,
+            send: sender.send,
+            isRetriableStatusCode: base.isRetriableStatusCode
+        )
+        return PostHogQueue(config, PostHogStorage(config), endpoint, nil)
+    }
+
+    private func waitForRequest(_ count: Int, sender: ControlledBatchSender) async throws {
+        await waitUntil { sender.requestCount == count }
+        try #require(sender.requestCount == count)
+    }
+
+    @Test("received HTTP disposition wins over an accompanying transport error", arguments: [-1, 200, 400, 408, 429, 503], [false, true])
+    func receivedHTTPDisposition(statusCode: Int, snapshot: Bool) async throws {
+        let sender = ControlledBatchSender()
+        let queue = makeQueue(snapshot: snapshot, sender: sender)
+        defer { queue.clear() }
+        queue.add(PostHogEvent(event: "sent", distinctId: "id"))
+        let sentIds = queue.fileQueue.peekEntries(1).map(\.id)
+        queue.flush()
+        try await waitForRequest(1, sender: sender)
+        queue.add(PostHogEvent(event: "not-sent", distinctId: "id"))
+        let allIds = queue.fileQueue.peekEntries(2).map(\.id)
+        let response = statusCode == -1 ? nil : HTTPURLResponse(
+            url: try #require(URL(string: "http://localhost/batch")),
+            statusCode: statusCode, httpVersion: nil, headerFields: nil
+        )
+        processUploadResponse(endpointName: "test", data: nil, response: response, error: URLError(.networkConnectionLost)) {
+            sender.completeRequest(at: 0, with: $0)
+        }
+
+        let retryable = [-1, 408, 429, 503].contains(statusCode)
+        let expectedIds = retryable ? allIds : allIds.filter { !sentIds.contains($0) }
+        #expect(queue.fileQueue.peekEntries(2).map(\.id) == expectedIds)
+        #expect(queue.currentRetryCountForTesting == (retryable ? 1 : 0))
+        let reloaded = PostHogFileBackedQueue(queue: queue.fileQueue.queue)
+        #expect(Set(reloaded.peekEntries(2).map(\.id)) == Set(expectedIds))
+    }
+
+    @Test("413 reaches singleton after retryable failures and preserves later records", arguments: [false, true])
+    func shrinkingAfterRetryableFailures(snapshot: Bool) async throws {
+        let mockNow = MockDate()
+        now = { mockNow.date }
+        defer { now = { Date() } }
+        let sender = ControlledBatchSender()
+        let queue = makeQueue(snapshot: snapshot, sender: sender)
+        defer { queue.clear() }
+        for name in ["poison", "later-1", "later-2", "later-3"] {
+            queue.add(PostHogEvent(event: name, distinctId: "id"))
+        }
+        let originalIds = queue.fileQueue.peekEntries(4).map(\.id)
+        for attempt in 0 ..< 3 {
+            queue.flush()
+            try await waitForRequest(attempt + 1, sender: sender)
+            sender.completeRequest(at: attempt, with: PostHogUploadInfo(statusCode: 503, error: nil))
+            #expect(queue.fileQueue.peekEntries(4).map(\.id) == originalIds)
+            mockNow.date.addTimeInterval(60)
+        }
+        for (attempt, cap) in [(3, 2), (4, 1)] {
+            queue.flush()
+            try await waitForRequest(attempt + 1, sender: sender)
+            sender.completeRequest(at: attempt, with: PostHogUploadInfo(statusCode: 413, error: nil))
+            #expect(queue.currentBatchCapForTesting == cap)
+            #expect(queue.fileQueue.peekEntries(4).map(\.id) == originalIds)
+        }
+        queue.flush()
+        try await waitForRequest(6, sender: sender)
+        sender.completeRequest(at: 5, with: PostHogUploadInfo(statusCode: 413, error: nil))
+        #expect(queue.fileQueue.peekEntries(4).map(\.id) == Array(originalIds.dropFirst()))
+        #expect(queue.currentRetryCountForTesting == 0)
+        for attempt in 6 ..< 9 {
+            queue.flush()
+            try await waitForRequest(attempt + 1, sender: sender)
+            sender.completeRequest(at: attempt, with: PostHogUploadInfo(statusCode: 200, error: nil))
+        }
+        #expect(queue.depth == 0)
     }
 }

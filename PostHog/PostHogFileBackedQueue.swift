@@ -103,6 +103,8 @@ class PostHogFileBackedQueue {
             var evicted: String?
 
             try itemsLock.withLock {
+                try contents.write(to: queue.appendingPathComponent(filename))
+
                 if let effectiveMaxSize, items.count >= effectiveMaxSize {
                     evicted = items.removeFirst()
                     if let evicted {
@@ -110,7 +112,6 @@ class PostHogFileBackedQueue {
                     }
                 }
 
-                try contents.write(to: queue.appendingPathComponent(filename))
                 items.append(filename)
             }
 

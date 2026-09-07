@@ -790,6 +790,10 @@ let maxRetryDelay = 30.0
 
     /// Identifies the current user and sets person properties.
     ///
+    /// If the user is already identified, a different `distinctId` is ignored. Call `reset()`
+    /// first to identify a different user. The properties are still applied to the current
+    /// person profile.
+    ///
     /// - Parameters:
     ///   - distinctId: Stable user identifier from your application.
     ///   - userProperties: Properties to set on the person profile. Existing values are overwritten.
@@ -824,6 +828,7 @@ let maxRetryDelay = 30.0
         var isIdentified = false
         var hasDifferentDistinctId = false
         var shouldTransitionToIdentified = false
+        let hasProperties = !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true)
 
         // Read isIdentified, decide the transition, and persist it atomically so two
         // concurrent identify() calls on an anonymous user can't both see isIdentified
@@ -901,18 +906,19 @@ let maxRetryDelay = 30.0
 
             // The identified state itself is not part of the flags request; reload only when the
             // caller supplied properties that can affect flag evaluation.
-            if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+            if hasProperties {
                 remoteConfig?.reloadFeatureFlags()
             }
 
             notifyContextDidChange()
-        } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+        } else if !hasDifferentDistinctId, hasProperties {
             if !shouldCapturePersonPropertiesEvent(
                 distinctId: distinctId,
                 userPropertiesToSet: userProperties,
                 userPropertiesToSetOnce: userPropertiesSetOnce
             ) {
-                hedgeLog("A duplicate identify call was made with the same properties. The $set event has been ignored.")
+                let keys = personPropertyKeys(userProperties, userPropertiesSetOnce)
+                hedgeWarn("A duplicate identify call was ignored, these properties were not sent again: \(keys)")
                 return
             }
 
@@ -926,9 +932,29 @@ let maxRetryDelay = 30.0
 
             // Note we don't reload flags on property changes as these get processed async
 
+        } else if hasProperties {
+            // Already identified with a different id: apply the properties to the current person
+            // instead of dropping them, which matches posthog-js.
+            let keys = personPropertyKeys(userProperties, userPropertiesSetOnce)
+            hedgeWarn("identify(\(distinctId)) did not change the distinct id, the SDK is already identified as \(oldDistinctId). "
+                + "Call reset() before you identify a different user. These properties were applied to the current person: \(keys)")
+
+            setPersonProperties(
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
+            )
         } else {
             hedgeLog("already identified with id: \(oldDistinctId)")
         }
+    }
+
+    /// Lists the property keys of an identify or setPersonProperties call, for log messages.
+    private func personPropertyKeys(
+        _ userPropertiesToSet: [String: Any]?,
+        _ userPropertiesToSetOnce: [String: Any]?
+    ) -> String {
+        let keys = Set((userPropertiesToSet ?? [:]).keys).union((userPropertiesToSetOnce ?? [:]).keys)
+        return keys.sorted().joined(separator: ", ")
     }
 
     /// Sets properties on the person profile associated with the current distinct_id.

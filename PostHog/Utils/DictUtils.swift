@@ -59,7 +59,7 @@ public func sanitizeDictionary(_ dict: [String: Any]?) -> [String: Any]? {
         }
 
         newDict.removeValue(forKey: key)
-        hedgeLog("property: \(key) isn't serializable, dropping the item")
+        hedgeWarn("property \(key) is not serializable to JSON, dropping its value")
     }
 
     return newDict

@@ -18,3 +18,8 @@ func hedgeLog(_ message: String) {
     if !hedgeLogEnabled { return }
     print("[PostHog] \(message)")
 }
+
+// Meant for reporting misuse or data loss to the host app, so it is logged even when debug is off
+func hedgeWarn(_ message: String) {
+    print("[PostHog] [WARN] \(message)")
+}

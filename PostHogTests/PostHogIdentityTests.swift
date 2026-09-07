@@ -257,8 +257,8 @@ class PostHogIdentityTests {
         #expect(setOnce1["userPropOnce2"] as? String == "value2")
     }
 
-    @Test("does not capture user props for another distinctId even if user properties are set")
-    func doesNotCaptureUserPropsForDifferentDistinctId() async throws {
+    @Test("keeps user props on the current person when identify is called with another distinctId")
+    func capturesUserPropsForDifferentDistinctIdOnCurrentPerson() async throws {
         let sut = getSut(
             flushAt: 2
         )
@@ -271,14 +271,12 @@ class PostHogIdentityTests {
                      userProperties: ["userProp2": "value2"],
                      userPropertiesSetOnce: ["userPropOnce2": "value2"])
 
-        sut.capture("satisfy_queue")
-
         let events = try await getServerEvents(server)
 
         #expect(events.count == 2)
 
         #expect(events[0].event == "$identify")
-        #expect(events[1].event == "satisfy_queue")
+        #expect(events[1].event == "$set")
 
         #expect(events[0].distinctId == "distinctId")
         let anonId = sut.getAnonymousId()
@@ -290,6 +288,36 @@ class PostHogIdentityTests {
 
         let setOnce = events[0].properties["$set_once"] as? [String: Any] ?? [:]
         #expect(setOnce["userPropOnce"] as? String == "value")
+
+        // the distinct id does not change, so the properties land on the identified person
+        #expect(events[1].distinctId == "distinctId")
+        #expect(sut.getDistinctId() == "distinctId")
+
+        let set1 = events[1].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set1["userProp2"] as? String == "value2")
+
+        let setOnce1 = events[1].properties["$set_once"] as? [String: Any] ?? [:]
+        #expect(setOnce1["userPropOnce2"] as? String == "value2")
+    }
+
+    @Test("does not capture an event for another distinctId without user properties")
+    func doesNotCaptureEventForDifferentDistinctIdWithoutUserProperties() async throws {
+        let sut = getSut(
+            flushAt: 2
+        )
+
+        sut.identify("distinctId",
+                     userProperties: ["userProp": "value"])
+
+        sut.identify("distinctId2")
+
+        sut.capture("satisfy_queue")
+
+        let events = try await getServerEvents(server)
+
+        #expect(events.count == 2)
+        #expect(events[0].event == "$identify")
+        #expect(events[1].event == "satisfy_queue")
     }
 
     @Test("captures an alias event")

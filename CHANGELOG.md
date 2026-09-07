@@ -1,5 +1,11 @@
 ## Next
 
+## 3.71.5
+
+### Patch Changes
+
+- ac5e3a3: Fix automatic screen names for custom view controller containers with a single visible child, excluding offscreen, empty, and fully clipped child views. Use titles for plain UIViewController screens instead of reporting "UI".
+
 ## 3.71.4
 
 ### Patch Changes

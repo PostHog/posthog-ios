@@ -935,9 +935,16 @@ let maxRetryDelay = 30.0
         } else if hasProperties {
             // Already identified with a different id: apply the properties to the current person
             // instead of dropping them, which matches posthog-js.
+            // Distinct ids and property keys can carry user data, so the unsilenceable warning
+            // stays generic and the values go to the debug log, like every other line that
+            // names a distinct id.
+            hedgeWarn("identify() was called with a different distinct id while the SDK is already identified. "
+                + "The distinct id did not change, call reset() before you identify a different user. "
+                + "The given properties were applied to the current person.")
+
             let keys = personPropertyKeys(userProperties, userPropertiesSetOnce)
-            hedgeWarn("identify(\(distinctId)) did not change the distinct id, the SDK is already identified as \(oldDistinctId). "
-                + "Call reset() before you identify a different user. These properties were applied to the current person: \(keys)")
+            hedgeLog("identify(\(distinctId)) did not change the distinct id, the SDK is already identified as \(oldDistinctId). "
+                + "These properties were applied to the current person: \(keys)")
 
             setPersonProperties(
                 userPropertiesToSet: userProperties,

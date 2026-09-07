@@ -918,7 +918,7 @@ let maxRetryDelay = 30.0
                 userPropertiesToSetOnce: userPropertiesSetOnce
             ) {
                 let keys = personPropertyKeys(userProperties, userPropertiesSetOnce)
-                hedgeWarn("A duplicate identify call was ignored, these properties were not sent again: \(keys)")
+                hedgeLog("A duplicate identify call was ignored, these properties were not sent again: \(keys)")
                 return
             }
 

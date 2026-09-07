@@ -1,5 +1,5 @@
 ---
-"posthog-ios": patch
+"posthog-ios": minor
 ---
 
 - Preserve bounded durable event, replay, and log queues across retryable upload failures instead of clearing them.

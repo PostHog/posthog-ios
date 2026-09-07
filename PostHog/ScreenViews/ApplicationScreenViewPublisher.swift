@@ -87,7 +87,7 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
                 return
             }
 
-            guard let top = findVisibleViewController(viewController) else { return }
+            guard let top = UIViewController.ph_topViewController(base: viewController) else { return }
 
             guard let name = UIViewController.getViewControllerName(top) else { return }
 
@@ -95,20 +95,6 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
             handler?(name)
         }
 
-        private func findVisibleViewController(_ controller: UIViewController?) -> UIViewController? {
-            if let navigationController = controller as? UINavigationController {
-                return findVisibleViewController(navigationController.visibleViewController)
-            }
-            if let tabController = controller as? UITabBarController {
-                if let selected = tabController.selectedViewController {
-                    return findVisibleViewController(selected)
-                }
-            }
-            if let presented = controller?.presentedViewController {
-                return findVisibleViewController(presented)
-            }
-            return controller
-        }
     #else
         private func swizzleViewDidAppear() {
             // no-op if not UIKit
@@ -135,7 +121,6 @@ final class ApplicationScreenViewPublisher: ScreenViewPublishing {
             if let root = viewIfLoaded?.window?.rootViewController {
                 return root
             }
-            // TODO: handle container controllers (see ph_topViewController)
             return UIApplication.getCurrentWindow()?.rootViewController
         }
     }

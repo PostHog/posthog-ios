@@ -1,5 +1,12 @@
 ## Next
 
+## 3.71.6
+
+### Patch Changes
+
+- 16c218b: Exclude SDK storage folders from device backups, including existing event, session replay, replay buffer, and log queues.
+- 726d8c8: Capture the latest replay screen state after layouts occur inside the throttle window instead of dropping it.
+
 ## 3.71.5
 
 ### Patch Changes

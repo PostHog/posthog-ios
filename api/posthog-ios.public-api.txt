@@ -124,6 +124,7 @@ PostHog | PostHogDisplaySurvey | class | @objc class PostHogDisplaySurvey | c:@M
 PostHog | PostHogDisplaySurvey.appearance | property | let appearance: PostHogDisplaySurveyAppearance? | s:7PostHog0aB13DisplaySurveyC10appearanceAA0abcD10AppearanceCSgvp
 PostHog | PostHogDisplaySurvey.endDate | property | let endDate: Date? | s:7PostHog0aB13DisplaySurveyC7endDate10Foundation0F0VSgvp
 PostHog | PostHogDisplaySurvey.id | property | let id: String | s:7PostHog0aB13DisplaySurveyC2idSSvp
+PostHog | PostHogDisplaySurvey.initialQuestionIndex | property | let initialQuestionIndex: Int | s:7PostHog0aB13DisplaySurveyC20initialQuestionIndexSivp
 PostHog | PostHogDisplaySurvey.name | property | let name: String | s:7PostHog0aB13DisplaySurveyC4nameSSvp
 PostHog | PostHogDisplaySurvey.questions | property | let questions: [PostHogDisplaySurveyQuestion] | s:7PostHog0aB13DisplaySurveyC9questionsSayAA0abcD8QuestionCGvp
 PostHog | PostHogDisplaySurvey.startDate | property | let startDate: Date? | s:7PostHog0aB13DisplaySurveyC9startDate10Foundation0F0VSgvp

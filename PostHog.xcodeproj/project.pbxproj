@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EFAA01000000000000000001 /* SurveyProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAA01000000000000000002 /* SurveyProgressStore.swift */; };
 		B74800000000000000000001 /* PostHogPushNotificationSwizzlingTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */; };
 		B74800000000000000000002 /* PHNotificationDelegateTestFixture.m in Sources */ = {isa = PBXBuildFile; fileRef = B74800000000000000000006 /* PHNotificationDelegateTestFixture.m */; };
 		BF5E00000000000000000001 /* PHBeforeSendExceptionTestFixture.m in Sources */ = {isa = PBXBuildFile; fileRef = BF5E00000000000000000005 /* PHBeforeSendExceptionTestFixture.m */; };
@@ -778,6 +779,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		EFAA01000000000000000002 /* SurveyProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyProgressStore.swift; sourceTree = "<group>"; };
 		B74800000000000000000003 /* PostHogPushNotificationSwizzlingTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogPushNotificationSwizzlingTest.swift; sourceTree = "<group>"; };
 		B74800000000000000000004 /* PostHogTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "PostHogTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		B74800000000000000000005 /* PHNotificationDelegateTestFixture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PHNotificationDelegateTestFixture.h; sourceTree = "<group>"; };
@@ -2016,6 +2018,7 @@
 				DAFF02652D7B1A9000BD5B1D /* SurveysRootView.swift */,
 				DAD4B2EF2D79E24D00DA503C /* SurveysWindow.swift */,
 				DA0E43B82D70437D00D39B93 /* PostHogSurveyIntegration.swift */,
+				EFAA01000000000000000002 /* SurveyProgressStore.swift */,
 				DA263D452D800EA9004C100D /* Utils */,
 			);
 			path = Surveys;
@@ -3394,6 +3397,7 @@
 				DA263D422D80085D004C100D /* SurveyButton.swift in Sources */,
 				69EE82BA2BA9C50400EB9542 /* PostHogReplayIntegration.swift in Sources */,
 				DA0E43BE2D70438100D39B93 /* PostHogSurveyIntegration.swift in Sources */,
+				EFAA01000000000000000001 /* SurveyProgressStore.swift in Sources */,
 				DAFEC4572E03F91A0064535E /* PostHogDisplaySurveyQuestion.swift in Sources */,
 				3AE3FB472992AB0000AFFC18 /* Hedgelog.swift in Sources */,
 				69B7F60C2CF7703400A48BCC /* UIImage+Util.swift in Sources */,

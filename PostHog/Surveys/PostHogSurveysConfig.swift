@@ -53,6 +53,7 @@ public typealias OnPostHogSurveyClosed = (_ survey: PostHogDisplaySurvey) -> Voi
 /// Delegate used by the SDK to present surveys and receive survey lifecycle callbacks.
 @objc public protocol PostHogSurveysDelegate {
     /// Called when an activated PostHog survey needs to be rendered on the app's UI
+    /// Start at `survey.initialQuestionIndex` to resume an unfinished survey.
     ///
     /// - Parameters:
     ///   - survey: The survey to be displayed to the user

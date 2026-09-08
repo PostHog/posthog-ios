@@ -244,6 +244,7 @@ class PostHogStorage {
         case isIdentified = "posthog.isIdentified"
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
         case remoteConfig = "posthog.remoteConfig"
+        case surveyProgress = "posthog.surveyProgress"
         case surveySeen = "posthog.surveySeen"
         case lastSeenSurveyDate = "posthog.lastSeenSurveyDate"
         case requestId = "posthog.requestId"
@@ -426,6 +427,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .personProcessingEnabled))
         // .remoteConfig is project-level config (not user data); kept across reset() so features re-arm
         deleteSafely(url(forKey: .surveySeen))
+        deleteSafely(url(forKey: .surveyProgress))
         deleteSafely(url(forKey: .lastSeenSurveyDate))
         deleteSafely(url(forKey: .requestId))
         deleteSafely(url(forKey: .minimalFlagCalledEvents))

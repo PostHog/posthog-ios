@@ -9,6 +9,7 @@
     import Foundation
     @testable import PostHog
     import Testing
+    import UIKit
 
     @Suite("Application View Publisher Test", .serialized, .resetsGlobalState)
     final class ApplicationViewLayoutPublisherTest {
@@ -68,6 +69,40 @@
             #expect(lastCallTime == mockNow.date)
 
             registrationToken = nil
+        }
+
+        @MainActor
+        @Test("does not run UIKit layout off the main thread")
+        func layoutStaysOnMainThread() async throws {
+            let sut = ApplicationViewLayoutPublisher.shared
+            // Subscribing installs the swizzle on `UIView.layoutSublayers(of:)`.
+            registrationToken = sut.onViewLayout.subscribe(throttle: 0) {}
+
+            let view = ThreadRecordingView()
+            let layer = view.layer
+
+            await withCheckedContinuation { continuation in
+                let thread = Thread {
+                    view.layoutSublayers(of: layer)
+                    continuation.resume()
+                }
+                thread.start()
+            }
+
+            #expect(view.laidOutOffMainThread == false, "UIKit layout must never run on a background thread")
+
+            registrationToken = nil
+        }
+    }
+
+    private final class ThreadRecordingView: UIView {
+        private(set) var laidOutOffMainThread = false
+
+        override func layoutSubviews() {
+            if !Thread.isMainThread {
+                laidOutOffMainThread = true
+            }
+            super.layoutSubviews()
         }
     }
 #endif

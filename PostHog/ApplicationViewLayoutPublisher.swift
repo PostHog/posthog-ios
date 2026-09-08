@@ -64,17 +64,19 @@
 
     extension UIView {
         @objc func ph_swizzled_layoutSublayers(of layer: CALayer) {
-            ph_swizzled_layoutSublayers(of: layer) // call original, not altering execution logic
-            // Only notify on main thread - layoutSublayers can be called on background threads
-            // during thread cleanup (CA::Transaction::release_thread), which can cause crashes
-            // in the Auto Layout engine (NSISEngine) since it's not thread-safe.
-            if Thread.isMainThread {
-                ApplicationViewLayoutPublisher.shared.layoutSubviews()
-            } else {
-                DispatchQueue.main.async {
-                    ApplicationViewLayoutPublisher.shared.layoutSubviews()
-                }
+            // Core Animation can call `layoutSublayers(of:)` on a background thread when it commits a
+            // thread-local transaction during thread cleanup (`CA::Transaction::release_thread`).
+            // UIKit's implementation is main-thread only: it runs Auto Layout, and `NSISEngine` raises
+            // `NSInternalInconsistencyException` off the main thread, which terminates the host app.
+            // Do not forward the call here. Mark the layer instead, so the layout pass and the
+            // notification both run on the main thread on the next Core Animation commit.
+            guard Thread.isMainThread else {
+                DispatchQueue.main.async { layer.setNeedsLayout() }
+                return
             }
+
+            ph_swizzled_layoutSublayers(of: layer) // call original, not altering execution logic
+            ApplicationViewLayoutPublisher.shared.layoutSubviews()
         }
     }
 #endif

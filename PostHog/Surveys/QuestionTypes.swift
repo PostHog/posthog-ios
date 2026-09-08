@@ -131,14 +131,14 @@
 
                 if question.ratingType == .emoji {
                     EmojiRating(
-                        selectedValue: $rating,
+                        selectedValue: selection,
                         scale: scale,
                         lowerBoundLabel: question.lowerBoundLabel,
                         upperBoundLabel: question.upperBoundLabel
                     )
                 } else {
                     NumberRating(
-                        selectedValue: $rating,
+                        selectedValue: selection,
                         scale: scale,
                         lowerBoundLabel: question.lowerBoundLabel,
                         upperBoundLabel: question.upperBoundLabel
@@ -152,11 +152,15 @@
                     .disabled(!canSubmit)
                 }
             }
-            .onChange(of: rating) { value in
+        }
+
+        var selection: Binding<Int?> {
+            Binding(get: { rating }, set: { value in
+                rating = value
                 if question.skipSubmitButton, let value {
                     onNextQuestion(value)
                 }
-            }
+            })
         }
 
         private var canSubmit: Bool {
@@ -191,7 +195,7 @@
                     allowsMultipleSelection: false,
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
-                    selectedOptions: $selectedChoices,
+                    selectedOptions: selection,
                     openChoiceInput: $openChoiceInput
                 )
 
@@ -202,15 +206,23 @@
                     .disabled(!canSubmit)
                 }
             }
-            .onChange(of: selectedChoices) { _ in
-                if question.shouldAutoSubmit, let response {
+        }
+
+        var selection: Binding<Set<Int>> {
+            Binding(get: { selectedChoices }, set: { value in
+                selectedChoices = value
+                if question.shouldAutoSubmit, let response = response(for: value) {
                     onNextQuestion(response)
                 }
-            }
+            })
         }
 
         private var response: String? {
-            guard let index = selectedChoices.first, index < question.choices.count else { return nil }
+            response(for: selectedChoices)
+        }
+
+        private func response(for selectedChoices: Set<Int>) -> String? {
+            guard let index = selectedChoices.first, question.choices.indices.contains(index) else { return nil }
             if index == openChoiceIndex(for: question) {
                 return openChoiceInput.trimmingCharacters(in: .whitespaces)
             }

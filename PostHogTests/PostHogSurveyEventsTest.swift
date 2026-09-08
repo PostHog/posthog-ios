@@ -115,6 +115,114 @@ class PostHogSurveyEventsTest {
         return integration
     }
 
+    private func partialResponseSurvey(enabled: Bool?, branching: [String: Any]? = nil) throws -> PostHogSurvey {
+        var first: [String: Any] = ["id": "first", "type": "open", "question": "First?", "optional": true]
+        first["branching"] = branching
+        var json: [String: Any] = [
+            "id": "partial-survey", "name": "Partial survey", "type": "popover",
+            "questions": [first, ["id": "second", "type": "open", "question": "Second?"]],
+        ]
+        json["enable_partial_responses"] = enabled
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(PostHogSurvey.self, from: JSONSerialization.data(withJSONObject: json))
+    }
+
+    @Test("partial responses emit cumulative answers with one submission id", arguments: [true, false, nil] as [Bool?])
+    func partialResponses(enabled: Bool?) throws {
+        let postHog = getSut()
+        defer { postHog.close()
+            postHog.reset()
+        }
+        let integration = try getSurveyIntegration(postHog)
+        let survey = try partialResponseSurvey(enabled: enabled)
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { event in
+            events.append(event)
+            return nil
+        }
+
+        integration.setShownSurvey(survey)
+        let first = try #require(integration.getNextQuestion(index: 0, response: .openEnded("First answer")))
+        #expect(!first.1)
+        #expect(!integration.canShowNextSurvey())
+        #expect(events.count == (enabled == true ? 1 : 0))
+        if enabled == true {
+            let partial = try #require(events.first)
+            #expect(partial.event == "survey sent")
+            #expect(partial.properties["$survey_completed"] as? Bool == false)
+            #expect(partial.properties["$survey_response_first"] as? String == "First answer")
+            #expect(partial.properties["$survey_response_second"] == nil)
+        }
+
+        _ = integration.getNextQuestion(index: 1, response: .openEnded("Second answer"))
+        #expect(events.count == (enabled == true ? 2 : 1))
+        let completed = try #require(events.last)
+        #expect(completed.event == "survey sent")
+        #expect(completed.properties["$survey_completed"] as? Bool == true)
+        #expect(completed.properties["$survey_response_first"] as? String == "First answer")
+        #expect(completed.properties["$survey_response_second"] as? String == "Second answer")
+        let submissionId = try #require(completed.properties["$survey_submission_id"] as? String)
+        #expect(UUID(uuidString: submissionId) != nil)
+        #expect(events.allSatisfy { $0.properties["$survey_submission_id"] as? String == submissionId })
+        integration.testHandleSurveyClosed(survey: survey.toDisplaySurvey())
+        #expect(events.count == (enabled == true ? 2 : 1))
+    }
+
+    @Test("dismissed partial response keeps submission id and next attempt gets a new id")
+    func partialResponseDismissal() throws {
+        let postHog = getSut()
+        defer { postHog.close()
+            postHog.reset()
+        }
+        let integration = try getSurveyIntegration(postHog)
+        let survey = try partialResponseSurvey(enabled: true)
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { event in
+            events.append(event)
+            return nil
+        }
+
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("Saved"))
+        let sent = try #require(events.last)
+        #expect(sent.event == "survey sent")
+        let submissionId = try #require(sent.properties["$survey_submission_id"] as? String)
+        integration.testHandleSurveyClosed(survey: survey.toDisplaySurvey())
+        let dismissed = try #require(events.last)
+        #expect(dismissed.event == "survey dismissed")
+        #expect(dismissed.properties["$survey_submission_id"] as? String == submissionId)
+        #expect(dismissed.properties["$survey_partially_completed"] as? Bool == true)
+        #expect(dismissed.properties["$survey_response_first"] as? String == "Saved")
+
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("New answer"))
+        let nextId = try #require(events.last?.properties["$survey_submission_id"] as? String)
+        #expect(nextId != submissionId)
+        #expect(events.count == 3)
+    }
+
+    @Test("branching to end marks a partial-enabled survey complete")
+    func partialResponseBranching() throws {
+        let postHog = getSut()
+        defer { postHog.close()
+            postHog.reset()
+        }
+        let integration = try getSurveyIntegration(postHog)
+        let survey = try partialResponseSurvey(enabled: true, branching: ["type": "end"])
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { event in
+            events.append(event)
+            return nil
+        }
+        integration.setShownSurvey(survey)
+        let next = try #require(integration.getNextQuestion(index: 0, response: .openEnded(nil)))
+        #expect(next.1)
+        #expect(events.count == 1)
+        #expect(events.first?.properties["$survey_completed"] as? Bool == true)
+        #expect(events.first?.properties["$survey_response_second"] == nil)
+    }
+
     // MARK: - Survey Shown Event Tests
 
     @Test("survey shown event has correct event name and properties")

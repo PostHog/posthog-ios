@@ -356,6 +356,7 @@ PostHog | PostHogSessionReplayConfig | class | @objc(PostHogSessionReplayConfig)
 PostHog | PostHogSessionReplayConfig.captureLogs | property | @objc var captureLogs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogs
 PostHog | PostHogSessionReplayConfig.captureLogsConfig | property | @objc var captureLogsConfig: PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogsConfig
 PostHog | PostHogSessionReplayConfig.captureNetworkTelemetry | property | @objc var captureNetworkTelemetry: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureNetworkTelemetry
+PostHog | PostHogSessionReplayConfig.captureViewLayoutChanges | property | @objc var captureViewLayoutChanges: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureViewLayoutChanges
 PostHog | PostHogSessionReplayConfig.debouncerDelay | property | @objc var debouncerDelay: TimeInterval { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)debouncerDelay
 PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAllImages: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllImages
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews

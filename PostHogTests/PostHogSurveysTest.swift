@@ -1636,11 +1636,20 @@ enum PostHogSurveysTest {
         }
 
         @Test("returns surveys that match internal targeting flags")
-        func returnsSurveysThatMatchInternalTargetingFlags() async {
+        func returnsSurveysThatMatchInternalTargetingFlags() async throws {
             let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
+            let surveys = sut.decodeSurveys(from: [
+                "surveys": try parseSurveys(surveyWithEnabledInternalTargetingFlag),
+            ])
+            sut.updateSurveyCache(surveys, events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in
+                    continuation.resume()
+                }
+            }
 
             let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
+                sut.getActiveMatchingSurveys {
                     continuation.resume(with: .success($0))
                 }
             }

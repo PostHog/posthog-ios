@@ -22,7 +22,6 @@
         /// Publishes a response to subscribers. With no subscriber it is held only while prewarmed,
         /// and otherwise dropped.
         func deliver(notificationResponse: UNNotificationResponse)
-        /// Returns and clears a response buffered before any subscriber attached.
         func consumePendingNotificationResponse() -> UNNotificationResponse?
         /// Undoes a prewarm that setup() turned out not to want, so an app that disabled push-open
         /// capture is not left permanently swizzled.
@@ -73,8 +72,7 @@
             onNotificationResponse = PostHogMulticastCallback(onSubscriberCountChanged: { count in
                 guard let self = weakSelf else { return }
                 if count == 1 {
-                    // The prewarm window ends at the first subscriber: from here the publisher tears
-                    // down normally on the way out, and a response arriving with no subscriber is
+                    // From the first subscriber on, a response arriving with no subscriber is
                     // dropped rather than buffered for a later setup().
                     self.stateLock.withLock { self.isPrewarmed = false }
                     self.installNotificationDelegateSwizzles()
@@ -101,8 +99,6 @@
             UNUserNotificationCenterDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)
         )
 
-        /// Installs the setter swizzle and covers a delegate that is already set.
-        ///
         /// `isDelegateSetterSwizzled` is what makes this idempotent, and it is load-bearing: the
         /// swizzle is a method exchange, so an unguarded second call would reverse the first.
         private func installNotificationDelegateSwizzles() {
@@ -138,7 +134,6 @@
         }
 
         func prewarmNotificationResponseCapture() {
-            // A live subscriber means setup() already ran, so there is nothing to hold for it.
             // Read outside `stateLock` — `subscriberCount` takes the multicast's own lock. A prewarm
             // racing the very first subscribe can still set the flag; the TTL bounds that.
             guard onNotificationResponse.subscriberCount == 0 else { return }

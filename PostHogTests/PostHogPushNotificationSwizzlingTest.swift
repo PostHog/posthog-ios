@@ -154,7 +154,6 @@
             publisher.prewarmNotificationResponseCapture()
             publisher.prewarmNotificationResponseCapture()
 
-            // Still buffering means the second call did not tear the prewarm window down.
             withPlaceholderResponse { response in
                 publisher.deliver(notificationResponse: response)
                 #expect(publisher.consumePendingNotificationResponse() === response)

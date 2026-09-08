@@ -276,10 +276,8 @@ let maxRetryDelay = 30.0
             }
 
             #if os(iOS) || os(macOS)
-                // A host may prewarm push-open capture before it knows the config (see
-                // `prewarmPushNotificationOpenCapture`). Release the swizzles when this setup turns
-                // out not to want them — including while opted out, where the integrations above
-                // were never installed and so could never release them.
+                // Releases a prewarm this setup turns out not to want — including while opted out,
+                // where the integrations above were never installed and so could never release it.
                 if #available(iOS 14.0, macOS 11.0, *) {
                     if !config.installsPushNotificationOpenIntegration {
                         DI.main.pushNotificationPublisher.discardPrewarmedNotificationResponseCapture()

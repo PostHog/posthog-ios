@@ -192,9 +192,18 @@
                 pendingResponse = nil
                 isPrewarmed = false
             }
-            // A live subscriber means another PostHogSDK instance still needs these swizzles.
+            // A live subscriber means an integration still needs these swizzles.
             guard onNotificationResponse.subscriberCount == 0 else { return }
             uninstallNotificationDelegateSwizzles()
+
+            // The count read above, and the prewarm flag cleared at the top, can both be overtaken
+            // while this tears down — prewarmNotificationResponseCapture() runs outside setupLock.
+            // Re-arming on either signal converges on "installed" whichever way they interleave,
+            // instead of leaving a live prewarm with an un-swizzled delegate setter.
+            let stillNeeded = stateLock.withLock { isPrewarmed } || onNotificationResponse.subscriberCount > 0
+            if stillNeeded {
+                installNotificationDelegateSwizzles()
+            }
         }
 
         /// `UNUserNotificationCenter` needs a real app bundle; it traps in test runners and CLI tools.

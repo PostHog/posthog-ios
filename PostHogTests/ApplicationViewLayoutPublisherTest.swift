@@ -95,6 +95,51 @@
         }
     }
 
+    @Suite("View layout capture opt-out", .serialized, .resetsGlobalState)
+    struct ViewLayoutCaptureOptOutTest {
+        // Surveys are the second subscriber of the shared publisher, and the publisher installs the
+        // swizzle for any subscriber. The opt-out only removes the hook if surveys honour it too.
+        @Test("surveys skip the layout publisher when captureViewLayoutChanges is false", arguments: [true, false])
+        func surveysHonourOptOut(captureViewLayoutChanges: Bool) throws {
+            let server = MockPostHogServer()
+            server.start()
+            let mockPublisher = MockViewLayoutPublisher()
+            DI.main.viewLayoutPublisher = mockPublisher
+            defer {
+                DI.main.viewLayoutPublisher = ApplicationViewLayoutPublisher.shared
+                server.stop()
+            }
+
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
+            config._surveys = true
+            config.captureViewLayoutChanges = captureViewLayoutChanges
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            PostHogStorage(config).reset()
+
+            let postHog = PostHogSDK.with(config)
+            PostHogSurveyIntegration.clearInstalls()
+            let integration = PostHogSurveyIntegration()
+            try #require(integration.install(postHog) == .installed)
+            defer {
+                integration.uninstall(postHog)
+                postHog.close()
+                postHog.reset()
+            }
+
+            if captureViewLayoutChanges {
+                #expect(mockPublisher.onViewLayout.subscriberCount > 0)
+            } else {
+                #expect(mockPublisher.onViewLayout.subscriberCount == 0)
+            }
+        }
+    }
+
+    private final class MockViewLayoutPublisher: ViewLayoutPublishing {
+        let onViewLayout = PostHogThrottledMulticastCallback<Void>()
+    }
+
     private final class ThreadRecordingView: UIView {
         private(set) var laidOutOffMainThread = false
 

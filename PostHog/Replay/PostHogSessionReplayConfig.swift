@@ -55,23 +55,6 @@
         /// Default: false
         @objc public var screenshotModeBackgroundCapture: Bool = false
 
-        /// Capture screen content from `UIView` layout passes.
-        ///
-        /// Session replay hooks `UIView.layoutSublayers(of:)` to learn when the screen changed, and
-        /// takes a wireframe or a screenshot from that hook. Set this to `false` to stop session replay
-        /// subscribing to it. Console logs, network telemetry and interaction events keep working, but
-        /// the SDK no longer captures screen content, so recordings have no visuals.
-        ///
-        /// Note: the hook is shared with surveys, which are enabled by default, and it is only removed
-        /// once nothing is subscribed to it. To take the hook out of your app entirely, also set
-        /// `PostHogConfig.surveys` to `false`.
-        ///
-        /// Use this only if the hook causes a problem in your app. Session replay is much less useful
-        /// without it.
-        ///
-        /// Default: true
-        @objc public var captureViewLayoutChanges: Bool = true
-
         /// Debouncer delay used to reduce the number of snapshots captured and reduce performance impact
         /// This is used for capturing the view as a wireframe or screenshot
         /// The lower the number more snapshots will be captured but higher the performance impact

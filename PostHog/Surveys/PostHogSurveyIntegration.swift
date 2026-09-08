@@ -98,8 +98,10 @@
                     self?.onEvent(event: event)
                 }
                 // TODO: listen to screen view events
-                didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
-                    self?.showNextSurvey()
+                if postHog?.config.captureViewLayoutChanges ?? true {
+                    didLayoutViewToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: 5) { [weak self] in
+                        self?.showNextSurvey()
+                    }
                 }
                 didBecomeActiveToken = DI.main.appLifecyclePublisher.onDidBecomeActive.subscribe { [weak self] in
                     self?.showNextSurvey()

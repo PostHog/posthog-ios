@@ -270,7 +270,7 @@
             }
 
             // flutter captures snapshots, so we don't need to capture them here
-            if isNotFlutter(), postHog.config.sessionReplayConfig.captureViewLayoutChanges {
+            if isNotFlutter(), postHog.config.captureViewLayoutChanges {
                 let interval = postHog.config.sessionReplayConfig.throttleDelay
                 viewLayoutToken = DI.main.viewLayoutPublisher.onViewLayout.subscribe(throttle: interval, trailing: true) { [weak self] in
                     // called on main thread

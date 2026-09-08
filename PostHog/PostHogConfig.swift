@@ -167,6 +167,24 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: true
     @objc public var enableSwizzling: Bool = true
 
+    /// Watch `UIView` layout passes to detect screen changes.
+    ///
+    /// The SDK hooks `UIView.layoutSublayers(of:)` to learn when the screen changed. Session replay
+    /// takes a wireframe or a screenshot from that hook, and surveys use it to find the moment to
+    /// show a survey. Set this to `false` to remove the hook.
+    ///
+    /// When disabled, session replay records console logs, network telemetry and interaction events
+    /// but captures no screen content, so recordings have no visuals. Surveys appear only when the
+    /// app becomes active or when an event triggers them.
+    ///
+    /// Use this only if the hook causes a problem in your app. Both products are much less useful
+    /// without it.
+    ///
+    /// Note: iOS only. Requires `enableSwizzling` to be `true`.
+    ///
+    /// Default: true
+    @objc public var captureViewLayoutChanges: Bool = true
+
     #if os(iOS) || os(macOS)
         /// Automatically register the device's APNs token with PostHog by swizzling
         /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`, so Workflows can

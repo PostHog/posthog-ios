@@ -77,6 +77,10 @@
                     self.stateLock.withLock { self.isPrewarmed = false }
                     self.installNotificationDelegateSwizzles()
                 } else if count == 0 {
+                    // Also clears the flag: a prewarm racing the first subscribe can re-set it after
+                    // the branch above cleared it, and a live prewarm with no subscriber is exactly
+                    // the state that buffers a response into the next setup().
+                    self.stateLock.withLock { self.isPrewarmed = false }
                     self.uninstallNotificationDelegateSwizzles()
                 }
             })

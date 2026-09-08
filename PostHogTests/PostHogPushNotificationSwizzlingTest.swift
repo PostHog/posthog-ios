@@ -189,6 +189,20 @@
             }
         }
 
+        @Test("a prewarm after the last subscriber detaches still opens the buffer window")
+        func prewarmAfterLastSubscriberDetachesBuffers() {
+            let publisher = PushNotificationPublisher.shared
+            var token: RegistrationToken? = publisher.onNotificationResponse.subscribe { _ in }
+            token = nil
+
+            publisher.prewarmNotificationResponseCapture()
+
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+                #expect(publisher.consumePendingNotificationResponse() != nil)
+            }
+        }
+
         @Test("the public prewarm API reaches the publisher")
         @available(iOS 14.0, macOS 11.0, *)
         func publicPrewarmApiReachesPublisher() {

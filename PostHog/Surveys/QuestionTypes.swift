@@ -145,10 +145,17 @@
                     )
                 }
 
-                BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
-                    onNextQuestion(rating)
+                if !question.skipSubmitButton {
+                    BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
+                        onNextQuestion(rating)
+                    }
+                    .disabled(!canSubmit)
                 }
-                .disabled(!canSubmit)
+            }
+            .onChange(of: rating) { value in
+                if question.skipSubmitButton, let value {
+                    onNextQuestion(value)
+                }
             }
         }
 
@@ -188,10 +195,17 @@
                     openChoiceInput: $openChoiceInput
                 )
 
-                BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
+                if !question.shouldAutoSubmit {
+                    BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
+                        onNextQuestion(response)
+                    }
+                    .disabled(!canSubmit)
+                }
+            }
+            .onChange(of: selectedChoices) { _ in
+                if question.shouldAutoSubmit, let response {
                     onNextQuestion(response)
                 }
-                .disabled(!canSubmit)
             }
         }
 

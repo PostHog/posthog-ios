@@ -13,6 +13,35 @@ import Testing
 
 @Suite("Test Surveys")
 enum PostHogSurveysTest {
+    @Suite("Auto-submit on selection")
+    struct AutoSubmit {
+        private func displayQuestion(type: String, skipSubmit: Bool?, hasOpenChoice: Bool = false, display: String = "number") throws -> PostHogDisplaySurveyQuestion {
+            var json: [String: Any] = [
+                "id": "auto-submit", "type": type, "question": "Choose",
+                "choices": ["First", "Other"], "hasOpenChoice": hasOpenChoice,
+                "display": display, "scale": 5,
+            ]
+            json["skipSubmitButton"] = skipSubmit
+            let question = try PostHogApi.jsonDecoder.decode(PostHogSurveyQuestion.self, from: JSONSerialization.data(withJSONObject: json))
+            return try #require(question.toDisplayQuestion())
+        }
+
+        @Test("rating auto-submit survives decoding and display mapping", arguments: [true, false, nil] as [Bool?], ["number", "emoji"])
+        func rating(skipSubmit: Bool?, display: String) throws {
+            let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
+            #expect(question.skipSubmitButton == (skipSubmit == true))
+        }
+
+        @Test("only single choice without an open choice auto-submits", arguments: [true, false, nil] as [Bool?], [false, true])
+        func choices(skipSubmit: Bool?, hasOpenChoice: Bool) throws {
+            for type in ["single_choice", "multiple_choice"] {
+                let question = try #require(displayQuestion(type: type, skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
+                #expect(question.skipSubmitButton == (skipSubmit == true))
+                #expect(question.shouldAutoSubmit == (skipSubmit == true && type == "single_choice" && !hasOpenChoice))
+            }
+        }
+    }
+
     @Suite("Test decoding surveys from remote config")
     struct TestDecodingSurveys {
         @Test("survey decodes correctly")

@@ -156,6 +156,7 @@ struct PostHogRatingSurveyQuestion: PostHogSurveyQuestionProperties, Decodable {
     let scale: PostHogSurveyRatingScale
     let lowerBoundLabel: String?
     let upperBoundLabel: String?
+    var skipSubmitButton: Bool? = nil
 }
 
 /// Represents a multiple-choice or single-choice survey question
@@ -175,6 +176,7 @@ struct PostHogMultipleSurveyQuestion: PostHogSurveyQuestionProperties, Decodable
     let hasOpenChoice: Bool?
     /// Indicates if choices should be shuffled or not (optional)
     let shuffleOptions: Bool?
+    var skipSubmitButton: Bool? = nil
 }
 
 /// Represents branching logic for a question based on user responses

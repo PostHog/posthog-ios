@@ -2,6 +2,7 @@ import XCTest
 
 final class SurveyAutoSubmitUITests: XCTestCase {
     private var app: XCUIApplication!
+    private var continueButton: XCUIElement { app.buttons["posthog.survey.primary-action"] }
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -29,13 +30,13 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         for kind in ["number", "emoji", "single"] {
             for flag in ["false", "missing"] {
                 launch(kind: kind, flag: flag)
-                XCTAssertTrue(app.buttons["Continue"].exists)
-                XCTAssertFalse(app.buttons["Continue"].isEnabled)
+                XCTAssertTrue(continueButton.exists)
+                XCTAssertFalse(continueButton.isEnabled)
                 select(kind: kind)
                 XCTAssertTrue(app.staticTexts["First question"].exists)
                 assertAnswers("")
-                XCTAssertTrue(app.buttons["Continue"].isEnabled)
-                app.buttons["Continue"].tap()
+                XCTAssertTrue(continueButton.isEnabled)
+                continueButton.tap()
                 assertQuestion("Second question")
                 assertAnswers(kind == "single" ? "0:First" : "0:4")
                 app.terminate()
@@ -47,16 +48,16 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         launch(kind: "open")
         app.buttons["First"].tap()
         assertAnswers("")
-        XCTAssertTrue(app.buttons["Continue"].isEnabled)
+        XCTAssertTrue(continueButton.isEnabled)
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Other:")).firstMatch.tap()
-        XCTAssertFalse(app.buttons["Continue"].isEnabled)
+        XCTAssertFalse(continueButton.isEnabled)
         let input = app.textFields.firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap()
         input.typeText("Custom answer")
         assertAnswers("")
-        XCTAssertTrue(app.buttons["Continue"].isEnabled)
-        app.buttons["Continue"].tap()
+        XCTAssertTrue(continueButton.isEnabled)
+        continueButton.tap()
         assertQuestion("Second question")
         assertAnswers("0:Custom answer")
     }
@@ -67,32 +68,32 @@ final class SurveyAutoSubmitUITests: XCTestCase {
         app.buttons["Second"].tap()
         assertQuestion("First question")
         assertAnswers("")
-        XCTAssertTrue(app.buttons["Continue"].isEnabled)
-        app.buttons["Continue"].tap()
+        XCTAssertTrue(continueButton.isEnabled)
+        continueButton.tap()
         assertQuestion("Second question")
         assertAnswers("0:First,Second")
     }
 
     func testOptionalQuestionCanStillSkipWithExplicitSubmission() {
         launch(kind: "number", flag: "false", optional: true)
-        XCTAssertTrue(app.buttons["Continue"].isEnabled)
-        app.buttons["Continue"].tap()
+        XCTAssertTrue(continueButton.isEnabled)
+        continueButton.tap()
         assertQuestion("Second question")
         assertAnswers("0:nil")
     }
 
     private func assertAutoSubmit(kind: String, answer: String) {
         launch(kind: kind)
-        XCTAssertFalse(app.buttons["Continue"].exists)
+        XCTAssertFalse(continueButton.exists)
         select(kind: kind)
         assertQuestion("Second question")
         assertAnswers("0:\(answer)")
-        XCTAssertTrue(app.buttons["Continue"].exists)
-        XCTAssertFalse(app.buttons["Continue"].isEnabled, "The next question must start without the previous selection")
+        XCTAssertTrue(continueButton.exists)
+        XCTAssertFalse(continueButton.isEnabled, "The next question must start without the previous selection")
         select(kind: kind)
-        XCTAssertTrue(app.buttons["Continue"].isEnabled)
+        XCTAssertTrue(continueButton.isEnabled)
         assertAnswers("0:\(answer)")
-        app.buttons["Continue"].tap()
+        continueButton.tap()
         XCTAssertTrue(app.staticTexts["Thank you for your feedback!"].waitForExistence(timeout: 5))
         assertAnswers("0:\(answer)|2:\(answer)")
     }

@@ -612,6 +612,12 @@
 		F22413BB1C82340F203271A4 /* fixture_survey_question_rating_no_bounds.json in Resources */ = {isa = PBXBuildFile; fileRef = 45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */; };
 		F6DADC57034D5B70B502F251 /* PostHogLogsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */; };
 		FAAA4C305C550B22060A9905 /* PLCrashReportMachineInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 42CE9EE391A5AE700A1D688F /* PLCrashReportMachineInfo.m */; };
+		007A409E20B7A039A54A276A /* PostHog.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		1172D7DA9CE1DCFC0A9AF21E /* PostHog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AC745B5296D6FE60025C109 /* PostHog.framework */; };
+		384655E77F5ED30CCF7A9F75 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D52B39DF95AC27A7E9434A44 /* Foundation.framework */; };
+		43466852954C8906BE829586 /* SurveyTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584194DC1C90599E47F37F1F /* SurveyTestApp.swift */; };
+		F0B5428D2409438D5FCE2D08 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D52B39DF95AC27A7E9434A44 /* Foundation.framework */; };
+		FD65F0216E9FAC83EFF51A04 /* SurveyAutoSubmitUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FEFC64D4286615B0DC16C7E /* SurveyAutoSubmitUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -706,6 +712,20 @@
 			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
 			remoteInfo = PostHog;
 		};
+		4C62400237F9BF169AECD533 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AC745B4296D6FE60025C109;
+			remoteInfo = PostHog;
+		};
+		EEA4FFB46B196B45C7DABBB0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3AC745AC296D6FE60025C109 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 421B9EBAB6A8074E473FA289;
+			remoteInfo = PostHogSurveyTestHost;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -771,6 +791,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				DAAD96992F7EF3DC002A8379 /* PostHog.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D87C6A04EF77CAFDBBED6F6B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				007A409E20B7A039A54A276A /* PostHog.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1452,6 +1483,11 @@
 		F808F6F63C4473F4570FE32B /* PLCrashReport.pb-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "PLCrashReport.pb-c.c"; path = "vendor/PHPLCrashReporter/Source/PLCrashReport.pb-c.c"; sourceTree = "<group>"; };
 		F9BB47DFE51AFE8F516B8550 /* PLCrashReportExceptionInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportExceptionInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportExceptionInfo.m; sourceTree = "<group>"; };
 		FB9F9CC224AC280F8A3C55E0 /* PLCrashAsync.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsync.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsync.c; sourceTree = "<group>"; };
+		0FEFC64D4286615B0DC16C7E /* SurveyAutoSubmitUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurveyAutoSubmitUITests.swift; sourceTree = "<group>"; };
+		11611BBC98920ED8E56F6C8F /* PostHogSurveyTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PostHogSurveyTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		584194DC1C90599E47F37F1F /* SurveyTestApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurveyTestApp.swift; sourceTree = "<group>"; };
+		AC258B1E8CA7751DBD85B469 /* PostHogSurveyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PostHogSurveyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D52B39DF95AC27A7E9434A44 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1512,6 +1548,23 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA4AF6242D119FC60053EA38 /* PostHog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2510F5A11767BF3558ABA992 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				384655E77F5ED30CCF7A9F75 /* Foundation.framework in Frameworks */,
+				1172D7DA9CE1DCFC0A9AF21E /* PostHog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A091EB1DFA22A197EEE0F3FE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0B5428D2409438D5FCE2D08 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1627,6 +1680,7 @@
 				3AC745B6296D6FE60025C109 /* Products */,
 				69261D152AD92D6C00232EC7 /* Frameworks */,
 				DAE8AEC02D9D0E7700A1FE3A /* Recovered References */,
+				F9E36A6C65E5AE7310C1C450 /* PostHogSurveyUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1640,6 +1694,8 @@
 				699991852AFE1B37000DCB78 /* PostHogExampleMacOS.app */,
 				6992AA802AFE51A000087600 /* PostHogExampleTvOS.app */,
 				69F517F82BAC768100F52C14 /* PostHogExampleStoryboard.app */,
+				11611BBC98920ED8E56F6C8F /* PostHogSurveyTestHost.app */,
+				AC258B1E8CA7751DBD85B469 /* PostHogSurveyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1804,6 +1860,7 @@
 		69261D152AD92D6C00232EC7 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E50817B754A4E4CAE31331EE /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -2624,6 +2681,33 @@
 			path = Tracing;
 			sourceTree = "<group>";
 		};
+		70B33E59D6CB9A70885ED26D /* Host */ = {
+			isa = PBXGroup;
+			children = (
+				584194DC1C90599E47F37F1F /* SurveyTestApp.swift */,
+			);
+			name = Host;
+			path = Host;
+			sourceTree = "<group>";
+		};
+		E50817B754A4E4CAE31331EE /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				D52B39DF95AC27A7E9434A44 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		F9E36A6C65E5AE7310C1C450 /* PostHogSurveyUITests */ = {
+			isa = PBXGroup;
+			children = (
+				70B33E59D6CB9A70885ED26D /* Host */,
+				0FEFC64D4286615B0DC16C7E /* SurveyAutoSubmitUITests.swift */,
+			);
+			name = PostHogSurveyUITests;
+			path = PostHogSurveyUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -2910,6 +2994,43 @@
 			productReference = 69F517F82BAC768100F52C14 /* PostHogExampleStoryboard.app */;
 			productType = "com.apple.product-type.application";
 		};
+		08FEA42A531A3BC8D161D747 /* PostHogSurveyUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C79D960C1B261E1E3D63F6C5 /* Build configuration list for PBXNativeTarget "PostHogSurveyUITests" */;
+			buildPhases = (
+				5986CD91B27F09311B7DE107 /* Sources */,
+				A091EB1DFA22A197EEE0F3FE /* Frameworks */,
+				932E945B4428CE7E9378DD04 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				32644C7024503A84DCA0DE07 /* PBXTargetDependency */,
+			);
+			name = PostHogSurveyUITests;
+			productName = PostHogSurveyUITests;
+			productReference = AC258B1E8CA7751DBD85B469 /* PostHogSurveyUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		421B9EBAB6A8074E473FA289 /* PostHogSurveyTestHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 13ED9993DBB47BA6D4909EBB /* Build configuration list for PBXNativeTarget "PostHogSurveyTestHost" */;
+			buildPhases = (
+				266BFD23CE72821002416195 /* Sources */,
+				2510F5A11767BF3558ABA992 /* Frameworks */,
+				AE560FF3E09FD1B7870542F6 /* Resources */,
+				D87C6A04EF77CAFDBBED6F6B /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				417572EB61927AE3EDB509DD /* PBXTargetDependency */,
+			);
+			name = PostHogSurveyTestHost;
+			productName = PostHogSurveyTestHost;
+			productReference = 11611BBC98920ED8E56F6C8F /* PostHogSurveyTestHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -2994,6 +3115,8 @@
 				699991842AFE1B37000DCB78 /* PostHogExampleMacOS */,
 				6992AA7F2AFE51A000087600 /* PostHogExampleTvOS */,
 				69F517F72BAC768100F52C14 /* PostHogExampleStoryboard */,
+				421B9EBAB6A8074E473FA289 /* PostHogSurveyTestHost */,
+				08FEA42A531A3BC8D161D747 /* PostHogSurveyUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -3146,6 +3269,20 @@
 				69F518042BAC768300F52C14 /* Assets.xcassets in Resources */,
 				69F518072BAC768300F52C14 /* Base in Resources */,
 				69F518022BAC768100F52C14 /* Base in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		932E945B4428CE7E9378DD04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE560FF3E09FD1B7870542F6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3600,6 +3737,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		266BFD23CE72821002416195 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				43466852954C8906BE829586 /* SurveyTestApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5986CD91B27F09311B7DE107 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD65F0216E9FAC83EFF51A04 /* SurveyAutoSubmitUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -3637,6 +3790,18 @@
 			isa = PBXTargetDependency;
 			target = 3AC745B4296D6FE60025C109 /* PostHog */;
 			targetProxy = DCB8010C2D8AFFFC00A05A74 /* PBXContainerItemProxy */;
+		};
+		32644C7024503A84DCA0DE07 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PostHogSurveyTestHost;
+			target = 421B9EBAB6A8074E473FA289 /* PostHogSurveyTestHost */;
+			targetProxy = EEA4FFB46B196B45C7DABBB0 /* PBXContainerItemProxy */;
+		};
+		417572EB61927AE3EDB509DD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PostHog;
+			target = 3AC745B4296D6FE60025C109 /* PostHog */;
+			targetProxy = 4C62400237F9BF169AECD533 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -4762,6 +4927,167 @@
 			};
 			name = Testing;
 		};
+		09F8283F06E9FD85A2FAF207 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogSurveyUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PostHogSurveyTestHost;
+			};
+			name = Debug;
+		};
+		7831C7010B59EE63D85A9EFE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogSurveyTestHost;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		78DD251417BE392002B29D13 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogSurveyTestHost;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B9AFCFC2DE5149D473B6CBBA /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogSurveyUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PostHogSurveyTestHost;
+			};
+			name = Testing;
+		};
+		C69E0DA1CBB516E989E16DB1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogSurveyUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PostHogSurveyTestHost;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D3A5384136003CB6F5D1E6A5 /* Testing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.posthog.PostHogSurveyTestHost;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PostHog/PrivateModules/phlibwebp $(SRCROOT)/PostHog/PrivateModules/PHPLCrashReporter $(SRCROOT)/PostHog/PrivateModules/PostHogObjCExceptionSupport";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Testing;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -4841,6 +5167,26 @@
 				69F5180A2BAC768300F52C14 /* Debug */,
 				DA6E4D452D55FA5B003662C3 /* Testing */,
 				69F5180B2BAC768300F52C14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		13ED9993DBB47BA6D4909EBB /* Build configuration list for PBXNativeTarget "PostHogSurveyTestHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				78DD251417BE392002B29D13 /* Release */,
+				7831C7010B59EE63D85A9EFE /* Debug */,
+				D3A5384136003CB6F5D1E6A5 /* Testing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C79D960C1B261E1E3D63F6C5 /* Build configuration list for PBXNativeTarget "PostHogSurveyUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C69E0DA1CBB516E989E16DB1 /* Release */,
+				09F8283F06E9FD85A2FAF207 /* Debug */,
+				B9AFCFC2DE5149D473B6CBBA /* Testing */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,4 +1,4 @@
-.PHONY: build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
+.PHONY: testSurveyUI build buildSdk buildExamples format swiftLint swiftFormat swiftLintCheck swiftFormatCheck installSwiftLint installSwiftFormat test testUploadSymbols recordEventShapeSnapshots testDowngradeCompatibility testOniOSSimulator testOnMacSimulator maskSnapshots recordMaskSnapshots checkMaskSnapshotRuntime lint bootstrap releaseCocoaPods api apiCheck apiUpdate buildIOS
 
 build: buildSdk buildExamples
 
@@ -104,6 +104,16 @@ testOniOSSimulator:
 	xcrun xcodebuild test -scheme PostHog -destination "platform=iOS Simulator,name=$$device" -retry-tests-on-failure -test-iterations 3 | tee xcodebuild-ios.log | xcpretty; \
 	status=$$?; \
 	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
+
+# Mounted interaction tests use a small test host and the SDK's real survey views.
+# Override SURVEY_UI_DESTINATION to select an installed simulator explicitly.
+SURVEY_UI_DESTINATION ?= platform=iOS Simulator,name=$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')
+testSurveyUI:
+	set -o pipefail && xcrun xcodebuild test -project PostHog.xcodeproj -scheme PostHogSurveyUI \
+	  -destination "$(SURVEY_UI_DESTINATION)" -parallel-testing-enabled NO \
+	  $(SURVEY_UI_XCODEBUILD_ARGS) | tee survey-ui-tests.log | xcpretty
+	@grep -qE "Test Case .*SurveyAutoSubmitUITests.* passed" survey-ui-tests.log || { \
+	  echo "error: no survey UI tests executed."; exit 1; }
 
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty

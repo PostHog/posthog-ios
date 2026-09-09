@@ -137,3 +137,6 @@ PostHogTests/__MaskSnapshotFailures__/
 mask-snapshots.log
 # Raw xcodebuild log the testOniOSSimulator target tees for the CI retry check
 xcodebuild-ios.log
+
+# Survey UI test run output
+survey-ui-tests.log

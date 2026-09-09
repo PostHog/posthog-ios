@@ -2581,7 +2581,6 @@ let maxRetryDelay = 30.0
             bufferToClear?.clear()
             config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
             config.storageManager = nil
-            config = PostHogConfig(projectToken: "")
             remoteConfig = nil
             storage = nil
             #if !os(watchOS)
@@ -2598,6 +2597,7 @@ let maxRetryDelay = 30.0
             toggleHedgeLog(false)
 
             uninstallIntegrations()
+            config = PostHogConfig(projectToken: "")
         }
         // Outside setupLock to avoid lock-ordering coupling between
         // setupLock and lastScreenLock.

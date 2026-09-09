@@ -614,6 +614,8 @@
 		F22413BB1C82340F203271A4 /* fixture_survey_question_rating_no_bounds.json in Resources */ = {isa = PBXBuildFile; fileRef = 45D65956292974AA707263FA /* fixture_survey_question_rating_no_bounds.json */; };
 		F6DADC57034D5B70B502F251 /* PostHogLogsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDAA5E5DBE9861837899D553 /* PostHogLogsConfig.swift */; };
 		FAAA4C305C550B22060A9905 /* PLCrashReportMachineInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = 42CE9EE391A5AE700A1D688F /* PLCrashReportMachineInfo.m */; };
+		31EB43B360294C13A802C709 /* PostHogSurveyResumeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 049D76DAE7AD4E5EBF9CE9AE /* PostHogSurveyResumeTest.swift */; };
+		D9DC2552C32A4CE4BFA2E752 /* StoredSurveyResponseTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B58DAE01C4B44F928E985217 /* StoredSurveyResponseTest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1456,6 +1458,8 @@
 		F808F6F63C4473F4570FE32B /* PLCrashReport.pb-c.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "PLCrashReport.pb-c.c"; path = "vendor/PHPLCrashReporter/Source/PLCrashReport.pb-c.c"; sourceTree = "<group>"; };
 		F9BB47DFE51AFE8F516B8550 /* PLCrashReportExceptionInfo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PLCrashReportExceptionInfo.m; path = vendor/PHPLCrashReporter/Source/PLCrashReportExceptionInfo.m; sourceTree = "<group>"; };
 		FB9F9CC224AC280F8A3C55E0 /* PLCrashAsync.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = PLCrashAsync.c; path = vendor/PHPLCrashReporter/Source/PLCrashAsync.c; sourceTree = "<group>"; };
+		049D76DAE7AD4E5EBF9CE9AE /* PostHogSurveyResumeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSurveyResumeTest.swift; sourceTree = "<group>"; };
+		B58DAE01C4B44F928E985217 /* StoredSurveyResponseTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredSurveyResponseTest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1755,6 +1759,8 @@
 				DAA5ED962D4043A500D437E0 /* PostHogSurveysTest.swift */,
 				DABF95042E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift */,
 				F85AB3DFD5C84D3EB5FF4A5B /* PostHogSurveySharedStorageTest.swift */,
+				B58DAE01C4B44F928E985217 /* StoredSurveyResponseTest.swift */,
+				049D76DAE7AD4E5EBF9CE9AE /* PostHogSurveyResumeTest.swift */,
 				DA5E52EA2E0996C400159D20 /* PostHogSurveyEnumsTest.swift */,
 				DA979D7A2CD370B700F56BAE /* PostHogAutocaptureEventTrackerSpec.swift */,
 				699C5FEE2C20242A007DB818 /* UUIDTest.swift */,
@@ -3505,6 +3511,8 @@
 				DA4FFBB52DAD5B01006BAEEA /* PostHogIdentityTests.swift in Sources */,
 				DABF95052E8FEB6F0029CBBB /* PostHogSurveyEventsTest.swift in Sources */,
 				5C8B936B0A7A4DC6A54015FA /* PostHogSurveySharedStorageTest.swift in Sources */,
+				D9DC2552C32A4CE4BFA2E752 /* StoredSurveyResponseTest.swift in Sources */,
+				31EB43B360294C13A802C709 /* PostHogSurveyResumeTest.swift in Sources */,
 				DACF6D5D2CD2F5BC00F14133 /* PostHogAutocaptureIntegrationSpec.swift in Sources */,
 				3A62647529CB0168007E8C07 /* TestPostHog.swift in Sources */,
 				DA27AEC12F56B3E3002A59CE /* PostHogSessionReplayEventTriggersTest.swift in Sources */,

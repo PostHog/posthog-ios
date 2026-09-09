@@ -92,15 +92,16 @@ class PostHogSurveyEventsTest {
         )
     }
 
-    func getSut(resetStorage: Bool = true) -> PostHogSDK {
+    func getSut(resetStorage: Bool = true, installSurveys: Bool = true) -> PostHogSDK {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
-        config._surveys = true
+        config._surveys = installSurveys
         config.disableRemoteConfigForTesting = true
         config.flushAt = 1
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = false
+        config.captureScreenViews = false
 
         if resetStorage { PostHogStorage(config).reset() }
         return PostHogSDK.with(config)
@@ -368,39 +369,6 @@ class PostHogSurveyEventsTest {
         integration.uninstall(postHog)
     }
 
-    @Test("unfinished responses survive integration restart", arguments: [true, false, nil] as [Bool?])
-    func resumeAfterRestart(enabled: Bool?) throws {
-        let postHog = getSut()
-        defer { postHog.close()
-            postHog.reset()
-        }
-        let survey = try partialResponseSurvey(enabled: enabled)
-        var events: [PostHogEvent] = []
-        postHog.config.setBeforeSend { events.append($0)
-            return nil
-        }
-        let first = try getSurveyIntegration(postHog)
-        first.setShownSurvey(survey)
-        _ = first.getNextQuestion(index: 0, response: .openEnded("Saved answer"))
-        let submissionId = first.testActiveSubmissionId
-        first.uninstall(postHog)
-
-        let resumed = try getSurveyIntegration(postHog)
-        resumed.setShownSurvey(survey)
-        #expect(resumed.testActiveQuestionIndex == 1)
-        #expect(resumed.testActiveSubmissionId == submissionId)
-        _ = resumed.getNextQuestion(index: 1, response: .openEnded("Final answer"))
-        let event = try #require(events.last)
-        #expect(event.properties["$survey_response_first"] as? String == "Saved answer")
-        #expect(event.properties["$survey_submission_id"] as? String == submissionId)
-        #expect(event.properties["$survey_completed"] as? Bool == true)
-        resumed.uninstall(postHog)
-        let completed = try getSurveyIntegration(postHog)
-        completed.setShownSurvey(survey)
-        #expect(completed.testActiveQuestionIndex == 0)
-        #expect(completed.testActiveSubmissionId != submissionId)
-    }
-
     @Test("dismissal and reset remove saved progress", arguments: [false, true])
     func clearSavedProgress(reset: Bool) throws {
         let postHog = getSut()
@@ -449,29 +417,7 @@ class PostHogSurveyEventsTest {
         #expect(storage.getDictionary(forKey: .surveyProgress)?["partial-survey/0"] == nil)
     }
 
-    @Test("response values survive disk round-trip", arguments: [
-        PostHogSurveyResponse.rating(nil), .rating(5), .openEnded("hello"), .openEnded(nil),
-        .singleChoice("A"), .multipleChoice(["A", "B"]), .multipleChoice(nil), .link(true), .link(false),
-    ])
-    func storedResponseRoundTrip(response: PostHogSurveyResponse) throws {
-        let restored = try #require(JSONDecoder().decode(StoredSurveyResponse.self, from: JSONEncoder().encode(StoredSurveyResponse(response))).response)
-        #expect(restored.type == response.type)
-        #expect(restored.textValue == response.textValue)
-        #expect(restored.ratingValue == response.ratingValue)
-        #expect(restored.selectedOptions == response.selectedOptions)
-        #expect(restored.linkClicked == response.linkClicked)
-    }
-
     #if os(iOS)
-        @Test("display controller starts at the restored question")
-        @MainActor
-        func restoredDisplayQuestion() throws {
-            let survey = try partialResponseSurvey(enabled: true).toDisplaySurvey(initialQuestionIndex: 1)
-            let controller = SurveyDisplayController()
-            controller.showSurvey(survey)
-            #expect(controller.currentQuestionIndex == 1)
-            #expect(!controller.showingIntroScreen)
-        }
         @Test("an invalidated attempt closes the displayed survey")
         @MainActor
         func invalidatedDisplayQuestion() throws {
@@ -512,8 +458,8 @@ class PostHogSurveyEventsTest {
         #expect(matching.isEmpty)
     }
 
-    @Test("new iterations and ended surveys do not reuse old progress")
-    func staleSurveyProgress() throws {
+    @Test("new iterations and ended or removed surveys discard old progress", arguments: [false, true])
+    func staleSurveyProgress(ended: Bool) throws {
         let postHog = getSut()
         defer { postHog.close()
             postHog.reset()
@@ -531,36 +477,45 @@ class PostHogSurveyEventsTest {
         #expect(store.load(survey) == nil)
         integration.setShownSurvey(nextIteration)
         _ = integration.getNextQuestion(index: 0, response: .openEnded("Saved"))
-        store.reconcile([])
+        let endedSurvey = try partialResponseSurvey(enabled: true, properties: ["start_date": 0, "end_date": 1, "current_iteration": 2])
+        store.reconcile(ended ? [endedSurvey] : [])
         #expect(store.load(nextIteration) == nil)
     }
 
-    @Test("restart restores the branching destination and omits skipped answers")
-    func resumeBranching() throws {
+    @Test("unavailable config preserves progress while an authoritative empty list removes it")
+    func unavailableConfigPreservesProgress() throws {
         let postHog = getSut()
         defer { postHog.close()
             postHog.reset()
         }
-        var events: [PostHogEvent] = []
-        postHog.config.setBeforeSend { events.append($0)
-            return nil
+        postHog.config.setBeforeSend { _ in nil }
+        let integration = try getSurveyIntegration(postHog)
+        let survey = try partialResponseSurvey(enabled: true, properties: ["start_date": 0])
+        integration.setSurveys([survey])
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("Saved before going offline"))
+        let store = SurveyProgressStore(storage: try #require(postHog.storage))
+        let saved = try #require(store.load(survey))
+        var callbacks = 0
+        integration.decodeAndSetSurveys(remoteConfig: nil) {
+            callbacks += 1
+            #expect($0.isEmpty)
         }
-        let survey = try partialResponseSurvey(enabled: true, properties: ["questions": [
-            ["id": "first", "type": "open", "question": "First?", "branching": ["type": "specific_question", "index": 2]],
-            ["id": "skipped", "type": "open", "question": "Skipped?"],
-            ["id": "last", "type": "open", "question": "Last?"],
-        ]])
-        let first = try getSurveyIntegration(postHog)
-        first.setShownSurvey(survey)
-        _ = first.getNextQuestion(index: 0, response: .openEnded("Saved"))
-        first.uninstall(postHog)
-        let resumed = try getSurveyIntegration(postHog)
-        resumed.setShownSurvey(survey)
-        #expect(resumed.testActiveQuestionIndex == 2)
-        _ = resumed.getNextQuestion(index: 2, response: .openEnded("Final"))
-        let event = try #require(events.last)
-        #expect(event.properties["$survey_response_first"] as? String == "Saved")
-        #expect(event.properties["$survey_response_skipped"] == nil)
+        #expect(callbacks == 1)
+        #expect(store.load(survey)?.submissionId == saved.submissionId)
+        #expect(store.load(survey)?.responses["$survey_response_first"]?.text == "Saved before going offline")
+        var matching: [PostHogSurvey] = []
+        integration.getActiveMatchingSurveys { matching = $0 }
+        #expect(matching.map(\.id) == [survey.id])
+
+        integration.decodeAndSetSurveys(remoteConfig: ["surveys": []]) {
+            callbacks += 1
+            #expect($0.isEmpty)
+        }
+        #expect(callbacks == 2)
+        #expect(store.load(survey) == nil)
+        integration.getActiveMatchingSurveys { matching = $0 }
+        #expect(matching.isEmpty)
     }
 
     @Test("showing a survey alone does not create resumable progress")

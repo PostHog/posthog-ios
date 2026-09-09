@@ -51,7 +51,8 @@
             beforeCacheUpdate: (([PostHogSurvey]) -> Bool)? = nil,
             callback: @escaping SurveyCallback
         ) {
-            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
+            guard let remoteConfig else { return callback([]) }
+            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig)
             guard beforeCacheUpdate?(loadedSurveys) != false else { return }
 
             let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in

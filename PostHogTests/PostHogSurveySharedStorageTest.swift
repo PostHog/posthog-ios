@@ -115,6 +115,14 @@ extension PostHogSurveyEventsTest {
         postHog.reset()
         #expect(storage.getString(forKey: .surveyResetEpoch) != oldEpoch)
         #expect(storage.isSurveyGenerationCurrent(oldEpoch) == false)
+        postHog.config.setBeforeSend { _ in nil }
+        let survey = try partialResponseSurvey(enabled: true)
+        let integration = try getSurveyIntegration(postHog)
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("New identity answer"))
+        let progress = try #require(SurveyProgressStore(storage: PostHogStorage(postHog.config)).load(survey))
+        #expect(progress.questionIndex == 1)
+        #expect(progress.responses["$survey_response_first"]?.text == "New identity answer")
     }
 
     @Test("progress without a reset epoch is discarded")

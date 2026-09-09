@@ -391,10 +391,10 @@ final class PostHogLogsQueueTests {
         // Drive flushes until the queue drops everything via the maxRetries path.
         // First flush: batchSize=32 → 413 → retryCount=1 (not > 1) → halve cap.
         // Second flush: batchSize=16 → 413 → retryCount=2 (> 1) → drop ALL records.
-        queue.flush()
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        queue.flush()
-        await waitUntil { queue.depth == 0 }
+        await waitUntil {
+            queue.flush()
+            return queue.depth == 0
+        }
         #expect(queue.depth == 0)
         // Cap stays where it was when dropAll fired — no reset. Matches
         // events / posthog-android behaviour: new records start at the

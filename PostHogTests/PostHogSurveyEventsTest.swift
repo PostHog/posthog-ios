@@ -92,18 +92,17 @@ class PostHogSurveyEventsTest {
         )
     }
 
-    func getSut() -> PostHogSDK {
+    func getSut(resetStorage: Bool = true) -> PostHogSDK {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9090")
         config._surveys = true
+        config.disableRemoteConfigForTesting = true
         config.flushAt = 1
         config.disableReachabilityForTesting = true
         config.disableQueueTimerForTesting = true
         config.disableFlushOnBackgroundForTesting = true
         config.captureApplicationLifecycleEvents = false
 
-        let storage = PostHogStorage(config)
-        storage.reset()
-
+        if resetStorage { PostHogStorage(config).reset() }
         return PostHogSDK.with(config)
     }
 
@@ -117,7 +116,7 @@ class PostHogSurveyEventsTest {
         return integration
     }
 
-    private func partialResponseSurvey(enabled: Bool?, branching: [String: Any]? = nil, properties: [String: Any] = [:]) throws -> PostHogSurvey {
+    func partialResponseSurvey(enabled: Bool?, branching: [String: Any]? = nil, properties: [String: Any] = [:]) throws -> PostHogSurvey {
         var first: [String: Any] = ["id": "first", "type": "open", "question": "First?", "optional": true]
         first["branching"] = branching
         var json: [String: Any] = [

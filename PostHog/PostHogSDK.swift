@@ -69,6 +69,7 @@ let maxRetryDelay = 30.0
     private(set) var replayQueue: PostHogReplayQueue?
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
+    private var surveyIdentityGeneration: String?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
@@ -653,6 +654,27 @@ let maxRetryDelay = 30.0
         replayQueue?.flush()
         logsQueue?.flush()
         pushSubscriptionHandler?.retryIfNeeded()
+    }
+
+    func surveyEventDistinctId(generation: String?) -> String? {
+        guard let storage else { return nil }
+        let snapshot = storage.withSurveyState { currentGeneration -> (epoch: String, distinctId: String?)? in
+            guard generation == nil || generation == currentGeneration,
+                  storage.isSurveyGenerationCurrent(currentGeneration) else { return nil }
+            if surveyIdentityGeneration != currentGeneration {
+                config.storageManager?.reset()
+                surveyIdentityGeneration = currentGeneration
+            }
+            return (currentGeneration, storage.getString(forKey: .distinctId) ?? storage.getString(forKey: .anonymousId))
+        }
+        guard let snapshot else { return nil }
+        if let distinctId = snapshot.distinctId { return distinctId }
+        // Identity generation may call user code, so it cannot hold the shared file lock.
+        _ = getDistinctId()
+        return storage.withSurveyState { currentGeneration in
+            guard currentGeneration == snapshot.epoch else { return nil }
+            return storage.getString(forKey: .distinctId) ?? storage.getString(forKey: .anonymousId)
+        }
     }
 
     /// Resets local identity, super properties, feature flag cache, and session state.

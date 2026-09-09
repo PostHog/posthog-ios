@@ -5,6 +5,7 @@
 //  Created by Ben White on 08.02.23.
 //
 
+import Darwin
 import Foundation
 
 /**
@@ -245,6 +246,7 @@ class PostHogStorage {
         case personProcessingEnabled = "posthog.enabledPersonProcessing"
         case remoteConfig = "posthog.remoteConfig"
         case surveyProgress = "posthog.surveyProgress"
+        case surveyResetEpoch = "posthog.surveyResetEpoch"
         case surveySeen = "posthog.surveySeen"
         case lastSeenSurveyDate = "posthog.lastSeenSurveyDate"
         case requestId = "posthog.requestId"
@@ -261,17 +263,83 @@ class PostHogStorage {
     }
 
     private let surveyStateLock = NSRecursiveLock()
-    private var surveyResetGeneration = 0
+    private var surveyStateDepth = 0
+    private var surveyStateCoordinated = false
+    private var surveyEpochUnavailable = false
     #if TESTING
         var testOnSurveyProgressRead: (() -> Void)?
     #endif
 
-    /// Serializes survey read-modify-write operations with identity reset, including reentrant reset.
-    func withSurveyState<T>(_ operation: (Int) -> T) -> T {
-        surveyStateLock.withLock { operation(surveyResetGeneration) }
+    /// The lock file survives reset so other app-group processes keep locking the same inode.
+    func withSurveyState<T>(_ operation: (String) -> T) -> T {
+        surveyStateLock.withLock {
+            if surveyStateDepth > 0 { return operation(currentSurveyEpoch()) }
+            let descriptor = open(appFolderUrl.appendingPathComponent("posthog.surveyState.lock").path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+            if descriptor >= 0 {
+                var result: Int32
+                repeat {
+                    result = flock(descriptor, LOCK_EX)
+                } while result != 0 && errno == EINTR
+                surveyStateCoordinated = result == 0
+            }
+            if !surveyStateCoordinated { hedgeLog("Unable to coordinate shared survey storage; survey progress is disabled") }
+            surveyStateDepth += 1
+            defer {
+                surveyStateDepth -= 1
+                if surveyStateCoordinated { flock(descriptor, LOCK_UN) }
+                if descriptor >= 0 { close(descriptor) }
+                surveyStateCoordinated = false
+            }
+            return operation(currentSurveyEpoch())
+        }
     }
 
-    func isSurveyGenerationCurrent(_ generation: Int) -> Bool {
+    private func currentSurveyEpoch() -> String {
+        // A different token on every failed read makes all validation fail closed.
+        guard surveyStateCoordinated, !surveyEpochUnavailable,
+              !FileManager.default.fileExists(atPath: surveyRevocationUrl.path) else { return UUID().uuidString }
+        if let epoch = getString(forKey: .surveyResetEpoch), UUID(uuidString: epoch) != nil { return epoch }
+        let epoch = UUID().uuidString
+        return persistSurveyEpoch(epoch) ? epoch : UUID().uuidString
+    }
+
+    private func persistSurveyEpoch(_ epoch: String) -> Bool {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: [StorageKey.surveyResetEpoch.rawValue: epoch])
+            try data.write(to: url(forKey: .surveyResetEpoch), options: .atomic)
+            return getString(forKey: .surveyResetEpoch) == epoch
+        } catch {
+            hedgeLog("Failed to persist survey reset epoch: \(error)")
+            return false
+        }
+    }
+
+    private var surveyRevocationUrl: URL { appFolderUrl.appendingPathComponent("posthog.surveyResetRevoked") }
+
+    private func rotateSurveyEpoch() {
+        surveyEpochUnavailable = true
+        if persistSurveyEpoch(UUID().uuidString) {
+            do {
+                if FileManager.default.fileExists(atPath: surveyRevocationUrl.path) { try FileManager.default.removeItem(at: surveyRevocationUrl) }
+                surveyEpochUnavailable = false
+            } catch { hedgeLog("Unable to clear survey epoch revocation: \(error)") }
+            return
+        }
+        do {
+            // Revoke the previous token when a recoverable write error prevents replacement.
+            let epochUrl = url(forKey: .surveyResetEpoch)
+            if FileManager.default.fileExists(atPath: epochUrl.path) { try FileManager.default.removeItem(at: epochUrl) }
+            surveyEpochUnavailable = false
+        } catch {
+            // An immutable epoch can coexist with writable identity files in the same directory.
+            do {
+                try Data().write(to: surveyRevocationUrl, options: .atomic)
+                surveyEpochUnavailable = false
+            } catch { hedgeLog("Unable to revoke survey reset epoch; shared reset could not be persisted: \(error)") }
+        }
+    }
+
+    func isSurveyGenerationCurrent(_ generation: String) -> Bool {
         withSurveyState { $0 == generation }
     }
 
@@ -422,7 +490,7 @@ class PostHogStorage {
 
     func reset(keepAnonymousId: Bool = false) {
         withSurveyState { _ in
-            surveyResetGeneration &+= 1
+            rotateSurveyEpoch()
             // sadly the StorageKey.allCases does not work here
             deleteSafely(url(forKey: .distinctId))
             if !keepAnonymousId {
@@ -442,6 +510,7 @@ class PostHogStorage {
             deleteSafely(url(forKey: .optOut))
             deleteSafely(url(forKey: .isIdentified))
             deleteSafely(url(forKey: .personProcessingEnabled))
+            // .surveyResetEpoch and its lock file survive reset to invalidate other processes.
             // .remoteConfig is project-level config (not user data); kept across reset() so features re-arm
             deleteSafely(url(forKey: .surveySeen))
             deleteSafely(url(forKey: .surveyProgress))

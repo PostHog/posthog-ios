@@ -54,7 +54,7 @@
         private var activeSurveyLock = NSLock()
         private var activeSurvey: PostHogSurvey?
         private var activeSurveyAttemptId: UUID?
-        private var activeSurveyGeneration: Int?
+        private var activeSurveyGeneration: String?
         private var progressStore: SurveyProgressStore?
         private var activeProgressWasPersisted = false
         private var activeSurveySubmissionId: String?
@@ -383,7 +383,7 @@
         }
 
         /// Mark a survey as seen
-        private func setSurveySeen(survey: PostHogSurvey, generation: Int? = nil) {
+        private func setSurveySeen(survey: PostHogSurvey, generation: String? = nil) {
             storage?.withSurveyState { currentGeneration in
                 guard generation == nil || generation == currentGeneration else { return }
                 var seenKeys = storage?.getDictionary(forKey: .surveySeen) ?? [:]
@@ -498,7 +498,7 @@
             )
         }
 
-        private func withActiveSurveyAttempt<T>(_ attemptId: UUID?, _ operation: (Int) -> T?) -> T? {
+        private func withActiveSurveyAttempt<T>(_ attemptId: UUID?, _ operation: (String) -> T?) -> T? {
             activeSurveyLock.withLock {
                 guard let attemptId, attemptId == activeSurveyAttemptId, let storage else { return nil }
                 return storage.withSurveyState { generation in
@@ -518,7 +518,7 @@
 
         /// Handle a survey that is shown
         private func handleSurveyShown(survey: PostHogDisplaySurvey, attemptId: UUID?) {
-            let shown: (survey: PostHogSurvey, generation: Int)? = withActiveSurveyAttempt(attemptId) { generation in
+            let shown: (survey: PostHogSurvey, generation: String)? = withActiveSurveyAttempt(attemptId) { generation in
                 guard let activeSurvey, survey.id == activeSurvey.id else {
                     hedgeLog("[Surveys] Received a show event for a non-active survey")
                     return nil
@@ -678,7 +678,7 @@
         }
 
         /// Sends a `survey shown` event to PostHog instance
-        private func sendSurveyShownEvent(survey: PostHogSurvey, language: String? = nil, generation: Int? = nil) {
+        private func sendSurveyShownEvent(survey: PostHogSurvey, language: String? = nil, generation: String? = nil) {
             sendSurveyEvent(
                 event: "survey shown",
                 survey: survey,
@@ -700,7 +700,7 @@
             language: String? = nil,
             questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil,
             responseQuestionText: [String: String] = [:],
-            generation: Int? = nil
+            generation: String? = nil
         ) {
             var additionalProperties = buildSurveyResponseProperties(
                 survey: survey,
@@ -734,7 +734,7 @@
             language: String? = nil,
             questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil,
             responseQuestionText: [String: String] = [:],
-            generation: Int? = nil
+            generation: String? = nil
         ) {
             var additionalProperties = buildSurveyResponseProperties(
                 survey: survey,
@@ -805,7 +805,7 @@
         }
 
         private func sendSurveyEvent(
-            event: String, survey: PostHogSurvey, additionalProperties: [String: Any] = [:], language: String? = nil, generation: Int? = nil
+            event: String, survey: PostHogSurvey, additionalProperties: [String: Any] = [:], language: String? = nil, generation: String? = nil
         ) {
             guard let postHog else {
                 hedgeLog("[\(event)] event not captured, PostHog instance not found.")
@@ -818,11 +818,7 @@
                 properties["$survey_language"] = language
             }
 
-            let distinctId = storage?.withSurveyState { currentGeneration -> String? in
-                guard generation == nil || generation == currentGeneration else { return nil }
-                return postHog.getDistinctId()
-            }
-            guard let distinctId else { return }
+            guard let distinctId = postHog.surveyEventDistinctId(generation: generation) else { return }
             // Keep user hooks outside the state locks: a hook may reset or start another survey.
             postHog.capture(event, distinctId: distinctId, properties: properties)
         }
@@ -833,7 +829,7 @@
                 storage.withSurveyState { generation in
                     if activeSurvey == nil {
                         let progress = progressStore?.load(survey) ?? SurveyProgress(
-                            submissionId: UUID().uuidString,
+                            resetEpoch: generation, submissionId: UUID().uuidString,
                             questionOrder: SurveyProgress.questionOrder(for: survey)
                         )
                         guard storage.isSurveyGenerationCurrent(generation) else { return }
@@ -861,12 +857,12 @@
         }
 
         private func persistActiveProgressLocked() {
-            guard let survey = activeSurvey, let submissionId = activeSurveySubmissionId else { return }
+            guard let survey = activeSurvey, let submissionId = activeSurveySubmissionId, let resetEpoch = activeSurveyGeneration else { return }
             if activeSurveyCompleted {
                 progressStore?.remove(survey)
                 return
             }
-            var progress = SurveyProgress(submissionId: submissionId, questionOrder: SurveyProgress.questionOrder(for: survey))
+            var progress = SurveyProgress(resetEpoch: resetEpoch, submissionId: submissionId, questionOrder: SurveyProgress.questionOrder(for: survey))
             progress.questionIndex = activeSurveyQuestionIndex
             progress.responses = activeSurveyResponses.mapValues(StoredSurveyResponse.init)
             progress.questionText = activeSurveyResponseQuestionText

@@ -131,6 +131,244 @@ class PostHogSurveyEventsTest {
         return try decoder.decode(PostHogSurvey.self, from: JSONSerialization.data(withJSONObject: json))
     }
 
+    @Test("resumed completion and dismissal preserve seen history", arguments: [false, true])
+    func resumedSurveyPreservesSeenHistory(closeWithoutCompleting: Bool) throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let storage = try #require(postHog.storage)
+        storage.setDictionary(forKey: .surveySeen, contents: ["seenSurvey_previous": true])
+        postHog.config.setBeforeSend { _ in nil }
+        let survey = try partialResponseSurvey(enabled: true, properties: ["start_date": 0])
+        let first = try getSurveyIntegration(postHog)
+        first.setSurveys([survey])
+        var matching: [PostHogSurvey] = []
+        first.getActiveMatchingSurveys { matching = $0 }
+        try #require(matching.count == 1)
+        first.setShownSurvey(survey)
+        _ = first.getNextQuestion(index: 0, response: .openEnded("Saved"))
+        try #require(storage.getDictionary(forKey: .surveySeen)?["seenSurvey_previous"] as? Bool == true)
+        try #require(storage.getDictionary(forKey: .surveySeen)?["seenSurvey_partial-survey"] as? Bool == true)
+        first.uninstall(postHog)
+        let resumed = try getSurveyIntegration(postHog)
+        resumed.setSurveys([survey])
+        resumed.getActiveMatchingSurveys { matching = $0 }
+        try #require(matching.count == 1)
+        resumed.setShownSurvey(survey)
+        try #require(resumed.testActiveQuestionIndex == 1)
+        if !closeWithoutCompleting {
+            _ = resumed.getNextQuestion(index: 1, response: .openEnded("Final"))
+        }
+        resumed.testHandleSurveyClosed(survey: survey.toDisplaySurvey())
+        #expect(storage.getDictionary(forKey: .surveySeen)?["seenSurvey_previous"] as? Bool == true)
+        #expect(storage.getDictionary(forKey: .surveySeen)?["seenSurvey_partial-survey"] as? Bool == true)
+        resumed.getActiveMatchingSurveys { matching = $0 }
+        #expect(matching.isEmpty)
+        resumed.uninstall(postHog)
+    }
+
+    @Test("reset invalidates an attempt before its first answer", arguments: [false, true])
+    func resetBeforeFirstAnswer(keepAnonymousId: Bool) throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        postHog.config.reuseAnonymousId = keepAnonymousId
+        let survey = try partialResponseSurvey(enabled: true)
+        let integration = try getSurveyIntegration(postHog)
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { events.append($0)
+            return nil
+        }
+        integration.setShownSurvey(survey)
+        postHog.reset()
+        #expect(integration.getNextQuestion(index: 0, response: .openEnded("Stale")) == nil)
+        #expect(events.isEmpty)
+        #expect(SurveyProgressStore(storage: try #require(postHog.storage)).load(survey) == nil)
+        integration.uninstall(postHog)
+    }
+
+    @Test("reset in a dismissal hook preserves the new identity's attempt")
+    func resetDuringDismissalPreservesNewAttempt() throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let survey = try partialResponseSurvey(enabled: true)
+        let integration = try getSurveyIntegration(postHog)
+        var switchedIdentity = false
+        postHog.config.setBeforeSend { event in
+            if event.event == "survey dismissed", !switchedIdentity {
+                switchedIdentity = true
+                DispatchQueue.global().sync { postHog.reset() }
+                integration.setShownSurvey(survey)
+                _ = integration.getNextQuestion(index: 0, response: .openEnded("New identity"))
+            }
+            return nil
+        }
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("Old identity"))
+        let oldSubmission = integration.testActiveSubmissionId
+        integration.testHandleSurveyClosed(survey: survey.toDisplaySurvey())
+        try #require(switchedIdentity)
+        let storage = try #require(postHog.storage)
+        let progress = try #require(SurveyProgressStore(storage: storage).load(survey))
+        #expect(progress.submissionId != oldSubmission)
+        #expect(progress.responses["$survey_response_first"]?.text == "New identity")
+        #expect(integration.testActiveSubmissionId == progress.submissionId)
+        #expect(integration.testActiveQuestionIndex == 1)
+        integration.uninstall(postHog)
+    }
+
+    @Test("callbacks from an old render cannot mutate a new attempt", arguments: [false, true])
+    func staleRenderCallbacks(reset: Bool) throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let storage = try #require(postHog.storage)
+        let survey = try partialResponseSurvey(enabled: true)
+        let integration = try getSurveyIntegration(postHog)
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { events.append($0)
+            return nil
+        }
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("First render"))
+        let oldCallbacks = integration.testSurveyCallbacks()
+        if reset { postHog.reset() }
+        integration.setShownSurvey(survey)
+        if reset { _ = integration.getNextQuestion(index: 0, response: .openEnded("New identity")) }
+        let submissionId = integration.testActiveSubmissionId
+        let eventCount = events.count
+        let display = survey.toDisplaySurvey()
+        oldCallbacks.shown(display)
+        #expect(oldCallbacks.response(display, 1, .openEnded("Stale response")) == nil)
+        oldCallbacks.closed(display)
+        #expect(events.count == eventCount)
+        #expect(integration.testActiveSubmissionId == submissionId)
+        let progress = try #require(SurveyProgressStore(storage: storage).load(survey))
+        #expect(progress.submissionId == submissionId)
+        #expect(progress.responses["$survey_response_first"]?.text == (reset ? "New identity" : "First render"))
+        integration.uninstall(postHog)
+    }
+
+    @Test("SDK reset waits for a survey storage transaction")
+    func resetSerializesSurveyState() throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let storage = try #require(postHog.storage)
+        let survey = try partialResponseSurvey(enabled: true, properties: ["start_date": 0])
+        let integration = try getSurveyIntegration(postHog)
+        postHog.config.setBeforeSend { _ in nil }
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("Old identity"))
+        postHog.identify("identity-before-reset")
+        let oldDistinctId = postHog.getDistinctId()
+        let oldAnonymousId = postHog.getAnonymousId()
+        let resetStarted = DispatchSemaphore(value: 0)
+        let resetFinished = DispatchSemaphore(value: 0)
+        let oldGeneration = storage.withSurveyState { generation in
+            DispatchQueue.global().async {
+                resetStarted.signal()
+                postHog.reset()
+                resetFinished.signal()
+            }
+            #expect(resetStarted.wait(timeout: .now() + 5) == .success)
+            // Reset must not delete identities or progress halfway through a read-modify-write.
+            #expect(resetFinished.wait(timeout: .now() + 0.05) == .timedOut)
+            #expect(postHog.getDistinctId() == oldDistinctId)
+            #expect(storage.getString(forKey: .distinctId) == oldDistinctId)
+            #expect(postHog.getAnonymousId() == oldAnonymousId)
+            #expect(storage.getString(forKey: .anonymousId) == oldAnonymousId)
+            integration.updateSurveyCache([survey], events: [:])
+            return generation
+        }
+        try #require(resetFinished.wait(timeout: .now() + 5) == .success)
+        #expect(storage.withSurveyState { $0 } != oldGeneration)
+        #expect(postHog.getDistinctId() != oldDistinctId)
+        #expect(postHog.getAnonymousId() != oldAnonymousId)
+        #expect(storage.getString(forKey: .distinctId) == nil)
+        #expect(postHog.getDistinctId() == postHog.getAnonymousId())
+        #expect(storage.getString(forKey: .anonymousId) == postHog.getAnonymousId())
+        #expect(SurveyProgressStore(storage: storage).load(survey) == nil)
+        #expect(integration.getNextQuestion(index: 1, response: .openEnded("Stale response")) == nil)
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("New identity"))
+        integration.updateSurveyCache([survey], events: [:])
+        #expect(SurveyProgressStore(storage: storage).load(survey)?.responses["$survey_response_first"]?.text == "New identity")
+        integration.uninstall(postHog)
+    }
+
+    @Test("reset during a progress read cannot restore or remove another identity's state", arguments: ["load", "save", "remove", "reconcile"], [false, true])
+    func resetDuringProgressRead(operation: String, startNewAttempt: Bool) throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let storage = try #require(postHog.storage)
+        let store = SurveyProgressStore(storage: storage)
+        let survey = try partialResponseSurvey(enabled: true, properties: ["start_date": 0])
+        let integration = try getSurveyIntegration(postHog)
+        postHog.config.setBeforeSend { _ in nil }
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("Old identity"))
+        let oldProgress = try #require(store.load(survey))
+        storage.testOnSurveyProgressRead = {
+            storage.testOnSurveyProgressRead = nil
+            postHog.reset()
+            if startNewAttempt {
+                integration.setShownSurvey(survey)
+                _ = integration.getNextQuestion(index: 0, response: .openEnded("New identity"))
+            }
+        }
+        switch operation {
+        case "load": #expect(store.load(survey) == nil)
+        case "save": store.save(oldProgress, for: survey)
+        case "remove": store.remove(survey)
+        default: integration.updateSurveyCache([survey], events: [:])
+        }
+        #expect(storage.testOnSurveyProgressRead == nil)
+        let progress = store.load(survey)
+        if startNewAttempt {
+            let progress = try #require(progress)
+            #expect(progress.submissionId != oldProgress.submissionId)
+            #expect(progress.responses["$survey_response_first"]?.text == "New identity")
+        } else {
+            #expect(progress == nil)
+        }
+        integration.uninstall(postHog)
+    }
+
+    @Test("reset during response validation invalidates the pending answer")
+    func resetDuringResponseValidation() throws {
+        let postHog = getSut()
+        defer { postHog.reset()
+            postHog.close()
+        }
+        let storage = try #require(postHog.storage)
+        let survey = try partialResponseSurvey(enabled: true)
+        let integration = try getSurveyIntegration(postHog)
+        var events: [PostHogEvent] = []
+        postHog.config.setBeforeSend { events.append($0)
+            return nil
+        }
+        integration.setShownSurvey(survey)
+        _ = integration.getNextQuestion(index: 0, response: .openEnded("Old identity"))
+        storage.testOnSurveyProgressRead = {
+            storage.testOnSurveyProgressRead = nil
+            postHog.reset()
+        }
+        #expect(integration.getNextQuestion(index: 1, response: .openEnded("Stale response")) == nil)
+        #expect(events.count == 1)
+        #expect(integration.testActiveSubmissionId == nil)
+        #expect(SurveyProgressStore(storage: storage).load(survey) == nil)
+        integration.uninstall(postHog)
+    }
+
     @Test("unfinished responses survive integration restart", arguments: [true, false, nil] as [Bool?])
     func resumeAfterRestart(enabled: Bool?) throws {
         let postHog = getSut()

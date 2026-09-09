@@ -55,7 +55,6 @@ import Foundation
 
     final class SurveyProgressStore {
         private let storage: PostHogStorage
-        private let lock = NSLock()
 
         init(storage: PostHogStorage) {
             self.storage = storage
@@ -66,8 +65,9 @@ import Foundation
         }
 
         func load(_ survey: PostHogSurvey) -> SurveyProgress? {
-            lock.withLock {
+            storage.withSurveyState { generation in
                 let records = storage.getDictionary(forKey: .surveyProgress) ?? [:]
+                guard storage.isSurveyGenerationCurrent(generation) else { return nil }
                 guard let json = records[key(survey)] else { return nil }
                 guard let data = try? JSONSerialization.data(withJSONObject: json),
                       let progress = try? JSONDecoder().decode(SurveyProgress.self, from: data),
@@ -84,19 +84,21 @@ import Foundation
         }
 
         func save(_ progress: SurveyProgress, for survey: PostHogSurvey) {
-            lock.withLock {
+            storage.withSurveyState { generation in
                 guard let data = try? JSONEncoder().encode(progress),
                       let json = try? JSONSerialization.jsonObject(with: data) else { return }
                 var records = storage.getDictionary(forKey: .surveyProgress) ?? [:]
+                guard storage.isSurveyGenerationCurrent(generation) else { return }
                 records[key(survey)] = json
                 storage.setDictionary(forKey: .surveyProgress, contents: records)
             }
         }
 
         func reconcile(_ surveys: [PostHogSurvey]) {
-            lock.withLock {
+            storage.withSurveyState { generation in
                 let keys = Set(surveys.filter(\.isActive).map(key))
                 let records = storage.getDictionary(forKey: .surveyProgress) ?? [:]
+                guard storage.isSurveyGenerationCurrent(generation) else { return }
                 storage.setDictionary(forKey: .surveyProgress, contents: records.filter { entry in
                     (entry.key as? String).map(keys.contains) ?? false
                 })
@@ -104,11 +106,13 @@ import Foundation
         }
 
         func remove(_ survey: PostHogSurvey) {
-            lock.withLock { removeLocked(survey) }
+            storage.withSurveyState { _ in removeLocked(survey) }
         }
 
         private func removeLocked(_ survey: PostHogSurvey) {
+            let generation = storage.withSurveyState { $0 }
             var records = storage.getDictionary(forKey: .surveyProgress) ?? [:]
+            guard storage.isSurveyGenerationCurrent(generation) else { return }
             records.removeValue(forKey: key(survey))
             storage.setDictionary(forKey: .surveyProgress, contents: records)
         }

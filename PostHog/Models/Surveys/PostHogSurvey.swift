@@ -48,3 +48,26 @@ struct PostHogSurveyFeatureFlagKeyValue: Equatable, Decodable {
     let key: String
     let value: String?
 }
+
+extension PostHogSurvey {
+    var eventProperties: [String: Any] {
+        // TODO: Add session replay screen name
+        let props: [String: Any?] = [
+            "$survey_name": name,
+            "$survey_id": id,
+            "$survey_iteration": currentIteration,
+            "$survey_iteration_start_date": currentIterationStartDate.map(toISO8601String),
+        ]
+        return props.compactMapValues { $0 }
+    }
+
+    func interactionProperty(_ property: String) -> String {
+        var surveyProperty = "$survey_\(property)/\(id)"
+
+        if let currentIteration = currentIteration, currentIteration > 0 {
+            surveyProperty = "$survey_\(property)/\(id)/\(currentIteration)"
+        }
+
+        return surveyProperty
+    }
+}

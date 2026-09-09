@@ -675,8 +675,12 @@ let maxRetryDelay = 30.0
         }
 
         // storage also removes all feature flags
-        storage?.reset(keepAnonymousId: config.reuseAnonymousId)
-        config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
+        if let storage {
+            storage.withSurveyState { _ in
+                storage.reset(keepAnonymousId: config.reuseAnonymousId)
+                config.storageManager?.reset(keepAnonymousId: config.reuseAnonymousId)
+            }
+        }
         flagCallReportedLock.withLock {
             flagCallReported.removeAll()
         }

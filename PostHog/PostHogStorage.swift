@@ -260,6 +260,21 @@ class PostHogStorage {
         case pushAppIdsMigrated = "posthog.pushAppIdsMigrated"
     }
 
+    private let surveyStateLock = NSRecursiveLock()
+    private var surveyResetGeneration = 0
+    #if TESTING
+        var testOnSurveyProgressRead: (() -> Void)?
+    #endif
+
+    /// Serializes survey read-modify-write operations with identity reset, including reentrant reset.
+    func withSurveyState<T>(_ operation: (Int) -> T) -> T {
+        surveyStateLock.withLock { operation(surveyResetGeneration) }
+    }
+
+    func isSurveyGenerationCurrent(_ generation: Int) -> Bool {
+        withSurveyState { $0 == generation }
+    }
+
     // The location for storing data that we always want to keep
     let appFolderUrl: URL
 
@@ -406,44 +421,47 @@ class PostHogStorage {
     }
 
     func reset(keepAnonymousId: Bool = false) {
-        // sadly the StorageKey.allCases does not work here
-        deleteSafely(url(forKey: .distinctId))
-        if !keepAnonymousId {
-            deleteSafely(url(forKey: .anonymousId))
+        withSurveyState { _ in
+            surveyResetGeneration &+= 1
+            // sadly the StorageKey.allCases does not work here
+            deleteSafely(url(forKey: .distinctId))
+            if !keepAnonymousId {
+                deleteSafely(url(forKey: .anonymousId))
+            }
+            // .queue, .replayQeueue, .logsQueue not deleted here — each queue manages its own
+            // disk state via clear() and the per-record distinctId captured at enqueue time
+            // (see PostHogLogRecord) lets in-flight telemetry survive an identity change.
+            deleteSafely(url(forKey: .oldQueueFolder))
+            deleteSafely(url(forKey: .oldQueuePlist))
+            deleteSafely(url(forKey: .oldReplayQueue))
+            deleteSafely(url(forKey: .flags))
+            deleteSafely(url(forKey: .enabledFeatureFlags))
+            deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
+            deleteSafely(url(forKey: .groups))
+            deleteSafely(url(forKey: .registerProperties))
+            deleteSafely(url(forKey: .optOut))
+            deleteSafely(url(forKey: .isIdentified))
+            deleteSafely(url(forKey: .personProcessingEnabled))
+            // .remoteConfig is project-level config (not user data); kept across reset() so features re-arm
+            deleteSafely(url(forKey: .surveySeen))
+            deleteSafely(url(forKey: .surveyProgress))
+            deleteSafely(url(forKey: .lastSeenSurveyDate))
+            deleteSafely(url(forKey: .requestId))
+            deleteSafely(url(forKey: .minimalFlagCalledEvents))
+            deleteSafely(url(forKey: .personPropertiesForFlags))
+            deleteSafely(url(forKey: .groupPropertiesForFlags))
+            // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
+            deleteSafely(url(forKey: .sessionReplay))
+            deleteSafely(url(forKey: .errorTracking))
+            deleteSafely(url(forKey: .capturePerformance))
+            // .pushSubscription is deliberately NOT cleared here: PostHogPushSubscriptionHandler.recordForReset()
+            // clears it under its own recordLock (before this runs) so a concurrent send() can't write a
+            // fresh record into the gap and have it erased unlocked. When there is no push handler
+            // (feature disabled/absent), no record exists to leak, so skipping the clear here is safe.
+            // .pushPendingUnregister is deliberately NOT cleared here: it holds a durable "delete this
+            // subscription" intent for the identity being logged out of, and must outlive reset() so an
+            // offline/failed unregister keeps retrying on flush()/next launch (see PostHogPushSubscriptionHandler).
         }
-        // .queue, .replayQeueue, .logsQueue not deleted here — each queue manages its own
-        // disk state via clear() and the per-record distinctId captured at enqueue time
-        // (see PostHogLogRecord) lets in-flight telemetry survive an identity change.
-        deleteSafely(url(forKey: .oldQueueFolder))
-        deleteSafely(url(forKey: .oldQueuePlist))
-        deleteSafely(url(forKey: .oldReplayQueue))
-        deleteSafely(url(forKey: .flags))
-        deleteSafely(url(forKey: .enabledFeatureFlags))
-        deleteSafely(url(forKey: .enabledFeatureFlagPayloads))
-        deleteSafely(url(forKey: .groups))
-        deleteSafely(url(forKey: .registerProperties))
-        deleteSafely(url(forKey: .optOut))
-        deleteSafely(url(forKey: .isIdentified))
-        deleteSafely(url(forKey: .personProcessingEnabled))
-        // .remoteConfig is project-level config (not user data); kept across reset() so features re-arm
-        deleteSafely(url(forKey: .surveySeen))
-        deleteSafely(url(forKey: .surveyProgress))
-        deleteSafely(url(forKey: .lastSeenSurveyDate))
-        deleteSafely(url(forKey: .requestId))
-        deleteSafely(url(forKey: .minimalFlagCalledEvents))
-        deleteSafely(url(forKey: .personPropertiesForFlags))
-        deleteSafely(url(forKey: .groupPropertiesForFlags))
-        // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
-        deleteSafely(url(forKey: .sessionReplay))
-        deleteSafely(url(forKey: .errorTracking))
-        deleteSafely(url(forKey: .capturePerformance))
-        // .pushSubscription is deliberately NOT cleared here: PostHogPushSubscriptionHandler.recordForReset()
-        // clears it under its own recordLock (before this runs) so a concurrent send() can't write a
-        // fresh record into the gap and have it erased unlocked. When there is no push handler
-        // (feature disabled/absent), no record exists to leak, so skipping the clear here is safe.
-        // .pushPendingUnregister is deliberately NOT cleared here: it holds a durable "delete this
-        // subscription" intent for the identity being logged out of, and must outlive reset() so an
-        // offline/failed unregister keeps retrying on flush()/next launch (see PostHogPushSubscriptionHandler).
     }
 
     func remove(key: StorageKey) {
@@ -461,7 +479,11 @@ class PostHogStorage {
     }
 
     func getDictionary(forKey key: StorageKey) -> [AnyHashable: Any]? {
-        getJson(forKey: key) as? [AnyHashable: Any]
+        let dictionary = getJson(forKey: key) as? [AnyHashable: Any]
+        #if TESTING
+            if key == .surveyProgress { testOnSurveyProgressRead?() }
+        #endif
+        return dictionary
     }
 
     func setDictionary(forKey key: StorageKey, contents: [AnyHashable: Any]) {

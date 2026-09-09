@@ -1,5 +1,15 @@
 ## Next
 
+## 3.72.0
+
+### Minor Changes
+
+- 8566372: Add `PostHogSDK.prewarmPushNotificationOpenCapture()` so a notification tap delivered before `setup()` is still captured as `$push_notification_opened`.
+
+### Patch Changes
+
+- 8566372: Log a debug warning when `capturePushNotificationOpened` is enabled and no `UNUserNotificationCenter` delegate is set, which is the case where no notification tap can ever be captured.
+
 ## 3.71.6
 
 ### Patch Changes

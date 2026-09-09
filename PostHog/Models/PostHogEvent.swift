@@ -90,7 +90,7 @@ import Foundation
         var json: [String: Any] = [
             "event": event,
             "distinct_id": distinctId,
-            "properties": properties,
+            "properties": Self.serializedProperties(properties, event: event),
             "timestamp": toISO8601String(timestamp),
             "uuid": uuid.postHogUuidString,
         ]
@@ -102,6 +102,47 @@ import Foundation
 
         return json
     }
+
+    /// Event-only cleanup shared by wire, queue encoding and legacy event rewrites.
+    /// Typed SDK payloads retain their own null semantics; custom `$set`/`$group_set`
+    /// dictionaries are not exempt. Generic storage and JSON sanitization are unchanged.
+    static func serializedProperties(_ properties: [String: Any], event: String) -> [String: Any] {
+        let reserved: Set<String>
+        switch event {
+        case "$snapshot":
+            reserved = ["$snapshot_data"]
+        case "$exception":
+            reserved = ["$exception_list", "$debug_images"]
+        case "$feature_flag_called":
+            reserved = ["$feature_flag_response", "$feature_flag_reason", "$feature_flag_id", "$feature_flag_version"]
+        default:
+            reserved = []
+        }
+        return properties.reduce(into: [:]) { result, entry in
+            if reserved.contains(entry.key) {
+                result[entry.key] = entry.value
+            } else {
+                result[entry.key] = removingNullObjectMembers(entry.value)
+            }
+        }
+    }
+}
+
+private func removingNullObjectMembers(_ value: Any) -> Any? {
+    // Foundation bridges boxed Optional.none to NSNull, as JSONSerialization does.
+    if value as AnyObject is NSNull {
+        return nil
+    }
+    if let dictionary = value as? [String: Any] {
+        return dictionary.reduce(into: [String: Any]()) { result, entry in
+            result[entry.key] = removingNullObjectMembers(entry.value)
+        }
+    }
+    if let array = value as? [Any] {
+        // Do not compact null slots or dictionaries emptied by recursive cleanup.
+        return array.map { removingNullObjectMembers($0) ?? NSNull() }
+    }
+    return value
 }
 
 enum PostHogKnownUnsafeEditableEvent: String {

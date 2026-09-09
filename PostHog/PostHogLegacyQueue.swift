@@ -25,8 +25,16 @@ func migrateOldQueue(queue: URL, oldQueue: URL) {
         }
 
         for item in array {
-            guard let event = item as? [String: Any] else {
+            guard var event = item as? [String: Any] else {
                 continue
+            }
+            let eventName = event["event"] as? String ?? ""
+            if let properties = event["properties"] as? [String: Any] {
+                event["properties"] = PostHogEvent.serializedProperties(properties, event: eventName)
+            }
+            // v2 stored person properties outside the properties container.
+            if let setProperties = event["$set"] as? [String: Any] {
+                event["$set"] = PostHogEvent.serializedProperties(setProperties, event: "")
             }
             let timestamp = event["timestamp"] as? String ?? toISO8601String(Date())
 

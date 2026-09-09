@@ -66,6 +66,25 @@
         /// misleading timestamp.
         private static let pendingResponseTTL: TimeInterval = 30
 
+        #if TESTING
+            /// The points where a concurrent caller can overtake this one. Exposed so the
+            /// interleavings the guards exist for can be driven in a fixed order instead of raced —
+            /// every route into those states is the race itself, so there is no other way to reach
+            /// them deterministically.
+            enum RaceWindow {
+                case prewarmAfterSubscriberCheck
+                case discardAfterSubscriberCheck
+            }
+
+            var onRaceWindow: ((RaceWindow) -> Void)?
+
+            /// Counts entries to the swizzle transitions, including the ones the bundle guard turns
+            /// into no-ops — a test runner is never an app, so the swizzle state itself is not
+            /// observable here, but the decision to re-arm is.
+            private(set) var swizzleInstallAttempts = 0
+            private(set) var swizzleUninstallAttempts = 0
+        #endif
+
         private init() {
             // weakSelf avoids capturing self in the subscriber-count closures before init completes.
             weak var weakSelf: PushNotificationPublisher?
@@ -106,6 +125,9 @@
         /// `isDelegateSetterSwizzled` is what makes this idempotent, and it is load-bearing: the
         /// swizzle is a method exchange, so an unguarded second call would reverse the first.
         private func installNotificationDelegateSwizzles() {
+            #if TESTING
+                stateLock.withLock { swizzleInstallAttempts += 1 }
+            #endif
             // Reachable from public API, so it can run outside an app.
             guard Self.isRunningInAppContext else { return }
 
@@ -123,6 +145,9 @@
         }
 
         private func uninstallNotificationDelegateSwizzles() {
+            #if TESTING
+                stateLock.withLock { swizzleUninstallAttempts += 1 }
+            #endif
             let shouldUninstall = stateLock.withLock {
                 guard isDelegateSetterSwizzled else { return false }
                 isDelegateSetterSwizzled = false
@@ -141,6 +166,9 @@
             // Read outside `stateLock` — `subscriberCount` takes the multicast's own lock. A prewarm
             // racing the very first subscribe can still set the flag; the TTL bounds that.
             guard onNotificationResponse.subscriberCount == 0 else { return }
+            #if TESTING
+                onRaceWindow?(.prewarmAfterSubscriberCheck)
+            #endif
 
             let alreadyPrewarmed = stateLock.withLock {
                 let wasPrewarmed = isPrewarmed
@@ -194,6 +222,9 @@
             }
             // A live subscriber means an integration still needs these swizzles.
             guard onNotificationResponse.subscriberCount == 0 else { return }
+            #if TESTING
+                onRaceWindow?(.discardAfterSubscriberCheck)
+            #endif
             uninstallNotificationDelegateSwizzles()
 
             // The count read above, and the prewarm flag cleared at the top, can both be overtaken
@@ -482,6 +513,9 @@
                     shared.isDelegateSetterSwizzled = false
                     shared.isPrewarmed = false
                     shared.pendingResponse = nil
+                    shared.onRaceWindow = nil
+                    shared.swizzleInstallAttempts = 0
+                    shared.swizzleUninstallAttempts = 0
                     return wasSwizzled
                 }
                 // Clearing the flag without reversing the exchange would leave the next install

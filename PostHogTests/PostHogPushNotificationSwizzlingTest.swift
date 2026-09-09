@@ -189,6 +189,51 @@
             }
         }
 
+        @Test("a prewarm overtaken by the first subscriber does not outlive it")
+        func prewarmOvertakenByFirstSubscriberDoesNotOutliveIt() {
+            let publisher = PushNotificationPublisher.shared
+            var token: RegistrationToken?
+
+            // Drive the interleaving the subscriber-count read cannot be made atomic against:
+            // subscribe in the window between that read and the flag being set.
+            publisher.onRaceWindow = { window in
+                guard window == .prewarmAfterSubscriberCheck else { return }
+                token = publisher.onNotificationResponse.subscribe { _ in }
+            }
+            publisher.prewarmNotificationResponseCapture()
+            publisher.onRaceWindow = nil
+
+            // That subscriber goes away, so nothing is left that wants a response held for it.
+            token = nil
+
+            withPlaceholderResponse { response in
+                publisher.deliver(notificationResponse: response)
+                #expect(publisher.consumePendingNotificationResponse() == nil)
+            }
+        }
+
+        @Test("a discard overtaken by a prewarm re-arms interception")
+        func discardOvertakenByPrewarmReArmsInterception() {
+            let publisher = PushNotificationPublisher.shared
+
+            publisher.onRaceWindow = { window in
+                guard window == .discardAfterSubscriberCheck else { return }
+                // One-shot: the nested prewarm must not re-enter this hook.
+                publisher.onRaceWindow = nil
+                publisher.prewarmNotificationResponseCapture()
+            }
+
+            let installsBefore = publisher.swizzleInstallAttempts
+            let uninstallsBefore = publisher.swizzleUninstallAttempts
+            publisher.discardPrewarmedNotificationResponseCapture()
+            publisher.onRaceWindow = nil
+
+            // The prewarm that landed mid-teardown installs once; the discard then tears down and
+            // must re-arm, so the transition count is install, uninstall, install.
+            #expect(publisher.swizzleUninstallAttempts == uninstallsBefore + 1)
+            #expect(publisher.swizzleInstallAttempts == installsBefore + 2)
+        }
+
         @Test("a prewarm after the last subscriber detaches still opens the buffer window")
         func prewarmAfterLastSubscriberDetachesBuffers() {
             let publisher = PushNotificationPublisher.shared

@@ -46,6 +46,21 @@
             }
         }
 
+        private let backgroundLayoutWarningLock = NSLock()
+        private var hasWarnedAboutBackgroundLayout = false
+
+        private func warnAboutBackgroundLayout() {
+            guard hedgeLogEnabled else { return }
+            let shouldWarn = backgroundLayoutWarningLock.withLock {
+                guard !hasWarnedAboutBackgroundLayout else { return false }
+                hasWarnedAboutBackgroundLayout = true
+                return true
+            }
+            if shouldWarn {
+                hedgeLog("Warning: UIView.layoutSublayers(of:) was called off the main thread. UIKit layout may crash in this situation. Use Main Thread Checker to investigate off-main view or layer access. PostHog is forwarding the original call unchanged.")
+            }
+        }
+
         private func swizzleLayoutSubviews() {
             guard installedLayout == nil,
                   let method = class_getInstanceMethod(viewClass, #selector(UIView.layoutSublayers(of:)))
@@ -79,8 +94,13 @@
             let selector = #selector(UIView.layoutSublayers(of:))
             let token = NSObject()
             let block: @convention(block) (UIView, CALayer) -> Void = { [weak self] view, layer in
+                let isMainThread = Thread.isMainThread
+                if !isMainThread {
+                    // UIKit can throw inside the original call, before our notification is reached.
+                    self?.warnAboutBackgroundLayout()
+                }
                 forward(view, selector, layer)
-                if Thread.isMainThread {
+                if isMainThread {
                     self?.layoutSubviews(token: token)
                 } else {
                     DispatchQueue.main.async { [weak self] in
@@ -104,6 +124,12 @@
         #if TESTING
             func simulateLayoutSubviews() {
                 onViewLayout.invoke(())
+            }
+
+            func resetBackgroundLayoutWarning() {
+                backgroundLayoutWarningLock.withLock {
+                    hasWarnedAboutBackgroundLayout = false
+                }
             }
         #endif
     }

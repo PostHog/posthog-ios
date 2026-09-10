@@ -1,5 +1,11 @@
 ## Next
 
+## 3.72.1
+
+### Patch Changes
+
+- d8c5407: Log a one-time debug warning when the layout observation hook receives an off-main UIKit layout call, without changing the original layout behavior.
+
 ## 3.72.0
 
 ### Minor Changes

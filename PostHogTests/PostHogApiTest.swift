@@ -719,6 +719,25 @@ enum PostHogApiTests {
             #expect((result.error as? URLError)?.code == .timedOut)
         }
 
+        @Test("reports no status for a redirect left on a failed task", arguments: [301, 302, 307, 308])
+        func dropsRedirectStatusAlongsideError(statusCode: Int) throws {
+            let url = try #require(URL(string: "http://localhost/i/v1/logs"))
+            let httpResponse = try #require(HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: nil, headerFields: ["Retry-After": "30"]))
+            let error = URLError(.httpTooManyRedirects)
+            var uploadInfo: PostHogUploadInfo?
+
+            processUploadResponse(endpointName: "logs", data: nil, response: httpResponse, error: error) {
+                uploadInfo = $0
+            }
+
+            let result = try #require(uploadInfo)
+            // no status keeps the records retryable for the logs and push-unregister
+            // policies, which classify 3xx as terminal
+            #expect(result.statusCode == nil)
+            #expect(result.retryAfter == 30)
+            #expect((result.error as? URLError)?.code == .httpTooManyRedirects)
+        }
+
         @Test("preserves Retry-After when URLSession also returns an error")
         func preservesRetryAfterAlongsideError() throws {
             let url = try #require(URL(string: "http://localhost/batch"))

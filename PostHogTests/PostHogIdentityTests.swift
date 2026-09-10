@@ -602,4 +602,26 @@ class PostHogIdentityTests {
         let set = secondEvents[0].properties["$set"] as? [String: Any] ?? [:]
         #expect(set["tier"] as? String == "free")
     }
+
+    @Test("setPersonProperties captures after a relaunch when properties alongside a Date changed")
+    func setPersonPropertiesCapturesAfterRelaunchWhenPropertiesWithDateChanged() async throws {
+        let signupDate = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["signup_date": signupDate, "tier": "pro"])
+
+        _ = try await getServerEvents(server)
+
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["signup_date": signupDate, "tier": "enterprise"])
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["$set"])
+
+        let set = secondEvents[0].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["tier"] as? String == "enterprise")
+    }
 }

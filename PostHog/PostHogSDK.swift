@@ -1055,10 +1055,13 @@ let maxRetryDelay = 30.0
     ) -> String {
         var hashData: [String: Any] = ["distinct_id": distinctId]
 
-        if let userPropertiesToSet {
+        // Sanitize each dictionary on its own, the same way `capture` does. `sanitizeDictionary`
+        // only converts Date/URL at the top level, so a raw dictionary nested under `hashData`
+        // would be dropped whole and unrelated property sets would share one hash.
+        if let userPropertiesToSet = sanitizeDictionary(userPropertiesToSet) {
             hashData["userPropertiesToSet"] = userPropertiesToSet
         }
-        if let userPropertiesToSetOnce {
+        if let userPropertiesToSetOnce = sanitizeDictionary(userPropertiesToSetOnce) {
             hashData["userPropertiesToSetOnce"] = userPropertiesToSetOnce
         }
 

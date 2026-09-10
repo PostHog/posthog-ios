@@ -99,6 +99,35 @@ class PostHogMulticastCallbackTests {
 
 @Suite("PostHogThrottledMulticastCallback Tests", .resetsGlobalState)
 class PostHogThrottledMulticastCallbackTests {
+    @Test("Subscriber-count callbacks can reenter without overlapping or reporting stale state")
+    func reentrantSubscriberCountChanges() {
+        weak var callback: PostHogThrottledMulticastCallback<Void>?
+        var nestedToken: RegistrationToken?
+        var addedNested = false
+        var depth = 0
+        var counts: [Int] = []
+        let publisher = PostHogThrottledMulticastCallback<Void> { count in
+            depth += 1
+            defer { depth -= 1 }
+            #expect(depth == 1)
+            #expect(callback?.subscriberCount == count)
+            counts.append(count)
+            if count == 1, !addedNested {
+                addedNested = true
+                nestedToken = callback?.subscribe(throttle: 0) {}
+            }
+        }
+        callback = publisher
+        var token: RegistrationToken? = publisher.subscribe(throttle: 0) {}
+        #expect(token != nil)
+        #expect(nestedToken != nil)
+        #expect(counts == [1, 2])
+        nestedToken = nil
+        token = nil
+        #expect(counts == [1, 2, 1, 0])
+        #expect(publisher.subscriberCount == 0)
+    }
+
     @Test("Single subscriber receives value with throttle")
     func singleSubscriber() async {
         let callback = PostHogThrottledMulticastCallback<Int>()

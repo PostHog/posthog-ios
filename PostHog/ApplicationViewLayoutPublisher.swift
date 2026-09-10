@@ -17,64 +17,94 @@
     final class ApplicationViewLayoutPublisher: ViewLayoutPublishing {
         static let shared = ApplicationViewLayoutPublisher()
 
-        private(set) lazy var onViewLayout = PostHogThrottledMulticastCallback<Void> { [weak self] subscriberCount in
-            if subscriberCount > 0 {
-                self?.swizzleLayoutSubviews()
-            } else {
-                self?.unswizzleLayoutSubviews()
+        var onViewLayout: PostHogThrottledMulticastCallback<Void> { callbacks }
+        private var callbacks: PostHogThrottledMulticastCallback<Void>!
+        private let viewClass: UIView.Type
+
+        private struct LayoutHook {
+            let original: IMP
+            let replacement: IMP
+            let token: NSObject
+        }
+
+        // Only accessed by the multicast's serialized subscriber-count callbacks.
+        private var installedLayout: LayoutHook?
+        private var layoutHooks: [UInt: LayoutHook] = [:]
+        private let activeLayoutLock = NSLock()
+        private var activeLayoutToken: NSObject?
+        private typealias LayoutImplementation = @convention(c) (UIView, Selector, CALayer) -> Void
+
+        init(viewClass: UIView.Type = UIView.self) {
+            self.viewClass = viewClass
+            // Initialize before publication; Swift lazy properties are not safe on concurrent first access.
+            callbacks = PostHogThrottledMulticastCallback<Void> { [weak self] subscriberCount in
+                if subscriberCount > 0 {
+                    self?.swizzleLayoutSubviews()
+                } else {
+                    self?.unswizzleLayoutSubviews()
+                }
             }
         }
 
-        private var hasSwizzled: Bool = false
-
         private func swizzleLayoutSubviews() {
-            guard !hasSwizzled else { return }
-            hasSwizzled = true
+            guard installedLayout == nil,
+                  let method = class_getInstanceMethod(viewClass, #selector(UIView.layoutSublayers(of:)))
+            else { return }
 
-            swizzle(
-                forClass: UIView.self,
-                original: #selector(UIView.layoutSublayers(of:)),
-                new: #selector(UIView.ph_swizzled_layoutSublayers(of:))
-            )
+            let hook = layoutHook(for: method_getImplementation(method))
+            activeLayoutLock.withLock { activeLayoutToken = hook.token }
+            method_setImplementation(method, hook.replacement)
+            installedLayout = hook
         }
 
         private func unswizzleLayoutSubviews() {
-            guard hasSwizzled else { return }
-            hasSwizzled = false
+            guard let installedLayout,
+                  let method = class_getInstanceMethod(viewClass, #selector(UIView.layoutSublayers(of:)))
+            else { return }
 
-            // swizzling twice will exchange implementations back to original
-            swizzle(
-                forClass: UIView.self,
-                original: #selector(UIView.layoutSublayers(of:)),
-                new: #selector(UIView.ph_swizzled_layoutSublayers(of:))
-            )
+            // A newer swizzler may still forward through our IMP. Do not overwrite its hook or wrap it again.
+            guard method_getImplementation(method) == installedLayout.replacement else { return }
+            method_setImplementation(method, installedLayout.original)
+            activeLayoutLock.withLock { activeLayoutToken = nil }
+            self.installedLayout = nil
         }
 
-        // Called from swizzled `UIView.layoutSubviews`
-        fileprivate func layoutSubviews() {
+        private func layoutHook(for original: IMP) -> LayoutHook {
+            let key = unsafeBitCast(original, to: UInt.self)
+            if let hook = layoutHooks[key] {
+                return hook
+            }
+
+            let forward = unsafeBitCast(original, to: LayoutImplementation.self)
+            let selector = #selector(UIView.layoutSublayers(of:))
+            let token = NSObject()
+            let block: @convention(block) (UIView, CALayer) -> Void = { [weak self] view, layer in
+                forward(view, selector, layer)
+                if Thread.isMainThread {
+                    self?.layoutSubviews(token: token)
+                } else {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.layoutSubviews(token: token)
+                    }
+                }
+            }
+            let hook = LayoutHook(original: original, replacement: imp_implementationWithBlock(block), token: token)
+            // In-flight dispatches and other swizzlers can retain the IMP after unsubscribe.
+            // Keep it valid and reuse it rather than allocating a new block on every restart.
+            layoutHooks[key] = hook
+            return hook
+        }
+
+        private func layoutSubviews(token: NSObject) {
+            // An older hook may still be in another swizzler's call chain.
+            guard activeLayoutLock.withLock({ activeLayoutToken === token }) else { return }
             onViewLayout.invoke(())
         }
 
         #if TESTING
             func simulateLayoutSubviews() {
-                layoutSubviews()
+                onViewLayout.invoke(())
             }
         #endif
-    }
-
-    extension UIView {
-        @objc func ph_swizzled_layoutSublayers(of layer: CALayer) {
-            ph_swizzled_layoutSublayers(of: layer) // call original, not altering execution logic
-            // Only notify on main thread - layoutSublayers can be called on background threads
-            // during thread cleanup (CA::Transaction::release_thread), which can cause crashes
-            // in the Auto Layout engine (NSISEngine) since it's not thread-safe.
-            if Thread.isMainThread {
-                ApplicationViewLayoutPublisher.shared.layoutSubviews()
-            } else {
-                DispatchQueue.main.async {
-                    ApplicationViewLayoutPublisher.shared.layoutSubviews()
-                }
-            }
-        }
     }
 #endif

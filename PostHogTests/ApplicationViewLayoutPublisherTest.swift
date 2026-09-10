@@ -11,11 +11,16 @@
     import Testing
     import UIKit
 
+    // Keep runtime replacements local to this suite, even when another suite has an active recording.
+    private final class LifecycleLayoutView: UIView {
+        override dynamic func layoutSublayers(of _: CALayer) {}
+    }
+
     @Suite("Application View Publisher Test", .serialized, .resetsGlobalState)
     final class ApplicationViewLayoutPublisherTest {
         var registrationToken: RegistrationToken?
 
-        @Test("lifecycle reproduction: subscriber-count callbacks can arrive out of order")
+        @Test("coalesces concurrent subscriber-count changes to the current count")
         func lifecycleStaleCount() throws {
             let zeroPending = DispatchSemaphore(value: 0)
             let releaseZero = DispatchSemaphore(value: 0)
@@ -53,19 +58,20 @@
         }
 
         @MainActor
-        @Test("lifecycle reproduction: concurrent subscriptions preserve the real swizzle state")
+        @Test("concurrent subscriptions preserve installed and restored layout implementations")
         func lifecycleConcurrentSubscriptions() throws {
-            let publisher = ApplicationViewLayoutPublisher.shared
+            let publisher = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
+            defer { withExtendedLifetime(publisher) {} }
             let callback = publisher.onViewLayout
             try #require(callback.subscriberCount == 0)
-            let method = try #require(class_getInstanceMethod(UIView.self, #selector(UIView.layoutSublayers(of:))))
-            let alias = try #require(class_getInstanceMethod(UIView.self, #selector(UIView.ph_swizzled_layoutSublayers(of:))))
+            let method = try #require(class_getInstanceMethod(LifecycleLayoutView.self, #selector(UIView.layoutSublayers(of:))))
             let original = method_getImplementation(method)
-            let replacement = method_getImplementation(alias)
-            defer {
-                method_setImplementation(method, original)
-                method_setImplementation(alias, replacement)
-            }
+            var initialToken: RegistrationToken? = callback.subscribe(throttle: 0) {}
+            let replacement = method_getImplementation(method)
+            try #require(replacement != original)
+            #expect(initialToken != nil)
+            initialToken = nil
+            try #require(method_getImplementation(method) == original)
             for attempt in 0 ..< 5000 {
                 let lock = NSLock()
                 var tokens: [RegistrationToken] = []
@@ -87,7 +93,159 @@
             print("LIFECYCLE no method-state mismatch observed in 5000 rounds")
         }
 
+        @Test("concurrent first access returns the same layout publisher callbacks")
+        func concurrentFirstAccess() {
+            let publisher = ApplicationViewLayoutPublisher()
+            let lock = NSLock()
+            var callbacks: [PostHogThrottledMulticastCallback<Void>] = []
+            DispatchQueue.concurrentPerform(iterations: 32) { _ in
+                let callback = publisher.onViewLayout
+                lock.withLock { callbacks.append(callback) }
+            }
+            #expect(Set(callbacks.map(ObjectIdentifier.init)).count == 1)
+        }
+
+        @MainActor
+        @Test("a captured layout implementation still forwards after unsubscribe", arguments: [false, true])
+        func forwardsCapturedLayoutAfterUnsubscribe(background: Bool) throws {
+            let publisher = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
+            defer { withExtendedLifetime(publisher) {} }
+            try #require(publisher.onViewLayout.subscriberCount == 0)
+            let view = LifecycleLayoutView()
+            let layer = view.layer
+            let selector = #selector(UIView.layoutSublayers(of:))
+            let method = try #require(class_getInstanceMethod(LifecycleLayoutView.self, selector))
+            var forwardedCalls = 0
+            var forwardedOnMain = false
+            let block: @convention(block) (UIView, CALayer) -> Void = { receivedView, receivedLayer in
+                #expect(receivedView === view)
+                #expect(receivedLayer === layer)
+                forwardedCalls += 1
+                forwardedOnMain = Thread.isMainThread
+            }
+            let stub = imp_implementationWithBlock(block)
+            let original = method_setImplementation(method, stub)
+            defer {
+                method_setImplementation(method, original)
+                imp_removeBlock(stub)
+            }
+            var token: RegistrationToken? = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
+            #expect(token != nil)
+            let captured = unsafeBitCast(method_getImplementation(method), to: LayoutImplementation.self)
+            token = nil
+            try #require(method_getImplementation(method) == stub)
+
+            // objc_msgSend may have already selected an IMP when another thread uninstalls the hook.
+            if background {
+                let finished = DispatchSemaphore(value: 0)
+                DispatchQueue.global().async {
+                    captured(view, selector, layer)
+                    finished.signal()
+                }
+                try #require(finished.wait(timeout: .now() + 5) == .success)
+            } else {
+                captured(view, selector, layer)
+            }
+            #expect(forwardedCalls == 1)
+            #expect(forwardedOnMain == !background)
+        }
+
+        @MainActor
+        @Test("unsubscribe preserves a newer swizzler and resubscribe does not wrap it again")
+        func preservesNewerSwizzler() throws {
+            let publisher = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
+            defer { withExtendedLifetime(publisher) {} }
+            try #require(publisher.onViewLayout.subscriberCount == 0)
+            let view = LifecycleLayoutView()
+            let layer = view.layer
+            let selector = #selector(UIView.layoutSublayers(of:))
+            let method = try #require(class_getInstanceMethod(LifecycleLayoutView.self, selector))
+            var originalCalls = 0
+            var otherCalls = 0
+            let originalBlock: @convention(block) (UIView, CALayer) -> Void = { _, _ in originalCalls += 1 }
+            let stub = imp_implementationWithBlock(originalBlock)
+            let original = method_setImplementation(method, stub)
+            defer {
+                method_setImplementation(method, original)
+                imp_removeBlock(stub)
+            }
+            var token: RegistrationToken? = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
+            defer { token = nil }
+            #expect(token != nil)
+            let installed = method_getImplementation(method)
+            let forward = unsafeBitCast(installed, to: LayoutImplementation.self)
+            let otherBlock: @convention(block) (UIView, CALayer) -> Void = { view, layer in
+                otherCalls += 1
+                forward(view, selector, layer)
+            }
+            let other = imp_implementationWithBlock(otherBlock)
+            defer { imp_removeBlock(other) }
+            method_setImplementation(method, other)
+            token = nil
+            try #require(method_getImplementation(method) == other)
+
+            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
+            #expect(method_getImplementation(method) == other)
+            view.layoutSublayers(of: layer)
+            #expect(originalCalls == 1)
+            #expect(otherCalls == 1)
+            token = nil
+            #expect(method_getImplementation(method) == other)
+
+            // The newer swizzler restores the implementation it originally replaced.
+            method_setImplementation(method, installed)
+            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
+            token = nil
+            #expect(method_getImplementation(method) == stub)
+        }
+
+        @MainActor
+        @Test("a retired hook in a newer swizzler's chain does not duplicate notifications")
+        func retiredHookDoesNotDuplicateNotifications() async throws {
+            let publisher = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
+            defer { withExtendedLifetime(publisher) {} }
+            try #require(publisher.onViewLayout.subscriberCount == 0)
+            let view = LifecycleLayoutView()
+            let layer = view.layer
+            let selector = #selector(UIView.layoutSublayers(of:))
+            let method = try #require(class_getInstanceMethod(LifecycleLayoutView.self, selector))
+            var originalCalls = 0
+            let originalBlock: @convention(block) (UIView, CALayer) -> Void = { _, _ in originalCalls += 1 }
+            let stub = imp_implementationWithBlock(originalBlock)
+            let original = method_setImplementation(method, stub)
+            defer {
+                method_setImplementation(method, original)
+                imp_removeBlock(stub)
+            }
+            var token: RegistrationToken? = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
+            #expect(token != nil)
+            let retired = unsafeBitCast(method_getImplementation(method), to: LayoutImplementation.self)
+            token = nil
+            let otherBlock: @convention(block) (UIView, CALayer) -> Void = { view, layer in
+                retired(view, selector, layer)
+            }
+            let other = imp_implementationWithBlock(otherBlock)
+            defer { imp_removeBlock(other) }
+            method_setImplementation(method, other)
+
+            var notifications = 0
+            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {
+                #expect(Thread.isMainThread)
+                notifications += 1
+            }
+            defer { token = nil }
+            view.layoutSublayers(of: layer)
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+            #expect(originalCalls == 1)
+            #expect(notifications == 1)
+        }
+
+        private typealias LayoutImplementation = @convention(c) (UIView, Selector, CALayer) -> Void
+
         // invoke() hops to a background throttle queue then back to main, so effects are async.
+        @MainActor
         private func waitUntil(timeoutNanoseconds: UInt64 = 1_000_000_000,
                                pollNanoseconds: UInt64 = 5_000_000,
                                _ condition: () -> Bool) async
@@ -108,7 +266,8 @@
             var timesCalled = 0
             var lastCallTime: Date?
 
-            let sut = ApplicationViewLayoutPublisher.shared
+            let sut = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
+            defer { withExtendedLifetime(sut) {} }
             registrationToken = sut.onViewLayout.subscribe(throttle: 2) {
                 timesCalled += 1
                 lastCallTime = mockNow.date

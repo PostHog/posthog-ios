@@ -26,6 +26,20 @@
         }
 
         private var hasSwizzled: Bool = false
+        private let backgroundLayoutWarningLock = NSLock()
+        private var hasWarnedAboutBackgroundLayout = false
+
+        fileprivate func warnAboutBackgroundLayout() {
+            guard hedgeLogEnabled else { return }
+            let shouldWarn = backgroundLayoutWarningLock.withLock {
+                guard !hasWarnedAboutBackgroundLayout else { return false }
+                hasWarnedAboutBackgroundLayout = true
+                return true
+            }
+            if shouldWarn {
+                hedgeLog("Warning: UIView.layoutSublayers(of:) was called off the main thread. UIKit layout may crash in this situation. Use Main Thread Checker to investigate off-main view or layer access. PostHog is forwarding the original call unchanged.")
+            }
+        }
 
         private func swizzleLayoutSubviews() {
             guard !hasSwizzled else { return }
@@ -59,16 +73,24 @@
             func simulateLayoutSubviews() {
                 layoutSubviews()
             }
+
+            func resetBackgroundLayoutWarning() {
+                backgroundLayoutWarningLock.withLock {
+                    hasWarnedAboutBackgroundLayout = false
+                }
+            }
         #endif
     }
 
     extension UIView {
         @objc func ph_swizzled_layoutSublayers(of layer: CALayer) {
+            let isMainThread = Thread.isMainThread
+            if !isMainThread {
+                // UIKit can throw inside the original call, before our notification is reached.
+                ApplicationViewLayoutPublisher.shared.warnAboutBackgroundLayout()
+            }
             ph_swizzled_layoutSublayers(of: layer) // call original, not altering execution logic
-            // Only notify on main thread - layoutSublayers can be called on background threads
-            // during thread cleanup (CA::Transaction::release_thread), which can cause crashes
-            // in the Auto Layout engine (NSISEngine) since it's not thread-safe.
-            if Thread.isMainThread {
+            if isMainThread {
                 ApplicationViewLayoutPublisher.shared.layoutSubviews()
             } else {
                 DispatchQueue.main.async {

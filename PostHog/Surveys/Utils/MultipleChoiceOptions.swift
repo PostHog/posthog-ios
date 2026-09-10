@@ -15,6 +15,7 @@
         let allowsMultipleSelection: Bool
         let hasOpenChoiceQuestion: Bool
         let options: [String]
+        @State private var displayOrder: [Int]
 
         // Selection is keyed by choice index, not label text, so an in-place content swap
         // (e.g. re-translating the survey) keeps the same options selected and the caller reads
@@ -24,13 +25,30 @@
         @State private var textFieldRect: CGRect = .zero
         @FocusState private var isTextFieldFocused: Bool
 
+        init(
+            allowsMultipleSelection: Bool,
+            hasOpenChoiceQuestion: Bool,
+            options: [String],
+            selectedOptions: Binding<Set<Int>>,
+            openChoiceInput: Binding<String>,
+            shuffleOptions: Bool = false
+        ) {
+            self.allowsMultipleSelection = allowsMultipleSelection
+            self.hasOpenChoiceQuestion = hasOpenChoiceQuestion
+            self.options = options
+            _selectedOptions = selectedOptions
+            _openChoiceInput = openChoiceInput
+            _displayOrder = State(initialValue: surveyChoiceOrder(options: options, hasOpenChoice: hasOpenChoiceQuestion, shuffleOptions: shuffleOptions))
+        }
+
         private var inputTextColor: Color {
             appearance.effectiveInputTextColor
         }
 
         var body: some View {
             VStack {
-                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                ForEach(displayOrder, id: \.self) { index in
+                    let option = options[index]
                     let isSelected = isSelected(index)
 
                     Button {
@@ -168,3 +186,14 @@
         }
     #endif
 #endif
+
+func surveyChoiceOrder(options: [String], hasOpenChoice: Bool, shuffleOptions: Bool) -> [Int] {
+    let indices = Array(options.indices)
+    guard shuffleOptions else { return indices }
+    let regular = hasOpenChoice ? Array(indices.dropLast()) : indices
+    var shuffled = regular.shuffled()
+    // Match web: avoid the original display order when the random shuffle leaves it unchanged.
+    if shuffled.map({ options[$0] }) == regular.map({ options[$0] }) { shuffled.reverse() }
+    if hasOpenChoice, !options.isEmpty { shuffled.append(options.count - 1) }
+    return shuffled
+}

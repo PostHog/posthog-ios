@@ -26,6 +26,7 @@
 
         var body: some View {
             surveyContent(for: survey)
+                .id(displayManager.currentQuestionIndex)
                 .animation(.linear(duration: 0.25), value: displayManager.currentQuestionIndex)
                 .readFrame(in: .named("survey-scroll-view")) { frame in
                     sheetHeight = frame.height

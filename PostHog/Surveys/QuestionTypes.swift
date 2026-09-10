@@ -185,8 +185,10 @@
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
-                    openChoiceInput: $openChoiceInput
+                    openChoiceInput: $openChoiceInput,
+                    shuffleOptions: question.shuffleOptions
                 )
+                .id(question.choices.count)
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
                     onNextQuestion(response)
@@ -236,8 +238,10 @@
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
-                    openChoiceInput: $openChoiceInput
+                    openChoiceInput: $openChoiceInput,
+                    shuffleOptions: question.shuffleOptions
                 )
+                .id(question.choices.count)
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
                     onNextQuestion(response)

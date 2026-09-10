@@ -90,8 +90,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
     /// Maximum number of retries for push-subscription registration failures.
-    /// Durable event, replay, and log queues retain retryable records and use
-    /// their configured capacity as the storage bound. Default: `3`.
+    ///
+    /// Default: `3`.
+    /// - Deprecated: Ingestion retries are not count-limited. Use `maxQueueSize` for events and replay,
+    ///   and `logs.maxBufferSize` for logs. This option still controls push subscription registration retries.
+    @available(*, deprecated, message: "Ingestion retries are not count-limited. Use maxQueueSize for events and replay, and logs.maxBufferSize for logs. This option still controls push subscription registration retries.")
     @objc public var maxRetries: Int = Defaults.maxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.

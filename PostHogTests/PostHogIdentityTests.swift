@@ -560,4 +560,46 @@ class PostHogIdentityTests {
         #expect(events[0].event == "$identify")
         #expect(events[1].event == "$set")
     }
+
+    // MARK: - Persisted Deduplication Tests
+
+    @Test("setPersonProperties deduplication survives a relaunch")
+    func setPersonPropertiesDeduplicationSurvivesRelaunch() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == ["$set"])
+
+        firstLaunch.close()
+        server.reset()
+
+        // Same properties on the next cold start: the guard is persisted, so no second $set
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
+
+    @Test("setPersonProperties captures after a relaunch when properties changed")
+    func setPersonPropertiesCapturesAfterRelaunchWhenPropertiesChanged() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+
+        _ = try await getServerEvents(server)
+
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "free"])
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["$set"])
+
+        let set = secondEvents[0].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["tier"] as? String == "free")
+    }
 }

@@ -20,6 +20,7 @@ public class PostHogStorageManager {
     private let deviceIdLock = NSLock()
     private let identifiedLock = NSLock()
     private let personProcessingLock = NSLock()
+    private let personPropertiesHashLock = NSLock()
     private let idGen: (UUID) -> UUID
 
     private var distinctId: String?
@@ -28,6 +29,7 @@ public class PostHogStorageManager {
     private var deviceId: String?
     private var isIdentifiedValue: Bool?
     private var personProcessingEnabled: Bool?
+    private var personPropertiesHash: String?
 
     init(_ config: PostHogConfig) {
         storage = PostHogStorage(config)
@@ -213,6 +215,30 @@ public class PostHogStorageManager {
         }
     }
 
+    /// Returns the hash of the last person properties call that produced a `$set` event.
+    ///
+    /// Persisted, so the duplicate guard also suppresses a repeated call after a cold start.
+    ///
+    /// - Returns: The stored hash, or `nil` when no person properties call was made yet.
+    public func getPersonPropertiesHash() -> String? {
+        personPropertiesHashLock.withLock { () -> String? in
+            if personPropertiesHash == nil {
+                personPropertiesHash = storage.getString(forKey: .personPropertiesHash)
+            }
+            return personPropertiesHash
+        }
+    }
+
+    /// Persists the hash of the last person properties call that produced a `$set` event.
+    ///
+    /// - Parameter hash: New hash to store.
+    public func setPersonPropertiesHash(_ hash: String) {
+        personPropertiesHashLock.withLock {
+            personPropertiesHash = hash
+            storage.setString(forKey: .personPropertiesHash, contents: hash)
+        }
+    }
+
     /// Clears cached identity metadata and optionally removes persisted values.
     ///
     /// - Parameters:
@@ -248,6 +274,12 @@ public class PostHogStorageManager {
             personProcessingEnabled = nil
             if resetStorage {
                 storage.remove(key: .personProcessingEnabled)
+            }
+        }
+        personPropertiesHashLock.withLock {
+            personPropertiesHash = nil
+            if resetStorage {
+                storage.remove(key: .personPropertiesHash)
             }
         }
     }

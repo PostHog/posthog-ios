@@ -45,7 +45,6 @@ let maxRetryDelay = 30.0
     private let personPropsLock = NSLock()
     private let cachedPersonPropertiesLock = NSLock()
     private let identifyLock = NSLock()
-    private var cachedPersonPropertiesHash: String?
 
     private let lastScreenLock = NSLock()
     private var _lastScreenName: String?
@@ -898,15 +897,15 @@ let maxRetryDelay = 30.0
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
 
-            // The transition event must fire even when an identical property call was cached
-            // earlier; cache only after capture so deduplication cannot suppress it.
+            // The transition event must fire even when an identical property call was stored
+            // earlier; store only after capture so deduplication cannot suppress it.
             let hash = getPersonPropertiesHash(
                 distinctId: distinctId,
                 userPropertiesToSet: userProperties,
                 userPropertiesToSetOnce: userPropertiesSetOnce
             )
             cachedPersonPropertiesLock.withLock {
-                cachedPersonPropertiesHash = hash
+                config.storageManager?.setPersonPropertiesHash(hash)
             }
 
             // The identified state itself is not part of the flags request; reload only when the
@@ -1019,8 +1018,11 @@ let maxRetryDelay = 30.0
     }
 
     /// Checks if person properties have changed by comparing hash values.
-    /// Updates the cached hash if different and returns true if the event should be captured.
+    /// Updates the stored hash if different and returns true if the event should be captured.
     /// Returns false if the hash matches (duplicate call).
+    ///
+    /// The hash is persisted, so a repeated call with the same properties is also suppressed
+    /// after an app relaunch.
     private func shouldCapturePersonPropertiesEvent(
         distinctId: String,
         userPropertiesToSet: [String: Any]?,
@@ -1032,11 +1034,15 @@ let maxRetryDelay = 30.0
             userPropertiesToSetOnce: userPropertiesToSetOnce
         )
 
+        guard let storageManager = config.storageManager else {
+            return true
+        }
+
         return cachedPersonPropertiesLock.withLock {
-            if cachedPersonPropertiesHash == hash {
+            if storageManager.getPersonPropertiesHash() == hash {
                 return false
             }
-            cachedPersonPropertiesHash = hash
+            storageManager.setPersonPropertiesHash(hash)
             return true
         }
     }

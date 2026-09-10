@@ -104,6 +104,7 @@ final class PostHogThrottledMulticastCallback<T> {
 
     private var isNotifyingSubscriberCount = false
     private var needsSubscriberCountNotification = false
+    private let subscriberCountQueue = DispatchQueue(label: "com.posthog.SubscriberCount")
 
     /// Serial queue that drains throttled callbacks. Stored per instance: generic types
     /// cannot have stored static properties, and a computed static would allocate a fresh
@@ -123,6 +124,7 @@ final class PostHogThrottledMulticastCallback<T> {
     /// Creates a new throttled multicast callback.
     /// - Parameter onSubscriberCountChanged: Optional closure called when subscriber count changes.
     ///   Concurrent and reentrant changes are coalesced, and count callbacks never overlap.
+    ///   After 32 observer calls, pending changes are reconciled asynchronously in bounded batches.
     init(onSubscriberCountChanged: ((Int) -> Void)? = nil) {
         self.onSubscriberCountChanged = onSubscriberCountChanged
     }
@@ -153,7 +155,7 @@ final class PostHogThrottledMulticastCallback<T> {
     }
 
     private func notifySubscriberCountChanged() {
-        guard let onSubscriberCountChanged else { return }
+        guard onSubscriberCountChanged != nil else { return }
         let shouldNotify = lock.withLock { () -> Bool in
             needsSubscriberCountNotification = true
             guard !isNotifyingSubscriberCount else { return false }
@@ -161,8 +163,12 @@ final class PostHogThrottledMulticastCallback<T> {
             return true
         }
         guard shouldNotify else { return }
+        drainSubscriberCountNotifications()
+    }
 
-        while true {
+    private func drainSubscriberCountNotifications() {
+        guard let onSubscriberCountChanged else { return }
+        for _ in 0 ..< 32 {
             let count = lock.withLock { () -> Int? in
                 guard needsSubscriberCountNotification else {
                     isNotifyingSubscriberCount = false
@@ -175,6 +181,19 @@ final class PostHogThrottledMulticastCallback<T> {
             // Observers may subscribe or unsubscribe. Reconcile those changes after they return,
             // without holding the state lock or delivering a captured, out-of-order count.
             onSubscriberCountChanged(count)
+        }
+
+        let shouldContinue = lock.withLock { () -> Bool in
+            guard needsSubscriberCountNotification else {
+                isNotifyingSubscriberCount = false
+                return false
+            }
+            return true
+        }
+        guard shouldContinue else { return }
+        // Retain notification ownership across the queue hop so mutators only mark pending work.
+        subscriberCountQueue.async { [weak self] in
+            self?.drainSubscriberCountNotifications()
         }
     }
 

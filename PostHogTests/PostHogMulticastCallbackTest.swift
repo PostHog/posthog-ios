@@ -128,6 +128,98 @@ class PostHogThrottledMulticastCallbackTests {
         #expect(publisher.subscriberCount == 0)
     }
 
+    @MainActor
+    @Test("Subscriber-count delivery yields and reconciles changes made during deferred delivery", arguments: [0, 2])
+    func subscriberCountDeliveryYields(finalCount: Int) throws {
+        let deferredStarted = DispatchSemaphore(value: 0)
+        let releaseDeferred = DispatchSemaphore(value: 0)
+        let reconciled = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        weak var callback: PostHogThrottledMulticastCallback<Void>?
+        var mainDeliveries = 0
+        var deferredDeliveries = 0
+        var depth = 0
+        var churn = true
+        var counts: [Int] = []
+        let publisher = PostHogThrottledMulticastCallback<Void> { count in
+            let (shouldChurn, shouldBlock) = lock.withLock { () -> (Bool, Bool) in
+                depth += 1
+                #expect(depth == 1)
+                if Thread.isMainThread {
+                    mainDeliveries += 1
+                    return (churn && mainDeliveries < 128, false)
+                }
+                deferredDeliveries += 1
+                return (false, deferredDeliveries == 1)
+            }
+            defer { lock.withLock { depth -= 1 } }
+            if shouldChurn {
+                withExtendedLifetime(callback?.subscribe(throttle: 0) {}) {}
+            }
+            if shouldBlock {
+                deferredStarted.signal()
+                #expect(releaseDeferred.wait(timeout: .now() + 5) == .success)
+            }
+            lock.withLock { counts.append(count) }
+            if !Thread.isMainThread, count == finalCount {
+                reconciled.signal()
+            }
+        }
+        callback = publisher
+        var first: RegistrationToken? = publisher.subscribe(throttle: 0) {}
+        defer { releaseDeferred.signal() }
+        #expect(first != nil)
+        lock.withLock {
+            #expect(mainDeliveries == 32)
+            churn = false
+        }
+        try #require(deferredStarted.wait(timeout: .now() + 5) == .success)
+
+        let additionalTokens = (0 ..< finalCount).map { _ in publisher.subscribe(throttle: 0) {} }
+        defer { withExtendedLifetime((publisher, additionalTokens)) {} }
+        first = nil
+        releaseDeferred.signal()
+        try #require(reconciled.wait(timeout: .now() + 5) == .success)
+        #expect(publisher.subscriberCount == finalCount)
+        #expect(lock.withLock { counts.last } == finalCount)
+    }
+
+    @MainActor
+    @Test("Subscriber-count delivery drains reentrant changes across multiple bounded batches")
+    func subscriberCountDeliveryDrainsMultipleBatches() throws {
+        let finished = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        weak var callback: PostHogThrottledMulticastCallback<Void>?
+        var deliveries = 0
+        var deferredDeliveries = 0
+        var depth = 0
+        let publisher = PostHogThrottledMulticastCallback<Void> { count in
+            let delivery = lock.withLock { () -> Int in
+                depth += 1
+                #expect(depth == 1)
+                deliveries += 1
+                if !Thread.isMainThread { deferredDeliveries += 1 }
+                return deliveries
+            }
+            defer { lock.withLock { depth -= 1 } }
+            #expect(callback?.subscriberCount == count)
+            if delivery < 257 {
+                withExtendedLifetime(callback?.subscribe(throttle: 0) {}) {}
+            } else if delivery == 257 {
+                finished.signal()
+            }
+        }
+        callback = publisher
+        let token = publisher.subscribe(throttle: 0) {}
+        defer { withExtendedLifetime((publisher, token)) {} }
+        try #require(finished.wait(timeout: .now() + 5) == .success)
+        lock.withLock {
+            #expect(deliveries == 257)
+            #expect(deferredDeliveries == 225)
+        }
+        #expect(publisher.subscriberCount == 1)
+    }
+
     @Test("Single subscriber receives value with throttle")
     func singleSubscriber() async {
         let callback = PostHogThrottledMulticastCallback<Int>()

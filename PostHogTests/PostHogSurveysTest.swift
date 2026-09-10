@@ -675,6 +675,7 @@ enum PostHogSurveysTest {
                         repeatedActivation: repeatedActivation,
                         values: values
                     ),
+                    linkedFlagVariant: nil,
                     actions: nil
                 ),
                 appearance: nil,
@@ -1568,6 +1569,43 @@ enum PostHogSurveysTest {
             #expect(matchedSurveys.map(\.id).contains("survey-with-flags"))
             #expect(matchedSurveys.map(\.id).contains("survey-without-flags"))
             #expect(!matchedSurveys.map(\.id).contains("survey-with-disabled-flags"))
+        }
+
+        @Test("matches the linked flag variant without bypassing other targeting", arguments: [
+            ("linked-blue", "blue", true),
+            ("linked-blue", "red", false),
+            ("linked-blue", "Blue", false),
+            ("linked-flag-enabled", "blue", false),
+            ("linked-flag-disabled", "blue", false),
+            ("missing-flag", "blue", false),
+            ("linked-blue", "any", true),
+            ("linked-flag-enabled", "any", true),
+            ("linked-flag-disabled", "any", false),
+            ("missing-flag", "any", false),
+            ("linked-blue", nil, true),
+            ("linked-blue", "", true),
+            (nil, "blue", true),
+            ("", "blue", true),
+        ] as [(String?, String?, Bool)])
+        func matchesLinkedFlagVariant(linkedKey: String?, variant: String?, matches: Bool) async throws {
+            server.featureFlags?["linked-blue"] = "blue"
+            var survey = try #require(try parseSurveys(activeSurvey).first)
+            survey["linked_flag_key"] = linkedKey
+            survey["conditions"] = variant.map { ["linkedFlagVariant": $0] } ?? [:]
+            var blockedSurvey = survey
+            blockedSurvey["id"] = "blocked"
+            blockedSurvey["targeting_flag_key"] = "survey-targeting-flag-disabled"
+
+            let sut = getSut(surveys: [])
+            let surveys = sut.decodeSurveys(from: ["surveys": [survey, blockedSurvey]])
+            sut.updateSurveyCache(surveys, events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in continuation.resume() }
+            }
+            let matched: [PostHogSurvey] = await withCheckedContinuation { continuation in
+                sut.getActiveMatchingSurveys { continuation.resume(returning: $0) }
+            }
+            #expect(matched.map(\.id) == (matches ? ["active_id"] : []))
         }
 
         @Test("Should not return surveys when any feature flag is disabled")

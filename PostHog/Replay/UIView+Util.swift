@@ -26,7 +26,7 @@
             var isInsideCover = cover == nil
             var view: UIView? = self
             while let current = view, current !== window {
-                if current.isHidden || current.alpha <= 0 {
+                if current.isHidden || current.isFullyTransparentOnScreen {
                     return false
                 }
                 if current === cover {
@@ -35,6 +35,18 @@
                 view = current.superview
             }
             return view != nil && isInsideCover
+        }
+
+        /// Mask visibility only, and the opacity counterpart of `toPresentationRect`. During a
+        /// fade the model `alpha` parks at the destination on the first run loop pass, while the
+        /// presentation layer holds the opacity the screenshot renders — so reading the model
+        /// alone would drop a mask while its content is still legible on screen. The presentation
+        /// tree decides whenever it has an answer; without one nothing is in flight and the model
+        /// value is the rendered one.
+        private var isFullyTransparentOnScreen: Bool {
+            guard alpha <= 0 else { return false }
+            guard let presentationLayer = layer.presentation() else { return true }
+            return presentationLayer.opacity <= 0
         }
 
         func isNoCapture() -> Bool {

@@ -624,4 +624,24 @@ class PostHogIdentityTests {
         let set = secondEvents[0].properties["$set"] as? [String: Any] ?? [:]
         #expect(set["tier"] as? String == "enterprise")
     }
+
+    @Test("identify does not re-send properties already carried by $identify after a relaunch")
+    func identifyDoesNotResendPropertiesCarriedByIdentifyAfterRelaunch() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.identify("user123", userProperties: ["tier": "pro"])
+
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == ["$identify"])
+
+        firstLaunch.close()
+        server.reset()
+
+        // Same identify call on the next cold start: the $identify already sent these properties
+        let secondLaunch = getSut()
+        secondLaunch.identify("user123", userProperties: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
 }

@@ -877,6 +877,19 @@ let maxRetryDelay = 30.0
 
             queueEvent(event, queue: queue)
 
+            // The queued $identify already carries these properties as its $set data, so record
+            // the hash here too, otherwise the same call on the next launch re-sends them.
+            if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
+                let hash = getPersonPropertiesHash(
+                    distinctId: distinctId,
+                    userPropertiesToSet: userProperties,
+                    userPropertiesToSetOnce: userPropertiesSetOnce
+                )
+                cachedPersonPropertiesLock.withLock {
+                    storageManager.setPersonPropertiesHash(hash)
+                }
+            }
+
             remoteConfig?.reloadFeatureFlags()
 
             // Notify integrations of context change (e.g., for crash reporting)

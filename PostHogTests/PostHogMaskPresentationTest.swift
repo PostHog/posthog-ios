@@ -124,6 +124,25 @@
             #expect(!maskRects(screen).isEmpty)
         }
 
+        @Test("a sibling raised over the cover by zPosition keeps the masks behind it")
+        func siblingAboveCoverByZPositionKeepsMasks() {
+            let screen = host(Text(Self.secret).postHogMask())
+            _ = presentCover(over: screen, background: .white)
+
+            // An app's own banner, added to the window before the presentation. Behind the
+            // cover in subview order, so the cover still holds the screen.
+            let banner = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 60))
+            banner.backgroundColor = .red
+            screen.window.insertSubview(banner, at: 0)
+            #expect(maskRects(screen).isEmpty)
+
+            // One property change, and the banner draws over the cover while its index still
+            // says otherwise — the way an app keeps a banner above later presentations. Its
+            // own content shows, so nothing behind may be treated as hidden any more.
+            banner.layer.zPosition = (screen.window.subviews.map(\.layer.zPosition).max() ?? 0) + 1
+            #expect(!maskRects(screen).isEmpty)
+        }
+
         @Test("a hidden ancestor drops a reporter's mask")
         func hiddenAncestorDropsMask() {
             let screen = host(Text(Self.secret).postHogMask())

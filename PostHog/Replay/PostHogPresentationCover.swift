@@ -48,11 +48,32 @@
         private static func isTopmost(_ view: UIView, in window: UIWindow) -> Bool {
             var current = view
             while let parent = current.superview {
-                guard parent.subviews.last === current else { return false }
+                guard drawsLast(current, in: parent) else { return false }
                 if parent === window { return true }
                 current = parent
             }
             return false
+        }
+
+        /// Whether `view` is the last of its siblings to be drawn. Subview order alone does not
+        /// settle that: sibling layers composite by `zPosition` and fall back to that order only
+        /// when the values tie. Raising `zPosition` is how an app keeps a banner above the
+        /// presentations made after it — the very case the caller exists to catch — so a sibling
+        /// sitting earlier in the array still wins when its `zPosition` is higher.
+        private static func drawsLast(_ view: UIView, in parent: UIView) -> Bool {
+            var isAfterView = false
+            for sibling in parent.subviews {
+                if sibling === view {
+                    isAfterView = true
+                    continue
+                }
+                let position = sibling.layer.zPosition
+                if position > view.layer.zPosition || (position == view.layer.zPosition && isAfterView) {
+                    return false
+                }
+            }
+            // False also when `view` is no subview of `parent`, which no caller should reach.
+            return isAfterView
         }
 
         /// `.fullScreen` is opaque by UIKit's own contract: it is the style for which UIKit may

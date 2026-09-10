@@ -110,6 +110,20 @@
             #expect(!maskRects(screen).isEmpty)
         }
 
+        @Test("a rounded cover keeps the masks behind it")
+        func roundedCoverKeepsMasks() {
+            let screen = host(Text(Self.secret).postHogMask())
+            let cover = presentCover(over: screen, background: .white)
+            #expect(maskRects(screen).isEmpty)
+
+            // Same cover, one shape change: the corner arcs go see-through and the presenter
+            // shows through them. The full-window test cannot notice, because the presentation
+            // rect is the plain bounds either way.
+            cover.view.layer.cornerRadius = 24
+            cover.view.layer.masksToBounds = true
+            #expect(!maskRects(screen).isEmpty)
+        }
+
         @Test("a hidden ancestor drops a reporter's mask")
         func hiddenAncestorDropsMask() {
             let screen = host(Text(Self.secret).postHogMask())

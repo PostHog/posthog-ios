@@ -57,7 +57,7 @@
 
         /// `.fullScreen` is opaque by UIKit's own contract: it is the style for which UIKit may
         /// drop the presenter's view from the window. Every other style keeps the presenter
-        /// visible unless the presented view paints an opaque background of its own.
+        /// visible unless the presented view paints an opaque background over its whole extent.
         /// `UIView.isOpaque` is no help here — it is a drawing hint that defaults to true even
         /// on a see-through view, and trusting it would unmask content that still shows.
         private static func isOpaqueCover(_ controller: UIViewController, _ view: UIView) -> Bool {
@@ -66,6 +66,14 @@
             }
             if controller.modalPresentationStyle == .fullScreen {
                 return true
+            }
+            // Inferring cover from what the view paints has to account for the shape it paints
+            // in: a background colour only fills the layer's own outline. Rounded corners leave
+            // the presenter showing through the corner arcs, and a mask layer can cut any hole
+            // it likes. `toPresentationRect` reports the plain bounds either way, so the
+            // full-window test sees neither.
+            guard view.layer.cornerRadius == 0, view.layer.mask == nil else {
+                return false
             }
             return (view.backgroundColor?.cgColor.alpha ?? 0) >= 1
         }

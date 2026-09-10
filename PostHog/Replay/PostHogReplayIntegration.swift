@@ -1116,15 +1116,21 @@
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
         private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
+            // A cover such as a SwiftUI `fullScreenCover` leaves the screen it hides attached to
+            // the window, and rects from that screen would be redacted over the cover's own
+            // pixels. Everything still on screen sits inside the cover, so both rect sources
+            // read from it rather than from the window.
+            let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)
+
             // The cheap registry read can veto the frame; keep it before the walk.
-            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window)
+            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window, insideCover: cover)
             guard !masked.hasUnsettledReporters else {
                 return nil
             }
 
             var maskableWidgets: [MaskedRegion] = []
             var maskChildren = false
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            findMaskableWidgets(cover ?? window, window, &maskableWidgets, &maskChildren)
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }

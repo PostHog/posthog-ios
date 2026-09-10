@@ -20,26 +20,10 @@
     @Suite("Replay masking scenarios (PR #728)", .serialized)
     @MainActor
     struct PostHogMaskScenarioTest {
-        private static let windowSize = CGSize(width: 390, height: 844)
+        private static let windowSize = phMaskTestWindowSize
         private static let secret = "SSN 123-45-6789"
 
         // MARK: - Harness
-
-        /// Hosts `view`, forces a layout/render pass, and returns the live window.
-        /// Caller retains the returned `Host` for the duration of the test so the
-        /// reporter views stay registered and attached to a window.
-        private func host(_ view: some View) -> Host {
-            let controller = UIHostingController(
-                rootView: AnyView(view.environment(\.locale, Locale(identifier: "en_US")))
-            )
-            let window = UIWindow(frame: CGRect(origin: .zero, size: Self.windowSize))
-            window.rootViewController = controller
-            forceDeviceIndependentEnvironment(window: window, controller: controller)
-            window.makeKeyAndVisible()
-            controller.view.frame = window.bounds
-            settle(window)
-            return Host(window: window, controller: controller)
-        }
 
         /// The rects the replay snapshot path would redact for `window` right now.
         /// `collectMaskableRects` returns nil only when a reporter hasn't been laid out
@@ -243,8 +227,28 @@
         }
     }
 
+    /// The window every mask harness hosts into. Shared with PostHogMaskPresentationTest.
+    let phMaskTestWindowSize = CGSize(width: 390, height: 844)
+
+    /// Hosts `view`, forces a layout/render pass, and returns the live window. Caller retains
+    /// the returned `Host` for the duration of the test so the reporter views stay registered
+    /// and attached to a window. Shared with PostHogMaskPresentationTest.
     @MainActor
-    private struct Host {
+    func host(_ view: some View) -> Host {
+        let controller = UIHostingController(
+            rootView: AnyView(view.environment(\.locale, Locale(identifier: "en_US")))
+        )
+        let window = UIWindow(frame: CGRect(origin: .zero, size: phMaskTestWindowSize))
+        window.rootViewController = controller
+        forceDeviceIndependentEnvironment(window: window, controller: controller)
+        window.makeKeyAndVisible()
+        controller.view.frame = window.bounds
+        settle(window)
+        return Host(window: window, controller: controller)
+    }
+
+    @MainActor
+    struct Host {
         let window: UIWindow
         let controller: UIHostingController<AnyView>
     }

@@ -17,6 +17,26 @@
             return true
         }
 
+        /// Whether this view reaches `window`'s screen. UIKit skips a hidden or fully
+        /// transparent subtree, so a view under one is absent from the screenshot even though it
+        /// is still attached, and a `cover` holding the whole window leaves only its own subtree
+        /// on screen. One walk up the ancestry answers both, and reaching another window (or no
+        /// window) answers no. `isVisible()` reads the view alone.
+        func isVisibleToWindow(_ window: UIWindow, insideCover cover: UIView? = nil) -> Bool {
+            var isInsideCover = cover == nil
+            var view: UIView? = self
+            while let current = view, current !== window {
+                if current.isHidden || current.alpha <= 0 {
+                    return false
+                }
+                if current === cover {
+                    isInsideCover = true
+                }
+                view = current.superview
+            }
+            return view != nil && isInsideCover
+        }
+
         func isNoCapture() -> Bool {
             containsAccessibilityToken("ph-no-capture")
         }

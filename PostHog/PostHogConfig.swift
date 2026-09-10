@@ -91,10 +91,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
     /// Maximum number of retries for push-subscription registration failures.
     ///
+    /// This limit does not apply to event, replay, or log ingestion. Retryable ingestion
+    /// failures retain queued records for later flush triggers, subject to backoff.
+    /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
+    ///
     /// Default: `3`.
-    /// - Deprecated: Ingestion retries are not count-limited. Use `maxQueueSize` for events and replay,
-    ///   and `logs.maxBufferSize` for logs. This option still controls push subscription registration retries.
-    @available(*, deprecated, message: "Ingestion retries are not count-limited. Use maxQueueSize for events and replay, and logs.maxBufferSize for logs. This option still controls push subscription registration retries.")
     @objc public var maxRetries: Int = Defaults.maxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.

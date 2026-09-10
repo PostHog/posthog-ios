@@ -60,7 +60,7 @@ jobs:
     if: always() && needs.check-changesets.outputs.has-changesets == 'true'
     environment: 'Release' # Requires approval from a maintainer
     permissions:
-      contents: write
+      contents: read
     outputs:
       committed: ${{ steps.commit-version-bump.outputs.commit-hash != '' }}
       new-version: ${{ steps.apply-changesets.outputs.new-version }}

@@ -83,6 +83,30 @@ struct PostHogFileBackedQueueAlignmentTest {
         #expect(queue.depth == 0)
     }
 
+    @Test("breaks creation-date ties by filename when trimming to capacity on load")
+    func tiedCreationDatesTrimDeterministically() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-tie-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        // written out of filename order so an enumeration- or write-order-dependent
+        // sort would disagree with the tie-breaker
+        let tied = Date(timeIntervalSince1970: 100)
+        for name in ["record-4", "record-1", "record-3", "record-2"] {
+            let url = dir.appendingPathComponent(name)
+            try Data(name.utf8).write(to: url)
+            try FileManager.default.setAttributes([.creationDate: tied], ofItemAtPath: url.path)
+        }
+
+        let queue = PostHogFileBackedQueue(queue: dir, maxSize: 2)
+
+        #expect(queue.depth == 2)
+        #expect(decode(queue.peek(2)) == ["record-3", "record-4"])
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("record-1").path))
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("record-2").path))
+    }
+
     enum UnreadableHead {
         case missing // vanished from disk: !fileExists, pruned via `continue`
         case corrupt // present but unreadable (Data(contentsOf:) throws): deleted then pruned

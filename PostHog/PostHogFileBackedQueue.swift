@@ -253,12 +253,18 @@ private func migrateOldQueueFolder(queue: URL, oldQueueFolder: URL) {
 }
 
 private extension FileManager {
-    /// Returns filenames sorted by resource key
+    /// Returns filenames in a total order: by resource key, then by filename.
+    /// `reindexFromDisk` deletes the head of this order to enforce capacity, so a file
+    /// whose date can't be read must not sort oldest, and equal dates need a tie-breaker
+    /// because `sorted` isn't stable. UUID v7 names sort by their embedded timestamp.
     func contentsOfDirectory(at url: URL, sortedBy key: URLResourceKey) throws -> [String] {
         let urls = try contentsOfDirectory(at: url, includingPropertiesForKeys: [key])
-        return urls.sorted {
-            let date1 = (try? $0.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
-            let date2 = (try? $1.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
+        return urls.sorted { lhs, rhs in
+            let date1 = (try? lhs.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantFuture
+            let date2 = (try? rhs.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantFuture
+            if date1 == date2 {
+                return lhs.lastPathComponent < rhs.lastPathComponent
+            }
             return date1 < date2
         }.map(\.lastPathComponent)
     }

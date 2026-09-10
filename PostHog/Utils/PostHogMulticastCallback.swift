@@ -102,6 +102,9 @@ final class PostHogThrottledMulticastCallback<T> {
     private let lock = NSLock()
     private let onSubscriberCountChanged: ((Int) -> Void)?
 
+    // Heuristic budget: keep small bursts synchronous, but yield under sustained churn instead
+    // of letting an unbounded drain monopolize the caller. This is not a measured threshold.
+    private let subscriberCountBatchLimit = 32
     private var isNotifyingSubscriberCount = false
     private var needsSubscriberCountNotification = false
     private let subscriberCountQueue = DispatchQueue(label: "com.posthog.SubscriberCount")
@@ -124,7 +127,7 @@ final class PostHogThrottledMulticastCallback<T> {
     /// Creates a new throttled multicast callback.
     /// - Parameter onSubscriberCountChanged: Optional closure called when subscriber count changes.
     ///   Concurrent and reentrant changes are coalesced, and count callbacks never overlap.
-    ///   After 32 observer calls, pending changes are reconciled asynchronously in bounded batches.
+    ///   After a bounded synchronous batch, pending changes are reconciled asynchronously in bounded batches.
     init(onSubscriberCountChanged: ((Int) -> Void)? = nil) {
         self.onSubscriberCountChanged = onSubscriberCountChanged
     }
@@ -168,7 +171,7 @@ final class PostHogThrottledMulticastCallback<T> {
 
     private func drainSubscriberCountNotifications() {
         guard let onSubscriberCountChanged else { return }
-        for _ in 0 ..< 32 {
+        for _ in 0 ..< subscriberCountBatchLimit {
             let count = lock.withLock { () -> Int? in
                 guard needsSubscriberCountNotification else {
                     isNotifyingSubscriberCount = false

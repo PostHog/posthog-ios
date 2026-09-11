@@ -858,7 +858,7 @@
             return (hasText, hasGraphic)
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: inout Bool) {
+        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
             if view.isNoMask() {
@@ -1018,6 +1018,7 @@
 
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases
+            var maskDescendants = maskChildren
             if view.isNoCapture() || maskChildren {
                 let viewRect = view.toAbsoluteRect(window)
                 let windowRect = window.frame
@@ -1026,7 +1027,7 @@
                 if !viewRect.equalTo(windowRect) {
                     maskableWidgets.append(.init(view, in: window))
                 } else {
-                    maskChildren = true
+                    maskDescendants = true
                 }
             }
 
@@ -1036,10 +1037,9 @@
                         continue
                     }
 
-                    findMaskableWidgets(child, window, &maskableWidgets, &maskChildren)
+                    findMaskableWidgets(child, window, &maskableWidgets, maskDescendants)
                 }
             }
-            maskChildren = false
         }
 
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
@@ -1119,8 +1119,7 @@
             }
 
             var maskableWidgets: [MaskedRegion] = []
-            var maskChildren = false
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            findMaskableWidgets(window, window, &maskableWidgets, false)
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }

@@ -34,6 +34,28 @@
         override class var layerClass: AnyClass { FadingOutLayer.self }
     }
 
+    private final class CustomDrawnSecretView: UIView {
+        override func draw(_ rect: CGRect) {
+            ("Sensitive content" as NSString).draw(in: rect, withAttributes: [.foregroundColor: UIColor.black])
+        }
+    }
+
+    private final class CollapsingLayer: CALayer {
+        var renderedBounds: CGRect = .zero
+
+        override func presentation() -> Self? {
+            let presentation = CollapsingLayer()
+            presentation.bounds = renderedBounds
+            presentation.position = position
+            presentation.opacity = opacity
+            return presentation as? Self
+        }
+    }
+
+    private final class CollapsingView: UIView {
+        override class var layerClass: AnyClass { CollapsingLayer.self }
+    }
+
     @Suite("Replay masking fails closed", .serialized)
     @MainActor
     struct PostHogMaskFailClosedTest {
@@ -233,6 +255,59 @@
             let window = makeWindow(containing: wrapper)
 
             #expect(sut.integration.collectMaskableRects(in: window) == [])
+        }
+
+        @Test("a preceding sibling cannot clear an inherited no-capture mask", arguments: [true, false])
+        func inheritedMaskSurvivesSiblingTraversal(zeroSizeFirstChild: Bool) throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let parent = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            parent.accessibilityIdentifier = "ph-no-capture"
+            let firstChild = UIView(frame: zeroSizeFirstChild ? .zero : CGRect(x: 0, y: 0, width: 20, height: 20))
+            firstChild.clipsToBounds = false
+            parent.addSubview(firstChild)
+            let secret = CustomDrawnSecretView(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            parent.addSubview(secret)
+            let window = makeWindow(containing: parent)
+
+            let rects = try #require(sut.integration.collectMaskableRects(in: window))
+            #expect(rects.contains(secret.frame))
+        }
+
+        @Test("inherited masking respects explicit no-mask and stays within the marked subtree")
+        func inheritedMaskRespectsScopeAndNoMask() {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let parent = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            parent.accessibilityIdentifier = "ph-no-capture"
+            let unmaskedChild = CustomDrawnSecretView(frame: CGRect(x: 24, y: 80, width: 200, height: 32))
+            unmaskedChild.accessibilityIdentifier = "ph-no-mask"
+            parent.addSubview(unmaskedChild)
+            let secret = CustomDrawnSecretView(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            parent.addSubview(secret)
+            let window = makeWindow(containing: parent)
+            window.addSubview(CustomDrawnSecretView(frame: CGRect(x: 24, y: 160, width: 200, height: 32)))
+
+            #expect(sut.integration.collectMaskableRects(in: window) == [secret.frame])
+        }
+
+        @Test("a collapsed clipping parent is walked while its presentation bounds remain visible", arguments: [true, false])
+        func collapsingClippingParentUsesRenderedBounds(presentationIsVisible: Bool) throws {
+            let sut = makeSut()
+            defer { teardown(sut) }
+
+            let wrapper = CollapsingView(frame: .zero)
+            wrapper.clipsToBounds = true
+            let layer = try #require(wrapper.layer as? CollapsingLayer)
+            layer.renderedBounds = presentationIsVisible ? CGRect(x: 0, y: 0, width: 320, height: 640) : .zero
+            let label = makeSecretLabel(frame: CGRect(x: 24, y: 120, width: 200, height: 32))
+            wrapper.addSubview(label)
+            let window = makeWindow(containing: wrapper)
+
+            #expect(wrapper.frame == .zero)
+            #expect(sut.integration.collectMaskableRects(in: window) == (presentationIsVisible ? [label.frame] : []))
         }
 
         // MARK: - Fading views

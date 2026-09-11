@@ -28,7 +28,7 @@
             if isHidden || !hasRenderedOpacity {
                 return false
             }
-            if frame == .zero, clipsToBounds {
+            if frame == .zero, clipsToBounds, (layer.presentation()?.bounds ?? bounds).isEmpty {
                 return false
             }
             return true

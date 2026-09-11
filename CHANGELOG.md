@@ -1,5 +1,12 @@
 ## Next
 
+## 3.73.3
+
+### Patch Changes
+
+- d97cc33: - Preserve inherited session replay masking across siblings inside full-window `ph-no-capture` views.
+  - Keep collecting masks inside clipping views whose model frame reaches zero while their presentation bounds remain visible during an animation.
+
 ## 3.73.2
 
 ### Patch Changes

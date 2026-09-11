@@ -2678,11 +2678,12 @@ let maxRetryDelay = 30.0
         /// Captures the current native window for a first-party wrapper SDK
         /// (e.g. posthog-flutter) that drives session-replay capture on its own
         /// cadence. Not for app use — it shares snapshot state with the normal
-        /// timer-driven capture. Returns false if no frame was captured, so the
-        /// caller can retry.
+        /// timer-driven capture. Returns true when an image is enqueued for asynchronous
+        /// masking, not when a masked frame is ready. Prefer the completion-based overload
+        /// to detect masking failures before marking an episode as started.
         ///
         /// Pass [episodeFirstFrame] until the episode's first frame has been
-        /// *captured* (returned true) — not just on the first attempt: it
+        /// enqueued (returned true) — not just on the first attempt: it
         /// renders with `afterScreenUpdates` so a freshly-presented screen
         /// isn't captured black, and re-arms the per-window meta and dedup
         /// hash, so a retried opening frame keeps its reset. Drop it for
@@ -2701,6 +2702,41 @@ let maxRetryDelay = 30.0
             }
 
             return replayIntegration?.captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame) ?? false
+        }
+
+        /// Captures the current native window for a first-party wrapper SDK and reports
+        /// the result after asynchronous masking and encoding finish.
+        ///
+        /// Completion is called exactly once, asynchronously on the main queue. A true
+        /// result means the encoded snapshot was submitted to the SDK's capture pipeline,
+        /// not uploaded; event hooks and queue policies can still discard it. False means
+        /// capture was unavailable, masking or encoding failed, or the frame was unchanged.
+        /// Screenshot capture runs on main; masking and encoding stay on the replay queue.
+        ///
+        /// Keep `episodeFirstFrame` true until completion reports success. Ignore stale
+        /// completions from a previous episode and avoid overlapping capture requests.
+        ///
+        /// - Parameters:
+        ///   - episodeFirstFrame: Whether this episode still needs its first successful frame.
+        ///   - completion: Receives the capture result on the main queue.
+        ///
+        /// SPI, not public API: no stability guarantees.
+        @_spi(PostHogInternal) public func captureSessionReplaySnapshot(
+            episodeFirstFrame: Bool,
+            completion: @escaping (Bool) -> Void
+        ) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isEnabled(), let replayIntegration = self.replayIntegration else {
+                    completion(false)
+                    return
+                }
+                let enqueued = replayIntegration.captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame) { captured in
+                    DispatchQueue.main.async { completion(captured) }
+                }
+                if !enqueued {
+                    completion(false)
+                }
+            }
         }
     #endif
 

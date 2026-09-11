@@ -17,9 +17,6 @@ struct PostHogSessionPersistenceTest {
         mockAppLifecycle = MockApplicationLifecyclePublisher()
         mockAppLifecycle.isInBackground = false
         DI.main.appLifecyclePublisher = mockAppLifecycle
-
-        // important!
-        deleteSafely(applicationSupportDirectoryURL())
     }
 
     private func getConfig() -> PostHogConfig {
@@ -193,30 +190,23 @@ struct PostHogSessionPersistenceTest {
         #expect(launch(config).getSessionId(readOnly: true) == nil)
     }
 
-    @Test("A second SDK setup on the same token keeps the current session id")
-    func secondSetupKeepsSessionId() async throws {
+    @Test("SDK setup() persists its session, so the next launch keeps the id")
+    func sdkSetupPersistsSessionId() async throws {
         try await withMockedClock { clock in
-            let token = "test_session_persistence_\(UUID().uuidString)"
-            func getSdkConfig() -> PostHogConfig {
-                let config = PostHogConfig(projectToken: token)
-                config.preloadFeatureFlags = false
-                config.sendFeatureFlagEvent = false
-                config.captureApplicationLifecycleEvents = false
-                config.disableReachabilityForTesting = true
-                config.disableQueueTimerForTesting = true
-                return config
-            }
+            let config = getConfig()
+            config.preloadFeatureFlags = false
+            config.sendFeatureFlagEvent = false
+            config.captureApplicationLifecycleEvents = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
 
-            let first = PostHogSDK.with(getSdkConfig())
-            let sessionId = try #require(first.getSessionId())
+            let sdk = PostHogSDK.with(config)
+            defer { sdk.close() }
+            let sessionId = try #require(sdk.getSessionId())
 
             clock.date.addTimeInterval(20)
 
-            let second = PostHogSDK.with(getSdkConfig())
-            #expect(second.getSessionId() == sessionId)
-
-            first.close()
-            second.close()
+            #expect(launch(config).getSessionId(readOnly: true) == sessionId)
         }
     }
 }

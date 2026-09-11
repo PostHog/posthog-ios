@@ -303,29 +303,31 @@ import Foundation
     }
 
     /// Writes the current session to disk, or removes it when there is no active session.
+    ///
+    /// Holds `sessionLock` across the storage write, the same way `PostHogStorageManager` guards
+    /// its own persisted values. Writing after the lock is released lets a concurrent
+    /// `endSession()` or rotation land in between, so a stale record could survive on disk and be
+    /// restored at the next launch. Callers must therefore not already hold the lock.
     private func persistSession() {
         guard let storage else { return }
 
-        let contents: [String: Any]? = sessionLock.withLock {
+        sessionLock.withLock {
             guard let currentSessionId = sessionId,
                   let start = sessionStartTimestamp,
                   let activity = sessionActivityTimestamp
             else {
                 lastPersistedActivityTimestamp = 0
-                return nil
+                storage.remove(key: .session)
+                return
             }
-            lastPersistedActivityTimestamp = activity
-            return [
+
+            let contents: [String: Any] = [
                 SessionStorageKey.sessionId: currentSessionId,
                 SessionStorageKey.startTimestamp: start,
                 SessionStorageKey.activityTimestamp: activity,
             ]
-        }
-
-        if let contents {
+            lastPersistedActivityTimestamp = activity
             storage.setDictionary(forKey: .session, contents: contents)
-        } else {
-            storage.remove(key: .session)
         }
     }
 

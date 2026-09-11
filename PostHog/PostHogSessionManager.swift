@@ -29,13 +29,15 @@ import Foundation
     }
 
     private var config: PostHogConfig?
+    private var storage: PostHogStorage?
 
     override init() {
         super.init()
     }
 
-    func setup(config: PostHogConfig) {
+    func setup(config: PostHogConfig, storage: PostHogStorage) {
         self.config = config
+        self.storage = storage
         didBecomeActiveToken = nil
         didEnterBackgroundToken = nil
         applicationEventToken = nil
@@ -45,6 +47,7 @@ import Foundation
         // `true` until the next foreground/background transition.
         let backgrounded = DI.main.appLifecyclePublisher.isInBackground
         sessionLock.withLock { isAppInBackground = backgrounded }
+        restorePersistedSession()
         registerNotifications()
         registerApplicationSendEvent()
     }
@@ -66,6 +69,12 @@ import Foundation
     private let sessionActivityThreshold: TimeInterval = 60 * 30
     // 24 hours in seconds
     private let sessionMaxLengthThreshold: TimeInterval = 24 * 60 * 60
+    // Activity marks arrive on every UI event, so the persisted activity timestamp is
+    // only rewritten this often. It can therefore lag the real last activity by up to this
+    // interval, which only changes a restore decision within seconds of the 30 minute idle
+    // boundary. The worst case there is the fresh session every launch used to get.
+    private let sessionPersistInterval: TimeInterval = 10
+    private var lastPersistedActivityTimestamp: TimeInterval = 0
     /// callback for session ID changes
     var onSessionIdChanged = PostHogMulticastCallback<Void>()
 
@@ -153,11 +162,17 @@ import Foundation
         return rotateSession(force: true, at: now(), reason: .sessionStart)
     }
 
-    /// Creates a new session id and sets timestamps
+    /// Resumes the current session when it is still live, or creates a new session id
     func startSession(_ completion: (() -> Void)? = nil) {
         guard isNotReactNative() else { return }
 
-        rotateSession(force: true, at: now(), reason: .sessionStart)
+        // A live session must survive an extra setup() or a background launch, so this only
+        // creates an id when there is no live session. A session that is past its idle or
+        // maximum length window is not live, so it is replaced instead of resumed.
+        let timeNow = now()
+        if !hasLiveSession(at: timeNow) {
+            rotateSession(force: true, at: timeNow, reason: .sessionStart)
+        }
         completion?()
     }
 
@@ -193,8 +208,12 @@ import Foundation
         if let lastActive, isExpired(timestamp, lastActive, sessionActivityThreshold) {
             rotateSession(at: timeNow, reason: .sessionTimeout)
         } else {
-            sessionLock.withLock {
+            let needsPersist = sessionLock.withLock {
                 sessionActivityTimestamp = timestamp
+                return timestamp - lastPersistedActivityTimestamp >= sessionPersistInterval
+            }
+            if needsPersist {
+                persistSession()
             }
         }
     }
@@ -235,12 +254,92 @@ import Foundation
             self.sessionActivityTimestamp = timestamp
         }
 
+        persistSession()
         onSessionIdChanged.invoke(())
 
         if let sessionId {
             hedgeLog("New session id created \(sessionId) (\(reason))")
         } else {
             hedgeLog("Session id cleared - reason: (\(reason))")
+        }
+    }
+
+    // MARK: - Persistence
+
+    private enum SessionStorageKey {
+        static let sessionId = "sessionId"
+        static let startTimestamp = "sessionStartTimestamp"
+        static let activityTimestamp = "sessionActivityTimestamp"
+    }
+
+    /// Reads back the session left behind by the previous process and keeps it when it is
+    /// still inside the idle and maximum length windows. Without this, every process launch
+    /// starts a new session, however short the time away was.
+    private func restorePersistedSession() {
+        guard isNotReactNative(), let storage else { return }
+
+        guard let stored = storage.getDictionary(forKey: .session),
+              let storedSessionId = stored[SessionStorageKey.sessionId] as? String,
+              !storedSessionId.isEmpty,
+              let storedStart = stored[SessionStorageKey.startTimestamp] as? Double,
+              let storedActivity = stored[SessionStorageKey.activityTimestamp] as? Double
+        else {
+            return
+        }
+
+        let timestamp = now().timeIntervalSince1970
+        guard isWithinSessionWindows(timestamp, lastActive: storedActivity, sessionStart: storedStart) else {
+            storage.remove(key: .session)
+            return
+        }
+
+        sessionLock.withLock {
+            sessionId = storedSessionId
+            sessionStartTimestamp = storedStart
+            sessionActivityTimestamp = storedActivity
+            lastPersistedActivityTimestamp = storedActivity
+        }
+
+        // Launching into the foreground is the user coming back, which this manager already
+        // counts as activity on the current session. didBecomeActive is not replayed for a
+        // launch, so mark it here: otherwise a session restored close to the idle limit expires
+        // on the first capture seconds later. A background launch is not activity, so an idle
+        // session can still time out there.
+        if !sessionLock.withLock({ isAppInBackground }) {
+            touchSession()
+        }
+
+        hedgeLog("Restored session id \(storedSessionId) from storage")
+    }
+
+    /// Writes the current session to disk, or removes it when there is no active session.
+    ///
+    /// Holds `sessionLock` across the storage write, the same way `PostHogStorageManager` guards
+    /// its own persisted values. Writing after the lock is released lets a concurrent
+    /// `endSession()` or rotation land in between, so a stale record could survive on disk and be
+    /// restored at the next launch. Callers must therefore not already hold the lock.
+    private func persistSession() {
+        // React Native owns its session, so it only ever writes through setSessionId(_:).
+        // Restore skips that mode, so persisting there would leave a record nothing reads.
+        guard isNotReactNative(), let storage else { return }
+
+        sessionLock.withLock {
+            guard let currentSessionId = sessionId,
+                  let start = sessionStartTimestamp,
+                  let activity = sessionActivityTimestamp
+            else {
+                lastPersistedActivityTimestamp = 0
+                storage.remove(key: .session)
+                return
+            }
+
+            let contents: [String: Any] = [
+                SessionStorageKey.sessionId: currentSessionId,
+                SessionStorageKey.startTimestamp: start,
+                SessionStorageKey.activityTimestamp: activity,
+            ]
+            lastPersistedActivityTimestamp = activity
+            storage.setDictionary(forKey: .session, contents: contents)
         }
     }
 
@@ -265,6 +364,9 @@ import Foundation
 
             // we consider backgrounding the app an activity on the current session
             touchSession()
+            // The process can be killed while suspended, so flush the throttled activity
+            // timestamp now rather than waiting for the next mark.
+            persistSession()
             sessionLock.withLock { self.isAppInBackground = true }
         }
     }
@@ -288,5 +390,27 @@ import Foundation
 
     private func isExpired(_ timeNow: TimeInterval, _ timeThen: TimeInterval, _ threshold: TimeInterval) -> Bool {
         max(timeNow - timeThen, 0) > threshold
+    }
+
+    /// True when a session with these timestamps is still inside both the idle window and the
+    /// maximum length window. Shared by `startSession()` and the restore on `setup()`, so both
+    /// judge a session by the same rules as `getSessionId(at:)`.
+    private func isWithinSessionWindows(_ timeNow: TimeInterval, lastActive: TimeInterval, sessionStart: TimeInterval) -> Bool {
+        !isExpired(timeNow, lastActive, sessionActivityThreshold)
+            && !isExpired(timeNow, sessionStart, sessionMaxLengthThreshold)
+    }
+
+    /// True when there is a session id and it is still inside both session windows
+    private func hasLiveSession(at timeNow: Date) -> Bool {
+        let timestamp = timeNow.timeIntervalSince1970
+        let (currentSessionId, lastActive, sessionStart) = sessionLock.withLock {
+            (sessionId, sessionActivityTimestamp, sessionStartTimestamp)
+        }
+
+        guard !currentSessionId.isNilOrEmpty, let lastActive, let sessionStart else {
+            return false
+        }
+
+        return isWithinSessionWindows(timestamp, lastActive: lastActive, sessionStart: sessionStart)
     }
 }

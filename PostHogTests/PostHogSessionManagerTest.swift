@@ -18,6 +18,10 @@ enum PostHogSessionManagerTest {
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
+
+            // sessions are persisted, so drop the record this suite's fixed token may
+            // have left behind — setup() would otherwise restore it
+            deleteSafely(PostHogStorage(PostHogConfig(projectToken: "test_project_token")).url(forKey: .session))
         }
 
         func getSut() -> PostHogSDK {

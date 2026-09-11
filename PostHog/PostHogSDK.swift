@@ -245,7 +245,7 @@ let maxRetryDelay = 30.0
                              disableQueueTimerForTesting: config.disableQueueTimerForTesting)
 
             // Create session manager instance for this PostHogSDK instance
-            sessionManager.setup(config: config)
+            sessionManager.setup(config: config, storage: theStorage)
             sessionManager.startSession()
             // Listen for session changes to update crash context
             sessionIdChangedToken = sessionManager.onSessionIdChanged.subscribe { [weak self] in

@@ -257,6 +257,7 @@ class PostHogStorage {
         case pushSubscription = "posthog.pushSubscription"
         case pushPendingUnregister = "posthog.pushPendingUnregister"
         case pushAppIdsMigrated = "posthog.pushAppIdsMigrated"
+        case session = "posthog.session"
     }
 
     // The location for storing data that we always want to keep
@@ -431,6 +432,7 @@ class PostHogStorage {
         deleteSafely(url(forKey: .minimalFlagCalledEvents))
         deleteSafely(url(forKey: .personPropertiesForFlags))
         deleteSafely(url(forKey: .groupPropertiesForFlags))
+        deleteSafely(url(forKey: .session))
         // legacy slices, no longer written (config now lives in .remoteConfig); drop stragglers from older SDKs
         deleteSafely(url(forKey: .sessionReplay))
         deleteSafely(url(forKey: .errorTracking))

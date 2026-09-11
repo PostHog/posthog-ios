@@ -17,6 +17,38 @@
             return true
         }
 
+        /// Whether this view reaches `window`'s screen. UIKit skips a hidden or fully
+        /// transparent subtree, so a view under one is absent from the screenshot even though it
+        /// is still attached, and a `cover` holding the whole window leaves only its own subtree
+        /// on screen. One walk up the ancestry answers both, and reaching another window (or no
+        /// window) answers no. `isVisible()` reads the view alone.
+        func isVisibleToWindow(_ window: UIWindow, insideCover cover: UIView? = nil) -> Bool {
+            var isInsideCover = cover == nil
+            var view: UIView? = self
+            while let current = view, current !== window {
+                if current.isHidden || current.isFullyTransparentOnScreen {
+                    return false
+                }
+                if current === cover {
+                    isInsideCover = true
+                }
+                view = current.superview
+            }
+            return view != nil && isInsideCover
+        }
+
+        /// Mask visibility only, and the opacity counterpart of `toPresentationRect`. During a
+        /// fade the model `alpha` parks at the destination on the first run loop pass, while the
+        /// presentation layer holds the opacity the screenshot renders — so reading the model
+        /// alone would drop a mask while its content is still legible on screen. The presentation
+        /// tree decides whenever it has an answer; without one nothing is in flight and the model
+        /// value is the rendered one.
+        private var isFullyTransparentOnScreen: Bool {
+            guard alpha <= 0 else { return false }
+            guard let presentationLayer = layer.presentation() else { return true }
+            return presentationLayer.opacity <= 0
+        }
+
         func isNoCapture() -> Bool {
             containsAccessibilityToken("ph-no-capture")
         }

@@ -80,10 +80,13 @@
             lock.withLock { reporters[ObjectIdentifier(reporter)] = nil }
         }
 
-        /// The rects to redact in `window`, read live from the registered reporters.
+        /// The rects to redact in `window`, read live from the registered reporters. A reporter
+        /// whose content is not on screen — hidden anywhere up its ancestry, or outside `cover`
+        /// when one holds the whole window — is left out, so its rect can't be painted over the
+        /// screen that replaced it.
         /// Deliberately not using `isVisible()`: its `frame == .zero` check can't
         /// distinguish "not laid out yet" (must fail closed) from "legitimately empty".
-        func maskedRects(in window: UIWindow) -> MaskedRects {
+        func maskedRects(in window: UIWindow, insideCover cover: UIView? = nil) -> MaskedRects {
             // `hasCompletedFirstLayout` is main-confined; this assert stays active in
             // Release builds too (dispatch_assert_queue is not NDEBUG-gated).
             dispatchPrecondition(condition: .onQueue(.main))
@@ -96,7 +99,7 @@
             var regions: [PostHogReplayIntegration.MaskedRegion] = []
             var hasUnsettledReporters = false
             for reporter in liveReporters {
-                guard reporter.window === window, !reporter.isHidden, reporter.alpha > 0 else { continue }
+                guard reporter.isVisibleToWindow(window, insideCover: cover) else { continue }
                 guard reporter.hasCompletedFirstLayout else {
                     hasUnsettledReporters = true
                     continue

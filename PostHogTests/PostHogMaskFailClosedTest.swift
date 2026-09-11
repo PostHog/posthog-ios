@@ -19,13 +19,14 @@
     /// for `UIView.animate { view.alpha = 0 }`, whose presentation values need a real
     /// render server commit.
     private final class FadingOutLayer: CALayer {
-        // `presentationLayer` is imported as `-> Self?`, so the copy has to be this class.
         override func presentation() -> Self? {
             let presentation = FadingOutLayer()
             presentation.bounds = bounds
             presentation.position = position
             presentation.opacity = 1
-            return presentation
+            // `presentationLayer` is imported as `-> Self?`, and this class is final,
+            // so the cast always succeeds.
+            return presentation as? Self
         }
     }
 

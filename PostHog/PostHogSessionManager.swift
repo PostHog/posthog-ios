@@ -144,6 +144,12 @@ import Foundation
         sessionLock.withLock { isAppInBackground }
     }
 
+    /// Thread-safe snapshot of the current session's start time (epoch seconds), or `nil` if no
+    /// session is active. Safe to read from any thread.
+    var sessionStartTimestampSnapshot: TimeInterval? {
+        sessionLock.withLock { sessionStartTimestamp }
+    }
+
     func getNextSessionId() -> String? {
         // if this is RN, return the current session id
         guard isNotReactNative() else {

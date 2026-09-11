@@ -446,5 +446,127 @@
 
             #expect(integration.isActive() == true)
         }
+
+        // MARK: - debugProperties()
+
+        @Test("with no minimum duration configured, resolving the first remote config reports active, not stuck buffering")
+        func noMinimumDurationConfiguredReportsActiveOnceResolved() async throws {
+            // Regression: debugProperties() used to derive "buffering" from !hasPassedMinimumDuration
+            // alone, ignoring whether a minimum duration was even configured. hasPassedMinimumDuration
+            // only flips true via a migrate, so with none configured this reported "buffering"
+            // indefinitely even though isBuffering (and real recording) was already active.
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            #expect(integration.isBuffering == true)
+            var props = try integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { integration.isBuffering == false }
+
+            props = try integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "active")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+        }
+
+        @Test("throttleDelayMs degrades to the default instead of trapping on a non-finite throttleDelay")
+        func throttleDelayMsDoesNotTrapOnNonFiniteValue() {
+            let config = PostHogConfig(projectToken: UUID().uuidString)
+            for value: TimeInterval in [.nan, .infinity, -.infinity, .greatestFiniteMagnitude] {
+                config.sessionReplayConfig.throttleDelay = value
+                #expect(PostHogReplayIntegration.throttleDelayMs(config: config) >= 0)
+            }
+            config.sessionReplayConfig.throttleDelay = 2
+            #expect(PostHogReplayIntegration.throttleDelayMs(config: config) == 2000)
+        }
+
+        @Test("holding for remote config or minimum duration reports buffering with a hold reason, then active once resolved")
+        func bufferingReportsHoldReasonThenActive() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 1)
+            defer { sut.close() }
+
+            var props = try integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "awaiting_remote_config")
+            #expect(props["$sdk_debug_replay_internal_buffer_length"] as? Int != nil)
+
+            // bufferDuration is the span between the first and last buffered event, so the sleep must
+            // sit between two adds (not after a single one) to actually exceed the 1ms minimum.
+            replayQueue.add(snapshotEvent("1"))
+            try await Task.sleep(nanoseconds: 20_000_000) // 20ms, well past the 1ms minimum duration
+            replayQueue.add(snapshotEvent("2"))
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { integration.isBuffering == false }
+
+            props = try integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "active")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+        }
+
+        @Test("stopping recording reports disabled and clears the hold reason")
+        func stopClearsHoldReason() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+
+            var props = try integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "below_minimum_duration")
+
+            sut.stopSessionRecording()
+
+            props = try integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "disabled")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+            // Config-derived keys survive stop — they come from the platform config module, not
+            // integration active state.
+            #expect(props["$sdk_debug_replay_capture_mode"] != nil)
+            #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
+        }
+
+        @Test("capturing debug properties concurrently with stop() and close() never produces a torn read")
+        func concurrentStopWhileCapturing() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 1)
+
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            let resultsLock = NSLock()
+            var statuses: [String?] = []
+            var badHoldReasons = 0
+
+            let group = DispatchGroup()
+            let captureQueue = DispatchQueue(label: "test.concurrent-debug-properties", attributes: .concurrent)
+            let iterations = 200
+
+            for _ in 0 ..< iterations {
+                group.enter()
+                captureQueue.async {
+                    defer { group.leave() }
+                    guard let props = try? integration.debugProperties() else { return }
+                    let status = props["$recording_status"] as? String
+                    let holdReason = props["$sdk_debug_replay_flush_hold_reason"]
+                    resultsLock.withLock {
+                        statuses.append(status)
+                        if status != "buffering", holdReason != nil {
+                            badHoldReasons += 1
+                        }
+                    }
+                }
+            }
+
+            sut.stopSessionRecording()
+            sut.close()
+
+            group.wait()
+
+            #expect(statuses.allSatisfy { $0 == "active" || $0 == "buffering" || $0 == "disabled" })
+            #expect(badHoldReasons == 0)
+        }
     }
 #endif

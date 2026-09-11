@@ -18,7 +18,8 @@
         }
 
         private func getSut(
-            eventTriggers: [String]? = nil
+            eventTriggers: [String]? = nil,
+            linkedFlagNotMatched: Bool = false
         ) -> PostHogSDK {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
             config.sessionReplay = true
@@ -40,6 +41,10 @@
             var sessionRecording: [String: Any] = ["endpoint": "/s/"]
             if let eventTriggers {
                 sessionRecording["eventTriggers"] = eventTriggers
+            }
+            if linkedFlagNotMatched {
+                // No cached value seeded for this flag, so it evaluates as not matched.
+                sessionRecording["linkedFlag"] = "unmatched_replay_flag"
             }
             storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": sessionRecording])
 
@@ -223,6 +228,30 @@
             #expect(integration?.isActive() == true)
 
             sut.close()
+        }
+
+        // MARK: - debugProperties() Trigger Status
+
+        @Test("trigger status reflects pending state before either trigger resolves, then activation as each fires")
+        func triggerStatusReflectsCurrentState() async throws {
+            let sut = getSut(eventTriggers: ["purchase_completed"], linkedFlagNotMatched: true)
+            let integration = try #require(sut.getReplayIntegration())
+            defer { sut.close() }
+
+            // Neither trigger has resolved yet — the integration hasn't even started (event-trigger
+            // gated), but trigger status is computed fresh regardless of active state.
+            var props = try integration.debugProperties()
+            #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String == "trigger_pending")
+            #expect(props["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_pending")
+            let pending = props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []
+            #expect(Set(pending) == Set(["linked_flag", "event_trigger"]))
+
+            sut.capture("purchase_completed")
+
+            props = try integration.debugProperties()
+            #expect(props["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_activated")
+            let pendingAfter = props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []
+            #expect(!pendingAfter.contains("event_trigger"))
         }
     }
 #endif

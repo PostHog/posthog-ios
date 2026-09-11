@@ -25,6 +25,9 @@ import Foundation
 let retryDelay = 1.0
 let maxRetryDelay = 30.0
 
+// Matches posthog-android's MAX_DEBUG_ERROR_LENGTH.
+private let maxDebugErrorLength = 500
+
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 /// Main entry point for capturing analytics, feature flags, logs, surveys, and session replay.
 ///
@@ -620,6 +623,37 @@ let maxRetryDelay = 30.0
             }
 
             props["$process_person_profile"] = hasPersonProcessing()
+
+            #if os(iOS)
+                do {
+                    if let replayIntegration {
+                        let debug = try replayIntegration.debugProperties()
+                        props.merge(debug) { current, _ in current }
+                    } else {
+                        props["$recording_status"] = "disabled"
+                        props["$sdk_debug_replay_capture_mode"] = PostHogReplayIntegration.captureMode(config: config)
+                        props["$sdk_debug_replay_throttle_delay_ms"] = PostHogReplayIntegration.throttleDelayMs(config: config)
+                    }
+                    // Inside the same try as the rest of the debug map (matches js/android): a throw
+                    // above skips these too, so nothing from the map survives a build failure.
+                    if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+                        let nowSeconds = now().timeIntervalSince1970
+                        props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+                        props["$sdk_debug_current_session_duration"] = Int64((nowSeconds - sessionStart) * 1000)
+                    }
+                    props["$sdk_debug_retry_queue_size"] = queue?.depth
+                } catch {
+                    props["$sdk_debug_error_capturing_properties"] = String(String(describing: error).prefix(maxDebugErrorLength))
+                }
+            #else
+                props["$recording_status"] = "disabled"
+                if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+                    let nowSeconds = now().timeIntervalSince1970
+                    props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+                    props["$sdk_debug_current_session_duration"] = Int64((nowSeconds - sessionStart) * 1000)
+                }
+                props["$sdk_debug_retry_queue_size"] = queue?.depth
+            #endif
 
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,

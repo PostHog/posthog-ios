@@ -317,6 +317,14 @@
             }
 
             hedgeLog("Session replay recording started.")
+            notifyRecordingStatusChanged()
+        }
+
+        /// The crash-context snapshot (`PostHogSDK.notifyContextDidChange`) is replayed verbatim on the
+        /// next launch, so refresh it whenever `$recording_status` can change. Never call this while
+        /// holding `bufferingLock`: it re-enters `debugProperties()`.
+        private func notifyRecordingStatusChanged() {
+            postHog?.notifyContextDidChange()
         }
 
         /// Stops session replay recording.
@@ -345,10 +353,11 @@
             }
 
             hedgeLog("Session replay recording stopped.")
+            notifyRecordingStatusChanged()
         }
 
         func isActive() -> Bool {
-            isEnabled
+            bufferingLock.withLock { isEnabled }
         }
 
         private func resetViews() {
@@ -416,6 +425,10 @@
             guard let currentSessionId = postHog.sessionManager.getSessionId(readOnly: true) else {
                 return
             }
+
+            // The SDK's own session-change subscriber snapshots the crash context before this handler
+            // runs, so re-snapshot once the buffering/trigger state below has settled.
+            defer { notifyRecordingStatusChanged() }
 
             // Always reset views on session change
             if isEnabled {
@@ -544,6 +557,7 @@
             } else {
                 replayQueue?.clearBuffer()
             }
+            notifyRecordingStatusChanged()
         }
 
         private func isCurrentSessionSampledIn() -> Bool {
@@ -564,6 +578,7 @@
             guard let minimumDuration, minimumDuration > 0 else {
                 bufferingLock.withLock { hasPassedMinimumDuration = true }
                 replayQueue.migrateBufferToQueue()
+                notifyRecordingStatusChanged()
                 return
             }
 
@@ -573,6 +588,7 @@
             // Flip state before migration so new snapshots don't keep entering the buffer during long-running migrations.
             bufferingLock.withLock { hasPassedMinimumDuration = true }
             replayQueue.migrateBufferToQueue()
+            notifyRecordingStatusChanged()
         }
 
         /// Resolves the buffer from a feature-flags reload — covers two paths:
@@ -1747,9 +1763,9 @@
     // MARK: - Debug properties
 
     extension PostHogReplayIntegration {
+        // ponytail: host-name heuristic; replace with an explicit host mode if a third hybrid host appears
         /// `$sdk_debug_replay_capture_mode`, shared by `debugProperties()` and the no-integration
         /// fallback in `PostHogSDK.buildProperties`, so both stay in sync.
-        // ponytail: host-name heuristic; replace with an explicit host mode if a third hybrid host appears
         static func captureMode(config: PostHogConfig?) -> String {
             (config?.sessionReplayConfig.screenshotMode == true || postHogSdkName == "posthog-flutter") ? "screenshot" : "wireframe"
         }
@@ -1757,12 +1773,11 @@
         /// `$sdk_debug_replay_throttle_delay_ms`, shared with the no-integration fallback in
         /// `PostHogSDK.buildProperties`. `1` mirrors `PostHogSessionReplayConfig.throttleDelay`'s default.
         static func throttleDelayMs(config: PostHogConfig?) -> Int {
-            let seconds = config?.sessionReplayConfig.throttleDelay ?? 1
-            let ms = (seconds.isFinite ? seconds : 1) * 1000
-            // Int(Double) traps on NaN/infinite/out-of-range — throttleDelay is a public,
-            // unvalidated host-set TimeInterval, so a malformed value must degrade, not crash.
-            guard ms.isFinite else { return 1000 }
-            return Int(min(max(ms, 0), Double(Int.max)).rounded())
+            let millis = (config?.sessionReplayConfig.throttleDelay ?? 1) * 1000
+            // Int(Double) traps on NaN/infinite/out-of-range and throttleDelay is an unvalidated
+            // host-set value. Clamp to Int32.max: Double(Int.max) rounds up to 2^63 and traps too.
+            guard millis.isFinite else { return 1000 }
+            return Int(min(max(millis, 0), Double(Int32.max)).rounded())
         }
 
         /// Shared by `$sdk_debug_replay_linked_flag_trigger_status` and `$sdk_debug_replay_event_trigger_status`.
@@ -1770,24 +1785,17 @@
             !isConfigured ? "trigger_disabled" : (isActivated ? "trigger_activated" : "trigger_pending")
         }
 
-        /// Snapshot of `$recording_status` / `$sdk_debug_*` replay properties for the currently
-        /// captured event. `isEnabled`, `awaitingFirstRemoteConfig`, and `hasPassedMinimumDuration`
-        /// are read together under `bufferingLock` so a concurrent start()/stop() can't produce a
-        /// torn read across keys on the same event.
-        func debugProperties() throws -> [String: Any] {
-            #if TESTING
-                if let forcedError = PostHogReplayIntegration.forcedDebugPropertiesError {
-                    throw forcedError
-                }
-            #endif
-
+        /// `$recording_status` / `$sdk_debug_*` replay properties for the event being captured. The
+        /// buffering fields are read in one `bufferingLock` acquisition so a concurrent start()/stop()
+        /// can't tear them across keys on the same event.
+        func debugProperties() -> [String: Any] {
             let (enabled, awaitingConfig, passedMinimumDuration, minimumDuration) = bufferingLock.withLock {
                 (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
             }
 
-            // Matches isBuffering's predicate: below-minimum-duration only holds when a minimum
-            // duration is actually configured — otherwise hasPassedMinimumDuration never gets set
-            // (nothing migrates the buffer) and this would misreport "buffering" indefinitely.
+            // Mirrors isBuffering's minimum-duration branch: only counts when a duration is configured,
+            // since hasPassedMinimumDuration never flips otherwise and this would report "buffering"
+            // forever. Also gates on `enabled` so a not-yet-started integration reports "disabled".
             let buffering = enabled && (awaitingConfig || ((minimumDuration ?? 0) > 0 && !passedMinimumDuration))
             var props: [String: Any] = [
                 "$recording_status": !enabled ? "disabled" : (buffering ? "buffering" : "active"),
@@ -1802,9 +1810,10 @@
             props["$sdk_debug_replay_throttle_delay_ms"] = Self.throttleDelayMs(config: config)
             props["$sdk_debug_replay_internal_buffer_length"] = replayQueue?.depth ?? 0
 
+            let remoteConfig = postHog?.remoteConfig
             let linkedFlagTriggerStatus = Self.triggerStatus(
-                isConfigured: postHog?.remoteConfig?.isRecordingGatedOnLinkedFlag() == true,
-                isActivated: postHog?.remoteConfig?.isSessionReplayFlagActive() == true
+                isConfigured: remoteConfig?.isRecordingGatedOnLinkedFlag() == true,
+                isActivated: remoteConfig?.isSessionReplayFlagActive() == true
             )
 
             let triggers = eventTriggersLock.withLock { eventTriggers }
@@ -1875,10 +1884,6 @@
             static func clearInstalls() {
                 integrationInstallState.clear()
             }
-
-            /// Forces `debugProperties()` to throw this error once, to exercise
-            /// `$sdk_debug_error_capturing_properties`. Reset in teardown by setting back to `nil`.
-            static var forcedDebugPropertiesError: Error?
         }
     #endif
 

@@ -240,7 +240,7 @@
 
             // Neither trigger has resolved yet — the integration hasn't even started (event-trigger
             // gated), but trigger status is computed fresh regardless of active state.
-            var props = try integration.debugProperties()
+            var props = integration.debugProperties()
             #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String == "trigger_pending")
             #expect(props["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_pending")
             let pending = props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []
@@ -248,7 +248,7 @@
 
             sut.capture("purchase_completed")
 
-            props = try integration.debugProperties()
+            props = integration.debugProperties()
             #expect(props["$sdk_debug_replay_event_trigger_status"] as? String == "trigger_activated")
             let pendingAfter = props["$sdk_debug_replay_pending_trigger_conditions"] as? [String] ?? []
             #expect(!pendingAfter.contains("event_trigger"))

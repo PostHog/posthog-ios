@@ -451,29 +451,28 @@
 
         @Test("with no minimum duration configured, resolving the first remote config reports active, not stuck buffering")
         func noMinimumDurationConfiguredReportsActiveOnceResolved() async throws {
-            // Regression: debugProperties() used to derive "buffering" from !hasPassedMinimumDuration
-            // alone, ignoring whether a minimum duration was even configured. hasPassedMinimumDuration
-            // only flips true via a migrate, so with none configured this reported "buffering"
-            // indefinitely even though isBuffering (and real recording) was already active.
+            // Regression: deriving "buffering" from !hasPassedMinimumDuration alone reported it forever
+            // when no minimum duration was configured, since nothing ever flips that flag.
             let (sut, integration, _) = try makeSut(flagActive: true)
             defer { sut.close() }
 
             #expect(integration.isBuffering == true)
-            var props = try integration.debugProperties()
+            var props = integration.debugProperties()
             #expect(props["$recording_status"] as? String == "buffering")
 
             integration.applyRemoteConfig(remoteConfig: nil)
             await waitUntil { integration.isBuffering == false }
 
-            props = try integration.debugProperties()
+            props = integration.debugProperties()
             #expect(props["$recording_status"] as? String == "active")
             #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
         }
 
-        @Test("throttleDelayMs degrades to the default instead of trapping on a non-finite throttleDelay")
+        @Test("throttleDelayMs degrades instead of trapping on a non-finite or out-of-range throttleDelay")
         func throttleDelayMsDoesNotTrapOnNonFiniteValue() {
             let config = PostHogConfig(projectToken: UUID().uuidString)
-            for value: TimeInterval in [.nan, .infinity, -.infinity, .greatestFiniteMagnitude] {
+            // 1e16 and 1e20 stay finite after `* 1000` but exceed Int.max — the band Double(Int.max) traps on.
+            for value: TimeInterval in [.nan, .infinity, -.infinity, .greatestFiniteMagnitude, 1e16, 1e20] {
                 config.sessionReplayConfig.throttleDelay = value
                 #expect(PostHogReplayIntegration.throttleDelayMs(config: config) >= 0)
             }
@@ -486,7 +485,7 @@
             let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 1)
             defer { sut.close() }
 
-            var props = try integration.debugProperties()
+            var props = integration.debugProperties()
             #expect(props["$recording_status"] as? String == "buffering")
             #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "awaiting_remote_config")
             #expect(props["$sdk_debug_replay_internal_buffer_length"] as? Int != nil)
@@ -500,7 +499,7 @@
             integration.applyRemoteConfig(remoteConfig: nil)
             await waitUntil { integration.isBuffering == false }
 
-            props = try integration.debugProperties()
+            props = integration.debugProperties()
             #expect(props["$recording_status"] as? String == "active")
             #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
         }
@@ -514,19 +513,51 @@
             integration.applyRemoteConfig(remoteConfig: nil)
             #expect(integration.isBuffering == true)
 
-            var props = try integration.debugProperties()
+            var props = integration.debugProperties()
             #expect(props["$recording_status"] as? String == "buffering")
             #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "below_minimum_duration")
 
             sut.stopSessionRecording()
 
-            props = try integration.debugProperties()
+            props = integration.debugProperties()
             #expect(props["$recording_status"] as? String == "disabled")
             #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
             // Config-derived keys survive stop — they come from the platform config module, not
             // integration active state.
             #expect(props["$sdk_debug_replay_capture_mode"] != nil)
             #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
+        }
+
+        @Test("crash context re-snapshots on recording transitions and omits point-in-time counters")
+        func crashContextTracksRecordingStatus() async throws {
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            let lock = NSLock()
+            var latest: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { latest = context["event_properties"] as? [String: Any] }
+            }
+            func status() -> String? {
+                lock.withLock { latest?["$recording_status"] as? String }
+            }
+
+            // Regression: the snapshot used to refresh only on identify/screen/register, so a crash
+            // after the first /config resolved still reported the setup-time "buffering".
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { status() == "active" }
+            let active = try #require(lock.withLock { latest })
+            #expect(active["$recording_status"] as? String == "active")
+            #expect(active["$sdk_debug_session_start"] != nil)
+            #expect(active["$sdk_debug_current_session_duration"] == nil)
+            #expect(active["$sdk_debug_pending_queue_size"] == nil)
+            #expect(active["$sdk_debug_replay_internal_buffer_length"] == nil)
+
+            sut.stopSessionRecording()
+            await waitUntil { status() == "disabled" }
+            #expect(status() == "disabled")
+
+            withExtendedLifetime(token) {}
         }
 
         @Test("capturing debug properties concurrently with stop() and close() never produces a torn read")
@@ -548,7 +579,7 @@
                 group.enter()
                 captureQueue.async {
                     defer { group.leave() }
-                    guard let props = try? integration.debugProperties() else { return }
+                    let props = integration.debugProperties()
                     let status = props["$recording_status"] as? String
                     let holdReason = props["$sdk_debug_replay_flush_hold_reason"]
                     resultsLock.withLock {

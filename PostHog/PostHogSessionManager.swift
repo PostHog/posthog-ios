@@ -144,8 +144,7 @@ import Foundation
         sessionLock.withLock { isAppInBackground }
     }
 
-    /// Thread-safe snapshot of the current session's start time (epoch seconds), or `nil` if no
-    /// session is active. Safe to read from any thread.
+    /// Current session's start time (epoch seconds), or `nil` if none is active. Thread-safe.
     var sessionStartTimestampSnapshot: TimeInterval? {
         sessionLock.withLock { sessionStartTimestamp }
     }

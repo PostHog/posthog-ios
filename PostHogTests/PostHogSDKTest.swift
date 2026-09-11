@@ -28,7 +28,6 @@ class PostHogSDKTest: QuickSpec {
                 propertiesSanitizer: PostHogPropertiesSanitizer? = nil,
                 personProfiles: PostHogPersonProfiles = .identifiedOnly,
                 setDefaultPersonProperties: Bool = true,
-                sessionReplay: Bool = false,
                 beforeSend: [BeforeSendBlock]? = nil) -> PostHogSDK
     {
         let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
@@ -43,9 +42,6 @@ class PostHogSDKTest: QuickSpec {
         config.propertiesSanitizer = propertiesSanitizer
         config.personProfiles = personProfiles
         config.setDefaultPersonProperties = setDefaultPersonProperties
-        #if os(iOS)
-            config.sessionReplay = sessionReplay
-        #endif
 
         if let beforeSend = beforeSend {
             config.setBeforeSend(beforeSend)
@@ -53,12 +49,6 @@ class PostHogSDKTest: QuickSpec {
 
         let storage = PostHogStorage(config)
         storage.reset()
-
-        #if os(iOS)
-            if sessionReplay {
-                PostHogReplayIntegration.clearInstalls()
-            }
-        #endif
 
         let sut = PostHogSDK.with(config)
         trackedSuts.append(sut)
@@ -407,7 +397,7 @@ class PostHogSDKTest: QuickSpec {
                     expect(event.properties["$sdk_debug_replay_throttle_delay_ms"] as? Int) == 1000
                     expect(event.properties["$sdk_debug_session_start"]).toNot(beNil())
                     expect(event.properties["$sdk_debug_current_session_duration"]).toNot(beNil())
-                    expect(event.properties["$sdk_debug_retry_queue_size"]).toNot(beNil())
+                    expect(event.properties["$sdk_debug_pending_queue_size"]).toNot(beNil())
                 }
 
                 sut.reset()
@@ -459,30 +449,6 @@ class PostHogSDKTest: QuickSpec {
                 sut.close()
             }
 
-            it("attaches the stringified error and skips the rest of the debug map when building it throws") {
-                server.reset(batchCount: 1)
-                struct ForcedDebugPropertiesError: Error, CustomStringConvertible {
-                    var description: String { "forced debug properties failure" }
-                }
-                PostHogReplayIntegration.forcedDebugPropertiesError = ForcedDebugPropertiesError()
-                defer { PostHogReplayIntegration.forcedDebugPropertiesError = nil }
-
-                let sut = self.getSut(sessionReplay: true)
-                sut.capture("test event")
-
-                let events = getBatchedEvents(server)
-                expect(events.count) == 1
-
-                let props = events.first!.properties
-                expect(props["$sdk_debug_error_capturing_properties"] as? String) == "forced debug properties failure"
-                expect(props["$recording_status"]).to(beNil())
-                expect(props["$sdk_debug_session_start"]).to(beNil())
-                expect(props["$sdk_debug_current_session_duration"]).to(beNil())
-                expect(props["$sdk_debug_retry_queue_size"]).to(beNil())
-
-                sut.reset()
-                sut.close()
-            }
         #else
             it("reports disabled recording status with no replay keys on non-iOS platforms") {
                 server.reset(batchCount: 1)
@@ -496,7 +462,7 @@ class PostHogSDKTest: QuickSpec {
                 let props = events.first!.properties
                 expect(props["$recording_status"] as? String) == "disabled"
                 expect(props.keys.contains { $0.hasPrefix("$sdk_debug_replay_") }).to(beFalse())
-                expect(props["$sdk_debug_retry_queue_size"]).toNot(beNil())
+                expect(props["$sdk_debug_pending_queue_size"]).toNot(beNil())
 
                 sut.reset()
                 sut.close()

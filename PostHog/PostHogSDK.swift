@@ -25,9 +25,6 @@ import Foundation
 let retryDelay = 1.0
 let maxRetryDelay = 30.0
 
-// Matches posthog-android's MAX_DEBUG_ERROR_LENGTH.
-private let maxDebugErrorLength = 500
-
 // renamed to PostHogSDK due to https://github.com/apple/swift/issues/56573
 /// Main entry point for capturing analytics, feature flags, logs, surveys, and session replay.
 ///
@@ -116,7 +113,14 @@ private let maxDebugErrorLength = 500
     @objc public private(set) var logger: PostHogLogger?
 
     #if os(iOS)
-        private weak var replayIntegration: PostHogReplayIntegration?
+        private weak var _replayIntegration: PostHogReplayIntegration?
+        /// Same shape as `queue`/`replayQueue` above: written under `setupLock` by install/uninstall,
+        /// read from any caller thread by `buildProperties`.
+        private var replayIntegration: PostHogReplayIntegration? {
+            get { setupLock.withLock { _replayIntegration } }
+            set { setupLock.withLock { _replayIntegration = newValue } }
+        }
+
         private weak var surveysIntegration: PostHogSurveyIntegration?
     #endif
 
@@ -583,6 +587,20 @@ private let maxDebugErrorLength = 500
         return true
     }
 
+    /// `$sdk_debug_session_start` / `$sdk_debug_current_session_duration` / `$sdk_debug_pending_queue_size`.
+    private func sessionDebugProperties() -> [String: Any] {
+        var props: [String: Any] = [:]
+        if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
+            let nowSeconds = now().timeIntervalSince1970
+            props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
+            props["$sdk_debug_current_session_duration"] = Int64((nowSeconds - sessionStart) * 1000)
+        }
+        if let depth = queue?.depth {
+            props["$sdk_debug_pending_queue_size"] = depth
+        }
+        return props
+    }
+
     private func buildProperties(distinctId: String,
                                  properties: [String: Any]?,
                                  userProperties: [String: Any]? = nil,
@@ -592,6 +610,14 @@ private let maxDebugErrorLength = 500
                                  timestamp: Date? = nil) -> [String: Any]
     {
         var props: [String: Any] = [:]
+
+        // Resolve the session before any $sdk_debug_* snapshot below: getSessionId(at:) can rotate
+        // here, so the debug keys must describe the session this event lands in (mirrors posthog-js).
+        // A caller-supplied $session_id wins so replay snapshots never land in the wrong session.
+        let propSessionId = properties?["$session_id"] as? String
+        let sessionId: String? = propSessionId.isNilOrEmpty
+            ? sessionManager.getSessionId(at: timestamp ?? now())
+            : propSessionId
 
         if appendSharedProps {
             let staticCtx = context?.staticContext()
@@ -625,35 +651,17 @@ private let maxDebugErrorLength = 500
             props["$process_person_profile"] = hasPersonProcessing()
 
             #if os(iOS)
-                do {
-                    if let replayIntegration {
-                        let debug = try replayIntegration.debugProperties()
-                        props.merge(debug) { current, _ in current }
-                    } else {
-                        props["$recording_status"] = "disabled"
-                        props["$sdk_debug_replay_capture_mode"] = PostHogReplayIntegration.captureMode(config: config)
-                        props["$sdk_debug_replay_throttle_delay_ms"] = PostHogReplayIntegration.throttleDelayMs(config: config)
-                    }
-                    // Inside the same try as the rest of the debug map (matches js/android): a throw
-                    // above skips these too, so nothing from the map survives a build failure.
-                    if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-                        let nowSeconds = now().timeIntervalSince1970
-                        props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
-                        props["$sdk_debug_current_session_duration"] = Int64((nowSeconds - sessionStart) * 1000)
-                    }
-                    props["$sdk_debug_retry_queue_size"] = queue?.depth
-                } catch {
-                    props["$sdk_debug_error_capturing_properties"] = String(String(describing: error).prefix(maxDebugErrorLength))
+                if let replayIntegration {
+                    props.merge(replayIntegration.debugProperties()) { current, _ in current }
+                } else {
+                    props["$recording_status"] = "disabled"
+                    props["$sdk_debug_replay_capture_mode"] = PostHogReplayIntegration.captureMode(config: config)
+                    props["$sdk_debug_replay_throttle_delay_ms"] = PostHogReplayIntegration.throttleDelayMs(config: config)
                 }
             #else
                 props["$recording_status"] = "disabled"
-                if let sessionStart = sessionManager.sessionStartTimestampSnapshot {
-                    let nowSeconds = now().timeIntervalSince1970
-                    props["$sdk_debug_session_start"] = Int64(sessionStart * 1000)
-                    props["$sdk_debug_current_session_duration"] = Int64((nowSeconds - sessionStart) * 1000)
-                }
-                props["$sdk_debug_retry_queue_size"] = queue?.depth
             #endif
+            props.merge(sessionDebugProperties()) { current, _ in current }
 
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,
@@ -670,14 +678,6 @@ private let maxDebugErrorLength = 500
         if sdkInfo != nil {
             props = props.merging(sdkInfo ?? [:]) { current, _ in current }
         }
-
-        // use existing session id if already present in properties (from params)
-        // for session replay, we attach the session id on the event as early as possible to avoid sending snapshots to a wrong session
-        // if not present, get a current or new session id at event timestamp
-        let propSessionId = properties?["$session_id"] as? String
-        let sessionId: String? = propSessionId.isNilOrEmpty
-            ? sessionManager.getSessionId(at: timestamp ?? now())
-            : propSessionId
 
         if let sessionId {
             if propSessionId.isNilOrEmpty {
@@ -3098,17 +3098,26 @@ private let maxDebugErrorLength = 500
         #endif
     }
 
+    /// Point-in-time counters: the crash path replays the context snapshot verbatim on the next
+    /// launch, so these would be stale by definition. Status/config keys stay because the replay
+    /// integration re-notifies on every recording transition.
+    private static let pointInTimeDebugKeys = [
+        "$sdk_debug_current_session_duration",
+        "$sdk_debug_pending_queue_size",
+        "$sdk_debug_replay_internal_buffer_length",
+    ]
+
     /// Notifies all installed integrations that the event context has changed.
     ///
-    /// This is called after operations that modify the context (identify, reset, group, register).
-    /// Integrations like crash reporting use this to persist context for crash-time capture.
-    private func notifyContextDidChange() {
+    /// This is called after operations that modify the context (identify, reset, group, register)
+    /// and by the replay integration whenever `$recording_status` changes. Integrations like crash
+    /// reporting use this to persist context for crash-time capture.
+    func notifyContextDidChange() {
         guard isEnabled() else { return }
 
         let distinctId = getDistinctId()
 
-        // Build complete event properties snapshot
-        let eventProperties = buildProperties(
+        var eventProperties = buildProperties(
             distinctId: distinctId,
             properties: nil,
             userProperties: nil,
@@ -3117,6 +3126,9 @@ private let maxDebugErrorLength = 500
             appendSharedProps: true,
             timestamp: nil
         )
+        for key in Self.pointInTimeDebugKeys {
+            eventProperties.removeValue(forKey: key)
+        }
 
         // Build crash context with identity info + event properties
         // This structure allows crash reporting to reconstruct events with crash-time data

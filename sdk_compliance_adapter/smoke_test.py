@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -115,6 +116,27 @@ def run(binary: str, adapter_port: int, mock_port: int) -> None:
                 except HTTPError as error:
                     assert error.code == 400
                 print("PASS invalid capture timestamp rejects before enqueue")
+
+                initialize()
+                start = threading.Barrier(16)
+
+                def concurrent_capture(index):
+                    event = f"concurrent-capture-{index}"
+                    start.wait(timeout=5)
+                    response = call("/capture", {"event": event, "distinct_id": "user"})
+                    assert response["success"] and response["uuid"], response
+                    return event, response["uuid"]
+
+                with ThreadPoolExecutor(max_workers=16) as pool:
+                    captures = dict(pool.map(concurrent_capture, range(16)))
+                call("/flush", {})
+                with lock:
+                    events = [event for path, _, body in records if path == "/batch" for event in body["batch"]]
+                assert len(events) == len(captures), events
+                assert len(set(captures.values())) == len(captures), captures
+                assert {event["event"]: event["uuid"] for event in events} == captures, (events, captures)
+                assert call("/state")["pending_events"] == 0
+                print("PASS concurrent HTTP captures return their corresponding SDK wire UUIDs")
 
                 for status in [502, 504]:
                     initialize()

@@ -13,6 +13,7 @@ final class RequestTracker {
     }
 
     private let lock = NSLock()
+    private let captureLock = NSLock()
     private var requests: [TrackedRequest] = []
     private var captured: [String] = []
     private var acknowledged = Set<String>()
@@ -21,14 +22,23 @@ final class RequestTracker {
     private var inFlight = 0
     private var unobservedCaptures = 0
 
-    func beginCapture() -> Int {
+    /// Keep each synchronous SDK call paired with its own before-send observation.
+    func trackCapture(_ capture: () -> Void) -> String? {
+        captureLock.lock()
+        defer { captureLock.unlock() }
+        let index = beginCapture()
+        capture()
+        return finishCapture(after: index)
+    }
+
+    private func beginCapture() -> Int {
         lock.lock()
         defer { lock.unlock() }
         unobservedCaptures += 1
         return captured.count
     }
 
-    func finishCapture(after index: Int) -> String? {
+    private func finishCapture(after index: Int) -> String? {
         lock.lock()
         defer { lock.unlock() }
         guard captured.count > index else { return nil }

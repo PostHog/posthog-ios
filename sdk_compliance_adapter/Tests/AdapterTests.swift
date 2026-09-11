@@ -13,8 +13,7 @@ struct AdapterTests {
 
     @Test func unobservedCaptureDoesNotSettle() async throws {
         let tracker = RequestTracker()
-        let index = tracker.beginCapture()
-        #expect(tracker.finishCapture(after: index) == nil)
+        #expect(tracker.trackCapture {} == nil)
         #expect(tracker.snapshot().pending == 1)
         #expect(try await !tracker.waitForAcknowledgments(timeout: 0.04))
     }
@@ -56,11 +55,49 @@ struct AdapterTests {
         #expect(tracker.snapshot().sent == 0)
     }
 
+    @Test func overlappingCapturesKeepTheirOwnUUIDs() {
+        let tracker = RequestTracker()
+        let firstEntered = DispatchSemaphore(value: 0)
+        let secondStarted = DispatchSemaphore(value: 0)
+        let secondEntered = DispatchSemaphore(value: 0)
+        let releaseFirst = DispatchSemaphore(value: 0)
+        let completed = DispatchGroup()
+
+        completed.enter()
+        DispatchQueue.global().async {
+            let uuid = tracker.trackCapture {
+                firstEntered.signal()
+                #expect(releaseFirst.wait(timeout: .now() + 5) == .success)
+                tracker.observeCapture(uuid: "FIRST")
+            }
+            #expect(uuid == "first")
+            completed.leave()
+        }
+        #expect(firstEntered.wait(timeout: .now() + 5) == .success)
+
+        completed.enter()
+        DispatchQueue.global().async {
+            secondStarted.signal()
+            let uuid = tracker.trackCapture {
+                secondEntered.signal()
+                tracker.observeCapture(uuid: "SECOND")
+            }
+            #expect(uuid == "second")
+            completed.leave()
+        }
+        #expect(secondStarted.wait(timeout: .now() + 5) == .success)
+        // The second public call cannot run while the first observation is outstanding.
+        #expect(secondEntered.wait(timeout: .now() + 0.1) == .timedOut)
+        releaseFirst.signal()
+        #expect(completed.wait(timeout: .now() + 5) == .success)
+        #expect(tracker.snapshot().captured == 2)
+        #expect(tracker.snapshot().pending == 2)
+    }
+
     @Test func captureReturnsObservedSDKUUID() {
         let tracker = RequestTracker()
-        let index = tracker.beginCapture()
-        tracker.observeCapture(uuid: "ABC")
-        #expect(tracker.finishCapture(after: index) == "abc")
+        let uuid = tracker.trackCapture { tracker.observeCapture(uuid: "ABC") }
+        #expect(uuid == "abc")
         #expect(tracker.snapshot().captured == 1)
         #expect(tracker.snapshot().pending == 1)
     }

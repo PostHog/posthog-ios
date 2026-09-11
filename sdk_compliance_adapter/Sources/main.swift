@@ -110,10 +110,12 @@ app.post("capture") { req async throws -> Response in
         throw Abort(.badRequest, reason: "Call /init first")
     }
     let timestamp = try parseCaptureTimestamp(input.timestamp)
-    let index = state.tracker.beginCapture()
-    sdk.capture(input.event, distinctId: input.distinctId,
-                properties: input.properties?.mapValues(\.value), timestamp: timestamp)
-    guard let uuid = state.tracker.finishCapture(after: index) else {
+    let tracker = state.tracker
+    let observedUUID = tracker.trackCapture {
+        sdk.capture(input.event, distinctId: input.distinctId,
+                    properties: input.properties?.mapValues(\.value), timestamp: timestamp)
+    }
+    guard let uuid = observedUUID else {
         throw Abort(.internalServerError, reason: "Capture was not observed by beforeSend")
     }
     return try await["success": true, "uuid": uuid].encodeResponse(for: req)

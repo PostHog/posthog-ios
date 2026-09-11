@@ -13,6 +13,64 @@ import Testing
 
 @Suite("Test Surveys")
 enum PostHogSurveysTest {
+    @Suite("Auto-submit on selection")
+    struct AutoSubmit {
+        private func displayQuestion(type: String, skipSubmit: Bool?, hasOpenChoice: Bool = false, display: String = "number") throws -> PostHogDisplaySurveyQuestion {
+            var json: [String: Any] = [
+                "id": "auto-submit", "type": type, "question": "Choose",
+                "choices": ["First", "Other"], "hasOpenChoice": hasOpenChoice,
+                "display": display, "scale": 5,
+            ]
+            json["skipSubmitButton"] = skipSubmit
+            let question = try PostHogApi.jsonDecoder.decode(PostHogSurveyQuestion.self, from: JSONSerialization.data(withJSONObject: json))
+            return try #require(question.toDisplayQuestion())
+        }
+
+        #if os(iOS)
+            @Test("rating selection emits one answer immediately and clearing emits none", arguments: [true, false], ["number", "emoji"])
+            @available(iOS 15.0, *)
+            @MainActor
+            func ratingSelection(skipSubmit: Bool, display: String) throws {
+                let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
+                var responses: [Int?] = []
+                let view = RatingQuestionView(question: question, onNextQuestion: { responses.append($0) })
+                view.selection.wrappedValue = 4
+                #expect(responses == (skipSubmit ? [4] : []))
+                view.selection.wrappedValue = nil
+                #expect(responses == (skipSubmit ? [4] : []))
+            }
+
+            @Test("single-choice selection emits the answer only when eligible", arguments: [true, false], [false, true])
+            @available(iOS 15.0, *)
+            @MainActor
+            func choiceSelection(skipSubmit: Bool, hasOpenChoice: Bool) throws {
+                let question = try #require(displayQuestion(type: "single_choice", skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
+                var responses: [String?] = []
+                let view = SingleChoiceQuestionView(question: question, onNextQuestion: { responses.append($0) })
+                view.selection.wrappedValue = [0]
+                let expected: [String?] = skipSubmit && !hasOpenChoice ? ["First"] : []
+                #expect(responses == expected)
+                view.selection.wrappedValue = []
+                #expect(responses == expected)
+            }
+        #endif
+
+        @Test("rating auto-submit survives decoding and display mapping", arguments: [true, false, nil] as [Bool?], ["number", "emoji"])
+        func rating(skipSubmit: Bool?, display: String) throws {
+            let question = try #require(displayQuestion(type: "rating", skipSubmit: skipSubmit, display: display) as? PostHogDisplayRatingQuestion)
+            #expect(question.skipSubmitButton == (skipSubmit == true))
+        }
+
+        @Test("only single choice without an open choice auto-submits", arguments: [true, false, nil] as [Bool?], [false, true])
+        func choices(skipSubmit: Bool?, hasOpenChoice: Bool) throws {
+            for type in ["single_choice", "multiple_choice"] {
+                let question = try #require(displayQuestion(type: type, skipSubmit: skipSubmit, hasOpenChoice: hasOpenChoice) as? PostHogDisplayChoiceQuestion)
+                #expect(question.skipSubmitButton == (skipSubmit == true))
+                #expect(question.shouldAutoSubmit == (skipSubmit == true && type == "single_choice" && !hasOpenChoice))
+            }
+        }
+    }
+
     @Suite("Test decoding surveys from remote config")
     struct TestDecodingSurveys {
         @Test("survey decodes correctly")
@@ -1607,11 +1665,20 @@ enum PostHogSurveysTest {
         }
 
         @Test("returns surveys that match internal targeting flags")
-        func returnsSurveysThatMatchInternalTargetingFlags() async {
+        func returnsSurveysThatMatchInternalTargetingFlags() async throws {
             let sut = getSut(surveys: [surveyWithEnabledInternalTargetingFlag])
+            let surveys = sut.decodeSurveys(from: [
+                "surveys": try parseSurveys(surveyWithEnabledInternalTargetingFlag),
+            ])
+            sut.updateSurveyCache(surveys, events: [:])
+            await withCheckedContinuation { continuation in
+                postHog.remoteConfig?.reloadFeatureFlags { _ in
+                    continuation.resume()
+                }
+            }
 
             let matchedSurveys: [PostHogSurvey] = await withCheckedContinuation { continuation in
-                sut.getActiveMatchingSurveys(forceReload: true) {
+                sut.getActiveMatchingSurveys {
                     continuation.resume(with: .success($0))
                 }
             }

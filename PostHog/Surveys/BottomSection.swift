@@ -16,6 +16,7 @@
         var body: some View {
             Button(label, action: action)
                 .buttonStyle(SurveyButtonStyle())
+                .accessibilityIdentifier("posthog.survey.primary-action")
                 .padding(.bottom, 16)
         }
     }

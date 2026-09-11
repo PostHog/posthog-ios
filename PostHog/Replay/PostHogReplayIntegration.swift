@@ -637,14 +637,13 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
-                // Recheck because touch capture may have been disabled while this work was queued.
-                // Captured weakly since integration may have uninstalled by now.
-                guard let postHog, postHog.config.sessionReplayConfig.captureTouches else { return }
-
                 // always make sure we have a fresh session id as early as possible
-                guard let sessionId = postHog.sessionManager.getSessionId(at: date) else {
+                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
                     return
                 }
+
+                // captured weakly since integration may have uninstalled by now
+                guard let postHog else { return }
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {

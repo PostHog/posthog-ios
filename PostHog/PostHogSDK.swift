@@ -2589,21 +2589,6 @@ let maxRetryDelay = 30.0
     }
 
     #if os(iOS)
-        /// Enables or disables recording touch coordinates without changing screenshot capture.
-        /// Safe to call from any thread after setup, including when replay is currently inactive.
-        /// Updates the installed configuration even if a subsequent setup call was ignored.
-        /// Already captured events are not removed.
-        ///
-        /// - Parameter enabled: Whether session replay should capture touch coordinates.
-        /// - Returns: `false` if this SDK is not set up; otherwise `true`.
-        @objc @discardableResult public func setCaptureTouches(_ enabled: Bool) -> Bool {
-            setupLock.withLock {
-                guard isEnabled() else { return false }
-                config.sessionReplayConfig.captureTouches = enabled
-                return true
-            }
-        }
-
         /**
          Starts session recording.
 

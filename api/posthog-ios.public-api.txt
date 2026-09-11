@@ -335,7 +335,6 @@ PostHog | PostHogSDK.resetPersonPropertiesForFlags() | method | @objc func reset
 PostHog | PostHogSDK.resetPersonPropertiesForFlags(reloadFeatureFlags:) | method | @objc(resetPersonPropertiesForFlagsWithReloadFeatureFlags:) func resetPersonPropertiesForFlags(reloadFeatureFlags: Bool = true) | c:@M@PostHog@objc(cs)PostHogSDK(im)resetPersonPropertiesForFlagsWithReloadFeatureFlags:
 PostHog | PostHogSDK.screen(_:) | method | @objc func screen(_ screenTitle: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)screen:
 PostHog | PostHogSDK.screen(_:properties:) | method | @objc(screenWithTitle:properties:) func screen(_ screenTitle: String, properties: [String : Any]? = nil) | c:@M@PostHog@objc(cs)PostHogSDK(im)screenWithTitle:properties:
-PostHog | PostHogSDK.setCaptureTouches(_:) | method | @discardableResult @objc func setCaptureTouches(_ enabled: Bool) -> Bool | c:@M@PostHog@objc(cs)PostHogSDK(im)setCaptureTouches:
 PostHog | PostHogSDK.setGroupPropertiesForFlags(_:properties:) | method | @objc(setGroupPropertiesForFlags:properties:) func setGroupPropertiesForFlags(_ groupType: String, properties: [String : Any]) | c:@M@PostHog@objc(cs)PostHogSDK(im)setGroupPropertiesForFlags:properties:
 PostHog | PostHogSDK.setGroupPropertiesForFlags(_:properties:reloadFeatureFlags:) | method | @objc(setGroupPropertiesForFlags:properties:reloadFeatureFlags:) func setGroupPropertiesForFlags(_ groupType: String, properties: [String : Any], reloadFeatureFlags: Bool = true) | c:@M@PostHog@objc(cs)PostHogSDK(im)setGroupPropertiesForFlags:properties:reloadFeatureFlags:
 PostHog | PostHogSDK.setPersonProperties(userPropertiesToSet:) | method | @objc(setPersonPropertiesWithUserPropertiesToSet:) func setPersonProperties(userPropertiesToSet: [String : Any]?) | c:@M@PostHog@objc(cs)PostHogSDK(im)setPersonPropertiesWithUserPropertiesToSet:
@@ -358,7 +357,7 @@ PostHog | PostHogSessionReplayConfig | class | @objc(PostHogSessionReplayConfig)
 PostHog | PostHogSessionReplayConfig.captureLogs | property | @objc var captureLogs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogs
 PostHog | PostHogSessionReplayConfig.captureLogsConfig | property | @objc var captureLogsConfig: PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogsConfig
 PostHog | PostHogSessionReplayConfig.captureNetworkTelemetry | property | @objc var captureNetworkTelemetry: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureNetworkTelemetry
-PostHog | PostHogSessionReplayConfig.captureTouches | property | @objc var captureTouches: Bool { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureTouches
+PostHog | PostHogSessionReplayConfig.captureTouches | property | @objc var captureTouches: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureTouches
 PostHog | PostHogSessionReplayConfig.debouncerDelay | property | @objc var debouncerDelay: TimeInterval { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)debouncerDelay
 PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAllImages: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllImages
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews

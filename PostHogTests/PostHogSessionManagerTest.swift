@@ -18,6 +18,10 @@ enum PostHogSessionManagerTest {
         init() {
             mockAppLifecycle = MockApplicationLifecyclePublisher()
             DI.main.appLifecyclePublisher = mockAppLifecycle
+
+            // important! sessions are persisted, so a session left behind by a prior
+            // test would be restored on the next setup()
+            deleteSafely(applicationSupportDirectoryURL())
         }
 
         func getSut() -> PostHogSDK {

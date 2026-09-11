@@ -29,13 +29,15 @@ import Foundation
     }
 
     private var config: PostHogConfig?
+    private var storage: PostHogStorage?
 
     override init() {
         super.init()
     }
 
-    func setup(config: PostHogConfig) {
+    func setup(config: PostHogConfig, storage: PostHogStorage) {
         self.config = config
+        self.storage = storage
         didBecomeActiveToken = nil
         didEnterBackgroundToken = nil
         applicationEventToken = nil
@@ -45,6 +47,7 @@ import Foundation
         // `true` until the next foreground/background transition.
         let backgrounded = DI.main.appLifecyclePublisher.isInBackground
         sessionLock.withLock { isAppInBackground = backgrounded }
+        restorePersistedSession()
         registerNotifications()
         registerApplicationSendEvent()
     }
@@ -66,6 +69,11 @@ import Foundation
     private let sessionActivityThreshold: TimeInterval = 60 * 30
     // 24 hours in seconds
     private let sessionMaxLengthThreshold: TimeInterval = 24 * 60 * 60
+    // Activity marks arrive on every UI event, so the persisted activity timestamp is
+    // only rewritten this often. The idle window is 30 minutes, so a lag of a few
+    // seconds cannot change whether a restored session is still alive.
+    private let sessionPersistInterval: TimeInterval = 10
+    private var lastPersistedActivityTimestamp: TimeInterval = 0
     /// callback for session ID changes
     var onSessionIdChanged = PostHogMulticastCallback<Void>()
 
@@ -153,11 +161,16 @@ import Foundation
         return rotateSession(force: true, at: now(), reason: .sessionStart)
     }
 
-    /// Creates a new session id and sets timestamps
+    /// Resumes the current session, or creates a new session id when there is none
     func startSession(_ completion: (() -> Void)? = nil) {
         guard isNotReactNative() else { return }
 
-        rotateSession(force: true, at: now(), reason: .sessionStart)
+        // A live session must survive an extra setup() or a background launch, so this
+        // only creates an id when none is active.
+        let currentSessionId = sessionLock.withLock { sessionId }
+        if currentSessionId.isNilOrEmpty {
+            rotateSession(force: true, at: now(), reason: .sessionStart)
+        }
         completion?()
     }
 
@@ -193,8 +206,12 @@ import Foundation
         if let lastActive, isExpired(timestamp, lastActive, sessionActivityThreshold) {
             rotateSession(at: timeNow, reason: .sessionTimeout)
         } else {
-            sessionLock.withLock {
+            let needsPersist = sessionLock.withLock {
                 sessionActivityTimestamp = timestamp
+                return timestamp - lastPersistedActivityTimestamp >= sessionPersistInterval
+            }
+            if needsPersist {
+                persistSession()
             }
         }
     }
@@ -235,12 +252,81 @@ import Foundation
             self.sessionActivityTimestamp = timestamp
         }
 
+        persistSession()
         onSessionIdChanged.invoke(())
 
         if let sessionId {
             hedgeLog("New session id created \(sessionId) (\(reason))")
         } else {
             hedgeLog("Session id cleared - reason: (\(reason))")
+        }
+    }
+
+    // MARK: - Persistence
+
+    private enum SessionStorageKey {
+        static let sessionId = "sessionId"
+        static let startTimestamp = "sessionStartTimestamp"
+        static let activityTimestamp = "sessionActivityTimestamp"
+    }
+
+    /// Reads back the session left behind by the previous process and keeps it when it is
+    /// still inside the idle and maximum length windows. Without this, every process launch
+    /// starts a new session, however short the time away was.
+    private func restorePersistedSession() {
+        guard isNotReactNative(), let storage else { return }
+
+        guard let stored = storage.getDictionary(forKey: .session),
+              let storedSessionId = stored[SessionStorageKey.sessionId] as? String,
+              !storedSessionId.isEmpty,
+              let storedStart = stored[SessionStorageKey.startTimestamp] as? Double,
+              let storedActivity = stored[SessionStorageKey.activityTimestamp] as? Double
+        else {
+            return
+        }
+
+        let timestamp = now().timeIntervalSince1970
+        guard !isExpired(timestamp, storedActivity, sessionActivityThreshold),
+              !isExpired(timestamp, storedStart, sessionMaxLengthThreshold)
+        else {
+            storage.remove(key: .session)
+            return
+        }
+
+        sessionLock.withLock {
+            sessionId = storedSessionId
+            sessionStartTimestamp = storedStart
+            sessionActivityTimestamp = storedActivity
+            lastPersistedActivityTimestamp = storedActivity
+        }
+
+        hedgeLog("Restored session id \(storedSessionId) from storage")
+    }
+
+    /// Writes the current session to disk, or removes it when there is no active session.
+    private func persistSession() {
+        guard let storage else { return }
+
+        let contents: [String: Any]? = sessionLock.withLock {
+            guard let currentSessionId = sessionId,
+                  let start = sessionStartTimestamp,
+                  let activity = sessionActivityTimestamp
+            else {
+                lastPersistedActivityTimestamp = 0
+                return nil
+            }
+            lastPersistedActivityTimestamp = activity
+            return [
+                SessionStorageKey.sessionId: currentSessionId,
+                SessionStorageKey.startTimestamp: start,
+                SessionStorageKey.activityTimestamp: activity,
+            ]
+        }
+
+        if let contents {
+            storage.setDictionary(forKey: .session, contents: contents)
+        } else {
+            storage.remove(key: .session)
         }
     }
 
@@ -265,6 +351,9 @@ import Foundation
 
             // we consider backgrounding the app an activity on the current session
             touchSession()
+            // The process can be killed while suspended, so flush the throttled activity
+            // timestamp now rather than waiting for the next mark.
+            persistSession()
             sessionLock.withLock { self.isAppInBackground = true }
         }
     }

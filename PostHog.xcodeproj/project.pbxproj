@@ -260,6 +260,7 @@
 		DA1044902D0B1D4300C4ACF3 /* AssociatedKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */; };
 		DA1D295E2D10B7B2003A31DA /* ApplicationLifecyclePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */; };
 		DA1D29602D10C810003A31DA /* PostHogSessionManagerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */; };
+		DA1D29A12D10C810003A31DA /* PostHogSessionPersistenceTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29A02D10C80D003A31DA /* PostHogSessionPersistenceTest.swift */; };
 		DA1D29622D115E17003A31DA /* DI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D29612D115E13003A31DA /* DI.swift */; };
 		DA263D3A2D7F1057004C100D /* Resources.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D392D7F1054004C100D /* Resources.swift */; };
 		DA263D422D80085D004C100D /* SurveyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA263D412D800856004C100D /* SurveyButton.swift */; };
@@ -1047,6 +1048,7 @@
 		DA10448F2D0B1D4300C4ACF3 /* AssociatedKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssociatedKeys.swift; sourceTree = "<group>"; };
 		DA1D29582D10B7A6003A31DA /* ApplicationLifecyclePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationLifecyclePublisher.swift; sourceTree = "<group>"; };
 		DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionManagerTest.swift; sourceTree = "<group>"; };
+		DA1D29A02D10C80D003A31DA /* PostHogSessionPersistenceTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostHogSessionPersistenceTest.swift; sourceTree = "<group>"; };
 		DA1D29612D115E13003A31DA /* DI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DI.swift; sourceTree = "<group>"; };
 		DA263D392D7F1054004C100D /* Resources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Resources.swift; sourceTree = "<group>"; };
 		DA263D412D800856004C100D /* SurveyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyButton.swift; sourceTree = "<group>"; };
@@ -1729,6 +1731,7 @@
 				3A62646829C9E37A007E8C07 /* TestUtils */,
 				DA53DE7D2D3E66A300C38DCA /* PostHogRemoteConfigTest.swift */,
 				DA1D295F2D10C80D003A31DA /* PostHogSessionManagerTest.swift */,
+				DA1D29A02D10C80D003A31DA /* PostHogSessionPersistenceTest.swift */,
 				3AE3FB4A2993A68500AFFC18 /* PostHogStorageTest.swift */,
 				DA703C042D6606E50069097B /* PostHogIntegrationInstallationTest.swift */,
 				CBD8BEB3CD58BC58438A9557 /* PostHogPushNotificationTest.swift */,
@@ -3548,6 +3551,7 @@
 				DB7100042F80000100000001 /* PostHogTracingHeadersTest.swift in Sources */,
 				3A580B4329E489D000C5C6F3 /* URLSession+body.swift in Sources */,
 				DA1D29602D10C810003A31DA /* PostHogSessionManagerTest.swift in Sources */,
+				DA1D29A12D10C810003A31DA /* PostHogSessionPersistenceTest.swift in Sources */,
 				DA703C1E2D6634770069097B /* PostHogAppLifeCycleIntegrationTest.swift in Sources */,
 				DA578EA02D6858CE00B3A56C /* MockScreenViewPublisher.swift in Sources */,
 				DA697CB12EF935490019640F /* PostHogDebugImageProviderTest.swift in Sources */,

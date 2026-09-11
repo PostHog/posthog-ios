@@ -116,6 +116,7 @@ vendor/libwebp/             # Embedded libwebp for image processing
 - The main `PostHog` class is a singleton accessed via `PostHog.shared`
 
 ## API Design Principles
+- Before adding or changing public API, follow "Public API changes" in [CONTRIBUTING.md](./CONTRIBUTING.md): the API shape must be agreed on the issue first. For SDK design guidance, read https://posthog.com/handbook/engineering/sdks/guidelines.md.
 - Public API changes require careful consideration for backwards compatibility
 - Prefer optional parameters with sensible defaults over method overloads
 - All public methods should have documentation comments

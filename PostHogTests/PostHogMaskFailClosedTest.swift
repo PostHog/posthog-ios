@@ -126,6 +126,86 @@
             #expect(!wireframe.maskRenderFailed)
         }
 
+        private func captureSnapshotTypes(
+            failures: [Bool],
+            queueTogether: Bool = false,
+            episodeFirstFrames: Set<Int> = []
+        ) -> [[Int]] {
+            let server = MockPostHogServer()
+            server.start()
+            defer { server.stop() }
+
+            let lock = NSLock()
+            var captured: [[Int]] = []
+            let config = PostHogConfig(projectToken: "phc_snapshotMetadataTest", host: "http://localhost:9001")
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.captureApplicationLifecycleEvents = false
+            config.setBeforeSend { event in
+                if event.event == "$snapshot", let snapshots = event.properties["$snapshot_data"] as? [[String: Any]] {
+                    lock.withLock { captured.append(snapshots.compactMap { $0["type"] as? Int }) }
+                }
+                return nil
+            }
+            let sdk = PostHogSDK.with(config)
+            defer { sdk.close() }
+            let integration = PostHogReplayIntegration()
+            let window = makeWindow(containing: UIView())
+            let queue = PostHogReplayIntegration.dispatchQueue
+
+            if queueTogether {
+                queue.suspend()
+            }
+            for (index, fails) in failures.enumerated() {
+                let wireframe = RRWireframe()
+                wireframe.type = "screenshot"
+                wireframe.image = fails ? makeUnrenderableImage() : makeRenderableImage()
+                wireframe.maskableWidgets = [CGRect(x: index * 5, y: 0, width: 10, height: 10)]
+                integration.captureSnapshot(
+                    wireframe,
+                    window: window,
+                    windowSize: window.bounds.size,
+                    screenName: "Screen \(index)",
+                    postHog: sdk,
+                    timestampDate: Date(),
+                    episodeFirstFrame: episodeFirstFrames.contains(index)
+                )
+                if !queueTogether {
+                    queue.sync {}
+                }
+            }
+            if queueTogether {
+                queue.resume()
+                queue.sync {}
+            }
+            return lock.withLock { captured }
+        }
+
+        @Test("first-frame failure preserves metadata for recovery")
+        func firstFrameFailurePreservesMetadata() {
+            #expect(captureSnapshotTypes(failures: [true, false]) == [[4, 2]])
+        }
+
+        @Test("a queued recovery frame includes metadata after the first render fails")
+        func queuedRecoveryIncludesMetadata() {
+            #expect(captureSnapshotTypes(failures: [true, false, false], queueTogether: true) == [[4, 2], [2]])
+        }
+
+        @Test("a later render failure does not resend metadata that was already sent")
+        func laterFailureDoesNotResendMetadata() {
+            #expect(captureSnapshotTypes(failures: [false, true, false]) == [[4, 2], [2]])
+        }
+
+        @Test("queued successful frames send metadata only once")
+        func queuedSuccessesSendMetadataOnce() {
+            #expect(captureSnapshotTypes(failures: [false, false], queueTogether: true) == [[4, 2], [2]])
+        }
+
+        @Test("a failed opening frame of a new bridge episode keeps its metadata pending")
+        func failedEpisodeOpeningPreservesMetadata() {
+            #expect(captureSnapshotTypes(failures: [false, true, false], episodeFirstFrames: [1]) == [[4, 2], [4, 2]])
+        }
+
         // MARK: - Zero-size parents
 
         @Test("text inside a zero-size non-clipping parent is masked")

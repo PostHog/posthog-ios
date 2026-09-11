@@ -650,9 +650,11 @@ let maxRetryDelay = 30.0
 
             props["$process_person_profile"] = hasPersonProcessing()
 
+            // SDK-computed debug keys overwrite a same-named registered super property (js: `extend`
+            // after super properties), so a stale `register()` can't shadow the live status.
             #if os(iOS)
                 if let replayIntegration {
-                    props.merge(replayIntegration.debugProperties()) { current, _ in current }
+                    props.merge(replayIntegration.debugProperties()) { _, new in new }
                 } else {
                     props["$recording_status"] = "disabled"
                     props["$sdk_debug_replay_capture_mode"] = PostHogReplayIntegration.captureMode(config: config)
@@ -661,7 +663,7 @@ let maxRetryDelay = 30.0
             #else
                 props["$recording_status"] = "disabled"
             #endif
-            props.merge(sessionDebugProperties()) { current, _ in current }
+            props.merge(sessionDebugProperties()) { _, new in new }
 
             // Only stamp if the caller didn't supply a non-empty value —
             // `merging(properties)` below keeps the existing value on conflict,
@@ -3055,6 +3057,9 @@ let maxRetryDelay = 30.0
 
             installedIntegrations.append(integration)
             replayIntegration = integration
+            // install() already ran start(), whose crash-context snapshot saw `replayIntegration == nil`
+            // and stamped "disabled"; re-snapshot now that the property is set.
+            notifyContextDidChange()
 
             hedgeLog("Integration \(type(of: integration)) installed")
         }

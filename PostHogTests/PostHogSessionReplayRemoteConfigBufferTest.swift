@@ -145,6 +145,9 @@
             #expect(replayQueue.depth == 0)
             #expect(integration.isBuffering == false)
             #expect(sut.remoteConfig?.isSessionReplayFlagActive() == false)
+            // isEnabled stays true here (the capturer self-gates on the flag), so the status must gate
+            // on the flag too or it would report "active" while nothing records.
+            #expect(integration.debugProperties()["$recording_status"] as? String == "disabled")
         }
 
         @Test("first remote config with flag on but session sampled out drops the buffer")
@@ -495,6 +498,8 @@
             replayQueue.add(snapshotEvent("1"))
             try await Task.sleep(nanoseconds: 20_000_000) // 20ms, well past the 1ms minimum duration
             replayQueue.add(snapshotEvent("2"))
+            // While buffering the length is the held buffer, not the (still empty) persisted queue.
+            #expect(integration.debugProperties()["$sdk_debug_replay_internal_buffer_length"] as? Int == 2)
 
             integration.applyRemoteConfig(remoteConfig: nil)
             await waitUntil { integration.isBuffering == false }
@@ -556,6 +561,34 @@
             sut.stopSessionRecording()
             await waitUntil { status() == "disabled" }
             #expect(status() == "disabled")
+
+            withExtendedLifetime(token) {}
+        }
+
+        @Test("crash context re-snapshots after a lazy replay install via startSessionRecording()")
+        func crashContextAfterLazyInstall() async throws {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableRemoteConfigForTesting = true
+            let storage = PostHogStorage(config)
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+            PostHogReplayIntegration.clearInstalls()
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            let lock = NSLock()
+            var latest: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { latest = context["event_properties"] as? [String: Any] }
+            }
+
+            // Regression: install() ran start() (and its snapshot) before the SDK's `replayIntegration`
+            // was assigned, so the persisted crash context stayed "disabled" after a lazy install.
+            sut.startSessionRecording()
+            await waitUntil { lock.withLock { latest?["$recording_status"] as? String } != "disabled" }
+            #expect(lock.withLock { latest?["$recording_status"] as? String } != "disabled")
 
             withExtendedLifetime(token) {}
         }

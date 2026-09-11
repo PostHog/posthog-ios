@@ -449,6 +449,22 @@ class PostHogSDKTest: QuickSpec {
                 sut.close()
             }
 
+            it("SDK-computed debug keys win over a same-named registered super property") {
+                server.reset(batchCount: 1)
+                let sut = self.getSut()
+                sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+
+                sut.capture("test event")
+
+                let events = getBatchedEvents(server)
+                let props = events.first!.properties
+                expect(props["$recording_status"] as? String) == "disabled"
+                expect(props["$sdk_debug_pending_queue_size"] as? Int) != -1
+
+                sut.reset()
+                sut.close()
+            }
+
         #else
             it("reports disabled recording status with no replay keys on non-iOS platforms") {
                 server.reset(batchCount: 1)

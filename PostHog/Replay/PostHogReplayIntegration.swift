@@ -763,6 +763,15 @@
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
 
+                // Masking failed, so the only image left is the raw screenshot. Drop the
+                // frame instead of sending content the config masks (fail closed).
+                if wireframe.maskRenderFailed {
+                    hedgeLog("[Session Replay] Skipping snapshot: the masked screenshot could not be rendered")
+                    // This tick may hold the pending meta event, so re-arm it for the next frame.
+                    snapshotStatus.sentMetaEvent = false
+                    return
+                }
+
                 // Re-arm the hash on an episode's first frame so a recurring
                 // native screen always re-sends its opening frame.
                 if episodeFirstFrame {
@@ -1036,7 +1045,7 @@
 
             if !view.subviews.isEmpty {
                 for child in view.subviews {
-                    if !child.isVisible() {
+                    if !child.isVisibleForMasking() {
                         continue
                     }
 

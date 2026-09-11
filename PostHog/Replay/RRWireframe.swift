@@ -27,6 +27,10 @@ class RRWireframe {
     #if os(iOS)
         var image: UIImage?
         var maskableWidgets: [CGRect]?
+        /// Set by `toDict()` when mask rects were collected but the redacted image could not
+        /// be rendered. The caller must drop the frame: the wireframe carries no image, and
+        /// the raw screenshot would show masked content.
+        private(set) var maskRenderFailed = false
     #endif
     var base64: String?
     var style: RRStyle?
@@ -108,8 +112,14 @@ class RRWireframe {
 
         #if os(iOS)
             if let image = image {
-                if hasMaskableWidgets(), let maskedImage = maskImage() {
-                    base64 = maskedImage.toBase64()
+                if hasMaskableWidgets() {
+                    if let maskedImage = maskImage() {
+                        base64 = maskedImage.toBase64()
+                    } else {
+                        // Renderer allocation can fail under memory pressure. Leave base64
+                        // unset and let the caller drop the frame — never the raw image.
+                        maskRenderFailed = true
+                    }
                 } else {
                     base64 = image.toBase64()
                 }

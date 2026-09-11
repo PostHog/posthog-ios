@@ -1,5 +1,11 @@
 ## Next
 
+## 3.74.0
+
+### Minor Changes
+
+- 3f9c685: Add `sessionReplayConfig.captureTouches` (default `true`) to disable recording touch coordinates during SDK initialization without disabling screenshots. This protects sensitive screens such as PIN keypads independently of screenshot masking. Runtime changes are not supported.
+
 ## 3.73.3
 
 ### Patch Changes

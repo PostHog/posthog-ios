@@ -70,8 +70,9 @@ import Foundation
     // 24 hours in seconds
     private let sessionMaxLengthThreshold: TimeInterval = 24 * 60 * 60
     // Activity marks arrive on every UI event, so the persisted activity timestamp is
-    // only rewritten this often. The idle window is 30 minutes, so a lag of a few
-    // seconds cannot change whether a restored session is still alive.
+    // only rewritten this often. It can therefore lag the real last activity by up to this
+    // interval, which only changes a restore decision within seconds of the 30 minute idle
+    // boundary. The worst case there is the fresh session every launch used to get.
     private let sessionPersistInterval: TimeInterval = 10
     private var lastPersistedActivityTimestamp: TimeInterval = 0
     /// callback for session ID changes
@@ -297,6 +298,15 @@ import Foundation
             sessionStartTimestamp = storedStart
             sessionActivityTimestamp = storedActivity
             lastPersistedActivityTimestamp = storedActivity
+        }
+
+        // Launching into the foreground is the user coming back, which this manager already
+        // counts as activity on the current session. didBecomeActive is not replayed for a
+        // launch, so mark it here: otherwise a session restored close to the idle limit expires
+        // on the first capture seconds later. A background launch is not activity, so an idle
+        // session can still time out there.
+        if !sessionLock.withLock({ isAppInBackground }) {
+            touchSession()
         }
 
         hedgeLog("Restored session id \(storedSessionId) from storage")

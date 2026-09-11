@@ -105,6 +105,48 @@ struct PostHogSessionPersistenceTest {
         #expect(manager.getSessionId(readOnly: true) == sessionId)
     }
 
+    @Test("A foreground launch counts as activity, so a session restored near the idle limit lives on")
+    func foregroundLaunchRefreshesRestoredActivity() async throws {
+        try await withMockedClock { clock in
+            let config = getConfig()
+
+            let first = launch(config)
+            first.startSession()
+            let sessionId = try #require(first.getSessionId(readOnly: true))
+
+            clock.date.addTimeInterval(60 * 29 + 55) // user comes back 5 seconds before the limit
+
+            let second = launch(config)
+            #expect(second.getSessionId(readOnly: true) == sessionId)
+
+            // a minute past the old idle deadline, but under a minute since the user came back
+            clock.date.addTimeInterval(60)
+
+            #expect(second.getSessionId() == sessionId)
+        }
+    }
+
+    @Test("A background launch is not activity, so a restored session still times out")
+    func backgroundLaunchKeepsRestoredActivity() async throws {
+        try await withMockedClock { clock in
+            let config = getConfig()
+
+            let first = launch(config)
+            first.startSession()
+            try #require(first.getSessionId(readOnly: true) != nil)
+
+            clock.date.addTimeInterval(60 * 29 + 55)
+
+            mockAppLifecycle.isInBackground = true
+            let second = launch(config)
+            try #require(second.getSessionId(readOnly: true) != nil)
+
+            clock.date.addTimeInterval(60) // past the idle deadline of the restored session
+
+            #expect(second.getSessionId() == nil)
+        }
+    }
+
     @Test("startSession() replaces a session that is past the idle window")
     func startSessionReplacesIdleSession() async throws {
         try await withMockedClock { clock in

@@ -33,6 +33,11 @@
         @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
         @objc public var maskPhotoLibraryImages: Bool = false
 
+        /// Enable recording touch coordinates in session replay. Screenshot capture is unaffected.
+        /// Set before SDK setup. Runtime changes are not supported.
+        /// Default: true
+        @objc public var captureTouches: Bool = true
+
         /// Enable capturing network telemetry
         /// Default: true
         ///

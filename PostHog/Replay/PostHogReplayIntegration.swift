@@ -610,8 +610,10 @@
             }
         }
 
-        private func handleApplicationEvent(event: UIEvent, date: Date) {
-            guard let postHog, postHog.isSessionReplayActive() else {
+        func handleApplicationEvent(event: UIEvent, date: Date, window: UIWindow? = nil) {
+            guard let postHog, postHog.config.sessionReplayConfig.captureTouches,
+                  postHog.isSessionReplayActive()
+            else {
                 return
             }
 
@@ -619,7 +621,7 @@
                 return
             }
 
-            guard let window = UIApplication.getCurrentWindow() else {
+            guard let window = window ?? UIApplication.getCurrentWindow() else {
                 return
             }
 
@@ -1485,16 +1487,16 @@
         /// afterwards (it flickers secure fields). The Boolean reports enqueueing,
         /// not the outcome of asynchronous masking; see captureSessionReplaySnapshot.
         @discardableResult
-        func captureBridgeSnapshot(episodeFirstFrame: Bool) -> Bool {
+        func captureBridgeSnapshot(episodeFirstFrame: Bool, window: UIWindow? = nil) -> Bool {
             guard Thread.isMainThread else {
                 return DispatchQueue.main.sync {
-                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame)
+                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame, window: window)
                 }
             }
             guard let postHog, postHog.isSessionReplayActive() else {
                 return false
             }
-            guard let window = UIApplication.getCurrentWindow() else {
+            guard let window = window ?? UIApplication.getCurrentWindow() else {
                 return false
             }
             // A mid-transition capture renders black; the next tick gets it.

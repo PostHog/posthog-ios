@@ -161,15 +161,16 @@ import Foundation
         return rotateSession(force: true, at: now(), reason: .sessionStart)
     }
 
-    /// Resumes the current session, or creates a new session id when there is none
+    /// Resumes the current session when it is still live, or creates a new session id
     func startSession(_ completion: (() -> Void)? = nil) {
         guard isNotReactNative() else { return }
 
-        // A live session must survive an extra setup() or a background launch, so this
-        // only creates an id when none is active.
-        let currentSessionId = sessionLock.withLock { sessionId }
-        if currentSessionId.isNilOrEmpty {
-            rotateSession(force: true, at: now(), reason: .sessionStart)
+        // A live session must survive an extra setup() or a background launch, so this only
+        // creates an id when there is no live session. A session that is past its idle or
+        // maximum length window is not live, so it is replaced instead of resumed.
+        let timeNow = now()
+        if !hasLiveSession(at: timeNow) {
+            rotateSession(force: true, at: timeNow, reason: .sessionStart)
         }
         completion?()
     }
@@ -286,9 +287,7 @@ import Foundation
         }
 
         let timestamp = now().timeIntervalSince1970
-        guard !isExpired(timestamp, storedActivity, sessionActivityThreshold),
-              !isExpired(timestamp, storedStart, sessionMaxLengthThreshold)
-        else {
+        guard isWithinSessionWindows(timestamp, lastActive: storedActivity, sessionStart: storedStart) else {
             storage.remove(key: .session)
             return
         }
@@ -377,5 +376,27 @@ import Foundation
 
     private func isExpired(_ timeNow: TimeInterval, _ timeThen: TimeInterval, _ threshold: TimeInterval) -> Bool {
         max(timeNow - timeThen, 0) > threshold
+    }
+
+    /// True when a session with these timestamps is still inside both the idle window and the
+    /// maximum length window. Shared by `startSession()` and the restore on `setup()`, so both
+    /// judge a session by the same rules as `getSessionId(at:)`.
+    private func isWithinSessionWindows(_ timeNow: TimeInterval, lastActive: TimeInterval, sessionStart: TimeInterval) -> Bool {
+        !isExpired(timeNow, lastActive, sessionActivityThreshold)
+            && !isExpired(timeNow, sessionStart, sessionMaxLengthThreshold)
+    }
+
+    /// True when there is a session id and it is still inside both session windows
+    private func hasLiveSession(at timeNow: Date) -> Bool {
+        let timestamp = timeNow.timeIntervalSince1970
+        let (currentSessionId, lastActive, sessionStart) = sessionLock.withLock {
+            (sessionId, sessionActivityTimestamp, sessionStartTimestamp)
+        }
+
+        guard !currentSessionId.isNilOrEmpty, let lastActive, let sessionStart else {
+            return false
+        }
+
+        return isWithinSessionWindows(timestamp, lastActive: lastActive, sessionStart: sessionStart)
     }
 }

@@ -105,6 +105,40 @@ struct PostHogSessionPersistenceTest {
         #expect(manager.getSessionId(readOnly: true) == sessionId)
     }
 
+    @Test("startSession() replaces a session that is past the idle window")
+    func startSessionReplacesIdleSession() async throws {
+        try await withMockedClock { clock in
+            let manager = launch(getConfig())
+            manager.startSession()
+            let sessionId = try #require(manager.getSessionId(readOnly: true))
+
+            clock.date.addTimeInterval(60 * 31) // no activity for 31 minutes
+
+            manager.startSession()
+
+            #expect(manager.getSessionId(readOnly: true) != sessionId)
+        }
+    }
+
+    @Test("startSession() replaces a session that is past the maximum length")
+    func startSessionReplacesSessionPastMaximumLength() async throws {
+        try await withMockedClock { clock in
+            let manager = launch(getConfig())
+            manager.startSession()
+            let sessionId = try #require(manager.getSessionId(readOnly: true))
+
+            // stay active, so only the 24 hour maximum can expire this session
+            for _ in 0 ..< 50 {
+                clock.date.addTimeInterval(60 * 29)
+                manager.touchSession()
+            }
+
+            manager.startSession()
+
+            #expect(manager.getSessionId(readOnly: true) != sessionId)
+        }
+    }
+
     @Test("endSession() drops the persisted session so the next launch starts fresh")
     func endSessionDropsPersistedSession() throws {
         let config = getConfig()

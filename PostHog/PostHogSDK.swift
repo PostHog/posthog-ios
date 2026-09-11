@@ -31,10 +31,17 @@ let maxRetryDelay = 30.0
 /// Use `PostHogSDK.shared` for the default singleton instance, or `PostHogSDK.with(_:)`
 /// to create an additional configured instance.
 @objc public class PostHogSDK: NSObject { // swiftlint:disable:this type_body_length
-    private(set) var config: PostHogConfig
+    private var _config: PostHogConfig
+    /// `config`/`remoteConfig`/`queue`/`replayQueue` are written under `setupLock` (setup/close) and
+    /// read from arbitrary caller threads (capture(), debugProperties()) — guard the references
+    /// themselves with the same (recursive) lock so a reader never races `close()`'s teardown.
+    private(set) var config: PostHogConfig {
+        get { setupLock.withLock { _config } }
+        set { setupLock.withLock { _config = newValue } }
+    }
 
     private init(_ config: PostHogConfig) {
-        self.config = config
+        _config = config
     }
 
     private var enabled = false
@@ -54,7 +61,12 @@ let maxRetryDelay = 30.0
     }
 
     private var pushSubscriptionHandler: PostHogPushSubscriptionHandler?
-    private var queue: PostHogQueue<PostHogEvent>?
+    private var _queue: PostHogQueue<PostHogEvent>?
+    private var queue: PostHogQueue<PostHogEvent>? {
+        get { setupLock.withLock { _queue } }
+        set { setupLock.withLock { _queue = newValue } }
+    }
+
     private let exceptionStepsBufferLock = NSLock()
     private var _exceptionStepsBuffer: PostHogExceptionStepsBuffer?
     /// The reference is written under `setupLock` (setup/close/optIn) and read from arbitrary caller
@@ -66,14 +78,24 @@ let maxRetryDelay = 30.0
     /// Fired with the buffer's current steps whenever they change. The error-tracking autocapture
     /// integration subscribes to mirror them into the crash reporter's `customData`.
     let onExceptionStepsChanged = PostHogMulticastCallback<[[String: Any]]>()
-    private(set) var replayQueue: PostHogReplayQueue?
+    private var _replayQueue: PostHogReplayQueue?
+    private(set) var replayQueue: PostHogReplayQueue? {
+        get { setupLock.withLock { _replayQueue } }
+        set { setupLock.withLock { _replayQueue = newValue } }
+    }
+
     private(set) var logsQueue: PostHogQueue<PostHogLogRecord>?
     private(set) var storage: PostHogStorage?
     #if !os(watchOS)
         private var reachability: Reachability?
     #endif
     private var flagCallReported: [String: [Any?]] = .init()
-    private(set) var remoteConfig: PostHogRemoteConfig?
+    private var _remoteConfig: PostHogRemoteConfig?
+    private(set) var remoteConfig: PostHogRemoteConfig? {
+        get { setupLock.withLock { _remoteConfig } }
+        set { setupLock.withLock { _remoteConfig = newValue } }
+    }
+
     private var context: PostHogContext?
     private static var projectTokens = Set<String>()
     private var installedIntegrations: [PostHogIntegration] = []

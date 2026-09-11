@@ -10,7 +10,7 @@
 #if os(iOS)
     import CoreGraphics
     import Foundation
-    @_spi(PostHogInternal) @testable import PostHog
+    @testable import PostHog
     import Testing
     import UIKit
 
@@ -124,97 +124,6 @@
 
             #expect(dict["base64"] != nil)
             #expect(!wireframe.maskRenderFailed)
-        }
-
-        @Test("bridge completion reports the mask result without changing the legacy return value", arguments: [true, false])
-        func bridgeCompletionReportsMaskResult(fails: Bool) async {
-            let server = MockPostHogServer()
-            server.start()
-            defer { server.stop() }
-            let sut = makeSut()
-            defer { teardown(sut) }
-            let window = makeWindow(containing: UIView())
-            let wireframe = RRWireframe()
-            wireframe.type = "screenshot"
-            wireframe.maskableWidgets = [CGRect(x: 0, y: 0, width: 10, height: 10)]
-
-            let captured = await withCheckedContinuation { continuation in
-                let enqueued = sut.integration.renderAndEnqueueScreenshot(
-                    wireframe,
-                    window: window,
-                    windowSize: window.bounds.size,
-                    screenName: "Bridge opening",
-                    postHog: sut.sdk,
-                    timestampDate: Date(),
-                    image: fails ? makeUnrenderableImage() : makeRenderableImage(),
-                    episodeFirstFrame: true,
-                    completion: { captured in
-                        #expect(!Thread.isMainThread)
-                        continuation.resume(returning: captured)
-                    }
-                )
-                #expect(enqueued)
-            }
-
-            #expect(wireframe.maskRenderFailed == fails)
-            #expect(captured == !fails)
-        }
-
-        @Test("completion reports unchanged and unencoded screenshots as not captured")
-        func completionReportsSkippedScreenshots() async {
-            let server = MockPostHogServer()
-            server.start()
-            defer { server.stop() }
-            let sut = makeSut()
-            defer { teardown(sut) }
-            let window = makeWindow(containing: UIView())
-            var results: [Bool] = []
-            for base64 in ["encoded-screenshot", "encoded-screenshot", nil] as [String?] {
-                let wireframe = RRWireframe()
-                wireframe.type = "screenshot"
-                wireframe.base64 = base64
-                let captured = await withCheckedContinuation { continuation in
-                    sut.integration.captureSnapshot(
-                        wireframe,
-                        window: window,
-                        windowSize: window.bounds.size,
-                        screenName: nil,
-                        postHog: sut.sdk,
-                        timestampDate: Date(),
-                        completion: { continuation.resume(returning: $0) }
-                    )
-                }
-                results.append(captured)
-            }
-            #expect(results == [true, false, false])
-        }
-
-        @Test("completion SPI reports unavailable capture asynchronously on main", arguments: [true, false], [true, false])
-        func completionSPIReportsUnavailableCapture(configured: Bool, replayEnabled: Bool) async {
-            let server = MockPostHogServer()
-            server.start()
-            defer { server.stop() }
-            let config = PostHogConfig(projectToken: "phc_bridgeCompletionTest", host: "http://localhost:9001")
-            config.disableReachabilityForTesting = true
-            config.sessionReplay = replayEnabled
-            PostHogReplayIntegration.clearInstalls()
-            let sdk = PostHogSDK.with(config)
-            defer { sdk.close() }
-            if !configured {
-                sdk.close()
-            }
-
-            #expect(!sdk.captureSessionReplaySnapshot(episodeFirstFrame: true))
-            var returned = false
-            let captured = await withCheckedContinuation { continuation in
-                sdk.captureSessionReplaySnapshot(episodeFirstFrame: true) { captured in
-                    #expect(Thread.isMainThread)
-                    #expect(returned)
-                    continuation.resume(returning: captured)
-                }
-                returned = true
-            }
-            #expect(!captured)
         }
 
         private func captureSnapshotTypes(

@@ -710,8 +710,7 @@
             screenName: String?,
             postHog: PostHogSDK,
             timestampDate: Date,
-            episodeFirstFrame: Bool = false,
-            completion: ((Bool) -> Void)? = nil
+            episodeFirstFrame: Bool = false
         ) {
             let timestamp = timestampDate.toMillis()
 
@@ -726,9 +725,6 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async {
-                var captured = false
-                defer { completion?(captured) }
-
                 // always make sure we have a fresh session id at correct timestamp
                 guard let sessionId = postHog.sessionManager.getSessionId(at: timestampDate) else {
                     return
@@ -747,10 +743,6 @@
                 // frame instead of sending content the config masks (fail closed).
                 if wireframe.maskRenderFailed {
                     hedgeLog("[Session Replay] Skipping snapshot: the masked screenshot could not be rendered")
-                    return
-                }
-                if wireframe.type == "screenshot", wireframeDict["base64"] == nil {
-                    hedgeLog("[Session Replay] Skipping snapshot: the screenshot could not be encoded")
                     return
                 }
 
@@ -798,7 +790,6 @@
                     ],
                     timestamp: timestampDate
                 )
-                captured = true
             }
         }
 
@@ -1165,7 +1156,7 @@
         }
 
         @discardableResult
-        func renderAndEnqueueScreenshot(
+        private func renderAndEnqueueScreenshot(
             _ wireframe: RRWireframe,
             window: UIWindow,
             windowSize: CGSize,
@@ -1173,8 +1164,7 @@
             postHog: PostHogSDK,
             timestampDate: Date,
             image collectedImage: UIImage?,
-            episodeFirstFrame: Bool = false,
-            completion: ((Bool) -> Void)? = nil
+            episodeFirstFrame: Bool = false
         ) -> Bool {
             autoreleasepool {
                 // Only the settle-checked path picks a renderer by band; every other path keeps
@@ -1192,8 +1182,7 @@
                     screenName: screenName,
                     postHog: postHog,
                     timestampDate: timestampDate,
-                    episodeFirstFrame: episodeFirstFrame,
-                    completion: completion
+                    episodeFirstFrame: episodeFirstFrame
                 )
                 return true
             }
@@ -1206,8 +1195,7 @@
             postHog: PostHogSDK,
             episodeFirstFrame: Bool = false,
             preferFidelityRenderer: Bool = true,
-            overrideMaskRects: [CGRect]? = nil,
-            completion: ((Bool) -> Void)? = nil
+            overrideMaskRects: [CGRect]? = nil
         ) -> Bool {
             defer { finishScreenshotRender() }
 
@@ -1244,8 +1232,7 @@
                 postHog: postHog,
                 timestampDate: screenshotCapture.timestampDate,
                 image: screenshotCapture.image,
-                episodeFirstFrame: episodeFirstFrame,
-                completion: completion
+                episodeFirstFrame: episodeFirstFrame
             )
         }
 
@@ -1496,13 +1483,13 @@
         /// freshly-presented screen isn't captured black, and re-arms the
         /// meta/hash so a retried opening frame keeps its reset — pass it
         /// until the episode's first frame has been captured, and drop it
-        /// afterwards (it flickers secure fields). The return value indicates
-        /// enqueueing only; completion reports the asynchronous result when enqueued.
+        /// afterwards (it flickers secure fields). The Boolean reports enqueueing,
+        /// not the outcome of asynchronous masking; see captureSessionReplaySnapshot.
         @discardableResult
-        func captureBridgeSnapshot(episodeFirstFrame: Bool, completion: ((Bool) -> Void)? = nil) -> Bool {
+        func captureBridgeSnapshot(episodeFirstFrame: Bool) -> Bool {
             guard Thread.isMainThread else {
                 return DispatchQueue.main.sync {
-                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame, completion: completion)
+                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame)
                 }
             }
             guard let postHog, postHog.isSessionReplayActive() else {
@@ -1528,8 +1515,7 @@
                 window: window,
                 screenName: screenName,
                 postHog: postHog,
-                episodeFirstFrame: episodeFirstFrame,
-                completion: completion
+                episodeFirstFrame: episodeFirstFrame
             )
         }
 

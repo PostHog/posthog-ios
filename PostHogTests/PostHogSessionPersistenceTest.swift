@@ -190,6 +190,16 @@ struct PostHogSessionPersistenceTest {
         #expect(launch(config).getSessionId(readOnly: true) == nil)
     }
 
+    @Test("A React Native session id is not persisted, because that SDK owns its session")
+    func doesNotPersistReactNativeSessionId() {
+        postHogSdkName = "posthog-react-native"
+
+        let config = getConfig()
+        launch(config).setSessionId(UUID().uuidString)
+
+        #expect(PostHogStorage(config).getDictionary(forKey: .session) == nil)
+    }
+
     @Test("SDK setup() persists its session, so the next launch keeps the id")
     func sdkSetupPersistsSessionId() async throws {
         try await withMockedClock { clock in

@@ -319,7 +319,9 @@ import Foundation
     /// `endSession()` or rotation land in between, so a stale record could survive on disk and be
     /// restored at the next launch. Callers must therefore not already hold the lock.
     private func persistSession() {
-        guard let storage else { return }
+        // React Native owns its session, so it only ever writes through setSessionId(_:).
+        // Restore skips that mode, so persisting there would leave a record nothing reads.
+        guard isNotReactNative(), let storage else { return }
 
         sessionLock.withLock {
             guard let currentSessionId = sessionId,

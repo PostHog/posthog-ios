@@ -145,6 +145,9 @@
             #expect(replayQueue.depth == 0)
             #expect(integration.isBuffering == false)
             #expect(sut.remoteConfig?.isSessionReplayFlagActive() == false)
+            // isEnabled stays true here (the capturer self-gates on the flag), so the status must gate
+            // on the flag too or it would report "active" while nothing records.
+            #expect(integration.debugProperties()["$recording_status"] as? String == "disabled")
         }
 
         @Test("first remote config with flag on but session sampled out drops the buffer")
@@ -445,6 +448,189 @@
             integration.applyRemoteConfig(remoteConfig: nil)
 
             #expect(integration.isActive() == true)
+        }
+
+        // MARK: - debugProperties()
+
+        @Test("with no minimum duration configured, resolving the first remote config reports active, not stuck buffering")
+        func noMinimumDurationConfiguredReportsActiveOnceResolved() async throws {
+            // Regression: deriving "buffering" from !hasPassedMinimumDuration alone reported it forever
+            // when no minimum duration was configured, since nothing ever flips that flag.
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            #expect(integration.isBuffering == true)
+            var props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { integration.isBuffering == false }
+
+            props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "active")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+        }
+
+        @Test("throttleDelayMs degrades instead of trapping on a non-finite or out-of-range throttleDelay")
+        func throttleDelayMsDoesNotTrapOnNonFiniteValue() {
+            let config = PostHogConfig(projectToken: UUID().uuidString)
+            // 1e16 and 1e20 stay finite after `* 1000` but exceed Int.max — the band Double(Int.max) traps on.
+            for value: TimeInterval in [.nan, .infinity, -.infinity, .greatestFiniteMagnitude, 1e16, 1e20] {
+                config.sessionReplayConfig.throttleDelay = value
+                #expect(PostHogReplayIntegration.throttleDelayMs(config: config) >= 0)
+            }
+            config.sessionReplayConfig.throttleDelay = 2
+            #expect(PostHogReplayIntegration.throttleDelayMs(config: config) == 2000)
+        }
+
+        @Test("holding for remote config or minimum duration reports buffering with a hold reason, then active once resolved")
+        func bufferingReportsHoldReasonThenActive() async throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 1)
+            defer { sut.close() }
+
+            var props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "awaiting_remote_config")
+            #expect(props["$sdk_debug_replay_internal_buffer_length"] as? Int != nil)
+
+            // bufferDuration is the span between the first and last buffered event, so the sleep must
+            // sit between two adds (not after a single one) to actually exceed the 1ms minimum.
+            replayQueue.add(snapshotEvent("1"))
+            try await Task.sleep(nanoseconds: 20_000_000) // 20ms, well past the 1ms minimum duration
+            replayQueue.add(snapshotEvent("2"))
+            // While buffering the length is the held buffer, not the (still empty) persisted queue.
+            #expect(integration.debugProperties()["$sdk_debug_replay_internal_buffer_length"] as? Int == 2)
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { integration.isBuffering == false }
+
+            props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "active")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+        }
+
+        @Test("stopping recording reports disabled and clears the hold reason")
+        func stopClearsHoldReason() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+            defer { sut.close() }
+
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+
+            var props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "below_minimum_duration")
+
+            sut.stopSessionRecording()
+
+            props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "disabled")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+            // Config-derived keys survive stop — they come from the platform config module, not
+            // integration active state.
+            #expect(props["$sdk_debug_replay_capture_mode"] != nil)
+            #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
+        }
+
+        @Test("crash context re-snapshots on recording transitions and omits point-in-time counters")
+        func crashContextTracksRecordingStatus() async throws {
+            let (sut, integration, _) = try makeSut(flagActive: true)
+            defer { sut.close() }
+
+            let lock = NSLock()
+            var latest: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { latest = context["event_properties"] as? [String: Any] }
+            }
+            func status() -> String? {
+                lock.withLock { latest?["$recording_status"] as? String }
+            }
+
+            // Regression: the snapshot used to refresh only on identify/screen/register, so a crash
+            // after the first /config resolved still reported the setup-time "buffering".
+            integration.applyRemoteConfig(remoteConfig: nil)
+            await waitUntil { status() == "active" }
+            let active = try #require(lock.withLock { latest })
+            #expect(active["$recording_status"] as? String == "active")
+            #expect(active["$sdk_debug_session_start"] != nil)
+            #expect(active["$sdk_debug_current_session_duration"] == nil)
+            #expect(active["$sdk_debug_pending_queue_size"] == nil)
+            #expect(active["$sdk_debug_replay_internal_buffer_length"] == nil)
+
+            sut.stopSessionRecording()
+            await waitUntil { status() == "disabled" }
+            #expect(status() == "disabled")
+
+            withExtendedLifetime(token) {}
+        }
+
+        @Test("crash context re-snapshots after a lazy replay install via startSessionRecording()")
+        func crashContextAfterLazyInstall() async throws {
+            let config = PostHogConfig(projectToken: UUID().uuidString, host: "http://localhost:9001")
+            config.sessionReplay = false
+            config.disableReachabilityForTesting = true
+            config.disableQueueTimerForTesting = true
+            config.disableRemoteConfigForTesting = true
+            let storage = PostHogStorage(config)
+            storage.setDictionary(forKey: .remoteConfig, contents: ["sessionRecording": ["endpoint": "/s/"]])
+            PostHogReplayIntegration.clearInstalls()
+            let sut = PostHogSDK.with(config)
+            defer { sut.close() }
+
+            let lock = NSLock()
+            var latest: [String: Any]?
+            let token = sut.onEventContextChanged.subscribe { context in
+                lock.withLock { latest = context["event_properties"] as? [String: Any] }
+            }
+
+            // Regression: install() ran start() (and its snapshot) before the SDK's `replayIntegration`
+            // was assigned, so the persisted crash context stayed "disabled" after a lazy install.
+            sut.startSessionRecording()
+            await waitUntil { lock.withLock { latest?["$recording_status"] as? String } != "disabled" }
+            #expect(lock.withLock { latest?["$recording_status"] as? String } != "disabled")
+
+            withExtendedLifetime(token) {}
+        }
+
+        @Test("capturing debug properties concurrently with stop() and close() never produces a torn read")
+        func concurrentStopWhileCapturing() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 1)
+
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            let resultsLock = NSLock()
+            var statuses: [String?] = []
+            var badHoldReasons = 0
+
+            let group = DispatchGroup()
+            let captureQueue = DispatchQueue(label: "test.concurrent-debug-properties", attributes: .concurrent)
+            let iterations = 200
+
+            for _ in 0 ..< iterations {
+                group.enter()
+                captureQueue.async {
+                    defer { group.leave() }
+                    let props = integration.debugProperties()
+                    let status = props["$recording_status"] as? String
+                    let holdReason = props["$sdk_debug_replay_flush_hold_reason"]
+                    resultsLock.withLock {
+                        statuses.append(status)
+                        if status != "buffering", holdReason != nil {
+                            badHoldReasons += 1
+                        }
+                    }
+                }
+            }
+
+            sut.stopSessionRecording()
+            sut.close()
+
+            group.wait()
+
+            #expect(statuses.allSatisfy { $0 == "active" || $0 == "buffering" || $0 == "disabled" })
+            #expect(badHoldReasons == 0)
         }
     }
 #endif

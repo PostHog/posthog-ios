@@ -12,6 +12,7 @@ import Nimble
     import PostHogTestsObjC
 #endif
 import Quick
+import XCTest
 
 class PostHogSDKTest: QuickSpec {
     // Every SDK getSut creates is tracked and closed in afterEach. An unclosed SDK leaks its
@@ -378,6 +379,112 @@ class PostHogSDKTest: QuickSpec {
             sut.close()
         }
 
+        #if os(iOS)
+            it("captures $recording_status and $sdk_debug_* debug properties on custom, screen, and exception events") {
+                server.reset(batchCount: 1)
+                let sut = self.getSut(flushAt: 3)
+
+                sut.capture("test event")
+                sut.screen("theScreen")
+                sut.capture("$exception", properties: ["foo": "bar"])
+
+                let events = getBatchedEvents(server)
+                expect(events.count) == 3
+
+                for event in events {
+                    expect(event.properties["$recording_status"] as? String) == "disabled"
+                    expect(event.properties["$sdk_debug_replay_capture_mode"] as? String) == "wireframe"
+                    expect(event.properties["$sdk_debug_replay_throttle_delay_ms"] as? Int) == 1000
+                    expect(event.properties["$sdk_debug_session_start"]).toNot(beNil())
+                    expect(event.properties["$sdk_debug_current_session_duration"]).toNot(beNil())
+                    expect(event.properties["$sdk_debug_pending_queue_size"]).toNot(beNil())
+                }
+
+                sut.reset()
+                sut.close()
+            }
+
+            it("excludes $recording_status and $sdk_debug_* properties from $snapshot events") {
+                // $snapshot events route to the replay queue and the /s/ endpoint, not /batch —
+                // read the raw request body rather than getBatchedEvents.
+                server.reset(batchCount: 0, snapshotCount: 1)
+                let sut = self.getSut()
+                sut.sessionManager.setSessionId("00000000-0000-7000-8000-000000000099")
+
+                sut.capture("$snapshot", properties: [
+                    "$session_id": "00000000-0000-7000-8000-000000000099",
+                    "$snapshot_source": "mobile",
+                    "$snapshot_data": ["type": 4, "data": ["width": 1, "height": 1], "timestamp": 0] as [String: Any],
+                ])
+                sut.flush()
+
+                let result = XCTWaiter.wait(for: [server.snapshotExpectation!], timeout: testRequestTimeout)
+                expect(result) == .completed
+
+                let request = server.snapshotRequests.first
+                expect(request).toNot(beNil())
+                let body = request.flatMap { server.parseRequest($0, gzip: true) }
+                let props = body?["properties"] as? [String: Any] ?? [:]
+
+                expect(props["$recording_status"]).to(beNil())
+                expect(props.keys.contains { $0.hasPrefix("$sdk_debug_") }).to(beFalse())
+
+                sut.reset()
+                sut.close()
+            }
+
+            it("reports screenshot capture mode for the flutter host") {
+                server.reset(batchCount: 1)
+                let original = postHogSdkName
+                postHogSdkName = "posthog-flutter"
+                defer { postHogSdkName = original }
+
+                let sut = self.getSut()
+                sut.capture("test event")
+
+                let events = getBatchedEvents(server)
+                expect(events.first?.properties["$sdk_debug_replay_capture_mode"] as? String) == "screenshot"
+
+                sut.reset()
+                sut.close()
+            }
+
+            it("SDK-computed debug keys win over a same-named registered super property") {
+                server.reset(batchCount: 1)
+                let sut = self.getSut()
+                sut.register(["$recording_status": "bogus", "$sdk_debug_pending_queue_size": -1])
+
+                sut.capture("test event")
+
+                let events = getBatchedEvents(server)
+                let props = events.first!.properties
+                expect(props["$recording_status"] as? String) == "disabled"
+                expect(props["$sdk_debug_pending_queue_size"] as? Int) != -1
+
+                sut.reset()
+                sut.close()
+            }
+
+        #else
+            it("reports disabled recording status with no replay keys on non-iOS platforms") {
+                server.reset(batchCount: 1)
+                let sut = self.getSut()
+
+                sut.capture("test event")
+
+                let events = getBatchedEvents(server)
+                expect(events.count) == 1
+
+                let props = events.first!.properties
+                expect(props["$recording_status"] as? String) == "disabled"
+                expect(props.keys.contains { $0.hasPrefix("$sdk_debug_replay_") }).to(beFalse())
+                expect(props["$sdk_debug_pending_queue_size"]).toNot(beNil())
+
+                sut.reset()
+                sut.close()
+            }
+        #endif
+
         it("invokes reloadFeatureFlags callback when not enabled") {
             let sut = self.getSut()
             sut.close()
@@ -684,6 +791,7 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["$feature/bool-value"] as? Bool) == true
             expect(event.properties["$active_feature_flags"]).toNot(beNil())
             expect(event.properties["$is_identified"]).toNot(beNil())
+            expect(event.properties["$recording_status"]).toNot(beNil())
 
             sut.reset()
             sut.close()

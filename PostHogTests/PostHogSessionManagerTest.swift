@@ -279,6 +279,42 @@ enum PostHogSessionManagerTest {
             sut.close()
         }
 
+        @Test("$sdk_debug_session_* describe the rotated session on the event that rotates it")
+        func debugSessionKeysDescribeRotatedSession() async throws {
+            let sut = getSut(flushAt: 2)
+            let mockNow = MockDate()
+            now = { mockNow.date }
+
+            server.reset(batchCount: 1)
+
+            defer {
+                sut.reset()
+                sut.close()
+            }
+
+            mockAppLifecycle.simulateAppDidFinishLaunching()
+            mockAppLifecycle.simulateAppDidBecomeActive()
+
+            sut.getSessionManager()?.touchSession()
+            sut.capture("event captured")
+
+            mockNow.date.addTimeInterval(60 * 31) // +31 mins: this capture rotates the session
+            sut.capture("event captured after 31 mins")
+
+            let events = try await getServerEvents(server)
+            try #require(events.count == 2)
+
+            let start1 = try #require(events[0].properties["$sdk_debug_session_start"] as? Int64)
+            let start2 = try #require(events[1].properties["$sdk_debug_session_start"] as? Int64)
+            let duration2 = try #require(events[1].properties["$sdk_debug_current_session_duration"] as? Int64)
+
+            // Regression: the debug snapshot used to run before getSessionId(at:) rotated, so the
+            // rotating event carried the new $session_id with the previous session's start/duration.
+            #expect(start2 != start1)
+            #expect(start2 == Int64(mockNow.date.timeIntervalSince1970 * 1000))
+            #expect(duration2 == 0)
+        }
+
         @Test("Rotates $session_id after max session length of 24 hours")
         func sessionRotatedAfterMaxSessionLength() async throws {
             let sut = getSut(flushAt: 52)

@@ -89,10 +89,13 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `30`.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
-    /// Maximum number of consecutive flush attempts before the entire queue is
-    /// dropped to avoid infinite retries against a permanently-broken backend.
-    /// Increments on every retriable failure including HTTP 413 cap halving;
-    /// resets on a successful 2xx response. Default 3.
+    /// Maximum number of retries for push-subscription registration failures.
+    ///
+    /// This limit does not apply to event, replay, or log ingestion. Retryable ingestion
+    /// failures retain queued records for later flush triggers, subject to backoff.
+    /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
+    ///
+    /// Default: `3`.
     @objc public var maxRetries: Int = Defaults.maxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.

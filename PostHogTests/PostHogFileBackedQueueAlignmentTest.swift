@@ -31,6 +31,37 @@ struct PostHogFileBackedQueueAlignmentTest {
         data.map { String(data: $0, encoding: .utf8)! }
     }
 
+    @Test("a failed write to a full queue preserves existing entries", .enabled(if: geteuid() != 0))
+    func failedWritePreservesFullQueue() throws {
+        let (queue, dir) = makeQueue()
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        queue.add(Data("A".utf8), maxSize: 2)
+        queue.add(Data("B".utf8), maxSize: 2)
+        let originalIds = queue.peekEntries(2).map(\.id)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
+        #expect(throws: (any Error).self) {
+            try Data("probe".utf8).write(to: dir.appendingPathComponent("write-probe"))
+        }
+
+        #expect(queue.add(Data("C".utf8), maxSize: 2) == nil)
+        #expect(queue.depth == 2)
+        #expect(queue.peekEntries(2).map(\.id) == originalIds)
+        #expect(decode(queue.peek(2)) == ["A", "B"])
+        #expect(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)) == Set(originalIds))
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
+        #expect(queue.add(Data("C".utf8), maxSize: 2) == originalIds.first)
+        #expect(queue.depth == 2)
+        #expect(decode(queue.peek(2)) == ["B", "C"])
+        let reloaded = PostHogFileBackedQueue(queue: dir, maxSize: 2)
+        #expect(Set(reloaded.peekEntries(2).map(\.id)) == Set(queue.peekEntries(2).map(\.id)))
+        #expect(reloaded.depth == 2)
+    }
+
     @Test("delivers every record once in FIFO order on the happy path")
     func happyPath() throws {
         let (queue, dir) = makeQueue()
@@ -50,6 +81,30 @@ struct PostHogFileBackedQueueAlignmentTest {
         queue.pop(second.count)
 
         #expect(queue.depth == 0)
+    }
+
+    @Test("breaks creation-date ties by filename when trimming to capacity on load")
+    func tiedCreationDatesTrimDeterministically() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ph-queue-tie-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        // written out of filename order so an enumeration- or write-order-dependent
+        // sort would disagree with the tie-breaker
+        let tied = Date(timeIntervalSince1970: 100)
+        for name in ["record-4", "record-1", "record-3", "record-2"] {
+            let url = dir.appendingPathComponent(name)
+            try Data(name.utf8).write(to: url)
+            try FileManager.default.setAttributes([.creationDate: tied], ofItemAtPath: url.path)
+        }
+
+        let queue = PostHogFileBackedQueue(queue: dir, maxSize: 2)
+
+        #expect(queue.depth == 2)
+        #expect(decode(queue.peek(2)) == ["record-3", "record-4"])
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("record-1").path))
+        #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("record-2").path))
     }
 
     enum UnreadableHead {

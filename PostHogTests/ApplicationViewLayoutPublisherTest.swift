@@ -157,8 +157,8 @@
         }
 
         @MainActor
-        @Test("unsubscribe preserves a newer swizzler and resubscribe does not wrap it again")
-        func preservesNewerSwizzler() throws {
+        @Test("restarts preserve newer forwarding, notify once, and reuse a bounded hook chain")
+        func preservesNewerSwizzler() async throws {
             let publisher = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
             defer { withExtendedLifetime(publisher) {} }
             try #require(publisher.onViewLayout.subscriberCount == 0)
@@ -168,6 +168,7 @@
             let method = try #require(class_getInstanceMethod(LifecycleLayoutView.self, selector))
             var originalCalls = 0
             var otherCalls = 0
+            var notifications = 0
             let originalBlock: @convention(block) (UIView, CALayer) -> Void = { _, _ in originalCalls += 1 }
             let stub = imp_implementationWithBlock(originalBlock)
             let original = method_setImplementation(method, stub)
@@ -190,17 +191,42 @@
             token = nil
             try #require(method_getImplementation(method) == other)
 
-            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
-            #expect(method_getImplementation(method) == other)
-            view.layoutSublayers(of: layer)
-            #expect(originalCalls == 1)
-            #expect(otherCalls == 1)
-            token = nil
-            #expect(method_getImplementation(method) == other)
+            var resumed: IMP?
+            for restart in 1 ... 100 {
+                token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {
+                    #expect(Thread.isMainThread)
+                    notifications += 1
+                }
+                let current = method_getImplementation(method)
+                if let resumed {
+                    #expect(current == resumed)
+                } else {
+                    resumed = current
+                }
+                view.layoutSublayers(of: layer)
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.main.async { continuation.resume() }
+                }
+                #expect(originalCalls == restart)
+                #expect(otherCalls == restart)
+                #expect(notifications == restart)
+                token = nil
+                #expect(method_getImplementation(method) == other)
+            }
 
             // The newer swizzler restores the implementation it originally replaced.
             method_setImplementation(method, installed)
-            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {}
+            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {
+                notifications += 1
+            }
+            #expect(method_getImplementation(method) == installed)
+            view.layoutSublayers(of: layer)
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+            #expect(originalCalls == 101)
+            #expect(otherCalls == 100)
+            #expect(notifications == 101)
             token = nil
             #expect(method_getImplementation(method) == stub)
         }
@@ -245,6 +271,75 @@
                 DispatchQueue.main.async { continuation.resume() }
             }
             #expect(originalCalls == 1)
+            #expect(notifications == 1)
+        }
+
+        @MainActor
+        @Test("resubscription recovers after another swizzler detaches the PostHog hook", arguments: [false, true], [false, true])
+        func externallyDetachedHook(removeEarlierSwizzler: Bool, retainOtherSubscriber: Bool) async throws {
+            let publisher = ApplicationViewLayoutPublisher(viewClass: LifecycleLayoutView.self)
+            defer { withExtendedLifetime(publisher) {} }
+            let view = LifecycleLayoutView()
+            let layer = view.layer
+            let selector = #selector(UIView.layoutSublayers(of:))
+            let method = try #require(class_getInstanceMethod(LifecycleLayoutView.self, selector))
+            var originalCalls = 0
+            var otherCalls = 0
+            var notifications = 0
+            let originalBlock: @convention(block) (UIView, CALayer) -> Void = { _, _ in originalCalls += 1 }
+            let stub = imp_implementationWithBlock(originalBlock)
+            let original = method_setImplementation(method, stub)
+            let forward = unsafeBitCast(stub, to: LayoutImplementation.self)
+            let otherBlock: @convention(block) (UIView, CALayer) -> Void = { view, layer in
+                otherCalls += 1
+                forward(view, selector, layer)
+            }
+            let other = imp_implementationWithBlock(otherBlock)
+            defer {
+                method_setImplementation(method, original)
+                imp_removeBlock(other)
+                imp_removeBlock(stub)
+            }
+            if removeEarlierSwizzler {
+                method_setImplementation(method, other)
+            }
+            // Surveys may keep observing layout while replay stops and restarts.
+            var retainedToken = retainOtherSubscriber ? publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {} : nil
+            #expect((retainedToken != nil) == retainOtherSubscriber)
+            var token: RegistrationToken? = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {
+                notifications += 1
+            }
+            defer {
+                token = nil
+                retainedToken = nil
+            }
+            #expect(token != nil)
+            view.layoutSublayers(of: layer)
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+            try #require(originalCalls == 1)
+            try #require(notifications == 1)
+            originalCalls = 0
+            otherCalls = 0
+            notifications = 0
+
+            // Either an older swizzler restores UIKit directly, or a newer one bypasses our IMP.
+            let detached = removeEarlierSwizzler ? stub : other
+            method_setImplementation(method, detached)
+            token = nil
+            try #require(publisher.onViewLayout.subscriberCount == (retainOtherSubscriber ? 1 : 0))
+            token = publisher.onViewLayout.subscribe(throttle: 0, trailing: true) {
+                notifications += 1
+            }
+            view.layoutSublayers(of: layer)
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+            #expect(publisher.onViewLayout.subscriberCount == (retainOtherSubscriber ? 2 : 1))
+            #expect(originalCalls == 1)
+            #expect(otherCalls == (removeEarlierSwizzler ? 0 : 1))
+            print("HOOK_DETACH olderUninstall=\(removeEarlierSwizzler), retainedSubscriber=\(retainOtherSubscriber), rootUnchanged=\(method_getImplementation(method) == detached), originalCalls=\(originalCalls), notifications=\(notifications)")
             #expect(notifications == 1)
         }
 

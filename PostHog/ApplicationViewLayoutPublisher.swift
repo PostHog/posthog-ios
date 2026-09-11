@@ -62,11 +62,12 @@
         }
 
         private func swizzleLayoutSubviews() {
-            guard installedLayout == nil,
-                  let method = class_getInstanceMethod(viewClass, #selector(UIView.layoutSublayers(of:)))
-            else { return }
+            guard let method = class_getInstanceMethod(viewClass, #selector(UIView.layoutSublayers(of:))) else { return }
+            let current = method_getImplementation(method)
+            if let installedLayout, current == installedLayout.replacement { return }
 
-            let hook = layoutHook(for: method_getImplementation(method))
+            // Another swizzler may restore one of our cached IMPs. Reactivate it instead of wrapping ourselves.
+            let hook = layoutHooks.values.first { $0.replacement == current } ?? layoutHook(for: current)
             activeLayoutLock.withLock { activeLayoutToken = hook.token }
             method_setImplementation(method, hook.replacement)
             installedLayout = hook
@@ -77,9 +78,12 @@
                   let method = class_getInstanceMethod(viewClass, #selector(UIView.layoutSublayers(of:)))
             else { return }
 
-            // A newer swizzler may still forward through our IMP. Do not overwrite its hook or wrap it again.
-            guard method_getImplementation(method) == installedLayout.replacement else { return }
-            method_setImplementation(method, installedLayout.original)
+            // Never overwrite another swizzler's replacement.
+            if method_getImplementation(method) == installedLayout.replacement {
+                method_setImplementation(method, installedLayout.original)
+            }
+            // An opaque replacement may retain or bypass our hook. Retire ownership in either case
+            // so the next subscription reconciles the current chain instead of trusting stale state.
             activeLayoutLock.withLock { activeLayoutToken = nil }
             self.installedLayout = nil
         }

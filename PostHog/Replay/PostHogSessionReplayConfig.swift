@@ -9,7 +9,7 @@
 
     /// Configuration for iOS session replay capture.
     ///
-    /// Mutate fields on `config.sessionReplayConfig` before calling `PostHogSDK.setup(_:)`.
+    /// Unless documented otherwise, mutate fields on `config.sessionReplayConfig` before calling `PostHogSDK.setup(_:)`.
     @objc(PostHogSessionReplayConfig) public class PostHogSessionReplayConfig: NSObject {
         /// Enable masking of all text and text input fields
         /// Default: true
@@ -32,6 +32,18 @@
         /// Default: `false`.
         @available(*, deprecated, message: "This property has no effect and will be removed in the next major release. To learn how to manually mask user photos please see our Privacy controls documentation: https://posthog.com/docs/session-replay/privacy?tab=iOS")
         @objc public var maskPhotoLibraryImages: Bool = false
+
+        private let captureTouchesLock = NSLock()
+        private var _captureTouches = true
+
+        /// Enable recording touch coordinates in session replay. Screenshot capture is unaffected.
+        /// May be changed at runtime from any thread. Pending touch work is dropped if capture
+        /// is disabled when that work executes, but events already captured are not removed.
+        /// Default: true
+        @objc public var captureTouches: Bool {
+            get { captureTouchesLock.withLock { _captureTouches } }
+            set { captureTouchesLock.withLock { _captureTouches = newValue } }
+        }
 
         /// Enable capturing network telemetry
         /// Default: true

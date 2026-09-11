@@ -610,8 +610,10 @@
             }
         }
 
-        private func handleApplicationEvent(event: UIEvent, date: Date) {
-            guard let postHog, postHog.isSessionReplayActive() else {
+        func handleApplicationEvent(event: UIEvent, date: Date, window: UIWindow? = nil) {
+            guard let postHog, postHog.config.sessionReplayConfig.captureTouches,
+                  postHog.isSessionReplayActive()
+            else {
                 return
             }
 
@@ -619,7 +621,7 @@
                 return
             }
 
-            guard let window = UIApplication.getCurrentWindow() else {
+            guard let window = window ?? UIApplication.getCurrentWindow() else {
                 return
             }
 
@@ -635,13 +637,14 @@
             }
 
             PostHogReplayIntegration.dispatchQueue.async { [touchInfo, weak postHog = postHog] in
+                // Recheck because touch capture may have been disabled while this work was queued.
+                // Captured weakly since integration may have uninstalled by now.
+                guard let postHog, postHog.config.sessionReplayConfig.captureTouches else { return }
+
                 // always make sure we have a fresh session id as early as possible
-                guard let sessionId = postHog?.sessionManager.getSessionId(at: date) else {
+                guard let sessionId = postHog.sessionManager.getSessionId(at: date) else {
                     return
                 }
-
-                // captured weakly since integration may have uninstalled by now
-                guard let postHog else { return }
 
                 var snapshotsData: [Any] = []
                 for touch in touchInfo {
@@ -1490,16 +1493,16 @@
         /// afterwards (it flickers secure fields). Returns false if no frame
         /// was captured, so the caller can retry.
         @discardableResult
-        func captureBridgeSnapshot(episodeFirstFrame: Bool) -> Bool {
+        func captureBridgeSnapshot(episodeFirstFrame: Bool, window: UIWindow? = nil) -> Bool {
             guard Thread.isMainThread else {
                 return DispatchQueue.main.sync {
-                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame)
+                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame, window: window)
                 }
             }
             guard let postHog, postHog.isSessionReplayActive() else {
                 return false
             }
-            guard let window = UIApplication.getCurrentWindow() else {
+            guard let window = window ?? UIApplication.getCurrentWindow() else {
                 return false
             }
             // A mid-transition capture renders black; the next tick gets it.

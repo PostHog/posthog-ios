@@ -149,9 +149,16 @@
             capturePushNotificationOpened: Bool = false,
             capturePushNotificationSubscriptions: Bool = false,
             reuseAnonymousId: Bool = false,
-            pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? = nil
+            pushIdentityProvider: ((String, String, @escaping (String?) -> Void) -> Void)? = nil,
+            recordOpens: PushOpenRecorder? = nil
         ) -> PostHogSDK {
             let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            if let recordOpens {
+                config.setBeforeSend { event in
+                    if event.event == "$push_notification_opened" { recordOpens.record(event) }
+                    return nil
+                }
+            }
             config.flushAt = 1
             config.optOut = optOut
             config.reuseAnonymousId = reuseAnonymousId
@@ -1688,6 +1695,150 @@
             let event = try #require(events.first)
             #expect(event.event == "$push_notification_opened")
             #expect(event.properties["$notification_title"] as? String == "Hello")
+        }
+
+        // MARK: - Open capture dedupe (parity with posthog-android#783)
+
+        /// Collects `$push_notification_opened` events from `beforeSend`, which runs on the calling thread.
+        private final class PushOpenRecorder {
+            private let lock = NSLock()
+            private var events: [PostHogEvent] = []
+
+            func record(_ event: PostHogEvent) {
+                lock.withLock { events.append(event) }
+            }
+
+            var count: Int { lock.withLock { events.count } }
+            var titles: [String?] { property("$notification_title") }
+            func property(_ key: String) -> [String?] {
+                lock.withLock { events.map { $0.properties[key] as? String } }
+            }
+        }
+
+        private let stepOne = #"{"workflow_id":"wf-1","invocation_id":"inv-1","action_id":"step-1"}"#
+        private let stepTwo = #"{"workflow_id":"wf-1","invocation_id":"inv-1","action_id":"step-2"}"#
+
+        private func captureAutomaticOpen(_ sut: PostHogSDK, _ posthog: Any) {
+            sut.capturePushNotificationOpened(
+                title: "Auto",
+                payload: ["posthog": posthog],
+                action: UNNotificationDefaultActionIdentifier
+            )
+        }
+
+        private func captureManualOpen(_ sut: PostHogSDK, _ posthog: Any) {
+            sut.capturePushNotificationOpened(title: "Manual", payload: ["posthog": posthog])
+        }
+
+        @Test("skips a manual repeat of an automatically captured PostHog push")
+        func openDedupeSkipsManualRepeatOfAutomatic() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            captureAutomaticOpen(sut, stepOne)
+            captureManualOpen(sut, stepOne)
+
+            #expect(opens.titles == ["Auto"])
+            #expect(opens.property("$notification_invocation_id") == ["inv-1"])
+        }
+
+        @Test("skips an automatic repeat of a manually captured PostHog push")
+        func openDedupeSkipsAutomaticRepeatOfManual() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            captureManualOpen(sut, ["workflow_id": "wf-1", "invocation_id": "inv-1", "action_id": "step-1"])
+            captureAutomaticOpen(sut, stepOne)
+            captureManualOpen(sut, stepOne)
+
+            #expect(opens.titles == ["Manual"])
+        }
+
+        @Test("keys PostHog pushes by invocation and action")
+        func openDedupeKeysByInvocationAndAction() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+            let noAction = #"{"workflow_id":"wf-1","invocation_id":"inv-1"}"#
+            let otherRun = #"{"workflow_id":"wf-1","invocation_id":"inv-2","action_id":"step-1"}"#
+            let payloads = [stepOne, stepTwo, noAction, otherRun]
+
+            payloads.forEach { captureAutomaticOpen(sut, $0) }
+            payloads.forEach { captureManualOpen(sut, $0) }
+
+            #expect(opens.property("$notification_invocation_id") == ["inv-1", "inv-1", "inv-1", "inv-2"])
+            #expect(opens.property("$notification_action_id") == ["step-1", "step-2", nil, "step-1"])
+        }
+
+        @Test("never dedupes a push without a posthog entry")
+        func openDedupeIgnoresPushWithoutPosthogEntry() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            sut.capturePushNotificationOpened(payload: ["aps": ["alert": "hi"]])
+            sut.capturePushNotificationOpened(title: "Manual", payload: ["aps": ["alert": "hi"]])
+            sut.capturePushNotificationOpened()
+            sut.capturePushNotificationOpened()
+
+            #expect(opens.count == 4)
+        }
+
+        @Test("never dedupes a push with a malformed posthog entry")
+        func openDedupeIgnoresMalformedPosthogEntry() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+            let malformed: [Any] = [
+                "{not json",
+                #"{"action_id":"step-1"}"#,
+                #"{"invocation_id":""}"#,
+                #"{"invocation_id":42}"#,
+                #"["inv-1"]"#,
+                42,
+            ]
+
+            for entry in malformed {
+                captureAutomaticOpen(sut, entry)
+                captureManualOpen(sut, entry)
+            }
+
+            #expect(opens.count == malformed.count * 2)
+        }
+
+        @Test("captures a repeat once the dedupe window has passed")
+        func openDedupeExpiresAfterTheWindow() async {
+            let opens = PushOpenRecorder()
+            await withMockedClock { clock in
+                let start = clock.date
+                let sut = getSDK(recordOpens: opens)
+                defer { sut.close() }
+
+                captureAutomaticOpen(sut, stepOne)
+                clock.date = start.addingTimeInterval(5 * 60 - 1)
+                captureManualOpen(sut, stepOne)
+                clock.date = start.addingTimeInterval(5 * 60)
+                captureManualOpen(sut, stepOne)
+                captureAutomaticOpen(sut, stepOne)
+            }
+
+            #expect(opens.titles == ["Auto", "Manual"])
+        }
+
+        @Test("records nothing for a push dropped while opted out")
+        func openDedupeRecordsNothingWhileOptedOut() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(optOut: true, recordOpens: opens)
+            defer { sut.close() }
+
+            captureAutomaticOpen(sut, stepOne)
+            sut.optIn()
+            captureManualOpen(sut, stepOne)
+            captureAutomaticOpen(sut, stepOne)
+
+            #expect(opens.titles == ["Manual"])
         }
 
         // MARK: - Opt-in re-registration (posthog-ios#746)

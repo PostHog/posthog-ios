@@ -187,6 +187,10 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// notification, by swizzling `UNUserNotificationCenterDelegate`. Locally-scheduled notifications
         /// are ignored — call `capturePushNotificationOpened(response:)` yourself to capture those.
         ///
+        /// A notification sent by PostHog is captured once: a manual `capturePushNotificationOpened`
+        /// call for a tap this already captured (same `posthog.invocation_id` and `action_id`, within
+        /// 5 minutes) is skipped, and so is the reverse.
+        ///
         /// - Note: Requires `enableSwizzling` to be `true`. To capture opens without swizzling, call
         ///   `PostHogSDK.capturePushNotificationOpened(response:)` from your own
         ///   `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.

@@ -1827,6 +1827,38 @@
             #expect(opens.titles == ["Auto", "Manual"])
         }
 
+        @Test("captures a repeat once the wall clock has moved backwards")
+        func openDedupeCapturesRepeatAfterBackwardClock() async {
+            let opens = PushOpenRecorder()
+            await withMockedClock { clock in
+                let start = clock.date
+                let sut = getSDK(recordOpens: opens)
+                defer { sut.close() }
+
+                captureAutomaticOpen(sut, stepOne)
+                clock.date = start.addingTimeInterval(-60)
+                captureManualOpen(sut, stepOne)
+            }
+
+            #expect(opens.titles == ["Auto", "Manual"])
+        }
+
+        @Test("evicts the oldest open at the cap, so its repeat is captured again")
+        func openDedupeEvictsOldestAtCap() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            for i in 0 ..< 21 {
+                captureAutomaticOpen(sut, #"{"invocation_id":"inv-\#(i)","action_id":"step-1"}"#)
+            }
+            captureManualOpen(sut, #"{"invocation_id":"inv-0","action_id":"step-1"}"#)
+            captureManualOpen(sut, #"{"invocation_id":"inv-20","action_id":"step-1"}"#)
+
+            #expect(opens.count == 22)
+            #expect(opens.property("$notification_invocation_id").last == "inv-0")
+        }
+
         @Test("records nothing for a push dropped while opted out")
         func openDedupeRecordsNothingWhileOptedOut() {
             let opens = PushOpenRecorder()

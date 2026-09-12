@@ -3304,9 +3304,10 @@ let maxRetryDelay = 30.0
         /// API in bulk.
         private static let maxRecentPushOpens = 20
 
-        /// Captured PostHog push opens, oldest first, as `invocation_id/action_id` and the wall clock at
-        /// capture. Notification callbacks and manual calls arrive on different threads, so the buffer is
-        /// only touched under its lock. In memory only: both reports of one tap happen in the same launch.
+        /// Captured PostHog push opens in insertion order — each capture is appended to the back, and the
+        /// cap evicts from the front — as `invocation_id/action_id` and the wall clock at capture.
+        /// Notification callbacks and manual calls arrive on different threads, so the buffer is only
+        /// touched under its lock. In memory only: both reports of one tap happen in the same launch.
         private var recentPushOpens: [(key: String, capturedAt: Date)] = []
         private let recentPushOpensLock = NSLock()
 

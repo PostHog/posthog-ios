@@ -3187,6 +3187,16 @@ let maxRetryDelay = 30.0
         /// PostHog (a `posthog` key in its `userInfo`); unattributed pushes capture the open event
         /// without content. Use the field-based overload to capture content explicitly.
         ///
+        /// A notification sent by PostHog is captured once: when the `posthog` entry of `userInfo`
+        /// carries an `invocation_id`, a repeat with the same `invocation_id` and `action_id` within
+        /// 5 minutes of the first capture is skipped, whether that first capture came from this
+        /// method, from the field-based overload, or from the SDK's automatic capture. Notifications
+        /// without a `posthog.invocation_id` are always captured.
+        ///
+        /// A rerun of that workflow, or a loop back to its push step, sends the pair again as a new
+        /// notification, and its open counts separately: two responses whose
+        /// `notification.request.identifier` differ are two taps, not one reported twice.
+        ///
         /// - Parameter response: The `UNNotificationResponse` received from the system.
         @available(iOS 14.0, macOS 11.0, *)
         @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
@@ -3201,7 +3211,8 @@ let maxRetryDelay = 30.0
                 subtitle: isPostHogNotification ? content.subtitle : nil,
                 body: isPostHogNotification ? content.body : nil,
                 payload: content.userInfo,
-                action: response.actionIdentifier
+                action: response.actionIdentifier,
+                deliveryId: response.notification.request.identifier
             )
         }
 
@@ -3210,6 +3221,14 @@ let maxRetryDelay = 30.0
         /// Use this when no `UNNotificationResponse` is available — for example when you handle a push
         /// yourself in `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` or relay it
         /// from a cross-platform layer.
+        ///
+        /// A notification sent by PostHog is captured once: when `payload["posthog"]` carries an
+        /// `invocation_id`, a repeat with the same `invocation_id` and `action_id` within 5 minutes
+        /// of the first capture is skipped, whether that first capture came from this method or from
+        /// the SDK's automatic capture. Payloads without a `posthog.invocation_id` are always
+        /// captured. This overload carries no notification identifier, so a rerun of that workflow
+        /// reported through it inside the window reads as the same tap and is skipped; report a rerun
+        /// through `capturePushNotificationOpened(response:)`, which can tell the deliveries apart.
         ///
         /// - Parameters:
         ///   - title: The notification title; omitted from the event when `nil` or empty.
@@ -3227,11 +3246,40 @@ let maxRetryDelay = 30.0
             payload: [AnyHashable: Any]? = nil,
             action: String? = nil
         ) {
+            capturePushNotificationOpened(
+                title: title,
+                subtitle: subtitle,
+                body: body,
+                payload: payload,
+                action: action,
+                deliveryId: nil
+            )
+        }
+
+        /// - Parameter deliveryId: The system's id for the delivered notification
+        ///   (`UNNotificationResponse.notification.request.identifier`), which separates a second
+        ///   notification from a second report of one tap. Only the `response:` overload has one; a caller
+        ///   passing raw fields does not, which is why this stays off the public API. Not `private`
+        ///   because `UNNotificationResponse` has no initializer, so tests reach the delivery-id paths
+        ///   only through here.
+        func capturePushNotificationOpened(
+            title: String?,
+            subtitle: String?,
+            body: String?,
+            payload: [AnyHashable: Any]?,
+            action: String?,
+            deliveryId: String?
+        ) {
             if !isEnabled() {
                 return
             }
 
             if isOptOutState() {
+                return
+            }
+
+            let posthogData = posthogPayload(from: payload?["posthog"])
+            if !recordPushOpen(posthogData, deliveryId: deliveryId) {
                 return
             }
 
@@ -3249,7 +3297,7 @@ let maxRetryDelay = 30.0
                 properties["$notification_body"] = body
             }
 
-            if let posthogData = posthogPayload(from: payload?["posthog"]) {
+            if let posthogData {
                 for (key, value) in posthogData {
                     properties["$notification_\(key)"] = value
                 }
@@ -3275,6 +3323,62 @@ let maxRetryDelay = 30.0
                 hedgeLog("Push notification 'posthog' payload is not a JSON object; ignoring.")
             }
             return nil
+        }
+
+        /// A duplicate report of one tap arrives within the same launch: milliseconds after a warm tap,
+        /// seconds after a cold start while the host's JS/Dart handlers register. Finite so that a re-send
+        /// carrying no delivery id to tell it apart still counts once the window has passed.
+        private static let pushOpenDedupeWindow: TimeInterval = 5 * 60
+
+        /// Only the opens of the last few minutes matter; the cap bounds memory for a host that calls the
+        /// API in bulk.
+        private static let maxRecentPushOpens = 20
+
+        /// Recently captured PostHog push opens, keyed by `invocation_id/action_id`, oldest first —
+        /// appended at the back, evicted from the front. Notification callbacks and manual calls arrive on
+        /// different threads, so the buffer is only touched under its lock. In memory only: both reports
+        /// of one tap happen in the same launch.
+        private var recentPushOpens: [RecentPushOpen] = []
+        private let recentPushOpensLock = NSLock()
+
+        private struct RecentPushOpen {
+            let key: String
+            let capturedAt: Date
+            let deliveryId: String?
+        }
+
+        /// Records a PostHog push open, returning `false` when the same notification was already captured
+        /// inside the dedupe window and this report should be skipped.
+        private func recordPushOpen(_ posthogData: [String: Any]?, deliveryId: String?) -> Bool {
+            guard let invocationId = posthogData?["invocation_id"] as? String, !invocationId.isEmpty else {
+                return true
+            }
+            // Every step of one workflow run shares the run's invocation_id, so action_id tells the steps apart.
+            let key = "\(invocationId)/\(posthogData?["action_id"] as? String ?? "")"
+            let capturedAt = now()
+
+            return recentPushOpensLock.withLock {
+                if let index = recentPushOpens.firstIndex(where: { $0.key == key }) {
+                    let previous = recentPushOpens[index]
+                    // A negative gap means the wall clock moved back; capture rather than risk dropping an open.
+                    let elapsed = capturedAt.timeIntervalSince(previous.capturedAt)
+                    let insideWindow = elapsed >= 0 && elapsed < Self.pushOpenDedupeWindow
+                    // A re-send of the same workflow step reuses the key, so only delivery ids that are
+                    // present on both reports and disagree prove a second notification rather than a second
+                    // report of one tap.
+                    let resent = previous.deliveryId != nil && deliveryId != nil && previous.deliveryId != deliveryId
+                    if insideWindow, !resent {
+                        hedgeLog("Skipped $push_notification_opened: notification \(key) was already captured.")
+                        return false
+                    }
+                    recentPushOpens.remove(at: index)
+                }
+                recentPushOpens.append(RecentPushOpen(key: key, capturedAt: capturedAt, deliveryId: deliveryId))
+                if recentPushOpens.count > Self.maxRecentPushOpens {
+                    recentPushOpens.removeFirst()
+                }
+                return true
+            }
         }
     #endif
 }

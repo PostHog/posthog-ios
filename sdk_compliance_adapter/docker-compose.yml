@@ -9,13 +9,13 @@ version: '3.8'
 # To run tests:
 # 1. Start the adapter on macOS host:
 #    cd ~/work/posthog-ios/sdk_compliance_adapter
-#    swift run
+#    make build && .build/debug/PostHogIOSComplianceAdapter serve --hostname 0.0.0.0 --port 8080
 # 2. Run this docker-compose (test harness connects to host):
-#    docker-compose up --abort-on-container-exit
+#    docker-compose up --abort-on-container-exit --exit-code-from test-harness
 
 services:
   test-harness:
-    image: ${TEST_HARNESS_IMAGE:-ghcr.io/posthog/sdk-test-harness:0.9.0}
+    image: ${TEST_HARNESS_IMAGE:-ghcr.io/posthog/sdk-test-harness:1.0.0}
     command: ["run", "--adapter-url", "http://host.docker.internal:8080", "--mock-url", "http://host.docker.internal:8081", "--sdk-type", "server", "--output", "text", "--report", "/report/sdk-compliance-report.md", "--debug"]
     ports:
       - "8081:8081"

@@ -33,9 +33,9 @@ app.get("health") { req async throws -> Response in
         "sdk_name": postHogiOSSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
-        "capabilities": ["capture_v0", "encoding_gzip"],
+        "capabilities": ["capture_v0", "encoding_gzip", "bootstrap_identity"],
         "runtime": "macOS shared core",
-        "flags_mode": "identify/group + explicit reload + cached getter; preload disabled",
+        "flags_mode": "initial identity bootstrap or identify; group + explicit reload + cached getter; preload disabled",
     ]
     return try await health.encodeResponse(for: req)
 }
@@ -47,6 +47,7 @@ app.post("init") { req async throws -> Response in
         let flushAt: Int?
         let flushIntervalMs: Int?
         let maxRetries: Int?
+        let distinctId: String?
 
         enum CodingKeys: String, CodingKey {
             case apiKey = "api_key"
@@ -54,16 +55,23 @@ app.post("init") { req async throws -> Response in
             case flushAt = "flush_at"
             case flushIntervalMs = "flush_interval_ms"
             case maxRetries = "max_retries"
+            case distinctId = "distinct_id"
         }
     }
     let input = try req.content.decode(InitRequest.self)
     guard !input.apiKey.isEmpty else {
         throw Abort(.badRequest, reason: "Empty project token")
     }
+    if let distinctId = input.distinctId, distinctId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        throw Abort(.badRequest, reason: "Initial distinct ID must not be blank")
+    }
     // The SDK runs on the host, while the CI mock runs in Docker.
     let host = input.host.replacingOccurrences(of: "host.docker.internal", with: "localhost")
     state.reset()
     let config = PostHogConfig(projectToken: input.apiKey, host: host)
+    if let distinctId = input.distinctId {
+        config.bootstrap = PostHogBootstrapConfig(distinctId: distinctId, isIdentifiedId: true)
+    }
     config.flushAt = input.flushAt ?? 1
     let defaultIntervalMs = config.flushAt > 1 ? 5000 : 500
     config.flushIntervalSeconds = TimeInterval(input.flushIntervalMs ?? defaultIntervalMs) / 1000
@@ -90,6 +98,7 @@ app.post("init") { req async throws -> Response in
     config.urlSessionConfiguration = sessionConfig
     PostHogSDK.shared.setup(config)
     state.posthogSDK = PostHogSDK.shared
+    state.identifiedId = input.distinctId
     return try await["success": true].encodeResponse(for: req)
 }
 
@@ -156,9 +165,11 @@ app.post("get_feature_flag") { req async throws -> Response in
     for (type, properties) in input.groupProperties ?? [:] {
         sdk.setGroupPropertiesForFlags(type, properties: properties.mapValues(\.value), reloadFeatureFlags: false)
     }
-    // These APIs can themselves trigger reloads. Retain those requests and SDK side effects.
-    sdk.identify(input.distinctId)
-    state.identifiedId = input.distinctId
+    // Legacy callers can supply identity after initialization. Retain their SDK merge/reload.
+    if state.identifiedId == nil {
+        sdk.identify(input.distinctId)
+        state.identifiedId = input.distinctId
+    }
     for (type, key) in input.groups ?? [:] {
         sdk.group(type: type, key: key)
     }

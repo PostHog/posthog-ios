@@ -59,15 +59,18 @@ def run(binary: str, adapter_port: int, mock_port: int) -> None:
         with urlopen(request, timeout=35) as response:
             return json.load(response)
 
-    def initialize():
+    def initialize(distinct_id=None):
         call("/reset", {})
         with lock:
             records.clear()
             statuses["/batch"] = []
             statuses["/flags"] = []
             flags.clear()
-        call("/init", {"api_key": "phc_local_smoke", "host": f"http://127.0.0.1:{mock_port}",
-                       "flush_at": 10, "flush_interval_ms": 500, "max_retries": 3})
+        config = {"api_key": "phc_local_smoke", "host": f"http://127.0.0.1:{mock_port}",
+                  "flush_at": 10, "flush_interval_ms": 500, "max_retries": 3}
+        if distinct_id is not None:
+            config["distinct_id"] = distinct_id
+        call("/init", config)
 
     with tempfile.TemporaryDirectory(prefix="posthog-adapter-smoke-") as home:
         env = dict(os.environ, TMPDIR=home + "/")
@@ -137,6 +140,61 @@ def run(binary: str, adapter_port: int, mock_port: int) -> None:
                 assert {event["event"]: event["uuid"] for event in events} == captures, (events, captures)
                 assert call("/state")["pending_events"] == 0
                 print("PASS concurrent HTTP captures return their corresponding SDK wire UUIDs")
+
+                for status in [200, 502, 504]:
+                    identity = f"bootstrap-user-{status}-café 雪"
+                    initialize(identity)
+                    call("/flush", {})
+                    time.sleep(0.2)
+                    with lock:
+                        assert records == [], records
+                    # Observe the SDK identity before any flag getter, with no per-capture override.
+                    capture = call("/capture", {"event": "bootstrap-identity"})
+                    call("/flush", {})
+                    with lock:
+                        events = [event for path, _, body in records if path == "/batch" for event in body["batch"]]
+                        assert len(events) == 1, events
+                        assert events[0]["distinct_id"] == identity, events
+                        assert events[0]["uuid"] == capture["uuid"], events
+                        assert all(path != "/flags" for path, _, _ in records), records
+                        statuses["/flags"] = [status, 200] if status != 200 else [200]
+                        flags["bootstrap-flag"] = "variant-a"
+                    request = {"key": "bootstrap-flag", "distinct_id": identity,
+                               "person_properties": {"plan": "paid"}, "force_remote": True}
+                    assert call("/get_feature_flag", request)["value"] == "variant-a"
+                    request["force_remote"] = False
+                    assert call("/get_feature_flag", request)["value"] == "variant-a"
+                    call("/flush", {})
+                    with lock:
+                        requests = list(records)
+                    flag_requests = [r for r in requests if r[0] == "/flags"]
+                    assert [r[1] for r in flag_requests] == ([status, 200] if status != 200 else [200]), flag_requests
+                    assert all(r[2]["distinct_id"] == identity for r in flag_requests), flag_requests
+                    assert all(r[2]["person_properties"]["plan"] == "paid" for r in flag_requests), flag_requests
+                    events = [event for path, _, body in requests if path == "/batch" for event in body["batch"]]
+                    assert [event["event"] for event in events] == ["bootstrap-identity", "$feature_flag_called"], events
+                    called = events[1]
+                    assert called["distinct_id"] == identity, called
+                    assert called["properties"]["$feature_flag_response"] == "variant-a", called
+                    before = call("/state")
+                    request["distinct_id"] = "different-user"
+                    try:
+                        call("/get_feature_flag", request)
+                        raise AssertionError("Mismatched bootstrap identity accepted")
+                    except HTTPError as error:
+                        assert error.code == 400
+                    assert call("/state") == before
+                    with lock:
+                        assert records == requests
+                    print(f"PASS bootstrap identity before capture/getter, flags {status}, cached read, native called-event and identity guard")
+
+                for identity in ["", " "]:
+                    try:
+                        initialize(identity)
+                        raise AssertionError("Blank bootstrap identity accepted")
+                    except HTTPError as error:
+                        assert error.code == 400
+                print("PASS blank bootstrap identity rejected during initialization")
 
                 for status in [502, 504]:
                     initialize()

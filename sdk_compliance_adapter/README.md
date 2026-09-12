@@ -19,6 +19,24 @@ the harness 1.0.0 Docker image (contract 1.2).
 - The existing `TESTING` build flag permits command-line bundle identity fallback.
   Storage is isolated under an adapter-owned temporary home and cleared between tests.
 
+## Initial identity
+
+The adapter advertises `bootstrap_identity`. An optional `distinct_id` in `/init`
+seeds an already-identified user through public `PostHogBootstrapConfig` before
+`setup()`, after clearing the adapter-owned storage. SDK initialization completes
+inside `/init`; it is not deferred until a getter. Blank initial identities return
+HTTP 400. Captures without a per-event identity override use the bootstrapped ID.
+
+This avoids an identity-merge event and its flags reload when a scenario starts
+with a known user. It does not bootstrap flag values: requests, parsing, retries
+and called-events still belong to the SDK. A later getter requesting another
+identity rejects before changing SDK state; initialize a new context to switch users.
+
+Without an initial identity, the adapter preserves the legacy identify-on-first-flag
+path. The pinned CI harness 1.0.0 does not send this field. Bootstrap-based canonical
+coverage requires a harness that forwards declared init identities to adapters
+advertising `bootstrap_identity`; changing only the adapter does not activate it in CI.
+
 ## Public API mapping
 
 `/capture` parses an optional ISO-8601 timestamp into `Date` and passes it to the
@@ -27,31 +45,30 @@ Custom properties are not normalized. A passive `setBeforeSend` hook returns eve
 unchanged and observes the **SDK-generated** UUID for the capture response.
 
 `/get_feature_flag` sets person/group properties with reload disabled, calls public
-`identify` and `group`, awaits `reloadFeatureFlags`' callback, then reads the public
-cached `getFeatureFlag` value. Missing values remain JSON null. The SDK owns flags HTTP,
+`group` (and `identify` only when no identity was established during initialization),
+awaits `reloadFeatureFlags`' callback, then reads the public cached `getFeatureFlag` value. Missing values remain JSON null. The SDK owns flags HTTP,
 response parsing, 502/504 retries, and its default `$feature_flag_called` event.
 There is no flags HTTP client or manual called-event capture in the adapter.
 
-Identity/group operations themselves can reload flags and emit events. These are
-retained, so a flag action is **not guaranteed to send exactly one request**. For
-`force_remote: false`, the explicit reload is omitted; identity/group changes can
-still cause their normal reloads. Identified-user switching requires a fresh `/init`.
+Group operations and legacy identity setup can reload flags and emit events. These
+are retained, so a flag action is **not guaranteed to send exactly one request**. For
+`force_remote: false`, the explicit reload is omitted; group changes or legacy
+identity setup can still cause their normal reloads. Identified-user switching requires a fresh `/init`.
 Groups use the mobile SDK's additive association semantics, not per-call replacement.
 
 ### Known flags contract differences
 
 Several assertions describe a stateless server client rather than this mobile API:
 
-- Exact request counts include identify/group-triggered reloads as well as the explicit
-  reload. This affects three wire tests, the compound person test, remote-call counting,
-  and the two retry tests, even when native wire/retry behavior is exercised correctly.
-- Group assertions inspect the **first** request, which can precede group association;
-  subsequent reloads contain the configured groups.
+- Exact request counts include group-triggered reloads as well as the explicit reload.
+  Without bootstrap identity, they also include the identify-triggered reload.
+- Group assertions inspect the **first** request. Legacy identity setup or multiple
+  group associations can produce an intermediate context before all groups are applied.
 - Empty `group_properties` and `geoip_disable` are omitted by the SDK. There is no
   per-call GeoIP or singleton `flag_keys_to_evaluate` argument to forward.
-- One-shot response fixtures can be consumed by the identity-triggered reload or its
-  analytics event before the explicit reload. Value/called-event assertions can therefore
-  see the default mock response instead of the configured flag value.
+- One-shot response fixtures can be consumed by group setup or legacy identity setup
+  before the explicit reload. Value/called-event assertions can therefore see the
+  default mock response instead of the configured flag value.
 - Default preload and ordinary cached-getter network behavior are not established by
   this configured profile.
 
@@ -95,9 +112,10 @@ To build without Docker, run `make build` and start
 The pinned harness can then connect to it. Local native harness execution against the
 same contract is also possible; record its exact source ref and host architecture.
 
-The smoke tests use endpoint-specific flags fixtures that remain available across
-identity/group reloads. They separately verify native 502/504 retry, returned variants,
-group context and SDK called-events; they are not substituted harness results.
+The smoke tests verify initial identity on a capture before any flag getter, an ordinary
+single flags request, native 502/504 retries, cached reads, SDK called-events and rejection
+of a mismatched getter identity. They also retain the legacy identity/group controls with
+endpoint-specific fixtures available across reloads. They are not substituted harness results.
 
 `make format` and `make lint` in this directory scope checks to the adapter.
 `SCRATCH_PATH=/path/to/build` can isolate Swift build artifacts.

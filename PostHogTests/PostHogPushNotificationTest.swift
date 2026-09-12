@@ -1718,11 +1718,16 @@
         private let stepOne = #"{"workflow_id":"wf-1","invocation_id":"inv-1","action_id":"step-1"}"#
         private let stepTwo = #"{"workflow_id":"wf-1","invocation_id":"inv-1","action_id":"step-2"}"#
 
-        private func captureAutomaticOpen(_ sut: PostHogSDK, _ posthog: Any) {
+        /// `UNNotificationResponse` has no initializer, so the automatic path is driven through the
+        /// internal overload the `response:` one funnels into, with the identifier it would read.
+        private func captureAutomaticOpen(_ sut: PostHogSDK, _ posthog: Any, deliveryId: String = "n-1") {
             sut.capturePushNotificationOpened(
                 title: "Auto",
+                subtitle: nil,
+                body: nil,
                 payload: ["posthog": posthog],
-                action: UNNotificationDefaultActionIdentifier
+                action: UNNotificationDefaultActionIdentifier,
+                deliveryId: deliveryId
             )
         }
 
@@ -1754,6 +1759,43 @@
             captureManualOpen(sut, stepOne)
 
             #expect(opens.titles == ["Manual"])
+        }
+
+        @Test("captures a resend of the same workflow step")
+        func openDedupeCapturesResend() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            captureAutomaticOpen(sut, stepOne, deliveryId: "n-1")
+            captureAutomaticOpen(sut, stepOne, deliveryId: "n-2")
+            captureManualOpen(sut, stepOne)
+
+            #expect(opens.count == 2)
+        }
+
+        @Test("skips a repeat report of the same delivery")
+        func openDedupeSkipsRepeatOfSameDelivery() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            captureAutomaticOpen(sut, stepOne, deliveryId: "n-1")
+            captureAutomaticOpen(sut, stepOne, deliveryId: "n-1")
+
+            #expect(opens.count == 1)
+        }
+
+        @Test("skips a resend when the first capture carried no delivery id")
+        func openDedupeSkipsResendAfterManualFirstCapture() {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+
+            captureManualOpen(sut, stepOne)
+            captureAutomaticOpen(sut, stepOne, deliveryId: "n-2")
+
+            #expect(opens.count == 1)
         }
 
         @Test("keys PostHog pushes by invocation and action")

@@ -3193,6 +3193,10 @@ let maxRetryDelay = 30.0
         /// method, from the field-based overload, or from the SDK's automatic capture. Notifications
         /// without a `posthog.invocation_id` are always captured.
         ///
+        /// A rerun of that workflow, or a loop back to its push step, sends the pair again as a new
+        /// notification, and its open counts separately: two responses whose
+        /// `notification.request.identifier` differ are two taps, not one reported twice.
+        ///
         /// - Parameter response: The `UNNotificationResponse` received from the system.
         @available(iOS 14.0, macOS 11.0, *)
         @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
@@ -3207,7 +3211,8 @@ let maxRetryDelay = 30.0
                 subtitle: isPostHogNotification ? content.subtitle : nil,
                 body: isPostHogNotification ? content.body : nil,
                 payload: content.userInfo,
-                action: response.actionIdentifier
+                action: response.actionIdentifier,
+                deliveryId: response.notification.request.identifier
             )
         }
 
@@ -3221,7 +3226,9 @@ let maxRetryDelay = 30.0
         /// `invocation_id`, a repeat with the same `invocation_id` and `action_id` within 5 minutes
         /// of the first capture is skipped, whether that first capture came from this method or from
         /// the SDK's automatic capture. Payloads without a `posthog.invocation_id` are always
-        /// captured.
+        /// captured. This overload carries no notification identifier, so a rerun of that workflow
+        /// reported through it inside the window reads as the same tap and is skipped; report a rerun
+        /// through `capturePushNotificationOpened(response:)`, which can tell the deliveries apart.
         ///
         /// - Parameters:
         ///   - title: The notification title; omitted from the event when `nil` or empty.
@@ -3239,6 +3246,30 @@ let maxRetryDelay = 30.0
             payload: [AnyHashable: Any]? = nil,
             action: String? = nil
         ) {
+            capturePushNotificationOpened(
+                title: title,
+                subtitle: subtitle,
+                body: body,
+                payload: payload,
+                action: action,
+                deliveryId: nil
+            )
+        }
+
+        /// - Parameter deliveryId: The system's id for the delivered notification
+        ///   (`UNNotificationResponse.notification.request.identifier`), which separates a second
+        ///   notification from a second report of one tap. Only the `response:` overload has one; a caller
+        ///   passing raw fields does not, which is why this stays off the public API. Not `private`
+        ///   because `UNNotificationResponse` has no initializer, so tests reach the delivery-id paths
+        ///   only through here.
+        func capturePushNotificationOpened(
+            title: String?,
+            subtitle: String?,
+            body: String?,
+            payload: [AnyHashable: Any]?,
+            action: String?,
+            deliveryId: String?
+        ) {
             if !isEnabled() {
                 return
             }
@@ -3248,7 +3279,7 @@ let maxRetryDelay = 30.0
             }
 
             let posthogData = posthogPayload(from: payload?["posthog"])
-            if !recordPushOpen(posthogData) {
+            if !recordPushOpen(posthogData, deliveryId: deliveryId) {
                 return
             }
 
@@ -3305,15 +3336,22 @@ let maxRetryDelay = 30.0
         private static let maxRecentPushOpens = 20
 
         /// Captured PostHog push opens in insertion order — each capture is appended to the back, and the
-        /// cap evicts from the front — as `invocation_id/action_id` and the wall clock at capture.
-        /// Notification callbacks and manual calls arrive on different threads, so the buffer is only
-        /// touched under its lock. In memory only: both reports of one tap happen in the same launch.
-        private var recentPushOpens: [(key: String, capturedAt: Date)] = []
+        /// cap evicts from the front — as `invocation_id/action_id`, the wall clock at capture, and the id
+        /// of the delivery that was captured. Notification callbacks and manual calls arrive on different
+        /// threads, so the buffer is only touched under its lock. In memory only: both reports of one tap
+        /// happen in the same launch.
+        private var recentPushOpens: [RecentPushOpen] = []
         private let recentPushOpensLock = NSLock()
+
+        private struct RecentPushOpen {
+            let key: String
+            let capturedAt: Date
+            let deliveryId: String?
+        }
 
         /// Records a PostHog push open, returning `false` when the same notification was already captured
         /// inside the dedupe window and this report should be skipped.
-        private func recordPushOpen(_ posthogData: [String: Any]?) -> Bool {
+        private func recordPushOpen(_ posthogData: [String: Any]?, deliveryId: String?) -> Bool {
             guard let invocationId = posthogData?["invocation_id"] as? String, !invocationId.isEmpty else {
                 return true
             }
@@ -3325,18 +3363,30 @@ let maxRetryDelay = 30.0
                 if let index = recentPushOpens.firstIndex(where: { $0.key == key }) {
                     let elapsed = capturedAt.timeIntervalSince(recentPushOpens[index].capturedAt)
                     // A negative gap means the wall clock moved back; capture rather than risk dropping an open.
-                    if elapsed >= 0, elapsed < Self.pushOpenDedupeWindow {
+                    if elapsed >= 0, elapsed < Self.pushOpenDedupeWindow,
+                       !Self.isNewDelivery(recentPushOpens[index].deliveryId, deliveryId)
+                    {
                         hedgeLog("Skipped $push_notification_opened: notification \(key) was already captured.")
                         return false
                     }
                     recentPushOpens.remove(at: index)
                 }
-                recentPushOpens.append((key, capturedAt))
+                recentPushOpens.append(RecentPushOpen(key: key, capturedAt: capturedAt, deliveryId: deliveryId))
                 if recentPushOpens.count > Self.maxRecentPushOpens {
                     recentPushOpens.removeFirst()
                 }
                 return true
             }
+        }
+
+        /// Whether this report is a second notification rather than a second report of one tap. A rerun of
+        /// a workflow, or a loop back to its push step, re-sends the same `invocation_id`/`action_id` pair,
+        /// and only the delivery id tells that apart from the manual repeat the dedupe exists for — so the
+        /// two ids have to disagree, not merely be absent. A report without one (the field-based overload
+        /// never has one), or a first capture that had none, stays deduped.
+        private static func isNewDelivery(_ previous: String?, _ reported: String?) -> Bool {
+            guard let previous, let reported else { return false }
+            return previous != reported
         }
     #endif
 }

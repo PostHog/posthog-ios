@@ -3326,20 +3326,18 @@ let maxRetryDelay = 30.0
         }
 
         /// A duplicate report of one tap arrives within the same launch: milliseconds after a warm tap,
-        /// seconds after a cold start while the host's JS/Dart handlers register. The window stays finite
-        /// because a workflow that loops back to a push step re-sends the same `invocation_id`/`action_id`
-        /// pair as a new notification, and that later open must still count.
+        /// seconds after a cold start while the host's JS/Dart handlers register. Finite so that a re-send
+        /// carrying no delivery id to tell it apart still counts once the window has passed.
         private static let pushOpenDedupeWindow: TimeInterval = 5 * 60
 
         /// Only the opens of the last few minutes matter; the cap bounds memory for a host that calls the
         /// API in bulk.
         private static let maxRecentPushOpens = 20
 
-        /// Captured PostHog push opens in insertion order — each capture is appended to the back, and the
-        /// cap evicts from the front — as `invocation_id/action_id`, the wall clock at capture, and the id
-        /// of the delivery that was captured. Notification callbacks and manual calls arrive on different
-        /// threads, so the buffer is only touched under its lock. In memory only: both reports of one tap
-        /// happen in the same launch.
+        /// Recently captured PostHog push opens, keyed by `invocation_id/action_id`, oldest first —
+        /// appended at the back, evicted from the front. Notification callbacks and manual calls arrive on
+        /// different threads, so the buffer is only touched under its lock. In memory only: both reports
+        /// of one tap happen in the same launch.
         private var recentPushOpens: [RecentPushOpen] = []
         private let recentPushOpensLock = NSLock()
 
@@ -3361,11 +3359,15 @@ let maxRetryDelay = 30.0
 
             return recentPushOpensLock.withLock {
                 if let index = recentPushOpens.firstIndex(where: { $0.key == key }) {
-                    let elapsed = capturedAt.timeIntervalSince(recentPushOpens[index].capturedAt)
+                    let previous = recentPushOpens[index]
                     // A negative gap means the wall clock moved back; capture rather than risk dropping an open.
-                    if elapsed >= 0, elapsed < Self.pushOpenDedupeWindow,
-                       !Self.isNewDelivery(recentPushOpens[index].deliveryId, deliveryId)
-                    {
+                    let elapsed = capturedAt.timeIntervalSince(previous.capturedAt)
+                    let insideWindow = elapsed >= 0 && elapsed < Self.pushOpenDedupeWindow
+                    // A re-send of the same workflow step reuses the key, so only delivery ids that are
+                    // present on both reports and disagree prove a second notification rather than a second
+                    // report of one tap.
+                    let resent = previous.deliveryId != nil && deliveryId != nil && previous.deliveryId != deliveryId
+                    if insideWindow, !resent {
                         hedgeLog("Skipped $push_notification_opened: notification \(key) was already captured.")
                         return false
                     }
@@ -3377,16 +3379,6 @@ let maxRetryDelay = 30.0
                 }
                 return true
             }
-        }
-
-        /// Whether this report is a second notification rather than a second report of one tap. A rerun of
-        /// a workflow, or a loop back to its push step, re-sends the same `invocation_id`/`action_id` pair,
-        /// and only the delivery id tells that apart from the manual repeat the dedupe exists for — so the
-        /// two ids have to disagree, not merely be absent. A report without one (the field-based overload
-        /// never has one), or a first capture that had none, stays deduped.
-        private static func isNewDelivery(_ previous: String?, _ reported: String?) -> Bool {
-            guard let previous, let reported else { return false }
-            return previous != reported
         }
     #endif
 }

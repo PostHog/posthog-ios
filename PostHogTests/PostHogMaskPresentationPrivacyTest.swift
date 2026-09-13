@@ -271,6 +271,56 @@
             try await wait { controller.presentedViewController == nil }
         }
 
+        @available(iOS 16.4, *)
+        private struct TransparentSwiftUIScreen: View {
+            @ObservedObject var model: SwiftUIModel
+
+            var body: some View {
+                VStack(spacing: 30) {
+                    Text("MANUAL PRESENTER SECRET").postHogMask()
+                        .background(Probe(model: model, key: "presenterManual"))
+                    Text("AUTOMATIC PRESENTER SECRET")
+                        .background(Probe(model: model, key: "presenterAutomatic"))
+                }
+                .fullScreenCover(isPresented: $model.presented) {
+                    Text("COVER SECRET").postHogMask()
+                        .background(Probe(model: model, key: "cover"))
+                        .presentationBackground(.clear)
+                }
+            }
+        }
+
+        @available(iOS 16.4, *)
+        @Test("transparent SwiftUI fullScreenCover retains presenter and cover masks")
+        func transparentSwiftUIFullScreenCover() async throws {
+            let model = SwiftUIModel()
+            let controller = UIHostingController(rootView: TransparentSwiftUIScreen(model: model))
+            let h = try Harness(root: controller)
+            defer { h.close() }
+            try await settle(h.window)
+            let manual = try #require(model.probes["presenterManual"])
+            let automatic = try #require(model.probes["presenterAutomatic"])
+            try h.expectMasked(manual)
+            try h.expectMasked(automatic)
+
+            model.presented = true
+            try await wait {
+                guard let cover = controller.presentedViewController else { return false }
+                return cover.viewIfLoaded?.window === h.window && !cover.isBeingPresented && model.probes["cover"] != nil
+            }
+            try await settle(h.window)
+            try #require(controller.view.window === h.window)
+            try h.expectMasked(manual, context: "manual presenter behind clear fullScreenCover")
+            try h.expectMasked(automatic, context: "automatic presenter behind clear fullScreenCover")
+            try h.expectMasked(try #require(model.probes["cover"]), context: "cover content")
+
+            model.presented = false
+            try await wait { controller.presentedViewController == nil }
+            try await settle(h.window)
+            try h.expectMasked(manual)
+            try h.expectMasked(automatic)
+        }
+
         @Test("animated slide presentation and dismissal preserve masks on exposed content")
         func slideTransitions() async throws {
             let base = Secrets()

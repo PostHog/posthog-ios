@@ -161,6 +161,28 @@
             #expect(!maskRects(screen).isEmpty)
         }
 
+        @Test("a sibling that paints nothing over the cover does not keep the masks behind it",
+              arguments: [true, false])
+        func invisibleSiblingAboveCoverDropsMasks(hidden: Bool) async {
+            let screen = host(Text(Self.secret).postHogMask())
+            _ = await presentCover(over: screen, background: .white)
+
+            // An overlay host parked in the window and raised over later presentations, the way
+            // a toast or HUD container is kept between uses. It paints nothing, so the cover
+            // still holds the whole window.
+            let overlay = UIView(frame: screen.window.bounds)
+            overlay.backgroundColor = .red
+            overlay.layer.zPosition = (screen.window.subviews.map(\.layer.zPosition).max() ?? 0) + 1
+            if hidden { overlay.isHidden = true } else { overlay.alpha = 0 }
+            screen.window.addSubview(overlay)
+            settle(screen.window)
+            #expect(maskRects(screen).isEmpty)
+
+            // Once it shows, its own pixels are on screen and nothing behind it may be dropped.
+            if hidden { overlay.isHidden = false } else { overlay.alpha = 1 }
+            #expect(!maskRects(screen).isEmpty)
+        }
+
         @Test("a hidden ancestor drops a reporter's mask")
         func hiddenAncestorDropsMask() {
             let screen = host(Text(Self.secret).postHogMask())

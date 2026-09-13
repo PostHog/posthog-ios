@@ -85,21 +85,30 @@
                     isAfterView = true
                     continue
                 }
-                let layer = sibling.layer
-                if layer.isHidden || layer.opacity <= 0 {
-                    // A fading sibling can still draw even after its model opacity reaches zero.
-                    let rendered = layer.presentation() ?? layer
-                    if rendered.isHidden || rendered.opacity <= 0 {
-                        continue
-                    }
+                // A sibling that paints nothing leaves the cover's own pixels on screen, so it
+                // cannot obstruct it. An overlay host parked in the window between uses is
+                // exactly that, and it often carries the raised `zPosition` handled below.
+                if drawsNothing(sibling) {
+                    continue
                 }
-                let position = layer.zPosition
+                let position = sibling.layer.zPosition
                 if position > view.layer.zPosition || (position == view.layer.zPosition && isAfterView) {
                     return false
                 }
             }
             // False also when `view` is no subview of `parent`, which no caller should reach.
             return isAfterView
+        }
+
+        /// Whether `view` and its subtree paint nothing at all. Both trees again, and this one
+        /// decides to *drop* masks, so only a view the model and the rendered layer agree on
+        /// counts: a flag parked at its destination while the render server still shows the
+        /// view keeps everything behind the presentation masked.
+        private static func drawsNothing(_ view: UIView) -> Bool {
+            if view.isHidden, view.layer.presentation()?.isHidden ?? true {
+                return true
+            }
+            return !view.hasRenderedOpacity
         }
 
         private static func isOpaqueCover(_ view: UIView) -> Bool {

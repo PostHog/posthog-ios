@@ -12,7 +12,6 @@
     import Quick
     import Testing
     import UIKit
-    import XCTest
 
     // see: https://developers.google.com/speed/webp/gallery
     class PostHogWebPTest: QuickSpec {
@@ -92,57 +91,4 @@
             #expect(modified != encoded)
         }
     }
-
-    #if WEBP_BENCHMARK
-        final class PostHogWebPBenchmark: XCTestCase {
-            @MainActor
-            func testUI() throws {
-                let format = UIGraphicsImageRendererFormat()
-                format.scale = 1
-                format.opaque = true
-                let image = UIGraphicsImageRenderer(size: CGSize(width: 390, height: 844), format: format).image { context in
-                    UIColor.white.setFill()
-                    context.fill(CGRect(x: 0, y: 0, width: 390, height: 844))
-                    for row in 0 ..< 10 {
-                        UIColor(red: 0.1, green: CGFloat(row) / 12, blue: 0.7, alpha: 1).setFill()
-                        context.fill(CGRect(x: 16, y: 20 + row * 80, width: 358, height: 50))
-                    }
-                }
-                try benchmark(image, quality: 0.3)
-            }
-
-            func testPhotoQuality30() throws {
-                try benchmark(fixture("2"), quality: 0.3)
-            }
-
-            func testPhotoQuality80() throws {
-                try benchmark(fixture("1"), quality: 0.8)
-            }
-
-            func testAlpha() throws {
-                try benchmark(fixture("3"), quality: 0.8)
-            }
-
-            private func fixture(_ name: String) throws -> UIImage {
-                let url = try XCTUnwrap(Bundle(for: PostHogWebPTest.self).url(forResource: "input_\(name)", withExtension: "png"))
-                return try XCTUnwrap(UIImage(data: Data(contentsOf: url)))
-            }
-
-            private func benchmark(_ image: UIImage, quality: CGFloat) throws {
-                let expected = try XCTUnwrap(image.toBase64(quality))
-                let compressed = try XCTUnwrap(image.webpData(compressionQuality: quality))
-                print("WEBP_BENCHMARK \(name) pixels=\(image.cgImage!.width)x\(image.cgImage!.height) compressedBytes=\(compressed.count)")
-                for _ in 0 ..< 5 {
-                    XCTAssertEqual(image.toBase64(quality), expected)
-                }
-                let options = XCTMeasureOptions()
-                options.iterationCount = 20
-                measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: options) {
-                    autoreleasepool {
-                        XCTAssertEqual(image.toBase64(quality), expected)
-                    }
-                }
-            }
-        }
-    #endif
 #endif

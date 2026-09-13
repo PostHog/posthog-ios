@@ -105,17 +105,6 @@ testOniOSSimulator:
 	status=$$?; \
 	scripts/check-ios-test-result.sh "$$status" xcodebuild-ios.log
 
-.PHONY: benchmarkWebP
-WEBP_BENCHMARK_DESTINATION ?= platform=iOS Simulator,name=iPhone 17 Pro
-WEBP_BENCHMARK_EXTRA_ARGS ?=
-benchmarkWebP:
-	set -o pipefail && xcrun xcodebuild test -scheme PostHog -configuration Release \
-	  -destination '$(WEBP_BENCHMARK_DESTINATION)' -parallel-testing-enabled NO \
-	  ENABLE_TESTABILITY=YES ONLY_ACTIVE_ARCH=YES SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TESTING WEBP_BENCHMARK' \
-	  -only-testing:PostHogTests/PostHogWebPTest \
-	  -only-testing:PostHogTests/PostHogWebPBufferTests \
-	  -only-testing:PostHogTests/PostHogWebPBenchmark $(WEBP_BENCHMARK_EXTRA_ARGS)
-
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 

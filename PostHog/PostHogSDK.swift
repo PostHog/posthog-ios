@@ -1788,8 +1788,10 @@ let maxRetryDelay = 30.0
     private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
         let userProperties = event.properties["$set"] as? [String: Any]
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
+        // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
+        // is dropped), and that empty `$set` is still queued, so it needs a marker too.
         if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
-           !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true),
+           userProperties != nil || userPropertiesSetOnce != nil,
            let storageManager = config.storageManager
         {
             let hash = getPersonPropertiesHash(

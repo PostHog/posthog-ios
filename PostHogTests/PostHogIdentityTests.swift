@@ -747,6 +747,39 @@ class PostHogIdentityTests {
         #expect(set["tier"] as? String == "enterprise")
     }
 
+    @Test("setPersonProperties deduplicates properties that sanitize to nothing")
+    func setPersonPropertiesDeduplicatesSanitizedEmptyProperties() async throws {
+        let sut = getSut(flushAt: 2)
+
+        // A UUID isn't serializable, so both calls sanitize down to an empty $set
+        sut.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+        sut.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+
+        sut.capture("test_event")
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "test_event"])
+    }
+
+    @Test("setPersonProperties deduplication of sanitized-empty properties survives a relaunch")
+    func sanitizedEmptyPropertiesDeduplicationSurvivesRelaunch() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == ["$set"])
+
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+        secondLaunch.capture("second_launch")
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
+
     @Test("identify does not re-send properties already carried by $identify after a relaunch")
     func identifyDoesNotResendPropertiesCarriedByIdentifyAfterRelaunch() async throws {
         let firstLaunch = getSut()

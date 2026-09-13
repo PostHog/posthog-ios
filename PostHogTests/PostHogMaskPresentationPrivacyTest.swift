@@ -464,6 +464,42 @@
             try h.expectMasked(base)
         }
 
+        @Test("a no-capture ancestor above a cover keeps the cover's own content masked")
+        func noCaptureAncestorAboveCover() async throws {
+            let base = Secrets()
+            let h = try Harness(root: base.controller)
+            defer { h.close() }
+            // The app marks the whole window sensitive, and a presentation stays inside that
+            // subtree. The plain view carries nothing the heuristics can read, so the rule
+            // inherited from the window is the only thing that can mask it.
+            h.window.accessibilityIdentifier = "ph-no-capture"
+            let cover = UIViewController()
+            cover.view.backgroundColor = .white
+            let plain = UIView(frame: CGRect(x: 20, y: 100, width: 170, height: 32))
+            plain.backgroundColor = .green
+            cover.view.addSubview(plain)
+            try await present(cover, over: base.controller, in: h)
+            try h.expectMasked(plain, context: "no-capture window above the cover")
+        }
+
+        @Test("a no-mask ancestor above a cover keeps the heuristic masks off it")
+        func noMaskAncestorAboveCover() async throws {
+            let base = Secrets()
+            let h = try Harness(root: base.controller)
+            defer { h.close() }
+            // The opposite direction of the same inheritance: the app opts the window out of
+            // heuristic masking, so the cover inside it is opted out too.
+            h.window.accessibilityIdentifier = "ph-no-mask"
+            let cover = Secrets()
+            try await present(cover.controller, over: base.controller, in: h)
+            let label = cover.label.toPresentationRect(h.window)
+            try #require(!label.isEmpty)
+            let regions = try h.rects()
+            #expect(regions.allSatisfy { !$0.intersects(label) }, "no-mask must reach the cover: masks=\(regions)")
+            // Explicit reporters are a separate source, which `ph-no-mask` never touched.
+            try h.expectMasked(cover.manual.view, context: "explicit mask under a no-mask ancestor")
+        }
+
         @Test("rotated cover bounding box is not proof the presenter is hidden")
         func rotatedCover() async throws {
             let base = Secrets(background: .yellow)

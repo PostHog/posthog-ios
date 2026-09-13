@@ -860,6 +860,50 @@
             return (hasText, hasGraphic)
         }
 
+        /// Runs the heuristic walk over what the screen still draws: the whole window, or only
+        /// `cover` when one holds it. The views between the window and the cover keep the masking
+        /// rules for their subtree, and the cover sits inside that subtree, so the walk starting
+        /// below them replays those rules first.
+        private func findMaskableWidgets(under cover: UIView?, in window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+            guard let cover else {
+                findMaskableWidgets(window, window, &maskableWidgets, false)
+                return
+            }
+
+            var ancestors: [UIView] = []
+            var view = cover.superview
+            while let current = view {
+                ancestors.append(current)
+                if current === window {
+                    break
+                }
+                view = current.superview
+            }
+
+            // Top down, the order the walk would have met them in. Only the two rules that reach
+            // a whole subtree are replayed: the sensitive-type checks describe an ancestor's own
+            // pixels, and the cover hides those.
+            var maskChildren = false
+            for ancestor in ancestors.reversed() {
+                // `ph-no-mask` drops every heuristic mask below it, the cover included.
+                if ancestor.isNoMask() {
+                    return
+                }
+                guard ancestor.isNoCapture() || maskChildren else {
+                    continue
+                }
+                if ancestor.toAbsoluteRect(window).equalTo(window.frame) {
+                    maskChildren = true
+                } else {
+                    // An ancestor that is not the window's size is redacted as one rect, and the
+                    // cover it holds is redacted with it.
+                    maskableWidgets.append(.init(ancestor, in: window))
+                }
+            }
+
+            findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
+        }
+
         private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
@@ -1127,7 +1171,7 @@
             }
 
             var maskableWidgets: [MaskedRegion] = []
-            findMaskableWidgets(cover ?? window, window, &maskableWidgets, false)
+            findMaskableWidgets(under: cover, in: window, &maskableWidgets)
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }

@@ -703,6 +703,103 @@ class PostHogIdentityTests {
         #expect(events.map(\.event) == ["$set", "after_concurrent_calls"])
     }
 
+    @Test("changed beforeSend output is captured after relaunch", arguments: [false, true])
+    func changedBeforeSendOutputIsCapturedAfterRelaunch(useIdentify: Bool) async throws {
+        func update(_ sdk: PostHogSDK) {
+            if useIdentify {
+                sdk.identify("user123", userProperties: ["tier": "internal_pro"])
+            } else {
+                sdk.setPersonProperties(userPropertiesToSet: ["tier": "internal_pro"])
+            }
+        }
+
+        let firstLaunch = getSut(flushAt: 100)
+        update(firstLaunch)
+        firstLaunch.flush()
+        _ = try await getServerEvents(server)
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.config.setBeforeSend { event in
+            if event.event == "$set" {
+                event.properties["$set"] = ["tier": "pro"]
+            }
+            return event
+        }
+        update(secondLaunch)
+        update(secondLaunch)
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+        #expect((events.first?.properties["$set"] as? [String: String])?["tier"] == "pro")
+    }
+
+    @Test("sanitized-empty properties are deduplicated within and across launches", arguments: [false, true], [false, true])
+    func sanitizedEmptyPropertiesAreDeduplicated(useIdentify: Bool, setOnce: Bool) async throws {
+        let invalidProperties: [String: Any] = ["id": UUID()]
+        func update(_ sdk: PostHogSDK) {
+            if useIdentify {
+                sdk.identify("user123",
+                             userProperties: setOnce ? nil : invalidProperties,
+                             userPropertiesSetOnce: setOnce ? invalidProperties : nil)
+            } else {
+                sdk.setPersonProperties(userPropertiesToSet: setOnce ? nil : invalidProperties,
+                                        userPropertiesToSetOnce: setOnce ? invalidProperties : nil)
+            }
+        }
+
+        let firstLaunch = getSut(flushAt: 100)
+        update(firstLaunch)
+        update(firstLaunch)
+        firstLaunch.capture("first_launch")
+        firstLaunch.flush()
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == [useIdentify ? "$identify" : "$set", "first_launch"])
+        #expect((firstEvents.first?.properties[setOnce ? "$set_once" : "$set"] as? [String: Any])?.isEmpty == true)
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        update(secondLaunch)
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
+
+    @Test("enqueue failures still notify local integrations", arguments: [false, true])
+    func enqueueFailuresStillNotifyLocalIntegrations(personUpdate: Bool) throws {
+        let sut = getSut(flushAt: 100)
+        let queueURL = PostHogStorage(sut.config).url(forKey: .queue)
+        try FileManager.default.removeItem(at: queueURL)
+        try Data().write(to: queueURL)
+        var capturedEvents: [String] = []
+        let token = sut.onEventCaptured.subscribe { capturedEvents.append($0.event) }
+        defer { withExtendedLifetime(token) {} }
+
+        func capture() {
+            if personUpdate {
+                sut.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+            } else {
+                sut.capture("survey_trigger")
+            }
+        }
+
+        capture()
+        capture()
+        #expect(capturedEvents == Array(repeating: personUpdate ? "$set" : "survey_trigger", count: 2))
+        #expect(sut.config.storageManager?.getPersonPropertiesHash() == nil)
+
+        try FileManager.default.removeItem(at: queueURL)
+        try FileManager.default.createDirectory(at: queueURL, withIntermediateDirectories: true)
+        capture()
+        capture()
+        #expect(capturedEvents.count == (personUpdate ? 3 : 4))
+    }
+
     // MARK: - Persisted Deduplication Tests
 
     @Test("setPersonProperties deduplication survives a relaunch")

@@ -905,15 +905,6 @@ let maxRetryDelay = 30.0
 
             notifyContextDidChange()
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-            if !shouldCapturePersonPropertiesEvent(
-                distinctId: distinctId,
-                userPropertiesToSet: userProperties,
-                userPropertiesToSetOnce: userPropertiesSetOnce
-            ) {
-                hedgeLog("A duplicate identify call was made with the same properties. The $set event has been ignored.")
-                return
-            }
-
             captureInternal(PostHogKnownUnsafeEditableEvent.set.rawValue,
                             distinctId: distinctId,
                             userProperties: userProperties,
@@ -977,15 +968,6 @@ let maxRetryDelay = 30.0
 
         let currentDistinctId = getDistinctId()
 
-        if !shouldCapturePersonPropertiesEvent(
-            distinctId: currentDistinctId,
-            userPropertiesToSet: userPropertiesToSet,
-            userPropertiesToSetOnce: userPropertiesToSetOnce
-        ) {
-            hedgeLog("A duplicate setPersonProperties call was made with the same properties. It has been ignored.")
-            return
-        }
-
         // Update person properties for flags (setOnce properties are applied first, then set properties override)
         var allProperties: [String: Any] = [:]
         if let userPropertiesToSetOnce {
@@ -1006,32 +988,6 @@ let maxRetryDelay = 30.0
             userPropertiesSetOnce: userPropertiesToSetOnce,
             deduplicatePersonProperties: true
         )
-    }
-
-    /// Checks if person properties have changed by comparing hash values.
-    /// Returns true if the event should be captured; the hash is stored after enqueueing.
-    /// Returns false if the hash matches (duplicate call).
-    ///
-    /// The hash is persisted, so a repeated call with the same properties is also suppressed
-    /// after an app relaunch.
-    private func shouldCapturePersonPropertiesEvent(
-        distinctId: String,
-        userPropertiesToSet: [String: Any]?,
-        userPropertiesToSetOnce: [String: Any]?
-    ) -> Bool {
-        let hash = getPersonPropertiesHash(
-            distinctId: distinctId,
-            userPropertiesToSet: userPropertiesToSet,
-            userPropertiesToSetOnce: userPropertiesToSetOnce
-        )
-
-        guard let storageManager = config.storageManager else {
-            return true
-        }
-
-        return cachedPersonPropertiesLock.withLock {
-            storageManager.getPersonPropertiesHash() != hash
-        }
     }
 
     /// Computes a hash for deduplicating person properties calls.
@@ -1799,7 +1755,7 @@ let maxRetryDelay = 30.0
                 userPropertiesToSet: userProperties,
                 userPropertiesToSetOnce: userPropertiesSetOnce
             )
-            // Recheck under the lock so concurrent calls cannot enqueue the same properties twice.
+            // Check and enqueue under the same lock so concurrent calls cannot enqueue duplicates.
             let isDuplicate = cachedPersonPropertiesLock.withLock {
                 if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
                     return true

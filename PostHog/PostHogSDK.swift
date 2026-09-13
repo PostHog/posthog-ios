@@ -1800,17 +1800,21 @@ let maxRetryDelay = 30.0
                 userPropertiesToSetOnce: userPropertiesSetOnce
             )
             // Recheck under the lock so concurrent calls cannot enqueue the same properties twice.
-            let queued = cachedPersonPropertiesLock.withLock {
+            let isDuplicate = cachedPersonPropertiesLock.withLock {
                 if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
-                    return false
+                    return true
                 }
-                guard queue.add(event) else { return false }
-                storageManager.setPersonPropertiesHash(hash)
-                return true
+                // Only a stored event marks the properties as sent, so a failed write is retried.
+                if queue.add(event) {
+                    storageManager.setPersonPropertiesHash(hash)
+                }
+                return false
             }
-            guard queued else { return }
+            // Only a suppressed duplicate skips the callback below: subscribers such as replay
+            // triggers and event-activated surveys don't depend on this queue reaching disk.
+            guard !isDuplicate else { return }
         } else {
-            guard queue.add(event) else { return }
+            queue.add(event)
         }
         onEventCaptured.invoke(event)
     }

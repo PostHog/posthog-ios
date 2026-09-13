@@ -639,6 +639,26 @@ class PostHogIdentityTests {
         #expect(events.map(\.event) == ["$set", "second_launch"])
     }
 
+    @Test("a failed queue write still notifies capture subscribers")
+    func failedQueueWriteStillNotifiesSubscribers() throws {
+        let sut = getSut(flushAt: 100)
+        let queueURL = PostHogStorage(sut.config).url(forKey: .queue)
+        try FileManager.default.removeItem(at: queueURL)
+        try Data().write(to: queueURL)
+
+        var received: [String] = []
+        let token = sut.onEventCaptured.subscribe { received.append($0.event) }
+
+        sut.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        sut.capture("after_failed_write")
+
+        #expect(received.contains("$set"))
+        #expect(received.contains("after_failed_write"))
+
+        withExtendedLifetime(token) {}
+        deleteSafely(queueURL)
+    }
+
     @Test("a dropped anonymous-to-identified set can be retried after relaunch")
     func droppedTransitionCanBeRetriedAfterRelaunch() async throws {
         let firstLaunch = getSut(flushAt: 100)

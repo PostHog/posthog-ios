@@ -500,6 +500,62 @@
             try h.expectMasked(cover.manual.view, context: "explicit mask under a no-mask ancestor")
         }
 
+        @Test("invisible siblings do not bring back stale masks", arguments: ["hidden", "transparent"], [false, true])
+        func invisibleSibling(visibility: String, raised: Bool) async throws {
+            let base = Secrets()
+            let h = try Harness(root: base.controller)
+            defer { h.close() }
+            let overlay = Secrets(background: .clear)
+            let banner = try #require(overlay.controller.view)
+            banner.frame = CGRect(x: 190, y: 300, width: 210, height: 300)
+            if raised {
+                banner.layer.zPosition = 100
+                h.window.addSubview(banner)
+            }
+            let cover = UIViewController()
+            cover.view.backgroundColor = .white
+            try await present(cover, over: base.controller, in: h)
+            if !raised { h.window.addSubview(banner) }
+            try await settle(h.window)
+            try h.expectMasked(overlay, context: "visible banner")
+
+            if visibility == "hidden" {
+                banner.isHidden = true
+            } else {
+                banner.alpha = 0
+            }
+            try await settle(h.window)
+            #expect(try h.rects().isEmpty, "Invisible banner must not veto the opaque cover")
+
+            banner.isHidden = false
+            banner.alpha = 1
+            try await settle(h.window)
+            try h.expectMasked(overlay, context: "visible banner restored")
+        }
+
+        @Test("a fading sibling stays masked until its rendered opacity reaches zero")
+        func fadingSibling() async throws {
+            let base = Secrets()
+            let h = try Harness(root: base.controller)
+            defer { h.close() }
+            let cover = UIViewController()
+            cover.view.backgroundColor = .white
+            try await present(cover, over: base.controller, in: h)
+            let overlay = Secrets(background: .clear)
+            let banner = try #require(overlay.controller.view)
+            banner.frame = CGRect(x: 190, y: 300, width: 210, height: 300)
+            h.window.addSubview(banner)
+            try await settle(h.window)
+            try h.expectMasked(overlay)
+            UIView.animate(withDuration: 2, delay: 0, options: .curveLinear) { banner.alpha = 0 }
+            try await Task.sleep(nanoseconds: 300_000_000)
+            let renderedOpacity = try #require(banner.layer.presentation()?.opacity)
+            try #require(renderedOpacity > 0 && renderedOpacity < 1)
+            try h.expectMasked(overlay, context: "banner still fading")
+            try await wait { (banner.layer.presentation()?.opacity ?? banner.layer.opacity) == 0 }
+            #expect(try h.rects().isEmpty, "Fully faded banner must not veto the opaque cover")
+        }
+
         @Test("rotated cover bounding box is not proof the presenter is hidden")
         func rotatedCover() async throws {
             let base = Secrets(background: .yellow)

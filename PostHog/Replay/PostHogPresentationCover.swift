@@ -85,7 +85,15 @@
                     isAfterView = true
                     continue
                 }
-                let position = sibling.layer.zPosition
+                let layer = sibling.layer
+                if layer.isHidden || layer.opacity <= 0 {
+                    // A fading sibling can still draw even after its model opacity reaches zero.
+                    let rendered = layer.presentation() ?? layer
+                    if rendered.isHidden || rendered.opacity <= 0 {
+                        continue
+                    }
+                }
+                let position = layer.zPosition
                 if position > view.layer.zPosition || (position == view.layer.zPosition && isAfterView) {
                     return false
                 }

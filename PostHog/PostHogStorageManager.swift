@@ -215,11 +215,11 @@ public class PostHogStorageManager {
         }
     }
 
-    /// Returns the hash of the last person properties call that produced a `$set` event.
+    /// Returns the hash of the last queued person properties update.
     ///
     /// Persisted, so the duplicate guard also suppresses a repeated call after a cold start.
     ///
-    /// - Returns: The stored hash, or `nil` when no person properties call was made yet.
+    /// - Returns: The stored hash, or `nil` when no person properties update was queued yet.
     func getPersonPropertiesHash() -> String? {
         personPropertiesHashLock.withLock { () -> String? in
             if personPropertiesHash == nil {
@@ -229,7 +229,7 @@ public class PostHogStorageManager {
         }
     }
 
-    /// Persists the hash of the last person properties call that produced a `$set` event.
+    /// Persists the hash of the last queued person properties update.
     ///
     /// - Parameter hash: New hash to store.
     func setPersonPropertiesHash(_ hash: String) {

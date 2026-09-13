@@ -70,13 +70,16 @@ class PostHogFileBackedQueue {
         deleteFiles(count)
     }
 
-    func add(_ contents: Data) {
+    @discardableResult
+    func add(_ contents: Data) -> Bool {
         do {
             let filename = UUID.v7String()
             try contents.write(to: queue.appendingPathComponent(filename))
             itemsLock.withLock { items.append(filename) }
+            return true
         } catch {
             hedgeLog("Could not write file \(error)")
+            return false
         }
     }
 

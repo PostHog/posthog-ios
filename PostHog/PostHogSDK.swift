@@ -877,19 +877,6 @@ let maxRetryDelay = 30.0
 
             queueEvent(event, queue: queue)
 
-            // The queued $identify already carries these properties as its $set data, so record
-            // the hash here too, otherwise the same call on the next launch re-sends them.
-            if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-                let hash = getPersonPropertiesHash(
-                    distinctId: distinctId,
-                    userPropertiesToSet: userProperties,
-                    userPropertiesToSetOnce: userPropertiesSetOnce
-                )
-                cachedPersonPropertiesLock.withLock {
-                    storageManager.setPersonPropertiesHash(hash)
-                }
-            }
-
             remoteConfig?.reloadFeatureFlags()
 
             // Notify integrations of context change (e.g., for crash reporting)
@@ -910,17 +897,6 @@ let maxRetryDelay = 30.0
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
 
-            // The transition event must fire even when an identical property call was stored
-            // earlier; store only after capture so deduplication cannot suppress it.
-            let hash = getPersonPropertiesHash(
-                distinctId: distinctId,
-                userPropertiesToSet: userProperties,
-                userPropertiesToSetOnce: userPropertiesSetOnce
-            )
-            cachedPersonPropertiesLock.withLock {
-                config.storageManager?.setPersonPropertiesHash(hash)
-            }
-
             // The identified state itself is not part of the flags request; reload only when the
             // caller supplied properties that can affect flag evaluation.
             if !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
@@ -938,10 +914,11 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            capture("$set",
-                    distinctId: distinctId,
-                    userProperties: userProperties,
-                    userPropertiesSetOnce: userPropertiesSetOnce)
+            captureInternal("$set",
+                            distinctId: distinctId,
+                            userProperties: userProperties,
+                            userPropertiesSetOnce: userPropertiesSetOnce,
+                            deduplicatePersonProperties: true)
 
             // Automatically set person properties for feature flags during user property updates
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
@@ -1022,16 +999,17 @@ let maxRetryDelay = 30.0
         }
 
         // Send the $set event
-        capture(
+        captureInternal(
             "$set",
             distinctId: currentDistinctId,
             userProperties: userPropertiesToSet,
-            userPropertiesSetOnce: userPropertiesToSetOnce
+            userPropertiesSetOnce: userPropertiesToSetOnce,
+            deduplicatePersonProperties: true
         )
     }
 
     /// Checks if person properties have changed by comparing hash values.
-    /// Updates the stored hash if different and returns true if the event should be captured.
+    /// Returns true if the event should be captured; the hash is stored after enqueueing.
     /// Returns false if the hash matches (duplicate call).
     ///
     /// The hash is persisted, so a repeated call with the same properties is also suppressed
@@ -1052,11 +1030,7 @@ let maxRetryDelay = 30.0
         }
 
         return cachedPersonPropertiesLock.withLock {
-            if storageManager.getPersonPropertiesHash() == hash {
-                return false
-            }
-            storageManager.setPersonPropertiesHash(hash)
-            return true
+            storageManager.getPersonPropertiesHash() != hash
         }
     }
 
@@ -1432,7 +1406,8 @@ let maxRetryDelay = 30.0
         groups: [String: String]? = nil,
         timestamp: Date? = nil,
         skipBuildProperties: Bool = false,
-        propertyAllowlist: Set<String>? = nil
+        propertyAllowlist: Set<String>? = nil,
+        deduplicatePersonProperties: Bool = false
     ) {
         if !isEnabled() {
             return
@@ -1535,7 +1510,7 @@ let maxRetryDelay = 30.0
             replayQueue?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
         } else {
-            queueEvent(posthogEvent, queue: queue)
+            queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
         }
     }
 
@@ -1810,8 +1785,31 @@ let maxRetryDelay = 30.0
         return resultEvent
     }
 
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>) {
-        queue.add(event)
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
+        let userProperties = event.properties["$set"] as? [String: Any]
+        let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
+        if event.event == "$set" || event.event == "$identify",
+           !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true),
+           let storageManager = config.storageManager
+        {
+            let hash = getPersonPropertiesHash(
+                distinctId: event.distinctId,
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
+            )
+            // Recheck under the lock so concurrent calls cannot enqueue the same properties twice.
+            let queued = cachedPersonPropertiesLock.withLock {
+                if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
+                    return false
+                }
+                guard queue.add(event) else { return false }
+                storageManager.setPersonPropertiesHash(hash)
+                return true
+            }
+            guard queued else { return }
+        } else {
+            guard queue.add(event) else { return }
+        }
         onEventCaptured.invoke(event)
     }
 

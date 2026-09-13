@@ -561,6 +561,128 @@ class PostHogIdentityTests {
         #expect(events[1].event == "$set")
     }
 
+    @Test("opted-out properties can be sent after relaunch and consent")
+    func optedOutPropertiesCanBeSentAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        firstLaunch.optOut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.optIn()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("a dropped set can be retried after relaunch")
+    func droppedSetCanBeRetriedAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        firstLaunch.config.setBeforeSend { event in
+            event.event == "$set" ? nil : event
+        }
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("reset clears persisted deduplication for the same identity")
+    func resetClearsPersistedDeduplication() async throws {
+        let firstLaunch = getSut(reuseAnonymousId: true, flushAt: 100)
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.flush()
+        _ = try await getServerEvents(server)
+        let distinctId = firstLaunch.getDistinctId()
+        firstLaunch.reset()
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(reuseAnonymousId: true, flushAt: 100)
+        #expect(secondLaunch.getDistinctId() == distinctId)
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("a failed queue write does not suppress properties after relaunch")
+    func failedQueueWriteCanBeRetriedAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        let queueURL = PostHogStorage(firstLaunch.config).url(forKey: .queue)
+        try FileManager.default.removeItem(at: queueURL)
+        try Data().write(to: queueURL)
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.close()
+        try FileManager.default.removeItem(at: queueURL)
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("a dropped anonymous-to-identified set can be retried after relaunch")
+    func droppedTransitionCanBeRetriedAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        let distinctId = firstLaunch.getDistinctId()
+        firstLaunch.config.setBeforeSend { event in
+            event.event == "$set" ? nil : event
+        }
+        firstLaunch.identify(distinctId, userProperties: ["tier": "pro"])
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.identify(distinctId, userProperties: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("concurrent identical property calls enqueue only one set")
+    func concurrentIdenticalPropertiesAreDeduplicated() async throws {
+        let sut = getSut(flushAt: 100)
+        let beforeSendCalls = DispatchGroup()
+        beforeSendCalls.enter()
+        beforeSendCalls.enter()
+        sut.config.setBeforeSend { event in
+            if event.event == "$set" {
+                beforeSendCalls.leave()
+                #expect(beforeSendCalls.wait(timeout: .now() + 5) == .success)
+            }
+            return event
+        }
+
+        DispatchQueue.concurrentPerform(iterations: 2) { _ in
+            sut.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        }
+        sut.capture("after_concurrent_calls")
+        sut.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "after_concurrent_calls"])
+    }
+
     // MARK: - Persisted Deduplication Tests
 
     @Test("setPersonProperties deduplication survives a relaunch")

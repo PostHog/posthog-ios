@@ -868,7 +868,7 @@ let maxRetryDelay = 30.0
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
 
-            guard let event = buildEvent(event: "$identify", distinctId: distinctId, properties: properties) else {
+            guard let event = buildEvent(event: PostHogKnownUnsafeEditableEvent.identify.rawValue, distinctId: distinctId, properties: properties) else {
                 return
             }
 
@@ -892,7 +892,7 @@ let maxRetryDelay = 30.0
 
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
-            capture("$set",
+            capture(PostHogKnownUnsafeEditableEvent.set.rawValue,
                     distinctId: distinctId,
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
@@ -914,7 +914,7 @@ let maxRetryDelay = 30.0
                 return
             }
 
-            captureInternal("$set",
+            captureInternal(PostHogKnownUnsafeEditableEvent.set.rawValue,
                             distinctId: distinctId,
                             userProperties: userProperties,
                             userPropertiesSetOnce: userPropertiesSetOnce,
@@ -1000,7 +1000,7 @@ let maxRetryDelay = 30.0
 
         // Send the $set event
         captureInternal(
-            "$set",
+            PostHogKnownUnsafeEditableEvent.set.rawValue,
             distinctId: currentDistinctId,
             userProperties: userPropertiesToSet,
             userPropertiesSetOnce: userPropertiesToSetOnce,
@@ -1788,7 +1788,7 @@ let maxRetryDelay = 30.0
     private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
         let userProperties = event.properties["$set"] as? [String: Any]
         let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
-        if event.event == "$set" || event.event == "$identify",
+        if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
            !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true),
            let storageManager = config.storageManager
         {

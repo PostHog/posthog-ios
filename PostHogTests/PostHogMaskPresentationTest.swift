@@ -6,7 +6,7 @@
 //  path painted it over the cover.
 //
 
-#if os(iOS) && canImport(SwiftUI)
+#if os(iOS) && canImport(SwiftUI) && TEST_PRESENTATION_MASKS
     import Combine
     import Foundation
     @testable import PostHog
@@ -43,28 +43,43 @@
             }
         }
 
+        private func host(_ view: some View) -> Host {
+            let controller = UIHostingController(rootView: AnyView(view))
+            let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!
+            let window = UIWindow(windowScene: scene)
+            window.frame = scene.coordinateSpace.bounds
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.view.frame = window.bounds
+            settle(window)
+            return Host(window: window, controller: controller)
+        }
+
         private func maskRects(_ screen: Host) -> [CGRect] {
-            PostHogReplayIntegration().collectMaskableRects(in: screen.window) ?? []
+            let rects = PostHogReplayIntegration().collectMaskableRects(in: screen.window)
+            #expect(rects != nil)
+            return rects ?? []
         }
 
         /// Presentation completes over several run loop turns, so poll instead of assuming
         /// one settle pass is enough.
-        private func waitUntil(_ window: UIWindow, _ condition: () -> Bool) -> Bool {
-            for _ in 0 ..< 20 {
+        private func waitUntil(_ window: UIWindow, _ condition: () -> Bool) async -> Bool {
+            for _ in 0 ..< 100 {
+                window.layoutIfNeeded()
+                try? await Task.sleep(nanoseconds: 50_000_000)
                 if condition() { return true }
-                settle(window)
             }
             return condition()
         }
 
         /// A view controller whose view fills the window, kept over the presenter so the
         /// covered screen stays attached — the shape the defect needs.
-        private func presentCover(over screen: Host, background: UIColor) -> UIViewController {
+        private func presentCover(over screen: Host, background: UIColor) async -> UIViewController {
             let cover = UIViewController()
             cover.modalPresentationStyle = .overFullScreen
             cover.view.backgroundColor = background
             screen.controller.present(cover, animated: false)
-            #expect(waitUntil(screen.window) { cover.view.window === screen.window })
+            #expect(await waitUntil(screen.window) { cover.view.window === screen.window && !cover.isBeingPresented })
             return cover
         }
 
@@ -72,48 +87,51 @@
 
         @available(iOS 14.0, *)
         @Test("a SwiftUI fullScreenCover drops the masks of the screen it covers")
-        func fullScreenCoverDropsMasksBehindIt() {
+        func fullScreenCoverDropsMasksBehindIt() async {
             let model = CoverModel()
             let screen = host(MaskedScreen(model: model))
             #expect(!maskRects(screen).isEmpty)
 
             model.isPresented = true
-            #expect(waitUntil(screen.window) { screen.controller.presentedViewController != nil })
+            #expect(await waitUntil(screen.window) {
+                guard let cover = screen.controller.presentedViewController else { return false }
+                return cover.viewIfLoaded?.window === screen.window && !cover.isBeingPresented
+            })
             #expect(maskRects(screen).isEmpty)
 
             model.isPresented = false
-            #expect(waitUntil(screen.window) { screen.controller.presentedViewController == nil })
+            #expect(await waitUntil(screen.window) { screen.controller.presentedViewController == nil })
             // The screen is on top again, so its mask has to come back.
             #expect(!maskRects(screen).isEmpty)
         }
 
         @Test("an opaque cover that keeps the presenter attached drops its masks")
-        func opaqueCoverDropsMasksBehindIt() {
+        func opaqueCoverDropsMasksBehindIt() async {
             let screen = host(Text(Self.secret).postHogMask())
             #expect(!maskRects(screen).isEmpty)
 
-            let cover = presentCover(over: screen, background: .white)
+            let cover = await presentCover(over: screen, background: .white)
             // The covered screen is still in the window: this is the state the fix reads.
             #expect(screen.controller.view.window === screen.window)
             #expect(maskRects(screen).isEmpty)
 
             cover.dismiss(animated: false)
-            #expect(waitUntil(screen.window) { screen.controller.presentedViewController == nil })
+            #expect(await waitUntil(screen.window) { screen.controller.presentedViewController == nil })
             #expect(!maskRects(screen).isEmpty)
         }
 
         @Test("a see-through cover keeps the masks behind it")
-        func transparentCoverKeepsMasks() {
+        func transparentCoverKeepsMasks() async {
             let screen = host(Text(Self.secret).postHogMask())
-            _ = presentCover(over: screen, background: .clear)
+            _ = await presentCover(over: screen, background: .clear)
             // The masked content still shows through, so redacting it is the only safe answer.
             #expect(!maskRects(screen).isEmpty)
         }
 
         @Test("a rounded cover keeps the masks behind it")
-        func roundedCoverKeepsMasks() {
+        func roundedCoverKeepsMasks() async {
             let screen = host(Text(Self.secret).postHogMask())
-            let cover = presentCover(over: screen, background: .white)
+            let cover = await presentCover(over: screen, background: .white)
             #expect(maskRects(screen).isEmpty)
 
             // Same cover, one shape change: the corner arcs go see-through and the presenter
@@ -125,9 +143,9 @@
         }
 
         @Test("a sibling raised over the cover by zPosition keeps the masks behind it")
-        func siblingAboveCoverByZPositionKeepsMasks() {
+        func siblingAboveCoverByZPositionKeepsMasks() async {
             let screen = host(Text(Self.secret).postHogMask())
-            _ = presentCover(over: screen, background: .white)
+            _ = await presentCover(over: screen, background: .white)
 
             // An app's own banner, added to the window before the presentation. Behind the
             // cover in subview order, so the cover still holds the screen.

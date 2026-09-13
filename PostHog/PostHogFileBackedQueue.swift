@@ -8,7 +8,13 @@
 import Foundation
 
 class PostHogFileBackedQueue {
+    struct Entry {
+        let id: String
+        let data: Data
+    }
+
     let queue: URL
+    private let maxSize: Int?
     private var items = [String]()
     private let itemsLock = NSLock()
 
@@ -16,8 +22,9 @@ class PostHogFileBackedQueue {
         itemsLock.withLock { items.count }
     }
 
-    init(queue: URL, oldQueues: [URL] = []) {
+    init(queue: URL, oldQueues: [URL] = [], maxSize: Int? = nil) {
         self.queue = queue
+        self.maxSize = maxSize.map { max(1, $0) }
         setup(oldQueues: oldQueues)
     }
 
@@ -42,9 +49,7 @@ class PostHogFileBackedQueue {
         }
 
         do {
-            // when copying over buffered snapshots, content modification date will change, so we work off creation date instead.
-            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
-            itemsLock.withLock { items = sortedItems }
+            try reindexFromDisk()
         } catch {
             hedgeLog("Failed to load files for queue \(error)")
             // failed to read directory – bad permissions, perhaps?
@@ -52,7 +57,11 @@ class PostHogFileBackedQueue {
     }
 
     func peek(_ count: Int) -> [Data] {
-        loadFiles(count)
+        peekEntries(count).map(\.data)
+    }
+
+    func peekEntries(_ count: Int) -> [Entry] {
+        loadEntries(count)
     }
 
     func delete(index: Int) {
@@ -70,13 +79,46 @@ class PostHogFileBackedQueue {
         deleteFiles(count)
     }
 
-    func add(_ contents: Data) {
+    func remove(ids: [String]) {
+        let ids = Set(ids)
+        let removed: [String] = itemsLock.withLock {
+            let removed = items.filter { ids.contains($0) }
+            items.removeAll { ids.contains($0) }
+            return removed
+        }
+
+        for item in removed {
+            deleteSafely(queue.appendingPathComponent(item))
+        }
+    }
+
+    /// Persists one entry and optionally enforces a FIFO capacity in the same
+    /// critical section. Returning an evicted id lets the queue report
+    /// backpressure without racing a separate depth check against other adds.
+    @discardableResult
+    func add(_ contents: Data, maxSize: Int? = nil) -> String? {
         do {
             let filename = UUID.v7String()
-            try contents.write(to: queue.appendingPathComponent(filename))
-            itemsLock.withLock { items.append(filename) }
+            let effectiveMaxSize = maxSize.map { max(1, $0) } ?? self.maxSize
+            var evicted: String?
+
+            try itemsLock.withLock {
+                try contents.write(to: queue.appendingPathComponent(filename))
+
+                if let effectiveMaxSize, items.count >= effectiveMaxSize {
+                    evicted = items.removeFirst()
+                    if let evicted {
+                        deleteSafely(queue.appendingPathComponent(evicted))
+                    }
+                }
+
+                items.append(filename)
+            }
+
+            return evicted
         } catch {
             hedgeLog("Could not write file \(error)")
+            return nil
         }
     }
 
@@ -90,15 +132,35 @@ class PostHogFileBackedQueue {
     /// Use after externally adding files to the queue directory.
     func reloadFromDisk() {
         do {
-            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
-            itemsLock.withLock { items = sortedItems }
+            try reindexFromDisk()
         } catch {
             hedgeLog("Failed to reload files for queue \(error)")
         }
     }
 
-    private func loadFiles(_ count: Int) -> [Data] {
-        var results = [Data]()
+    /// Re-reads the queue directory and replaces the in-memory index with it,
+    /// enforcing the FIFO capacity. The enumeration runs inside `itemsLock` so a
+    /// filename appended by a concurrent `add` can't be dropped from the index by
+    /// the replacement while its file stays on disk.
+    private func reindexFromDisk() throws {
+        let dropped: [String] = try itemsLock.withLock {
+            // when copying over buffered snapshots, content modification date will change, so we work off creation date instead.
+            let sortedItems = try FileManager.default.contentsOfDirectory(at: queue, sortedBy: .creationDateKey)
+            let overflow = maxSize.map { max(0, sortedItems.count - $0) } ?? 0
+            items = Array(sortedItems.dropFirst(overflow))
+            return Array(sortedItems.prefix(overflow))
+        }
+
+        for item in dropped {
+            deleteSafely(queue.appendingPathComponent(item))
+        }
+        if !dropped.isEmpty {
+            hedgeLog("Dropped \(dropped.count) oldest cached records to enforce queue capacity")
+        }
+    }
+
+    private func loadEntries(_ count: Int) -> [Entry] {
+        var results = [Entry]()
         var skipped = Set<String>()
 
         let itemsCopy = itemsLock.withLock { items }
@@ -113,7 +175,7 @@ class PostHogFileBackedQueue {
                 }
                 let contents = try Data(contentsOf: itemURL)
 
-                results.append(contents)
+                results.append(Entry(id: item, data: contents))
             } catch {
                 if isTemporarilyUnavailable(error) {
                     hedgeLog("File \(itemURL) is temporarily unavailable, will retry \(error)")
@@ -191,12 +253,18 @@ private func migrateOldQueueFolder(queue: URL, oldQueueFolder: URL) {
 }
 
 private extension FileManager {
-    /// Returns filenames sorted by resource key
+    /// Returns filenames in a total order: by resource key, then by filename.
+    /// `reindexFromDisk` deletes the head of this order to enforce capacity, so a file
+    /// whose date can't be read must not sort oldest, and equal dates need a tie-breaker
+    /// because `sorted` isn't stable. UUID v7 names sort by their embedded timestamp.
     func contentsOfDirectory(at url: URL, sortedBy key: URLResourceKey) throws -> [String] {
         let urls = try contentsOfDirectory(at: url, includingPropertiesForKeys: [key])
-        return urls.sorted {
-            let date1 = (try? $0.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
-            let date2 = (try? $1.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantPast
+        return urls.sorted { lhs, rhs in
+            let date1 = (try? lhs.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantFuture
+            let date2 = (try? rhs.resourceValues(forKeys: [key]).allValues[key] as? Date) ?? .distantFuture
+            if date1 == date2 {
+                return lhs.lastPathComponent < rhs.lastPathComponent
+            }
             return date1 < date2
         }.map(\.lastPathComponent)
     }

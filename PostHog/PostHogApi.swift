@@ -10,19 +10,30 @@ import Foundation
 /// Common URLSession upload-response handler shared by `/batch`, `/snapshot`,
 /// and `/i/v1/logs`. Routes through `as?` so a missing HTTP response can't
 /// crash inside a customer process.
-private func processUploadResponse(
+func processUploadResponse(
     endpointName: String,
     data: Data?,
     response: URLResponse?,
     error: Error?,
     completion: @escaping (PostHogUploadInfo) -> Void
 ) {
+    let httpResponse = response as? HTTPURLResponse
+    // Parsed before the error branch: URLSession can deliver headers and then fail the
+    // transfer, and a rate-limited response still carries the delay the server asked for.
+    let retryAfter = httpResponse.flatMap { $0.value(forHTTPHeaderField: "Retry-After") }.flatMap(parseRetryAfter)
+
     if let error {
         hedgeLog("Error calling the \(endpointName) API: \(error).")
-        return completion(PostHogUploadInfo(statusCode: nil, error: error))
+        // A 3xx left on a failed task is the redirect URLSession was still following, not an
+        // outcome for the payload, so it's reported as no status. Honoring it would let the
+        // policies that treat 3xx as terminal (logs, push unregister) delete durable records
+        // that never reached the final host.
+        let status = httpResponse?.statusCode
+        let delivered = status.flatMap { 300 ... 399 ~= $0 ? nil : $0 }
+        return completion(PostHogUploadInfo(statusCode: delivered, error: error, retryAfter: retryAfter))
     }
 
-    guard let httpResponse = response as? HTTPURLResponse else {
+    guard let httpResponse else {
         hedgeLog("\(endpointName) API returned no HTTP response")
         return completion(PostHogUploadInfo(statusCode: nil, error: nil))
     }
@@ -34,7 +45,6 @@ private func processUploadResponse(
         hedgeLog("\(endpointName) sent successfully.")
     }
 
-    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(parseRetryAfter)
     completion(PostHogUploadInfo(statusCode: httpResponse.statusCode, error: nil, retryAfter: retryAfter))
 }
 

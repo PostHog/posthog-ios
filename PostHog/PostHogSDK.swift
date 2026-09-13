@@ -2678,11 +2678,17 @@ let maxRetryDelay = 30.0
         /// Captures the current native window for a first-party wrapper SDK
         /// (e.g. posthog-flutter) that drives session-replay capture on its own
         /// cadence. Not for app use — it shares snapshot state with the normal
-        /// timer-driven capture. Returns false if no frame was captured, so the
-        /// caller can retry.
+        /// timer-driven capture. Returns true when an image is captured and enqueued
+        /// for asynchronous masking; returns false when capture cannot be enqueued.
+        ///
+        /// Flutter treats true as a started bridge episode. A rare allocation failure
+        /// during later masking can still drop that frame after Flutter sees success.
+        /// The frame is dropped safely, never sent unmasked. Keep masking off main and
+        /// this synchronous contract for now; revisit final-result reporting if the
+        /// missed opening frame becomes a practical problem.
         ///
         /// Pass [episodeFirstFrame] until the episode's first frame has been
-        /// *captured* (returned true) — not just on the first attempt: it
+        /// enqueued (returned true) — not just on the first attempt: it
         /// renders with `afterScreenUpdates` so a freshly-presented screen
         /// isn't captured black, and re-arms the per-window meta and dedup
         /// hash, so a retried opening frame keeps its reset. Drop it for

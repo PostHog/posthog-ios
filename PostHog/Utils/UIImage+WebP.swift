@@ -127,7 +127,15 @@
                 return nil
             }
 
-            return Data(bytes: writer.mem, count: writer.size)
+            guard let memory = writer.mem else {
+                return nil
+            }
+            let size = writer.size
+            // Transfer ownership to Data before the deferred writer cleanup runs.
+            PHWebPMemoryWriterInit(&writer)
+            return Data(bytesNoCopy: memory, count: size, deallocator: .custom { pointer, _ in
+                PHWebPFree(pointer)
+            })
         }
     }
 #endif

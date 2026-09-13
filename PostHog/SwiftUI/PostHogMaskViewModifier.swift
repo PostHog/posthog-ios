@@ -96,7 +96,9 @@
             var regions: [PostHogReplayIntegration.MaskedRegion] = []
             var hasUnsettledReporters = false
             for reporter in liveReporters {
-                guard reporter.window === window, !reporter.isHidden, reporter.alpha > 0 else { continue }
+                // Rendered opacity, not `alpha`: a reporter fading out parks its model alpha
+                // at 0 while its region is still drawn, and dropping it there unmasks it.
+                guard reporter.window === window, !reporter.isHidden, reporter.hasRenderedOpacity else { continue }
                 guard reporter.hasCompletedFirstLayout else {
                     hasUnsettledReporters = true
                     continue

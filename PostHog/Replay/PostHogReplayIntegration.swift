@@ -610,8 +610,10 @@
             }
         }
 
-        private func handleApplicationEvent(event: UIEvent, date: Date) {
-            guard let postHog, postHog.isSessionReplayActive() else {
+        func handleApplicationEvent(event: UIEvent, date: Date, window: UIWindow? = nil) {
+            guard let postHog, postHog.config.sessionReplayConfig.captureTouches,
+                  postHog.isSessionReplayActive()
+            else {
                 return
             }
 
@@ -619,7 +621,7 @@
                 return
             }
 
-            guard let window = UIApplication.getCurrentWindow() else {
+            guard let window = window ?? UIApplication.getCurrentWindow() else {
                 return
             }
 
@@ -703,7 +705,7 @@
             )
         }
 
-        private func captureSnapshot(
+        func captureSnapshot(
             _ wireframe: RRWireframe,
             window: UIWindow,
             windowSize: CGSize,
@@ -712,46 +714,17 @@
             timestampDate: Date,
             episodeFirstFrame: Bool = false
         ) {
-            var hasChanges = false
             let timestamp = timestampDate.toMillis()
 
+            // Queued frames share this status; its fields are confined to dispatchQueue.
             let snapshotStatus = windowViewsLock.withLock {
-                windowViews.object(forKey: window) ?? ViewTreeSnapshotStatus()
-            }
-
-            // An episode's first frame re-arms the meta (so every bridged
-            // episode opens with a meta carrying the covering screen's name,
-            // mirroring the Android bridge) — a stale latched meta would keep
-            // the previous screen's name for the whole episode.
-            if episodeFirstFrame {
-                snapshotStatus.sentMetaEvent = false
-            }
-
-            var snapshotsData: [Any] = []
-
-            if !snapshotStatus.sentMetaEvent {
-                let width = windowSize.width.toInt() ?? 0
-                let height = windowSize.height.toInt() ?? 0
-
-                var data: [String: Any] = ["width": width, "height": height]
-
-                if let screenName = screenName {
-                    data["href"] = screenName
+                if let status = windowViews.object(forKey: window) {
+                    return status
                 }
-
-                let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
-                snapshotsData.append(snapshotData)
-                snapshotStatus.sentMetaEvent = true
-                hasChanges = true
+                let status = ViewTreeSnapshotStatus()
+                windowViews.setObject(status, forKey: window)
+                return status
             }
-
-            if hasChanges {
-                windowViewsLock.withLock {
-                    windowViews.setObject(snapshotStatus, forKey: window)
-                }
-            }
-
-            // TODO: IncrementalSnapshot, type=2
 
             PostHogReplayIntegration.dispatchQueue.async {
                 // always make sure we have a fresh session id at correct timestamp
@@ -759,9 +732,34 @@
                     return
                 }
 
+                // A new bridge episode needs fresh metadata even if its opening render fails.
+                if episodeFirstFrame {
+                    snapshotStatus.sentMetaEvent = false
+                }
+
                 let wireframeDict = autoreleasepool { wireframe.toDict() }
                 wireframe.image = nil
                 wireframe.maskableWidgets = nil
+
+                // Masking failed, so the only image left is the raw screenshot. Drop the
+                // frame instead of sending content the config masks (fail closed).
+                if wireframe.maskRenderFailed {
+                    hedgeLog("[Session Replay] Skipping snapshot: the masked screenshot could not be rendered")
+                    return
+                }
+
+                var snapshotsData: [Any] = []
+                if !snapshotStatus.sentMetaEvent {
+                    let width = windowSize.width.toInt() ?? 0
+                    let height = windowSize.height.toInt() ?? 0
+                    var data: [String: Any] = ["width": width, "height": height]
+                    if let screenName = screenName {
+                        data["href"] = screenName
+                    }
+                    let snapshotData: [String: Any] = ["type": 4, "data": data, "timestamp": timestamp]
+                    snapshotsData.append(snapshotData)
+                    snapshotStatus.sentMetaEvent = true
+                }
 
                 // Re-arm the hash on an episode's first frame so a recurring
                 // native screen always re-sends its opening frame.
@@ -862,7 +860,7 @@
             return (hasText, hasGraphic)
         }
 
-        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: inout Bool) {
+        private func findMaskableWidgets(_ view: UIView, _ window: UIWindow, _ maskableWidgets: inout [MaskedRegion], _ maskChildren: Bool) {
             // Checked first so an explicit unmask wins over the sensitive-type early-returns
             // below, matching the modifier's precedence.
             if view.isNoMask() {
@@ -1022,6 +1020,7 @@
 
             // on RN, lots get converted to RCTRootContentView, RCTRootView, RCTView and sometimes its just the whole screen, we dont want to mask
             // in such cases
+            var maskDescendants = maskChildren
             if view.isNoCapture() || maskChildren {
                 let viewRect = view.toAbsoluteRect(window)
                 let windowRect = window.frame
@@ -1030,20 +1029,19 @@
                 if !viewRect.equalTo(windowRect) {
                     maskableWidgets.append(.init(view, in: window))
                 } else {
-                    maskChildren = true
+                    maskDescendants = true
                 }
             }
 
             if !view.subviews.isEmpty {
                 for child in view.subviews {
-                    if !child.isVisible() {
+                    if !child.isVisibleForMasking() {
                         continue
                     }
 
-                    findMaskableWidgets(child, window, &maskableWidgets, &maskChildren)
+                    findMaskableWidgets(child, window, &maskableWidgets, maskDescendants)
                 }
             }
-            maskChildren = false
         }
 
         /// Recursively iterate through layer hierarchy to find maskable layers (iOS 26+)
@@ -1123,8 +1121,7 @@
             }
 
             var maskableWidgets: [MaskedRegion] = []
-            var maskChildren = false
-            findMaskableWidgets(window, window, &maskableWidgets, &maskChildren)
+            findMaskableWidgets(window, window, &maskableWidgets, false)
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }
@@ -1487,19 +1484,19 @@
         /// freshly-presented screen isn't captured black, and re-arms the
         /// meta/hash so a retried opening frame keeps its reset — pass it
         /// until the episode's first frame has been captured, and drop it
-        /// afterwards (it flickers secure fields). Returns false if no frame
-        /// was captured, so the caller can retry.
+        /// afterwards (it flickers secure fields). The Boolean reports enqueueing,
+        /// not the outcome of asynchronous masking; see captureSessionReplaySnapshot.
         @discardableResult
-        func captureBridgeSnapshot(episodeFirstFrame: Bool) -> Bool {
+        func captureBridgeSnapshot(episodeFirstFrame: Bool, window: UIWindow? = nil) -> Bool {
             guard Thread.isMainThread else {
                 return DispatchQueue.main.sync {
-                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame)
+                    captureBridgeSnapshot(episodeFirstFrame: episodeFirstFrame, window: window)
                 }
             }
             guard let postHog, postHog.isSessionReplayActive() else {
                 return false
             }
-            guard let window = UIApplication.getCurrentWindow() else {
+            guard let window = window ?? UIApplication.getCurrentWindow() else {
                 return false
             }
             // A mid-transition capture renders black; the next tick gets it.

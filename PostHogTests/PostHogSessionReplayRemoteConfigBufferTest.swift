@@ -533,6 +533,50 @@
             #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
         }
 
+        @Test("uninstalling the replay integration reports disabled and clears the hold reason")
+        func uninstallReportsDisabled() throws {
+            let (sut, integration, replayQueue) = try makeSut(flagActive: true, minimumDurationMilliseconds: 600_000)
+
+            replayQueue.add(snapshotEvent("1"))
+            integration.applyRemoteConfig(remoteConfig: nil)
+            #expect(integration.isBuffering == true)
+
+            var props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "buffering")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] as? String == "below_minimum_duration")
+
+            sut.close()
+
+            props = integration.debugProperties()
+            #expect(props["$recording_status"] as? String == "disabled")
+            #expect(props["$sdk_debug_replay_flush_hold_reason"] == nil)
+            // Config-derived keys survive uninstall (falling back to defaults once `postHog` is nilled),
+            // not just stop().
+            #expect(props["$sdk_debug_replay_capture_mode"] != nil)
+            #expect(props["$sdk_debug_replay_throttle_delay_ms"] != nil)
+        }
+
+        @Test(
+            "linked flag trigger status reflects whether a linkedFlag is configured and matched",
+            arguments: [
+                (linkedFlag: String?.none, flagActive: true, triggerStatus: "trigger_disabled", recordingStatus: "active"),
+                (linkedFlag: "replay_linked_flag", flagActive: true, triggerStatus: "trigger_activated", recordingStatus: "active"),
+                (linkedFlag: "replay_linked_flag", flagActive: false, triggerStatus: "trigger_pending", recordingStatus: "disabled"),
+            ]
+        )
+        func linkedFlagTriggerStatus(linkedFlag: String?, flagActive: Bool, triggerStatus: String, recordingStatus: String) throws {
+            let (sut, integration, _) = try makeSut(
+                flagActive: flagActive, linkedFlag: linkedFlag, cachedLinkedFlagValue: flagActive
+            )
+            defer { sut.close() }
+
+            integration.applyRemoteConfig(remoteConfig: nil)
+
+            let props = integration.debugProperties()
+            #expect(props["$sdk_debug_replay_linked_flag_trigger_status"] as? String == triggerStatus)
+            #expect(props["$recording_status"] as? String == recordingStatus)
+        }
+
         @Test("crash context re-snapshots on recording transitions and omits point-in-time counters")
         func crashContextTracksRecordingStatus() async throws {
             let (sut, integration, _) = try makeSut(flagActive: true)

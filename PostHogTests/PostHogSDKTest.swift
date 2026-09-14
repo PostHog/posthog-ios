@@ -725,6 +725,9 @@ class PostHogSDKTest: QuickSpec {
             expect(event.properties["$feature_flag"] as? String) == "string-value"
             expect(event.properties["$feature_flag_response"] as? String) == "test"
             expect(event.properties["$feature_flag_has_experiment"] as? Bool) == false
+            // Not on the allowlist, so the minimal shape must never carry the replay debug envelope.
+            expect(event.properties["$recording_status"]).to(beNil())
+            expect(event.properties.keys.contains { $0.hasPrefix("$sdk_debug_") }).to(beFalse())
 
             sut.reset()
             sut.close()

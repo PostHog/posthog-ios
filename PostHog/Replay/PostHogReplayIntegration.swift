@@ -1803,10 +1803,14 @@
                 (isEnabled, awaitingFirstRemoteConfig, hasPassedMinimumDuration, cachedMinimumDuration)
             }
 
+            // Read once under one lock acquisition so a /config or /flags reload landing mid-call can't
+            // pair `flagActive` from one config generation with the linked-flag trigger status from another.
+            let linkedFlagSnapshot = postHog?.remoteConfig?.sessionReplayLinkedFlagSnapshot()
+
             // Mirrors isSessionReplayActive(): a first `/config` with the flag off leaves `isEnabled`
             // true (the capturer self-gates on the flag), so gate on the flag too once the config has
             // resolved. js reports DISABLED whenever recording isn't enabled.
-            let flagActive = postHog?.remoteConfig?.isSessionReplayFlagActive() ?? false
+            let flagActive = linkedFlagSnapshot?.activated ?? false
             let recording = enabled && (awaitingConfig || flagActive)
 
             // Mirrors isBuffering's minimum-duration branch: only counts when a duration is configured,
@@ -1827,10 +1831,9 @@
             // The unsent snapshot count: the held buffer while buffering, else the persisted queue.
             props["$sdk_debug_replay_internal_buffer_length"] = (buffering ? replayQueue?.bufferDepth : replayQueue?.depth) ?? 0
 
-            let remoteConfig = postHog?.remoteConfig
             let linkedFlagTriggerStatus = Self.triggerStatus(
-                isConfigured: remoteConfig?.isRecordingGatedOnLinkedFlag() == true,
-                isActivated: remoteConfig?.isSessionReplayFlagActive() == true
+                isConfigured: linkedFlagSnapshot?.configured == true,
+                isActivated: linkedFlagSnapshot?.activated == true
             )
 
             let triggers = eventTriggersLock.withLock { eventTriggers }

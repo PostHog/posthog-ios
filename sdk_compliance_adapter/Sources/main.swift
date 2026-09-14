@@ -33,7 +33,7 @@ app.get("health") { req async throws -> Response in
         "sdk_name": postHogiOSSdkName,
         "sdk_version": postHogVersion,
         "adapter_version": "1.0.0",
-        "capabilities": ["capture_v0", "encoding_gzip", "bootstrap_identity"],
+        "capabilities": ["capture_v0", "encoding_gzip", "bootstrap_identity", "client_feature_flags"],
         "runtime": "macOS shared core",
         "flags_mode": "initial identity bootstrap or identify; group + explicit reload + cached getter; preload disabled",
     ]
@@ -128,6 +128,28 @@ app.post("capture") { req async throws -> Response in
         throw Abort(.internalServerError, reason: "Capture was not observed by beforeSend")
     }
     return try await["success": true, "uuid": uuid].encodeResponse(for: req)
+}
+
+app.post("reload_feature_flags") { req async throws -> Response in
+    guard let sdk = state.posthogSDK else {
+        throw Abort(.badRequest, reason: "Call /init first")
+    }
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        sdk.reloadFeatureFlags { continuation.resume() }
+    }
+    return try await["success": true].encodeResponse(for: req)
+}
+
+app.post("get_cached_feature_flag") { req async throws -> Response in
+    struct CachedFlagRequest: Content {
+        let key: String
+    }
+    let input = try req.content.decode(CachedFlagRequest.self)
+    guard let sdk = state.posthogSDK else {
+        throw Abort(.badRequest, reason: "Call /init first")
+    }
+    let value = sdk.getFeatureFlag(input.key)
+    return try await["success": true, "value": value ?? NSNull()].encodeResponse(for: req)
 }
 
 app.post("get_feature_flag") { req async throws -> Response in

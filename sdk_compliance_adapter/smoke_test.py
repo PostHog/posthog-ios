@@ -141,6 +141,30 @@ def run(binary: str, adapter_port: int, mock_port: int) -> None:
                 assert call("/state")["pending_events"] == 0
                 print("PASS concurrent HTTP captures return their corresponding SDK wire UUIDs")
 
+                initialize("client-cache-user-café 雪")
+                with lock:
+                    flags["client-flag"] = "variant-a"
+                assert call("/reload_feature_flags", {}) == {"success": True}
+                for _ in range(2):
+                    assert call("/get_cached_feature_flag", {"key": "client-flag"})["value"] == "variant-a"
+                call("/flush", {})
+                with lock:
+                    flag_requests = [r for r in records if r[0] == "/flags"]
+                    assert len(flag_requests) == 1, flag_requests
+                    assert flag_requests[0][2]["distinct_id"] == "client-cache-user-café 雪"
+                    events = [event for path, _, body in records if path == "/batch" for event in body["batch"]]
+                    assert [event["event"] for event in events] == ["$feature_flag_called"], events
+                    assert events[0]["distinct_id"] == "client-cache-user-café 雪"
+                    flags["client-flag"] = "variant-b"
+                # Changing a response fixture does not change the cache until an explicit reload.
+                assert call("/get_cached_feature_flag", {"key": "client-flag"})["value"] == "variant-a"
+                assert call("/reload_feature_flags", {}) == {"success": True}
+                assert call("/get_cached_feature_flag", {"key": "client-flag"})["value"] == "variant-b"
+                call("/flush", {})
+                with lock:
+                    assert len([r for r in records if r[0] == "/flags"]) == 2, records
+                print("PASS client init identity, explicit reload, cache-only reads and fresh reload value")
+
                 for status in [200, 502, 504]:
                     identity = f"bootstrap-user-{status}-café 雪"
                     initialize(identity)

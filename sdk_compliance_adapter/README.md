@@ -7,9 +7,11 @@ the harness 1.0.0 Docker image (contract 1.2).
 
 ## Coverage and configuration
 
-- `capture_v0`, `/batch`, SDK-default gzip: **30 capture tests**.
-  `--sdk-type server` describes the batch wire format, not a server-side product.
-- **17 feature flag tests**, with no filters or expected-failure suppression.
+- `capture_v0`, `/batch`, SDK-default gzip. The pinned CI harness currently selects
+  **30 capture + 17 legacy server flag cases** with `--sdk-type server`.
+  That legacy selection does not model a mobile client's flag lifecycle.
+- The client flag profile selects **10 lifecycle cases** with
+  `--sdk-type client --suite feature_flags` on a harness supporting the operations below.
 - No analytics V1, dedicated AI capture, or alternative codec profile is advertised.
 - Lifecycle capture, screen capture, swizzling, and flag preload are disabled to isolate
   explicit test actions. Thus init/capture lifecycle passes do not test native defaults.
@@ -29,13 +31,14 @@ HTTP 400. Captures without a per-event identity override use the bootstrapped ID
 
 This avoids an identity-merge event and its flags reload when a scenario starts
 with a known user. It does not bootstrap flag values: requests, parsing, retries
-and called-events still belong to the SDK. A later getter requesting another
+and called-events still belong to the SDK. The legacy getter requesting another
 identity rejects before changing SDK state; initialize a new context to switch users.
 
 Without an initial identity, the adapter preserves the legacy identify-on-first-flag
-path. The pinned CI harness 1.0.0 does not send this field. Bootstrap-based canonical
-coverage requires a harness that forwards declared init identities to adapters
-advertising `bootstrap_identity`; changing only the adapter does not activate it in CI.
+path. The pinned CI harness 1.0.0 does not send this field. Client lifecycle
+coverage requires a harness with the client-only flag definitions, plus the
+`bootstrap_identity` and `client_feature_flags` capabilities. The image and profile
+selection must migrate together; changing only the adapter does not activate it in CI.
 
 ## Public API mapping
 
@@ -44,7 +47,15 @@ existing `capture(..., timestamp:)` overload. Invalid timestamps return HTTP 400
 Custom properties are not normalized. A passive `setBeforeSend` hook returns events
 unchanged and observes the **SDK-generated** UUID for the capture response.
 
-`/get_feature_flag` sets person/group properties with reload disabled, calls public
+Client lifecycle tests use separate operations:
+
+- `/reload_feature_flags` calls public `reloadFeatureFlags` and waits for its callback.
+  It uses the initialized identity and does not identify or read any key.
+- `/get_cached_feature_flag` accepts only a flag `key` and calls public `getFeatureFlag`.
+  It does not change identity, reset evaluation properties, or reload flags. The native
+  called-event remains enabled. Call `/flush` separately to observe delivery.
+
+The legacy `/get_feature_flag` sets person/group properties with reload disabled, calls public
 `group` (and `identify` only when no identity was established during initialization),
 awaits `reloadFeatureFlags`' callback, then reads the public cached `getFeatureFlag` value. Missing values remain JSON null. The SDK owns flags HTTP,
 response parsing, 502/504 retries, and its default `$feature_flag_called` event.
@@ -72,7 +83,10 @@ Several assertions describe a stateless server client rather than this mobile AP
 - Default preload and ordinary cached-getter network behavior are not established by
   this configured profile.
 
-These tests remain selected and their genuine failures remain visible in reports.
+These differences remain visible in the pinned CI report. The client lifecycle
+cases separately verify initialization identity, explicit loading, cache reuse and
+replacement, native retries and called-events. Client group/context updates, GeoIP
+configuration and default preload behavior are outside those ten cases.
 
 ## Flush and state observation
 

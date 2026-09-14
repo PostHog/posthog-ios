@@ -323,7 +323,7 @@
             #expect(body["app_id"] as? String == "com.example.app")
         }
 
-        @Test("unregisterCurrentToken DELETEs for the current id and forgets the stored record")
+        @Test("unregisterCurrentToken DELETEs for the delivered id and forgets the stored record")
         func unregisterCurrentForgetsRecord() async throws {
             let (handler, storage, _) = makeHandler(distinctIdProvider: { "user-1" })
             handler.send(deviceToken: "tok", appId: "com.example.app")
@@ -2061,6 +2061,27 @@
             handler.onOptOut()
 
             #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            #expect(record(storage) == nil)
+        }
+
+        @Test("opt-out DELETEs the identity the subscription was delivered to, not the current one")
+        func optOutUnregistersDeliveredIdentity() async throws {
+            var distinctId = "anon-1"
+            let (handler, storage, _) = makeHandler(distinctIdProvider: { distinctId })
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            // The id moves with no resend reaching the server — reuseAnonymousId on identify(), or a
+            // differing identified bootstrap reconciled while opted out. Neither merges the two people,
+            // so the subscription is still stored under "anon-1".
+            distinctId = "user-1"
+
+            handler.onOptOut()
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            let del = try #require(server.pushSubscriptionRequests.first { $0.httpMethod == "DELETE" })
+            #expect(try #require(server.parseRequest(del))["distinct_id"] as? String == "anon-1")
             #expect(record(storage) == nil)
         }
 

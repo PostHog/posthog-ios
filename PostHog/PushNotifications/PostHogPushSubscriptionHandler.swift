@@ -353,9 +353,19 @@ final class PostHogPushSubscriptionHandler {
         attemptIfAllowed(deviceToken: deviceToken, appId: appId)
     }
 
-    /// Public-API unregister: DELETE for the current distinct id, then forget the local record so a
-    /// later launch won't re-send it. The load-then-clear is atomic so a concurrent `send()` can't slip
-    /// a new token in between and have it silently dropped.
+    /// Public-API unregister: DELETE for the identity the subscription was delivered to, then forget
+    /// the local record so a later launch won't re-send it. Falls back to the current distinct id when
+    /// nothing was delivered yet (nothing is stored server-side to key on).
+    ///
+    /// The server stores the subscription under the delivered id, and that id can differ from the
+    /// current one with no person merge to bridge them: `identify()` with `config.reuseAnonymousId`,
+    /// or a differing identified bootstrap reconciled while opted out. Keying the DELETE on the current
+    /// id would then remove nothing, and the record is already gone, so no later retry could retarget
+    /// it — the device would stay subscribed. `reset()` keys its own DELETE on the old identity for
+    /// the same reason.
+    ///
+    /// The load-then-clear is atomic so a concurrent `send()` can't slip a new token in between and
+    /// have it silently dropped.
     func unregisterCurrentToken() {
         let record: PendingRecord? = recordLock.withLock {
             guard let record = loadRecordLocked() else { return nil }
@@ -367,7 +377,11 @@ final class PostHogPushSubscriptionHandler {
             hedgeLog("Push unregister skipped: no registered token.")
             return
         }
-        unregister(distinctId: distinctIdProvider(), deviceToken: record.deviceToken, appId: record.appId)
+        unregister(
+            distinctId: record.deliveredForDistinctId ?? distinctIdProvider(),
+            deviceToken: record.deviceToken,
+            appId: record.appId
+        )
     }
 
     /// Opt-out drops the cached identity credential so a later opt-in re-mints it, and clears the

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.74.1
+
+### Patch Changes
+
+- 1b0ae06: Avoid copying the compressed WebP buffer before Base64 encoding session replay images.
+
 ## 3.74.0
 
 ### Minor Changes

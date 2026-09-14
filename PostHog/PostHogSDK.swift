@@ -3138,13 +3138,15 @@ let maxRetryDelay = 30.0
         /// Unregisters this device's push token from PostHog so Workflows stop targeting it — for example
         /// from your logout flow.
         ///
-        /// Sends a `DELETE /api/push_subscriptions/` for the current distinct id (the backend unsets the
-        /// subscription property) and forgets the locally stored token. The delete intent is durable: an
-        /// offline or failed attempt is retried on `flush()`/next launch until it succeeds or hits a
-        /// terminal 4xx. Call it directly if you manage push subscriptions yourself. On `reset()` the SDK
-        /// already moves any registered token to the new anonymous identity (unregister then re-register),
-        /// independently of `capturePushNotificationSubscriptions` — that flag only gates automatic token
-        /// subscription at startup.
+        /// Sends a `DELETE /api/push_subscriptions/` for the identity the token was delivered to — the
+        /// current distinct id when nothing was delivered yet — so the backend unsets the subscription
+        /// property on the person that actually holds it, and forgets the locally stored token. The
+        /// delete intent is durable: an offline or failed attempt is retried on `flush()`/next launch
+        /// until it succeeds or hits a terminal 4xx. Call it directly if you manage push subscriptions
+        /// yourself. On `reset()` the SDK already moves any registered token to the new anonymous
+        /// identity (unregister then re-register), independently of
+        /// `capturePushNotificationSubscriptions` — that flag only gates automatic token subscription
+        /// at startup.
         @objc public func unregisterPushNotificationToken() {
             if !isEnabled() {
                 return

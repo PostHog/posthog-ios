@@ -208,8 +208,17 @@ final class PostHogPushSubscriptionHandler {
         // so the retry re-mints a fresh token and sidesteps the expired-token 401. If a same-identity
         // registration is queued (logged out then back in), drop the DELETE instead — an in-flight
         // DELETE completing after the POST would kill the subscription just delivered.
-        let record = loadRecord()
-        if let pending = loadPendingUnregister() {
+        //
+        // Both keys are read in one `recordLock` acquisition. `unregisterCurrentToken()` removes the
+        // record and then writes its DELETE intent, so two adjacent reads can pair the record from
+        // before that sequence with the intent from after it. The supersede rule would read that stale
+        // pair as a registration superseding the unregister and drop the intent, and the opt-out branch
+        // below could not rewrite it — the record is already gone — so an opt-out racing a flush would
+        // be left with no DELETE and nothing on disk to retry.
+        let (record, pending) = recordLock.withLock { () -> (PendingRecord?, PendingUnregister?) in
+            (loadRecordLocked(), loadPendingUnregisterLocked())
+        }
+        if let pending {
             if let record, pending.distinctId == distinctIdProvider(), pending.appId == record.appId {
                 clearPendingUnregister(matching: pending)
             } else {

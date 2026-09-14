@@ -1848,8 +1848,8 @@
             props["$sdk_debug_replay_event_trigger_status"] = eventTriggerStatus
 
             var pendingConditions: [String] = []
-            if linkedFlagTriggerStatus == "trigger_pending" { pendingConditions.append("linked_flag") }
             if eventTriggerStatus == "trigger_pending" { pendingConditions.append("event_trigger") }
+            if linkedFlagTriggerStatus == "trigger_pending" { pendingConditions.append("linked_flag") }
             if !pendingConditions.isEmpty {
                 props["$sdk_debug_replay_pending_trigger_conditions"] = pendingConditions
             }

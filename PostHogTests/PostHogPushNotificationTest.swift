@@ -1885,6 +1885,70 @@
             #expect(opens.titles == ["Auto", "Manual"])
         }
 
+        /// Hands out an increasing clock, and parks the first sample taken after `arm()` until the
+        /// second report has finished — so the second samples later but is admitted first.
+        private final class RacingClock: @unchecked Sendable {
+            let sampled = DispatchSemaphore(value: 0)
+            let secondReportDone = DispatchSemaphore(value: 0)
+            private let lock = NSLock()
+            private let start = Date()
+            private var tick = 0
+            private var armed = false
+
+            func arm() {
+                lock.withLock { armed = true }
+            }
+
+            func now() -> Date {
+                let (mine, park): (Int, Bool) = lock.withLock {
+                    tick += 1
+                    defer { armed = false }
+                    return (tick, armed)
+                }
+                if park {
+                    sampled.signal()
+                    _ = secondReportDone.wait(timeout: .now() + 0.2)
+                }
+                return start.addingTimeInterval(Double(mine))
+            }
+        }
+
+        @Test("captures once when two reports of one tap race")
+        func openDedupeCapturesOnceWhenReportsRace() async {
+            let opens = PushOpenRecorder()
+            let sut = getSDK(recordOpens: opens)
+            defer { sut.close() }
+            let clock = RacingClock()
+
+            let step = stepOne
+            await withMockedNow(clock.now) {
+                let firstDone = DispatchSemaphore(value: 0)
+                let secondDone = DispatchSemaphore(value: 0)
+                clock.arm()
+                DispatchQueue.global().async {
+                    sut.capturePushNotificationOpened(
+                        title: "Auto",
+                        subtitle: nil,
+                        body: nil,
+                        payload: ["posthog": step],
+                        action: UNNotificationDefaultActionIdentifier,
+                        deliveryId: "n-1"
+                    )
+                    firstDone.signal()
+                }
+                clock.sampled.wait()
+                DispatchQueue.global().async {
+                    sut.capturePushNotificationOpened(title: "Manual", payload: ["posthog": step])
+                    secondDone.signal()
+                }
+                secondDone.wait()
+                clock.secondReportDone.signal()
+                firstDone.wait()
+            }
+
+            #expect(opens.count == 1)
+        }
+
         @Test("evicts the oldest open at the cap, so its repeat is captured again")
         func openDedupeEvictsOldestAtCap() {
             let opens = PushOpenRecorder()

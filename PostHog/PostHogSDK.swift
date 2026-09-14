@@ -3191,7 +3191,9 @@ let maxRetryDelay = 30.0
         /// carries an `invocation_id`, a repeat with the same `invocation_id` and `action_id` within
         /// 5 minutes of the first capture is skipped, whether that first capture came from this
         /// method, from the field-based overload, or from the SDK's automatic capture. Notifications
-        /// without a `posthog.invocation_id` are always captured.
+        /// without a `posthog.invocation_id` are always captured. Only the 20 most recently captured
+        /// notifications are remembered, so a host that reports more than that inside the window can
+        /// capture a repeat of the oldest.
         ///
         /// A rerun of that workflow, or a loop back to its push step, sends the pair again as a new
         /// notification, and its open counts separately: two responses whose
@@ -3226,7 +3228,9 @@ let maxRetryDelay = 30.0
         /// `invocation_id`, a repeat with the same `invocation_id` and `action_id` within 5 minutes
         /// of the first capture is skipped, whether that first capture came from this method or from
         /// the SDK's automatic capture. Payloads without a `posthog.invocation_id` are always
-        /// captured. This overload carries no notification identifier, so a rerun of that workflow
+        /// captured. Only the 20 most recently captured notifications are remembered, so a host that
+        /// reports more than that inside the window can capture a repeat of the oldest.
+        /// This overload carries no notification identifier, so a rerun of that workflow
         /// reported through it inside the window reads as the same tap and is skipped; report a rerun
         /// through `capturePushNotificationOpened(response:)`, which can tell the deliveries apart.
         ///
@@ -3355,9 +3359,11 @@ let maxRetryDelay = 30.0
             }
             // Every step of one workflow run shares the run's invocation_id, so action_id tells the steps apart.
             let key = "\(invocationId)/\(posthogData?["action_id"] as? String ?? "")"
-            let capturedAt = now()
 
             return recentPushOpensLock.withLock {
+                // Sampled under the lock so two concurrent reports can't be admitted out of order and read
+                // the inversion as a backwards clock.
+                let capturedAt = now()
                 if let index = recentPushOpens.firstIndex(where: { $0.key == key }) {
                     let previous = recentPushOpens[index]
                     // A negative gap means the wall clock moved back; capture rather than risk dropping an open.

@@ -979,12 +979,14 @@
             // and wait for each mint to land before driving its completion.
             let lock = NSLock()
             var allowed = true
-            var pendingCompletion: ((String?) -> Void)?
+            // Opt-out mints for its own unregister DELETE too, so keep every completion and pick the
+            // one each step is about instead of a single slot.
+            var completions = [(String?) -> Void]()
             var mints = 0
             let (handler, storage, config) = makeHandler(isAllowedProvider: { lock.withLock { allowed } })
             config.pushIdentityProvider = { _, _, completion in
                 lock.withLock { mints += 1
-                    pendingCompletion = completion
+                    completions.append(completion)
                 }
             }
 
@@ -992,16 +994,15 @@
             #expect(await waitFor { lock.withLock { mints } == 1 })
             lock.withLock { allowed = false }
             handler.onOptOut()
-            lock.withLock { pendingCompletion }?("jwt-stale")
+            lock.withLock { completions.first }?("jwt-stale")
 
             lock.withLock { allowed = true }
             handler.send(deviceToken: "tok", appId: "app")
-            #expect(await waitFor { lock.withLock { mints } == 2 })
-            lock.withLock { pendingCompletion }?("jwt-fresh")
+            #expect(await waitFor { lock.withLock { mints } == 3 })
+            lock.withLock { completions.last }?("jwt-fresh")
 
             #expect(await waitFor { self.delivered(storage) })
-            #expect(lock.withLock { mints } == 2)
-            let post = try #require(server.pushSubscriptionRequests.last)
+            let post = try #require(server.pushSubscriptionRequests.last(where: { $0.httpMethod == "POST" }))
             #expect(try #require(server.parseRequest(post))["identity_token"] as? String == "jwt-fresh")
         }
 
@@ -1408,6 +1409,19 @@
                 #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
             }
 
+            @Test("optOut unregisters a registered device token")
+            func sdkOptOutFiresDelete() async throws {
+                let sut = getSDK()
+                defer { sut.close() }
+
+                sut.registerPushNotificationToken("deadbeef01", appId: "com.example.app")
+                #expect(await waitFor { self.server.pushSubscriptionRequests.count == 1 })
+
+                sut.optOut()
+
+                #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            }
+
             @Test("opted out: unregisterPushNotificationToken sends no request")
             func sdkUnregisterNoRequestWhenOptedOut() async throws {
                 let sut = getSDK(optOut: true)
@@ -1439,8 +1453,8 @@
             })
         }
 
-        @Test("opted out: flush does not retry a persisted subscription (vector 6)")
-        func optedOutFlushDoesNotRetry() async throws {
+        @Test("opted out: flush unregisters a persisted subscription instead of retrying it (vector 6)")
+        func optedOutFlushUnregistersPersistedSubscription() async throws {
             let sut = getSDK(optOut: true)
             defer { sut.close() }
 
@@ -1451,8 +1465,9 @@
 
             sut.flush()
 
-            try await Task.sleep(nanoseconds: 300_000_000)
-            #expect(server.pushSubscriptionRequests.isEmpty)
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            #expect(server.pushSubscriptionRequests.allSatisfy { $0.httpMethod == "DELETE" })
+            #expect(await waitFor { sut.storage?.getDictionary(forKey: .pushSubscription) == nil })
         }
 
         @Test("setup retries a persisted subscription from a previous launch")
@@ -2035,6 +2050,19 @@
         #endif
 
         // MARK: - Opt-out / unregister race (posthog-ios#746)
+
+        @Test("opt-out unregisters the device so Workflows stop targeting it")
+        func optOutUnregistersDevice() async throws {
+            let (handler, storage, _) = makeHandler()
+
+            handler.send(deviceToken: "abcdef", appId: "com.example.app")
+            #expect(await waitFor { self.delivered(storage) })
+
+            handler.onOptOut()
+
+            #expect(await waitFor { self.server.pushSubscriptionRequests.contains { $0.httpMethod == "DELETE" } })
+            #expect(record(storage) == nil)
+        }
 
         @available(iOS 14.0, macOS 11.0, *)
         @Test("posthog-ios#746: opt-out during an in-flight unregister must still send the DELETE")

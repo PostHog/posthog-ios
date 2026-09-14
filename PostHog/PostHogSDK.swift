@@ -2496,6 +2496,10 @@ let maxRetryDelay = 30.0
     ///
     /// This persists the opt-out state, unless opt-out persistence is disabled, stops integrations,
     /// and causes future capture calls to be ignored.
+    /// It also unregisters this device's push subscription, so Workflows stop sending it notifications.
+    /// `optIn()` re-registers the device when the SDK owns the token (`capturePushNotificationSubscriptions`
+    /// with swizzling enabled); an app that registers tokens itself calls
+    /// `registerPushNotificationToken(_:)` again after opting back in.
     @objc public func optOut() {
         if !isEnabled() {
             return

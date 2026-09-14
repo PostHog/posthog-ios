@@ -56,7 +56,8 @@ final class PostHogPushSubscriptionHandler {
     private let distinctIdProvider: () -> String
     private let isConnectedProvider: () -> Bool
     /// Gates every network attempt (send, flush retry, identity-change resend): `false` while the
-    /// SDK is disabled or opted out. The record is kept so an opt-in can resume later.
+    /// SDK is disabled or opted out. While the SDK is only disabled the record is kept, so a later
+    /// launch can resume it; an opt-out unregisters the device instead (see `onOptOut()`).
     private let isAllowedProvider: () -> Bool
 
     /// Gates cleanup (the unregister DELETE): `false` only while the SDK is disabled. Unlike
@@ -218,6 +219,15 @@ final class PostHogPushSubscriptionHandler {
 
         guard let record else { return }
 
+        // Enabled but opted out: the stored subscription must not outlive the opt-out, so delete it
+        // instead of retrying the POST. This is the only path that reaches a record left behind by
+        // `config.optOut = true` set before `setup()`, or by an opt-out on an older SDK version.
+        if isEnabledProvider(), !isAllowedProvider() {
+            hedgeLog("Push subscription removed: the app is opted out.")
+            unregisterCurrentToken()
+            return
+        }
+
         let distinctId = distinctIdProvider()
         guard !distinctId.isEmpty else { return }
 
@@ -362,11 +372,17 @@ final class PostHogPushSubscriptionHandler {
 
     /// Opt-out drops the cached identity credential so a later opt-in re-mints it, and clears the
     /// per-cycle 401 retry flag so a consumed retry doesn't stay stuck and suppress the next one.
+    ///
+    /// It also unregisters the device. Holding back our own requests is not enough: the subscription
+    /// already stored on the person keeps Workflows targeting this device, so the user can still
+    /// receive a push after opting out. The DELETE intent is durable, so an offline opt-out lands on
+    /// the next `flush()`/launch.
     func onOptOut() {
         stateLock.withLock {
             cachedIdentityToken = nil
             didAuthRetry = false
         }
+        unregisterCurrentToken()
     }
 
     // MARK: - Private

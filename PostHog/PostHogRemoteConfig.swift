@@ -26,6 +26,9 @@ class PostHogRemoteConfig {
     private var surveyFeatureFlagsWaiters: [([String: Any]?) -> Void] = []
     private let sessionReplayLock = NSLock()
     private var sessionReplayFlagActive = false
+    /// Whether the current `sessionRecording` config gates recording on a linked flag. Written under
+    /// `sessionReplayLock` alongside `sessionReplayFlagActive` — see `sessionReplayLinkedFlagSnapshot()`.
+    private var sessionReplayLinkedFlagConfigured = false
     private var recordingSampleRate: Double?
     private var recordingMinimumDuration: TimeInterval?
 
@@ -329,12 +332,19 @@ class PostHogRemoteConfig {
 
             sessionReplayLock.withLock {
                 sessionReplayFlagActive = isRecordingActive(featureFlags ?? [:], sessionReplay)
+                sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(sessionReplay)
                 #if os(iOS)
                     recordingSampleRate = parseSampleRate(sessionReplay["sampleRate"])
                     recordingMinimumDuration = parseMinimumDuration(sessionReplay["minimumDurationMilliseconds"])
                 #endif
             }
         }
+    }
+
+    /// The server sends `"linkedFlag": null` for "none", which JSONSerialization surfaces as `NSNull`
+    /// (so a plain `!= nil` check is wrong). Mirrors the shapes `isRecordingActive` evaluates.
+    private static func hasLinkedFlag(_ sessionRecording: [String: Any]) -> Bool {
+        sessionRecording["linkedFlag"] is String || sessionRecording["linkedFlag"] is [String: Any]
     }
 
     private func isRecordingActive(_ featureFlags: [String: Any], _ sessionRecording: [String: Any]) -> Bool {
@@ -560,6 +570,7 @@ class PostHogRemoteConfig {
             if let sessionRecording = sessionRecording as? Bool {
                 sessionReplayLock.withLock {
                     sessionReplayFlagActive = sessionRecording
+                    sessionReplayLinkedFlagConfigured = false
                 }
             } else if let sessionRecording = sessionRecording as? [String: Any] {
                 // enabled in project settings, but only active locally when the replay integration is
@@ -576,6 +587,7 @@ class PostHogRemoteConfig {
         /// sample rate, minimum duration). The caller must already hold `sessionReplayLock`.
         private func applySessionRecordingConfigLocked(_ recordingConfig: [String: Any], featureFlags: [String: Any]) {
             sessionReplayFlagActive = isRecordingActive(featureFlags, recordingConfig)
+            sessionReplayLinkedFlagConfigured = Self.hasLinkedFlag(recordingConfig)
             recordingSampleRate = parseSampleRate(recordingConfig["sampleRate"])
             recordingMinimumDuration = parseMinimumDuration(recordingConfig["minimumDurationMilliseconds"])
         }
@@ -1182,6 +1194,7 @@ class PostHogRemoteConfig {
 
         sessionReplayLock.withLock {
             sessionReplayFlagActive = false
+            sessionReplayLinkedFlagConfigured = false
             recordingSampleRate = nil
         }
 
@@ -1221,7 +1234,14 @@ class PostHogRemoteConfig {
             let sessionRecording = remoteConfigLock.withLock {
                 getCachedRemoteConfig()?["sessionRecording"] as? [String: Any]
             }
-            return sessionRecording?["linkedFlag"] != nil
+            return sessionRecording.map(Self.hasLinkedFlag) ?? false
+        }
+
+        /// Reads `configured` and `activated` under one lock acquisition so both describe the same config generation.
+        func sessionReplayLinkedFlagSnapshot() -> (configured: Bool, activated: Bool) {
+            sessionReplayLock.withLock {
+                (sessionReplayLinkedFlagConfigured, sessionReplayFlagActive)
+            }
         }
     #endif
 

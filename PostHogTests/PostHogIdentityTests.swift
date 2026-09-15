@@ -121,6 +121,11 @@ class PostHogIdentityTests {
 
         #expect(sut.getDistinctId() == "newDistinctId")
         #expect(sut.getAnonymousId() == distId)
+
+        // Finish this test's upload before the next test installs its batch recorder.
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$identify"])
+        #expect(events.first?.distinctId == "newDistinctId")
     }
 
     @Test("captures the capture event with a custom distinctId")

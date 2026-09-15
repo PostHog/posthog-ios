@@ -111,6 +111,7 @@ PostHog | PostHogDisplayChoiceQuestion.choices | property | let choices: [String
 PostHog | PostHogDisplayChoiceQuestion.hasOpenChoice | property | let hasOpenChoice: Bool | s:7PostHog0aB21DisplayChoiceQuestionC07hasOpenD0Sbvp
 PostHog | PostHogDisplayChoiceQuestion.isMultipleChoice | property | let isMultipleChoice: Bool | s:7PostHog0aB21DisplayChoiceQuestionC010isMultipleD0Sbvp
 PostHog | PostHogDisplayChoiceQuestion.shuffleOptions | property | let shuffleOptions: Bool | s:7PostHog0aB21DisplayChoiceQuestionC14shuffleOptionsSbvp
+PostHog | PostHogDisplayChoiceQuestion.skipSubmitButton | property | let skipSubmitButton: Bool | s:7PostHog0aB21DisplayChoiceQuestionC16skipSubmitButtonSbvp
 PostHog | PostHogDisplayLinkQuestion | class | @objc class PostHogDisplayLinkQuestion | c:@M@PostHog@objc(cs)PostHogDisplayLinkQuestion
 PostHog | PostHogDisplayLinkQuestion.link | property | let link: String? | s:7PostHog0aB19DisplayLinkQuestionC4linkSSSgvp
 PostHog | PostHogDisplayOpenQuestion | class | @objc class PostHogDisplayOpenQuestion | c:@M@PostHog@objc(cs)PostHogDisplayOpenQuestion
@@ -119,6 +120,7 @@ PostHog | PostHogDisplayRatingQuestion.lowerBoundLabel | property | let lowerBou
 PostHog | PostHogDisplayRatingQuestion.ratingType | property | let ratingType: PostHogDisplaySurveyRatingType | s:7PostHog0aB21DisplayRatingQuestionC10ratingTypeAA0abc6SurveydG0Ovp
 PostHog | PostHogDisplayRatingQuestion.scaleLowerBound | property | let scaleLowerBound: Int | s:7PostHog0aB21DisplayRatingQuestionC15scaleLowerBoundSivp
 PostHog | PostHogDisplayRatingQuestion.scaleUpperBound | property | let scaleUpperBound: Int | s:7PostHog0aB21DisplayRatingQuestionC15scaleUpperBoundSivp
+PostHog | PostHogDisplayRatingQuestion.skipSubmitButton | property | let skipSubmitButton: Bool | s:7PostHog0aB21DisplayRatingQuestionC16skipSubmitButtonSbvp
 PostHog | PostHogDisplayRatingQuestion.upperBoundLabel | property | let upperBoundLabel: String | s:7PostHog0aB21DisplayRatingQuestionC15upperBoundLabelSSvp
 PostHog | PostHogDisplaySurvey | class | @objc class PostHogDisplaySurvey | c:@M@PostHog@objc(cs)PostHogDisplaySurvey
 PostHog | PostHogDisplaySurvey.appearance | property | let appearance: PostHogDisplaySurveyAppearance? | s:7PostHog0aB13DisplaySurveyC10appearanceAA0abcD10AppearanceCSgvp

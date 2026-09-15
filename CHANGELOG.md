@@ -1,5 +1,11 @@
 ## Next
 
+## 3.75.2
+
+### Patch Changes
+
+- f5ec8cb: Stop session replay from redacting a screen that sits off screen behind a full-screen cover, which painted stale mask boxes over the covering screen.
+
 ## 3.75.1
 
 ### Patch Changes

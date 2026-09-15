@@ -1,5 +1,11 @@
 ## Next
 
+## 3.75.0
+
+### Minor Changes
+
+- f6cc720: Change `capturePushNotificationOpened` to skip a PostHog-sent notification open already captured in the last 5 minutes (same `invocation_id` and `action_id`), unless the notification's request identifier differs.
+
 ## 3.74.1
 
 ### Patch Changes

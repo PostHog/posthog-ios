@@ -533,6 +533,45 @@
             try h.expectMasked(overlay, context: "visible banner restored")
         }
 
+        @Test("rendered z-order keeps a sensitive sibling above the cover masked", arguments: [false, true])
+        func animatedZPosition(animateCover: Bool) async throws {
+            let base = Secrets()
+            let h = try Harness(root: base.controller)
+            defer { h.close() }
+            let cover = UIViewController()
+            cover.view.backgroundColor = .white
+            try await present(cover, over: base.controller, in: h)
+            let coverBranch = try #require(h.window.subviews.first { cover.view.isDescendant(of: $0) })
+            coverBranch.layer.zPosition = 1
+            let overlay = Secrets(background: .clear)
+            let banner = try #require(overlay.controller.view)
+            banner.frame = CGRect(x: 190, y: 300, width: 210, height: 300)
+            h.window.addSubview(banner)
+            try await settle(h.window)
+            #expect(try h.rects().isEmpty, "The settled cover hides the banner")
+
+            let layer = animateCover ? coverBranch.layer : banner.layer
+            let animation = CABasicAnimation(keyPath: "zPosition")
+            animation.fromValue = animateCover ? -2 : 3
+            animation.toValue = layer.zPosition
+            animation.duration = 2
+            animation.timingFunction = CAMediaTimingFunction(name: .linear)
+            // Hold an in-flight frame so assertions cannot race the animation's completion.
+            animation.speed = 0
+            animation.timeOffset = 0.5
+            layer.add(animation, forKey: "privacy-z-order")
+            try await settle(h.window)
+            let renderedBanner = try #require(banner.layer.presentation())
+            let renderedCover = try #require(coverBranch.layer.presentation())
+            try #require(banner.layer.zPosition < coverBranch.layer.zPosition)
+            try #require(renderedBanner.zPosition > renderedCover.zPosition)
+            try h.expectMasked(overlay, context: animateCover ? "animated cover zPosition" : "animated sibling zPosition")
+
+            layer.removeAnimation(forKey: "privacy-z-order")
+            try await settle(h.window)
+            #expect(try h.rects().isEmpty, "The settled opaque cover must still remove stale masks")
+        }
+
         @Test("a fading sibling stays masked until its rendered opacity reaches zero")
         func fadingSibling() async throws {
             let base = Secrets()

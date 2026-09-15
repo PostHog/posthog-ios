@@ -79,6 +79,8 @@
         /// presentations made after it — the very case the caller exists to catch — so a sibling
         /// sitting earlier in the array still wins when its `zPosition` is higher.
         private static func drawsLast(_ view: UIView, in parent: UIView) -> Bool {
+            let viewPosition = view.layer.zPosition
+            let renderedViewPosition = view.layer.presentation()?.zPosition ?? viewPosition
             var isAfterView = false
             for sibling in parent.subviews {
                 if sibling === view {
@@ -92,7 +94,12 @@
                     continue
                 }
                 let position = sibling.layer.zPosition
-                if position > view.layer.zPosition || (position == view.layer.zPosition && isAfterView) {
+                if position > viewPosition || (position == viewPosition && isAfterView) {
+                    return false
+                }
+                // Model order can already hide a sibling that is still rendered above the cover.
+                let renderedPosition = sibling.layer.presentation()?.zPosition ?? position
+                if renderedPosition > renderedViewPosition || (renderedPosition == renderedViewPosition && isAfterView) {
                     return false
                 }
             }

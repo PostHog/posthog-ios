@@ -51,7 +51,8 @@
             beforeCacheUpdate: (([PostHogSurvey]) -> Bool)? = nil,
             callback: @escaping SurveyCallback
         ) {
-            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig ?? [:])
+            guard let remoteConfig else { return callback([]) }
+            let loadedSurveys: [PostHogSurvey] = decodeSurveys(from: remoteConfig)
             guard beforeCacheUpdate?(loadedSurveys) != false else { return }
 
             let eventMap = loadedSurveys.reduce(into: [String: [(surveyId: String, condition: PostHogEventCondition)]]()) { result, current in
@@ -236,6 +237,55 @@
                 false
             }
         }
+    }
+
+    /// Returns next question index based on a branching step result
+    /// - Parameters:
+    ///   - nextIndex: The next index to process
+    ///   - totalQuestions: The total number of questions in the survey
+    /// - Returns: The next question index if found, or nil if not
+    func processBranchingStep(nextIndex: Any, totalQuestions: Int) -> NextSurveyQuestion? {
+        if let nextIndex = nextIndex as? Int {
+            return .index(min(nextIndex, totalQuestions - 1))
+        }
+        if let nextIndex = nextIndex as? String, nextIndex.lowercased() == "end" {
+            return .end
+        }
+        return nil
+    }
+
+    // Gets the response bucket for a given rating response value, given the scale.
+    // For example, for a scale of 3, the buckets are "negative", "neutral" and "positive".
+    func getRatingBucketForResponseValue(scale: PostHogSurveyRatingScale, value: Int) -> String? {
+        // swiftlint:disable:previous cyclomatic_complexity
+        // Validate input ranges
+        switch scale {
+        case .threePoint where RatingBucket.threePointRange.contains(value):
+            return sentimentBucket(value, negatives: BucketThresholds.ThreePoint.negatives, neutrals: BucketThresholds.ThreePoint.neutrals)
+
+        case .fivePoint where RatingBucket.fivePointRange.contains(value):
+            return sentimentBucket(value, negatives: BucketThresholds.FivePoint.negatives, neutrals: BucketThresholds.FivePoint.neutrals)
+
+        case .sevenPoint where RatingBucket.sevenPointRange.contains(value):
+            return sentimentBucket(value, negatives: BucketThresholds.SevenPoint.negatives, neutrals: BucketThresholds.SevenPoint.neutrals)
+
+        case .tenPoint where RatingBucket.tenPointRange.contains(value):
+            switch value {
+            case BucketThresholds.TenPoint.detractors: return RatingBucket.detractors
+            case BucketThresholds.TenPoint.passives: return RatingBucket.passives
+            default: return RatingBucket.promoters
+            }
+
+        default:
+            hedgeLog("[Surveys] Cannot get rating bucket for invalid scale: \(scale). The scale must be one of: 3 (1-3), 5 (1-5), 7 (1-7), 10 (0-10).")
+            return nil
+        }
+    }
+
+    private func sentimentBucket(_ value: Int, negatives: ClosedRange<Int>, neutrals: ClosedRange<Int>) -> String {
+        if negatives.contains(value) { return RatingBucket.negative }
+        if neutrals.contains(value) { return RatingBucket.neutral }
+        return RatingBucket.positive
     }
 
     enum RatingBucket {

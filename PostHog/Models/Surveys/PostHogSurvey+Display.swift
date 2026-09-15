@@ -4,7 +4,8 @@
     extension PostHogSurvey {
         func toDisplaySurvey(
             surveyTranslation: PostHogSurveyTranslation? = nil,
-            questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil
+            questionTranslations: [PostHogSurveyQuestionTranslation?]? = nil,
+            initialQuestionIndex: Int = 0
         ) -> PostHogDisplaySurvey {
             let translatedQuestions = questions.enumerated().compactMap { index, question in
                 let translation = questionTranslations.flatMap { index < $0.count ? $0[index] : nil }
@@ -16,7 +17,8 @@
                 questions: translatedQuestions,
                 appearance: appearance?.toDisplayAppearance(translation: surveyTranslation),
                 startDate: startDate,
-                endDate: endDate
+                endDate: endDate,
+                initialQuestionIndex: initialQuestionIndex
             )
         }
     }

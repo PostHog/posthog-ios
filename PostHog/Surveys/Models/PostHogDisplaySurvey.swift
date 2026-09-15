@@ -15,6 +15,8 @@ import Foundation
     public let name: String
     /// Array of questions to be presented in the survey
     public let questions: [PostHogDisplaySurveyQuestion]
+    /// The question to show when restoring an unfinished survey. Zero for a new survey.
+    public let initialQuestionIndex: Int
     /// Optional appearance configuration for customizing the survey's look and feel
     public let appearance: PostHogDisplaySurveyAppearance?
     /// Optional date indicating when the survey should start being shown
@@ -28,7 +30,8 @@ import Foundation
         questions: [PostHogDisplaySurveyQuestion],
         appearance: PostHogDisplaySurveyAppearance?,
         startDate: Date?,
-        endDate: Date?
+        endDate: Date?,
+        initialQuestionIndex: Int = 0
     ) {
         self.id = id
         self.name = name
@@ -36,6 +39,7 @@ import Foundation
         self.appearance = appearance
         self.startDate = startDate
         self.endDate = endDate
+        self.initialQuestionIndex = initialQuestionIndex
         super.init()
     }
 }

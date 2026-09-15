@@ -26,12 +26,12 @@
 
             displayedSurvey = survey
             isSurveyCompleted = false
-            currentQuestionIndex = 0
+            currentQuestionIndex = survey.initialQuestionIndex
             // The intro has no default header, so an intro with no copy at all is skipped
             // instead of drawing an empty sheet with a lone button.
             let hasIntroContent = survey.appearance?.introScreenHeader?.isEmpty == false
                 || survey.appearance?.introScreenDescription?.isEmpty == false
-            showingIntroScreen = survey.appearance?.displayIntroScreen == true && hasIntroContent
+            showingIntroScreen = survey.initialQuestionIndex == 0 && survey.appearance?.displayIntroScreen == true && hasIntroContent
             onSurveyShown?(survey)
         }
 
@@ -60,7 +60,10 @@
 
         func onNextQuestion(index: Int, response: PostHogSurveyResponse) {
             guard let displayedSurvey else { return }
-            guard let next = onSurveyResponse?(displayedSurvey, index, response) else { return }
+            guard let next = onSurveyResponse?(displayedSurvey, index, response) else {
+                dismissSurvey()
+                return
+            }
 
             currentQuestionIndex = next.questionIndex
             isSurveyCompleted = next.isSurveyCompleted

@@ -345,22 +345,26 @@ class PostHogQueue<Record> {
     /// Rate cap drops happen *before* the FIFO eviction check so a new record
     /// over the cap doesn't displace an older queued one — the rate cap is a
     /// caller-side throttle, not a buffer policy.
-    func add(_ record: Record) {
+    @discardableResult
+    func add(_ record: Record) -> Bool {
         if !consumeRateCap() {
             noteRateCapDropped()
-            return
+            return false
         }
 
         guard let data = endpoint.encode(record) else {
             hedgeLog("Tried to queue unserialisable record")
-            return
+            return false
         }
 
-        if fileQueue.add(data, maxSize: configuredMaxQueueSize) != nil {
+        let result = fileQueue.add(data, maxSize: configuredMaxQueueSize)
+        guard result.success else { return false }
+        if result.evicted != nil {
             hedgeLog("Queue is full, dropping oldest record")
         }
         hedgeLog("Queued \(endpoint.describe(record)). Depth: \(fileQueue.depth)")
         flushIfOverThreshold()
+        return true
     }
 
     /// Returns `true` if the record can be enqueued, `false` if the per-window

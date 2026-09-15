@@ -96,7 +96,7 @@ class PostHogFileBackedQueue {
     /// critical section. Returning an evicted id lets the queue report
     /// backpressure without racing a separate depth check against other adds.
     @discardableResult
-    func add(_ contents: Data, maxSize: Int? = nil) -> String? {
+    func add(_ contents: Data, maxSize: Int? = nil) -> (success: Bool, evicted: String?) {
         do {
             let filename = UUID.v7String()
             let effectiveMaxSize = maxSize.map { max(1, $0) } ?? self.maxSize
@@ -115,10 +115,10 @@ class PostHogFileBackedQueue {
                 items.append(filename)
             }
 
-            return evicted
+            return (true, evicted)
         } catch {
             hedgeLog("Could not write file \(error)")
-            return nil
+            return (false, nil)
         }
     }
 

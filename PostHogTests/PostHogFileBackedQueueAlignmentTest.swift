@@ -39,7 +39,9 @@ struct PostHogFileBackedQueueAlignmentTest {
             try? FileManager.default.removeItem(at: dir)
         }
 
-        queue.add(Data("A".utf8), maxSize: 2)
+        let first = queue.add(Data("A".utf8), maxSize: 2)
+        #expect(first.success)
+        #expect(first.evicted == nil)
         queue.add(Data("B".utf8), maxSize: 2)
         let originalIds = queue.peekEntries(2).map(\.id)
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
@@ -47,14 +49,18 @@ struct PostHogFileBackedQueueAlignmentTest {
             try Data("probe".utf8).write(to: dir.appendingPathComponent("write-probe"))
         }
 
-        #expect(queue.add(Data("C".utf8), maxSize: 2) == nil)
+        let failed = queue.add(Data("C".utf8), maxSize: 2)
+        #expect(!failed.success)
+        #expect(failed.evicted == nil)
         #expect(queue.depth == 2)
         #expect(queue.peekEntries(2).map(\.id) == originalIds)
         #expect(decode(queue.peek(2)) == ["A", "B"])
         #expect(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)) == Set(originalIds))
 
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path)
-        #expect(queue.add(Data("C".utf8), maxSize: 2) == originalIds.first)
+        let retried = queue.add(Data("C".utf8), maxSize: 2)
+        #expect(retried.success)
+        #expect(retried.evicted == originalIds.first)
         #expect(queue.depth == 2)
         #expect(decode(queue.peek(2)) == ["B", "C"])
         let reloaded = PostHogFileBackedQueue(queue: dir, maxSize: 2)

@@ -45,7 +45,6 @@ let maxRetryDelay = 30.0
     private let personPropsLock = NSLock()
     private let cachedPersonPropertiesLock = NSLock()
     private let identifyLock = NSLock()
-    private var cachedPersonPropertiesHash: String?
 
     private let lastScreenLock = NSLock()
     private var _lastScreenName: String?
@@ -869,7 +868,7 @@ let maxRetryDelay = 30.0
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
 
-            guard let event = buildEvent(event: "$identify", distinctId: distinctId, properties: properties) else {
+            guard let event = buildEvent(event: PostHogKnownUnsafeEditableEvent.identify.rawValue, distinctId: distinctId, properties: properties) else {
                 return
             }
 
@@ -893,21 +892,10 @@ let maxRetryDelay = 30.0
 
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
-            capture("$set",
+            capture(PostHogKnownUnsafeEditableEvent.set.rawValue,
                     distinctId: distinctId,
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
-
-            // The transition event must fire even when an identical property call was cached
-            // earlier; cache only after capture so deduplication cannot suppress it.
-            let hash = getPersonPropertiesHash(
-                distinctId: distinctId,
-                userPropertiesToSet: userProperties,
-                userPropertiesToSetOnce: userPropertiesSetOnce
-            )
-            cachedPersonPropertiesLock.withLock {
-                cachedPersonPropertiesHash = hash
-            }
 
             // The identified state itself is not part of the flags request; reload only when the
             // caller supplied properties that can affect flag evaluation.
@@ -917,19 +905,11 @@ let maxRetryDelay = 30.0
 
             notifyContextDidChange()
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-            if !shouldCapturePersonPropertiesEvent(
-                distinctId: distinctId,
-                userPropertiesToSet: userProperties,
-                userPropertiesToSetOnce: userPropertiesSetOnce
-            ) {
-                hedgeLog("A duplicate identify call was made with the same properties. The $set event has been ignored.")
-                return
-            }
-
-            capture("$set",
-                    distinctId: distinctId,
-                    userProperties: userProperties,
-                    userPropertiesSetOnce: userPropertiesSetOnce)
+            captureInternal(PostHogKnownUnsafeEditableEvent.set.rawValue,
+                            distinctId: distinctId,
+                            userProperties: userProperties,
+                            userPropertiesSetOnce: userPropertiesSetOnce,
+                            deduplicatePersonProperties: true)
 
             // Automatically set person properties for feature flags during user property updates
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
@@ -988,15 +968,6 @@ let maxRetryDelay = 30.0
 
         let currentDistinctId = getDistinctId()
 
-        if !shouldCapturePersonPropertiesEvent(
-            distinctId: currentDistinctId,
-            userPropertiesToSet: userPropertiesToSet,
-            userPropertiesToSetOnce: userPropertiesToSetOnce
-        ) {
-            hedgeLog("A duplicate setPersonProperties call was made with the same properties. It has been ignored.")
-            return
-        }
-
         // Update person properties for flags (setOnce properties are applied first, then set properties override)
         var allProperties: [String: Any] = [:]
         if let userPropertiesToSetOnce {
@@ -1010,35 +981,13 @@ let maxRetryDelay = 30.0
         }
 
         // Send the $set event
-        capture(
-            "$set",
+        captureInternal(
+            PostHogKnownUnsafeEditableEvent.set.rawValue,
             distinctId: currentDistinctId,
             userProperties: userPropertiesToSet,
-            userPropertiesSetOnce: userPropertiesToSetOnce
+            userPropertiesSetOnce: userPropertiesToSetOnce,
+            deduplicatePersonProperties: true
         )
-    }
-
-    /// Checks if person properties have changed by comparing hash values.
-    /// Updates the cached hash if different and returns true if the event should be captured.
-    /// Returns false if the hash matches (duplicate call).
-    private func shouldCapturePersonPropertiesEvent(
-        distinctId: String,
-        userPropertiesToSet: [String: Any]?,
-        userPropertiesToSetOnce: [String: Any]?
-    ) -> Bool {
-        let hash = getPersonPropertiesHash(
-            distinctId: distinctId,
-            userPropertiesToSet: userPropertiesToSet,
-            userPropertiesToSetOnce: userPropertiesToSetOnce
-        )
-
-        return cachedPersonPropertiesLock.withLock {
-            if cachedPersonPropertiesHash == hash {
-                return false
-            }
-            cachedPersonPropertiesHash = hash
-            return true
-        }
     }
 
     /// Computes a hash for deduplicating person properties calls.
@@ -1049,10 +998,13 @@ let maxRetryDelay = 30.0
     ) -> String {
         var hashData: [String: Any] = ["distinct_id": distinctId]
 
-        if let userPropertiesToSet {
+        // Sanitize each dictionary on its own, the same way `capture` does. `sanitizeDictionary`
+        // only converts Date/URL at the top level, so a raw dictionary nested under `hashData`
+        // would be dropped whole and unrelated property sets would share one hash.
+        if let userPropertiesToSet = sanitizeDictionary(userPropertiesToSet) {
             hashData["userPropertiesToSet"] = userPropertiesToSet
         }
-        if let userPropertiesToSetOnce {
+        if let userPropertiesToSetOnce = sanitizeDictionary(userPropertiesToSetOnce) {
             hashData["userPropertiesToSetOnce"] = userPropertiesToSetOnce
         }
 
@@ -1410,7 +1362,8 @@ let maxRetryDelay = 30.0
         groups: [String: String]? = nil,
         timestamp: Date? = nil,
         skipBuildProperties: Bool = false,
-        propertyAllowlist: Set<String>? = nil
+        propertyAllowlist: Set<String>? = nil,
+        deduplicatePersonProperties: Bool = false
     ) {
         if !isEnabled() {
             return
@@ -1513,7 +1466,7 @@ let maxRetryDelay = 30.0
             replayQueue?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
         } else {
-            queueEvent(posthogEvent, queue: queue)
+            queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
         }
     }
 
@@ -1788,8 +1741,37 @@ let maxRetryDelay = 30.0
         return resultEvent
     }
 
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>) {
-        queue.add(event)
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
+        let userProperties = event.properties["$set"] as? [String: Any]
+        let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
+        // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
+        // is dropped), and that empty `$set` is still queued, so it needs a marker too.
+        if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
+           userProperties != nil || userPropertiesSetOnce != nil,
+           let storageManager = config.storageManager
+        {
+            let hash = getPersonPropertiesHash(
+                distinctId: event.distinctId,
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
+            )
+            // Check and enqueue under the same lock so concurrent calls cannot enqueue duplicates.
+            let isDuplicate = cachedPersonPropertiesLock.withLock {
+                if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
+                    return true
+                }
+                // Only a stored event marks the properties as sent, so a failed write is retried.
+                if queue.add(event) {
+                    storageManager.setPersonPropertiesHash(hash)
+                }
+                return false
+            }
+            // Only a suppressed duplicate skips the callback below: subscribers such as replay
+            // triggers and event-activated surveys don't depend on this queue reaching disk.
+            guard !isDuplicate else { return }
+        } else {
+            queue.add(event)
+        }
         onEventCaptured.invoke(event)
     }
 

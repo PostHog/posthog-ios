@@ -17,6 +17,58 @@
             return true
         }
 
+        /// Whether this view reaches `window`'s screen. UIKit skips a hidden or fully
+        /// transparent subtree, so a view under one is absent from the screenshot even though it
+        /// is still attached, and a `cover` holding the whole window leaves only its own subtree
+        /// on screen. One walk up the ancestry answers both, and reaching another window (or no
+        /// window) answers no. `isVisible()` reads the view alone.
+        func isVisibleToWindow(_ window: UIWindow, insideCover cover: UIView? = nil) -> Bool {
+            var isInsideCover = cover == nil
+            var view: UIView? = self
+            while let current = view, current !== window {
+                if current.isHidden || !current.hasRenderedOpacity {
+                    return false
+                }
+                if current === cover {
+                    isInsideCover = true
+                }
+                view = current.superview
+            }
+            return view != nil && isInsideCover
+        }
+
+        /// Visibility for the mask walk, stricter than `isVisible()` because anything it
+        /// calls invisible is never masked while the screenshot may still draw it:
+        /// - A view fading out parks its model `alpha` at 0 on the first frame of the
+        ///   animation, while the presentation layer the screenshot renders is still opaque.
+        /// - A zero-size view that does not clip still draws its subviews. React Native's
+        ///   default `overflow: visible` produces exactly that: a 0x0 wrapper around
+        ///   visible content, so its subtree still needs the walk.
+        func isVisibleForMasking() -> Bool {
+            if isHidden || !hasRenderedOpacity {
+                return false
+            }
+            if frame == .zero, clipsToBounds, (layer.presentation()?.bounds ?? bounds).isEmpty {
+                return false
+            }
+            return true
+        }
+
+        /// Whether the screenshot draws this view at all. During an opacity animation the
+        /// model `alpha` sits at the destination while the presentation layer holds the
+        /// in-flight value the screenshot renders, so a view fading out reads as opaque
+        /// here. The model value comes first, so `presentation()` — which copies the layer —
+        /// is only paid for on a view that is already transparent.
+        var hasRenderedOpacity: Bool {
+            if alpha > 0 {
+                return true
+            }
+            guard let presentationOpacity = layer.presentation()?.opacity else {
+                return false
+            }
+            return presentationOpacity > 0
+        }
+
         func isNoCapture() -> Bool {
             containsAccessibilityToken("ph-no-capture")
         }

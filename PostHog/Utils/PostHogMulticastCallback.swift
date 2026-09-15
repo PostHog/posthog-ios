@@ -102,6 +102,13 @@ final class PostHogThrottledMulticastCallback<T> {
     private let lock = NSLock()
     private let onSubscriberCountChanged: ((Int) -> Void)?
 
+    // Heuristic budget: keep small bursts synchronous, but yield under sustained churn instead
+    // of letting an unbounded drain monopolize the caller. This is not a measured threshold.
+    private let subscriberCountBatchLimit = 32
+    private var isNotifyingSubscriberCount = false
+    private var needsSubscriberCountNotification = false
+    private let subscriberCountQueue = DispatchQueue(label: "com.posthog.SubscriberCount")
+
     /// Serial queue that drains throttled callbacks. Stored per instance: generic types
     /// cannot have stored static properties, and a computed static would allocate a fresh
     /// queue on every `invoke()` — besides the allocation cost, separate queues would also
@@ -119,6 +126,8 @@ final class PostHogThrottledMulticastCallback<T> {
 
     /// Creates a new throttled multicast callback.
     /// - Parameter onSubscriberCountChanged: Optional closure called when subscriber count changes.
+    ///   Concurrent and reentrant changes are coalesced, and count callbacks never overlap.
+    ///   After a bounded synchronous batch, pending changes are reconciled asynchronously in bounded batches.
     init(onSubscriberCountChanged: ((Int) -> Void)? = nil) {
         self.onSubscriberCountChanged = onSubscriberCountChanged
     }
@@ -132,21 +141,62 @@ final class PostHogThrottledMulticastCallback<T> {
     /// - Returns: A `RegistrationToken` that unsubscribes when deallocated.
     func subscribe(throttle interval: TimeInterval, trailing: Bool = false, _ callback: @escaping (T) -> Void) -> RegistrationToken {
         let id = UUID()
-        let newCount = lock.withLock {
+        lock.withLock {
             callbacks[id] = ThrottledCallback(handler: callback, interval: interval, trailing: trailing)
             // A new subscriber is immediately eligible; without this reset the invoke()
             // gate could suppress its first fire until the other subscribers' windows open.
             nextEligibleFire = .distantPast
-            return callbacks.count
         }
-        onSubscriberCountChanged?(newCount)
+        notifySubscriberCountChanged()
         return RegistrationToken { [weak self] in
             guard let self else { return }
-            let newCount = self.lock.withLock {
+            self.lock.withLock {
                 self.callbacks[id] = nil
-                return self.callbacks.count
             }
-            self.onSubscriberCountChanged?(newCount)
+            self.notifySubscriberCountChanged()
+        }
+    }
+
+    private func notifySubscriberCountChanged() {
+        guard onSubscriberCountChanged != nil else { return }
+        let shouldNotify = lock.withLock { () -> Bool in
+            needsSubscriberCountNotification = true
+            guard !isNotifyingSubscriberCount else { return false }
+            isNotifyingSubscriberCount = true
+            return true
+        }
+        guard shouldNotify else { return }
+        drainSubscriberCountNotifications()
+    }
+
+    private func drainSubscriberCountNotifications() {
+        guard let onSubscriberCountChanged else { return }
+        for _ in 0 ..< subscriberCountBatchLimit {
+            let count = lock.withLock { () -> Int? in
+                guard needsSubscriberCountNotification else {
+                    isNotifyingSubscriberCount = false
+                    return nil
+                }
+                needsSubscriberCountNotification = false
+                return callbacks.count
+            }
+            guard let count else { return }
+            // Observers may subscribe or unsubscribe. Reconcile those changes after they return,
+            // without holding the state lock or delivering a captured, out-of-order count.
+            onSubscriberCountChanged(count)
+        }
+
+        let shouldContinue = lock.withLock { () -> Bool in
+            guard needsSubscriberCountNotification else {
+                isNotifyingSubscriberCount = false
+                return false
+            }
+            return true
+        }
+        guard shouldContinue else { return }
+        // Retain notification ownership across the queue hop so mutators only mark pending work.
+        subscriberCountQueue.async { [weak self] in
+            self?.drainSubscriberCountNotifications()
         }
     }
 

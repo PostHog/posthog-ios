@@ -321,6 +321,7 @@ PostHog | PostHogSDK.isSessionReplayActive() | method | @objc func isSessionRepl
 PostHog | PostHogSDK.logger | property | @objc var logger: PostHogLogger? { get } | c:@M@PostHog@objc(cs)PostHogSDK(py)logger
 PostHog | PostHogSDK.optIn() | method | @objc func optIn() | c:@M@PostHog@objc(cs)PostHogSDK(im)optIn
 PostHog | PostHogSDK.optOut() | method | @objc func optOut() | c:@M@PostHog@objc(cs)PostHogSDK(im)optOut
+PostHog | PostHogSDK.prewarmPushNotificationOpenCapture() | type.method | @objc static func prewarmPushNotificationOpenCapture() | c:@M@PostHog@objc(cs)PostHogSDK(cm)prewarmPushNotificationOpenCapture
 PostHog | PostHogSDK.register(_:) | method | @objc(registerProperties:) func register(_ properties: [String : Any]) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerProperties:
 PostHog | PostHogSDK.registerPushNotificationToken(_:) | method | @objc func registerPushNotificationToken(_ deviceToken: String) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:
 PostHog | PostHogSDK.registerPushNotificationToken(_:appId:) | method | @objc func registerPushNotificationToken(_ deviceToken: String, appId: String?) | c:@M@PostHog@objc(cs)PostHogSDK(im)registerPushNotificationToken:appId:
@@ -357,6 +358,7 @@ PostHog | PostHogSessionReplayConfig | class | @objc(PostHogSessionReplayConfig)
 PostHog | PostHogSessionReplayConfig.captureLogs | property | @objc var captureLogs: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogs
 PostHog | PostHogSessionReplayConfig.captureLogsConfig | property | @objc var captureLogsConfig: PostHogSessionReplayConsoleLogConfig | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureLogsConfig
 PostHog | PostHogSessionReplayConfig.captureNetworkTelemetry | property | @objc var captureNetworkTelemetry: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureNetworkTelemetry
+PostHog | PostHogSessionReplayConfig.captureTouches | property | @objc var captureTouches: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)captureTouches
 PostHog | PostHogSessionReplayConfig.debouncerDelay | property | @objc var debouncerDelay: TimeInterval { get set } | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)debouncerDelay
 PostHog | PostHogSessionReplayConfig.maskAllImages | property | @objc var maskAllImages: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllImages
 PostHog | PostHogSessionReplayConfig.maskAllSandboxedViews | property | @objc var maskAllSandboxedViews: Bool | c:@M@PostHog@objc(cs)PostHogSessionReplayConfig(py)maskAllSandboxedViews

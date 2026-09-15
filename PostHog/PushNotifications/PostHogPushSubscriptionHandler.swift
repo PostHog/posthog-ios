@@ -830,9 +830,11 @@ final class PostHogPushSubscriptionHandler {
         storage.remove(key: .pushPendingUnregister)
     }
 
-    /// Transport error (no status), 429, or 5xx is retryable; everything else (4xx) is terminal.
+    /// Transport error (no status), 408, 429, or 5xx is retryable; everything else (4xx) is terminal.
+    /// 408 matches the queues' policy in `QueueEndpoint+Factories`: a request timeout can arrive as a
+    /// status alongside a URLSession error, and treating it as terminal drops the unregister intent.
     private func isRetryable(_ info: PostHogUploadInfo) -> Bool {
-        info.statusCode.map { $0 == 429 || (500 ... 599 ~= $0) } ?? true
+        info.statusCode.map { $0 == 408 || $0 == 429 || (500 ... 599 ~= $0) } ?? true
     }
 
     private func statusString(_ info: PostHogUploadInfo) -> String {

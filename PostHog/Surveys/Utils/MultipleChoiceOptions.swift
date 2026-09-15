@@ -15,6 +15,7 @@
         let allowsMultipleSelection: Bool
         let hasOpenChoiceQuestion: Bool
         let options: [String]
+        @State private var displayOrder: [Int]
 
         // Selection is keyed by choice index, not label text, so an in-place content swap
         // (e.g. re-translating the survey) keeps the same options selected and the caller reads
@@ -24,13 +25,30 @@
         @State private var textFieldRect: CGRect = .zero
         @FocusState private var isTextFieldFocused: Bool
 
+        init(
+            allowsMultipleSelection: Bool,
+            hasOpenChoiceQuestion: Bool,
+            options: [String],
+            selectedOptions: Binding<Set<Int>>,
+            openChoiceInput: Binding<String>,
+            shuffleOptions: Bool = false
+        ) {
+            self.allowsMultipleSelection = allowsMultipleSelection
+            self.hasOpenChoiceQuestion = hasOpenChoiceQuestion
+            self.options = options
+            _selectedOptions = selectedOptions
+            _openChoiceInput = openChoiceInput
+            _displayOrder = State(initialValue: surveyChoiceOrder(options: options, hasOpenChoice: hasOpenChoiceQuestion, shuffleOptions: shuffleOptions))
+        }
+
         private var inputTextColor: Color {
             appearance.effectiveInputTextColor
         }
 
         var body: some View {
             VStack {
-                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                ForEach(updatedSurveyChoiceOrder(displayOrder, optionCount: options.count, hasOpenChoice: hasOpenChoiceQuestion), id: \.self) { index in
+                    let option = options[index]
                     let isSelected = isSelected(index)
 
                     Button {
@@ -63,6 +81,10 @@
                     // text field needs to overlay the Button so it can receive touches first when enabled
                     .overlay(openChoiceField(index), alignment: .topLeading)
                 }
+            }
+            .onChange(of: options.count) { count in
+                selectedOptions = updatedSurveyChoiceSelection(selectedOptions, previousCount: displayOrder.count, optionCount: count, hasOpenChoice: hasOpenChoiceQuestion)
+                displayOrder = updatedSurveyChoiceOrder(displayOrder, optionCount: count, hasOpenChoice: hasOpenChoiceQuestion)
             }
         }
 
@@ -168,3 +190,33 @@
         }
     #endif
 #endif
+
+func surveyChoiceOrder(options: [String], hasOpenChoice: Bool, shuffleOptions: Bool) -> [Int] {
+    let indices = Array(options.indices)
+    guard shuffleOptions else { return indices }
+    let regular = hasOpenChoice ? Array(indices.dropLast()) : indices
+    var shuffled = regular.shuffled()
+    // Match web: avoid the original display order when the random shuffle leaves it unchanged.
+    if shuffled.map({ options[$0] }) == regular.map({ options[$0] }) { shuffled.reverse() }
+    if hasOpenChoice, !options.isEmpty { shuffled.append(options.count - 1) }
+    return shuffled
+}
+
+// Reconcile a live translation without randomizing options the person is already answering.
+func updatedSurveyChoiceOrder(_ order: [Int], optionCount: Int, hasOpenChoice: Bool) -> [Int] {
+    let regularCount = max(0, optionCount - (hasOpenChoice ? 1 : 0))
+    let previousRegular = hasOpenChoice ? Array(order.dropLast()) : order
+    let retained = previousRegular.filter { $0 < regularCount }
+    let added = (0 ..< regularCount).filter { !retained.contains($0) }
+    return retained + added + (hasOpenChoice && optionCount > 0 ? [optionCount - 1] : [])
+}
+
+func updatedSurveyChoiceSelection(_ selected: Set<Int>, previousCount: Int, optionCount: Int, hasOpenChoice: Bool) -> Set<Int> {
+    let regularCount = max(0, optionCount - (hasOpenChoice ? 1 : 0))
+    return Set(selected.compactMap { index in
+        if hasOpenChoice, index == previousCount - 1 {
+            return optionCount > 0 ? optionCount - 1 : nil
+        }
+        return index < regularCount ? index : nil
+    })
+}

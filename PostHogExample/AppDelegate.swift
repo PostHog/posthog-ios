@@ -11,6 +11,9 @@ import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Hosted tests manage their own SDK instances.
+        if NSClassFromString("XCTestCase") != nil { return true }
+
         let config = PostHogConfig(
             projectToken: "phc_WKfvDfedaJEDCoUmt9pVa3OWtbbUP1W2ctxwXkt3A3n"
         )

@@ -1114,14 +1114,20 @@
         /// render after this collection, so any rect source can go stale for content committed in
         /// between.
         private func collectMaskedRegions(in window: UIWindow) -> [MaskedRegion]? {
+            // A cover such as a SwiftUI `fullScreenCover` leaves the screen it hides attached to
+            // the window, and rects from that screen would be redacted over the cover's own
+            // pixels. Everything still on screen sits inside the cover, so both rect sources
+            // read from it rather than from the window.
+            let cover = PostHogPresentationCover.frontmostFullWindowCover(in: window)
+
             // The cheap registry read can veto the frame; keep it before the walk.
-            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window)
+            let masked = PostHogSessionReplayMaskRegistry.shared.maskedRects(in: window, insideCover: cover)
             guard !masked.hasUnsettledReporters else {
                 return nil
             }
 
             var maskableWidgets: [MaskedRegion] = []
-            findMaskableWidgets(window, window, &maskableWidgets, false)
+            findMaskableWidgets(under: cover, in: window, &maskableWidgets)
             maskableWidgets.append(contentsOf: masked.regions)
             return maskableWidgets
         }
@@ -1774,6 +1780,52 @@
             guard postHog.isSessionReplayActive() else { return }
 
             migrateBufferIfMinimumDurationMet(replayQueue)
+        }
+    }
+
+    private extension PostHogReplayIntegration {
+        /// Runs the heuristic walk over what the screen still draws: the whole window, or only
+        /// `cover` when one holds it. The views between the window and the cover keep the masking
+        /// rules for their subtree, and the cover sits inside that subtree, so the walk starting
+        /// below them replays those rules first.
+        func findMaskableWidgets(under cover: UIView?, in window: UIWindow, _ maskableWidgets: inout [MaskedRegion]) {
+            guard let cover else {
+                findMaskableWidgets(window, window, &maskableWidgets, false)
+                return
+            }
+
+            var ancestors: [UIView] = []
+            var view = cover.superview
+            while let current = view {
+                ancestors.append(current)
+                if current === window {
+                    break
+                }
+                view = current.superview
+            }
+
+            // Top down, the order the walk would have met them in. Only the two rules that reach
+            // a whole subtree are replayed: the sensitive-type checks describe an ancestor's own
+            // pixels, and the cover hides those.
+            var maskChildren = false
+            for ancestor in ancestors.reversed() {
+                // `ph-no-mask` drops every heuristic mask below it, the cover included.
+                if ancestor.isNoMask() {
+                    return
+                }
+                guard ancestor.isNoCapture() || maskChildren else {
+                    continue
+                }
+                if ancestor.toAbsoluteRect(window).equalTo(window.frame) {
+                    maskChildren = true
+                } else {
+                    // An ancestor that is not the window's size is redacted as one rect, and the
+                    // cover it holds is redacted with it.
+                    maskableWidgets.append(.init(ancestor, in: window))
+                }
+            }
+
+            findMaskableWidgets(cover, window, &maskableWidgets, maskChildren)
         }
     }
 

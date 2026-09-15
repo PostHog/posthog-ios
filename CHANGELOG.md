@@ -1,5 +1,11 @@
 ## Next
 
+## 3.75.1
+
+### Patch Changes
+
+- 1ce6d86: Persist the person properties deduplication hash, so a repeated `identify()` or `setPersonProperties()` call with unchanged properties no longer sends a new `$set` event after each app relaunch.
+
 ## 3.75.0
 
 ### Minor Changes

@@ -211,8 +211,12 @@ let maxRetryDelay = 30.0
             }
 
             optOutLock.withLock {
-                let optOut = theStorage.getBool(forKey: .optOut)
-                config.optOut = optOut ?? config.optOut
+                // Skipped when the layer above the SDK keeps its own consent store: config.optOut is
+                // the truth, and a value this SDK stored on an earlier launch must not outrank it.
+                if config.persistOptOut {
+                    let optOut = theStorage.getBool(forKey: .optOut)
+                    config.optOut = optOut ?? config.optOut
+                }
             }
 
             // Snapshot resource attributes once so post-setup mutations of
@@ -2448,7 +2452,8 @@ let maxRetryDelay = 30.0
 
     /// Opts the current user back into data capture.
     ///
-    /// This persists the opt-in state and installs integrations that were disabled while opted out.
+    /// This persists the opt-in state, unless opt-out persistence is disabled, and installs
+    /// integrations that were disabled while opted out.
     @objc public func optIn() {
         if !isEnabled() {
             return
@@ -2460,7 +2465,9 @@ let maxRetryDelay = 30.0
 
         optOutLock.withLock {
             config.optOut = false
-            storage?.setBool(forKey: .optOut, contents: false)
+            if config.persistOptOut {
+                storage?.setBool(forKey: .optOut, contents: false)
+            }
         }
 
         setupLock.withLock {
@@ -2487,7 +2494,8 @@ let maxRetryDelay = 30.0
 
     /// Opts the current user out of data capture.
     ///
-    /// This persists the opt-out state, stops integrations, and causes future capture calls to be ignored.
+    /// This persists the opt-out state, unless opt-out persistence is disabled, stops integrations,
+    /// and causes future capture calls to be ignored.
     @objc public func optOut() {
         if !isEnabled() {
             return
@@ -2499,7 +2507,9 @@ let maxRetryDelay = 30.0
 
         optOutLock.withLock {
             config.optOut = true
-            storage?.setBool(forKey: .optOut, contents: true)
+            if config.persistOptOut {
+                storage?.setBool(forKey: .optOut, contents: true)
+            }
         }
 
         pushSubscriptionHandler?.onOptOut()

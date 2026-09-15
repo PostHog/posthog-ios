@@ -185,7 +185,8 @@
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
-                    openChoiceInput: $openChoiceInput
+                    openChoiceInput: $openChoiceInput,
+                    shuffleOptions: question.shuffleOptions
                 )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
@@ -236,7 +237,8 @@
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
-                    openChoiceInput: $openChoiceInput
+                    openChoiceInput: $openChoiceInput,
+                    shuffleOptions: question.shuffleOptions
                 )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {

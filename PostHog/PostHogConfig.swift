@@ -89,10 +89,13 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `30`.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
-    /// Maximum number of consecutive flush attempts before the entire queue is
-    /// dropped to avoid infinite retries against a permanently-broken backend.
-    /// Increments on every retriable failure including HTTP 413 cap halving;
-    /// resets on a successful 2xx response. Default 3.
+    /// Maximum number of retries for push-subscription registration failures.
+    ///
+    /// This limit does not apply to event, replay, or log ingestion. Retryable ingestion
+    /// failures retain queued records for later flush triggers, subject to backoff.
+    /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
+    ///
+    /// Default: `3`.
     @objc public var maxRetries: Int = Defaults.maxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
@@ -182,13 +185,25 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         /// Automatically capture a `$push_notification_opened` event when the user taps a **remote** push
         /// notification, by swizzling `UNUserNotificationCenterDelegate`. Locally-scheduled notifications
-        /// are ignored — call `capturePushNotificationOpened(response:)` yourself to capture those.
+        /// are ignored — capture those yourself with
+        /// `PostHogSDK.capturePushNotificationOpened(title:subtitle:body:payload:action:)`, passing the
+        /// content you scheduled. `capturePushNotificationOpened(response:)` reads title/subtitle/body
+        /// only from notifications PostHog sent (a `posthog` key in `userInfo`), so for a local one it
+        /// captures the open with no content.
+        ///
+        /// A notification sent by PostHog is captured once: a manual `capturePushNotificationOpened`
+        /// call for a tap this already captured (same `posthog.invocation_id` and `action_id`, within
+        /// 5 minutes) is skipped, and so is the reverse. A resend of that notification is a separate
+        /// tap and is captured.
         ///
         /// - Note: Requires `enableSwizzling` to be `true`. To capture opens without swizzling, call
         ///   `PostHogSDK.capturePushNotificationOpened(response:)` from your own
         ///   `userNotificationCenter(_:didReceive:withCompletionHandler:)` implementation.
         ///
         /// Default: true. Set to `false` to opt out.
+        ///
+        /// Requires your app to set `UNUserNotificationCenter.current().delegate`. Without one, iOS
+        /// reports the tap to nobody and no open can be captured, in any app state.
         @objc public var capturePushNotificationOpened: Bool = true
     #endif
 
@@ -233,8 +248,36 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     ///
     /// While opted out, capture calls are ignored and integrations are not installed.
     /// Use `PostHogSDK.optIn()` and `PostHogSDK.optOut()` to change the persisted state at runtime.
+    /// A state persisted by an earlier launch wins over this value, unless `reset()` cleared it or
+    /// opt-out persistence is turned off.
     /// Default: `false`.
     @objc public var optOut: Bool = false
+
+    /// Whether the SDK stores the opt-out state itself and restores it at setup.
+    ///
+    /// Default: `true` — `PostHogSDK.optIn()` and `PostHogSDK.optOut()` write the state to disk, and
+    /// setup reads it back, where it takes precedence over ``optOut``. A runtime choice made by the
+    /// user therefore outlives the app's configured default.
+    ///
+    /// Set to `false` only when the layer above the SDK keeps its own consent store; leave it `true`
+    /// otherwise. The SDK then never reads its own copy and `optIn()`/`optOut()` never write it,
+    /// though `reset()` still clears the key. ``optOut`` is the truth at setup, and `optIn()`/`optOut()`
+    /// change only the running SDK.
+    ///
+    /// ```swift
+    /// @_spi(PostHogInternal) import PostHog
+    ///
+    /// let config = PostHogConfig(projectToken: "<ph_project_token>")
+    /// config.persistOptOut = false
+    /// config.optOut = hostConsentStore.isOptedOut
+    /// PostHogSDK.shared.setup(config)
+    /// ```
+    ///
+    /// Set it before `setup()`. Changing it afterwards does not re-resolve the value setup already
+    /// read, but does change whether `optIn()`/`optOut()` write to disk.
+    ///
+    /// SPI, not public API: no stability guarantees.
+    @_spi(PostHogInternal) public var persistOptOut: Bool = true
 
     /// Hook used to customize newly generated anonymous IDs.
     ///
@@ -559,7 +602,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
                         integrations.append(PostHogPushNotificationSubscriptionIntegration())
                     }
                 #endif
-                if capturePushNotificationOpened {
+                if installsPushNotificationOpenIntegration {
                     integrations.append(PostHogPushNotificationOpenIntegration())
                 }
             }
@@ -567,6 +610,15 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         return integrations
     }
+
+    #if os(iOS) || os(macOS)
+        /// `setup()`'s prewarm-discard gate is the negation of this, and the discard is the only thing
+        /// that releases a prewarm the config did not want. Both read this property so a new reason
+        /// not to install cannot be added on one side only.
+        var installsPushNotificationOpenIntegration: Bool {
+            capturePushNotificationOpened && enableSwizzling && !optOut
+        }
+    #endif
 
     var _surveys: Bool = true // swiftlint:disable:this identifier_name
     private func setSurveys(_ value: Bool) {

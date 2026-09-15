@@ -5,7 +5,7 @@
 //  Created by Yiannis Josephides on 19/02/2025.
 //
 
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Testing
 import XCTest
 
@@ -136,6 +136,27 @@ class PostHogIntegrationInstallationTest {
 
         first.close()
         second.close()
+    }
+
+    @Test("a stored opt-in does not install the screen-view integration when the host owns consent")
+    func noIntegrationsWhenHostOwnsConsent() async {
+        let token = "test_host_consent_\(UUID().uuidString)"
+        let config = PostHogConfig(projectToken: token, host: "http://localhost:9001")
+        config.disableRemoteConfigForTesting = true
+        config.disableFlushOnBackgroundForTesting = true
+        config.disableReachabilityForTesting = true
+        config.captureScreenViews = true
+        config.persistOptOut = false
+        config.optOut = true
+
+        let storage = PostHogStorage(config)
+        defer { storage.reset() }
+        storage.setBool(forKey: .optOut, contents: false)
+
+        let sut = PostHogSDK.with(config)
+        defer { sut.close() }
+
+        #expect(sut.getScreenViewIntegration() == nil)
     }
 
     // MARK: - Error tracking integration

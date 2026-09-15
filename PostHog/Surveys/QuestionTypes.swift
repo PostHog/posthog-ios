@@ -196,7 +196,8 @@
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: selection,
-                    openChoiceInput: $openChoiceInput
+                    openChoiceInput: $openChoiceInput,
+                    shuffleOptions: question.shuffleOptions
                 )
 
                 if !question.shouldAutoSubmit {
@@ -262,7 +263,8 @@
                     hasOpenChoiceQuestion: question.hasOpenChoice,
                     options: question.choices,
                     selectedOptions: $selectedChoices,
-                    openChoiceInput: $openChoiceInput
+                    openChoiceInput: $openChoiceInput,
+                    shuffleOptions: question.shuffleOptions
                 )
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {

@@ -10,6 +10,7 @@
     import Nimble
     @testable import PostHog
     import Quick
+    import Testing
     import UIKit
 
     // see: https://developers.google.com/speed/webp/gallery
@@ -62,6 +63,32 @@
                 expect(sut).toNot(beNil())
                 expect(sut).to(equal(encodedData))
             }
+        }
+    }
+
+    @Suite("WebP buffer ownership", .serialized)
+    struct PostHogWebPBufferTests {
+        @Test(arguments: [("1", CGFloat(0.8)), ("2", CGFloat(0.3)), ("3", CGFloat(0.8))])
+        func encodedDataOutlivesEncoder(fixture: String, quality: CGFloat) throws {
+            let bundle = Bundle(for: PostHogWebPTest.self)
+            let inputURL = try #require(bundle.url(forResource: "input_\(fixture)", withExtension: "png"))
+            let outputURL = try #require(bundle.url(forResource: "output_\(fixture)", withExtension: "webp"))
+            let image = try #require(UIImage(data: Data(contentsOf: inputURL)))
+            let expected = try Data(contentsOf: outputURL)
+            let encoded = try #require(autoreleasepool { image.webpData(compressionQuality: quality) })
+
+            for _ in 0 ..< 10 {
+                let subsequent = autoreleasepool { image.webpData(compressionQuality: quality) }
+                #expect(subsequent == expected)
+            }
+            #expect(encoded == expected)
+            #expect(Data(base64Encoded: encoded.base64EncodedString()) == expected)
+            #expect(image.toBase64(quality) == "data:image/webp;base64,\(expected.base64EncodedString())")
+
+            var modified = encoded
+            modified[0] ^= 0xFF
+            #expect(encoded == expected)
+            #expect(modified != encoded)
         }
     }
 #endif

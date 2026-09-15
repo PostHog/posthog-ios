@@ -115,6 +115,25 @@ testSurveyUI:
 	@grep -qE "Test Case .*SurveyAutoSubmitUITests.* passed" survey-ui-tests.log || { \
 	  echo "error: no survey UI tests executed."; exit 1; }
 
+.PHONY: testPresentationMasks
+
+# UIKit presentation needs an app host. Keep the rest of the suite hostless: it relies on
+# xctest's bundle identity and app-group entitlements. Override the destination for a specific OS.
+testPresentationMasks:
+	@device="$$(xcrun simctl list devices available | grep -E '^[[:space:]]*iPhone' | head -1 | sed -E 's/^[[:space:]]*//; s/ \(.*//')"; \
+	[ -n "$$device" ] || { echo "No available iPhone simulator found."; exit 1; }; \
+	set -o pipefail; \
+	xcrun xcodebuild test -project PostHog.xcodeproj -scheme PostHog \
+	  -destination "$${PRESENTATION_TEST_DESTINATION:-platform=iOS Simulator,name=$$device}" \
+	  -parallel-testing-enabled NO \
+	  POSTHOG_PRESENTATION_TEST_HOST='$$(BUILT_PRODUCTS_DIR)/PostHogExample.app/PostHogExample' \
+	  SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) TEST_PRESENTATION_MASKS' \
+	  -only-testing:PostHogTests/PostHogMaskPresentationTest \
+	  -only-testing:PostHogTests/PostHogMaskPresentationPrivacyTest \
+	  2>&1 | tee presentation-masks.log | xcpretty
+	@grep -q 'Suite "Replay masking behind a cover" passed' presentation-masks.log
+	@grep -q 'Suite "Replay presentation privacy" passed' presentation-masks.log
+
 testOnMacSimulator:
 	set -o pipefail && xcrun xcodebuild test -scheme PostHog -destination 'platform=macOS' | xcpretty
 

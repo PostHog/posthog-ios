@@ -7,7 +7,7 @@
 
 import Foundation
 import Nimble
-@testable import PostHog
+@_spi(PostHogInternal) @testable import PostHog
 import Quick
 
 class PostHogConfigTest: QuickSpec {
@@ -27,6 +27,7 @@ class PostHogConfigTest: QuickSpec {
             expect(config.captureScreenViews) == true
             expect(config.debug) == false
             expect(config.optOut) == false
+            expect(config.persistOptOut) == true
 
             #if os(iOS) || os(macOS)
                 expect(config.capturePushNotificationSubscriptions) == true

@@ -1,5 +1,15 @@
 ## Next
 
+## 3.76.0
+
+### Minor Changes
+
+- 177baa1: Add the internal `persistOptOut` config so a wrapper SDK that owns consent can stop a persisted opt-out from overriding the value it passes to `setup()`.
+
+### Patch Changes
+
+- 82ec3a1: Honor survey shuffleOptions in the built-in choice UI, keeping Other last and the display order stable while answering.
+
 ## 3.75.2
 
 ### Patch Changes

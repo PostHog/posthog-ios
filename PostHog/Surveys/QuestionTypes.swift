@@ -188,7 +188,6 @@
                     openChoiceInput: $openChoiceInput,
                     shuffleOptions: question.shuffleOptions
                 )
-                .id(question.choices.count)
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
                     onNextQuestion(response)
@@ -241,7 +240,6 @@
                     openChoiceInput: $openChoiceInput,
                     shuffleOptions: question.shuffleOptions
                 )
-                .id(question.choices.count)
 
                 BottomSection(label: question.buttonText ?? appearance.submitButtonText) {
                     onNextQuestion(response)

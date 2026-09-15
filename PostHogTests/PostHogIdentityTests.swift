@@ -560,4 +560,360 @@ class PostHogIdentityTests {
         #expect(events[0].event == "$identify")
         #expect(events[1].event == "$set")
     }
+
+    @Test("opted-out properties can be sent after relaunch and consent")
+    func optedOutPropertiesCanBeSentAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        firstLaunch.optOut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.optIn()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("a dropped set can be retried after relaunch")
+    func droppedSetCanBeRetriedAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        firstLaunch.config.setBeforeSend { event in
+            event.event == "$set" ? nil : event
+        }
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("reset clears persisted deduplication for the same identity")
+    func resetClearsPersistedDeduplication() async throws {
+        let firstLaunch = getSut(reuseAnonymousId: true, flushAt: 100)
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.flush()
+        _ = try await getServerEvents(server)
+        let distinctId = firstLaunch.getDistinctId()
+        firstLaunch.reset()
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(reuseAnonymousId: true, flushAt: 100)
+        #expect(secondLaunch.getDistinctId() == distinctId)
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("a failed queue write does not suppress properties after relaunch")
+    func failedQueueWriteCanBeRetriedAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        let queueURL = PostHogStorage(firstLaunch.config).url(forKey: .queue)
+        try FileManager.default.removeItem(at: queueURL)
+        try Data().write(to: queueURL)
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        firstLaunch.close()
+        try FileManager.default.removeItem(at: queueURL)
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("a failed queue write still notifies capture subscribers")
+    func failedQueueWriteStillNotifiesSubscribers() throws {
+        let sut = getSut(flushAt: 100)
+        let queueURL = PostHogStorage(sut.config).url(forKey: .queue)
+        try FileManager.default.removeItem(at: queueURL)
+        try Data().write(to: queueURL)
+
+        var received: [String] = []
+        let token = sut.onEventCaptured.subscribe { received.append($0.event) }
+
+        sut.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        sut.capture("after_failed_write")
+
+        #expect(received.contains("$set"))
+        #expect(received.contains("after_failed_write"))
+
+        withExtendedLifetime(token) {}
+        deleteSafely(queueURL)
+    }
+
+    @Test("a dropped anonymous-to-identified set can be retried after relaunch")
+    func droppedTransitionCanBeRetriedAfterRelaunch() async throws {
+        let firstLaunch = getSut(flushAt: 100)
+        let distinctId = firstLaunch.getDistinctId()
+        firstLaunch.config.setBeforeSend { event in
+            event.event == "$set" ? nil : event
+        }
+        firstLaunch.identify(distinctId, userProperties: ["tier": "pro"])
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.identify(distinctId, userProperties: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+    }
+
+    @Test("concurrent identical property calls enqueue only one set")
+    func concurrentIdenticalPropertiesAreDeduplicated() async throws {
+        let sut = getSut(flushAt: 100)
+        let beforeSendCalls = DispatchGroup()
+        beforeSendCalls.enter()
+        beforeSendCalls.enter()
+        sut.config.setBeforeSend { event in
+            if event.event == "$set" {
+                beforeSendCalls.leave()
+                #expect(beforeSendCalls.wait(timeout: .now() + 5) == .success)
+            }
+            return event
+        }
+
+        DispatchQueue.concurrentPerform(iterations: 2) { _ in
+            sut.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        }
+        sut.capture("after_concurrent_calls")
+        sut.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "after_concurrent_calls"])
+    }
+
+    @Test("changed beforeSend output is captured after relaunch", arguments: [false, true])
+    func changedBeforeSendOutputIsCapturedAfterRelaunch(useIdentify: Bool) async throws {
+        func update(_ sdk: PostHogSDK) {
+            if useIdentify {
+                sdk.identify("user123", userProperties: ["tier": "internal_pro"])
+            } else {
+                sdk.setPersonProperties(userPropertiesToSet: ["tier": "internal_pro"])
+            }
+        }
+
+        let firstLaunch = getSut(flushAt: 100)
+        update(firstLaunch)
+        firstLaunch.flush()
+        _ = try await getServerEvents(server)
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        secondLaunch.config.setBeforeSend { event in
+            if event.event == "$set" {
+                event.properties["$set"] = ["tier": "pro"]
+            }
+            return event
+        }
+        update(secondLaunch)
+        update(secondLaunch)
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "second_launch"])
+        #expect((events.first?.properties["$set"] as? [String: String])?["tier"] == "pro")
+    }
+
+    @Test("sanitized-empty properties are deduplicated within and across launches", arguments: [false, true], [false, true])
+    func sanitizedEmptyPropertiesAreDeduplicated(useIdentify: Bool, setOnce: Bool) async throws {
+        let invalidProperties: [String: Any] = ["id": UUID()]
+        func update(_ sdk: PostHogSDK) {
+            if useIdentify {
+                sdk.identify("user123",
+                             userProperties: setOnce ? nil : invalidProperties,
+                             userPropertiesSetOnce: setOnce ? invalidProperties : nil)
+            } else {
+                sdk.setPersonProperties(userPropertiesToSet: setOnce ? nil : invalidProperties,
+                                        userPropertiesToSetOnce: setOnce ? invalidProperties : nil)
+            }
+        }
+
+        let firstLaunch = getSut(flushAt: 100)
+        update(firstLaunch)
+        update(firstLaunch)
+        firstLaunch.capture("first_launch")
+        firstLaunch.flush()
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == [useIdentify ? "$identify" : "$set", "first_launch"])
+        #expect((firstEvents.first?.properties[setOnce ? "$set_once" : "$set"] as? [String: Any])?.isEmpty == true)
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut(flushAt: 100)
+        update(secondLaunch)
+        secondLaunch.capture("second_launch")
+        secondLaunch.flush()
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
+
+    @Test("enqueue failures still notify local integrations", arguments: [false, true])
+    func enqueueFailuresStillNotifyLocalIntegrations(personUpdate: Bool) throws {
+        let sut = getSut(flushAt: 100)
+        let queueURL = PostHogStorage(sut.config).url(forKey: .queue)
+        try FileManager.default.removeItem(at: queueURL)
+        try Data().write(to: queueURL)
+        var capturedEvents: [String] = []
+        let token = sut.onEventCaptured.subscribe { capturedEvents.append($0.event) }
+        defer { withExtendedLifetime(token) {} }
+
+        func capture() {
+            if personUpdate {
+                sut.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+            } else {
+                sut.capture("survey_trigger")
+            }
+        }
+
+        capture()
+        capture()
+        #expect(capturedEvents == Array(repeating: personUpdate ? "$set" : "survey_trigger", count: 2))
+        #expect(sut.config.storageManager?.getPersonPropertiesHash() == nil)
+
+        try FileManager.default.removeItem(at: queueURL)
+        try FileManager.default.createDirectory(at: queueURL, withIntermediateDirectories: true)
+        capture()
+        capture()
+        #expect(capturedEvents.count == (personUpdate ? 3 : 4))
+    }
+
+    // MARK: - Persisted Deduplication Tests
+
+    @Test("setPersonProperties deduplication survives a relaunch")
+    func setPersonPropertiesDeduplicationSurvivesRelaunch() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == ["$set"])
+
+        firstLaunch.close()
+        server.reset()
+
+        // Same properties on the next cold start: the guard is persisted, so no second $set
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
+
+    @Test("setPersonProperties captures after a relaunch when properties changed")
+    func setPersonPropertiesCapturesAfterRelaunchWhenPropertiesChanged() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["tier": "pro"])
+
+        _ = try await getServerEvents(server)
+
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["tier": "free"])
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["$set"])
+
+        let set = secondEvents[0].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["tier"] as? String == "free")
+    }
+
+    @Test("setPersonProperties captures after a relaunch when properties alongside a Date changed")
+    func setPersonPropertiesCapturesAfterRelaunchWhenPropertiesWithDateChanged() async throws {
+        let signupDate = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["signup_date": signupDate, "tier": "pro"])
+
+        _ = try await getServerEvents(server)
+
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["signup_date": signupDate, "tier": "enterprise"])
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["$set"])
+
+        let set = secondEvents[0].properties["$set"] as? [String: Any] ?? [:]
+        #expect(set["tier"] as? String == "enterprise")
+    }
+
+    @Test("setPersonProperties deduplicates properties that sanitize to nothing")
+    func setPersonPropertiesDeduplicatesSanitizedEmptyProperties() async throws {
+        let sut = getSut(flushAt: 2)
+
+        // A UUID isn't serializable, so both calls sanitize down to an empty $set
+        sut.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+        sut.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+
+        sut.capture("test_event")
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == ["$set", "test_event"])
+    }
+
+    @Test("setPersonProperties deduplication of sanitized-empty properties survives a relaunch")
+    func sanitizedEmptyPropertiesDeduplicationSurvivesRelaunch() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == ["$set"])
+
+        firstLaunch.close()
+        server.reset()
+
+        let secondLaunch = getSut()
+        secondLaunch.setPersonProperties(userPropertiesToSet: ["id": UUID()])
+        secondLaunch.capture("second_launch")
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
+
+    @Test("identify does not re-send properties already carried by $identify after a relaunch")
+    func identifyDoesNotResendPropertiesCarriedByIdentifyAfterRelaunch() async throws {
+        let firstLaunch = getSut()
+        firstLaunch.identify("user123", userProperties: ["tier": "pro"])
+
+        let firstEvents = try await getServerEvents(server)
+        #expect(firstEvents.map(\.event) == ["$identify"])
+
+        firstLaunch.close()
+        server.reset()
+
+        // Same identify call on the next cold start: the $identify already sent these properties
+        let secondLaunch = getSut()
+        secondLaunch.identify("user123", userProperties: ["tier": "pro"])
+        secondLaunch.capture("second_launch")
+
+        let secondEvents = try await getServerEvents(server)
+        #expect(secondEvents.map(\.event) == ["second_launch"])
+    }
 }

@@ -1,5 +1,74 @@
 ## Next
 
+## 3.75.2
+
+### Patch Changes
+
+- f5ec8cb: Stop session replay from redacting a screen that sits off screen behind a full-screen cover, which painted stale mask boxes over the covering screen.
+
+## 3.75.1
+
+### Patch Changes
+
+- 1ce6d86: Persist the person properties deduplication hash, so a repeated `identify()` or `setPersonProperties()` call with unchanged properties no longer sends a new `$set` event after each app relaunch.
+
+## 3.75.0
+
+### Minor Changes
+
+- f6cc720: Change `capturePushNotificationOpened` to skip a PostHog-sent notification open already captured in the last 5 minutes (same `invocation_id` and `action_id`), unless the notification's request identifier differs.
+
+## 3.74.1
+
+### Patch Changes
+
+- 1b0ae06: Avoid copying the compressed WebP buffer before Base64 encoding session replay images.
+
+## 3.74.0
+
+### Minor Changes
+
+- 3f9c685: Add `sessionReplayConfig.captureTouches` (default `true`) to disable recording touch coordinates during SDK initialization without disabling screenshots. This protects sensitive screens such as PIN keypads independently of screenshot masking. Runtime changes are not supported.
+
+## 3.73.3
+
+### Patch Changes
+
+- d97cc33: - Preserve inherited session replay masking across siblings inside full-window `ph-no-capture` views.
+  - Keep collecting masks inside clipping views whose model frame reaches zero while their presentation bounds remain visible during an animation.
+
+## 3.73.2
+
+### Patch Changes
+
+- 6e52f5c: - Drop a session replay screenshot when its masked image cannot be rendered, instead of sending the unmasked screenshot.
+  - Collect masks inside a zero-size parent view that does not clip, because it still draws its subviews. React Native's default `overflow: visible` produces such a wrapper.
+  - Collect masks in a view that fades out or fades in, using the opacity the screenshot renders instead of the model `alpha`.
+
+## 3.73.1
+
+### Patch Changes
+
+- 20992b2: Fix layout observation lifecycle races during concurrent subscriptions and preserve safe forwarding for in-flight layout calls when recording stops. Recover layout observation on subscription changes when another swizzler removes or bypasses the PostHog hook.
+
+## 3.73.0
+
+### Minor Changes
+
+- 60267bd: - Preserve bounded durable event, replay, and log queues across retryable upload failures instead of clearing them.
+  - Limit `maxRetries` to push-subscription registration; it no longer bounds event, replay, or log queue flush attempts.
+  - Acknowledge successful and terminal uploads by their exact persisted entry identities so full-queue replacements accepted during an upload are not deleted.
+  - Trim persisted queues to `maxQueueSize` (or `logs.maxBufferSize` for logs) in FIFO order when loading them from disk.
+  - Honor the received HTTP status and `Retry-After` when an upload also returns a transport error: successful and terminal responses remove the sent entries, while retryable responses retain them. A `3xx` left on a failed request is reported as no status, because a redirect does not confirm delivery to the final host.
+  - Preserve existing queued records when writing a new record to a full queue fails.
+  - Retry push-subscription requests that answer with HTTP 408 instead of treating the timeout as terminal, so a pending logout unregister survives until it succeeds.
+
+## 3.72.1
+
+### Patch Changes
+
+- d8c5407: Log a one-time debug warning when the layout observation hook receives an off-main UIKit layout call, without changing the original layout behavior.
+
 ## 3.72.0
 
 ### Minor Changes

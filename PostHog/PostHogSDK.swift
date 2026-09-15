@@ -45,7 +45,6 @@ let maxRetryDelay = 30.0
     private let personPropsLock = NSLock()
     private let cachedPersonPropertiesLock = NSLock()
     private let identifyLock = NSLock()
-    private var cachedPersonPropertiesHash: String?
 
     private let lastScreenLock = NSLock()
     private var _lastScreenName: String?
@@ -869,7 +868,7 @@ let maxRetryDelay = 30.0
                 userPropertiesSetOnce: sanitizeDictionary(userPropertiesSetOnce)
             )
 
-            guard let event = buildEvent(event: "$identify", distinctId: distinctId, properties: properties) else {
+            guard let event = buildEvent(event: PostHogKnownUnsafeEditableEvent.identify.rawValue, distinctId: distinctId, properties: properties) else {
                 return
             }
 
@@ -893,21 +892,10 @@ let maxRetryDelay = 30.0
 
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
 
-            capture("$set",
+            capture(PostHogKnownUnsafeEditableEvent.set.rawValue,
                     distinctId: distinctId,
                     userProperties: userProperties,
                     userPropertiesSetOnce: userPropertiesSetOnce)
-
-            // The transition event must fire even when an identical property call was cached
-            // earlier; cache only after capture so deduplication cannot suppress it.
-            let hash = getPersonPropertiesHash(
-                distinctId: distinctId,
-                userPropertiesToSet: userProperties,
-                userPropertiesToSetOnce: userPropertiesSetOnce
-            )
-            cachedPersonPropertiesLock.withLock {
-                cachedPersonPropertiesHash = hash
-            }
 
             // The identified state itself is not part of the flags request; reload only when the
             // caller supplied properties that can affect flag evaluation.
@@ -917,19 +905,11 @@ let maxRetryDelay = 30.0
 
             notifyContextDidChange()
         } else if !hasDifferentDistinctId, !(userProperties?.isEmpty ?? true) || !(userPropertiesSetOnce?.isEmpty ?? true) {
-            if !shouldCapturePersonPropertiesEvent(
-                distinctId: distinctId,
-                userPropertiesToSet: userProperties,
-                userPropertiesToSetOnce: userPropertiesSetOnce
-            ) {
-                hedgeLog("A duplicate identify call was made with the same properties. The $set event has been ignored.")
-                return
-            }
-
-            capture("$set",
-                    distinctId: distinctId,
-                    userProperties: userProperties,
-                    userPropertiesSetOnce: userPropertiesSetOnce)
+            captureInternal(PostHogKnownUnsafeEditableEvent.set.rawValue,
+                            distinctId: distinctId,
+                            userProperties: userProperties,
+                            userPropertiesSetOnce: userPropertiesSetOnce,
+                            deduplicatePersonProperties: true)
 
             // Automatically set person properties for feature flags during user property updates
             setPersonPropertiesForFlagsIfNeeded(userProperties, userPropertiesSetOnce: userPropertiesSetOnce)
@@ -988,15 +968,6 @@ let maxRetryDelay = 30.0
 
         let currentDistinctId = getDistinctId()
 
-        if !shouldCapturePersonPropertiesEvent(
-            distinctId: currentDistinctId,
-            userPropertiesToSet: userPropertiesToSet,
-            userPropertiesToSetOnce: userPropertiesToSetOnce
-        ) {
-            hedgeLog("A duplicate setPersonProperties call was made with the same properties. It has been ignored.")
-            return
-        }
-
         // Update person properties for flags (setOnce properties are applied first, then set properties override)
         var allProperties: [String: Any] = [:]
         if let userPropertiesToSetOnce {
@@ -1010,35 +981,13 @@ let maxRetryDelay = 30.0
         }
 
         // Send the $set event
-        capture(
-            "$set",
+        captureInternal(
+            PostHogKnownUnsafeEditableEvent.set.rawValue,
             distinctId: currentDistinctId,
             userProperties: userPropertiesToSet,
-            userPropertiesSetOnce: userPropertiesToSetOnce
+            userPropertiesSetOnce: userPropertiesToSetOnce,
+            deduplicatePersonProperties: true
         )
-    }
-
-    /// Checks if person properties have changed by comparing hash values.
-    /// Updates the cached hash if different and returns true if the event should be captured.
-    /// Returns false if the hash matches (duplicate call).
-    private func shouldCapturePersonPropertiesEvent(
-        distinctId: String,
-        userPropertiesToSet: [String: Any]?,
-        userPropertiesToSetOnce: [String: Any]?
-    ) -> Bool {
-        let hash = getPersonPropertiesHash(
-            distinctId: distinctId,
-            userPropertiesToSet: userPropertiesToSet,
-            userPropertiesToSetOnce: userPropertiesToSetOnce
-        )
-
-        return cachedPersonPropertiesLock.withLock {
-            if cachedPersonPropertiesHash == hash {
-                return false
-            }
-            cachedPersonPropertiesHash = hash
-            return true
-        }
     }
 
     /// Computes a hash for deduplicating person properties calls.
@@ -1049,10 +998,13 @@ let maxRetryDelay = 30.0
     ) -> String {
         var hashData: [String: Any] = ["distinct_id": distinctId]
 
-        if let userPropertiesToSet {
+        // Sanitize each dictionary on its own, the same way `capture` does. `sanitizeDictionary`
+        // only converts Date/URL at the top level, so a raw dictionary nested under `hashData`
+        // would be dropped whole and unrelated property sets would share one hash.
+        if let userPropertiesToSet = sanitizeDictionary(userPropertiesToSet) {
             hashData["userPropertiesToSet"] = userPropertiesToSet
         }
-        if let userPropertiesToSetOnce {
+        if let userPropertiesToSetOnce = sanitizeDictionary(userPropertiesToSetOnce) {
             hashData["userPropertiesToSetOnce"] = userPropertiesToSetOnce
         }
 
@@ -1410,7 +1362,8 @@ let maxRetryDelay = 30.0
         groups: [String: String]? = nil,
         timestamp: Date? = nil,
         skipBuildProperties: Bool = false,
-        propertyAllowlist: Set<String>? = nil
+        propertyAllowlist: Set<String>? = nil,
+        deduplicatePersonProperties: Bool = false
     ) {
         if !isEnabled() {
             return
@@ -1513,7 +1466,7 @@ let maxRetryDelay = 30.0
             replayQueue?.add(posthogEvent)
             onEventCaptured.invoke(posthogEvent)
         } else {
-            queueEvent(posthogEvent, queue: queue)
+            queueEvent(posthogEvent, queue: queue, deduplicatePersonProperties: deduplicatePersonProperties)
         }
     }
 
@@ -1788,8 +1741,37 @@ let maxRetryDelay = 30.0
         return resultEvent
     }
 
-    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>) {
-        queue.add(event)
+    private func queueEvent(_ event: PostHogEvent, queue: PostHogQueue<PostHogEvent>, deduplicatePersonProperties: Bool = false) {
+        let userProperties = event.properties["$set"] as? [String: Any]
+        let userPropertiesSetOnce = event.properties["$set_once"] as? [String: Any]
+        // Presence, not content: sanitizing can empty a non-empty input (a `UUID` or `Data` value
+        // is dropped), and that empty `$set` is still queued, so it needs a marker too.
+        if event.event == PostHogKnownUnsafeEditableEvent.set.rawValue || event.event == PostHogKnownUnsafeEditableEvent.identify.rawValue,
+           userProperties != nil || userPropertiesSetOnce != nil,
+           let storageManager = config.storageManager
+        {
+            let hash = getPersonPropertiesHash(
+                distinctId: event.distinctId,
+                userPropertiesToSet: userProperties,
+                userPropertiesToSetOnce: userPropertiesSetOnce
+            )
+            // Check and enqueue under the same lock so concurrent calls cannot enqueue duplicates.
+            let isDuplicate = cachedPersonPropertiesLock.withLock {
+                if deduplicatePersonProperties, storageManager.getPersonPropertiesHash() == hash {
+                    return true
+                }
+                // Only a stored event marks the properties as sent, so a failed write is retried.
+                if queue.add(event) {
+                    storageManager.setPersonPropertiesHash(hash)
+                }
+                return false
+            }
+            // Only a suppressed duplicate skips the callback below: subscribers such as replay
+            // triggers and event-activated surveys don't depend on this queue reaching disk.
+            guard !isDuplicate else { return }
+        } else {
+            queue.add(event)
+        }
         onEventCaptured.invoke(event)
     }
 
@@ -2678,11 +2660,17 @@ let maxRetryDelay = 30.0
         /// Captures the current native window for a first-party wrapper SDK
         /// (e.g. posthog-flutter) that drives session-replay capture on its own
         /// cadence. Not for app use — it shares snapshot state with the normal
-        /// timer-driven capture. Returns false if no frame was captured, so the
-        /// caller can retry.
+        /// timer-driven capture. Returns true when an image is captured and enqueued
+        /// for asynchronous masking; returns false when capture cannot be enqueued.
+        ///
+        /// Flutter treats true as a started bridge episode. A rare allocation failure
+        /// during later masking can still drop that frame after Flutter sees success.
+        /// The frame is dropped safely, never sent unmasked. Keep masking off main and
+        /// this synchronous contract for now; revisit final-result reporting if the
+        /// missed opening frame becomes a practical problem.
         ///
         /// Pass [episodeFirstFrame] until the episode's first frame has been
-        /// *captured* (returned true) — not just on the first attempt: it
+        /// enqueued (returned true) — not just on the first attempt: it
         /// renders with `afterScreenUpdates` so a freshly-presented screen
         /// isn't captured black, and re-arms the per-window meta and dedup
         /// hash, so a retried opening frame keeps its reset. Drop it for
@@ -3181,6 +3169,18 @@ let maxRetryDelay = 30.0
         /// PostHog (a `posthog` key in its `userInfo`); unattributed pushes capture the open event
         /// without content. Use the field-based overload to capture content explicitly.
         ///
+        /// A notification sent by PostHog is captured once: when the `posthog` entry of `userInfo`
+        /// carries an `invocation_id`, a repeat with the same `invocation_id` and `action_id` within
+        /// 5 minutes of the first capture is skipped, whether that first capture came from this
+        /// method, from the field-based overload, or from the SDK's automatic capture. Notifications
+        /// without a `posthog.invocation_id` are always captured. Only the 20 most recently captured
+        /// notifications are remembered, so a host that reports more than that inside the window can
+        /// capture a repeat of the oldest.
+        ///
+        /// A rerun of that workflow, or a loop back to its push step, sends the pair again as a new
+        /// notification, and its open counts separately: two responses whose
+        /// `notification.request.identifier` differ are two taps, not one reported twice.
+        ///
         /// - Parameter response: The `UNNotificationResponse` received from the system.
         @available(iOS 14.0, macOS 11.0, *)
         @objc public func capturePushNotificationOpened(response: UNNotificationResponse) {
@@ -3195,7 +3195,8 @@ let maxRetryDelay = 30.0
                 subtitle: isPostHogNotification ? content.subtitle : nil,
                 body: isPostHogNotification ? content.body : nil,
                 payload: content.userInfo,
-                action: response.actionIdentifier
+                action: response.actionIdentifier,
+                deliveryId: response.notification.request.identifier
             )
         }
 
@@ -3204,6 +3205,16 @@ let maxRetryDelay = 30.0
         /// Use this when no `UNNotificationResponse` is available — for example when you handle a push
         /// yourself in `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` or relay it
         /// from a cross-platform layer.
+        ///
+        /// A notification sent by PostHog is captured once: when `payload["posthog"]` carries an
+        /// `invocation_id`, a repeat with the same `invocation_id` and `action_id` within 5 minutes
+        /// of the first capture is skipped, whether that first capture came from this method or from
+        /// the SDK's automatic capture. Payloads without a `posthog.invocation_id` are always
+        /// captured. Only the 20 most recently captured notifications are remembered, so a host that
+        /// reports more than that inside the window can capture a repeat of the oldest.
+        /// This overload carries no notification identifier, so a rerun of that workflow
+        /// reported through it inside the window reads as the same tap and is skipped; report a rerun
+        /// through `capturePushNotificationOpened(response:)`, which can tell the deliveries apart.
         ///
         /// - Parameters:
         ///   - title: The notification title; omitted from the event when `nil` or empty.
@@ -3221,11 +3232,40 @@ let maxRetryDelay = 30.0
             payload: [AnyHashable: Any]? = nil,
             action: String? = nil
         ) {
+            capturePushNotificationOpened(
+                title: title,
+                subtitle: subtitle,
+                body: body,
+                payload: payload,
+                action: action,
+                deliveryId: nil
+            )
+        }
+
+        /// - Parameter deliveryId: The system's id for the delivered notification
+        ///   (`UNNotificationResponse.notification.request.identifier`), which separates a second
+        ///   notification from a second report of one tap. Only the `response:` overload has one; a caller
+        ///   passing raw fields does not, which is why this stays off the public API. Not `private`
+        ///   because `UNNotificationResponse` has no initializer, so tests reach the delivery-id paths
+        ///   only through here.
+        func capturePushNotificationOpened(
+            title: String?,
+            subtitle: String?,
+            body: String?,
+            payload: [AnyHashable: Any]?,
+            action: String?,
+            deliveryId: String?
+        ) {
             if !isEnabled() {
                 return
             }
 
             if isOptOutState() {
+                return
+            }
+
+            let posthogData = posthogPayload(from: payload?["posthog"])
+            if !recordPushOpen(posthogData, deliveryId: deliveryId) {
                 return
             }
 
@@ -3243,7 +3283,7 @@ let maxRetryDelay = 30.0
                 properties["$notification_body"] = body
             }
 
-            if let posthogData = posthogPayload(from: payload?["posthog"]) {
+            if let posthogData {
                 for (key, value) in posthogData {
                     properties["$notification_\(key)"] = value
                 }
@@ -3269,6 +3309,64 @@ let maxRetryDelay = 30.0
                 hedgeLog("Push notification 'posthog' payload is not a JSON object; ignoring.")
             }
             return nil
+        }
+
+        /// A duplicate report of one tap arrives within the same launch: milliseconds after a warm tap,
+        /// seconds after a cold start while the host's JS/Dart handlers register. Finite so that a re-send
+        /// carrying no delivery id to tell it apart still counts once the window has passed.
+        private static let pushOpenDedupeWindow: TimeInterval = 5 * 60
+
+        /// Only the opens of the last few minutes matter; the cap bounds memory for a host that calls the
+        /// API in bulk.
+        private static let maxRecentPushOpens = 20
+
+        /// Recently captured PostHog push opens, keyed by `invocation_id/action_id`, oldest first —
+        /// appended at the back, evicted from the front. Notification callbacks and manual calls arrive on
+        /// different threads, so the buffer is only touched under its lock. In memory only: both reports
+        /// of one tap happen in the same launch.
+        private var recentPushOpens: [RecentPushOpen] = []
+        private let recentPushOpensLock = NSLock()
+
+        private struct RecentPushOpen {
+            let key: String
+            let capturedAt: Date
+            let deliveryId: String?
+        }
+
+        /// Records a PostHog push open, returning `false` when the same notification was already captured
+        /// inside the dedupe window and this report should be skipped.
+        private func recordPushOpen(_ posthogData: [String: Any]?, deliveryId: String?) -> Bool {
+            guard let invocationId = posthogData?["invocation_id"] as? String, !invocationId.isEmpty else {
+                return true
+            }
+            // Every step of one workflow run shares the run's invocation_id, so action_id tells the steps apart.
+            let key = "\(invocationId)/\(posthogData?["action_id"] as? String ?? "")"
+
+            return recentPushOpensLock.withLock {
+                // Sampled under the lock so two concurrent reports can't be admitted out of order and read
+                // the inversion as a backwards clock.
+                let capturedAt = now()
+                if let index = recentPushOpens.firstIndex(where: { $0.key == key }) {
+                    let previous = recentPushOpens[index]
+                    // A negative gap means the wall clock moved back; capture rather than risk dropping an open.
+                    let elapsed = capturedAt.timeIntervalSince(previous.capturedAt)
+                    let insideWindow = elapsed >= 0 && elapsed < Self.pushOpenDedupeWindow
+                    // A re-send of the same workflow step reuses the key, so only delivery ids that are
+                    // present on both reports and disagree prove a second notification rather than a second
+                    // report of one tap.
+                    let resent = previous.deliveryId != nil && deliveryId != nil && previous.deliveryId != deliveryId
+                    if insideWindow, !resent {
+                        hedgeLog("Skipped $push_notification_opened: notification \(key) was already captured.")
+                        return false
+                    }
+                    recentPushOpens.remove(at: index)
+                }
+                recentPushOpens.append(RecentPushOpen(key: key, capturedAt: capturedAt, deliveryId: deliveryId))
+                if recentPushOpens.count > Self.maxRecentPushOpens {
+                    recentPushOpens.removeFirst()
+                }
+                return true
+            }
         }
     #endif
 }

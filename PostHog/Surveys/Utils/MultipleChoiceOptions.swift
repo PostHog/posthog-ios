@@ -47,7 +47,7 @@
 
         var body: some View {
             VStack {
-                ForEach(displayOrder, id: \.self) { index in
+                ForEach(updatedSurveyChoiceOrder(displayOrder, optionCount: options.count, hasOpenChoice: hasOpenChoiceQuestion), id: \.self) { index in
                     let option = options[index]
                     let isSelected = isSelected(index)
 
@@ -81,6 +81,10 @@
                     // text field needs to overlay the Button so it can receive touches first when enabled
                     .overlay(openChoiceField(index), alignment: .topLeading)
                 }
+            }
+            .onChange(of: options.count) { count in
+                selectedOptions = updatedSurveyChoiceSelection(selectedOptions, previousCount: displayOrder.count, optionCount: count, hasOpenChoice: hasOpenChoiceQuestion)
+                displayOrder = updatedSurveyChoiceOrder(displayOrder, optionCount: count, hasOpenChoice: hasOpenChoiceQuestion)
             }
         }
 
@@ -196,4 +200,23 @@ func surveyChoiceOrder(options: [String], hasOpenChoice: Bool, shuffleOptions: B
     if shuffled.map({ options[$0] }) == regular.map({ options[$0] }) { shuffled.reverse() }
     if hasOpenChoice, !options.isEmpty { shuffled.append(options.count - 1) }
     return shuffled
+}
+
+// Reconcile a live translation without randomizing options the person is already answering.
+func updatedSurveyChoiceOrder(_ order: [Int], optionCount: Int, hasOpenChoice: Bool) -> [Int] {
+    let regularCount = max(0, optionCount - (hasOpenChoice ? 1 : 0))
+    let previousRegular = hasOpenChoice ? Array(order.dropLast()) : order
+    let retained = previousRegular.filter { $0 < regularCount }
+    let added = (0 ..< regularCount).filter { !retained.contains($0) }
+    return retained + added + (hasOpenChoice && optionCount > 0 ? [optionCount - 1] : [])
+}
+
+func updatedSurveyChoiceSelection(_ selected: Set<Int>, previousCount: Int, optionCount: Int, hasOpenChoice: Bool) -> Set<Int> {
+    let regularCount = max(0, optionCount - (hasOpenChoice ? 1 : 0))
+    return Set(selected.compactMap { index in
+        if hasOpenChoice, index == previousCount - 1 {
+            return optionCount > 0 ? optionCount - 1 : nil
+        }
+        return index < regularCount ? index : nil
+    })
 }

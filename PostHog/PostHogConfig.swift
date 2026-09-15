@@ -89,10 +89,13 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     /// Default: `30`.
     @objc public var flushIntervalSeconds: TimeInterval = Defaults.flushIntervalSeconds
 
-    /// Maximum number of consecutive flush attempts before the entire queue is
-    /// dropped to avoid infinite retries against a permanently-broken backend.
-    /// Increments on every retriable failure including HTTP 413 cap halving;
-    /// resets on a successful 2xx response. Default 3.
+    /// Maximum number of retries for push-subscription registration failures.
+    ///
+    /// This limit does not apply to event, replay, or log ingestion. Retryable ingestion
+    /// failures retain queued records for later flush triggers, subject to backoff.
+    /// Use `maxQueueSize` for events and replay, and `logs.maxBufferSize` for logs.
+    ///
+    /// Default: `3`.
     @objc public var maxRetries: Int = Defaults.maxRetries
 
     /// Maximum number of retries for feature flag requests after transient network errors or retryable HTTP responses.
@@ -182,7 +185,16 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
 
         /// Automatically capture a `$push_notification_opened` event when the user taps a **remote** push
         /// notification, by swizzling `UNUserNotificationCenterDelegate`. Locally-scheduled notifications
-        /// are ignored — call `capturePushNotificationOpened(response:)` yourself to capture those.
+        /// are ignored — capture those yourself with
+        /// `PostHogSDK.capturePushNotificationOpened(title:subtitle:body:payload:action:)`, passing the
+        /// content you scheduled. `capturePushNotificationOpened(response:)` reads title/subtitle/body
+        /// only from notifications PostHog sent (a `posthog` key in `userInfo`), so for a local one it
+        /// captures the open with no content.
+        ///
+        /// A notification sent by PostHog is captured once: a manual `capturePushNotificationOpened`
+        /// call for a tap this already captured (same `posthog.invocation_id` and `action_id`, within
+        /// 5 minutes) is skipped, and so is the reverse. A resend of that notification is a separate
+        /// tap and is captured.
         ///
         /// - Note: Requires `enableSwizzling` to be `true`. To capture opens without swizzling, call
         ///   `PostHogSDK.capturePushNotificationOpened(response:)` from your own

@@ -16,6 +16,8 @@
         private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
 
+        var captureElementText: Bool { postHog?.config.captureElementText ?? true }
+
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
                 self.postHog = postHog
@@ -107,7 +109,7 @@
                 properties["$screen_name"] = screenName
             }
 
-            let elementsChain = event.getElementChain()
+            let elementsChain = event.getElementChain(captureElementText: captureElementText)
 
             if let coordinates = event.touchCoordinates {
                 properties["$touch_x"] = coordinates.x

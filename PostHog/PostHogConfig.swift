@@ -235,6 +235,11 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
         /// Default: `false`.
         @objc public var captureElementInteractions: Bool = false
 
+        /// Whether autocapture reads control text and selected values. Explicit `postHogLabel`
+        /// identifiers remain available when disabled. Manual events and replay are unaffected.
+        /// Internal prototype: configure before setup; defaults to the existing text capture behavior.
+        var captureElementText: Bool = true
+
         /// Rage click detection configuration.
         @objc public let rageClickConfig: PostHogRageClickConfig = .init()
     #endif

@@ -1,5 +1,11 @@
 ## Next
 
+## 3.78.0
+
+### Minor Changes
+
+- 6a4b140: Support survey targeting by a specific linked feature flag variant.
+
 ## 3.77.1
 
 ### Patch Changes

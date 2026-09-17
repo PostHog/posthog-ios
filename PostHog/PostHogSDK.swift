@@ -899,13 +899,16 @@ let maxRetryDelay = 30.0
         // Read isIdentified, decide the transition, and persist it atomically so two
         // concurrent identify() calls on an anonymous user can't both see isIdentified
         // == false and each emit a person-processed event for the same transition.
+        // Read before taking identifyLock: `config`'s getter takes setupLock, and setup() holds
+        // setupLock while reaching identify(), so reading it inside would invert the two.
+        let reuseAnonymousId = config.reuseAnonymousId
         identifyLock.withLock {
             isIdentified = storageManager.isIdentified()
             hasDifferentDistinctId = distinctId != oldDistinctId
             shouldTransitionToIdentified = !hasDifferentDistinctId && !isIdentified
 
             if hasDifferentDistinctId, !isIdentified {
-                if !config.reuseAnonymousId {
+                if !reuseAnonymousId {
                     // We keep the AnonymousId to be used by flags calls and identify to link the previousId
                     storageManager.setAnonymousId(oldDistinctId)
                 }
@@ -2537,6 +2540,9 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Read `config` before taking optOutLock: its getter takes setupLock, and setup() holds
+        // setupLock while taking optOutLock, so reading it inside would invert the two.
+        let config = self.config
         optOutLock.withLock {
             config.optOut = false
             storage?.setBool(forKey: .optOut, contents: false)
@@ -2576,6 +2582,8 @@ let maxRetryDelay = 30.0
             return
         }
 
+        // Same lock-order reason as optIn(): hoist the setupLock-guarded read out of optOutLock.
+        let config = self.config
         optOutLock.withLock {
             config.optOut = true
             storage?.setBool(forKey: .optOut, contents: true)

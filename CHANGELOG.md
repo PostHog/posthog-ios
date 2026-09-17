@@ -1,5 +1,11 @@
 ## Next
 
+## 3.77.0
+
+### Minor Changes
+
+- 215f3e0: Support survey auto-submit on selection. Honor skipSubmitButton for ratings and single-choice questions without an open-ended choice, matching posthog-js, and expose the setting to custom survey delegates.
+
 ## 3.76.0
 
 ### Minor Changes

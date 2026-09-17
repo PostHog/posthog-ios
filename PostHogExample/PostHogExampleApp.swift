@@ -16,13 +16,29 @@ struct PostHogExampleApp: App {
             if NSClassFromString("XCTestCase") != nil {
                 Color.clear
             } else {
-                ContentView()
-                    .postHogScreenView() // will infer the class name (ContentView)
-                    .postHogDeepLinkListener()
-                    .overlay(alignment: .topTrailing) {
-                        FPSCounterView()
-                    }
+                exampleContent
             }
         }
+    }
+
+    @ViewBuilder private var exampleContent: some View {
+        #if DEBUG && os(iOS)
+            if ProcessInfo.processInfo.environment["POSTHOG_PROTOTYPE"] == "1" {
+                SwiftUITapPrototypeView()
+            } else {
+                normalContent
+            }
+        #else
+            normalContent
+        #endif
+    }
+
+    private var normalContent: some View {
+        ContentView()
+            .postHogScreenView() // will infer the class name (ContentView)
+            .postHogDeepLinkListener()
+            .overlay(alignment: .topTrailing) {
+                FPSCounterView()
+            }
     }
 }

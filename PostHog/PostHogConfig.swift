@@ -229,7 +229,7 @@ public typealias BeforeSendBlock = (PostHogEvent) -> PostHogEvent?
     @objc public var pushIdentityProvider: ((_ distinctId: String, _ appId: String, _ completion: @escaping (String?) -> Void) -> Void)?
 
     #if os(iOS) || targetEnvironment(macCatalyst)
-        /// Enables UIKit element interaction autocapture on iOS and Mac Catalyst.
+        /// Enables UIKit element interaction and SwiftUI tap autocapture on iOS and Mac Catalyst.
         ///
         /// Requires `enableSwizzling = true`.
         /// Default: `false`.

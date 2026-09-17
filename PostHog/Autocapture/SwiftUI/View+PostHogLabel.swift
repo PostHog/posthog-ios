@@ -58,28 +58,33 @@
             PostHogLabelTaggerView(label: label)
         }
 
-        func updateUIView(_: PostHogLabelTaggerView, context _: Context) {
-            // nothing
+        func updateUIView(_ view: PostHogLabelTaggerView, context _: Context) {
+            view.label = label
+            view.setNeedsLayout()
         }
     }
 
-    private class PostHogLabelTaggerView: UIView {
-        private let label: String
+    final class PostHogLabelTaggerView: UIView {
+        var label: String
         weak var taggedView: UIView?
 
         init(label: String) {
             self.label = label
             super.init(frame: .zero)
+            isUserInteractionEnabled = false
+            accessibilityElementsHidden = true
         }
 
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             label = ""
             super.init(frame: .zero)
+            isUserInteractionEnabled = false
+            accessibilityElementsHidden = true
         }
 
         override func layoutSubviews() {
-            super.didMoveToWindow()
+            super.layoutSubviews()
 
             // try to find a "taggable" cousin view in hierarchy
             //
@@ -93,22 +98,17 @@
             //       L PostHogLabelViewTagger (ViewRepresentable)
             //           L PostHogLabelTaggerView (UIView) <- we are here
             //
-            if let view = findCousinView(of: PostHogSwiftUITaggable.self) {
+            if let view = findCousinView(of: PostHogSwiftUITaggable.self),
+               let window,
+               !bounds.isEmpty,
+               window.convert(bounds, from: self).insetBy(dx: -1, dy: -1).contains(window.convert(view.bounds, from: view)),
+               window.convert(view.bounds, from: view).insetBy(dx: -1, dy: -1).contains(window.convert(bounds, from: self))
+            {
                 taggedView = view
                 view.postHogLabel = label
-            } else {
-                // just tag grandparent view
-                //
-                // ### Why grandparent view?
-                //
-                // Because of SwiftUI-to-UIKit view bridging:
-                //     OriginalView (SwiftUI) <- we tag here
-                //       L PostHogLabelViewTagger (ViewRepresentable)
-                //           L PostHogLabelTaggerView (UIView) <- we are here
-                //
-                taggedView = superview?.superview
-                superview?.superview?.postHogLabel = label
             }
+            // Pure SwiftUI elements use this marker's live bounds during tap resolution.
+            // Do not tag a shared hosting ancestor: it can contain many labeled controls.
         }
 
         override func removeFromSuperview() {

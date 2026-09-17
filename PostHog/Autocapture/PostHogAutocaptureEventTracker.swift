@@ -187,6 +187,9 @@
             let gestureDescription: String?
             switch self {
             case is UITapGestureRecognizer:
+                if SwiftUITapElementResolver.isSwiftUI(view) {
+                    return
+                }
                 gestureDescription = EventType.kTouch
             case is UISwipeGestureRecognizer:
                 gestureDescription = EventType.kSwipe

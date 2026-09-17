@@ -15,6 +15,7 @@
 
         private weak var postHog: PostHogSDK?
         private var debounceTimers: [Int: Timer] = [:]
+        private lazy var swiftUITaps = SwiftUITapAutocapture(processor: self)
 
         func install(_ postHog: PostHogSDK) -> PostHogIntegrationInstallResult {
             installIfNeeded(using: Self.integrationInstallState) {
@@ -37,12 +38,14 @@
          */
         func start() {
             PostHogAutocaptureEventTracker.eventProcessor = self
+            swiftUITaps.setEnabled(true)
         }
 
         /**
          Disables the autocapture integration by clearing the PostHogAutocaptureEventTracker routing
          */
         func stop() {
+            swiftUITaps.setEnabled(false)
             if PostHogAutocaptureEventTracker.eventProcessor != nil {
                 PostHogAutocaptureEventTracker.eventProcessor = nil
                 debounceTimers.values.forEach { $0.invalidate() }
@@ -66,6 +69,7 @@
                 return
             }
 
+            swiftUITaps.cancel()
             let eventHash = event.viewHierarchy.map(\.targetClass).hashValue
             // debounce frequent UIControl events (e.g., UISlider) to reduce event noise
             if event.debounceInterval > 0 {

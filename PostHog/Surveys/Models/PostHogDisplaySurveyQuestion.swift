@@ -81,6 +81,8 @@ import Foundation
     public let lowerBoundLabel: String
     /// The label for the upper bound of the rating scale
     public let upperBoundLabel: String
+    /// Whether selecting a rating submits the answer without a submit button
+    public let skipSubmitButton: Bool
 
     init(
         id: String,
@@ -93,13 +95,15 @@ import Foundation
         scaleLowerBound: Int,
         scaleUpperBound: Int,
         lowerBoundLabel: String,
-        upperBoundLabel: String
+        upperBoundLabel: String,
+        skipSubmitButton: Bool = false
     ) {
         self.ratingType = ratingType
         self.scaleLowerBound = scaleLowerBound
         self.scaleUpperBound = scaleUpperBound
         self.lowerBoundLabel = lowerBoundLabel
         self.upperBoundLabel = upperBoundLabel
+        self.skipSubmitButton = skipSubmitButton
         super.init(
             id: id,
             question: question,
@@ -121,6 +125,10 @@ import Foundation
     public let shuffleOptions: Bool
     /// Whether the user can select multiple options
     public let isMultipleChoice: Bool
+    /// Whether selection should submit automatically for single-choice questions without an open choice
+    public let skipSubmitButton: Bool
+
+    var shouldAutoSubmit: Bool { skipSubmitButton && !isMultipleChoice && !hasOpenChoice }
 
     init(
         id: String,
@@ -132,12 +140,14 @@ import Foundation
         choices: [String],
         hasOpenChoice: Bool,
         shuffleOptions: Bool,
-        isMultipleChoice: Bool
+        isMultipleChoice: Bool,
+        skipSubmitButton: Bool = false
     ) {
         self.choices = choices
         self.hasOpenChoice = hasOpenChoice
         self.shuffleOptions = shuffleOptions
         self.isMultipleChoice = isMultipleChoice
+        self.skipSubmitButton = skipSubmitButton
         super.init(
             id: id,
             question: question,

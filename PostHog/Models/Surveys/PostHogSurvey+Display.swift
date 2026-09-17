@@ -57,7 +57,8 @@
                     scaleLowerBound: question.scale.range.lowerBound,
                     scaleUpperBound: question.scale.range.upperBound,
                     lowerBoundLabel: translation?.lowerBoundLabel ?? question.lowerBoundLabel ?? "",
-                    upperBoundLabel: translation?.upperBoundLabel ?? question.upperBoundLabel ?? ""
+                    upperBoundLabel: translation?.upperBoundLabel ?? question.upperBoundLabel ?? "",
+                    skipSubmitButton: question.skipSubmitButton ?? false
                 )
 
             case let .singleChoice(question), let .multipleChoice(question):
@@ -71,7 +72,8 @@
                     choices: translation?.choices ?? question.choices,
                     hasOpenChoice: question.hasOpenChoice ?? false,
                     shuffleOptions: question.shuffleOptions ?? false,
-                    isMultipleChoice: isMultipleChoice
+                    isMultipleChoice: isMultipleChoice,
+                    skipSubmitButton: question.skipSubmitButton ?? false
                 )
 
             default:

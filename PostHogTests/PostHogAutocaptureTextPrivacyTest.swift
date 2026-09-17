@@ -102,6 +102,58 @@
             #expect(excluded.eventData(touchCoordinates: nil, captureElementText: captureText) == nil)
         }
 
+        @Test("Rage-click-only capture honors text privacy", arguments: [true, false])
+        func rageClickOnly(captureText: Bool) throws {
+            let server = MockPostHogServer()
+            server.start()
+            defer { server.stop() }
+            let config = PostHogConfig(projectToken: testProjectToken, host: "http://localhost:9001")
+            config.captureElementInteractions = false
+            config.captureElementText = captureText
+            config.rageClickConfig.enabled = true
+            config.rageClickConfig.minimumTapCount = 3
+            config.captureScreenViews = false
+            config.captureApplicationLifecycleEvents = false
+            config.preloadFeatureFlags = false
+            config.disableQueueTimerForTesting = true
+            config.disableFlushOnBackgroundForTesting = true
+            config.persistOptOut = false
+            PostHogStorage(config).reset()
+            let recorded = RecordedEvents()
+            config.setBeforeSend { event in
+                recorded.append(event)
+                return nil
+            }
+            let sdk = PostHogSDK.with(config)
+            defer {
+                sdk.close()
+                deleteSafely(applicationSupportDirectoryURL())
+            }
+            _ = try #require(sdk.getRageClickIntegration())
+            #expect(PostHogAutocaptureEventTracker.eventProcessor == nil)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
+            window.isHidden = false
+            defer { window.isHidden = true }
+            let parent = TextReadCountingView(frame: window.bounds)
+            let target = TextReadCountingView(frame: CGRect(x: 0, y: 0, width: 100, height: 40))
+            target.postHogLabel = "stable-rage-target"
+            window.addSubview(parent)
+            parent.addSubview(target)
+            let touch = PrivacyTestTouch(target: target, window: window)
+            let event = PrivacyTestEvent(touch: touch)
+            for _ in 0 ..< 3 {
+                DI.main.applicationEventPublisher.onApplicationEvent.invoke((event, Date()))
+            }
+            let events = recorded.events.filter { $0.event == "$rageclick" }
+            #expect(events.count == 1)
+            let captured = try #require(events.first)
+            let chain = try #require(captured.properties["$elements_chain"] as? String)
+            #expect(chain.contains("SYNTHETIC_READ") == captureText)
+            #expect(chain.contains("stable-rage-target"))
+            #expect((target.reads > 0) == captureText)
+            #expect((parent.reads > 0) == captureText)
+        }
+
         @Test("Pipeline preserves default text, respects no-text, and stops on opt-out and close", arguments: [true, false])
         func pipeline(captureText: Bool) throws {
             let server = MockPostHogServer()
@@ -181,6 +233,33 @@
         func pickerView(_: UIPickerView, titleForRow row: Int, forComponent _: Int) -> String? {
             "SYNTHETIC_PICKER_\(row)"
         }
+    }
+
+    private final class PrivacyTestTouch: UITouch {
+        let target: UIView
+        let targetWindow: UIWindow
+        init(target: UIView, window: UIWindow) {
+            self.target = target
+            targetWindow = window
+            super.init()
+        }
+        override var phase: UITouch.Phase { .ended }
+        override var tapCount: Int { 1 }
+        override var view: UIView? { target }
+        override var window: UIWindow? { targetWindow }
+        override func location(in _: UIView?) -> CGPoint {
+            CGPoint(x: 10, y: 10)
+        }
+    }
+
+    private final class PrivacyTestEvent: UIEvent {
+        let touch: UITouch
+        init(touch: UITouch) {
+            self.touch = touch
+            super.init()
+        }
+        override var type: UIEvent.EventType { .touches }
+        override var allTouches: Set<UITouch>? { [touch] }
     }
 
     private final class RecordedEvents {

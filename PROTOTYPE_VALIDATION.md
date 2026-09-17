@@ -4,7 +4,7 @@ Branch: `feat/autocapture-text-privacy`. Based on `143d8337e`. Draft prototype, 
 
 ## Behavior and proposed API
 
-Internal `PostHogConfig.captureElementText` defaults to `true`, preserving the existing behavior. Set it to `false` before SDK setup to omit control/ancestor text and selected values from autocapture. Explicit labels, class/hierarchy, interaction type and coordinates remain. Text getters are not called in no-text mode, and serialization also gates already-built event data.
+Internal `PostHogConfig.captureElementText` defaults to `true`, preserving the existing behavior. Set it to `false` before SDK setup to omit control/ancestor text and selected values from autocapture. Explicit labels, class/hierarchy, interaction type and coordinates remain. No-text mode skips `ph_autocaptureText` and control-value reads, and serialization also gates already-built event data. Accessibility labels are still read to honor exclusion markers such as `ph-no-capture`. Independently enabled rage-click capture also honors this setting.
 
 Manual events and replay are unchanged. This is not a general personal-data scrubber: explicit labels, screen names and manual/super properties remain the application's responsibility. Public API promotion is intentionally left for issue-level agreement; the Debug demo uses a testable import.
 
@@ -25,7 +25,7 @@ Cloud run tags: `privacy-default-sim-validation` and `privacy-no-text-sim-valida
 ## Automated checks
 
 - `make test`: passed (844 Swift Testing tests; existing XCTest tests also passed).
-- Focused simulator tests: six new test functions (eight parameterized cases), plus 13 existing autocapture XCTest cases passed. Tests include inputs, selections, numeric/toggle values, ancestor text, no getter invocation, exclusions, manual properties and consent/close lifecycle.
+- Focused simulator tests: seven new test functions (ten cases including parameterization), plus 17 rage-click integration tests and 13 existing autocapture XCTest cases passed. Tests include inputs, selections, numeric/toggle values, ancestor text, no `ph_autocaptureText` invocation, exclusions, manual properties and consent/close lifecycle. The rage-click-only regression failed before the fix on both getter reads and serialized text in no-text mode, then passed in both modes.
 - Debug simulator example build: passed.
 - `make format`, `make lint`, `git diff --check`: passed.
 - Xcode 27 build follow-up: `XCODE_XCCONFIG_FILE=/tmp/posthog-prototype-tools/compat.xcconfig make build` successfully built the SDK for iOS, macOS (SPM and Xcode), Mac Catalyst, tvOS, watchOS and visionOS, all eight platform-example destinations, and both external-framework archives. The aggregate command then stopped at the external XCFramework client: its package dependency expects the checkout directory identity `posthog-ios`, but this worktree is named `posthog-ios-autocapture-text-privacy`. CocoaPods targets were not reached.

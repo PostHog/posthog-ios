@@ -30,8 +30,8 @@
                     .foregroundColor(inputTextColor)
                     .overlay(
                         Group {
-                            if text.isEmpty {
-                                Text(appearance.placeholder ?? "Start typing...")
+                            if text.isEmpty, let placeholder = appearance.placeholder, !placeholder.isEmpty {
+                                Text(placeholder)
                                     .foregroundColor(inputTextColor.opacity(0.5))
                                     .offset(x: 5, y: 8)
                             }

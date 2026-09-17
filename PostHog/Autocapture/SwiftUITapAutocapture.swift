@@ -179,7 +179,8 @@
             let screenPoint = window.convert(point, to: window.screen.coordinateSpace)
             let accessibility = identifier(in: host, at: screenPoint)
             guard !accessibility.excluded else { return nil }
-            label = label ?? accessibility.identifier ?? ancestors.compactMap(\.accessibilityIdentifier).first
+            let developerLabel = label ?? accessibility.developerIdentifier ?? ancestors.compactMap(\.accessibilityIdentifier).first
+            label = developerLabel ?? accessibility.identifier
             // A flattened hosting surface can also contain excluded elements that UIKit
             // cannot resolve. Do not attribute an unknown point to the entire screen.
             guard let label, !label.isEmpty else { return nil }
@@ -188,12 +189,18 @@
                 let name = String(describing: type(of: view)).components(separatedBy: "<").first ?? "View"
                 return PostHogAutocaptureEventTracker.Element(
                     text: "", targetClass: name, baseClass: nil,
-                    label: view === hit ? label : nil
+                    label: nil
                 )
             }
+            // The title formatter reads the target tag and aria label, not attr_id.
+            // Reuse only the developer identifier; never read accessibility display text.
+            let target = PostHogAutocaptureEventTracker.Element(
+                text: "", targetClass: accessibility.traits.contains(.button) ? "button" : "SwiftUIElement",
+                baseClass: nil, label: label, ariaLabel: developerLabel
+            )
             return .init(touchCoordinates: point, value: nil,
                          screenName: hit.nearestViewController.flatMap(UIViewController.getViewControllerName),
-                         viewHierarchy: hierarchy, debounceInterval: 0)
+                         viewHierarchy: [target] + hierarchy, debounceInterval: 0)
         }
 
         static func isSwiftUI(_ view: UIView) -> Bool {
@@ -203,7 +210,7 @@
 
         /// Public accessibility-container APIs support flattened SwiftUI views without depending
         /// on private rendering fields. Bounded traversal fails closed when the tree is too large.
-        static func identifier(in root: NSObject, at point: CGPoint) -> (identifier: String?, excluded: Bool) {
+        static func identifier(in root: NSObject, at point: CGPoint) -> AccessibilityTarget {
             var remaining = 256
             var visited = Set<ObjectIdentifier>()
             var best: String?
@@ -211,6 +218,8 @@
             var fallbackArea = CGFloat.greatestFiniteMagnitude
             var area = CGFloat.greatestFiniteMagnitude
             var excluded = false
+            var traits: UIAccessibilityTraits = []
+            var traitArea = CGFloat.greatestFiniteMagnitude
             func visit(_ object: NSObject, depth: Int, path: String) {
                 guard visited.insert(ObjectIdentifier(object)).inserted else { return }
                 guard remaining > 0, depth < 20 else {
@@ -220,7 +229,11 @@
                 remaining -= 1
                 let frame = object.accessibilityFrame
                 if frame.contains(point) {
-                    let id = (object as? UIAccessibilityIdentification)?.accessibilityIdentifier
+                    if object.isAccessibilityElement, frame.width * frame.height < traitArea {
+                        traits = object.accessibilityTraits
+                        traitArea = frame.width * frame.height
+                    }
+                    let id = accessibilityIdentifier(of: object)
                     if id?.localizedCaseInsensitiveContains("ph-no-capture") == true || object.accessibilityTraits.contains(.notEnabled) {
                         excluded = true
                     }
@@ -257,7 +270,25 @@
                 }
             #endif
             visit(root, depth: 0, path: "")
-            return (best ?? fallback, excluded)
+            return AccessibilityTarget(identifier: best ?? fallback, excluded: excluded, traits: traits, developerIdentifier: best)
+        }
+
+        struct AccessibilityTarget {
+            let identifier: String?
+            let excluded: Bool
+            let traits: UIAccessibilityTraits
+            let developerIdentifier: String?
+        }
+
+        private static func accessibilityIdentifier(of object: NSObject) -> String? {
+            if let identified = object as? UIAccessibilityIdentification {
+                return identified.accessibilityIdentifier
+            }
+            // SwiftUI accessibility objects can implement the public getter without
+            // declaring conformance to UIAccessibilityIdentification.
+            let selector = #selector(getter: UIAccessibilityIdentification.accessibilityIdentifier)
+            guard object.responds(to: selector) else { return nil }
+            return object.perform(selector)?.takeUnretainedValue() as? String
         }
     }
 #endif

@@ -51,6 +51,57 @@
             #expect(resolve(host, window, CGPoint(x: 20, y: 20))?.viewHierarchy.first?.label == "updated-button")
         }
 
+        @Test func logicalTargetUsesDeveloperLabelWithoutInventingButtonRole() throws {
+            let (window, host) = fixture()
+            let marker = PostHogLabelTaggerView(label: "Product card")
+            marker.frame = CGRect(x: 0, y: 0, width: 100, height: 60)
+            host.addSubview(marker)
+            let event = try #require(resolve(host, window, CGPoint(x: 20, y: 20)))
+            #expect(event.viewHierarchy.first?.targetClass == "SwiftUIElement")
+            #expect(event.getElementChain().hasPrefix("SwiftUIElement:attr_id=\"Product card\"attr__aria-label=\"Product card\";PrototypeHostingView"))
+            #expect(event.viewHierarchy.dropFirst().first?.label == nil)
+            let hasNoDisplayText = event.viewHierarchy.allSatisfy(\.text.isEmpty)
+            #expect(hasNoDisplayText)
+        }
+
+        @Test(arguments: [true, false])
+        func accessibilityTraitsDetermineLogicalButtonRole(isButton: Bool) throws {
+            let (window, host) = fixture()
+            let element = UIAccessibilityElement(accessibilityContainer: host)
+            element.accessibilityFrame = window.convert(CGRect(x: 0, y: 0, width: 100, height: 60), to: window.screen.coordinateSpace)
+            element.accessibilityIdentifier = "Checkout"
+            element.accessibilityLabel = "PRIVATE_DISPLAY_TEXT"
+            element.accessibilityTraits = isButton ? .button : .staticText
+            host.accessibilityElements = [element]
+            let event = try #require(resolve(host, window, CGPoint(x: 20, y: 20)))
+            #expect(event.viewHierarchy.first?.targetClass == (isButton ? "button" : "SwiftUIElement"))
+            #expect(event.getElementChain().contains("attr__aria-label=\"Checkout\""))
+            #expect(!event.getElementChain().contains("PRIVATE_DISPLAY_TEXT"))
+            #expect(event.viewHierarchy.dropFirst().first?.targetClass == "PrototypeHostingView")
+        }
+
+        @Test func structuralFallbackIsNotAnAriaLabel() throws {
+            let (window, host) = fixture()
+            let element = UIAccessibilityElement(accessibilityContainer: host)
+            element.accessibilityFrame = window.convert(CGRect(x: 0, y: 0, width: 100, height: 60), to: window.screen.coordinateSpace)
+            element.accessibilityTraits = .button
+            host.accessibilityElements = [element]
+            let event = try #require(resolve(host, window, CGPoint(x: 20, y: 20)))
+            #expect(event.viewHierarchy.first?.label == "SwiftUIElement[0]")
+            #expect(!event.getElementChain().contains("attr__aria-label"))
+        }
+
+        @Test func identifierGetterWithoutProtocolConformanceHonorsExclusion() {
+            let root = UIView()
+            let element = IdentifierGetterElement()
+            element.isAccessibilityElement = true
+            element.accessibilityFrame = CGRect(x: 0, y: 0, width: 100, height: 60)
+            element.accessibilityIdentifier = "prototype.ph-no-capture"
+            root.accessibilityElements = [element]
+            #expect((element as NSObject) as? UIAccessibilityIdentification == nil)
+            #expect(SwiftUITapElementResolver.identifier(in: root, at: CGPoint(x: 20, y: 20)).excluded)
+        }
+
         @Test func smallestNestedMarkerWins() {
             let (window, host) = fixture()
             for (label, size) in [("outer", CGFloat(150)), ("inner", CGFloat(50))] {
@@ -237,6 +288,10 @@
         private func resolve(_ view: UIView, _ window: UIWindow, _ point: CGPoint) -> PostHogAutocaptureEventTracker.EventData? {
             SwiftUITapElementResolver.resolve(hit: view, window: window, point: point)
         }
+    }
+
+    private final class IdentifierGetterElement: NSObject {
+        @objc var accessibilityIdentifier: String?
     }
 
     private final class PrototypeHostingView: UIView {}

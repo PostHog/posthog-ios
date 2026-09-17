@@ -31,6 +31,7 @@
             let targetClass: String
             let baseClass: String?
             let label: String?
+            var ariaLabel: String?
 
             var elementsChainEntry: String {
                 var attributes = [String]()
@@ -43,6 +44,9 @@
                 }
                 if let label, !label.isEmpty {
                     attributes.append("attr_id=\(label.quoted)")
+                }
+                if let ariaLabel, !ariaLabel.isEmpty {
+                    attributes.append("attr__aria-label=\(ariaLabel.quoted)")
                 }
 
                 return attributes.isEmpty ? targetClass : "\(targetClass):\(attributes.joined())"

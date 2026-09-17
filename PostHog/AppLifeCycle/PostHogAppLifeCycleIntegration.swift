@@ -82,11 +82,6 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
 
         PostHogAppLifeCycleIntegration.didCaptureAppInstallOrUpdate = true
 
-        if !postHog.config.captureApplicationLifecycleEvents {
-            hedgeLog("Skipping Application Installed/Application Updated event - captureApplicationLifecycleEvents is disabled in configuration")
-            return
-        }
-
         let bundle = Bundle.main
 
         let versionName = appVersionString()
@@ -97,6 +92,25 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
 
         let previousVersion = userDefaults.string(forKey: "PHGVersionKey")
         let previousVersionCode = userDefaults.string(forKey: "PHGBuildKeyV2")
+
+        // Save this launch even when event capture is disabled, comparing against the previous values below.
+        var syncDefaults = false
+        if let versionName {
+            userDefaults.setValue(versionName, forKey: "PHGVersionKey")
+            syncDefaults = true
+        }
+        if let versionCode {
+            userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
+            syncDefaults = true
+        }
+        if syncDefaults {
+            userDefaults.synchronize()
+        }
+
+        if !postHog.config.captureApplicationLifecycleEvents {
+            hedgeLog("Skipping Application Installed/Application Updated event - captureApplicationLifecycleEvents is disabled in configuration")
+            return
+        }
 
         var props: [String: Any] = [:]
         var event: String
@@ -119,21 +133,11 @@ final class PostHogAppLifeCycleIntegration: PostHogIntegration {
             }
         }
 
-        var syncDefaults = false
-        if versionName != nil {
+        if let versionName {
             props["version"] = versionName
-            userDefaults.setValue(versionName, forKey: "PHGVersionKey")
-            syncDefaults = true
         }
-
         if let versionCode {
             props["build"] = parseBundleVersion(versionCode)
-            userDefaults.setValue(versionCode, forKey: "PHGBuildKeyV2")
-            syncDefaults = true
-        }
-
-        if syncDefaults {
-            userDefaults.synchronize()
         }
 
         postHog.capture(event, properties: props)

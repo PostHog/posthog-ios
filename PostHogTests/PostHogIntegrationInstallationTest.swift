@@ -114,9 +114,9 @@ class PostHogIntegrationInstallationTest {
         }
     #endif
 
-    @Test("app life cycle integration installed only once, on first instance")
-    func appLifeCycleIntegrationInstalledOnce() async {
-        let first = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: true)
+    @Test("app life cycle integration installed only once, on first instance", arguments: [false, true])
+    func appLifeCycleIntegrationInstalledOnce(captureLifecycle: Bool) async {
+        let first = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: captureLifecycle)
         let second = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: true)
 
         #expect(first.getAppLifeCycleIntegration() != nil)
@@ -157,6 +157,7 @@ class PostHogIntegrationInstallationTest {
         defer { sut.close() }
 
         #expect(sut.getScreenViewIntegration() == nil)
+        #expect(sut.getAppLifeCycleIntegration() == nil)
     }
 
     // MARK: - Error tracking integration

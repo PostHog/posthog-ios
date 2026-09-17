@@ -25,7 +25,7 @@ Cloud run tags: `swiftui-sim-validation-05` (full interaction checks), `swiftui-
 ## Automated checks
 
 - `make test`: passed (844 Swift Testing tests; existing XCTest tests also passed).
-- Focused simulator tests via the parent make wrapper: 12 new Swift Testing tests plus 13 existing autocapture XCTest cases passed.
+- Focused simulator tests via the make wrapper: 14 new Swift Testing tests plus 13 existing autocapture XCTest cases passed. Review regressions cover pointer input and assigning an indexed fallback to an accessibility hit-test leaf.
 - Debug simulator example build: passed.
 - `make format`, `make lint`, `git diff --check`: passed.
 - Xcode 27 build follow-up: `XCODE_XCCONFIG_FILE=/tmp/posthog-prototype-tools/compat.xcconfig make build` successfully built the SDK for iOS, macOS (SPM and Xcode), Mac Catalyst, tvOS, watchOS and visionOS, all eight platform-example destinations, and both external-framework archives. The aggregate command then stopped at the external XCFramework client: its package dependency expects the checkout directory identity `posthog-ios`, but this worktree is named `posthog-ios-swiftui-tap-autocapture`. CocoaPods targets were not reached.

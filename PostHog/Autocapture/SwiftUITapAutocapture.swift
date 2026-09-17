@@ -81,7 +81,7 @@
         private func handle(_ event: UIEvent) {
             guard Thread.isMainThread, stateLock.withLock({ enabled }), event.type == .touches else { return }
             guard let touches = event.allTouches, touches.count == 1, let touch = touches.first,
-                  touch.type == .direct, let window = touch.window, !window.isKeyboardWindow
+                  let window = touch.window, !window.isKeyboardWindow
             else {
                 cancel()
                 return
@@ -249,6 +249,8 @@
                element !== root
             {
                 visit(element, depth: 0, path: "")
+                // Indexed traversal must still assign a path to an unlabeled hit-test leaf.
+                visited.removeAll(keepingCapacity: true)
             }
             visit(root, depth: 0, path: "")
             return (best ?? fallback, excluded)

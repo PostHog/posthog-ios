@@ -147,6 +147,37 @@
             observer.setEnabled(false)
         }
 
+        @Test func pointerTapUsesTheSameCaptureRoute() {
+            guard #available(iOS 13.4, *) else { return }
+            let (window, host) = fixture()
+            host.accessibilityIdentifier = "pointer-target"
+            let publisher = TapTestPublisher()
+            let processor = TapTestProcessor()
+            let observer = SwiftUITapAutocapture(processor: processor, publisher: publisher)
+            observer.setEnabled(true)
+            defer { observer.setEnabled(false) }
+            let touch = PointerTestTouch(target: host, window: window)
+            let event = PointerTestEvent(touch: touch)
+            publisher.onApplicationEvent.invoke((event, Date()))
+            touch.recordedPhase = .ended
+            touch.recordedTimestamp = 1.1
+            publisher.onApplicationEvent.invoke((event, Date()))
+            #expect(processor.events.count == 1)
+            #expect(processor.events.first?.viewHierarchy.first?.label == "pointer-target")
+        }
+
+        @Test func hitTestLeafStillReceivesItsIndexedFallback() {
+            guard #available(iOS 18.0, *) else { return }
+            let container = HitTestContainer()
+            let leaf = UIAccessibilityElement(accessibilityContainer: container)
+            leaf.accessibilityFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
+            leaf.isAccessibilityElement = true
+            container.leaf = leaf
+            container.accessibilityElements = [leaf]
+            let result = SwiftUITapElementResolver.identifier(in: container, at: CGPoint(x: 5, y: 5))
+            #expect(result.identifier == "SwiftUIElement[0]")
+        }
+
         private func fixture() -> (UIWindow, UIView) {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 640))
             let host = PrototypeHostingView(frame: window.bounds)
@@ -170,6 +201,48 @@
     }
 
     private final class TapTestProcessor: AutocaptureEventProcessing {
-        func process(source _: PostHogAutocaptureEventTracker.EventSource, event _: PostHogAutocaptureEventTracker.EventData) {}
+        var events: [PostHogAutocaptureEventTracker.EventData] = []
+        func process(source _: PostHogAutocaptureEventTracker.EventSource, event: PostHogAutocaptureEventTracker.EventData) {
+            events.append(event)
+        }
+    }
+
+    @available(iOS 13.4, *)
+    private final class PointerTestTouch: UITouch {
+        let target: UIView
+        let targetWindow: UIWindow
+        var recordedPhase: UITouch.Phase = .began
+        var recordedTimestamp: TimeInterval = 1
+        init(target: UIView, window: UIWindow) {
+            self.target = target
+            targetWindow = window
+            super.init()
+        }
+        override var type: UITouch.TouchType { .indirectPointer }
+        override var phase: UITouch.Phase { recordedPhase }
+        override var timestamp: TimeInterval { recordedTimestamp }
+        override var view: UIView? { target }
+        override var window: UIWindow? { targetWindow }
+        override func location(in _: UIView?) -> CGPoint {
+            CGPoint(x: 10, y: 10)
+        }
+    }
+
+    private final class PointerTestEvent: UIEvent {
+        let touch: UITouch
+        init(touch: UITouch) {
+            self.touch = touch
+            super.init()
+        }
+        override var type: UIEvent.EventType { .touches }
+        override var allTouches: Set<UITouch>? { [touch] }
+    }
+
+    @available(iOS 18.0, *)
+    private final class HitTestContainer: UIView {
+        var leaf: UIAccessibilityElement?
+        override func accessibilityHitTest(_: CGPoint, event _: UIEvent?) -> Any? {
+            leaf
+        }
     }
 #endif

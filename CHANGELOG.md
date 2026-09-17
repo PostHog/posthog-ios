@@ -1,5 +1,11 @@
 ## Next
 
+## 3.78.1
+
+### Patch Changes
+
+- 6d41bb5: Hide whitespace-only survey placeholders to match Android.
+
 ## 3.78.0
 
 ### Minor Changes

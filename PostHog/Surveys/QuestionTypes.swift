@@ -30,7 +30,7 @@
                     .foregroundColor(inputTextColor)
                     .overlay(
                         Group {
-                            if text.isEmpty, let placeholder = appearance.placeholder, !placeholder.isEmpty {
+                            if text.isEmpty, let placeholder = appearance.placeholder, !placeholder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 Text(placeholder)
                                     .foregroundColor(inputTextColor.opacity(0.5))
                                     .offset(x: 5, y: 8)

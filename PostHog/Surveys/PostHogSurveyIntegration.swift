@@ -161,7 +161,7 @@
 
                         // all keys must be enabled
                         return Set(allKeys)
-                            .allSatisfy(self.isSurveyFeatureFlagEnabled)
+                            .allSatisfy(self.isSurveyFeatureFlagEnabled) && self.matchesLinkedFlagVariant(survey)
                     }
                     .filter { survey in // 5. and if event-based, have been activated by that event
                         survey.hasEvents ? self.isSurveyEventActivated(survey: survey) : true
@@ -271,6 +271,15 @@
             }
 
             return postHog.isFeatureEnabled(flagKey)
+        }
+
+        private func matchesLinkedFlagVariant(_ survey: PostHogSurvey) -> Bool {
+            guard let variant = survey.conditions?.linkedFlagVariant, !variant.isEmpty, variant != "any",
+                  let key = survey.linkedFlagKey, !key.isEmpty
+            else {
+                return true
+            }
+            return postHog?.getFeatureFlag(key, sendFeatureFlagEvent: false) as? String == variant
         }
 
         /// Shows next survey in queue. No-op if a survey is already being shown

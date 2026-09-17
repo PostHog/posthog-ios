@@ -100,6 +100,39 @@ final class PostHogAppLifeCycleIntegrationTest {
         #expect(config.getIntegrations().contains { $0 is PostHogAppLifeCycleIntegration })
     }
 
+    @Test("a disabled client does not block lifecycle capture by an enabled client", arguments: [false, true])
+    func disabledClientDoesNotBlockLifecycleCapture(previousInstall: Bool) async throws {
+        setVersionDefaults(version: previousInstall ? "0.0.1" : nil, build: previousInstall ? "1" : nil)
+        let disabled = getSut(captureApplicationLifecycleEvents: false)
+        defer { disabled.close() }
+        let enabled = getSut(flushAt: 4)
+        defer { enabled.close() }
+
+        disabled.close()
+
+        mockAppLifecycle.simulateAppDidFinishLaunching()
+        mockAppLifecycle.simulateAppDidBecomeActive()
+        mockAppLifecycle.simulateAppDidEnterBackground()
+        enabled.capture("Satisfy Queue")
+        enabled.flush()
+
+        let events = try await getServerEvents(server)
+        #expect(events.map(\.event) == [
+            previousInstall ? "Application Updated" : "Application Installed",
+            "Application Opened",
+            "Application Backgrounded",
+            "Satisfy Queue",
+        ])
+        if previousInstall {
+            #expect(events.first?.properties["previous_version"] as? String == "0.0.1")
+            #expect(events.first?.properties["previous_build"] as? Int == 1)
+        }
+
+        let third = getSut(flushAt: 4)
+        defer { third.close() }
+        #expect(third.getAppLifeCycleIntegration() == nil)
+    }
+
     #if targetEnvironment(simulator)
         @Test("disabled lifecycle capture remembers the current version", arguments: [false, true])
         func disabledCaptureRemembersVersion(previousInstall: Bool) async throws {

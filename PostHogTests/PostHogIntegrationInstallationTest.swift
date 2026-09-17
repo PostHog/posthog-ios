@@ -114,13 +114,17 @@ class PostHogIntegrationInstallationTest {
         }
     #endif
 
-    @Test("app life cycle integration installed only once, on first instance", arguments: [false, true])
+    @Test("app life cycle event capture belongs to the first enabled instance", arguments: [false, true])
     func appLifeCycleIntegrationInstalledOnce(captureLifecycle: Bool) async {
         let first = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: captureLifecycle)
         let second = getSut(projectToken: "test_project_token", captureApplicationLifecycleEvents: true)
 
         #expect(first.getAppLifeCycleIntegration() != nil)
-        #expect(second.getAppLifeCycleIntegration() == nil)
+        if captureLifecycle {
+            #expect(second.getAppLifeCycleIntegration() == nil)
+        } else {
+            #expect(second.getAppLifeCycleIntegration() != nil)
+        }
 
         first.close()
         second.close()
